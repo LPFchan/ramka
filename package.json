@@ -8,6 +8,7 @@
     "dev": "turbo run dev",
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
     "clean": "turbo run clean && rm -rf node_modules",
     "format": "prettier --write \"**/*.{ts,tsx,md,json,css,mjs,cjs}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,md,json,css,mjs,cjs}\""
