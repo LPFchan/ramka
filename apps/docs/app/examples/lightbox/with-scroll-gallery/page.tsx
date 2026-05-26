@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { Lightbox, ScrollGallery } from 'react-image-gallery';
+import { Lightbox, ScrollGallery } from 'ramka';
 
 import { lightboxImages } from '../../../_data/lightbox-images';
 import { ExampleShell } from '../../../_components/example-shell';

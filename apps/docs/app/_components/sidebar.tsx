@@ -8,7 +8,7 @@ export function Sidebar() {
         href="/"
         className="block px-2 text-sm font-semibold tracking-tight text-neutral-900 hover:text-neutral-600 dark:text-neutral-50 dark:hover:text-neutral-300"
       >
-        react-image-gallery
+        ramka
       </Link>
       <p className="mt-1 px-2 text-xs text-neutral-500 dark:text-neutral-500">Unstyled gallery & lightbox primitives</p>
 

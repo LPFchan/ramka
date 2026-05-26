@@ -2,7 +2,7 @@
 
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useState } from 'react';
-import { ScrollGallery } from 'react-image-gallery';
+import { ScrollGallery } from 'ramka';
 import { ExampleShell } from '../../_components/example-shell';
 import { IconButton } from '../../_components/icon-button';
 import { MarkerDots } from '../../_components/marker-dots';

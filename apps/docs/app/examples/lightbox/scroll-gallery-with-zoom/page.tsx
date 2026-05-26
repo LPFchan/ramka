@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { Lightbox, ScrollGallery } from 'react-image-gallery';
+import { Lightbox, ScrollGallery } from 'ramka';
 import { ChevronLeft, ChevronRight, X, ZoomIn, ZoomOut } from 'lucide-react';
 
 import { lightboxImages } from '../../../_data/lightbox-images';

@@ -2,7 +2,7 @@
 
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useRef, useState } from 'react';
-import { ScrollGallery } from 'react-image-gallery';
+import { ScrollGallery } from 'ramka';
 import { COLOR_CLASSES } from '../../_components/colors';
 import { ExampleShell } from '../../_components/example-shell';
 import { IconButton } from '../../_components/icon-button';

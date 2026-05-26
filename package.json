@@ -1,8 +1,8 @@
 {
-  "name": "react-image-gallery-monorepo",
+  "name": "ramka-monorepo",
   "version": "0.0.0",
   "private": true,
-  "description": "Monorepo for the react-image-gallery unstyled primitive library and its documentation site.",
+  "description": "Monorepo for ramka — an unstyled primitive image-gallery library for React — and its documentation site.",
   "scripts": {
     "build": "turbo run build",
     "dev": "turbo run dev",

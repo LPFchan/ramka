@@ -1,6 +1,6 @@
 'use client';
 
-import { Lightbox } from 'react-image-gallery';
+import { Lightbox } from 'ramka';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 
 /**

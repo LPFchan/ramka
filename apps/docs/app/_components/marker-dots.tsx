@@ -1,4 +1,4 @@
-import { ScrollGallery } from 'react-image-gallery';
+import { ScrollGallery } from 'ramka';
 
 export function MarkerDots({ count }: { count: number }) {
   return (

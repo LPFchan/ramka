@@ -35,15 +35,15 @@ importers:
       next:
         specifier: ^15.1.4
         version: 15.5.18(@babel/core@7.29.7)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
+      ramka:
+        specifier: workspace:*
+        version: link:../../packages/ramka
       react:
         specifier: ^19.0.0
         version: 19.2.6
       react-dom:
         specifier: ^19.0.0
         version: 19.2.6(react@19.2.6)
-      react-image-gallery:
-        specifier: workspace:*
-        version: link:../../packages/react-image-gallery
       shadcn:
         specifier: ^4.8.0
         version: 4.8.0(@types/node@22.19.19)(typescript@5.9.3)
@@ -79,7 +79,7 @@ importers:
         specifier: ^5.6.3
         version: 5.9.3
 
-  packages/react-image-gallery:
+  packages/ramka:
     dependencies:
       '@base-ui/react':
         specifier: ^1.5.0

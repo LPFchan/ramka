@@ -6,7 +6,7 @@ export default function HomePage() {
     <div className="mx-auto w-full max-w-4xl px-6 py-16">
       <p className="text-xs font-semibold uppercase tracking-widest text-neutral-500">Documentation</p>
       <h1 className="mt-2 text-5xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-50">
-        react-image-gallery
+        ramka
       </h1>
       <p className="mt-4 max-w-2xl text-lg leading-relaxed text-neutral-600 dark:text-neutral-400">
         Unstyled, accessible primitives for image galleries, carousels, and lightboxes — in the style of Radix UI and
@@ -16,14 +16,14 @@ export default function HomePage() {
       <section className="mt-10">
         <h2 className="text-sm font-semibold uppercase tracking-widest text-neutral-500">Installation</h2>
         <pre className="mt-3 overflow-x-auto rounded-lg border border-neutral-200 bg-neutral-50 p-4 font-mono text-sm text-neutral-800 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-200">
-          <code>pnpm add react-image-gallery</code>
+          <code>pnpm add ramka</code>
         </pre>
       </section>
 
       <section className="mt-10">
         <h2 className="text-sm font-semibold uppercase tracking-widest text-neutral-500">Quick start</h2>
         <pre className="mt-3 overflow-x-auto rounded-lg border border-neutral-200 bg-neutral-50 p-4 font-mono text-sm leading-relaxed text-neutral-800 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-200">
-          {`import { ScrollGallery, Lightbox } from 'react-image-gallery';
+          {`import { ScrollGallery, Lightbox } from 'ramka';
 
 <ScrollGallery.Root>
   <ScrollGallery.Viewport style={{ display: 'flex', overflowX: 'auto' }}>

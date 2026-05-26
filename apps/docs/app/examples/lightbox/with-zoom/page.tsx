@@ -1,6 +1,6 @@
 'use client';
 
-import { Lightbox } from 'react-image-gallery';
+import { Lightbox } from 'ramka';
 import { ZoomIn, ZoomOut } from 'lucide-react';
 
 import { lightboxImages } from '../../../_data/lightbox-images';

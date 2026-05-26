@@ -1,10 +1,12 @@
-# react-image-gallery
+# ramka
 
 An unstyled, accessible image gallery primitive library for React — in the style of Radix UI and Base UI.
 
+> _ramka_ (РАмка) is Polish for "frame".
+
 This repository is a pnpm + Turborepo monorepo containing:
 
-- **[`packages/react-image-gallery`](./packages/react-image-gallery)** — the publishable component library.
+- **[`packages/ramka`](./packages/ramka)** — the publishable component library.
 - **[`apps/docs`](./apps/docs)** — the Next.js documentation site, styled with Tailwind CSS.
 
 ## Prerequisites
@@ -37,9 +39,9 @@ pnpm dev
 ```
 .
 ├── apps/
-│   └── docs/                   # Next.js 15 + Tailwind v4 docs site
+│   └── docs/      # Next.js 15 + Tailwind v4 docs site
 └── packages/
-    └── react-image-gallery/    # The publishable primitive library
+    └── ramka/     # The publishable primitive library
 ```
 
 ## License

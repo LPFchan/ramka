@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { Lightbox, ScrollGallery } from 'react-image-gallery';
+import { Lightbox, ScrollGallery } from 'ramka';
 import { X } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';

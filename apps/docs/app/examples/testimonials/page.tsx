@@ -1,7 +1,7 @@
 'use client';
 
 import { ChevronLeft, ChevronRight, Star } from 'lucide-react';
-import { ScrollGallery } from 'react-image-gallery';
+import { ScrollGallery } from 'ramka';
 import { COLOR_CLASSES } from '../../_components/colors';
 import { ExampleShell } from '../../_components/example-shell';
 import { IconButton } from '../../_components/icon-button';

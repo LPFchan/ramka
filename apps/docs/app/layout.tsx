@@ -10,7 +10,7 @@ import './globals.css';
 const inter = Inter({subsets:['latin'],variable:'--font-sans'});
 
 export const metadata: Metadata = {
-  title: 'react-image-gallery',
+  title: 'ramka',
   description: 'Unstyled, accessible image gallery primitives for React.',
 };
 

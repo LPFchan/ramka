@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { Lightbox } from 'react-image-gallery';
+import { Lightbox } from 'ramka';
 import { Heart, MessageCircle, Share } from 'lucide-react';
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';

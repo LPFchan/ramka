@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { Lightbox } from 'react-image-gallery';
+import { Lightbox } from 'ramka';
 
 import { Separator } from '@/components/ui/separator';
 import { ExampleShell } from '../../../_components/example-shell';

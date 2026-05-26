@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { Lightbox } from 'react-image-gallery';
+import { Lightbox } from 'ramka';
 import { ChevronLeft, ChevronRight, Play, X } from 'lucide-react';
 
 import { ExampleShell } from '../../../_components/example-shell';

@@ -1,6 +1,6 @@
 'use client';
 
-import { Lightbox } from 'react-image-gallery';
+import { Lightbox } from 'ramka';
 
 import { ExampleShell } from '../../../_components/example-shell';
 import {
