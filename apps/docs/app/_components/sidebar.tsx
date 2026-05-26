@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { examples } from './examples';
+import { exampleGroups } from './examples';
 
 export function Sidebar() {
   return (
@@ -10,22 +10,28 @@ export function Sidebar() {
       >
         react-image-gallery
       </Link>
-      <p className="mt-1 px-2 text-xs text-neutral-500 dark:text-neutral-500">Unstyled scroll gallery primitives</p>
+      <p className="mt-1 px-2 text-xs text-neutral-500 dark:text-neutral-500">Unstyled gallery & lightbox primitives</p>
 
-      <nav className="mt-6">
-        <div className="px-2 pb-2 text-[11px] font-semibold uppercase tracking-widest text-neutral-500">Examples</div>
-        <ul className="flex flex-col gap-px">
-          {examples.map((ex) => (
-            <li key={ex.slug}>
-              <Link
-                href={`/examples/${ex.slug}`}
-                className="block rounded-md px-2 py-1.5 text-sm text-neutral-700 transition hover:bg-neutral-100 hover:text-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-900 dark:hover:text-neutral-50"
-              >
-                {ex.title}
-              </Link>
-            </li>
-          ))}
-        </ul>
+      <nav className="mt-6 space-y-6">
+        {exampleGroups.map((group) => (
+          <div key={group.group}>
+            <div className="px-2 pb-2 text-[11px] font-semibold uppercase tracking-widest text-neutral-500">
+              {group.group}
+            </div>
+            <ul className="flex flex-col gap-px">
+              {group.links.map((ex) => (
+                <li key={ex.slug}>
+                  <Link
+                    href={`${group.basePath}/${ex.slug}`}
+                    className="block rounded-md px-2 py-1.5 text-sm text-neutral-700 transition hover:bg-neutral-100 hover:text-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-900 dark:hover:text-neutral-50"
+                  >
+                    {ex.title}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
       </nav>
     </aside>
   );

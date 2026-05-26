@@ -4,7 +4,13 @@ export interface ExampleLink {
   description: string;
 }
 
-export const examples: ExampleLink[] = [
+export interface ExampleGroup {
+  group: string;
+  basePath: string;
+  links: ExampleLink[];
+}
+
+export const scrollGalleryExamples: ExampleLink[] = [
   { slug: 'default', title: 'Default', description: 'The basic horizontal gallery with snap, buttons, and marker dots.' },
   {
     slug: 'dynamic-items',
@@ -70,3 +76,57 @@ export const examples: ExampleLink[] = [
     description: 'A real-world testimonial carousel with center-aligned cards and edge fades.',
   },
 ];
+
+export const lightboxExamples: ExampleLink[] = [
+  {
+    slug: 'default',
+    title: 'Default',
+    description: 'A grid of triggers opens a fullscreen modal — uses Lightbox.Backdrop for the scrim.',
+  },
+  {
+    slug: 'with-thumbnails',
+    title: 'With thumbnails',
+    description: 'Add a Lightbox.ThumbnailGroup with arrow-key tablist navigation.',
+  },
+  {
+    slug: 'with-captions',
+    title: 'With captions',
+    description: 'Per-item captions exposed through Lightbox.Caption with aria-live updates.',
+  },
+  {
+    slug: 'controlled',
+    title: 'Controlled',
+    description: 'External state drives both the open prop and the active index.',
+  },
+  {
+    slug: 'imperative-api',
+    title: 'Imperative API',
+    description: 'Drive open / close / goTo via ref.current.* — no buttons needed.',
+  },
+  {
+    slug: 'with-zoom',
+    title: 'With zoom',
+    description: 'Pinch, double-tap, scroll, and keyboard zoom + pan inside a Lightbox.Zoom wrapper.',
+  },
+  {
+    slug: 'view-transition',
+    title: 'View transition morph',
+    description: 'Animate the trigger thumbnail into the lightbox using the View Transitions API.',
+  },
+  {
+    slug: 'lifecycle-callbacks',
+    title: 'Lifecycle callbacks',
+    description: 'See onOpenChange (fires immediately) and onOpenChangeComplete (after animations) in action.',
+  },
+];
+
+export const exampleGroups: ExampleGroup[] = [
+  { group: 'ScrollGallery', basePath: '/examples', links: scrollGalleryExamples },
+  { group: 'Lightbox', basePath: '/examples/lightbox', links: lightboxExamples },
+];
+
+/**
+ * Back-compat re-export so existing scroll-gallery pages keep working
+ * (page.tsx imports `examples` directly).
+ */
+export const examples: ExampleLink[] = scrollGalleryExamples;
