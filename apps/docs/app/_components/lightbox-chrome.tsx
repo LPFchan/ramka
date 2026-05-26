@@ -168,8 +168,7 @@ export function LightboxTriggerImage({
       src={src}
       alt={alt}
       className={
-        className ??
-        'block h-28 w-full rounded-2xl object-cover transition will-change-transform hover:scale-[1.02]'
+        className ?? 'block h-28 w-full rounded-2xl object-cover'
       }
     />
   );
