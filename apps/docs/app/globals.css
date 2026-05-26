@@ -48,14 +48,20 @@
    the visual continuity from trigger -> item, so the trigger itself
    should disappear once the lightbox is open. Mirrors frosted-ui's
    `.fui-LightboxTrigger[data-open][data-morph-target]` rule from
-   lightbox.css — except scoped purely to data attributes since the
-   library is unstyled and ships no identifying class.
-
-   `data-morph-target` is set only on Lightbox.Trigger elements (see
-   lightbox-trigger.tsx), so the selector is unambiguous. */
-[data-morph-target][data-open] {
+   lightbox.css — except scoped to a data-attribute hook since the
+   library is unstyled and ships no identifying class. */
+[data-lightbox-trigger][data-morph-target][data-open] {
   opacity: 0;
   transition: opacity 200ms var(--ease-out-expo);
+}
+
+/* Default focus outline for every Lightbox.Trigger. Uses outline (not
+   ring) so the radius automatically follows the trigger's own
+   `border-radius`, which each demo aligns with its rounded image so
+   the focus shape matches the visible content. */
+[data-lightbox-trigger]:focus-visible {
+  outline: 2px solid var(--color-blue-500, #3b82f6);
+  outline-offset: 2px;
 }
 
 /* ---------------------------------------------------------------------------

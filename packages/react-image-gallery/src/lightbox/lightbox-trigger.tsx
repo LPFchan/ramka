@@ -99,6 +99,11 @@ const LightboxTrigger = React.forwardRef<HTMLButtonElement, LightboxTriggerProps
         {
           type: 'button',
           onClick: handleClick,
+          // Stable styling hook — consumer CSS can target every trigger
+          // (e.g. for a default focus outline) without relying on
+          // state-only attributes like `data-open` or `data-active`.
+          // Mirrors the `data-lightbox-item` hook on Lightbox.Item.
+          'data-lightbox-trigger': '',
           ...(crossfade === true ? { 'data-crossfade': 'true' } : undefined),
         } as React.ComponentPropsWithRef<'button'>,
         elementProps as React.ComponentPropsWithRef<'button'>,
