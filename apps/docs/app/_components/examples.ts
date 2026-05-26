@@ -118,6 +118,71 @@ export const lightboxExamples: ExampleLink[] = [
     title: 'Lifecycle callbacks',
     description: 'See onOpenChange (fires immediately) and onOpenChangeComplete (after animations) in action.',
   },
+  {
+    slug: 'lazy-loading',
+    title: 'Lazy loading',
+    description: 'Render heavy items only when active using Item render props and preload={0}.',
+  },
+  {
+    slug: 'perfect-morph',
+    title: 'Perfect morph',
+    description: 'Trigger and lightbox image with different aspect ratios morph seamlessly.',
+  },
+  {
+    slug: 'morph-to-setting',
+    title: 'morphTo strategies',
+    description: 'Side-by-side comparison of morphTo="active" vs "origin" vs "closest".',
+  },
+  {
+    slug: 'with-scroll-gallery',
+    title: 'With scroll gallery',
+    description: 'Drive Lightbox.Item navigation with a horizontal ScrollGallery.Viewport + markers.',
+  },
+  {
+    slug: 'scroll-gallery-with-zoom',
+    title: 'Scroll gallery + zoom',
+    description: 'Combine the scroll-gallery layout with Lightbox.Zoom; chrome hides when zoomed.',
+  },
+  {
+    slug: 'text-message',
+    title: 'Text message',
+    description: 'iMessage-style chat with a single morphTo="origin" trigger over a stack of attachments.',
+  },
+  {
+    slug: 'within-article',
+    title: 'Within article',
+    description: 'Lightbox triggers embedded in long-form article copy with float layouts.',
+  },
+  {
+    slug: 'color-palette',
+    title: 'Color palette',
+    description: 'Flat color swatches morph into full photographs dominated by that hue.',
+  },
+  {
+    slug: 'team-directory',
+    title: 'Team directory',
+    description: 'Compact roster cards morph into rich profile cards built on shadcn primitives.',
+  },
+  {
+    slug: 'film-trailers',
+    title: 'Film trailers',
+    description: 'Movie posters morph into a fullscreen <video> that auto-plays on becoming active.',
+  },
+  {
+    slug: 'social-feed',
+    title: 'Social feed',
+    description: 'A timeline of posts with 1–7 attachments; each post is its own Lightbox.Root.',
+  },
+  {
+    slug: 'real-estate-listing',
+    title: 'Real estate listing',
+    description: 'Property page with hero grid + remaining photos; lightbox shows all photos in a scroll gallery.',
+  },
+  {
+    slug: 'design-file-inspector',
+    title: 'Design file inspector',
+    description: 'Masonry grid of 32 design screens with a vertical scroll-gallery presentation mode.',
+  },
 ];
 
 export const exampleGroups: ExampleGroup[] = [

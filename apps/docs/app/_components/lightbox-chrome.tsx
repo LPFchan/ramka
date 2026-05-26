@@ -42,11 +42,28 @@ export function LightboxOverlay({ className }: { className?: string } = {}) {
   return <Lightbox.Backdrop className={`fixed inset-0 z-40 bg-black/85 ${backdropFade} ${className ?? ''}`} />;
 }
 
-export function LightboxFrame({ children, ariaLabel }: { children: React.ReactNode; ariaLabel: string }) {
+export function LightboxFrame({
+  children,
+  ariaLabel,
+  className,
+}: {
+  children: React.ReactNode;
+  ariaLabel: string;
+  /**
+   * Overrides the default `flex flex-col items-center justify-between`
+   * layout. Useful when the content is e.g. a ScrollGallery that should
+   * stretch to fill the frame.
+   */
+  className?: string;
+}) {
   return (
     <Lightbox.Content
       aria-label={ariaLabel}
-      className={`fixed inset-0 z-50 flex flex-col items-center justify-between outline-none ${contentFade}`}
+      className={
+        className
+          ? `fixed inset-0 z-50 outline-none ${contentFade} ${className}`
+          : `fixed inset-0 z-50 flex flex-col items-center justify-between outline-none ${contentFade}`
+      }
     >
       {children}
     </Lightbox.Content>
@@ -110,12 +127,11 @@ export function LightboxNavBar() {
 export function StackedItemGroup({
   children,
   className,
-}: {
-  children: React.ReactNode;
-  className?: string;
-}) {
+  ...rest
+}: React.ComponentProps<typeof Lightbox.ItemGroup>) {
   return (
     <Lightbox.ItemGroup
+      {...rest}
       className={`relative flex w-full flex-1 items-center justify-center overflow-hidden ${className ?? ''}`}
     >
       {children}

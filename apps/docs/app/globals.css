@@ -42,6 +42,22 @@
   animation: var(--animate-lightbox-item-fade-in);
 }
 
+/* Hide the active morph-target trigger while the lightbox is open so it
+   doesn't show through behind the semi-transparent backdrop. The View
+   Transition snapshot (or the chrome fade in non-VT mode) already owns
+   the visual continuity from trigger -> item, so the trigger itself
+   should disappear once the lightbox is open. Mirrors frosted-ui's
+   `.fui-LightboxTrigger[data-open][data-morph-target]` rule from
+   lightbox.css — except scoped purely to data attributes since the
+   library is unstyled and ships no identifying class.
+
+   `data-morph-target` is set only on Lightbox.Trigger elements (see
+   lightbox-trigger.tsx), so the selector is unambiguous. */
+[data-morph-target][data-open] {
+  opacity: 0;
+  transition: opacity 200ms var(--ease-out-expo);
+}
+
 /* ---------------------------------------------------------------------------
    View Transition pseudo-elements
    These live on the document, not in the React tree, so they cannot be
