@@ -45,11 +45,18 @@ interface LightboxContentProps extends React.ComponentPropsWithRef<'div'> {
   container?: Element | DocumentFragment | null;
   /** Enable pull-to-close gesture on touch devices. @default true */
   pullToClose?: boolean;
+  /**
+   * Enable a trackpad pull-to-close gesture: a two-finger vertical swipe
+   * on a touchpad pulls the active item and dismisses the lightbox,
+   * mirroring the touch `pullToClose` gesture. Off by default since wheel
+   * input is also produced by mouse wheels. @default false
+   */
+  wheelToClose?: boolean;
 }
 
 const LightboxContent = React.forwardRef<HTMLDivElement, LightboxContentProps>(
   function LightboxContent(props, forwardedRef) {
-    const { className, children, container, pullToClose = true, ...rest } = props;
+    const { className, children, container, pullToClose = true, wheelToClose = false, style, ...rest } = props;
 
     const {
       open,
@@ -165,7 +172,8 @@ const LightboxContent = React.forwardRef<HTMLDivElement, LightboxContentProps>(
       backdropRef: backdropElementRef,
       getZoom,
       onClose: stableSetOpen,
-      disabled: !pullToClose || !mounted,
+      touchEnabled: pullToClose && mounted,
+      wheelEnabled: wheelToClose && mounted,
     });
 
     // Close on Escape key. Listens on the document so it works regardless
@@ -254,6 +262,16 @@ const LightboxContent = React.forwardRef<HTMLDivElement, LightboxContentProps>(
 
     if (!mounted) return null;
 
+    // When the trackpad pull-to-close gesture is enabled, make Content a
+    // scroll container that *contains* overscroll. This keeps a vertical
+    // wheel gesture (and its trackpad momentum tail) latched inside the
+    // modal subtree so it never chains out to scroll the page underneath —
+    // including during the close animation. Consumer `style` wins if it
+    // sets these explicitly.
+    const mergedStyle: React.CSSProperties | undefined = wheelToClose
+      ? { overflow: 'hidden', overscrollBehavior: 'contain', ...style }
+      : style;
+
     const portalTarget = container ?? (typeof document !== 'undefined' ? document.body : null);
 
     const content = (
@@ -274,6 +292,7 @@ const LightboxContent = React.forwardRef<HTMLDivElement, LightboxContentProps>(
           onKeyDown={handleKeyDown}
           onClick={handleClick}
           tabIndex={-1}
+          style={mergedStyle}
           {...rest}
         >
           {children}

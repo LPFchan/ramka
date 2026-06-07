@@ -14,6 +14,18 @@ const SNAP_EASING = 'cubic-bezier(0.2, 1.15, 0.4, 1)';
 const MIN_SCALE = 0.85;
 const VELOCITY_SAMPLES = 5;
 
+// Wheel/trackpad pull tuning. A two-finger trackpad swipe arrives as a
+// stream of `wheel` events with no explicit end, so we accumulate the
+// vertical delta and detect the gesture end via a short idle timeout.
+// The dismiss distance is larger than the touch threshold because wheel
+// deltas accumulate quickly and we want the gesture to feel deliberate.
+const WHEEL_DISMISS_DISTANCE = 150;
+// Idle gap (ms) with no `wheel` events that marks the end of a trackpad
+// gesture. Sized to wait out the sparse, near-zero-delta tail of a
+// momentum scroll so the close (which releases the document scroll lock)
+// only fires once events have truly stopped.
+const WHEEL_END_DELAY = 120;
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -23,7 +35,17 @@ interface PullToDismissOptions {
   backdropRef: React.RefObject<HTMLElement | null>;
   getZoom: () => number;
   onClose: () => void;
-  disabled?: boolean;
+  /**
+   * Enable the touch (pointer) pull-to-dismiss gesture — drag the image
+   * vertically with one finger to close. @default true
+   */
+  touchEnabled?: boolean;
+  /**
+   * Enable the trackpad (wheel) pull-to-dismiss gesture — a two-finger
+   * vertical swipe on a touchpad pulls the image and closes the lightbox,
+   * mirroring the touch gesture. @default false
+   */
+  wheelEnabled?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -35,7 +57,8 @@ function usePullToDismiss({
   backdropRef,
   getZoom,
   onClose,
-  disabled = false,
+  touchEnabled = true,
+  wheelEnabled = false,
 }: PullToDismissOptions) {
   const pointerIdRef = React.useRef<number | null>(null);
   const startYRef = React.useRef(0);
@@ -45,6 +68,21 @@ function usePullToDismiss({
   const isPullingRef = React.useRef(false);
   const animationRef = React.useRef<Animation | null>(null);
   const dragTargetRef = React.useRef<HTMLElement | null>(null);
+
+  // Wheel-gesture state. Kept separate from the pointer refs above so the
+  // two input sources never interfere; in practice only one is active on a
+  // given device, but the guards below also make them mutually exclusive.
+  const wheelActiveRef = React.useRef(false);
+  const wheelAccumXRef = React.useRef(0);
+  const wheelAccumYRef = React.useRef(0);
+  const wheelEndTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  // True briefly after a wheel dismiss. Closing in a non-view-transition
+  // mode keeps Content mounted through the exit animation, so the trackpad
+  // momentum tail would otherwise immediately start (and re-pull) a fresh
+  // gesture. This flag swallows that tail until the wheel stream goes idle.
+  // (Page-scroll bleed during/after close is handled separately by the
+  // `overscroll-behavior: contain` containment on Lightbox.Content.)
+  const wheelDismissedRef = React.useRef(false);
 
   const cleanup = React.useCallback(() => {
     pointerIdRef.current = null;
@@ -162,9 +200,13 @@ function usePullToDismiss({
   }, []);
 
   React.useEffect(() => {
-    if (disabled) return;
+    if (!touchEnabled && !wheelEnabled) return;
     const el = contentRef.current;
     if (!el) return;
+
+    // -------------------------------------------------------------------
+    // Touch (pointer) gesture
+    // -------------------------------------------------------------------
 
     const handlePointerDown = (event: PointerEvent) => {
       // Touch-only gesture — ignore mouse and pen
@@ -297,11 +339,122 @@ function usePullToDismiss({
       }
     };
 
-    el.addEventListener('pointerdown', handlePointerDown);
-    el.addEventListener('pointermove', handlePointerMove);
-    el.addEventListener('pointerup', handlePointerUp);
-    el.addEventListener('pointercancel', handlePointerCancel);
-    el.addEventListener('touchmove', handleTouchMove, { passive: false });
+    // -------------------------------------------------------------------
+    // Trackpad (wheel) gesture
+    // -------------------------------------------------------------------
+
+    // A sub-threshold wheel gesture has no "end" event, so when the wheel
+    // stream goes idle we snap the pulled item back. (Crossing the threshold
+    // dismisses immediately in handleWheel — this only handles the
+    // "pulled a little, then stopped" case.)
+    const endWheelGesture = () => {
+      if (wheelEndTimeoutRef.current) {
+        clearTimeout(wheelEndTimeoutRef.current);
+        wheelEndTimeoutRef.current = null;
+      }
+      if (!wheelActiveRef.current) return;
+      wheelActiveRef.current = false;
+      wheelAccumXRef.current = 0;
+      wheelAccumYRef.current = 0;
+      snapBack();
+    };
+
+    // The wheel listener is PASSIVE. Page-scroll bleed is prevented by the
+    // `overscroll-behavior: contain` containment on Lightbox.Content (set
+    // when wheelToClose is enabled), which keeps a vertical wheel gesture —
+    // and its trackpad momentum tail — latched inside the modal subtree
+    // instead of chaining out to the document. Staying passive also keeps
+    // Safari's compositor momentum scrolling alive in a nested ScrollGallery.
+    const handleWheel = (event: WheelEvent) => {
+      // A touch pull owns the gesture — don't double-handle.
+      if (pointerIdRef.current !== null || isPullingRef.current) return;
+      // Ctrl+wheel is pinch-zoom intent; zoomed/zooming is handled by Zoom.
+      if (event.ctrlKey) return;
+      if (getZoom() > 1 || el.hasAttribute('data-zooming')) return;
+
+      // Swallow the momentum tail right after a dismiss so it can't start a
+      // fresh pull while Content lingers through a non-VT close animation.
+      if (wheelDismissedRef.current) {
+        if (wheelEndTimeoutRef.current) clearTimeout(wheelEndTimeoutRef.current);
+        wheelEndTimeoutRef.current = setTimeout(() => {
+          wheelDismissedRef.current = false;
+          wheelEndTimeoutRef.current = null;
+        }, WHEEL_END_DELAY);
+        return;
+      }
+
+      const absX = Math.abs(event.deltaX);
+      const absY = Math.abs(event.deltaY);
+
+      if (!wheelActiveRef.current) {
+        // Only start on a vertical-dominant gesture; horizontal scrolling
+        // belongs to a nested ScrollGallery and must pass through.
+        if (absY === 0 || absY <= absX) return;
+
+        const activeItem = el.querySelector(
+          '[data-lightbox-item][data-active]',
+        ) as HTMLElement | null;
+        if (!activeItem) return;
+
+        // Cancel any in-progress snap-back before re-grabbing the target.
+        if (animationRef.current) {
+          animationRef.current.cancel();
+          animationRef.current = null;
+          clearTransform();
+        }
+
+        dragTargetRef.current = activeItem;
+        wheelActiveRef.current = true;
+        wheelAccumXRef.current = 0;
+        wheelAccumYRef.current = 0;
+        el.setAttribute('data-pulling', '');
+        backdropRef.current?.setAttribute('data-pulling', '');
+      }
+
+      // Negate so the image follows the fingers regardless of the OS
+      // "natural scrolling" setting.
+      wheelAccumXRef.current += -event.deltaX;
+      wheelAccumYRef.current += -event.deltaY;
+      applyTransform(wheelAccumXRef.current, wheelAccumYRef.current);
+
+      // Continuous dismiss: as soon as the pull crosses the threshold, close
+      // immediately so the close animation flows straight out of the gesture.
+      if (Math.abs(wheelAccumYRef.current) >= WHEEL_DISMISS_DISTANCE) {
+        wheelActiveRef.current = false;
+        wheelDismissedRef.current = true;
+        wheelAccumXRef.current = 0;
+        wheelAccumYRef.current = 0;
+        // Leave the pulled transform in place so the close animation
+        // continues from where the gesture left off (matching touch).
+        el.removeAttribute('data-pulling');
+        backdropRef.current?.removeAttribute('data-pulling');
+        dragTargetRef.current = null;
+        onClose();
+        // Arm the cooldown that swallows the trailing momentum tail.
+        if (wheelEndTimeoutRef.current) clearTimeout(wheelEndTimeoutRef.current);
+        wheelEndTimeoutRef.current = setTimeout(() => {
+          wheelDismissedRef.current = false;
+          wheelEndTimeoutRef.current = null;
+        }, WHEEL_END_DELAY);
+        return;
+      }
+
+      // Sub-threshold: (re)arm the idle timer that snaps the item back.
+      if (wheelEndTimeoutRef.current) clearTimeout(wheelEndTimeoutRef.current);
+      wheelEndTimeoutRef.current = setTimeout(endWheelGesture, WHEEL_END_DELAY);
+    };
+
+    if (touchEnabled) {
+      el.addEventListener('pointerdown', handlePointerDown);
+      el.addEventListener('pointermove', handlePointerMove);
+      el.addEventListener('pointerup', handlePointerUp);
+      el.addEventListener('pointercancel', handlePointerCancel);
+      el.addEventListener('touchmove', handleTouchMove, { passive: false });
+    }
+
+    if (wheelEnabled) {
+      el.addEventListener('wheel', handleWheel, { passive: true });
+    }
 
     return () => {
       el.removeEventListener('pointerdown', handlePointerDown);
@@ -309,13 +462,20 @@ function usePullToDismiss({
       el.removeEventListener('pointerup', handlePointerUp);
       el.removeEventListener('pointercancel', handlePointerCancel);
       el.removeEventListener('touchmove', handleTouchMove);
+      el.removeEventListener('wheel', handleWheel);
+      if (wheelEndTimeoutRef.current) {
+        clearTimeout(wheelEndTimeoutRef.current);
+        wheelEndTimeoutRef.current = null;
+      }
+      wheelActiveRef.current = false;
+      wheelDismissedRef.current = false;
       if (animationRef.current) {
         animationRef.current.cancel();
         animationRef.current = null;
       }
       clearTransform();
     };
-  }, [disabled, contentRef, backdropRef, getZoom, onClose, applyTransform, clearTransform, snapBack, cleanup, computeVelocity]);
+  }, [touchEnabled, wheelEnabled, contentRef, backdropRef, getZoom, onClose, applyTransform, clearTransform, snapBack, cleanup, computeVelocity]);
 }
 
 export { usePullToDismiss };

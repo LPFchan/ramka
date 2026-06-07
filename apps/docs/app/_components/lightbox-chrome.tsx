@@ -46,6 +46,7 @@ export function LightboxFrame({
   children,
   ariaLabel,
   className,
+  wheelToClose,
 }: {
   children: React.ReactNode;
   ariaLabel: string;
@@ -55,10 +56,13 @@ export function LightboxFrame({
    * stretch to fill the frame.
    */
   className?: string;
+  /** Enable the trackpad two-finger pull-to-close gesture. */
+  wheelToClose?: boolean;
 }) {
   return (
     <Lightbox.Content
       aria-label={ariaLabel}
+      wheelToClose={wheelToClose}
       className={
         className
           ? `fixed inset-0 z-50 outline-none ${contentFade} ${className}`

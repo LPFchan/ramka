@@ -49,7 +49,10 @@ export default function WithScrollGalleryPage() {
           <code className="rounded bg-neutral-100 px-1 py-0.5 text-xs dark:bg-neutral-800">Lightbox.ItemGroup</code> is
           rendered as a <code className="rounded bg-neutral-100 px-1 py-0.5 text-xs dark:bg-neutral-800">ScrollGallery.Viewport</code>{' '}
           via the polymorphic <code className="rounded bg-neutral-100 px-1 py-0.5 text-xs dark:bg-neutral-800">render</code> prop, so swiping,
-          keyboard arrows, and the bottom thumbnails are all kept in sync.
+          keyboard arrows, and the bottom thumbnails are all kept in sync. With{' '}
+          <code className="rounded bg-neutral-100 px-1 py-0.5 text-xs dark:bg-neutral-800">wheelToClose</code> on the content, a
+          two-finger vertical swipe on a trackpad pulls the image down to dismiss — horizontal swipes still scroll the
+          gallery.
         </>
       }
     >
@@ -67,6 +70,7 @@ export default function WithScrollGalleryPage() {
         <LightboxFrame
           ariaLabel="Photo gallery with scroll gallery"
           className="flex flex-col items-stretch"
+          wheelToClose
         >
           <LightboxCloseButton />
 

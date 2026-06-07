@@ -55,6 +55,7 @@ export default function ScrollGalleryWithZoomPage() {
 
         <Lightbox.Content
           aria-label="Photo gallery with scroll gallery and zoom"
+          wheelToClose
           className="lightbox-chrome-fade fixed inset-0 z-50 flex flex-col items-stretch opacity-0 outline-none transition-opacity duration-[280ms] ease-out-expo data-[open]:opacity-100 starting:data-[open]:opacity-0"
         >
           <ScrollGallery.Root value={activeIndex} onValueChange={setActiveIndex} scrollBehavior="instant">

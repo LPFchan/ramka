@@ -242,7 +242,7 @@ export default function RealEstateListingPage() {
         </div>
 
         <LightboxOverlay />
-        <LightboxFrame ariaLabel="Property photos" className="flex flex-col items-stretch">
+        <LightboxFrame ariaLabel="Property photos" className="flex flex-col items-stretch" wheelToClose>
           <div className="absolute right-4 top-4 z-10">
             <Lightbox.Close className={iconButton} aria-label="Close">
               <X aria-hidden className="h-5 w-5" />
