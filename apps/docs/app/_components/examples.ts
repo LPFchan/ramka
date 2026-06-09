@@ -84,11 +84,6 @@ export const lightboxExamples: ExampleLink[] = [
     description: 'A grid of triggers opens a fullscreen modal — uses Lightbox.Backdrop for the scrim.',
   },
   {
-    slug: 'with-thumbnails',
-    title: 'With thumbnails',
-    description: 'Add a Lightbox.ThumbnailGroup with arrow-key tablist navigation.',
-  },
-  {
     slug: 'with-captions',
     title: 'With captions',
     description: 'Per-item captions exposed through Lightbox.Caption with aria-live updates.',
@@ -157,11 +152,6 @@ export const lightboxExamples: ExampleLink[] = [
     slug: 'color-palette',
     title: 'Color palette',
     description: 'Flat color swatches morph into full photographs dominated by that hue.',
-  },
-  {
-    slug: 'team-directory',
-    title: 'Team directory',
-    description: 'Compact roster cards morph into rich profile cards built on shadcn primitives.',
   },
   {
     slug: 'film-trailers',
