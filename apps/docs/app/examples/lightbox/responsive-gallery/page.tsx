@@ -356,7 +356,10 @@ function ImageGrid({ imgs }: { imgs: GalleryImage[] }) {
             crossfade={showOverlay}
             className={`block overflow-hidden bg-transparent p-0 ${cornerClass(i, 4)}`}
           >
-            <div {...(showOverlay ? { 'data-lightbox-morph': '' } : {})} className="relative h-full w-full">
+            <div
+              {...(showOverlay ? { 'data-lightbox-morph': '' } : {})}
+              className={`relative h-full w-full overflow-hidden ${cornerClass(i, 4)}`}
+            >
               <img src={img.thumb} alt={img.alt} className={`block h-full w-full object-cover ${cornerClass(i, 4)}`} />
               {showOverlay && (
                 <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/50">
