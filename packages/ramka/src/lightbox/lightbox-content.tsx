@@ -49,7 +49,7 @@ interface LightboxContentProps extends React.ComponentPropsWithRef<'div'> {
 
 const LightboxContent = React.forwardRef<HTMLDivElement, LightboxContentProps>(
   function LightboxContent(props, forwardedRef) {
-    const { className, children, container, pullToClose = true, ...rest } = props;
+    const { className, children, container, pullToClose = true, style, ...rest } = props;
 
     const {
       open,
@@ -270,6 +270,15 @@ const LightboxContent = React.forwardRef<HTMLDivElement, LightboxContentProps>(
           role="dialog"
           aria-modal="true"
           className={className}
+          // Establish a scroll-containment boundary. `overflow: hidden` makes
+          // the content a scroll container that is permanently at its scroll
+          // boundary, which is the prerequisite for `overscroll-behavior:
+          // contain` to actually take effect (it is inert on a non-scroll
+          // container). Together they stop wheel/touch scroll — and, crucially,
+          // the macOS trackpad momentum tail latched to this container — from
+          // chaining out to the page, including after the lightbox closes.
+          // Consumers can still override via the `style` prop.
+          style={{ overflow: 'hidden', overscrollBehavior: 'contain', ...style }}
           data-open={open || undefined}
           onKeyDown={handleKeyDown}
           onClick={handleClick}
