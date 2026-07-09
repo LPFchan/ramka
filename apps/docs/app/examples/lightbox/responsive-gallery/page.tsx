@@ -237,19 +237,6 @@ const feedPosts: FeedPost[] = [
 const iconButton =
   'inline-flex h-9 w-9 items-center justify-center rounded-full text-white/80 transition hover:bg-white/10 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70 disabled:cursor-not-allowed disabled:opacity-30 pointer-events-auto';
 
-// Turns a stacked/absolute <Lightbox.Item> into a normal in-flow
-// <ScrollGallery.Item> that lays out side by side and snaps to center.
-const scrollItemStyle: React.CSSProperties = {
-  position: 'relative',
-  inset: 'auto',
-  visibility: 'visible',
-  animation: 'none',
-  scrollSnapAlign: 'center',
-  flexShrink: 0,
-  width: '100vw',
-  height: '100%',
-};
-
 function formatCount(n: number): string {
   if (n >= 1000) return `${(n / 1000).toFixed(1).replace(/\.0$/, '')}K`;
   return String(n);
@@ -447,27 +434,33 @@ function FeedPostGallery({ post }: { post: FeedPost }) {
             className="flex flex-1 overflow-x-auto overscroll-x-contain [scroll-snap-type:x_mandatory] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           >
             {post.images.map((img, i) => (
-              <Lightbox.Item
-                key={i}
-                index={i}
-                caption={img.caption}
-                render={<ScrollGallery.Item />}
-                style={scrollItemStyle}
-              >
-                <Lightbox.Zoom
-                  maxZoom={6}
-                  className="flex h-full w-full items-center justify-center"
-                  wrapperClassName="flex h-full w-full items-center justify-center"
+              // The scroll-snap box (ScrollGallery.Item) and the drag target
+              // (Lightbox.Item) are deliberately SEPARATE elements. The pull-
+              // to-dismiss gesture transforms the Lightbox.Item; keeping that
+              // transform OFF the snap box stops the mandatory scroll-snap
+              // container from re-aligning (and scrolling) in response to the
+              // transformed item during a vertical pull.
+              <ScrollGallery.Item key={i} className="relative h-full w-screen shrink-0 snap-center">
+                <Lightbox.Item
+                  index={i}
+                  caption={img.caption}
+                  className="relative flex h-full w-full items-center justify-center animate-none"
                 >
-                  <img
-                    src={img.src}
-                    alt={img.alt}
-                    loading="eager"
-                    draggable={false}
-                    className="max-h-[calc(100%-6rem)] max-w-[calc(100%-2rem)] select-none rounded-lg object-contain md:max-h-[calc(100%-11rem)] md:max-w-[calc(100%-4rem)]"
-                  />
-                </Lightbox.Zoom>
-              </Lightbox.Item>
+                  <Lightbox.Zoom
+                    maxZoom={6}
+                    className="flex h-full w-full items-center justify-center"
+                    wrapperClassName="flex h-full w-full items-center justify-center"
+                  >
+                    <img
+                      src={img.src}
+                      alt={img.alt}
+                      loading="eager"
+                      draggable={false}
+                      className="max-h-[calc(100%-6rem)] max-w-[calc(100%-2rem)] select-none rounded-lg object-contain md:max-h-[calc(100%-11rem)] md:max-w-[calc(100%-4rem)]"
+                    />
+                  </Lightbox.Zoom>
+                </Lightbox.Item>
+              </ScrollGallery.Item>
             ))}
           </Lightbox.ItemGroup>
 
