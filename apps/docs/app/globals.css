@@ -42,6 +42,17 @@
   animation: var(--animate-lightbox-item-fade-in);
 }
 
+/* ...but NOT inside a ScrollGallery. There, items sit side by side and
+   `data-active` moves as you scroll, so this stacked-navigation entrance
+   fade would replay (flash to opacity 0) on every swipe. The scroll
+   viewport is the only ancestor that sets `data-orientation`, so it's a
+   reliable, zero-config marker — consumers building a scroll-based lightbox
+   don't have to remember to opt out. Higher specificity (0,4,0 > 0,3,0)
+   lets this win without `!important`. */
+[data-orientation] [data-lightbox-item][data-active] {
+  animation: none;
+}
+
 /* Hide the active morph-target trigger while the lightbox is open so it
    doesn't show through behind the semi-transparent backdrop. The View
    Transition snapshot (or the chrome fade in non-VT mode) already owns
