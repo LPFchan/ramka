@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 import { Inter } from 'next/font/google';
 
+import { MobileNav } from './_components/mobile-nav';
 import { Sidebar } from './_components/sidebar';
 import { ThemeProvider } from './_components/theme-provider';
 import { TooltipProvider } from '@/components/ui/tooltip';
@@ -23,7 +24,10 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           <TooltipProvider delay={150}>
             <div className="flex">
               <Sidebar />
-              <main className="min-w-0 flex-1">{children}</main>
+              <div className="flex min-w-0 flex-1 flex-col">
+                <MobileNav />
+                <main className="min-w-0 flex-1">{children}</main>
+              </div>
             </div>
           </TooltipProvider>
         </ThemeProvider>
