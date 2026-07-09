@@ -424,7 +424,7 @@ function FeedPostGallery({ post }: { post: FeedPost }) {
       {/* Fullscreen viewer */}
       <Lightbox.Content
         aria-label={`Photos by ${post.user.name}`}
-        className="fixed inset-0 z-50 flex flex-col opacity-0 outline-none transition-opacity duration-200 data-[open]:opacity-100 starting:data-[open]:opacity-0"
+        className="fixed inset-0 z-50 flex flex-col overscroll-contain opacity-0 outline-none transition-opacity duration-200 data-[open]:opacity-100 starting:data-[open]:opacity-0"
       >
         <ScrollGallery.Root value={activeIndex} onValueChange={setActiveIndex} scrollBehavior="instant">
           {/* Swipeable, snapping viewport of full-size images */}

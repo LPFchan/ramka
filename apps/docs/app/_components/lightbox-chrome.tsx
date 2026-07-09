@@ -67,8 +67,8 @@ export function LightboxFrame({
       aria-label={ariaLabel}
       className={
         className
-          ? `fixed inset-0 z-50 outline-none ${contentFade} ${className}`
-          : `fixed inset-0 z-50 flex flex-col items-center justify-between outline-none ${contentFade}`
+          ? `fixed inset-0 z-50 overscroll-contain outline-none ${contentFade} ${className}`
+          : `fixed inset-0 z-50 flex flex-col items-center justify-between overscroll-contain outline-none ${contentFade}`
       }
     >
       {children}
