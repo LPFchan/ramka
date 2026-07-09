@@ -90,11 +90,6 @@ export const lightboxExamples: ExampleLink[] = [
     description: 'A grid of triggers opens a fullscreen modal — uses Lightbox.Backdrop for the scrim.',
   },
   {
-    slug: 'with-captions',
-    title: 'With captions',
-    description: 'Per-item captions exposed through Lightbox.Caption with aria-live updates.',
-  },
-  {
     slug: 'controlled',
     title: 'Controlled',
     description: 'External state drives both the open prop and the active index.',
@@ -103,16 +98,6 @@ export const lightboxExamples: ExampleLink[] = [
     slug: 'imperative-api',
     title: 'Imperative API',
     description: 'Drive open / close / goTo via ref.current.* — no buttons needed.',
-  },
-  {
-    slug: 'with-zoom',
-    title: 'With zoom',
-    description: 'Pinch, double-tap, scroll, and keyboard zoom + pan inside a Lightbox.Zoom wrapper.',
-  },
-  {
-    slug: 'view-transition',
-    title: 'View transition morph',
-    description: 'Animate the trigger thumbnail into the lightbox using the View Transitions API.',
   },
   {
     slug: 'lifecycle-callbacks',
@@ -125,24 +110,9 @@ export const lightboxExamples: ExampleLink[] = [
     description: 'Render heavy items only when active using Item render props and preload={0}.',
   },
   {
-    slug: 'perfect-morph',
-    title: 'Perfect morph',
-    description: 'Trigger and lightbox image with different aspect ratios morph seamlessly.',
-  },
-  {
     slug: 'morph-to-setting',
     title: 'morphTo strategies',
     description: 'Side-by-side comparison of morphTo="active" vs "origin" vs "closest".',
-  },
-  {
-    slug: 'with-scroll-gallery',
-    title: 'With scroll gallery',
-    description: 'Drive Lightbox.Item navigation with a horizontal ScrollGallery.Viewport + markers.',
-  },
-  {
-    slug: 'scroll-gallery-with-zoom',
-    title: 'Scroll gallery + zoom',
-    description: 'Combine the scroll-gallery layout with Lightbox.Zoom; chrome hides when zoomed.',
   },
   {
     slug: 'text-message',
@@ -163,11 +133,6 @@ export const lightboxExamples: ExampleLink[] = [
     slug: 'film-trailers',
     title: 'Film trailers',
     description: 'Movie posters morph into a fullscreen <video> that auto-plays on becoming active.',
-  },
-  {
-    slug: 'social-feed',
-    title: 'Social feed',
-    description: 'A timeline of posts with 1–7 attachments; each post is its own Lightbox.Root.',
   },
   {
     slug: 'real-estate-listing',
