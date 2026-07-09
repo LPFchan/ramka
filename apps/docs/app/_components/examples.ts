@@ -79,6 +79,12 @@ export const scrollGalleryExamples: ExampleLink[] = [
 
 export const lightboxExamples: ExampleLink[] = [
   {
+    slug: 'responsive-gallery',
+    title: 'Responsive gallery',
+    description:
+      'The canonical real-world lightbox: swipe navigation, desktop-only thumbnails, view-transition morph, and pinch/scroll zoom.',
+  },
+  {
     slug: 'default',
     title: 'Default',
     description: 'A grid of triggers opens a fullscreen modal — uses Lightbox.Backdrop for the scrim.',
