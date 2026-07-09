@@ -54,31 +54,31 @@ const feedPosts: FeedPost[] = [
     images: [
       {
         src: 'https://picsum.photos/seed/rg-6a/1600/1000',
-        thumb: 'https://picsum.photos/seed/rg-6a/600/400',
+        thumb: 'https://picsum.photos/seed/rg-6a/800/500',
         alt: 'Dramatic cliffside road at sunset',
         caption: 'The cliffside road at sunset',
       },
       {
         src: 'https://picsum.photos/seed/rg-6b/1600/1000',
-        thumb: 'https://picsum.photos/seed/rg-6b/600/400',
+        thumb: 'https://picsum.photos/seed/rg-6b/800/500',
         alt: 'Turquoise cove with fishing boats',
         caption: 'A turquoise cove and its boats',
       },
       {
         src: 'https://picsum.photos/seed/rg-6c/1600/1000',
-        thumb: 'https://picsum.photos/seed/rg-6c/600/400',
+        thumb: 'https://picsum.photos/seed/rg-6c/800/500',
         alt: 'Terraced vineyards in morning mist',
         caption: 'Terraced vineyards in the mist',
       },
       {
         src: 'https://picsum.photos/seed/rg-6d/900/1400',
-        thumb: 'https://picsum.photos/seed/rg-6d/600/750',
+        thumb: 'https://picsum.photos/seed/rg-6d/450/700',
         alt: 'Old lighthouse on a rocky headland',
         caption: 'The lighthouse on the headland',
       },
       {
         src: 'https://picsum.photos/seed/rg-6e/1600/1000',
-        thumb: 'https://picsum.photos/seed/rg-6e/600/400',
+        thumb: 'https://picsum.photos/seed/rg-6e/800/500',
         alt: 'Wild horses grazing on a dune',
         caption: 'Wild horses on the dunes',
       },
@@ -90,7 +90,7 @@ const feedPosts: FeedPost[] = [
       },
       {
         src: 'https://picsum.photos/seed/rg-6g/1600/1000',
-        thumb: 'https://picsum.photos/seed/rg-6g/600/400',
+        thumb: 'https://picsum.photos/seed/rg-6g/800/500',
         alt: 'Milky Way over a deserted beach',
         caption: 'The Milky Way over an empty beach',
       },
@@ -105,7 +105,7 @@ const feedPosts: FeedPost[] = [
     images: [
       {
         src: 'https://picsum.photos/seed/rg-1/1600/1000',
-        thumb: 'https://picsum.photos/seed/rg-1/600/400',
+        thumb: 'https://picsum.photos/seed/rg-1/800/500',
         alt: 'Mountain range under a wide morning sky',
         caption: 'First light over the ridgeline',
       },
@@ -120,7 +120,7 @@ const feedPosts: FeedPost[] = [
     images: [
       {
         src: 'https://picsum.photos/seed/rg-2a/900/1400',
-        thumb: 'https://picsum.photos/seed/rg-2a/600/750',
+        thumb: 'https://picsum.photos/seed/rg-2a/450/700',
         alt: 'Tall waterfall in a narrow gorge',
         caption: 'A vertical drop through the gorge',
       },
@@ -141,19 +141,19 @@ const feedPosts: FeedPost[] = [
     images: [
       {
         src: 'https://picsum.photos/seed/rg-3a/1600/900',
-        thumb: 'https://picsum.photos/seed/rg-3a/600/450',
+        thumb: 'https://picsum.photos/seed/rg-3a/800/450',
         alt: 'Rolling fields at golden hour',
         caption: 'Golden hour across the valley',
       },
       {
         src: 'https://picsum.photos/seed/rg-3b/1000/1400',
-        thumb: 'https://picsum.photos/seed/rg-3b/600/840',
+        thumb: 'https://picsum.photos/seed/rg-3b/500/700',
         alt: 'Dense forest canopy from below',
         caption: 'Looking up through the canopy',
       },
       {
         src: 'https://picsum.photos/seed/rg-3c/1500/1000',
-        thumb: 'https://picsum.photos/seed/rg-3c/600/400',
+        thumb: 'https://picsum.photos/seed/rg-3c/750/500',
         alt: 'Quiet lake reflecting the hills',
         caption: 'Still water at dusk',
       },
@@ -168,25 +168,25 @@ const feedPosts: FeedPost[] = [
     images: [
       {
         src: 'https://picsum.photos/seed/rg-4a/1600/1000',
-        thumb: 'https://picsum.photos/seed/rg-4a/600/400',
+        thumb: 'https://picsum.photos/seed/rg-4a/800/500',
         alt: 'Concrete building with geometric shadows',
         caption: 'Geometry in concrete and shadow',
       },
       {
         src: 'https://picsum.photos/seed/rg-4b/900/1400',
-        thumb: 'https://picsum.photos/seed/rg-4b/600/750',
+        thumb: 'https://picsum.photos/seed/rg-4b/450/700',
         alt: 'Spiral staircase viewed from below',
         caption: 'Looking up the spiral',
       },
       {
         src: 'https://picsum.photos/seed/rg-4c/1600/1000',
-        thumb: 'https://picsum.photos/seed/rg-4c/600/400',
+        thumb: 'https://picsum.photos/seed/rg-4c/800/500',
         alt: 'Repeating balcony pattern on a tower block',
         caption: 'A wall of repeating balconies',
       },
       {
         src: 'https://picsum.photos/seed/rg-4d/900/1400',
-        thumb: 'https://picsum.photos/seed/rg-4d/600/750',
+        thumb: 'https://picsum.photos/seed/rg-4d/450/700',
         alt: 'Sunlight cutting through a concrete overhang',
         caption: 'Light through the overhang',
       },
@@ -201,25 +201,25 @@ const feedPosts: FeedPost[] = [
     images: [
       {
         src: 'https://picsum.photos/seed/rg-5a/1600/1000',
-        thumb: 'https://picsum.photos/seed/rg-5a/600/400',
+        thumb: 'https://picsum.photos/seed/rg-5a/800/500',
         alt: 'Snow-covered pine forest at sunset',
         caption: 'Snow on the pines at sunset',
       },
       {
         src: 'https://picsum.photos/seed/rg-5b/1600/1000',
-        thumb: 'https://picsum.photos/seed/rg-5b/600/400',
+        thumb: 'https://picsum.photos/seed/rg-5b/800/500',
         alt: 'Footprints in fresh snow leading to a cabin',
         caption: 'Footprints to the cabin',
       },
       {
         src: 'https://picsum.photos/seed/rg-5c/1000/1400',
-        thumb: 'https://picsum.photos/seed/rg-5c/600/840',
+        thumb: 'https://picsum.photos/seed/rg-5c/500/700',
         alt: 'Frosted branches against a pale sky',
         caption: 'Frost on bare branches',
       },
       {
         src: 'https://picsum.photos/seed/rg-5d/1600/1000',
-        thumb: 'https://picsum.photos/seed/rg-5d/600/400',
+        thumb: 'https://picsum.photos/seed/rg-5d/800/500',
         alt: 'Frozen lake at blue hour',
         caption: 'Blue hour on the frozen lake',
       },
