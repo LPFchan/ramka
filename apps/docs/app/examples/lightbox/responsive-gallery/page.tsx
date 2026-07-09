@@ -431,7 +431,7 @@ function FeedPostGallery({ post }: { post: FeedPost }) {
           <Lightbox.ItemGroup
             render={<ScrollGallery.Viewport aria-label="Full-size images" />}
             preload={post.images.length}
-            className="flex flex-1 overflow-x-auto overscroll-x-contain [scroll-snap-type:x_mandatory] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            className="flex flex-1 overflow-x-auto overscroll-x-contain [scroll-snap-type:x_mandatory] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden gap-5 md:gap-0"
           >
             {post.images.map((img, i) => (
               // The scroll-snap box (ScrollGallery.Item) and the drag target
@@ -456,7 +456,7 @@ function FeedPostGallery({ post }: { post: FeedPost }) {
                       alt={img.alt}
                       loading="eager"
                       draggable={false}
-                      className="max-h-[calc(100%-6rem)] max-w-[calc(100%-2rem)] select-none rounded-lg object-contain md:max-h-[calc(100%-11rem)] md:max-w-[calc(100%-4rem)]"
+                      className="max-h-[calc(100%-6rem)] w-full max-w-full select-none rounded-none object-contain md:max-h-[calc(100%-11rem)] md:w-auto md:max-w-[calc(100%-4rem)] md:rounded-lg"
                     />
                   </Lightbox.Zoom>
                 </Lightbox.Item>
