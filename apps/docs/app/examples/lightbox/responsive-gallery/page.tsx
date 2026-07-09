@@ -235,7 +235,7 @@ const feedPosts: FeedPost[] = [
 ];
 
 const iconButton =
-  'inline-flex h-9 w-9 items-center justify-center rounded-full text-white/80 transition hover:bg-white/10 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70 disabled:cursor-not-allowed disabled:opacity-30 pointer-events-auto';
+  'inline-flex h-9 w-9 items-center justify-center rounded-full text-black/70 transition hover:bg-black/10 hover:text-black focus:outline-none focus-visible:ring-2 focus-visible:ring-black/40 disabled:cursor-not-allowed disabled:opacity-30 pointer-events-auto dark:text-white/80 dark:hover:bg-white/10 dark:hover:text-white dark:focus-visible:ring-white/70';
 
 function formatCount(n: number): string {
   if (n >= 1000) return `${(n / 1000).toFixed(1).replace(/\.0$/, '')}K`;
@@ -419,7 +419,7 @@ function FeedPostGallery({ post }: { post: FeedPost }) {
       {/* Scrim. `data-pulling:transition-none` hands the fade to the
           pull-to-dismiss gesture, which drives it 1:1 with the finger via
           the `--lightbox-pull-progress` variable. */}
-      <Lightbox.Backdrop className="fixed inset-0 z-40 bg-black/90 opacity-0 transition-opacity duration-300 data-[open]:[opacity:calc(1_-_var(--lightbox-pull-progress,0)_*_0.6)] data-pulling:transition-none starting:data-[open]:opacity-0" />
+      <Lightbox.Backdrop className="fixed inset-0 z-40 bg-white/90 opacity-0 transition-opacity duration-300 data-[open]:[opacity:calc(1_-_var(--lightbox-pull-progress,0)_*_0.6)] data-pulling:transition-none starting:data-[open]:opacity-0 dark:bg-black/90" />
 
       {/* Fullscreen viewer */}
       <Lightbox.Content
@@ -481,7 +481,7 @@ function FeedPostGallery({ post }: { post: FeedPost }) {
           {/* Caption + thumbnails — thumbnails only render on desktop.
               Hidden while zoomed or pulling to dismiss. */}
           <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 flex flex-col items-center gap-3 px-3 pb-4 transition-opacity duration-200 [[data-zoomed]_&]:opacity-0 [[data-pulling]_&]:opacity-0">
-            <Lightbox.Caption className="pointer-events-auto block min-h-[1.25rem] max-w-full truncate px-6 text-center text-sm text-white/80" />
+            <Lightbox.Caption className="pointer-events-auto block min-h-[1.25rem] max-w-full truncate px-6 text-center text-sm text-black/70 dark:text-white/80" />
 
             <ScrollGallery.ScrollMarkerGroup
               aria-label="Photo thumbnails"
@@ -491,7 +491,7 @@ function FeedPostGallery({ post }: { post: FeedPost }) {
                 <ScrollGallery.ScrollMarker
                   key={i}
                   index={i}
-                  className="h-14 w-14 shrink-0 overflow-hidden rounded-md border-2 border-transparent p-0 opacity-50 transition data-[active]:border-white data-[active]:opacity-100"
+                  className="h-14 w-14 shrink-0 overflow-hidden rounded-md border-2 border-transparent p-0 opacity-50 transition data-[active]:border-black data-[active]:opacity-100 dark:data-[active]:border-white"
                 >
                   <img src={img.thumb} alt={img.alt} className="h-full w-full object-cover" />
                 </ScrollGallery.ScrollMarker>
