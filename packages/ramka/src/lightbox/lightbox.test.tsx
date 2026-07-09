@@ -86,6 +86,7 @@ function TestLightbox({
   loop = false,
   preload = 1,
   viewTransition = false,
+  awaitImageDecode,
   withThumbnails = false,
   withCaptions = false,
   onOpenChange,
@@ -101,6 +102,7 @@ function TestLightbox({
   loop?: boolean;
   preload?: number;
   viewTransition?: boolean;
+  awaitImageDecode?: boolean | number;
   withThumbnails?: boolean;
   withCaptions?: boolean;
   onOpenChange?: (open: boolean) => void;
@@ -116,6 +118,7 @@ function TestLightbox({
       value={value}
       loop={loop}
       viewTransition={viewTransition}
+      awaitImageDecode={awaitImageDecode}
       onOpenChange={onOpenChange}
       onOpenChangeComplete={onOpenChangeComplete}
       onValueChange={onValueChange}
@@ -1139,6 +1142,106 @@ describe('Lightbox', () => {
         expect(callbacks[1].constructor.name).not.toBe('AsyncFunction');
 
         await act(async () => resolveClose!());
+      });
+    });
+
+    describe('awaitImageDecode', () => {
+      let originalDecode: PropertyDescriptor | undefined;
+      let originalComplete: PropertyDescriptor | undefined;
+
+      // Force a real <img> to look "not yet loaded" and route decode() through
+      // a controllable mock, so the open morph's decode wait is deterministic
+      // regardless of jsdom's image loading behavior.
+      function setImageEnv(decodeImpl: () => Promise<void>) {
+        originalDecode = Object.getOwnPropertyDescriptor(HTMLImageElement.prototype, 'decode');
+        originalComplete = Object.getOwnPropertyDescriptor(HTMLImageElement.prototype, 'complete');
+        Object.defineProperty(HTMLImageElement.prototype, 'decode', {
+          value: vi.fn(decodeImpl),
+          writable: true,
+          configurable: true,
+        });
+        Object.defineProperty(HTMLImageElement.prototype, 'complete', {
+          get: () => false,
+          configurable: true,
+        });
+        return HTMLImageElement.prototype.decode as unknown as ReturnType<typeof vi.fn>;
+      }
+
+      afterEach(() => {
+        if (originalDecode) {
+          Object.defineProperty(HTMLImageElement.prototype, 'decode', originalDecode);
+        } else {
+          delete (HTMLImageElement.prototype as unknown as Record<string, unknown>).decode;
+        }
+        if (originalComplete) {
+          Object.defineProperty(HTMLImageElement.prototype, 'complete', originalComplete);
+        }
+        originalDecode = undefined;
+        originalComplete = undefined;
+        vi.useRealTimers();
+      });
+
+      function renderImageLightbox(awaitImageDecode?: boolean | number) {
+        return render(
+          <LightboxRoot viewTransition awaitImageDecode={awaitImageDecode}>
+            <LightboxTrigger index={0} data-testid="trigger-0">
+              Open
+            </LightboxTrigger>
+            <LightboxContent data-testid="content" aria-label="decode test">
+              <LightboxItemGroup>
+                <LightboxItem index={0} data-testid="item-0">
+                  <img src="https://example.com/a.jpg" alt="a" />
+                </LightboxItem>
+              </LightboxItemGroup>
+            </LightboxContent>
+          </LightboxRoot>,
+        );
+      }
+
+      it('skips the decode wait entirely when awaitImageDecode={false}', () => {
+        mockViewTransitionAPI();
+        const decode = setImageEnv(() => new Promise<void>(() => {}));
+
+        renderImageLightbox(false);
+        fireEvent.click(screen.getByTestId('trigger-0'));
+
+        // Opt-out: decode() is never invoked and the item is marked ready
+        // synchronously, so the morph starts without waiting.
+        expect(decode).not.toHaveBeenCalled();
+        expect(screen.getByTestId('item-0')).toHaveAttribute('data-skip-fade');
+      });
+
+      it('awaits the destination image decode by default', () => {
+        vi.useFakeTimers();
+        mockViewTransitionAPI();
+        const decode = setImageEnv(() => new Promise<void>(() => {}));
+
+        renderImageLightbox();
+        fireEvent.click(screen.getByTestId('trigger-0'));
+
+        // The wait is in flight: decode was attempted and the item is not yet
+        // marked ready (still awaiting decode or the timeout).
+        expect(decode).toHaveBeenCalledTimes(1);
+        expect(screen.getByTestId('item-0')).not.toHaveAttribute('data-skip-fade');
+      });
+
+      it('bounds the wait by the numeric timeout', async () => {
+        vi.useFakeTimers();
+        mockViewTransitionAPI();
+        setImageEnv(() => new Promise<void>(() => {})); // decode never resolves
+
+        renderImageLightbox(50);
+        fireEvent.click(screen.getByTestId('trigger-0'));
+
+        // Still waiting before the cap elapses.
+        expect(screen.getByTestId('item-0')).not.toHaveAttribute('data-skip-fade');
+
+        await act(async () => {
+          vi.advanceTimersByTime(50);
+        });
+
+        // The timeout bounded the wait; the morph proceeds.
+        expect(screen.getByTestId('item-0')).toHaveAttribute('data-skip-fade');
       });
     });
 

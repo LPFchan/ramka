@@ -22,13 +22,17 @@ function startViewTransition(
   ).startViewTransition(callback);
 }
 
-const DECODE_MAX_WAIT = 200;
+/**
+ * Default upper bound (ms) for how long the open morph waits on the
+ * destination image to decode. Used when `awaitImageDecode` is `true`.
+ */
+const DEFAULT_DECODE_MAX_WAIT = 200;
 
 /**
  * Wait for an image element to decode (pixels composited and ready to paint).
  * If the image is already complete (e.g. served from cache on a re-open),
  * resolves immediately with zero delay. Otherwise waits for `decode()` to
- * finish, bounded by DECODE_MAX_WAIT ms so the transition is never blocked
+ * finish, bounded by `maxWait` ms so the transition is never blocked
  * for too long on slow connections. Resolves immediately for non-image
  * elements (video, custom HTML).
  *
@@ -39,7 +43,10 @@ const DECODE_MAX_WAIT = 200;
  * `loading="eager"` so the browser starts fetching immediately on mount
  * rather than waiting for a lazy-load intersection.
  */
-function waitForImageDecode(target: HTMLElement | null): Promise<void> {
+function waitForImageDecode(
+  target: HTMLElement | null,
+  maxWait: number = DEFAULT_DECODE_MAX_WAIT,
+): Promise<void> {
   if (!target) return Promise.resolve();
   const img =
     target.tagName === 'IMG'
@@ -58,7 +65,7 @@ function waitForImageDecode(target: HTMLElement | null): Promise<void> {
       resolve();
     };
     img.decode().then(settle, settle);
-    setTimeout(settle, DECODE_MAX_WAIT);
+    setTimeout(settle, maxWait);
   });
 }
 
@@ -124,6 +131,23 @@ interface LightboxRootProps {
    * @default 'active'
    */
   morphTo?: 'active' | 'origin' | 'closest';
+  /**
+   * How long the open morph waits for the destination image to decode
+   * before starting, so the lightbox doesn't flash empty space while the
+   * full-size image is still loading.
+   *
+   * - `true` (default) — wait up to ~200ms, then start regardless.
+   * - `false` — don't wait; start the transition immediately. Useful when
+   *   the trigger image doubles as a placeholder for the lightbox item so
+   *   there is nothing to wait for.
+   * - `number` — wait up to this many milliseconds. The morph starts as
+   *   soon as the image decodes (or is served from cache), or when the
+   *   timeout elapses — whichever comes first.
+   *
+   * Only relevant when `viewTransition` is enabled.
+   * @default true
+   */
+  awaitImageDecode?: boolean | number;
 }
 
 interface LightboxRootRef {
@@ -176,7 +200,17 @@ const LightboxRoot = React.forwardRef<LightboxRootRef, LightboxRootProps>(
       viewTransition = false,
       scrollTriggerIntoView = null,
       morphTo = 'active',
+      awaitImageDecode = true,
     } = props;
+
+    // Resolve the decode-wait budget: `false`/`0` disables the wait,
+    // `true` uses the default cap, and a number sets an explicit cap (ms).
+    const decodeMaxWait =
+      awaitImageDecode === false
+        ? 0
+        : awaitImageDecode === true
+          ? DEFAULT_DECODE_MAX_WAIT
+          : Math.max(0, awaitImageDecode);
 
     // Open state — controlled or uncontrolled
     const isControlledOpen = openProp !== undefined;
@@ -329,8 +363,11 @@ const LightboxRoot = React.forwardRef<LightboxRootRef, LightboxRootProps>(
 
               // Wait for the destination image to decode before the browser
               // captures the "new" snapshot, preventing a flash of empty space
-              // during the morph animation.
-              await waitForImageDecode(itemTarget);
+              // during the morph animation. Bounded by `decodeMaxWait`; skipped
+              // entirely when the consumer opts out (awaitImageDecode={false}).
+              if (decodeMaxWait > 0) {
+                await waitForImageDecode(itemTarget, decodeMaxWait);
+              }
 
               // Read before write to avoid forced reflow
               const toRadius = itemTarget ? getComputedStyle(itemTarget).borderRadius : null;
@@ -486,7 +523,7 @@ const LightboxRoot = React.forwardRef<LightboxRootRef, LightboxRootProps>(
           }
         }
       },
-      [isControlledOpen, viewTransition, scrollTriggerIntoView, morphTo],
+      [isControlledOpen, viewTransition, scrollTriggerIntoView, morphTo, decodeMaxWait],
     );
 
     // Sync `mounted` to externally-driven changes of a controlled
