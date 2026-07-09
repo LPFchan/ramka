@@ -1853,6 +1853,38 @@ describe('Lightbox', () => {
       expect(content).toHaveAttribute('data-pulling');
     });
 
+    it('exposes pull progress as a CSS variable during vertical drag', () => {
+      render(<PullDismissLightbox />);
+      const content = screen.getByTestId('content');
+      const img = screen.getByAltText('test');
+
+      act(() => {
+        dispatchPointer(img, 'pointerdown', { clientX: 200, clientY: 200 });
+        // 50px of a 100px dismiss threshold → 0.5 progress.
+        dispatchPointer(content, 'pointermove', { clientX: 200, clientY: 250 });
+      });
+
+      const progress = Number(content.style.getPropertyValue('--lightbox-pull-progress'));
+      expect(progress).toBeGreaterThan(0);
+      expect(progress).toBeLessThanOrEqual(1);
+    });
+
+    it('resets the pull-progress variable after snapping back', async () => {
+      render(<PullDismissLightbox />);
+      const content = screen.getByTestId('content');
+      const img = screen.getByAltText('test');
+
+      act(() => {
+        dispatchPointer(img, 'pointerdown', { clientX: 200, clientY: 200 });
+        dispatchPointer(content, 'pointermove', { clientX: 200, clientY: 250 });
+        dispatchPointer(content, 'pointerup', { clientX: 200, clientY: 250 });
+      });
+      await flushMicrotasks();
+
+      expect(content).not.toHaveAttribute('data-pulling');
+      expect(content.style.getPropertyValue('--lightbox-pull-progress')).toBe('');
+    });
+
     it('does not set data-pulling for horizontal drag', () => {
       render(<PullDismissLightbox />);
       const content = screen.getByTestId('content');

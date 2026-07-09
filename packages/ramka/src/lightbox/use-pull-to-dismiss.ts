@@ -14,6 +14,16 @@ const SNAP_EASING = 'cubic-bezier(0.2, 1.15, 0.4, 1)';
 const MIN_SCALE = 0.85;
 const VELOCITY_SAMPLES = 5;
 
+/**
+ * CSS custom property exposing pull progress (0 at rest → 1 at the dismiss
+ * threshold) on both the content and backdrop elements while a drag is in
+ * flight. The library deliberately does NOT hardcode a backdrop opacity
+ * curve — consumers derive whatever styling they like (backdrop opacity,
+ * blur, chrome fade, image scale) from this variable, e.g.
+ * `opacity: calc(1 - var(--lightbox-pull-progress, 0) * 0.6)`.
+ */
+const PULL_PROGRESS_VAR = '--lightbox-pull-progress';
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -58,7 +68,6 @@ function usePullToDismiss({
   const applyTransform = React.useCallback(
     (rawDeltaX: number, rawDeltaY: number) => {
       const target = dragTargetRef.current;
-      const backdrop = backdropRef.current;
       if (!target) return;
 
       // Asymptotic damping: moves ~1:1 near origin, then flattens toward
@@ -75,11 +84,14 @@ function usePullToDismiss({
 
       target.style.transform = `translate(${dampedX}px, ${dampedY}px) scale(${scale})`;
 
-      if (backdrop) {
-        backdrop.style.opacity = String(1 - progress * 0.6);
-      }
+      // Publish the raw progress and let consumers decide how it maps to
+      // visuals. Set it on both the content and the (separately portaled)
+      // backdrop so either subtree can react to it.
+      const progressValue = String(progress);
+      contentRef.current?.style.setProperty(PULL_PROGRESS_VAR, progressValue);
+      backdropRef.current?.style.setProperty(PULL_PROGRESS_VAR, progressValue);
     },
-    [backdropRef],
+    [contentRef, backdropRef],
   );
 
   const clearTransform = React.useCallback(() => {
@@ -91,10 +103,11 @@ function usePullToDismiss({
     }
     if (content) {
       content.removeAttribute('data-pulling');
+      content.style.removeProperty(PULL_PROGRESS_VAR);
     }
     if (backdrop) {
-      backdrop.style.opacity = '';
       backdrop.removeAttribute('data-pulling');
+      backdrop.style.removeProperty(PULL_PROGRESS_VAR);
     }
   }, [contentRef, backdropRef]);
 
@@ -103,23 +116,29 @@ function usePullToDismiss({
     const content = contentRef.current;
     const backdrop = backdropRef.current;
 
+    // Hand backdrop/chrome styling back to the consumer immediately: drop
+    // the `data-pulling` flag (re-enabling any transition they suppressed
+    // while pulling) and reset progress to 0 so their own transition eases
+    // everything back to rest. The library only owns the item transform
+    // snap-back below.
+    content?.removeAttribute('data-pulling');
+    backdrop?.removeAttribute('data-pulling');
+    content?.style.setProperty(PULL_PROGRESS_VAR, '0');
+    backdrop?.style.setProperty(PULL_PROGRESS_VAR, '0');
+
     if (!target) {
-      clearTransform();
+      dragTargetRef.current = null;
       return;
     }
 
     const currentTransform = target.style.transform;
-    const currentBackdropOpacity = backdrop?.style.opacity ?? '1';
 
-    // Clear inline styles BEFORE starting the animations. The WAAPI
+    // Clear the inline transform BEFORE starting the animation. The WAAPI
     // animation layer overrides computed values during playback, so the
-    // cleared inline styles are invisible while the animation runs.
-    // When the animation finishes and is cancelled, the underlying
-    // computed values are already clean — no flash.
+    // cleared inline style is invisible while the animation runs. When the
+    // animation finishes and is cancelled, the underlying computed value is
+    // already clean — no flash.
     target.style.transform = '';
-    if (backdrop) {
-      backdrop.style.opacity = '';
-    }
 
     const targetAnim = target.animate(
       [
@@ -129,27 +148,20 @@ function usePullToDismiss({
       { duration: SNAP_DURATION, easing: SNAP_EASING },
     );
 
-    let backdropAnim: Animation | undefined;
-    if (backdrop) {
-      backdropAnim = backdrop.animate(
-        [{ opacity: currentBackdropOpacity }, { opacity: '1' }],
-        { duration: SNAP_DURATION, easing: SNAP_EASING },
-      );
-    }
-
     animationRef.current = targetAnim;
 
     targetAnim.finished.then(() => {
       animationRef.current = null;
       targetAnim.cancel();
-      backdropAnim?.cancel();
-      content?.removeAttribute('data-pulling');
-      backdrop?.removeAttribute('data-pulling');
       dragTargetRef.current = null;
+      // Fully at rest — drop the inline var so the consumer's fallback
+      // (typically `var(--lightbox-pull-progress, 0)`) takes over cleanly.
+      content?.style.removeProperty(PULL_PROGRESS_VAR);
+      backdrop?.style.removeProperty(PULL_PROGRESS_VAR);
     }).catch(() => {
       // Animation cancelled — cleanup already handled
     });
-  }, [contentRef, backdropRef, clearTransform]);
+  }, [contentRef, backdropRef]);
 
   const computeVelocity = React.useCallback(() => {
     const history = velocityHistoryRef.current;

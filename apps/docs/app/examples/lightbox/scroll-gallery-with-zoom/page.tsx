@@ -51,7 +51,7 @@ export default function ScrollGalleryWithZoomPage() {
           ))}
         </div>
 
-        <Lightbox.Backdrop className="lightbox-chrome-fade fixed inset-0 z-40 bg-black/85 opacity-0 transition-opacity duration-[340ms] ease-out-expo data-[open]:opacity-100 starting:data-[open]:opacity-0" />
+        <Lightbox.Backdrop className="lightbox-chrome-fade fixed inset-0 z-40 bg-black/85 opacity-0 transition-opacity duration-[340ms] ease-out-expo data-[open]:[opacity:calc(1_-_var(--lightbox-pull-progress,0)_*_0.6)] data-pulling:transition-none starting:data-[open]:opacity-0" />
 
         <Lightbox.Content
           aria-label="Photo gallery with scroll gallery and zoom"

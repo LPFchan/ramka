@@ -128,7 +128,7 @@ export default function ResponsiveGalleryPage() {
         {/* Scrim. `data-pulling:transition-none` lets the pull-to-dismiss
             gesture drive opacity 1:1 with the finger — the transition is only
             for the open/close fade, and would otherwise make the drag fade lag. */}
-        <Lightbox.Backdrop className="fixed inset-0 z-40 bg-black/90 opacity-0 transition-opacity duration-300 data-[open]:opacity-100 data-pulling:transition-none starting:data-[open]:opacity-0" />
+        <Lightbox.Backdrop className="fixed inset-0 z-40 bg-black/90 opacity-0 transition-opacity duration-300 data-[open]:[opacity:calc(1_-_var(--lightbox-pull-progress,0)_*_0.6)] data-pulling:transition-none starting:data-[open]:opacity-0" />
 
         {/* Fullscreen viewer */}
         <Lightbox.Content
