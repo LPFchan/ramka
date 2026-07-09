@@ -82,7 +82,7 @@ export const lightboxExamples: ExampleLink[] = [
     slug: 'responsive-gallery',
     title: 'Responsive gallery',
     description:
-      'The canonical real-world lightbox: swipe navigation, desktop-only thumbnails, view-transition morph, and pinch/scroll zoom.',
+      'The canonical real-world lightbox in a social feed: crossfade `+N` grids, swipe navigation, desktop-only thumbnails, view-transition morph, pinch/scroll zoom, and pull-to-dismiss.',
   },
   {
     slug: 'default',
