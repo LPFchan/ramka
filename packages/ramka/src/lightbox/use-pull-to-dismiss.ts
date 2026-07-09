@@ -56,6 +56,20 @@ function usePullToDismiss({
   const animationRef = React.useRef<Animation | null>(null);
   const dragTargetRef = React.useRef<HTMLElement | null>(null);
 
+  // Trackpad (wheel) pull-to-dismiss state. A two-finger swipe emits a stream
+  // of `wheel` events with no explicit end, so gesture completion is inferred
+  // from an idle timer.
+  const wheelDirRef = React.useRef<'none' | 'vertical' | 'horizontal'>('none');
+  const wheelPullXRef = React.useRef(0);
+  const wheelPullYRef = React.useRef(0);
+  const wheelCountRef = React.useRef(0);
+  const wheelIdleRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Once a wheel flick commits to dismissing, ignore the residual momentum
+  // stream so it can't start a fresh pull and reset the item transform mid-
+  // close (visible as a snap-back on Safari, whose View Transition snapshot is
+  // captured a frame after the momentum event that would reset it).
+  const wheelDismissedRef = React.useRef(false);
+
   const cleanup = React.useCallback(() => {
     pointerIdRef.current = null;
     directionRef.current = 'none';
@@ -177,6 +191,9 @@ function usePullToDismiss({
     if (disabled) return;
     const el = contentRef.current;
     if (!el) return;
+
+    // Fresh mount — clear any dismiss latch left over from a prior close.
+    wheelDismissedRef.current = false;
 
     const handlePointerDown = (event: PointerEvent) => {
       // Touch-only gesture — ignore mouse and pen
@@ -309,11 +326,124 @@ function usePullToDismiss({
       }
     };
 
+    // -----------------------------------------------------------------
+    // Trackpad pull-to-dismiss — a two-finger vertical swipe arrives as a
+    // stream of pixel-mode wheel events. Mirror the touch gesture: move the
+    // image with the swipe, then dismiss past the threshold or snap back.
+    // -----------------------------------------------------------------
+    const WHEEL_IDLE_END = 90;
+    // Require several events so a single discrete mouse-wheel notch (which can
+    // exceed the dismiss distance in one step) can't dismiss — trackpads emit
+    // many small events per swipe.
+    const MIN_WHEEL_EVENTS = 3;
+
+    const resetWheel = () => {
+      wheelDirRef.current = 'none';
+      wheelPullXRef.current = 0;
+      wheelPullYRef.current = 0;
+      wheelCountRef.current = 0;
+      if (wheelIdleRef.current) {
+        clearTimeout(wheelIdleRef.current);
+        wheelIdleRef.current = null;
+      }
+    };
+
+    const finishWheel = (dismissNow: boolean) => {
+      const wasVertical = wheelDirRef.current === 'vertical';
+      const pulledY = wheelPullYRef.current;
+      const count = wheelCountRef.current;
+      resetWheel();
+      if (!wasVertical) return;
+
+      const shouldDismiss =
+        (dismissNow || Math.abs(pulledY) >= DISMISS_DISTANCE) && count >= MIN_WHEEL_EVENTS;
+
+      if (shouldDismiss) {
+        // Latch: swallow the trackpad's momentum tail so it can't restart a
+        // pull and reset the item mid-close.
+        wheelDismissedRef.current = true;
+        el.removeAttribute('data-pulling');
+        backdropRef.current?.removeAttribute('data-pulling');
+        dragTargetRef.current = null;
+        onClose();
+      } else {
+        snapBack();
+      }
+    };
+
+    const scheduleWheelIdle = () => {
+      if (wheelIdleRef.current) clearTimeout(wheelIdleRef.current);
+      wheelIdleRef.current = setTimeout(() => finishWheel(false), WHEEL_IDLE_END);
+    };
+
+    const handleWheel = (event: WheelEvent) => {
+      // Already committed to dismissing — ignore the momentum tail.
+      if (wheelDismissedRef.current) return;
+      // Precision devices (trackpads) report pixel-mode deltas; line/page mode
+      // is a classic mouse wheel — leave those alone.
+      if (event.deltaMode !== 0) return;
+      // Defer to zoom (owns the wheel when zoomed) and to an active touch pull.
+      if (getZoom() > 1 || el.hasAttribute('data-zooming')) return;
+      if (pointerIdRef.current !== null) return;
+      if (event.ctrlKey) return; // pinch-zoom intent
+
+      if (wheelDirRef.current === 'none') {
+        if (event.deltaX === 0 && event.deltaY === 0) return;
+        // Horizontal swipes belong to the scroll gallery — let them scroll
+        // natively (the listener is passive; we never preventDefault).
+        if (Math.abs(event.deltaX) > Math.abs(event.deltaY)) {
+          wheelDirRef.current = 'horizontal';
+          scheduleWheelIdle();
+          return;
+        }
+
+        const activeItem = el.querySelector(
+          '[data-lightbox-item][data-active]',
+        ) as HTMLElement | null;
+        if (!activeItem) {
+          wheelDirRef.current = 'horizontal'; // nothing to pull — bail gesture
+          scheduleWheelIdle();
+          return;
+        }
+
+        // Cancel any in-flight snap-back and take over the active item.
+        if (animationRef.current) {
+          animationRef.current.cancel();
+          animationRef.current = null;
+          clearTransform();
+        }
+        dragTargetRef.current = activeItem;
+        wheelDirRef.current = 'vertical';
+        wheelPullXRef.current = 0;
+        wheelPullYRef.current = 0;
+        wheelCountRef.current = 0;
+        el.setAttribute('data-pulling', '');
+        backdropRef.current?.setAttribute('data-pulling', '');
+      }
+
+      scheduleWheelIdle();
+      if (wheelDirRef.current !== 'vertical') return;
+
+      // Content follows the fingers (natural-scroll: fingers down → deltaY < 0).
+      wheelPullXRef.current += -event.deltaX;
+      wheelPullYRef.current += -event.deltaY;
+      wheelCountRef.current += 1;
+      applyTransform(wheelPullXRef.current, wheelPullYRef.current);
+
+      if (
+        Math.abs(wheelPullYRef.current) >= DISMISS_DISTANCE &&
+        wheelCountRef.current >= MIN_WHEEL_EVENTS
+      ) {
+        finishWheel(true);
+      }
+    };
+
     el.addEventListener('pointerdown', handlePointerDown);
     el.addEventListener('pointermove', handlePointerMove);
     el.addEventListener('pointerup', handlePointerUp);
     el.addEventListener('pointercancel', handlePointerCancel);
     el.addEventListener('touchmove', handleTouchMove, { passive: false });
+    el.addEventListener('wheel', handleWheel, { passive: true });
 
     return () => {
       el.removeEventListener('pointerdown', handlePointerDown);
@@ -321,6 +451,11 @@ function usePullToDismiss({
       el.removeEventListener('pointerup', handlePointerUp);
       el.removeEventListener('pointercancel', handlePointerCancel);
       el.removeEventListener('touchmove', handleTouchMove);
+      el.removeEventListener('wheel', handleWheel);
+      if (wheelIdleRef.current) {
+        clearTimeout(wheelIdleRef.current);
+        wheelIdleRef.current = null;
+      }
       if (animationRef.current) {
         animationRef.current.cancel();
         animationRef.current = null;
