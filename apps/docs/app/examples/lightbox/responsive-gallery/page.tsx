@@ -456,7 +456,7 @@ function FeedPostGallery({ post }: { post: FeedPost }) {
                       alt={img.alt}
                       loading="eager"
                       draggable={false}
-                      className="max-h-[calc(100%-6rem)] w-full max-w-full select-none rounded-none object-contain md:max-h-[calc(100%-11rem)] md:w-auto md:max-w-[calc(100%-4rem)] md:rounded-lg"
+                      className="max-h-[calc(100%-6rem)]  max-w-full select-none rounded-none object-contain md:max-h-[calc(100%-11rem)]  md:max-w-[calc(100%-4rem)] md:rounded-lg"
                     />
                   </Lightbox.Zoom>
                 </Lightbox.Item>
