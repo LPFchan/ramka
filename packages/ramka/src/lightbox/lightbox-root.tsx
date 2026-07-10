@@ -11,6 +11,13 @@ import {
   type LightboxContextValue,
   type NavigationSource,
 } from './lightbox-context';
+import {
+  LightboxActiveZoomContext,
+  LightboxZoomPublishContext,
+  type ActiveZoomControls,
+  type LightboxZoomPublishContextValue,
+  type PublishActiveZoom,
+} from './lightbox-zoom-context';
 
 function startViewTransition(
   callback: () => void | Promise<void>,
@@ -308,6 +315,30 @@ const LightboxRoot = React.forwardRef<LightboxRootRef, LightboxRootProps>(
     const activeIndexRef = React.useRef(activeIndex);
     activeIndexRef.current = activeIndex;
 
+    // --- Active-zoom bridge ---
+    // The active slide's Lightbox.Zoom publishes its controls here so a single
+    // set of global zoom controls (and Content's pull/keyboard logic) can drive
+    // whichever slide is active. `activeZoom` is reactive (buttons re-render on
+    // enabled-state changes); `activeZoomRef` mirrors it for imperative,
+    // always-fresh reads.
+    const [activeZoom, setActiveZoom] = React.useState<ActiveZoomControls | null>(null);
+    const activeZoomRef = React.useRef<ActiveZoomControls | null>(null);
+    React.useEffect(() => {
+      activeZoomRef.current = activeZoom;
+    }, [activeZoom]);
+
+    // Functional-updater form lets the publishing Zoom guard its own cleanup by
+    // identity, so a slide swap (new Zoom publishes, old Zoom's cleanup runs)
+    // never nulls out the incoming controls regardless of effect ordering.
+    const publishActiveZoom = React.useCallback<PublishActiveZoom>((next) => {
+      setActiveZoom((prev) => (typeof next === 'function' ? next(prev) : next));
+    }, []);
+
+    const zoomPublishValue = React.useMemo<LightboxZoomPublishContextValue>(
+      () => ({ publish: publishActiveZoom, activeZoomRef }),
+      [publishActiveZoom],
+    );
+
     const setOpen = React.useCallback(
       (nextOpen: boolean) => {
         closeGenRef.current += 1;
@@ -603,7 +634,13 @@ const LightboxRoot = React.forwardRef<LightboxRootRef, LightboxRootProps>(
       [open, setOpen, mounted, activeIndex, setActiveIndex, itemCount, registerItem, loop, registerCaption, viewTransition, morphTo],
     );
 
-    return <LightboxContext.Provider value={contextValue}>{children}</LightboxContext.Provider>;
+    return (
+      <LightboxContext.Provider value={contextValue}>
+        <LightboxZoomPublishContext.Provider value={zoomPublishValue}>
+          <LightboxActiveZoomContext.Provider value={activeZoom}>{children}</LightboxActiveZoomContext.Provider>
+        </LightboxZoomPublishContext.Provider>
+      </LightboxContext.Provider>
+    );
   },
 );
 

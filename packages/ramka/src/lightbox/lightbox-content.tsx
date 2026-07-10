@@ -4,7 +4,7 @@ import * as React from 'react';
 import * as ReactDOM from 'react-dom';
 
 import { useLightboxContext } from './lightbox-context';
-import { useOptionalZoomContext } from './lightbox-zoom-context';
+import { useLightboxZoomPublish } from './lightbox-zoom-context';
 import { usePullToDismiss } from './use-pull-to-dismiss';
 
 const useLayoutEffect = typeof window !== 'undefined' ? React.useLayoutEffect : React.useEffect;
@@ -62,7 +62,9 @@ const LightboxContent = React.forwardRef<HTMLDivElement, LightboxContentProps>(
       dialogElementRef,
       backdropElementRef,
     } = useLightboxContext();
-    const zoomContext = useOptionalZoomContext();
+    // The active slide's zoom is exposed via the Root-owned bridge (not the
+    // per-slide ZoomContext, which is a descendant and unreadable here).
+    const { activeZoomRef } = useLightboxZoomPublish();
 
     const contentRef = React.useRef<HTMLDivElement | null>(null);
 
@@ -148,13 +150,9 @@ const LightboxContent = React.forwardRef<HTMLDivElement, LightboxContentProps>(
     }, [mounted]);
 
     // Pull-to-dismiss: drag the image vertically to close the lightbox.
-    // ZoomContext is provided by LightboxZoom (a descendant), so we can't
-    // read it via useContext here. Instead check the data-zoomed attribute
-    // that LightboxZoom sets imperatively on the content element.
-    const getZoom = React.useCallback(
-      () => (contentRef.current?.hasAttribute('data-zoomed') ? 2 : 1),
-      [],
-    );
+    // The active slide's live zoom level comes from the Root-owned bridge; the
+    // callback identity is stable (reads a ref) so the pull effect never churns.
+    const getZoom = React.useCallback(() => activeZoomRef.current?.getZoom() ?? 1, [activeZoomRef]);
     const stableSetOpen = React.useCallback(() => setOpen(false), [setOpen]);
 
     usePullToDismiss({
@@ -189,7 +187,7 @@ const LightboxContent = React.forwardRef<HTMLDivElement, LightboxContentProps>(
 
         // When zoomed in, arrow keys pan the image — don't navigate slides
         const isArrow = event.key.startsWith('Arrow');
-        if (isArrow && zoomContext && zoomContext.zoom > 1) return;
+        if (isArrow && (activeZoomRef.current?.getZoom() ?? 1) > 1) return;
 
         let nextIndex: number | null = null;
 
@@ -217,7 +215,7 @@ const LightboxContent = React.forwardRef<HTMLDivElement, LightboxContentProps>(
           setActiveIndex(nextIndex, 'keyboard');
         }
       },
-      [activeIndex, itemCount, loop, setActiveIndex, zoomContext],
+      [activeIndex, itemCount, loop, setActiveIndex, activeZoomRef],
     );
 
     // Click on the content container itself (not children) closes the

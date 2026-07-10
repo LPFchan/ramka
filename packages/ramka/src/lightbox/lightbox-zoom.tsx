@@ -3,7 +3,13 @@
 import * as React from 'react';
 
 import { useLightboxContext } from './lightbox-context';
-import { ZoomContext, type ZoomContextValue } from './lightbox-zoom-context';
+import { useOptionalLightboxItemContext } from './lightbox-item';
+import {
+  ZoomContext,
+  useLightboxZoomPublish,
+  type ActiveZoomControls,
+  type ZoomContextValue,
+} from './lightbox-zoom-context';
 import { useZoomAnimation } from './use-zoom-animation';
 import { useZoomGestures, type ZoomGestureActions, type ZoomGestureConfig } from './use-zoom-gestures';
 
@@ -138,6 +144,11 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
     } = props;
 
     const { activeIndex, dialogElementRef } = useLightboxContext();
+    const itemContext = useOptionalLightboxItemContext();
+    const { publish: publishActiveZoom } = useLightboxZoomPublish();
+    // A Zoom used inside a Lightbox.Item only publishes when its slide is
+    // active; a standalone Zoom (no item context) is always the active one.
+    const isActive = itemContext ? itemContext.active : true;
 
     // ----- State -----
     const [zoom, setZoom] = React.useState(minZoom);
@@ -209,7 +220,10 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
     }, [zoom]);
 
     // ----- Sync data-zoomed attribute on Content element -----
+    // Only the active slide writes this attribute, so it has a single writer
+    // and never fights with preloaded (inactive) siblings.
     React.useEffect(() => {
+      if (!isActive) return;
       const el = dialogElementRef.current;
       if (!el) return;
       if (zoom > minZoom) {
@@ -217,7 +231,7 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
       } else {
         el.removeAttribute('data-zoomed');
       }
-    }, [zoom, minZoom, dialogElementRef]);
+    }, [isActive, zoom, minZoom, dialogElementRef]);
 
     // ----- Offset clamping -----
     const clampOffsets = React.useCallback(
@@ -401,6 +415,10 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
     const zoomRef = React.useRef(zoom);
     zoomRef.current = zoom;
 
+    // Stable, always-fresh zoom reader for the active-zoom bridge (consumed by
+    // Content's pull-to-dismiss and keyboard handlers).
+    const getLiveZoom = React.useCallback(() => zoomRef.current, []);
+
     const gestureConfig = React.useMemo<ZoomGestureConfig>(
       () => ({
         minZoom,
@@ -469,6 +487,23 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
       }),
       [zoom, maxZoom, offsetX, offsetY, canZoomIn, canZoomOut, zoomInAction, zoomOutAction, changeZoomAction, resetAction, changeOffsetsAction],
     );
+
+    // ----- Active-zoom bridge -----
+    // Publish this slide's controls to Root while it is the active slide, so a
+    // single global set of ZoomIn/ZoomOut controls can drive it. Cleanup guards
+    // by identity so a slide swap never nulls out the incoming controls.
+    const activeControls = React.useMemo<ActiveZoomControls>(
+      () => ({ canZoomIn, canZoomOut, zoomIn: zoomInAction, zoomOut: zoomOutAction, getZoom: getLiveZoom }),
+      [canZoomIn, canZoomOut, zoomInAction, zoomOutAction, getLiveZoom],
+    );
+
+    React.useEffect(() => {
+      if (!isActive) return;
+      publishActiveZoom(activeControls);
+      return () => {
+        publishActiveZoom((prev) => (prev === activeControls ? null : prev));
+      };
+    }, [isActive, activeControls, publishActiveZoom]);
 
     // ----- Render -----
     const stateSnapshot = { zoom, maxZoom, offsetX, offsetY, canZoomIn, canZoomOut };

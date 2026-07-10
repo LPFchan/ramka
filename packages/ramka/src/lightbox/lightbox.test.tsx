@@ -1765,6 +1765,140 @@ describe('Lightbox', () => {
   });
 
   // ---------------------------------------------------------------------------
+  // 14b. Global zoom controls (active-zoom bridge)
+  //
+  // Mirrors the flagship layout: one shared ZoomIn/ZoomOut set rendered in the
+  // chrome (siblings of ItemGroup, OUTSIDE any per-slide Lightbox.Zoom), each
+  // item wrapped in its own Zoom. The buttons must drive whichever slide is
+  // currently active via the Root-owned bridge.
+  // ---------------------------------------------------------------------------
+
+  describe('global zoom controls', () => {
+    function GlobalZoomLightbox({
+      refs,
+      maxZoom = 4,
+    }: {
+      refs?: Array<React.RefObject<LightboxZoomRef | null>>;
+      maxZoom?: number;
+    } = {}) {
+      return (
+        <LightboxRoot defaultOpen>
+          <LightboxContent data-testid="content" aria-label="Global zoom test">
+            <LightboxItemGroup>
+              <LightboxItem index={0} data-testid="item-0">
+                <LightboxZoom ref={refs?.[0]} maxZoom={maxZoom}>
+                  <img src="a.jpg" alt="a" />
+                </LightboxZoom>
+              </LightboxItem>
+              <LightboxItem index={1} data-testid="item-1">
+                <LightboxZoom ref={refs?.[1]} maxZoom={maxZoom}>
+                  <img src="b.jpg" alt="b" />
+                </LightboxZoom>
+              </LightboxItem>
+            </LightboxItemGroup>
+            {/* Single shared control set outside every Zoom */}
+            <LightboxZoomIn data-testid="zoom-in">+</LightboxZoomIn>
+            <LightboxZoomOut data-testid="zoom-out">-</LightboxZoomOut>
+            <LightboxNext data-testid="next">Next</LightboxNext>
+            <LightboxPrevious data-testid="prev">Previous</LightboxPrevious>
+          </LightboxContent>
+        </LightboxRoot>
+      );
+    }
+
+    it('global buttons reflect the active slide at 1x', () => {
+      render(<GlobalZoomLightbox />);
+      expect(screen.getByTestId('zoom-in')).not.toBeDisabled();
+      expect(screen.getByTestId('zoom-out')).toBeDisabled();
+    });
+
+    it('global ZoomIn zooms the active slide and enables ZoomOut', () => {
+      render(<GlobalZoomLightbox />);
+      const content = screen.getByTestId('content');
+      expect(content).not.toHaveAttribute('data-zoomed');
+
+      fireEvent.click(screen.getByTestId('zoom-in'));
+
+      expect(content).toHaveAttribute('data-zoomed');
+      expect(screen.getByTestId('zoom-out')).not.toBeDisabled();
+    });
+
+    it('controls drive the active slide, not preloaded siblings', () => {
+      const refs = [
+        React.createRef<LightboxZoomRef>(),
+        React.createRef<LightboxZoomRef>(),
+      ];
+      render(<GlobalZoomLightbox refs={refs} />);
+
+      // Active slide is index 0.
+      fireEvent.click(screen.getByTestId('zoom-in'));
+      expect(refs[0]!.current!.zoom).toBeGreaterThan(1);
+      expect(refs[1]!.current!.zoom).toBe(1);
+    });
+
+    it('controls follow the active slide after navigation', () => {
+      const refs = [
+        React.createRef<LightboxZoomRef>(),
+        React.createRef<LightboxZoomRef>(),
+      ];
+      render(<GlobalZoomLightbox refs={refs} />);
+
+      fireEvent.click(screen.getByTestId('next'));
+      fireEvent.click(screen.getByTestId('zoom-in'));
+
+      expect(refs[1]!.current!.zoom).toBeGreaterThan(1);
+      expect(refs[0]!.current!.zoom).toBe(1);
+    });
+
+    it('ZoomIn disables at maxZoom and re-enables on the fresh next slide', () => {
+      render(<GlobalZoomLightbox maxZoom={2} />);
+      const zoomIn = screen.getByTestId('zoom-in');
+
+      // zoomStep default 2 → one step from 1x reaches maxZoom 2x.
+      fireEvent.click(zoomIn);
+      expect(zoomIn).toBeDisabled();
+
+      // The next slide starts fresh at 1x, so ZoomIn is enabled again.
+      fireEvent.click(screen.getByTestId('next'));
+      expect(zoomIn).not.toBeDisabled();
+      expect(screen.getByTestId('content')).not.toHaveAttribute('data-zoomed');
+    });
+
+    it('ZoomOut returns the active slide to 1x and disables again', () => {
+      render(<GlobalZoomLightbox />);
+      const content = screen.getByTestId('content');
+      const zoomOut = screen.getByTestId('zoom-out');
+
+      fireEvent.click(screen.getByTestId('zoom-in'));
+      expect(content).toHaveAttribute('data-zoomed');
+
+      // maxZoom 4, step 2 → from 2x one ZoomOut lands back at 1x.
+      fireEvent.click(zoomOut);
+      expect(content).not.toHaveAttribute('data-zoomed');
+      expect(zoomOut).toBeDisabled();
+    });
+
+    it('arrow keys pan (do not navigate) while the active slide is zoomed', () => {
+      render(<GlobalZoomLightbox />);
+      const content = screen.getByTestId('content');
+
+      // Baseline: arrow navigation works at 1x.
+      fireEvent.keyDown(content, { key: 'ArrowRight' });
+      expect(screen.getByTestId('item-1')).toHaveAttribute('aria-hidden', 'false');
+
+      // Back to slide 0 and zoom it in.
+      fireEvent.keyDown(content, { key: 'ArrowLeft' });
+      fireEvent.click(screen.getByTestId('zoom-in'));
+      expect(content).toHaveAttribute('data-zoomed');
+
+      // Now ArrowRight must be swallowed by the zoom pan handler.
+      fireEvent.keyDown(content, { key: 'ArrowRight' });
+      expect(screen.getByTestId('item-0')).toHaveAttribute('aria-hidden', 'false');
+      expect(screen.getByTestId('item-1')).toHaveAttribute('aria-hidden', 'true');
+    });
+  });
+
+  // ---------------------------------------------------------------------------
   // 15. Pull-to-dismiss
   // ---------------------------------------------------------------------------
 

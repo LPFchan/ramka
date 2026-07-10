@@ -3,7 +3,7 @@
 import { mergeProps, useRender } from '@base-ui/react';
 import * as React from 'react';
 
-import { useOptionalZoomContext } from './lightbox-zoom-context';
+import { useOptionalActiveZoom, useOptionalZoomContext } from './lightbox-zoom-context';
 
 interface LightboxZoomOutState extends Record<string, unknown> {
   disabled: boolean;
@@ -18,7 +18,12 @@ const stateAttributesMapping = {
 const LightboxZoomOut = React.forwardRef<HTMLButtonElement, LightboxZoomOutProps>(
   function LightboxZoomOut(props, forwardedRef) {
     const { render, ...elementProps } = props;
-    const ctx = useOptionalZoomContext();
+    // A button nested inside a specific Lightbox.Zoom controls that zoom
+    // directly; otherwise fall back to the active slide's zoom via the bridge
+    // so a single global button set can live in the lightbox chrome.
+    const localCtx = useOptionalZoomContext();
+    const activeCtx = useOptionalActiveZoom();
+    const ctx = localCtx ?? activeCtx;
     const disabled = ctx ? !ctx.canZoomOut : true;
 
     const state = React.useMemo<LightboxZoomOutState>(() => ({ disabled }), [disabled]);
