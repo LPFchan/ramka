@@ -461,6 +461,98 @@ describe('Lightbox', () => {
       fireEvent.keyDown(screen.getByTestId('content'), { key: 'ArrowLeft' });
       expect(screen.getByTestId('item-0')).toHaveAttribute('aria-hidden', 'false');
     });
+
+    it('defers navigation when a descendant already handled the key (defaultPrevented)', () => {
+      // Simulates a composed ScrollGallery: a descendant calls preventDefault
+      // on the arrow key before it bubbles to Content, so Content must not
+      // also navigate (single keyboard authority).
+      render(
+        <LightboxRoot defaultOpen defaultValue={0}>
+          <LightboxTrigger index={0}>Trigger 0</LightboxTrigger>
+          <LightboxContent data-testid="content" aria-label="Dedupe test">
+            <div
+              data-testid="descendant"
+              onKeyDown={(event) => {
+                if (event.key === 'ArrowRight') event.preventDefault();
+              }}
+            >
+              <LightboxItemGroup preload={1}>
+                {Array.from({ length: 3 }, (_, i) => (
+                  <LightboxItem key={`i-${i}`} index={i} data-testid={`item-${i}`}>
+                    Item {i}
+                  </LightboxItem>
+                ))}
+              </LightboxItemGroup>
+            </div>
+          </LightboxContent>
+        </LightboxRoot>,
+      );
+
+      fireEvent.keyDown(screen.getByTestId('descendant'), { key: 'ArrowRight' });
+
+      // Content bailed out, so the active item is unchanged.
+      expect(screen.getByTestId('item-0')).toHaveAttribute('aria-hidden', 'false');
+      expect(screen.getByTestId('item-1')).toHaveAttribute('aria-hidden', 'true');
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // 3b. Focus & inert (a slide must never strand keyboard focus)
+  // ---------------------------------------------------------------------------
+
+  describe('focus containment', () => {
+    it('slides expose no focusable region, so inert can never strand focus', () => {
+      render(
+        <LightboxRoot defaultOpen defaultValue={0}>
+          <LightboxContent data-testid="content" aria-label="Non-focusable slide test">
+            <LightboxItemGroup>
+              <LightboxItem index={0} data-testid="item-0">
+                <LightboxZoom maxZoom={4}>
+                  <img src="a.jpg" alt="a" />
+                </LightboxZoom>
+              </LightboxItem>
+            </LightboxItemGroup>
+          </LightboxContent>
+        </LightboxRoot>,
+      );
+
+      // The zoom container is intentionally not focusable — with nothing
+      // focusable inside a slide, focus never lives there and `inert` on a
+      // deactivated slide can never eject focus to <body>.
+      expect(screen.getByTestId('item-0').querySelector('[tabindex]')).toBeNull();
+    });
+
+    it('pulls focus back into the dialog if it escapes (e.g. a focusable control inside an inert slide)', async () => {
+      render(
+        <LightboxRoot defaultOpen defaultValue={0}>
+          <LightboxContent data-testid="content" aria-label="Containment test">
+            <LightboxItemGroup preload={2}>
+              {Array.from({ length: 3 }, (_, i) => (
+                <LightboxItem key={`i-${i}`} index={i} data-testid={`item-${i}`}>
+                  {/* A consumer-provided focusable control inside a slide. */}
+                  <button data-testid={`btn-${i}`} type="button">
+                    Slide {i}
+                  </button>
+                </LightboxItem>
+              ))}
+            </LightboxItemGroup>
+          </LightboxContent>
+        </LightboxRoot>,
+      );
+
+      const btn = screen.getByTestId('btn-0');
+      btn.focus();
+      expect(document.activeElement).toBe(btn);
+
+      // Simulate the browser ejecting focus out of the dialog to <body>
+      // (what happens when a focused slide becomes inert on navigation).
+      await act(async () => {
+        btn.blur();
+        await Promise.resolve();
+      });
+
+      expect(document.activeElement).toBe(screen.getByTestId('content'));
+    });
   });
 
   // ---------------------------------------------------------------------------

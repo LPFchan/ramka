@@ -68,6 +68,11 @@ const LightboxContent = React.forwardRef<HTMLDivElement, LightboxContentProps>(
 
     const contentRef = React.useRef<HTMLDivElement | null>(null);
 
+    // Latest `open` for use inside async callbacks (focus containment microtask)
+    // so we never fight a legitimate focus move that happens while closing.
+    const openRef = React.useRef(open);
+    openRef.current = open;
+
     const mergedRef = React.useCallback(
       (node: HTMLDivElement | null) => {
         contentRef.current = node;
@@ -86,6 +91,32 @@ const LightboxContent = React.forwardRef<HTMLDivElement, LightboxContentProps>(
       if (mounted) {
         contentRef.current?.focus();
       }
+    }, [mounted]);
+
+    // Focus containment (canonical modal focus trap, completing the Tab guards
+    // below). Slides are non-focusable, so normal usage never strands focus.
+    // But a consumer may place a focusable control inside a slide; when that
+    // slide deactivates it becomes `inert` and the browser ejects focus to
+    // `<body>`. If focus ever leaves the open dialog, pull it back so keyboard
+    // control (and this handler) can never be lost. Runs on the next microtask
+    // so the browser's own focus move settles first, and only while open.
+    React.useEffect(() => {
+      if (!mounted) return;
+      const el = contentRef.current;
+      if (!el) return;
+      const handleFocusOut = (event: FocusEvent) => {
+        if (!openRef.current) return;
+        const next = event.relatedTarget as Node | null;
+        if (next && el.contains(next)) return;
+        queueMicrotask(() => {
+          if (!openRef.current) return;
+          const active = document.activeElement;
+          if (active && el.contains(active)) return;
+          el.focus({ preventScroll: true });
+        });
+      };
+      el.addEventListener('focusout', handleFocusOut);
+      return () => el.removeEventListener('focusout', handleFocusOut);
     }, [mounted]);
 
     // Lock document scroll while the lightbox is open.
@@ -180,14 +211,75 @@ const LightboxContent = React.forwardRef<HTMLDivElement, LightboxContentProps>(
       return () => document.removeEventListener('keydown', handleEsc);
     }, [mounted, setOpen]);
 
-    // Arrow keys, Home, End for gallery navigation
+    // Keyboard is owned entirely by Content — the single authority.
+    //
+    // This works because slides never hold focus: nothing inside a
+    // `Lightbox.Item` is focusable (the zoom container has no tabindex), so
+    // clicking an image focuses the nearest focusable ancestor — this dialog —
+    // which is never `inert`. Focus therefore can never be stranded on `<body>`
+    // when a slide deactivates, and every key reliably reaches this handler.
+    //
+    //   - zoom keys (`+`/`-`/`Cmd|Ctrl+0`): always routed to the active slide's
+    //     zoom via the bridge, regardless of current zoom level.
+    //   - arrows while zoomed (> 1x): pan the active slide's zoom.
+    //   - arrows / Home / End at 1x: navigate the gallery (index-driven, so the
+    //     composed ScrollGallery scrolls with its configured behavior and keeps
+    //     markers in sync).
     const handleKeyDown = React.useCallback(
       (event: React.KeyboardEvent) => {
-        if (itemCount === 0) return;
+        // A descendant (e.g. a composed ScrollGallery viewport or its marker
+        // group) already handled this key and called preventDefault. Defer so
+        // navigation has a single authority and we don't double-handle it.
+        if (event.defaultPrevented) return;
 
-        // When zoomed in, arrow keys pan the image — don't navigate slides
+        const zoomCtl = activeZoomRef.current;
+        const meta = event.metaKey || event.ctrlKey;
+
+        // Zoom shortcuts — active at any zoom level.
+        if (zoomCtl) {
+          if (event.key === '+' || (meta && event.key === '=')) {
+            event.preventDefault();
+            zoomCtl.zoomIn();
+            return;
+          }
+          if (event.key === '-' || event.key === '_' || (meta && event.key === '-')) {
+            event.preventDefault();
+            zoomCtl.zoomOut();
+            return;
+          }
+          if (meta && event.key === '0') {
+            event.preventDefault();
+            zoomCtl.reset();
+            return;
+          }
+        }
+
         const isArrow = event.key.startsWith('Arrow');
-        if (isArrow && (activeZoomRef.current?.getZoom() ?? 1) > 1) return;
+
+        // While zoomed in, arrows pan the active slide instead of navigating.
+        if (isArrow && (zoomCtl?.getZoom() ?? 1) > 1 && zoomCtl) {
+          const d = zoomCtl.keyboardPanDistance;
+          switch (event.key) {
+            case 'ArrowRight':
+              zoomCtl.panBy(d, 0);
+              break;
+            case 'ArrowLeft':
+              zoomCtl.panBy(-d, 0);
+              break;
+            case 'ArrowDown':
+              zoomCtl.panBy(0, d);
+              break;
+            case 'ArrowUp':
+              zoomCtl.panBy(0, -d);
+              break;
+            default:
+              return;
+          }
+          event.preventDefault();
+          return;
+        }
+
+        if (itemCount === 0) return;
 
         let nextIndex: number | null = null;
 

@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { Lightbox, ScrollGallery } from 'ramka';
+import { Lightbox, ScrollGallery, useLightboxScrollSync } from 'ramka';
 import { Heart, MessageCircle, Share, X, ZoomIn, ZoomOut } from 'lucide-react';
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -382,18 +382,23 @@ function ActionBar({ stats }: { stats: FeedPost['stats'] }) {
 
 /**
  * One self-contained gallery: a feed post (avatar, header, text, image
- * grid, actions) wired to the full-screen media viewer. `activeIndex` is
- * the single piece of lifted state, shared between `Lightbox.Root` and the
- * inner `ScrollGallery.Root` so swiping and thumbnail clicks stay in sync.
+ * grid, actions) wired to the full-screen media viewer. `useLightboxScrollSync`
+ * owns the single shared active index and returns ready-to-spread props for
+ * both `Lightbox.Root` and the inner `ScrollGallery.Root`, so swiping,
+ * thumbnail clicks, and keyboard navigation all stay in sync.
  */
 function FeedPostGallery({ post }: { post: FeedPost }) {
-  const [activeIndex, setActiveIndex] = React.useState(0);
+  // A single source of truth for the active index, shared between
+  // `Lightbox.Root` and the inner `ScrollGallery.Root`. The hook dedupes
+  // updates from either root and keeps `loop`/`scrollBehavior` consistent so
+  // swiping, thumbnails, and keyboard all stay in sync.
+  const sync = useLightboxScrollSync({ loop: true, scrollBehavior: 'instant' });
   // Posts with hidden extras (behind the `+N` tile) have no trigger for
   // those indexes — close to the nearest one instead of flashing.
   const morphTo = post.images.length > 4 ? 'closest' : undefined;
 
   return (
-    <Lightbox.Root loop viewTransition morphTo={morphTo} value={activeIndex} onValueChange={setActiveIndex}>
+    <Lightbox.Root viewTransition morphTo={morphTo} {...sync.lightboxRootProps}>
       <article className="flex gap-3 py-4">
         <div className="shrink-0 pt-0.5">
           <Avatar size="lg">
@@ -426,7 +431,7 @@ function FeedPostGallery({ post }: { post: FeedPost }) {
         aria-label={`Photos by ${post.user.name}`}
         className="fixed inset-0 z-50 flex flex-col overscroll-contain opacity-0 outline-none transition-opacity duration-200 data-[open]:opacity-100 starting:data-[open]:opacity-0"
       >
-        <ScrollGallery.Root value={activeIndex} onValueChange={setActiveIndex} scrollBehavior="instant">
+        <ScrollGallery.Root {...sync.scrollGalleryRootProps}>
           {/* Swipeable, snapping viewport of full-size images */}
           <Lightbox.ItemGroup
             render={<ScrollGallery.Viewport aria-label="Full-size images" />}

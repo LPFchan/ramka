@@ -82,6 +82,12 @@ interface ActiveZoomControls {
   canZoomOut: boolean;
   zoomIn: () => void;
   zoomOut: () => void;
+  /** Reset the active slide's zoom to its minimum (1x). */
+  reset: () => void;
+  /** Pan the active slide by the given deltas (content-space px). */
+  panBy: (dx: number, dy: number) => void;
+  /** The active slide's configured keyboard pan step, in px. */
+  keyboardPanDistance: number;
   /** Live zoom level of the active slide (1 = not zoomed). */
   getZoom: () => number;
 }

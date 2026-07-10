@@ -423,50 +423,12 @@ function useZoomGestures(
   );
 
   // -------------------------------------------------------------------
-  // Keyboard — Cmd+/-, Cmd+0, arrows for pan
-  // -------------------------------------------------------------------
-
-  const handleKeyDown = React.useCallback(
-    (event: KeyboardEvent) => {
-      const { keyboardPanDistance } = configRef.current;
-      const { getZoom, zoomIn, zoomOut, changeZoom, changeOffsets } = actionsRef.current;
-      const zoom = getZoom();
-      const meta = event.metaKey || event.ctrlKey;
-
-      if (zoom > 1) {
-        const pan = (dx: number, dy: number) => {
-          event.preventDefault();
-          event.stopPropagation();
-          changeOffsets(dx, dy);
-        };
-
-        switch (event.key) {
-          case 'ArrowDown': pan(0, keyboardPanDistance); return;
-          case 'ArrowUp': pan(0, -keyboardPanDistance); return;
-          case 'ArrowLeft': pan(-keyboardPanDistance, 0); return;
-          case 'ArrowRight': pan(keyboardPanDistance, 0); return;
-        }
-      }
-
-      if (event.key === '+' || (meta && event.key === '=')) {
-        event.preventDefault();
-        event.stopPropagation();
-        zoomIn();
-      } else if (event.key === '-' || (meta && (event.key === '-' || event.key === '_'))) {
-        event.preventDefault();
-        event.stopPropagation();
-        zoomOut();
-      } else if (meta && event.key === '0') {
-        event.preventDefault();
-        event.stopPropagation();
-        changeZoom(1, false);
-      }
-    },
-    [],
-  );
-
-  // -------------------------------------------------------------------
   // Attach / detach listeners
+  //
+  // Keyboard zoom/pan is intentionally NOT handled here: the zoom container is
+  // not focusable (so it can never strand focus when its slide becomes inert),
+  // and keyboard is owned by Lightbox.Content, which drives the active slide's
+  // zoom through the active-zoom bridge (reset/panBy/zoomIn/zoomOut).
   // -------------------------------------------------------------------
 
   // Pointer + keyboard listeners (always passive-compatible, stable effect)
@@ -479,16 +441,14 @@ function useZoomGestures(
     el.addEventListener('pointermove', handlePointerMove);
     el.addEventListener('pointerup', handlePointerUp);
     el.addEventListener('pointercancel', handlePointerUp);
-    el.addEventListener('keydown', handleKeyDown);
 
     return () => {
       el.removeEventListener('pointerdown', handlePointerDown);
       el.removeEventListener('pointermove', handlePointerMove);
       el.removeEventListener('pointerup', handlePointerUp);
       el.removeEventListener('pointercancel', handlePointerUp);
-      el.removeEventListener('keydown', handleKeyDown);
     };
-  }, [disabled, containerRef, handlePointerDown, handlePointerMove, handlePointerUp, handleKeyDown]);
+  }, [disabled, containerRef, handlePointerDown, handlePointerMove, handlePointerUp]);
 
   // Wheel listener — registered separately so we can toggle passive flag.
   //

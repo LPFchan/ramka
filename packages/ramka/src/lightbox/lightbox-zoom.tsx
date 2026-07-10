@@ -493,8 +493,17 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
     // single global set of ZoomIn/ZoomOut controls can drive it. Cleanup guards
     // by identity so a slide swap never nulls out the incoming controls.
     const activeControls = React.useMemo<ActiveZoomControls>(
-      () => ({ canZoomIn, canZoomOut, zoomIn: zoomInAction, zoomOut: zoomOutAction, getZoom: getLiveZoom }),
-      [canZoomIn, canZoomOut, zoomInAction, zoomOutAction, getLiveZoom],
+      () => ({
+        canZoomIn,
+        canZoomOut,
+        zoomIn: zoomInAction,
+        zoomOut: zoomOutAction,
+        reset: () => resetAction(),
+        panBy: (dx: number, dy: number) => changeOffsetsAction(dx, dy),
+        keyboardPanDistance,
+        getZoom: getLiveZoom,
+      }),
+      [canZoomIn, canZoomOut, zoomInAction, zoomOutAction, resetAction, changeOffsetsAction, keyboardPanDistance, getLiveZoom],
     );
 
     React.useEffect(() => {
@@ -532,7 +541,6 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
             cursor: dragging ? 'grabbing' : zoom > 1 ? 'grab' : undefined,
             userSelect: 'none',
           }}
-          tabIndex={-1}
         >
           <div
             ref={wrapperRef}
