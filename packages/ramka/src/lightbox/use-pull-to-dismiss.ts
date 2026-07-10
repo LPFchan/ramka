@@ -39,6 +39,8 @@ const PULL_PROGRESS_VAR = '--lightbox-pull-progress';
 interface PullToDismissOptions {
   contentRef: React.RefObject<HTMLElement | null>;
   backdropRef: React.RefObject<HTMLElement | null>;
+  /** The currently-active slide element, tracked in context by Lightbox.Item. */
+  activeItemRef: React.RefObject<HTMLElement | null>;
   getZoom: () => number;
   onClose: () => void;
   disabled?: boolean;
@@ -51,6 +53,7 @@ interface PullToDismissOptions {
 function usePullToDismiss({
   contentRef,
   backdropRef,
+  activeItemRef,
   getZoom,
   onClose,
   disabled = false,
@@ -393,9 +396,7 @@ function usePullToDismiss({
           return;
         }
 
-        const activeItem = el.querySelector(
-          '[data-lightbox-item][data-active]',
-        ) as HTMLElement | null;
+        const activeItem = activeItemRef.current;
         if (!activeItem) {
           wheelDirRef.current = 'horizontal'; // nothing to pull — bail gesture
           scheduleWheelIdle();
@@ -458,7 +459,7 @@ function usePullToDismiss({
       }
       clearTransform();
     };
-  }, [disabled, contentRef, backdropRef, getZoom, onClose, applyTransform, clearTransform, snapBack, cleanup, computeVelocity]);
+  }, [disabled, contentRef, backdropRef, activeItemRef, getZoom, onClose, applyTransform, clearTransform, snapBack, cleanup, computeVelocity]);
 }
 
 export { usePullToDismiss };

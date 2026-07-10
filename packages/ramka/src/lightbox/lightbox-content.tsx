@@ -62,6 +62,7 @@ const LightboxContent = React.forwardRef<HTMLDivElement, LightboxContentProps>(
       loop,
       dialogElementRef,
       backdropElementRef,
+      activeItemElementRef,
     } = useLightboxContext();
     // The active slide's zoom is exposed via the Root-owned bridge (not the
     // per-slide ZoomContext, which is a descendant and unreadable here).
@@ -193,6 +194,10 @@ const LightboxContent = React.forwardRef<HTMLDivElement, LightboxContentProps>(
       // When the consumer doesn't render one, `backdropElementRef.current`
       // stays null and the hook gracefully skips backdrop opacity updates.
       backdropRef: backdropElementRef,
+      // The active slide element, tracked in context (Item sets it on activate).
+      // The wheel/trackpad pull path reads it directly instead of re-querying
+      // the DOM for `[data-lightbox-item][data-active]`.
+      activeItemRef: activeItemElementRef,
       getZoom,
       onClose: stableSetOpen,
       disabled: !pullToClose || !mounted,
