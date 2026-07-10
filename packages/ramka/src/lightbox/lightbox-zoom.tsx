@@ -3,6 +3,16 @@
 import { mergeProps, useRender } from '@base-ui/react';
 import * as React from 'react';
 
+import {
+  clamp,
+  clampOffset,
+  computeMaxZoom,
+  elasticClamp,
+  elasticClampSymmetric,
+  focalOffset,
+  maxPanOffset,
+  round,
+} from './gesture-math';
 import { useLightboxContext } from './lightbox-context';
 import { useOptionalLightboxItemContext } from './lightbox-item';
 import {
@@ -91,7 +101,6 @@ interface LightboxZoomRef {
 
 const DEFAULT_MIN_ZOOM = 1;
 const DEFAULT_MAX_ZOOM_FALLBACK = 4;
-const ELASTIC_FACTOR = 0.2;
 const DEFAULT_ZOOM_STEP = 2;
 const DEFAULT_WHEEL_SENSITIVITY = 100;
 const DEFAULT_KEYBOARD_PAN = 50;
@@ -99,32 +108,6 @@ const DEFAULT_DOUBLE_CLICK_DELAY = 300;
 const DEFAULT_ANIMATION_DURATION = 300;
 const SNAP_OPTS = { duration: 180, easing: 'cubic-bezier(0.25, 1, 0.5, 1)' } as const;
 const MOMENTUM_OPTS = { duration: 600, easing: 'cubic-bezier(0.33, 1, 0.68, 1)' } as const;
-
-// ---------------------------------------------------------------------------
-// Helper: round to N decimal places to avoid fp noise
-// ---------------------------------------------------------------------------
-
-function round(value: number, decimals: number): number {
-  const factor = 10 ** decimals;
-  return Math.round(value * factor) / factor;
-}
-
-/**
- * Rubber-band clamping: allows values past min/max with increasing
- * resistance, mimicking native iOS overscroll. The further the value
- * exceeds the bounds, the harder it is to pull.
- */
-function elasticClamp(value: number, min: number, max: number): number {
-  if (value < min) {
-    const over = min - value;
-    return min - over * ELASTIC_FACTOR;
-  }
-  if (value > max) {
-    const over = value - max;
-    return max + over * ELASTIC_FACTOR;
-  }
-  return value;
-}
 
 // ---------------------------------------------------------------------------
 // Component
@@ -172,11 +155,14 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
       if (maxZoomProp !== undefined) return maxZoomProp;
       if (!imageDimensions || !containerRef.current) return DEFAULT_MAX_ZOOM_FALLBACK;
       const rect = containerRef.current.getBoundingClientRect();
-      if (rect.width === 0 || rect.height === 0) return DEFAULT_MAX_ZOOM_FALLBACK;
-      const scaleX = imageDimensions.w / rect.width;
-      const scaleY = imageDimensions.h / rect.height;
-      const natural = Math.max(scaleX, scaleY);
-      return Math.max(natural, minZoom + 1);
+      return computeMaxZoom(
+        imageDimensions.w,
+        imageDimensions.h,
+        rect.width,
+        rect.height,
+        minZoom,
+        DEFAULT_MAX_ZOOM_FALLBACK,
+      );
     }, [maxZoomProp, imageDimensions, minZoom]);
 
     // ----- Observe images inside wrapper to get natural dimensions -----
@@ -256,13 +242,15 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
           }
         }
 
-        const maxOffX = Math.max((contentW * newZoom - containerRect.width) / 2 / newZoom, 0);
-        const maxOffY = Math.max((contentH * newZoom - containerRect.height) / 2 / newZoom, 0);
-
-        return {
-          x: Math.min(Math.abs(newOffsetX), maxOffX) * Math.sign(newOffsetX),
-          y: Math.min(Math.abs(newOffsetY), maxOffY) * Math.sign(newOffsetY),
-        };
+        return clampOffset(
+          newOffsetX,
+          newOffsetY,
+          contentW,
+          contentH,
+          containerRect.width,
+          containerRect.height,
+          newZoom,
+        );
       },
       [],
     );
@@ -295,19 +283,12 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
           if (img && img.offsetWidth > 0) { cw = img.offsetWidth; ch = img.offsetHeight; }
         }
         return {
-          maxX: Math.max((cw * z - rect.width) / 2 / z, 0),
-          maxY: Math.max((ch * z - rect.height) / 2 / z, 0),
+          maxX: maxPanOffset(cw, rect.width, z),
+          maxY: maxPanOffset(ch, rect.height, z),
         };
       },
       [],
     );
-
-    const applyElastic = (val: number, max: number) => {
-      const abs = Math.abs(val);
-      if (abs <= max) return val;
-      const over = abs - max;
-      return (max + over * ELASTIC_FACTOR) * Math.sign(val);
-    };
 
     const changeOffsetsAction = React.useCallback(
       (dx: number, dy: number, overscroll?: boolean) => {
@@ -320,8 +301,8 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
           rawOffsetX.current -= dx;
           rawOffsetY.current -= dy;
           const { maxX, maxY } = getMaxOffsets(zoomRef.current);
-          setOffsetX(applyElastic(rawOffsetX.current, maxX));
-          setOffsetY(applyElastic(rawOffsetY.current, maxY));
+          setOffsetX(elasticClampSymmetric(rawOffsetX.current, maxX));
+          setOffsetY(elasticClampSymmetric(rawOffsetY.current, maxY));
         } else {
           const clamped = clampOffsets(offsetXRef.current - dx, offsetYRef.current - dy, zoomRef.current);
           setOffsetX(clamped.x);
@@ -334,9 +315,7 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
     const changeZoomAction = React.useCallback(
       (target: number, rapid: boolean, dx?: number, dy?: number, overscroll?: boolean) => {
         const clamped = round(
-          overscroll
-            ? elasticClamp(target, minZoom, maxZoom)
-            : Math.min(Math.max(target, minZoom), maxZoom),
+          overscroll ? elasticClamp(target, minZoom, maxZoom) : clamp(target, minZoom, maxZoom),
           5,
         );
 
@@ -347,8 +326,8 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
         const currentOffY = offsetYRef.current;
 
         if (dx !== undefined && dy !== undefined) {
-          const newOffX = currentOffX + dx * (1 / clamped - 1 / currentZoom);
-          const newOffY = currentOffY + dy * (1 / clamped - 1 / currentZoom);
+          const newOffX = focalOffset(currentOffX, dx, currentZoom, clamped);
+          const newOffY = focalOffset(currentOffY, dy, currentZoom, clamped);
           const offsets = clampOffsets(newOffX, newOffY, clamped);
           setOffsetX(offsets.x);
           setOffsetY(offsets.y);
@@ -387,7 +366,7 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
       const currentZoom = zoomRef.current;
       if (currentZoom >= minZoom && currentZoom <= maxZoom) return;
       captureStart(SNAP_OPTS);
-      const snapped = Math.min(Math.max(currentZoom, minZoom), maxZoom);
+      const snapped = clamp(currentZoom, minZoom, maxZoom);
       const offsets = clampOffsets(offsetXRef.current, offsetYRef.current, snapped);
       setZoom(snapped);
       setOffsetX(offsets.x);

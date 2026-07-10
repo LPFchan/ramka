@@ -2,21 +2,13 @@
 
 import * as React from 'react';
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function pointerDistance(a: PointerEvent, b: PointerEvent): number {
-  return Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
-}
-
-/**
- * Multiplicative zoom scaling: value * (1 + |delta|/factor) ^ sign(delta).
- * Clamped so a single event can at most double/halve the zoom.
- */
-function scaleZoom(value: number, delta: number, factor: number): number {
-  return value * Math.min(1 + Math.abs(delta / factor), 2) ** Math.sign(delta);
-}
+import {
+  computeMomentumTarget,
+  distance,
+  doubleTapTargetZoom,
+  pinchZoom,
+  scaleZoom,
+} from './gesture-math';
 
 // ---------------------------------------------------------------------------
 // Config type
@@ -212,9 +204,7 @@ function useZoomGestures(
         lastTapPos.current = null;
 
         const { minZoom, maxZoom } = configRef.current;
-        const targetZoom = zoom > minZoom
-          ? minZoom
-          : Math.min(zoomStep, maxZoom);
+        const targetZoom = doubleTapTargetZoom(zoom, minZoom, maxZoom, zoomStep);
 
         setZooming(true);
         changeZoom(targetZoom, false, ...translateCoordinates(event));
@@ -241,7 +231,7 @@ function useZoomGestures(
         lastPointerDown.current = 0;
         tapCandidate.current = false;
         tapStartPos.current = null;
-        const dist = pointerDistance(pointers[0], pointers[1]);
+        const dist = distance(pointers[0].clientX, pointers[0].clientY, pointers[1].clientX, pointers[1].clientY);
         pinchState.current = {
           initialDistance: Math.max(dist, 1),
           initialZoom: zoom,
@@ -276,8 +266,8 @@ function useZoomGestures(
         replacePointer(event);
         velocityTracker.current.length = 0;
 
-        const currentDist = pointerDistance(pointers[0], pointers[1]);
-        const targetZoom = (pinchState.current.initialZoom / pinchState.current.initialDistance) * currentDist;
+        const currentDist = distance(pointers[0].clientX, pointers[0].clientY, pointers[1].clientX, pointers[1].clientY);
+        const targetZoom = pinchZoom(pinchState.current.initialZoom, pinchState.current.initialDistance, currentDist);
 
         const [cx, cy] = pointers
           .map((p) => translateCoordinates(p))
@@ -341,25 +331,20 @@ function useZoomGestures(
           const hasMomentum = !wasPinch && zoom > 1 && tracker.length >= 2;
 
           if (hasMomentum) {
-            const first = tracker[0];
-            const last = tracker[tracker.length - 1];
-            const dt = last.t - first.t;
-
-            if (dt > 0) {
-              const vx = ((last.x - first.x) / dt) * 1000;
-              const vy = ((last.y - first.y) / dt) * 1000;
-              const speed = Math.hypot(vx, vy);
-
-              if (speed > MOMENTUM_THRESHOLD) {
-                const { x: curX, y: curY } = actionsRef.current.getOffsets();
-                const factor = MOMENTUM_MULTIPLIER / 1000;
-                const targetX = curX + (vx * factor) / zoom;
-                const targetY = curY + (vy * factor) / zoom;
-                tracker.length = 0;
-                actionsRef.current.momentumPan(targetX, targetY);
-                setZooming(false);
-                return;
-              }
+            const { x: curX, y: curY } = actionsRef.current.getOffsets();
+            const target = computeMomentumTarget(
+              tracker,
+              curX,
+              curY,
+              zoom,
+              MOMENTUM_MULTIPLIER,
+              MOMENTUM_THRESHOLD,
+            );
+            if (target) {
+              tracker.length = 0;
+              actionsRef.current.momentumPan(target.targetX, target.targetY);
+              setZooming(false);
+              return;
             }
           }
 

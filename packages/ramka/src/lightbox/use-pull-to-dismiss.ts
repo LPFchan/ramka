@@ -2,6 +2,14 @@
 
 import * as React from 'react';
 
+import {
+  computePullTransform,
+  computePullVelocity,
+  resolveDragAxis,
+  shouldDismissPull,
+  wheelAxis,
+} from './gesture-math';
+
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
@@ -84,19 +92,14 @@ function usePullToDismiss({
       const target = dragTargetRef.current;
       if (!target) return;
 
-      // Asymptotic damping: moves ~1:1 near origin, then flattens toward
-      // a ceiling. The curve never reverses regardless of drag distance.
-      const absY = Math.abs(rawDeltaY);
-      const maxTravel = DISMISS_DISTANCE * 1.2;
-      const dampedAbsY = maxTravel * (1 - Math.exp(-absY / maxTravel));
-      const dampedY = Math.sign(rawDeltaY) * dampedAbsY;
-      const dampFactor = absY > 0 ? dampedAbsY / absY : 1;
-      const dampedX = rawDeltaX * dampFactor;
+      const { x, y, scale, progress } = computePullTransform(
+        rawDeltaX,
+        rawDeltaY,
+        DISMISS_DISTANCE,
+        MIN_SCALE,
+      );
 
-      const progress = Math.min(absY / DISMISS_DISTANCE, 1);
-      const scale = 1 - progress * (1 - MIN_SCALE);
-
-      target.style.transform = `translate(${dampedX}px, ${dampedY}px) scale(${scale})`;
+      target.style.transform = `translate(${x}px, ${y}px) scale(${scale})`;
 
       // Publish the raw progress and let consumers decide how it maps to
       // visuals. Set it on both the content and the (separately portaled)
@@ -177,15 +180,7 @@ function usePullToDismiss({
     });
   }, [contentRef, backdropRef]);
 
-  const computeVelocity = React.useCallback(() => {
-    const history = velocityHistoryRef.current;
-    if (history.length < 2) return 0;
-    const first = history[0];
-    const last = history[history.length - 1];
-    const dt = last.t - first.t;
-    if (dt === 0) return 0;
-    return ((last.y - first.y) / dt) * 1000;
-  }, []);
+  const computeVelocity = React.useCallback(() => computePullVelocity(velocityHistoryRef.current), []);
 
   React.useEffect(() => {
     if (disabled) return;
@@ -246,15 +241,13 @@ function usePullToDismiss({
 
       const deltaX = event.clientX - startXRef.current;
       const deltaY = event.clientY - startYRef.current;
-      const absX = Math.abs(deltaX);
-      const absY = Math.abs(deltaY);
 
       // Direction lock: determine gesture direction after a small movement
       if (directionRef.current === 'none') {
-        const totalDist = Math.hypot(deltaX, deltaY);
-        if (totalDist < DIRECTION_LOCK_DISTANCE) return;
-        directionRef.current = absY >= absX ? 'vertical' : 'horizontal';
-        if (directionRef.current === 'horizontal') {
+        const axis = resolveDragAxis(deltaX, deltaY, DIRECTION_LOCK_DISTANCE);
+        if (axis === 'none') return;
+        directionRef.current = axis;
+        if (axis === 'horizontal') {
           cleanup();
           return;
         }
@@ -291,14 +284,7 @@ function usePullToDismiss({
 
       if (!wasPulling) return;
 
-      const absDeltaY = Math.abs(deltaY);
-      const absVelocity = Math.abs(velocity);
-      const sameDirection = (deltaY > 0 && velocity > 0) || (deltaY < 0 && velocity < 0);
-
-      if (
-        absDeltaY >= DISMISS_DISTANCE ||
-        (absVelocity >= DISMISS_VELOCITY && sameDirection)
-      ) {
+      if (shouldDismissPull(deltaY, velocity, DISMISS_DISTANCE, DISMISS_VELOCITY)) {
         // Hand off from "pulling" to "dismissing": `data-pulling` is dropped so
         // the backdrop can run its close fade, but chrome hidden while pulling
         // must stay hidden through the close animation (otherwise it flashes
@@ -397,10 +383,11 @@ function usePullToDismiss({
       if (event.ctrlKey) return; // pinch-zoom intent
 
       if (wheelDirRef.current === 'none') {
-        if (event.deltaX === 0 && event.deltaY === 0) return;
+        const axis = wheelAxis(event.deltaX, event.deltaY);
+        if (axis === 'none') return;
         // Horizontal swipes belong to the scroll gallery — let them scroll
         // natively (the listener is passive; we never preventDefault).
-        if (Math.abs(event.deltaX) > Math.abs(event.deltaY)) {
+        if (axis === 'horizontal') {
           wheelDirRef.current = 'horizontal';
           scheduleWheelIdle();
           return;
