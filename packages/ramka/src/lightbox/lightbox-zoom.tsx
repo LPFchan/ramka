@@ -143,6 +143,7 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
     const [offsetY, setOffsetY] = React.useState(0);
     const [dragging, setDragging] = React.useState(false);
     const [imageDimensions, setImageDimensions] = React.useState<{ w: number; h: number } | null>(null);
+    const [containerSize, setContainerSize] = React.useState<{ w: number; h: number } | null>(null);
 
     const containerRef = React.useRef<HTMLDivElement | null>(null);
     const wrapperRef = React.useRef<HTMLDivElement | null>(null);
@@ -150,20 +151,44 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
     const onZoomChangeRef = React.useRef(onZoomChange);
     onZoomChangeRef.current = onZoomChange;
 
-    // ----- Max zoom computation -----
+    // ----- Measure the container out of render -----
+    // Layout reads belong in an effect, not render (render must stay pure and
+    // concurrent-safe). A ResizeObserver also keeps maxZoom correct when the
+    // container resizes (window/orientation change), which a render-time read
+    // would miss. Skipped entirely when maxZoom is provided explicitly.
+    React.useEffect(() => {
+      if (maxZoomProp !== undefined) return;
+      const el = containerRef.current;
+      if (!el) return;
+
+      const measure = () => {
+        const rect = el.getBoundingClientRect();
+        setContainerSize((prev) =>
+          prev && prev.w === rect.width && prev.h === rect.height
+            ? prev
+            : { w: rect.width, h: rect.height },
+        );
+      };
+
+      measure();
+      const observer = new ResizeObserver(measure);
+      observer.observe(el);
+      return () => observer.disconnect();
+    }, [maxZoomProp]);
+
+    // ----- Max zoom computation (pure — no layout reads) -----
     const maxZoom = React.useMemo(() => {
       if (maxZoomProp !== undefined) return maxZoomProp;
-      if (!imageDimensions || !containerRef.current) return DEFAULT_MAX_ZOOM_FALLBACK;
-      const rect = containerRef.current.getBoundingClientRect();
+      if (!imageDimensions || !containerSize) return DEFAULT_MAX_ZOOM_FALLBACK;
       return computeMaxZoom(
         imageDimensions.w,
         imageDimensions.h,
-        rect.width,
-        rect.height,
+        containerSize.w,
+        containerSize.h,
         minZoom,
         DEFAULT_MAX_ZOOM_FALLBACK,
       );
-    }, [maxZoomProp, imageDimensions, minZoom]);
+    }, [maxZoomProp, imageDimensions, containerSize, minZoom]);
 
     // ----- Observe images inside wrapper to get natural dimensions -----
     React.useEffect(() => {

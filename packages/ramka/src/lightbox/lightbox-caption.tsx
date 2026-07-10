@@ -28,9 +28,17 @@ const captionStateAttributesMapping = {
 const LightboxCaption = React.forwardRef<HTMLDivElement, LightboxCaptionProps>(
   function LightboxCaption(props, forwardedRef) {
     const { render, ...elementProps } = props;
-    const { activeIndex, captionsRef } = useLightboxContext();
+    const { activeIndex, captionsRef, subscribeCaptions } = useLightboxContext();
 
-    const caption = captionsRef.current.get(activeIndex);
+    // Read the ref-based registry reactively. `.get()` returns a stable
+    // reference until the caption actually changes, so it's a valid
+    // useSyncExternalStore snapshot (no re-render loop), and the component
+    // now updates on caption register/unregister — not only on activeIndex.
+    const getCaption = React.useCallback(
+      () => captionsRef.current.get(activeIndex),
+      [captionsRef, activeIndex],
+    );
+    const caption = React.useSyncExternalStore(subscribeCaptions, getCaption, getCaption);
     const hasCaption = caption !== undefined;
 
     const state = React.useMemo<LightboxCaptionState>(

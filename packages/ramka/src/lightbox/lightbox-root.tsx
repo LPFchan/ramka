@@ -218,14 +218,25 @@ const LightboxRoot = React.forwardRef<LightboxRootRef, LightboxRootProps>(
     }, []);
 
     // Caption registry — ref-based to avoid creating new Map objects and
-    // triggering re-renders on every item mount. LightboxCaption reads
-    // from the ref; it re-renders when activeIndex changes via context.
+    // triggering re-renders on every item mount. LightboxCaption subscribes
+    // via useSyncExternalStore, so it reads the ref reactively (updating on
+    // register/unregister or a changed caption) without Root re-rendering.
     const captionsRef = React.useRef(new Map<number, React.ReactNode>());
+    const captionListenersRef = React.useRef(new Set<() => void>());
+
+    const subscribeCaptions = React.useCallback((onChange: () => void) => {
+      captionListenersRef.current.add(onChange);
+      return () => {
+        captionListenersRef.current.delete(onChange);
+      };
+    }, []);
 
     const registerCaption = React.useCallback((index: number, caption: React.ReactNode) => {
       captionsRef.current.set(index, caption);
+      captionListenersRef.current.forEach((listener) => listener());
       return () => {
         captionsRef.current.delete(index);
+        captionListenersRef.current.forEach((listener) => listener());
       };
     }, []);
 
@@ -444,6 +455,7 @@ const LightboxRoot = React.forwardRef<LightboxRootRef, LightboxRootProps>(
         loop,
         captionsRef,
         registerCaption,
+        subscribeCaptions,
         viewTransition,
         morphTo,
         triggerElementsRef,
@@ -452,7 +464,7 @@ const LightboxRoot = React.forwardRef<LightboxRootRef, LightboxRootProps>(
         dialogElementRef,
         backdropElementRef,
       }),
-      [open, setOpen, mounted, activeIndex, setActiveIndex, itemCount, registerItem, loop, registerCaption, viewTransition, morphTo],
+      [open, setOpen, mounted, activeIndex, setActiveIndex, itemCount, registerItem, loop, registerCaption, subscribeCaptions, viewTransition, morphTo],
     );
 
     return (

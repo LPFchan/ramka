@@ -765,6 +765,31 @@ describe('Lightbox', () => {
       expect(screen.getByTestId('caption')).toHaveAttribute('data-has-caption');
     });
 
+    it('caption updates reactively when the active item caption changes without navigating', () => {
+      function CaptionWrapper({ text }: { text: string }) {
+        return (
+          <LightboxRoot defaultOpen defaultValue={0}>
+            <LightboxContent aria-label="Reactive caption test">
+              <LightboxItemGroup>
+                <LightboxItem index={0} caption={text}>
+                  Item 0
+                </LightboxItem>
+              </LightboxItemGroup>
+              <LightboxCaption data-testid="reactive-caption" />
+            </LightboxContent>
+          </LightboxRoot>
+        );
+      }
+
+      const { rerender } = render(<CaptionWrapper text="First" />);
+      expect(screen.getByTestId('reactive-caption').textContent).toBe('First');
+
+      // activeIndex is unchanged; only the caption content changes. The
+      // ref-read-during-render version would keep showing "First".
+      rerender(<CaptionWrapper text="Second" />);
+      expect(screen.getByTestId('reactive-caption').textContent).toBe('Second');
+    });
+
     it('counter displays "1 / N" format', () => {
       render(<TestLightbox defaultOpen defaultValue={0} itemCount={5} />);
       expect(screen.getByTestId('counter').textContent).toBe('1 / 5');

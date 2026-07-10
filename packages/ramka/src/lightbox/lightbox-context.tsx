@@ -16,6 +16,14 @@ interface LightboxContextValue {
   loop: boolean;
   captionsRef: React.RefObject<Map<number, React.ReactNode>>;
   registerCaption: (index: number, caption: React.ReactNode) => () => void;
+  /**
+   * Subscribe to caption-registry changes. Lets `Lightbox.Caption` read the
+   * ref-based registry reactively via `useSyncExternalStore` — so a caption
+   * that registers or changes without `activeIndex` moving still updates —
+   * without turning the registry into state (which would re-render on every
+   * item mount).
+   */
+  subscribeCaptions: (onChange: () => void) => () => void;
 
   // View transition support
   viewTransition: boolean;
