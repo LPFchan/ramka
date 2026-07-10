@@ -354,9 +354,43 @@ describe('Lightbox', () => {
 
     it('ESC key closes the lightbox', async () => {
       render(<TestLightbox defaultOpen />);
-      fireEvent.keyDown(document, { key: 'Escape' });
+      fireEvent.keyDown(screen.getByTestId('content'), { key: 'Escape' });
       await flushMicrotasks();
       expect(screen.queryByTestId('content')).toBeNull();
+    });
+
+    it('ESC closes only the focused lightbox when multiple are open', async () => {
+      function TwoLightboxes() {
+        return (
+          <>
+            <LightboxRoot defaultOpen defaultValue={0}>
+              <LightboxContent data-testid="content-a" aria-label="Lightbox A">
+                <LightboxItemGroup>
+                  <LightboxItem index={0}>A0</LightboxItem>
+                </LightboxItemGroup>
+              </LightboxContent>
+            </LightboxRoot>
+            <LightboxRoot defaultOpen defaultValue={0}>
+              <LightboxContent data-testid="content-b" aria-label="Lightbox B">
+                <LightboxItemGroup>
+                  <LightboxItem index={0}>B0</LightboxItem>
+                </LightboxItemGroup>
+              </LightboxContent>
+            </LightboxRoot>
+          </>
+        );
+      }
+
+      render(<TwoLightboxes />);
+      expect(screen.getByTestId('content-a')).toBeInTheDocument();
+      expect(screen.getByTestId('content-b')).toBeInTheDocument();
+
+      // Escape targeted at B must close B only — A stays open.
+      fireEvent.keyDown(screen.getByTestId('content-b'), { key: 'Escape' });
+      await flushMicrotasks();
+
+      expect(screen.getByTestId('content-a')).toBeInTheDocument();
+      expect(screen.queryByTestId('content-b')).toBeNull();
     });
 
     it('clicking content backdrop area closes the lightbox', async () => {

@@ -203,20 +203,6 @@ const LightboxContent = React.forwardRef<HTMLDivElement, LightboxContentProps>(
       disabled: !pullToClose || !mounted,
     });
 
-    // Close on Escape key. Listens on the document so it works regardless
-    // of focus state, matching native <dialog> cancel behavior.
-    React.useEffect(() => {
-      if (!mounted) return;
-      const handleEsc = (event: KeyboardEvent) => {
-        if (event.key === 'Escape') {
-          event.preventDefault();
-          setOpen(false);
-        }
-      };
-      document.addEventListener('keydown', handleEsc);
-      return () => document.removeEventListener('keydown', handleEsc);
-    }, [mounted, setOpen]);
-
     // Keyboard is owned entirely by Content — the single authority.
     //
     // This works because slides never hold focus: nothing inside a
@@ -237,6 +223,15 @@ const LightboxContent = React.forwardRef<HTMLDivElement, LightboxContentProps>(
         // group) already handled this key and called preventDefault. Defer so
         // navigation has a single authority and we don't double-handle it.
         if (event.defaultPrevented) return;
+
+        // Close on Escape. Handled here (rather than a document listener) so it
+        // stays scoped to the focused instance: focus is contained within this
+        // dialog, so with multiple lightboxes open only the active one closes.
+        if (event.key === 'Escape') {
+          event.preventDefault();
+          setOpen(false);
+          return;
+        }
 
         const zoomCtl = activeZoomRef.current;
         const meta = event.metaKey || event.ctrlKey;
@@ -313,7 +308,7 @@ const LightboxContent = React.forwardRef<HTMLDivElement, LightboxContentProps>(
           setActiveIndex(nextIndex, 'keyboard');
         }
       },
-      [activeIndex, itemCount, loop, setActiveIndex, activeZoomRef],
+      [activeIndex, itemCount, loop, setActiveIndex, setOpen, activeZoomRef],
     );
 
     // Click on the content container itself (not children) closes the
