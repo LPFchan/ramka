@@ -451,11 +451,7 @@ function FeedPostGallery({ post }: { post: FeedPost }) {
                   caption={img.caption}
                   className="relative flex h-full w-full items-center justify-center"
                 >
-                  <Lightbox.Zoom
-                    maxZoom={6}
-                    className="flex h-full w-full items-center justify-center"
-                    wrapperClassName="flex h-full w-full items-center justify-center"
-                  >
+                  <Lightbox.Zoom maxZoom={6} className="flex h-full w-full items-center justify-center">
                     <img
                       src={img.src}
                       alt={img.alt}

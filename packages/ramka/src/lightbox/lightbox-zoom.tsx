@@ -1,5 +1,6 @@
 'use client';
 
+import { mergeProps, useRender } from '@base-ui/react';
 import * as React from 'react';
 
 import { useLightboxContext } from './lightbox-context';
@@ -17,25 +18,32 @@ import { useZoomGestures, type ZoomGestureActions, type ZoomGestureConfig } from
 // Types
 // ---------------------------------------------------------------------------
 
-interface LightboxZoomState {
+interface LightboxZoomState extends Record<string, unknown> {
   zoom: number;
   maxZoom: number;
   offsetX: number;
   offsetY: number;
   canZoomIn: boolean;
   canZoomOut: boolean;
+  /** Whether the content is currently being dragged (panned). */
+  dragging: boolean;
 }
 
-interface LightboxZoomProps {
+/**
+ * `Lightbox.Zoom` is a headless zoom/pan surface. Like the other primitives it
+ * follows the `render` + `data-*` model: it renders a single element (a `div`
+ * by default, override via `render`) that clips its content and captures
+ * pointer/wheel/gesture input. State is exposed as attributes on that element —
+ * `data-zoom` while scaled past 1x and `data-dragging` while panning — so
+ * consumers can style purely through CSS.
+ *
+ * The zoom transform is applied to an internal wrapper element that is not
+ * consumer-configurable; pass your (typically `<img>`) content as `children`.
+ * `children` may also be a render function receiving the current zoom state.
+ */
+interface LightboxZoomProps
+  extends Omit<useRender.ComponentProps<'div', LightboxZoomState>, 'children' | 'ref'> {
   children: React.ReactNode | ((state: LightboxZoomState) => React.ReactNode);
-  /**
-   * Content rendered inside the zoom context but NOT affected by the zoom
-   * transform. Use this for toolbar controls (ZoomIn, ZoomOut, etc.) that
-   * need access to the ZoomContext but should stay at 1x scale.
-   *
-   * Positioned absolutely over the zoom container by default.
-   */
-  overlay?: React.ReactNode | ((state: LightboxZoomState) => React.ReactNode);
   /** Minimum zoom level. @default 1 */
   minZoom?: number;
   /**
@@ -61,11 +69,12 @@ interface LightboxZoomProps {
   animationDuration?: number;
   /** Callback when zoom level changes. */
   onZoomChange?: (zoom: number) => void;
-  /** CSS class for the outer container. */
-  className?: string;
-  /** CSS class for the inner transform wrapper. */
-  wrapperClassName?: string;
 }
+
+const stateAttributesMapping = {
+  zoom: (value: unknown) => (typeof value === 'number' && value > 1 ? { 'data-zoom': '' } : null),
+  dragging: (value: unknown) => (value ? { 'data-dragging': '' } : null),
+};
 
 interface LightboxZoomRef {
   zoom: number;
@@ -128,7 +137,7 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
   function LightboxZoom(props, forwardedRef) {
     const {
       children,
-      overlay,
+      render,
       minZoom = DEFAULT_MIN_ZOOM,
       maxZoom: maxZoomProp,
       zoomStep = DEFAULT_ZOOM_STEP,
@@ -139,8 +148,7 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
       doubleClickDelay = DEFAULT_DOUBLE_CLICK_DELAY,
       animationDuration = DEFAULT_ANIMATION_DURATION,
       onZoomChange,
-      className,
-      wrapperClassName,
+      ...elementProps
     } = props;
 
     const { activeIndex, dialogElementRef } = useLightboxContext();
@@ -515,24 +523,42 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
     }, [isActive, activeControls, publishActiveZoom]);
 
     // ----- Render -----
-    const stateSnapshot = { zoom, maxZoom, offsetX, offsetY, canZoomIn, canZoomOut };
+    const state = React.useMemo<LightboxZoomState>(
+      () => ({ zoom, maxZoom, offsetX, offsetY, canZoomIn, canZoomOut, dragging }),
+      [zoom, maxZoom, offsetX, offsetY, canZoomIn, canZoomOut, dragging],
+    );
 
-    const resolvedChildren = typeof children === 'function'
-      ? children(stateSnapshot)
-      : children;
+    const resolvedChildren = typeof children === 'function' ? children(state) : children;
 
-    const resolvedOverlay = typeof overlay === 'function'
-      ? overlay(stateSnapshot)
-      : overlay;
+    // The transform wrapper is an internal implementation detail: it centers
+    // and scales the content. Consumers style the outer element (via `render`/
+    // `className`) and pass their content as `children`.
+    const wrapper = (
+      <div
+        ref={wrapperRef}
+        style={{
+          width: '100%',
+          height: '100%',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          transformOrigin: 'center center',
+          transform: `scale(${zoom}) translate(${offsetX}px, ${offsetY}px)`,
+          willChange: zoom > 1 ? 'transform' : undefined,
+        }}
+      >
+        {resolvedChildren}
+      </div>
+    );
 
-    return (
-      <ZoomContext.Provider value={contextValue}>
-        <div
-          ref={containerRef}
-          className={className}
-          data-zoom={zoom > 1 ? '' : undefined}
-          data-dragging={dragging ? '' : undefined}
-          style={{
+    const element = useRender({
+      render,
+      ref: containerRef,
+      state,
+      stateAttributesMapping,
+      props: mergeProps<'div'>(
+        {
+          style: {
             overflow: 'hidden',
             position: 'relative',
             width: '100%',
@@ -540,28 +566,15 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
             touchAction: zoom > minZoom ? 'none' : 'pan-x pan-y',
             cursor: dragging ? 'grabbing' : zoom > 1 ? 'grab' : undefined,
             userSelect: 'none',
-          }}
-        >
-          <div
-            ref={wrapperRef}
-            className={wrapperClassName}
-            style={{
-              width: '100%',
-              height: '100%',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              transformOrigin: 'center center',
-              transform: `scale(${zoom}) translate(${offsetX}px, ${offsetY}px)`,
-              willChange: zoom > 1 ? 'transform' : undefined,
-            }}
-          >
-            {resolvedChildren}
-          </div>
-          {resolvedOverlay}
-        </div>
-      </ZoomContext.Provider>
-    );
+          },
+        } as React.ComponentPropsWithRef<'div'>,
+        elementProps as React.ComponentPropsWithRef<'div'>,
+        { children: wrapper } as React.ComponentPropsWithRef<'div'>,
+      ),
+      defaultTagName: 'div',
+    });
+
+    return <ZoomContext.Provider value={contextValue}>{element}</ZoomContext.Provider>;
   },
 );
 
