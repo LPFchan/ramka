@@ -29,7 +29,6 @@ interface ZoomGestureConfig {
   scrollToZoom: boolean;
   wheelSensitivity: number;
   keyboardPanDistance: number;
-  doubleClickMaxStops: number;
   doubleClickDelay: number;
 }
 

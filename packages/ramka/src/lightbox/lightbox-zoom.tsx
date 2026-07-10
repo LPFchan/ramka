@@ -61,8 +61,6 @@ interface LightboxZoomProps
   wheelSensitivity?: number;
   /** Keyboard pan distance in px per keypress. @default 50 */
   keyboardPanDistance?: number;
-  /** Max number of double-click stops before resetting to 1x. @default 2 */
-  doubleClickMaxStops?: number;
   /** Max delay between clicks for double-click detection (ms). @default 400 */
   doubleClickDelay?: number;
   /** Smooth zoom animation duration (ms). @default 300 */
@@ -97,7 +95,6 @@ const ELASTIC_FACTOR = 0.2;
 const DEFAULT_ZOOM_STEP = 2;
 const DEFAULT_WHEEL_SENSITIVITY = 100;
 const DEFAULT_KEYBOARD_PAN = 50;
-const DEFAULT_DOUBLE_CLICK_STOPS = 2;
 const DEFAULT_DOUBLE_CLICK_DELAY = 300;
 const DEFAULT_ANIMATION_DURATION = 300;
 const SNAP_OPTS = { duration: 180, easing: 'cubic-bezier(0.25, 1, 0.5, 1)' } as const;
@@ -144,7 +141,6 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
       scrollToZoom = false,
       wheelSensitivity = DEFAULT_WHEEL_SENSITIVITY,
       keyboardPanDistance = DEFAULT_KEYBOARD_PAN,
-      doubleClickMaxStops = DEFAULT_DOUBLE_CLICK_STOPS,
       doubleClickDelay = DEFAULT_DOUBLE_CLICK_DELAY,
       animationDuration = DEFAULT_ANIMATION_DURATION,
       onZoomChange,
@@ -435,10 +431,9 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
         scrollToZoom,
         wheelSensitivity,
         keyboardPanDistance,
-        doubleClickMaxStops,
         doubleClickDelay,
       }),
-      [minZoom, maxZoom, zoomStep, scrollToZoom, wheelSensitivity, keyboardPanDistance, doubleClickMaxStops, doubleClickDelay],
+      [minZoom, maxZoom, zoomStep, scrollToZoom, wheelSensitivity, keyboardPanDistance, doubleClickDelay],
     );
 
     const gestureActions = React.useMemo<ZoomGestureActions>(

@@ -11,6 +11,10 @@ interface LightboxNextState extends Record<string, unknown> {
 
 interface LightboxNextProps extends useRender.ComponentProps<'button', LightboxNextState> {}
 
+const stateAttributesMapping = {
+  disabled: (value: unknown) => (value ? { 'data-disabled': '' } : null),
+};
+
 /**
  * Navigates to the next item in the lightbox.
  * Auto-disables at the last item unless `loop` is enabled on Root.
@@ -34,13 +38,13 @@ const LightboxNext = React.forwardRef<HTMLButtonElement, LightboxNextProps>(
       render,
       ref: forwardedRef,
       state,
+      stateAttributesMapping,
       props: mergeProps<'button'>(
         {
           type: 'button',
           disabled,
           'aria-label': 'Next',
           onClick: handleClick,
-          ...(disabled ? { 'data-disabled': '' } : undefined),
         } as React.ComponentPropsWithRef<'button'>,
         elementProps as React.ComponentPropsWithRef<'button'>,
       ),
