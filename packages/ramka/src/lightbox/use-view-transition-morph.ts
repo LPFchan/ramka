@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { flushSync } from 'react-dom';
 
-import { VIEW_TRANSITION_NAME, findMorphTarget } from './lightbox-context';
+import { VIEW_TRANSITION_NAME, findItemMorphTarget, findTriggerMorphTarget } from './lightbox-context';
 
 // ---------------------------------------------------------------------------
 // View Transition helpers
@@ -210,7 +210,7 @@ function useViewTransitionMorph(config: ViewTransitionMorphConfig): ViewTransiti
 
     const triggerIdx = openingTriggerIndexRef.current;
     const triggerEl = triggerElementsRef.current.get(triggerIdx);
-    const triggerTarget = triggerEl ? findMorphTarget(triggerEl) : null;
+    const triggerTarget = triggerEl ? findTriggerMorphTarget(triggerEl) : null;
     const useCrossfade = triggerEl?.dataset.crossfade === 'true';
 
     // Batch all reads before any writes to avoid forced reflow
@@ -228,7 +228,7 @@ function useViewTransitionMorph(config: ViewTransitionMorphConfig): ViewTransiti
       }
       flushSync(commitOpen);
       const itemEl = activeItemElementRef.current;
-      const itemTarget = itemEl ? findMorphTarget(itemEl) : null;
+      const itemTarget = itemEl ? findItemMorphTarget(itemEl) : null;
 
       // Wait for the destination image to decode before the browser
       // captures the "new" snapshot, preventing a flash of empty space
@@ -254,7 +254,7 @@ function useViewTransitionMorph(config: ViewTransitionMorphConfig): ViewTransiti
     transition.finished.finally(() => {
       if (configRef.current.closeGenRef.current !== gen) return;
       const itemEl = configRef.current.activeItemElementRef.current;
-      const itemTarget = itemEl ? findMorphTarget(itemEl) : null;
+      const itemTarget = itemEl ? findItemMorphTarget(itemEl) : null;
       if (itemTarget) {
         itemTarget.style.viewTransitionName = '';
       }
@@ -279,7 +279,7 @@ function useViewTransitionMorph(config: ViewTransitionMorphConfig): ViewTransiti
     const gen = closeGenRef.current;
 
     const itemEl = activeItemElementRef.current;
-    const itemTarget = itemEl ? findMorphTarget(itemEl) : null;
+    const itemTarget = itemEl ? findItemMorphTarget(itemEl) : null;
     const triggerIdx = resolveTriggerIndex(
       activeIndexRef.current,
       morphTo,
@@ -287,7 +287,7 @@ function useViewTransitionMorph(config: ViewTransitionMorphConfig): ViewTransiti
       triggerElementsRef.current,
     );
     const triggerEl = triggerElementsRef.current.get(triggerIdx);
-    const triggerTarget = triggerEl ? findMorphTarget(triggerEl) : null;
+    const triggerTarget = triggerEl ? findTriggerMorphTarget(triggerEl) : null;
     const useCrossfade = triggerEl?.dataset.crossfade === 'true';
 
     // Batch all reads before any writes to avoid forced reflow

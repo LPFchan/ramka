@@ -280,7 +280,7 @@ function ImageGrid({ imgs }: { imgs: GalleryImage[] }) {
     const only = imgs[0]!;
     return (
       <Lightbox.Trigger index={0} className="block w-full overflow-hidden rounded-xl bg-transparent p-0">
-        <img src={only.thumb} alt={only.alt} className="block aspect-[3/2] w-full rounded-xl object-cover" />
+        <img src={only.thumb} alt={only.alt} className="block  w-full object-cover" />
       </Lightbox.Trigger>
     );
   }
@@ -297,7 +297,7 @@ function ImageGrid({ imgs }: { imgs: GalleryImage[] }) {
             <img
               src={img.thumb}
               alt={img.alt}
-              className={`block aspect-[4/5] w-full object-cover ${cornerClass(i, 2)}`}
+              className="block aspect-[4/5] w-full object-cover"
             />
           </Lightbox.Trigger>
         ))}
@@ -313,7 +313,7 @@ function ImageGrid({ imgs }: { imgs: GalleryImage[] }) {
           index={0}
           className={`row-span-2 block overflow-hidden bg-transparent p-0 ${cornerClass(0, 3)}`}
         >
-          <img src={first.thumb} alt={first.alt} className={`block h-full w-full object-cover ${cornerClass(0, 3)}`} />
+          <img src={first.thumb} alt={first.alt} className="block h-full w-full object-cover" />
         </Lightbox.Trigger>
         {imgs.slice(1, 3).map((img, idx) => {
           const i = idx + 1;
@@ -323,7 +323,7 @@ function ImageGrid({ imgs }: { imgs: GalleryImage[] }) {
               index={i}
               className={`block overflow-hidden bg-transparent p-0 ${cornerClass(i, 3)}`}
             >
-              <img src={img.thumb} alt={img.alt} className={`block h-full w-full object-cover ${cornerClass(i, 3)}`} />
+              <img src={img.thumb} alt={img.alt} className="block h-full w-full object-cover" />
             </Lightbox.Trigger>
           );
         })}
@@ -344,10 +344,9 @@ function ImageGrid({ imgs }: { imgs: GalleryImage[] }) {
             className={`block overflow-hidden bg-transparent p-0 ${cornerClass(i, 4)}`}
           >
             <div
-              {...(showOverlay ? { 'data-lightbox-morph': '' } : {})}
               className={`relative h-full w-full overflow-hidden ${cornerClass(i, 4)}`}
             >
-              <img src={img.thumb} alt={img.alt} className={`block h-full w-full object-cover ${cornerClass(i, 4)}`} />
+              <img src={img.thumb} alt={img.alt} className="block h-full w-full object-cover" />
               {showOverlay && (
                 <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/50">
                   <span className="text-2xl font-bold text-white">+{extra}</span>
