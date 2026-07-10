@@ -1,5 +1,6 @@
 'use client';
 
+import { mergeProps } from '@base-ui/react';
 import * as React from 'react';
 import * as ReactDOM from 'react-dom';
 
@@ -346,6 +347,33 @@ const LightboxContent = React.forwardRef<HTMLDivElement, LightboxContentProps>(
 
     const portalTarget = container ?? (typeof document !== 'undefined' ? document.body : null);
 
+    // Merge internal dialog props with consumer-provided props. `mergeProps`
+    // composes event handlers (consumer `onKeyDown`/`onClick` run alongside the
+    // internal keyboard-nav and backdrop-close handlers rather than replacing
+    // them) and merges `style`/`className`, matching the convention used by
+    // every other primitive. Consumer props win for plain scalar attributes.
+    const dialogProps = mergeProps<'div'>(
+      {
+        role: 'dialog',
+        'aria-modal': 'true',
+        className,
+        // Establish a scroll-containment boundary. `overflow: hidden` makes
+        // the content a scroll container that is permanently at its scroll
+        // boundary, which is the prerequisite for `overscroll-behavior:
+        // contain` to actually take effect (it is inert on a non-scroll
+        // container). Together they stop wheel/touch scroll — and, crucially,
+        // the macOS trackpad momentum tail latched to this container — from
+        // chaining out to the page, including after the lightbox closes.
+        // Consumers can still override via the `style` prop.
+        style: { overflow: 'hidden', overscrollBehavior: 'contain', ...style },
+        'data-open': open || undefined,
+        onKeyDown: handleKeyDown,
+        onClick: handleClick,
+        tabIndex: -1,
+      } as React.ComponentPropsWithRef<'div'>,
+      rest as React.ComponentPropsWithRef<'div'>,
+    );
+
     const content = (
       <>
         <span
@@ -355,26 +383,7 @@ const LightboxContent = React.forwardRef<HTMLDivElement, LightboxContentProps>(
           style={focusGuardStyle}
           onFocus={handleBeforeGuardFocus}
         />
-        <div
-          ref={mergedRef}
-          role="dialog"
-          aria-modal="true"
-          className={className}
-          // Establish a scroll-containment boundary. `overflow: hidden` makes
-          // the content a scroll container that is permanently at its scroll
-          // boundary, which is the prerequisite for `overscroll-behavior:
-          // contain` to actually take effect (it is inert on a non-scroll
-          // container). Together they stop wheel/touch scroll — and, crucially,
-          // the macOS trackpad momentum tail latched to this container — from
-          // chaining out to the page, including after the lightbox closes.
-          // Consumers can still override via the `style` prop.
-          style={{ overflow: 'hidden', overscrollBehavior: 'contain', ...style }}
-          data-open={open || undefined}
-          onKeyDown={handleKeyDown}
-          onClick={handleClick}
-          tabIndex={-1}
-          {...rest}
-        >
+        <div ref={mergedRef} {...dialogProps}>
           {children}
         </div>
         <span

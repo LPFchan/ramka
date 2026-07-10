@@ -254,6 +254,65 @@ describe('Lightbox', () => {
   });
 
   // ---------------------------------------------------------------------------
+  // 1b. Consumer prop composition on Content
+  // ---------------------------------------------------------------------------
+
+  describe('consumer prop composition on Content', () => {
+    it('composes consumer onClick with the internal backdrop-close handler', async () => {
+      const onClick = vi.fn();
+      render(
+        <LightboxRoot defaultOpen>
+          <LightboxContent data-testid="content" onClick={onClick}>
+            <LightboxItemGroup>
+              <LightboxItem index={0}>Item 0</LightboxItem>
+            </LightboxItemGroup>
+          </LightboxContent>
+        </LightboxRoot>,
+      );
+      // Clicking the content background (target === currentTarget) must run
+      // BOTH the consumer handler and the internal close — not clobber either.
+      fireEvent.click(screen.getByTestId('content'));
+      expect(onClick).toHaveBeenCalledTimes(1);
+      await flushMicrotasks();
+      expect(screen.queryByTestId('content')).toBeNull();
+    });
+
+    it('composes consumer onKeyDown while internal keyboard navigation still runs', () => {
+      const onKeyDown = vi.fn();
+      const onValueChange = vi.fn();
+      render(
+        <LightboxRoot defaultOpen onValueChange={onValueChange}>
+          <LightboxContent data-testid="content" onKeyDown={onKeyDown}>
+            <LightboxItemGroup>
+              <LightboxItem index={0}>Item 0</LightboxItem>
+              <LightboxItem index={1}>Item 1</LightboxItem>
+            </LightboxItemGroup>
+          </LightboxContent>
+        </LightboxRoot>,
+      );
+      fireEvent.keyDown(screen.getByTestId('content'), { key: 'ArrowRight' });
+      expect(onKeyDown).toHaveBeenCalledTimes(1);
+      expect(onValueChange).toHaveBeenCalledWith(1, { source: 'keyboard' });
+    });
+
+    it('preserves internal attributes while passing through consumer props', () => {
+      render(
+        <LightboxRoot defaultOpen>
+          <LightboxContent data-testid="content" data-custom="x">
+            <LightboxItemGroup>
+              <LightboxItem index={0}>Item 0</LightboxItem>
+            </LightboxItemGroup>
+          </LightboxContent>
+        </LightboxRoot>,
+      );
+      const el = screen.getByTestId('content');
+      expect(el).toHaveAttribute('data-custom', 'x');
+      expect(el).toHaveAttribute('role', 'dialog');
+      expect(el).toHaveAttribute('aria-modal', 'true');
+    });
+  });
+
+  // ---------------------------------------------------------------------------
   // 2. Open / Close state
   // ---------------------------------------------------------------------------
 
