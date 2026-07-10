@@ -192,10 +192,10 @@ function usePullToDismiss({
     const el = contentRef.current;
     if (!el) return;
 
-    // Fresh mount — clear any dismiss latch / closing flag left over from a
-    // prior close (in case the same element is reused).
+    // Fresh mount — clear any dismiss latch / pull-dismiss flag left over from
+    // a prior close (in case the same element is reused).
     wheelDismissedRef.current = false;
-    el.removeAttribute('data-closing');
+    el.removeAttribute('data-pull-dismissing');
 
     const handlePointerDown = (event: PointerEvent) => {
       // Touch-only gesture — ignore mouse and pen
@@ -299,11 +299,11 @@ function usePullToDismiss({
         absDeltaY >= DISMISS_DISTANCE ||
         (absVelocity >= DISMISS_VELOCITY && sameDirection)
       ) {
-        // Hand off from "pulling" to "closing": `data-pulling` is dropped so
+        // Hand off from "pulling" to "dismissing": `data-pulling` is dropped so
         // the backdrop can run its close fade, but chrome hidden while pulling
         // must stay hidden through the close animation (otherwise it flashes
-        // back in as the content fades out). `data-closing` carries that state.
-        el.setAttribute('data-closing', '');
+        // back in as the content fades out). `data-pull-dismissing` carries that state.
+        el.setAttribute('data-pull-dismissing', '');
         el.removeAttribute('data-pulling');
         backdropRef.current?.removeAttribute('data-pulling');
         dragTargetRef.current = null;
@@ -370,7 +370,7 @@ function usePullToDismiss({
         // pull and reset the item mid-close.
         wheelDismissedRef.current = true;
         // Keep chrome hidden through the close animation (see touch path).
-        el.setAttribute('data-closing', '');
+        el.setAttribute('data-pull-dismissing', '');
         el.removeAttribute('data-pulling');
         backdropRef.current?.removeAttribute('data-pulling');
         dragTargetRef.current = null;

@@ -467,7 +467,7 @@ function FeedPostGallery({ post }: { post: FeedPost }) {
 
           {/* Top-right controls — hidden while zoomed or while pulling to
               dismiss (fades back in as the item snaps back, same as zoom). */}
-          <div className="absolute right-3 top-3 z-10 flex gap-2 transition-[opacity,filter] duration-200 [[data-zoomed]_&]:pointer-events-none [[data-zoomed]_&]:opacity-0 [[data-zoomed]_&]:blur-[6px] [[data-pulling]_&]:pointer-events-none [[data-pulling]_&]:opacity-0 [[data-pulling]_&]:blur-[6px] [[data-closing]_&]:pointer-events-none [[data-closing]_&]:opacity-0 [[data-closing]_&]:blur-[6px]">
+          <div className="absolute right-3 top-3 z-10 flex gap-2 transition-[opacity,filter] duration-200 [[data-zoomed]_&]:pointer-events-none [[data-zoomed]_&]:opacity-0 [[data-zoomed]_&]:blur-[6px] [[data-pulling]_&]:pointer-events-none [[data-pulling]_&]:opacity-0 [[data-pulling]_&]:blur-[6px] [[data-pull-dismissing]_&]:pointer-events-none [[data-pull-dismissing]_&]:opacity-0 [[data-pull-dismissing]_&]:blur-[6px]">
             <Lightbox.ZoomOut className={iconButton} aria-label="Zoom out">
               <ZoomOut aria-hidden className="h-4 w-4" />
             </Lightbox.ZoomOut>
@@ -481,7 +481,7 @@ function FeedPostGallery({ post }: { post: FeedPost }) {
 
           {/* Caption + thumbnails — thumbnails only render on desktop.
               Hidden while zoomed or pulling to dismiss. */}
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 flex flex-col items-center gap-3 px-3 pb-4 transition-[opacity,filter] duration-200 [[data-zoomed]_&]:opacity-0 [[data-zoomed]_&]:blur-[6px] [[data-pulling]_&]:opacity-0 [[data-pulling]_&]:blur-[6px] [[data-closing]_&]:opacity-0 [[data-closing]_&]:blur-[6px]">
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 flex flex-col items-center gap-3 px-3 pb-4 transition-[opacity,filter] duration-200 [[data-zoomed]_&]:opacity-0 [[data-zoomed]_&]:blur-[6px] [[data-pulling]_&]:opacity-0 [[data-pulling]_&]:blur-[6px] [[data-pull-dismissing]_&]:opacity-0 [[data-pull-dismissing]_&]:blur-[6px]">
             <Lightbox.Caption className="pointer-events-auto block min-h-[1.25rem] max-w-full truncate px-6 text-center text-sm text-black/70 dark:text-white/80" />
 
             <ScrollGallery.ScrollMarkerGroup
