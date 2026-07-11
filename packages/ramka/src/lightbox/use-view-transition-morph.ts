@@ -134,6 +134,23 @@ function applyMorphState(
   }
 }
 
+/**
+ * Assigns the morph `view-transition-name` to an element with inline
+ * `!important`. The document-level isolation rule sets
+ * `view-transition-name: none !important` on every element while the morph is
+ * running (so unrelated consumer-named elements aren't captured); an inline
+ * `!important` declaration outranks that author-`!important` rule on
+ * specificity, keeping the morph target the sole captured group.
+ */
+function setMorphName(el: HTMLElement) {
+  el.style.setProperty('view-transition-name', VIEW_TRANSITION_NAME, 'important');
+}
+
+/** Clears a name set by {@link setMorphName}. */
+function clearMorphName(el: HTMLElement) {
+  el.style.removeProperty('view-transition-name');
+}
+
 /** Removes every document-level attribute/var set by {@link applyMorphState}. */
 function clearMorphState(docEl: HTMLElement) {
   docEl.removeAttribute('data-lightbox-view-transition');
@@ -219,12 +236,15 @@ function useViewTransitionMorph(config: ViewTransitionMorphConfig): ViewTransiti
     // Writes
     applyMorphState(docEl, 'opening', { useCrossfade, fromRadius, toRadius: null });
     if (triggerTarget) {
-      triggerTarget.style.viewTransitionName = VIEW_TRANSITION_NAME;
+      // Inline `!important` so the document-level isolation rule (which sets
+      // `view-transition-name: none !important` on every element during the
+      // morph) can't neutralize the one element we actually want captured.
+      setMorphName(triggerTarget);
     }
 
     const transition = startViewTransition(async () => {
       if (triggerTarget) {
-        triggerTarget.style.viewTransitionName = '';
+        clearMorphName(triggerTarget);
       }
       flushSync(commitOpen);
       const itemEl = activeItemElementRef.current;
@@ -241,7 +261,7 @@ function useViewTransitionMorph(config: ViewTransitionMorphConfig): ViewTransiti
       // Read before write to avoid forced reflow
       const toRadius = itemTarget ? getComputedStyle(itemTarget).borderRadius : null;
       if (itemTarget) {
-        itemTarget.style.viewTransitionName = VIEW_TRANSITION_NAME;
+        setMorphName(itemTarget);
       }
       if (toRadius) {
         docEl.style.setProperty('--lightbox-morph-border-radius-to', toRadius);
@@ -256,7 +276,7 @@ function useViewTransitionMorph(config: ViewTransitionMorphConfig): ViewTransiti
       const itemEl = configRef.current.activeItemElementRef.current;
       const itemTarget = itemEl ? findItemMorphTarget(itemEl) : null;
       if (itemTarget) {
-        itemTarget.style.viewTransitionName = '';
+        clearMorphName(itemTarget);
       }
       clearMorphState(docEl);
       configRef.current.onOpenComplete();
@@ -297,25 +317,25 @@ function useViewTransitionMorph(config: ViewTransitionMorphConfig): ViewTransiti
     // Writes
     applyMorphState(docEl, 'closing', { useCrossfade, fromRadius, toRadius });
     if (itemTarget) {
-      itemTarget.style.viewTransitionName = VIEW_TRANSITION_NAME;
+      setMorphName(itemTarget);
     }
 
     const transition = startViewTransition(() => {
       if (itemTarget) {
-        itemTarget.style.viewTransitionName = '';
+        clearMorphName(itemTarget);
       }
       flushSync(commitClose);
       if (scrollTriggerIntoView) {
         scrollTriggerEl(triggerEl, 'instant');
       }
       if (triggerTarget) {
-        triggerTarget.style.viewTransitionName = VIEW_TRANSITION_NAME;
+        setMorphName(triggerTarget);
       }
     });
 
     transition.finished.finally(() => {
       if (triggerTarget) {
-        triggerTarget.style.viewTransitionName = '';
+        clearMorphName(triggerTarget);
       }
       clearMorphState(docEl);
       if (configRef.current.closeGenRef.current === gen) {

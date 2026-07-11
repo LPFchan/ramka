@@ -82,6 +82,18 @@
    so the VT example feels identical to its design-system equivalent.
    --------------------------------------------------------------------------- */
 
+/* Isolate the lightbox morph from the rest of the page. `startViewTransition`
+   captures the WHOLE document, so any consumer element that carries its own
+   `view-transition-name` (e.g. a photo grid) would otherwise be lifted into a
+   separate transition group and painted on the VT layer *over* the backdrop
+   during open/close. Neutralizing every name while the morph runs collapses
+   those elements back into the root snapshot. The morph target re-declares its
+   own name with inline `!important`, which outranks this author-`!important`
+   rule (inline wins on specificity), so it stays the only captured group. */
+:root[data-lightbox-view-transition] * {
+  view-transition-name: none !important;
+}
+
 @media (prefers-reduced-motion: no-preference) {
   :root[data-lightbox-view-transition]::view-transition-old(root),
   :root[data-lightbox-view-transition]::view-transition-new(root) {
