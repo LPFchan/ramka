@@ -11,6 +11,23 @@ interface LightboxItemState extends Record<string, unknown> {
   index: number;
 }
 
+/**
+ * Context published by each `Lightbox.Item` so descendants (notably
+ * `Lightbox.Zoom`) can learn their own index and whether they are the
+ * currently active slide. Used by the active-zoom bridge to decide which
+ * slide's zoom controls to expose to global chrome.
+ */
+interface LightboxItemContextValue {
+  index: number;
+  active: boolean;
+}
+
+const LightboxItemContext = React.createContext<LightboxItemContextValue | null>(null);
+
+function useOptionalLightboxItemContext(): LightboxItemContextValue | null {
+  return React.useContext(LightboxItemContext);
+}
+
 interface LightboxItemProps extends Omit<useRender.ComponentProps<'div', LightboxItemState>, 'children'> {
   /** The index of this item in the collection. */
   index: number;
@@ -101,6 +118,11 @@ const LightboxItem = React.forwardRef<HTMLDivElement, LightboxItemProps>(
 
     const state = React.useMemo<LightboxItemState>(() => ({ active: isActive, index }), [isActive, index]);
 
+    const itemContextValue = React.useMemo<LightboxItemContextValue>(
+      () => ({ index, active: isActive }),
+      [index, isActive],
+    );
+
     // useRender is a hook — must always be called regardless of visibility
     const rendered = useRender({
       render,
@@ -126,11 +148,11 @@ const LightboxItem = React.forwardRef<HTMLDivElement, LightboxItemProps>(
 
     if (!isVisible) return null;
 
-    return rendered;
+    return <LightboxItemContext.Provider value={itemContextValue}>{rendered}</LightboxItemContext.Provider>;
   },
 );
 
 LightboxItem.displayName = 'LightboxItem';
 
-export { LightboxItem };
-export type { LightboxItemProps, LightboxItemState };
+export { LightboxItem, LightboxItemContext, useOptionalLightboxItemContext };
+export type { LightboxItemProps, LightboxItemState, LightboxItemContextValue };

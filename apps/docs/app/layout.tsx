@@ -2,7 +2,9 @@ import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 import { Inter } from 'next/font/google';
 
+import { MobileNav } from './_components/mobile-nav';
 import { Sidebar } from './_components/sidebar';
+import { ThemeProvider } from './_components/theme-provider';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import './globals.css';
@@ -16,14 +18,19 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en" className={cn('font-sans', inter.variable)}>
+    <html lang="en" className={cn('font-sans', inter.variable)} suppressHydrationWarning>
       <body className="min-h-screen bg-background text-foreground antialiased">
-        <TooltipProvider delay={150}>
-          <div className="flex">
-            <Sidebar />
-            <main className="min-w-0 flex-1">{children}</main>
-          </div>
-        </TooltipProvider>
+        <ThemeProvider>
+          <TooltipProvider delay={150}>
+            <div className="flex">
+              <Sidebar />
+              <div className="flex min-w-0 flex-1 flex-col">
+                <MobileNav />
+                <main className="min-w-0 flex-1">{children}</main>
+              </div>
+            </div>
+          </TooltipProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

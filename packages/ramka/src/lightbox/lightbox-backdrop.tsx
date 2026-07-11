@@ -27,12 +27,29 @@ const backdropStateAttributesMapping = {
  * Visual backdrop behind the Lightbox content. Equivalent in role to the
  * native `<dialog>::backdrop` pseudo-element, but rendered as an explicit
  * primitive so consumers can style it freely (size, color, blur, opacity
- * transitions) and pull-to-dismiss can animate its opacity.
+ * transitions).
  *
  * Registers itself in `Lightbox.Root`'s `backdropElementRef` so the
- * pull-to-dismiss gesture (implemented in `LightboxContent`) can read /
- * write its inline opacity during a drag without needing a direct ref
- * from the consumer.
+ * pull-to-dismiss gesture (implemented in `LightboxContent`) can drive it
+ * during a drag without needing a direct ref from the consumer. Rather
+ * than hardcoding an opacity curve, the gesture:
+ *
+ *   - sets `data-pulling` on the backdrop for the duration of the drag, and
+ *   - exposes a `--lightbox-pull-progress` CSS variable (0 at rest → 1 at
+ *     the dismiss threshold) so consumers decide how the pull maps to
+ *     visuals.
+ *
+ * A typical consumer style suppresses the transition while pulling (for
+ * 1:1 finger tracking) and derives opacity from the variable:
+ *
+ * ```css
+ * transition: opacity 300ms;
+ * opacity: calc(1 - var(--lightbox-pull-progress, 0) * 0.6);
+ * &[data-pulling] { transition: none; }
+ * ```
+ *
+ * On release the gesture resets the variable to 0 and removes
+ * `data-pulling`, so the consumer's own transition eases the backdrop back.
  *
  * Clicking the backdrop closes the lightbox, matching native dialog
  * backdrop click behavior. Consumers can override by stopping

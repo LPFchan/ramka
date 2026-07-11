@@ -2,6 +2,14 @@
 
 import * as React from 'react';
 
+import {
+  computePullTransform,
+  computePullVelocity,
+  resolveDragAxis,
+  shouldDismissPull,
+  wheelAxis,
+} from './gesture-math';
+
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
@@ -14,6 +22,16 @@ const SNAP_EASING = 'cubic-bezier(0.2, 1.15, 0.4, 1)';
 const MIN_SCALE = 0.85;
 const VELOCITY_SAMPLES = 5;
 
+/**
+ * CSS custom property exposing pull progress (0 at rest → 1 at the dismiss
+ * threshold) on both the content and backdrop elements while a drag is in
+ * flight. The library deliberately does NOT hardcode a backdrop opacity
+ * curve — consumers derive whatever styling they like (backdrop opacity,
+ * blur, chrome fade, image scale) from this variable, e.g.
+ * `opacity: calc(1 - var(--lightbox-pull-progress, 0) * 0.6)`.
+ */
+const PULL_PROGRESS_VAR = '--lightbox-pull-progress';
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -21,6 +39,8 @@ const VELOCITY_SAMPLES = 5;
 interface PullToDismissOptions {
   contentRef: React.RefObject<HTMLElement | null>;
   backdropRef: React.RefObject<HTMLElement | null>;
+  /** The currently-active slide element, tracked in context by Lightbox.Item. */
+  activeItemRef: React.RefObject<HTMLElement | null>;
   getZoom: () => number;
   onClose: () => void;
   disabled?: boolean;
@@ -33,6 +53,7 @@ interface PullToDismissOptions {
 function usePullToDismiss({
   contentRef,
   backdropRef,
+  activeItemRef,
   getZoom,
   onClose,
   disabled = false,
@@ -46,6 +67,20 @@ function usePullToDismiss({
   const animationRef = React.useRef<Animation | null>(null);
   const dragTargetRef = React.useRef<HTMLElement | null>(null);
 
+  // Trackpad (wheel) pull-to-dismiss state. A two-finger swipe emits a stream
+  // of `wheel` events with no explicit end, so gesture completion is inferred
+  // from an idle timer.
+  const wheelDirRef = React.useRef<'none' | 'vertical' | 'horizontal'>('none');
+  const wheelPullXRef = React.useRef(0);
+  const wheelPullYRef = React.useRef(0);
+  const wheelCountRef = React.useRef(0);
+  const wheelIdleRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Once a wheel flick commits to dismissing, ignore the residual momentum
+  // stream so it can't start a fresh pull and reset the item transform mid-
+  // close (visible as a snap-back on Safari, whose View Transition snapshot is
+  // captured a frame after the momentum event that would reset it).
+  const wheelDismissedRef = React.useRef(false);
+
   const cleanup = React.useCallback(() => {
     pointerIdRef.current = null;
     directionRef.current = 'none';
@@ -58,28 +93,25 @@ function usePullToDismiss({
   const applyTransform = React.useCallback(
     (rawDeltaX: number, rawDeltaY: number) => {
       const target = dragTargetRef.current;
-      const backdrop = backdropRef.current;
       if (!target) return;
 
-      // Asymptotic damping: moves ~1:1 near origin, then flattens toward
-      // a ceiling. The curve never reverses regardless of drag distance.
-      const absY = Math.abs(rawDeltaY);
-      const maxTravel = DISMISS_DISTANCE * 1.2;
-      const dampedAbsY = maxTravel * (1 - Math.exp(-absY / maxTravel));
-      const dampedY = Math.sign(rawDeltaY) * dampedAbsY;
-      const dampFactor = absY > 0 ? dampedAbsY / absY : 1;
-      const dampedX = rawDeltaX * dampFactor;
+      const { x, y, scale, progress } = computePullTransform(
+        rawDeltaX,
+        rawDeltaY,
+        DISMISS_DISTANCE,
+        MIN_SCALE,
+      );
 
-      const progress = Math.min(absY / DISMISS_DISTANCE, 1);
-      const scale = 1 - progress * (1 - MIN_SCALE);
+      target.style.transform = `translate(${x}px, ${y}px) scale(${scale})`;
 
-      target.style.transform = `translate(${dampedX}px, ${dampedY}px) scale(${scale})`;
-
-      if (backdrop) {
-        backdrop.style.opacity = String(1 - progress * 0.6);
-      }
+      // Publish the raw progress and let consumers decide how it maps to
+      // visuals. Set it on both the content and the (separately portaled)
+      // backdrop so either subtree can react to it.
+      const progressValue = String(progress);
+      contentRef.current?.style.setProperty(PULL_PROGRESS_VAR, progressValue);
+      backdropRef.current?.style.setProperty(PULL_PROGRESS_VAR, progressValue);
     },
-    [backdropRef],
+    [contentRef, backdropRef],
   );
 
   const clearTransform = React.useCallback(() => {
@@ -91,10 +123,11 @@ function usePullToDismiss({
     }
     if (content) {
       content.removeAttribute('data-pulling');
+      content.style.removeProperty(PULL_PROGRESS_VAR);
     }
     if (backdrop) {
-      backdrop.style.opacity = '';
       backdrop.removeAttribute('data-pulling');
+      backdrop.style.removeProperty(PULL_PROGRESS_VAR);
     }
   }, [contentRef, backdropRef]);
 
@@ -103,23 +136,29 @@ function usePullToDismiss({
     const content = contentRef.current;
     const backdrop = backdropRef.current;
 
+    // Hand backdrop/chrome styling back to the consumer immediately: drop
+    // the `data-pulling` flag (re-enabling any transition they suppressed
+    // while pulling) and reset progress to 0 so their own transition eases
+    // everything back to rest. The library only owns the item transform
+    // snap-back below.
+    content?.removeAttribute('data-pulling');
+    backdrop?.removeAttribute('data-pulling');
+    content?.style.setProperty(PULL_PROGRESS_VAR, '0');
+    backdrop?.style.setProperty(PULL_PROGRESS_VAR, '0');
+
     if (!target) {
-      clearTransform();
+      dragTargetRef.current = null;
       return;
     }
 
     const currentTransform = target.style.transform;
-    const currentBackdropOpacity = backdrop?.style.opacity ?? '1';
 
-    // Clear inline styles BEFORE starting the animations. The WAAPI
+    // Clear the inline transform BEFORE starting the animation. The WAAPI
     // animation layer overrides computed values during playback, so the
-    // cleared inline styles are invisible while the animation runs.
-    // When the animation finishes and is cancelled, the underlying
-    // computed values are already clean — no flash.
+    // cleared inline style is invisible while the animation runs. When the
+    // animation finishes and is cancelled, the underlying computed value is
+    // already clean — no flash.
     target.style.transform = '';
-    if (backdrop) {
-      backdrop.style.opacity = '';
-    }
 
     const targetAnim = target.animate(
       [
@@ -129,42 +168,32 @@ function usePullToDismiss({
       { duration: SNAP_DURATION, easing: SNAP_EASING },
     );
 
-    let backdropAnim: Animation | undefined;
-    if (backdrop) {
-      backdropAnim = backdrop.animate(
-        [{ opacity: currentBackdropOpacity }, { opacity: '1' }],
-        { duration: SNAP_DURATION, easing: SNAP_EASING },
-      );
-    }
-
     animationRef.current = targetAnim;
 
     targetAnim.finished.then(() => {
       animationRef.current = null;
       targetAnim.cancel();
-      backdropAnim?.cancel();
-      content?.removeAttribute('data-pulling');
-      backdrop?.removeAttribute('data-pulling');
       dragTargetRef.current = null;
+      // Fully at rest — drop the inline var so the consumer's fallback
+      // (typically `var(--lightbox-pull-progress, 0)`) takes over cleanly.
+      content?.style.removeProperty(PULL_PROGRESS_VAR);
+      backdrop?.style.removeProperty(PULL_PROGRESS_VAR);
     }).catch(() => {
       // Animation cancelled — cleanup already handled
     });
-  }, [contentRef, backdropRef, clearTransform]);
+  }, [contentRef, backdropRef]);
 
-  const computeVelocity = React.useCallback(() => {
-    const history = velocityHistoryRef.current;
-    if (history.length < 2) return 0;
-    const first = history[0];
-    const last = history[history.length - 1];
-    const dt = last.t - first.t;
-    if (dt === 0) return 0;
-    return ((last.y - first.y) / dt) * 1000;
-  }, []);
+  const computeVelocity = React.useCallback(() => computePullVelocity(velocityHistoryRef.current), []);
 
   React.useEffect(() => {
     if (disabled) return;
     const el = contentRef.current;
     if (!el) return;
+
+    // Fresh mount — clear any dismiss latch / pull-dismiss flag left over from
+    // a prior close (in case the same element is reused).
+    wheelDismissedRef.current = false;
+    el.removeAttribute('data-pull-dismissing');
 
     const handlePointerDown = (event: PointerEvent) => {
       // Touch-only gesture — ignore mouse and pen
@@ -215,15 +244,13 @@ function usePullToDismiss({
 
       const deltaX = event.clientX - startXRef.current;
       const deltaY = event.clientY - startYRef.current;
-      const absX = Math.abs(deltaX);
-      const absY = Math.abs(deltaY);
 
       // Direction lock: determine gesture direction after a small movement
       if (directionRef.current === 'none') {
-        const totalDist = Math.hypot(deltaX, deltaY);
-        if (totalDist < DIRECTION_LOCK_DISTANCE) return;
-        directionRef.current = absY >= absX ? 'vertical' : 'horizontal';
-        if (directionRef.current === 'horizontal') {
+        const axis = resolveDragAxis(deltaX, deltaY, DIRECTION_LOCK_DISTANCE);
+        if (axis === 'none') return;
+        directionRef.current = axis;
+        if (axis === 'horizontal') {
           cleanup();
           return;
         }
@@ -260,14 +287,12 @@ function usePullToDismiss({
 
       if (!wasPulling) return;
 
-      const absDeltaY = Math.abs(deltaY);
-      const absVelocity = Math.abs(velocity);
-      const sameDirection = (deltaY > 0 && velocity > 0) || (deltaY < 0 && velocity < 0);
-
-      if (
-        absDeltaY >= DISMISS_DISTANCE ||
-        (absVelocity >= DISMISS_VELOCITY && sameDirection)
-      ) {
+      if (shouldDismissPull(deltaY, velocity, DISMISS_DISTANCE, DISMISS_VELOCITY)) {
+        // Hand off from "pulling" to "dismissing": `data-pulling` is dropped so
+        // the backdrop can run its close fade, but chrome hidden while pulling
+        // must stay hidden through the close animation (otherwise it flashes
+        // back in as the content fades out). `data-pull-dismissing` carries that state.
+        el.setAttribute('data-pull-dismissing', '');
         el.removeAttribute('data-pulling');
         backdropRef.current?.removeAttribute('data-pulling');
         dragTargetRef.current = null;
@@ -297,11 +322,125 @@ function usePullToDismiss({
       }
     };
 
+    // -----------------------------------------------------------------
+    // Trackpad pull-to-dismiss — a two-finger vertical swipe arrives as a
+    // stream of pixel-mode wheel events. Mirror the touch gesture: move the
+    // image with the swipe, then dismiss past the threshold or snap back.
+    // -----------------------------------------------------------------
+    const WHEEL_IDLE_END = 90;
+    // Require several events so a single discrete mouse-wheel notch (which can
+    // exceed the dismiss distance in one step) can't dismiss — trackpads emit
+    // many small events per swipe.
+    const MIN_WHEEL_EVENTS = 3;
+
+    const resetWheel = () => {
+      wheelDirRef.current = 'none';
+      wheelPullXRef.current = 0;
+      wheelPullYRef.current = 0;
+      wheelCountRef.current = 0;
+      if (wheelIdleRef.current) {
+        clearTimeout(wheelIdleRef.current);
+        wheelIdleRef.current = null;
+      }
+    };
+
+    const finishWheel = (dismissNow: boolean) => {
+      const wasVertical = wheelDirRef.current === 'vertical';
+      const pulledY = wheelPullYRef.current;
+      const count = wheelCountRef.current;
+      resetWheel();
+      if (!wasVertical) return;
+
+      const shouldDismiss =
+        (dismissNow || Math.abs(pulledY) >= DISMISS_DISTANCE) && count >= MIN_WHEEL_EVENTS;
+
+      if (shouldDismiss) {
+        // Latch: swallow the trackpad's momentum tail so it can't restart a
+        // pull and reset the item mid-close.
+        wheelDismissedRef.current = true;
+        // Keep chrome hidden through the close animation (see touch path).
+        el.setAttribute('data-pull-dismissing', '');
+        el.removeAttribute('data-pulling');
+        backdropRef.current?.removeAttribute('data-pulling');
+        dragTargetRef.current = null;
+        onClose();
+      } else {
+        snapBack();
+      }
+    };
+
+    const scheduleWheelIdle = () => {
+      if (wheelIdleRef.current) clearTimeout(wheelIdleRef.current);
+      wheelIdleRef.current = setTimeout(() => finishWheel(false), WHEEL_IDLE_END);
+    };
+
+    const handleWheel = (event: WheelEvent) => {
+      // Already committed to dismissing — ignore the momentum tail.
+      if (wheelDismissedRef.current) return;
+      // Precision devices (trackpads) report pixel-mode deltas; line/page mode
+      // is a classic mouse wheel — leave those alone.
+      if (event.deltaMode !== 0) return;
+      // Defer to zoom (owns the wheel when zoomed) and to an active touch pull.
+      if (getZoom() > 1 || el.hasAttribute('data-zooming')) return;
+      if (pointerIdRef.current !== null) return;
+      if (event.ctrlKey) return; // pinch-zoom intent
+
+      if (wheelDirRef.current === 'none') {
+        const axis = wheelAxis(event.deltaX, event.deltaY);
+        if (axis === 'none') return;
+        // Horizontal swipes belong to the scroll gallery — let them scroll
+        // natively (the listener is passive; we never preventDefault).
+        if (axis === 'horizontal') {
+          wheelDirRef.current = 'horizontal';
+          scheduleWheelIdle();
+          return;
+        }
+
+        const activeItem = activeItemRef.current;
+        if (!activeItem) {
+          wheelDirRef.current = 'horizontal'; // nothing to pull — bail gesture
+          scheduleWheelIdle();
+          return;
+        }
+
+        // Cancel any in-flight snap-back and take over the active item.
+        if (animationRef.current) {
+          animationRef.current.cancel();
+          animationRef.current = null;
+          clearTransform();
+        }
+        dragTargetRef.current = activeItem;
+        wheelDirRef.current = 'vertical';
+        wheelPullXRef.current = 0;
+        wheelPullYRef.current = 0;
+        wheelCountRef.current = 0;
+        el.setAttribute('data-pulling', '');
+        backdropRef.current?.setAttribute('data-pulling', '');
+      }
+
+      scheduleWheelIdle();
+      if (wheelDirRef.current !== 'vertical') return;
+
+      // Content follows the fingers (natural-scroll: fingers down → deltaY < 0).
+      wheelPullXRef.current += -event.deltaX;
+      wheelPullYRef.current += -event.deltaY;
+      wheelCountRef.current += 1;
+      applyTransform(wheelPullXRef.current, wheelPullYRef.current);
+
+      if (
+        Math.abs(wheelPullYRef.current) >= DISMISS_DISTANCE &&
+        wheelCountRef.current >= MIN_WHEEL_EVENTS
+      ) {
+        finishWheel(true);
+      }
+    };
+
     el.addEventListener('pointerdown', handlePointerDown);
     el.addEventListener('pointermove', handlePointerMove);
     el.addEventListener('pointerup', handlePointerUp);
     el.addEventListener('pointercancel', handlePointerCancel);
     el.addEventListener('touchmove', handleTouchMove, { passive: false });
+    el.addEventListener('wheel', handleWheel, { passive: true });
 
     return () => {
       el.removeEventListener('pointerdown', handlePointerDown);
@@ -309,13 +448,18 @@ function usePullToDismiss({
       el.removeEventListener('pointerup', handlePointerUp);
       el.removeEventListener('pointercancel', handlePointerCancel);
       el.removeEventListener('touchmove', handleTouchMove);
+      el.removeEventListener('wheel', handleWheel);
+      if (wheelIdleRef.current) {
+        clearTimeout(wheelIdleRef.current);
+        wheelIdleRef.current = null;
+      }
       if (animationRef.current) {
         animationRef.current.cancel();
         animationRef.current = null;
       }
       clearTransform();
     };
-  }, [disabled, contentRef, backdropRef, getZoom, onClose, applyTransform, clearTransform, snapBack, cleanup, computeVelocity]);
+  }, [disabled, contentRef, backdropRef, activeItemRef, getZoom, onClose, applyTransform, clearTransform, snapBack, cleanup, computeVelocity]);
 }
 
 export { usePullToDismiss };

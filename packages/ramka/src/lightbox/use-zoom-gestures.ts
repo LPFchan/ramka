@@ -2,21 +2,13 @@
 
 import * as React from 'react';
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function pointerDistance(a: PointerEvent, b: PointerEvent): number {
-  return Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
-}
-
-/**
- * Multiplicative zoom scaling: value * (1 + |delta|/factor) ^ sign(delta).
- * Clamped so a single event can at most double/halve the zoom.
- */
-function scaleZoom(value: number, delta: number, factor: number): number {
-  return value * Math.min(1 + Math.abs(delta / factor), 2) ** Math.sign(delta);
-}
+import {
+  computeMomentumTarget,
+  distance,
+  doubleTapTargetZoom,
+  pinchZoom,
+  scaleZoom,
+} from './gesture-math';
 
 // ---------------------------------------------------------------------------
 // Config type
@@ -29,7 +21,6 @@ interface ZoomGestureConfig {
   scrollToZoom: boolean;
   wheelSensitivity: number;
   keyboardPanDistance: number;
-  doubleClickMaxStops: number;
   doubleClickDelay: number;
 }
 
@@ -213,9 +204,7 @@ function useZoomGestures(
         lastTapPos.current = null;
 
         const { minZoom, maxZoom } = configRef.current;
-        const targetZoom = zoom > minZoom
-          ? minZoom
-          : Math.min(zoomStep, maxZoom);
+        const targetZoom = doubleTapTargetZoom(zoom, minZoom, maxZoom, zoomStep);
 
         setZooming(true);
         changeZoom(targetZoom, false, ...translateCoordinates(event));
@@ -242,7 +231,7 @@ function useZoomGestures(
         lastPointerDown.current = 0;
         tapCandidate.current = false;
         tapStartPos.current = null;
-        const dist = pointerDistance(pointers[0], pointers[1]);
+        const dist = distance(pointers[0].clientX, pointers[0].clientY, pointers[1].clientX, pointers[1].clientY);
         pinchState.current = {
           initialDistance: Math.max(dist, 1),
           initialZoom: zoom,
@@ -277,8 +266,8 @@ function useZoomGestures(
         replacePointer(event);
         velocityTracker.current.length = 0;
 
-        const currentDist = pointerDistance(pointers[0], pointers[1]);
-        const targetZoom = (pinchState.current.initialZoom / pinchState.current.initialDistance) * currentDist;
+        const currentDist = distance(pointers[0].clientX, pointers[0].clientY, pointers[1].clientX, pointers[1].clientY);
+        const targetZoom = pinchZoom(pinchState.current.initialZoom, pinchState.current.initialDistance, currentDist);
 
         const [cx, cy] = pointers
           .map((p) => translateCoordinates(p))
@@ -342,25 +331,20 @@ function useZoomGestures(
           const hasMomentum = !wasPinch && zoom > 1 && tracker.length >= 2;
 
           if (hasMomentum) {
-            const first = tracker[0];
-            const last = tracker[tracker.length - 1];
-            const dt = last.t - first.t;
-
-            if (dt > 0) {
-              const vx = ((last.x - first.x) / dt) * 1000;
-              const vy = ((last.y - first.y) / dt) * 1000;
-              const speed = Math.hypot(vx, vy);
-
-              if (speed > MOMENTUM_THRESHOLD) {
-                const { x: curX, y: curY } = actionsRef.current.getOffsets();
-                const factor = MOMENTUM_MULTIPLIER / 1000;
-                const targetX = curX + (vx * factor) / zoom;
-                const targetY = curY + (vy * factor) / zoom;
-                tracker.length = 0;
-                actionsRef.current.momentumPan(targetX, targetY);
-                setZooming(false);
-                return;
-              }
+            const { x: curX, y: curY } = actionsRef.current.getOffsets();
+            const target = computeMomentumTarget(
+              tracker,
+              curX,
+              curY,
+              zoom,
+              MOMENTUM_MULTIPLIER,
+              MOMENTUM_THRESHOLD,
+            );
+            if (target) {
+              tracker.length = 0;
+              actionsRef.current.momentumPan(target.targetX, target.targetY);
+              setZooming(false);
+              return;
             }
           }
 
@@ -423,50 +407,12 @@ function useZoomGestures(
   );
 
   // -------------------------------------------------------------------
-  // Keyboard — Cmd+/-, Cmd+0, arrows for pan
-  // -------------------------------------------------------------------
-
-  const handleKeyDown = React.useCallback(
-    (event: KeyboardEvent) => {
-      const { keyboardPanDistance } = configRef.current;
-      const { getZoom, zoomIn, zoomOut, changeZoom, changeOffsets } = actionsRef.current;
-      const zoom = getZoom();
-      const meta = event.metaKey || event.ctrlKey;
-
-      if (zoom > 1) {
-        const pan = (dx: number, dy: number) => {
-          event.preventDefault();
-          event.stopPropagation();
-          changeOffsets(dx, dy);
-        };
-
-        switch (event.key) {
-          case 'ArrowDown': pan(0, keyboardPanDistance); return;
-          case 'ArrowUp': pan(0, -keyboardPanDistance); return;
-          case 'ArrowLeft': pan(-keyboardPanDistance, 0); return;
-          case 'ArrowRight': pan(keyboardPanDistance, 0); return;
-        }
-      }
-
-      if (event.key === '+' || (meta && event.key === '=')) {
-        event.preventDefault();
-        event.stopPropagation();
-        zoomIn();
-      } else if (event.key === '-' || (meta && (event.key === '-' || event.key === '_'))) {
-        event.preventDefault();
-        event.stopPropagation();
-        zoomOut();
-      } else if (meta && event.key === '0') {
-        event.preventDefault();
-        event.stopPropagation();
-        changeZoom(1, false);
-      }
-    },
-    [],
-  );
-
-  // -------------------------------------------------------------------
   // Attach / detach listeners
+  //
+  // Keyboard zoom/pan is intentionally NOT handled here: the zoom container is
+  // not focusable (so it can never strand focus when its slide becomes inert),
+  // and keyboard is owned by Lightbox.Content, which drives the active slide's
+  // zoom through the active-zoom bridge (reset/panBy/zoomIn/zoomOut).
   // -------------------------------------------------------------------
 
   // Pointer + keyboard listeners (always passive-compatible, stable effect)
@@ -479,16 +425,14 @@ function useZoomGestures(
     el.addEventListener('pointermove', handlePointerMove);
     el.addEventListener('pointerup', handlePointerUp);
     el.addEventListener('pointercancel', handlePointerUp);
-    el.addEventListener('keydown', handleKeyDown);
 
     return () => {
       el.removeEventListener('pointerdown', handlePointerDown);
       el.removeEventListener('pointermove', handlePointerMove);
       el.removeEventListener('pointerup', handlePointerUp);
       el.removeEventListener('pointercancel', handlePointerUp);
-      el.removeEventListener('keydown', handleKeyDown);
     };
-  }, [disabled, containerRef, handlePointerDown, handlePointerMove, handlePointerUp, handleKeyDown]);
+  }, [disabled, containerRef, handlePointerDown, handlePointerMove, handlePointerUp]);
 
   // Wheel listener — registered separately so we can toggle passive flag.
   //

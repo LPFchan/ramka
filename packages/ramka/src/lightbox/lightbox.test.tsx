@@ -86,6 +86,7 @@ function TestLightbox({
   loop = false,
   preload = 1,
   viewTransition = false,
+  awaitImageDecode,
   withThumbnails = false,
   withCaptions = false,
   onOpenChange,
@@ -101,6 +102,7 @@ function TestLightbox({
   loop?: boolean;
   preload?: number;
   viewTransition?: boolean;
+  awaitImageDecode?: boolean | number;
   withThumbnails?: boolean;
   withCaptions?: boolean;
   onOpenChange?: (open: boolean) => void;
@@ -116,6 +118,7 @@ function TestLightbox({
       value={value}
       loop={loop}
       viewTransition={viewTransition}
+      awaitImageDecode={awaitImageDecode}
       onOpenChange={onOpenChange}
       onOpenChangeComplete={onOpenChangeComplete}
       onValueChange={onValueChange}
@@ -251,6 +254,65 @@ describe('Lightbox', () => {
   });
 
   // ---------------------------------------------------------------------------
+  // 1b. Consumer prop composition on Content
+  // ---------------------------------------------------------------------------
+
+  describe('consumer prop composition on Content', () => {
+    it('composes consumer onClick with the internal backdrop-close handler', async () => {
+      const onClick = vi.fn();
+      render(
+        <LightboxRoot defaultOpen>
+          <LightboxContent data-testid="content" onClick={onClick}>
+            <LightboxItemGroup>
+              <LightboxItem index={0}>Item 0</LightboxItem>
+            </LightboxItemGroup>
+          </LightboxContent>
+        </LightboxRoot>,
+      );
+      // Clicking the content background (target === currentTarget) must run
+      // BOTH the consumer handler and the internal close — not clobber either.
+      fireEvent.click(screen.getByTestId('content'));
+      expect(onClick).toHaveBeenCalledTimes(1);
+      await flushMicrotasks();
+      expect(screen.queryByTestId('content')).toBeNull();
+    });
+
+    it('composes consumer onKeyDown while internal keyboard navigation still runs', () => {
+      const onKeyDown = vi.fn();
+      const onValueChange = vi.fn();
+      render(
+        <LightboxRoot defaultOpen onValueChange={onValueChange}>
+          <LightboxContent data-testid="content" onKeyDown={onKeyDown}>
+            <LightboxItemGroup>
+              <LightboxItem index={0}>Item 0</LightboxItem>
+              <LightboxItem index={1}>Item 1</LightboxItem>
+            </LightboxItemGroup>
+          </LightboxContent>
+        </LightboxRoot>,
+      );
+      fireEvent.keyDown(screen.getByTestId('content'), { key: 'ArrowRight' });
+      expect(onKeyDown).toHaveBeenCalledTimes(1);
+      expect(onValueChange).toHaveBeenCalledWith(1, { source: 'keyboard' });
+    });
+
+    it('preserves internal attributes while passing through consumer props', () => {
+      render(
+        <LightboxRoot defaultOpen>
+          <LightboxContent data-testid="content" data-custom="x">
+            <LightboxItemGroup>
+              <LightboxItem index={0}>Item 0</LightboxItem>
+            </LightboxItemGroup>
+          </LightboxContent>
+        </LightboxRoot>,
+      );
+      const el = screen.getByTestId('content');
+      expect(el).toHaveAttribute('data-custom', 'x');
+      expect(el).toHaveAttribute('role', 'dialog');
+      expect(el).toHaveAttribute('aria-modal', 'true');
+    });
+  });
+
+  // ---------------------------------------------------------------------------
   // 2. Open / Close state
   // ---------------------------------------------------------------------------
 
@@ -292,9 +354,43 @@ describe('Lightbox', () => {
 
     it('ESC key closes the lightbox', async () => {
       render(<TestLightbox defaultOpen />);
-      fireEvent.keyDown(document, { key: 'Escape' });
+      fireEvent.keyDown(screen.getByTestId('content'), { key: 'Escape' });
       await flushMicrotasks();
       expect(screen.queryByTestId('content')).toBeNull();
+    });
+
+    it('ESC closes only the focused lightbox when multiple are open', async () => {
+      function TwoLightboxes() {
+        return (
+          <>
+            <LightboxRoot defaultOpen defaultValue={0}>
+              <LightboxContent data-testid="content-a" aria-label="Lightbox A">
+                <LightboxItemGroup>
+                  <LightboxItem index={0}>A0</LightboxItem>
+                </LightboxItemGroup>
+              </LightboxContent>
+            </LightboxRoot>
+            <LightboxRoot defaultOpen defaultValue={0}>
+              <LightboxContent data-testid="content-b" aria-label="Lightbox B">
+                <LightboxItemGroup>
+                  <LightboxItem index={0}>B0</LightboxItem>
+                </LightboxItemGroup>
+              </LightboxContent>
+            </LightboxRoot>
+          </>
+        );
+      }
+
+      render(<TwoLightboxes />);
+      expect(screen.getByTestId('content-a')).toBeInTheDocument();
+      expect(screen.getByTestId('content-b')).toBeInTheDocument();
+
+      // Escape targeted at B must close B only — A stays open.
+      fireEvent.keyDown(screen.getByTestId('content-b'), { key: 'Escape' });
+      await flushMicrotasks();
+
+      expect(screen.getByTestId('content-a')).toBeInTheDocument();
+      expect(screen.queryByTestId('content-b')).toBeNull();
     });
 
     it('clicking content backdrop area closes the lightbox', async () => {
@@ -458,6 +554,98 @@ describe('Lightbox', () => {
       fireEvent.keyDown(screen.getByTestId('content'), { key: 'ArrowLeft' });
       expect(screen.getByTestId('item-0')).toHaveAttribute('aria-hidden', 'false');
     });
+
+    it('defers navigation when a descendant already handled the key (defaultPrevented)', () => {
+      // Simulates a composed ScrollGallery: a descendant calls preventDefault
+      // on the arrow key before it bubbles to Content, so Content must not
+      // also navigate (single keyboard authority).
+      render(
+        <LightboxRoot defaultOpen defaultValue={0}>
+          <LightboxTrigger index={0}>Trigger 0</LightboxTrigger>
+          <LightboxContent data-testid="content" aria-label="Dedupe test">
+            <div
+              data-testid="descendant"
+              onKeyDown={(event) => {
+                if (event.key === 'ArrowRight') event.preventDefault();
+              }}
+            >
+              <LightboxItemGroup preload={1}>
+                {Array.from({ length: 3 }, (_, i) => (
+                  <LightboxItem key={`i-${i}`} index={i} data-testid={`item-${i}`}>
+                    Item {i}
+                  </LightboxItem>
+                ))}
+              </LightboxItemGroup>
+            </div>
+          </LightboxContent>
+        </LightboxRoot>,
+      );
+
+      fireEvent.keyDown(screen.getByTestId('descendant'), { key: 'ArrowRight' });
+
+      // Content bailed out, so the active item is unchanged.
+      expect(screen.getByTestId('item-0')).toHaveAttribute('aria-hidden', 'false');
+      expect(screen.getByTestId('item-1')).toHaveAttribute('aria-hidden', 'true');
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // 3b. Focus & inert (a slide must never strand keyboard focus)
+  // ---------------------------------------------------------------------------
+
+  describe('focus containment', () => {
+    it('slides expose no focusable region, so inert can never strand focus', () => {
+      render(
+        <LightboxRoot defaultOpen defaultValue={0}>
+          <LightboxContent data-testid="content" aria-label="Non-focusable slide test">
+            <LightboxItemGroup>
+              <LightboxItem index={0} data-testid="item-0">
+                <LightboxZoom maxZoom={4}>
+                  <img src="a.jpg" alt="a" />
+                </LightboxZoom>
+              </LightboxItem>
+            </LightboxItemGroup>
+          </LightboxContent>
+        </LightboxRoot>,
+      );
+
+      // The zoom container is intentionally not focusable — with nothing
+      // focusable inside a slide, focus never lives there and `inert` on a
+      // deactivated slide can never eject focus to <body>.
+      expect(screen.getByTestId('item-0').querySelector('[tabindex]')).toBeNull();
+    });
+
+    it('pulls focus back into the dialog if it escapes (e.g. a focusable control inside an inert slide)', async () => {
+      render(
+        <LightboxRoot defaultOpen defaultValue={0}>
+          <LightboxContent data-testid="content" aria-label="Containment test">
+            <LightboxItemGroup preload={2}>
+              {Array.from({ length: 3 }, (_, i) => (
+                <LightboxItem key={`i-${i}`} index={i} data-testid={`item-${i}`}>
+                  {/* A consumer-provided focusable control inside a slide. */}
+                  <button data-testid={`btn-${i}`} type="button">
+                    Slide {i}
+                  </button>
+                </LightboxItem>
+              ))}
+            </LightboxItemGroup>
+          </LightboxContent>
+        </LightboxRoot>,
+      );
+
+      const btn = screen.getByTestId('btn-0');
+      btn.focus();
+      expect(document.activeElement).toBe(btn);
+
+      // Simulate the browser ejecting focus out of the dialog to <body>
+      // (what happens when a focused slide becomes inert on navigation).
+      await act(async () => {
+        btn.blur();
+        await Promise.resolve();
+      });
+
+      expect(document.activeElement).toBe(screen.getByTestId('content'));
+    });
   });
 
   // ---------------------------------------------------------------------------
@@ -609,6 +797,31 @@ describe('Lightbox', () => {
     it('caption has data-has-caption only when caption exists', () => {
       render(<TestLightbox defaultOpen defaultValue={0} withCaptions />);
       expect(screen.getByTestId('caption')).toHaveAttribute('data-has-caption');
+    });
+
+    it('caption updates reactively when the active item caption changes without navigating', () => {
+      function CaptionWrapper({ text }: { text: string }) {
+        return (
+          <LightboxRoot defaultOpen defaultValue={0}>
+            <LightboxContent aria-label="Reactive caption test">
+              <LightboxItemGroup>
+                <LightboxItem index={0} caption={text}>
+                  Item 0
+                </LightboxItem>
+              </LightboxItemGroup>
+              <LightboxCaption data-testid="reactive-caption" />
+            </LightboxContent>
+          </LightboxRoot>
+        );
+      }
+
+      const { rerender } = render(<CaptionWrapper text="First" />);
+      expect(screen.getByTestId('reactive-caption').textContent).toBe('First');
+
+      // activeIndex is unchanged; only the caption content changes. The
+      // ref-read-during-render version would keep showing "First".
+      rerender(<CaptionWrapper text="Second" />);
+      expect(screen.getByTestId('reactive-caption').textContent).toBe('Second');
     });
 
     it('counter displays "1 / N" format', () => {
@@ -1142,6 +1355,106 @@ describe('Lightbox', () => {
       });
     });
 
+    describe('awaitImageDecode', () => {
+      let originalDecode: PropertyDescriptor | undefined;
+      let originalComplete: PropertyDescriptor | undefined;
+
+      // Force a real <img> to look "not yet loaded" and route decode() through
+      // a controllable mock, so the open morph's decode wait is deterministic
+      // regardless of jsdom's image loading behavior.
+      function setImageEnv(decodeImpl: () => Promise<void>) {
+        originalDecode = Object.getOwnPropertyDescriptor(HTMLImageElement.prototype, 'decode');
+        originalComplete = Object.getOwnPropertyDescriptor(HTMLImageElement.prototype, 'complete');
+        Object.defineProperty(HTMLImageElement.prototype, 'decode', {
+          value: vi.fn(decodeImpl),
+          writable: true,
+          configurable: true,
+        });
+        Object.defineProperty(HTMLImageElement.prototype, 'complete', {
+          get: () => false,
+          configurable: true,
+        });
+        return HTMLImageElement.prototype.decode as unknown as ReturnType<typeof vi.fn>;
+      }
+
+      afterEach(() => {
+        if (originalDecode) {
+          Object.defineProperty(HTMLImageElement.prototype, 'decode', originalDecode);
+        } else {
+          delete (HTMLImageElement.prototype as unknown as Record<string, unknown>).decode;
+        }
+        if (originalComplete) {
+          Object.defineProperty(HTMLImageElement.prototype, 'complete', originalComplete);
+        }
+        originalDecode = undefined;
+        originalComplete = undefined;
+        vi.useRealTimers();
+      });
+
+      function renderImageLightbox(awaitImageDecode?: boolean | number) {
+        return render(
+          <LightboxRoot viewTransition awaitImageDecode={awaitImageDecode}>
+            <LightboxTrigger index={0} data-testid="trigger-0">
+              Open
+            </LightboxTrigger>
+            <LightboxContent data-testid="content" aria-label="decode test">
+              <LightboxItemGroup>
+                <LightboxItem index={0} data-testid="item-0">
+                  <img src="https://example.com/a.jpg" alt="a" />
+                </LightboxItem>
+              </LightboxItemGroup>
+            </LightboxContent>
+          </LightboxRoot>,
+        );
+      }
+
+      it('skips the decode wait entirely when awaitImageDecode={false}', () => {
+        mockViewTransitionAPI();
+        const decode = setImageEnv(() => new Promise<void>(() => {}));
+
+        renderImageLightbox(false);
+        fireEvent.click(screen.getByTestId('trigger-0'));
+
+        // Opt-out: decode() is never invoked and the item is marked ready
+        // synchronously, so the morph starts without waiting.
+        expect(decode).not.toHaveBeenCalled();
+        expect(screen.getByTestId('item-0')).toHaveAttribute('data-skip-fade');
+      });
+
+      it('awaits the destination image decode by default', () => {
+        vi.useFakeTimers();
+        mockViewTransitionAPI();
+        const decode = setImageEnv(() => new Promise<void>(() => {}));
+
+        renderImageLightbox();
+        fireEvent.click(screen.getByTestId('trigger-0'));
+
+        // The wait is in flight: decode was attempted and the item is not yet
+        // marked ready (still awaiting decode or the timeout).
+        expect(decode).toHaveBeenCalledTimes(1);
+        expect(screen.getByTestId('item-0')).not.toHaveAttribute('data-skip-fade');
+      });
+
+      it('bounds the wait by the numeric timeout', async () => {
+        vi.useFakeTimers();
+        mockViewTransitionAPI();
+        setImageEnv(() => new Promise<void>(() => {})); // decode never resolves
+
+        renderImageLightbox(50);
+        fireEvent.click(screen.getByTestId('trigger-0'));
+
+        // Still waiting before the cap elapses.
+        expect(screen.getByTestId('item-0')).not.toHaveAttribute('data-skip-fade');
+
+        await act(async () => {
+          vi.advanceTimersByTime(50);
+        });
+
+        // The timeout bounded the wait; the morph proceeds.
+        expect(screen.getByTestId('item-0')).toHaveAttribute('data-skip-fade');
+      });
+    });
+
     it('does not use VT when prefers-reduced-motion is set', () => {
       mockViewTransitionAPI();
       vi.spyOn(window, 'matchMedia').mockImplementation((query: string) => ({
@@ -1662,6 +1975,140 @@ describe('Lightbox', () => {
   });
 
   // ---------------------------------------------------------------------------
+  // 14b. Global zoom controls (active-zoom bridge)
+  //
+  // Mirrors the flagship layout: one shared ZoomIn/ZoomOut set rendered in the
+  // chrome (siblings of ItemGroup, OUTSIDE any per-slide Lightbox.Zoom), each
+  // item wrapped in its own Zoom. The buttons must drive whichever slide is
+  // currently active via the Root-owned bridge.
+  // ---------------------------------------------------------------------------
+
+  describe('global zoom controls', () => {
+    function GlobalZoomLightbox({
+      refs,
+      maxZoom = 4,
+    }: {
+      refs?: Array<React.RefObject<LightboxZoomRef | null>>;
+      maxZoom?: number;
+    } = {}) {
+      return (
+        <LightboxRoot defaultOpen>
+          <LightboxContent data-testid="content" aria-label="Global zoom test">
+            <LightboxItemGroup>
+              <LightboxItem index={0} data-testid="item-0">
+                <LightboxZoom ref={refs?.[0]} maxZoom={maxZoom}>
+                  <img src="a.jpg" alt="a" />
+                </LightboxZoom>
+              </LightboxItem>
+              <LightboxItem index={1} data-testid="item-1">
+                <LightboxZoom ref={refs?.[1]} maxZoom={maxZoom}>
+                  <img src="b.jpg" alt="b" />
+                </LightboxZoom>
+              </LightboxItem>
+            </LightboxItemGroup>
+            {/* Single shared control set outside every Zoom */}
+            <LightboxZoomIn data-testid="zoom-in">+</LightboxZoomIn>
+            <LightboxZoomOut data-testid="zoom-out">-</LightboxZoomOut>
+            <LightboxNext data-testid="next">Next</LightboxNext>
+            <LightboxPrevious data-testid="prev">Previous</LightboxPrevious>
+          </LightboxContent>
+        </LightboxRoot>
+      );
+    }
+
+    it('global buttons reflect the active slide at 1x', () => {
+      render(<GlobalZoomLightbox />);
+      expect(screen.getByTestId('zoom-in')).not.toBeDisabled();
+      expect(screen.getByTestId('zoom-out')).toBeDisabled();
+    });
+
+    it('global ZoomIn zooms the active slide and enables ZoomOut', () => {
+      render(<GlobalZoomLightbox />);
+      const content = screen.getByTestId('content');
+      expect(content).not.toHaveAttribute('data-zoomed');
+
+      fireEvent.click(screen.getByTestId('zoom-in'));
+
+      expect(content).toHaveAttribute('data-zoomed');
+      expect(screen.getByTestId('zoom-out')).not.toBeDisabled();
+    });
+
+    it('controls drive the active slide, not preloaded siblings', () => {
+      const refs = [
+        React.createRef<LightboxZoomRef>(),
+        React.createRef<LightboxZoomRef>(),
+      ];
+      render(<GlobalZoomLightbox refs={refs} />);
+
+      // Active slide is index 0.
+      fireEvent.click(screen.getByTestId('zoom-in'));
+      expect(refs[0]!.current!.zoom).toBeGreaterThan(1);
+      expect(refs[1]!.current!.zoom).toBe(1);
+    });
+
+    it('controls follow the active slide after navigation', () => {
+      const refs = [
+        React.createRef<LightboxZoomRef>(),
+        React.createRef<LightboxZoomRef>(),
+      ];
+      render(<GlobalZoomLightbox refs={refs} />);
+
+      fireEvent.click(screen.getByTestId('next'));
+      fireEvent.click(screen.getByTestId('zoom-in'));
+
+      expect(refs[1]!.current!.zoom).toBeGreaterThan(1);
+      expect(refs[0]!.current!.zoom).toBe(1);
+    });
+
+    it('ZoomIn disables at maxZoom and re-enables on the fresh next slide', () => {
+      render(<GlobalZoomLightbox maxZoom={2} />);
+      const zoomIn = screen.getByTestId('zoom-in');
+
+      // zoomStep default 2 → one step from 1x reaches maxZoom 2x.
+      fireEvent.click(zoomIn);
+      expect(zoomIn).toBeDisabled();
+
+      // The next slide starts fresh at 1x, so ZoomIn is enabled again.
+      fireEvent.click(screen.getByTestId('next'));
+      expect(zoomIn).not.toBeDisabled();
+      expect(screen.getByTestId('content')).not.toHaveAttribute('data-zoomed');
+    });
+
+    it('ZoomOut returns the active slide to 1x and disables again', () => {
+      render(<GlobalZoomLightbox />);
+      const content = screen.getByTestId('content');
+      const zoomOut = screen.getByTestId('zoom-out');
+
+      fireEvent.click(screen.getByTestId('zoom-in'));
+      expect(content).toHaveAttribute('data-zoomed');
+
+      // maxZoom 4, step 2 → from 2x one ZoomOut lands back at 1x.
+      fireEvent.click(zoomOut);
+      expect(content).not.toHaveAttribute('data-zoomed');
+      expect(zoomOut).toBeDisabled();
+    });
+
+    it('arrow keys pan (do not navigate) while the active slide is zoomed', () => {
+      render(<GlobalZoomLightbox />);
+      const content = screen.getByTestId('content');
+
+      // Baseline: arrow navigation works at 1x.
+      fireEvent.keyDown(content, { key: 'ArrowRight' });
+      expect(screen.getByTestId('item-1')).toHaveAttribute('aria-hidden', 'false');
+
+      // Back to slide 0 and zoom it in.
+      fireEvent.keyDown(content, { key: 'ArrowLeft' });
+      fireEvent.click(screen.getByTestId('zoom-in'));
+      expect(content).toHaveAttribute('data-zoomed');
+
+      // Now ArrowRight must be swallowed by the zoom pan handler.
+      fireEvent.keyDown(content, { key: 'ArrowRight' });
+      expect(screen.getByTestId('item-0')).toHaveAttribute('aria-hidden', 'false');
+      expect(screen.getByTestId('item-1')).toHaveAttribute('aria-hidden', 'true');
+    });
+  });
+
+  // ---------------------------------------------------------------------------
   // 15. Pull-to-dismiss
   // ---------------------------------------------------------------------------
 
@@ -1748,6 +2195,38 @@ describe('Lightbox', () => {
       });
 
       expect(content).toHaveAttribute('data-pulling');
+    });
+
+    it('exposes pull progress as a CSS variable during vertical drag', () => {
+      render(<PullDismissLightbox />);
+      const content = screen.getByTestId('content');
+      const img = screen.getByAltText('test');
+
+      act(() => {
+        dispatchPointer(img, 'pointerdown', { clientX: 200, clientY: 200 });
+        // 50px of a 100px dismiss threshold → 0.5 progress.
+        dispatchPointer(content, 'pointermove', { clientX: 200, clientY: 250 });
+      });
+
+      const progress = Number(content.style.getPropertyValue('--lightbox-pull-progress'));
+      expect(progress).toBeGreaterThan(0);
+      expect(progress).toBeLessThanOrEqual(1);
+    });
+
+    it('resets the pull-progress variable after snapping back', async () => {
+      render(<PullDismissLightbox />);
+      const content = screen.getByTestId('content');
+      const img = screen.getByAltText('test');
+
+      act(() => {
+        dispatchPointer(img, 'pointerdown', { clientX: 200, clientY: 200 });
+        dispatchPointer(content, 'pointermove', { clientX: 200, clientY: 250 });
+        dispatchPointer(content, 'pointerup', { clientX: 200, clientY: 250 });
+      });
+      await flushMicrotasks();
+
+      expect(content).not.toHaveAttribute('data-pulling');
+      expect(content.style.getPropertyValue('--lightbox-pull-progress')).toBe('');
     });
 
     it('does not set data-pulling for horizontal drag', () => {

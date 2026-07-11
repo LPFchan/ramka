@@ -11,6 +11,10 @@ interface LightboxPreviousState extends Record<string, unknown> {
 
 interface LightboxPreviousProps extends useRender.ComponentProps<'button', LightboxPreviousState> {}
 
+const stateAttributesMapping = {
+  disabled: (value: unknown) => (value ? { 'data-disabled': '' } : null),
+};
+
 /**
  * Navigates to the previous item in the lightbox.
  * Auto-disables at the first item unless `loop` is enabled on Root.
@@ -34,13 +38,13 @@ const LightboxPrevious = React.forwardRef<HTMLButtonElement, LightboxPreviousPro
       render,
       ref: forwardedRef,
       state,
+      stateAttributesMapping,
       props: mergeProps<'button'>(
         {
           type: 'button',
           disabled,
           'aria-label': 'Previous',
           onClick: handleClick,
-          ...(disabled ? { 'data-disabled': '' } : undefined),
         } as React.ComponentPropsWithRef<'button'>,
         elementProps as React.ComponentPropsWithRef<'button'>,
       ),

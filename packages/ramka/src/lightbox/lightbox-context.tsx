@@ -16,6 +16,14 @@ interface LightboxContextValue {
   loop: boolean;
   captionsRef: React.RefObject<Map<number, React.ReactNode>>;
   registerCaption: (index: number, caption: React.ReactNode) => () => void;
+  /**
+   * Subscribe to caption-registry changes. Lets `Lightbox.Caption` read the
+   * ref-based registry reactively via `useSyncExternalStore` — so a caption
+   * that registers or changes without `activeIndex` moving still updates —
+   * without turning the registry into state (which would re-render on every
+   * item mount).
+   */
+  subscribeCaptions: (onChange: () => void) => () => void;
 
   // View transition support
   viewTransition: boolean;
@@ -54,19 +62,47 @@ function supportsViewTransitions(): boolean {
   );
 }
 
+const MORPH_MARKER_SELECTOR = '[data-lightbox-morph]';
+
 /**
- * Finds the best element to use as the view transition morph target
- * within a container. Looks for an explicit [data-lightbox-morph] marker
- * first, then falls back to the first <img> or <video>, then the container.
+ * Resolves the morph target for the **destination item**. An explicit
+ * `[data-lightbox-morph]` marker always wins; otherwise it falls back to the
+ * first `<img>`/`<video>`, then the container itself.
+ *
+ * The media fallback matters here: an item is a full-viewport container, so
+ * morphing to its image lands the animation on the letterboxed image rather
+ * than blowing the thumbnail up to fill the whole viewport.
  */
-function findMorphTarget(container: HTMLElement): HTMLElement {
+function findItemMorphTarget(container: HTMLElement): HTMLElement {
   return (
-    container.querySelector<HTMLElement>('[data-lightbox-morph]') ??
+    container.querySelector<HTMLElement>(MORPH_MARKER_SELECTOR) ??
     container.querySelector<HTMLElement>('img') ??
     container.querySelector<HTMLElement>('video') ??
     container
   );
 }
 
-export { LightboxContext, useLightboxContext, supportsViewTransitions, VIEW_TRANSITION_NAME, findMorphTarget };
+/**
+ * Resolves the morph target for the **trigger**. An explicit
+ * `[data-lightbox-morph]` marker wins; otherwise the trigger element itself is
+ * used.
+ *
+ * Unlike the item, the trigger deliberately does NOT hunt for an inner
+ * `<img>`: the border-radius, clipping, and chrome a consumer applies live on
+ * the trigger element (e.g. a `rounded-xl overflow-hidden` button wrapping an
+ * image), so morphing the element itself reproduces exactly what the user
+ * sees. Mark a descendant with `data-lightbox-morph` to morph just that part.
+ */
+function findTriggerMorphTarget(container: HTMLElement): HTMLElement {
+  return container.querySelector<HTMLElement>(MORPH_MARKER_SELECTOR) ?? container;
+}
+
+export {
+  LightboxContext,
+  useLightboxContext,
+  supportsViewTransitions,
+  VIEW_TRANSITION_NAME,
+  findItemMorphTarget,
+  findTriggerMorphTarget,
+};
 export type { LightboxContextValue, NavigationSource };

@@ -42,6 +42,17 @@
   animation: var(--animate-lightbox-item-fade-in);
 }
 
+/* ...but NOT inside a ScrollGallery. There, items sit side by side and
+   `data-active` moves as you scroll, so this stacked-navigation entrance
+   fade would replay (flash to opacity 0) on every swipe. The scroll
+   viewport is the only ancestor that sets `data-orientation`, so it's a
+   reliable, zero-config marker — consumers building a scroll-based lightbox
+   don't have to remember to opt out. Higher specificity (0,4,0 > 0,3,0)
+   lets this win without `!important`. */
+[data-orientation] [data-lightbox-item][data-active] {
+  animation: none;
+}
+
 /* Hide the active morph-target trigger while the lightbox is open so it
    doesn't show through behind the semi-transparent backdrop. The View
    Transition snapshot (or the chrome fade in non-VT mode) already owns
@@ -70,6 +81,18 @@
    targeted with Tailwind utilities. They mirror frosted-ui's morph timing
    so the VT example feels identical to its design-system equivalent.
    --------------------------------------------------------------------------- */
+
+/* Isolate the lightbox morph from the rest of the page. `startViewTransition`
+   captures the WHOLE document, so any consumer element that carries its own
+   `view-transition-name` (e.g. a photo grid) would otherwise be lifted into a
+   separate transition group and painted on the VT layer *over* the backdrop
+   during open/close. Neutralizing every name while the morph runs collapses
+   those elements back into the root snapshot. The morph target re-declares its
+   own name with inline `!important`, which outranks this author-`!important`
+   rule (inline wins on specificity), so it stays the only captured group. */
+:root[data-lightbox-view-transition] * {
+  view-transition-name: none !important;
+}
 
 @media (prefers-reduced-motion: no-preference) {
   :root[data-lightbox-view-transition]::view-transition-old(root),

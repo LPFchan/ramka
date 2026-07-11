@@ -20,3 +20,14 @@ if (typeof window !== 'undefined' && !window.matchMedia) {
     }),
   });
 }
+
+// jsdom doesn't implement ResizeObserver. A plain no-op stub is enough for
+// components that observe element size (e.g. Lightbox.Zoom's container
+// measurement); tests that need to drive resize callbacks stub it themselves.
+if (typeof globalThis !== 'undefined' && !globalThis.ResizeObserver) {
+  globalThis.ResizeObserver = class {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  };
+}

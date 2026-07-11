@@ -1,66 +1,26 @@
 'use client';
 
 import * as React from 'react';
-import { flushSync } from 'react-dom';
 
 import {
   LightboxContext,
-  VIEW_TRANSITION_NAME,
-  findMorphTarget,
   supportsViewTransitions,
   type LightboxContextValue,
   type NavigationSource,
 } from './lightbox-context';
-
-function startViewTransition(
-  callback: () => void | Promise<void>,
-): { finished: Promise<void> } {
-  return (
-    document as Document & {
-      startViewTransition: (cb: () => void | Promise<void>) => { finished: Promise<void> };
-    }
-  ).startViewTransition(callback);
-}
-
-const DECODE_MAX_WAIT = 200;
-
-/**
- * Wait for an image element to decode (pixels composited and ready to paint).
- * If the image is already complete (e.g. served from cache on a re-open),
- * resolves immediately with zero delay. Otherwise waits for `decode()` to
- * finish, bounded by DECODE_MAX_WAIT ms so the transition is never blocked
- * for too long on slow connections. Resolves immediately for non-image
- * elements (video, custom HTML).
- *
- * Works with plain `<img>` as well as framework image components (e.g.
- * Next.js `<Image>`) that render a native `<img>` with `srcset`. The
- * browser's `decode()` resolves for whichever source was selected from
- * the srcset. For best results, images inside Lightbox.Item should use
- * `loading="eager"` so the browser starts fetching immediately on mount
- * rather than waiting for a lazy-load intersection.
- */
-function waitForImageDecode(target: HTMLElement | null): Promise<void> {
-  if (!target) return Promise.resolve();
-  const img =
-    target.tagName === 'IMG'
-      ? (target as HTMLImageElement)
-      : target.querySelector<HTMLImageElement>('img');
-  if (!img || !('decode' in img)) return Promise.resolve();
-  // Image already loaded (e.g. cached from a previous open) — no wait needed.
-  // The VT API captures the snapshot after this callback resolves, so the
-  // browser will have composited the cached image by then.
-  if (img.complete && img.naturalWidth > 0) return Promise.resolve();
-  return new Promise<void>((resolve) => {
-    let settled = false;
-    const settle = () => {
-      if (settled) return;
-      settled = true;
-      resolve();
-    };
-    img.decode().then(settle, settle);
-    setTimeout(settle, DECODE_MAX_WAIT);
-  });
-}
+import {
+  LightboxActiveZoomContext,
+  LightboxZoomPublishContext,
+  type ActiveZoomControls,
+  type LightboxZoomPublishContextValue,
+  type PublishActiveZoom,
+} from './lightbox-zoom-context';
+import {
+  DEFAULT_DECODE_MAX_WAIT,
+  resolveTriggerIndex,
+  scrollTriggerEl,
+  useViewTransitionMorph,
+} from './use-view-transition-morph';
 
 interface LightboxRootProps {
   children?: React.ReactNode;
@@ -124,6 +84,23 @@ interface LightboxRootProps {
    * @default 'active'
    */
   morphTo?: 'active' | 'origin' | 'closest';
+  /**
+   * How long the open morph waits for the destination image to decode
+   * before starting, so the lightbox doesn't flash empty space while the
+   * full-size image is still loading.
+   *
+   * - `true` (default) — wait up to ~200ms, then start regardless.
+   * - `false` — don't wait; start the transition immediately. Useful when
+   *   the trigger image doubles as a placeholder for the lightbox item so
+   *   there is nothing to wait for.
+   * - `number` — wait up to this many milliseconds. The morph starts as
+   *   soon as the image decodes (or is served from cache), or when the
+   *   timeout elapses — whichever comes first.
+   *
+   * Only relevant when `viewTransition` is enabled.
+   * @default true
+   */
+  awaitImageDecode?: boolean | number;
 }
 
 interface LightboxRootRef {
@@ -132,33 +109,29 @@ interface LightboxRootRef {
   goTo: (index: number) => void;
 }
 
-function scrollTriggerEl(el: HTMLElement | undefined, behavior: ScrollBehavior = 'smooth') {
-  if (!el) return;
-  const rect = el.getBoundingClientRect();
-  const fullyVisible = rect.top >= 0 && rect.bottom <= window.innerHeight;
-  if (!fullyVisible) {
-    el.scrollIntoView({ block: 'center', behavior });
+/**
+ * Waits for the currently-running animations on `el` to finish, then invokes
+ * `onSettled` — but only while `gen` is still the current generation, so a
+ * superseding open/close aborts a stale settle callback. When `el` is absent
+ * there is nothing to animate, so `onSettled` runs synchronously.
+ *
+ * This is the shared "let the consumer's enter/exit CSS transition play out,
+ * then act" primitive used by both the non-VT paths in `setOpen` and the
+ * external-sync effect below.
+ */
+function runAfterAnimations(
+  el: HTMLElement | null,
+  gen: number,
+  genRef: React.MutableRefObject<number>,
+  onSettled: () => void,
+): void {
+  if (!el) {
+    onSettled();
+    return;
   }
-}
-
-function resolveTriggerIndex(
-  activeIndex: number,
-  morphTo: 'active' | 'origin' | 'closest',
-  openingIndex: number,
-  triggerElements: Map<number, HTMLElement>,
-): number {
-  if (morphTo === 'origin') return openingIndex;
-  if (morphTo === 'active' || triggerElements.has(activeIndex)) return activeIndex;
-  let best = -1;
-  let bestDist = Infinity;
-  for (const idx of triggerElements.keys()) {
-    const dist = Math.abs(idx - activeIndex);
-    if (dist < bestDist) {
-      bestDist = dist;
-      best = idx;
-    }
-  }
-  return best >= 0 ? best : activeIndex;
+  Promise.allSettled(el.getAnimations().map((a) => a.finished)).then(() => {
+    if (genRef.current === gen) onSettled();
+  });
 }
 
 const LightboxRoot = React.forwardRef<LightboxRootRef, LightboxRootProps>(
@@ -176,7 +149,17 @@ const LightboxRoot = React.forwardRef<LightboxRootRef, LightboxRootProps>(
       viewTransition = false,
       scrollTriggerIntoView = null,
       morphTo = 'active',
+      awaitImageDecode = true,
     } = props;
+
+    // Resolve the decode-wait budget: `false`/`0` disables the wait,
+    // `true` uses the default cap, and a number sets an explicit cap (ms).
+    const decodeMaxWait =
+      awaitImageDecode === false
+        ? 0
+        : awaitImageDecode === true
+          ? DEFAULT_DECODE_MAX_WAIT
+          : Math.max(0, awaitImageDecode);
 
     // Open state — controlled or uncontrolled
     const isControlledOpen = openProp !== undefined;
@@ -235,14 +218,25 @@ const LightboxRoot = React.forwardRef<LightboxRootRef, LightboxRootProps>(
     }, []);
 
     // Caption registry — ref-based to avoid creating new Map objects and
-    // triggering re-renders on every item mount. LightboxCaption reads
-    // from the ref; it re-renders when activeIndex changes via context.
+    // triggering re-renders on every item mount. LightboxCaption subscribes
+    // via useSyncExternalStore, so it reads the ref reactively (updating on
+    // register/unregister or a changed caption) without Root re-rendering.
     const captionsRef = React.useRef(new Map<number, React.ReactNode>());
+    const captionListenersRef = React.useRef(new Set<() => void>());
+
+    const subscribeCaptions = React.useCallback((onChange: () => void) => {
+      captionListenersRef.current.add(onChange);
+      return () => {
+        captionListenersRef.current.delete(onChange);
+      };
+    }, []);
 
     const registerCaption = React.useCallback((index: number, caption: React.ReactNode) => {
       captionsRef.current.set(index, caption);
+      captionListenersRef.current.forEach((listener) => listener());
       return () => {
         captionsRef.current.delete(index);
+        captionListenersRef.current.forEach((listener) => listener());
       };
     }, []);
 
@@ -274,6 +268,74 @@ const LightboxRoot = React.forwardRef<LightboxRootRef, LightboxRootProps>(
     const activeIndexRef = React.useRef(activeIndex);
     activeIndexRef.current = activeIndex;
 
+    // --- Active-zoom bridge ---
+    // The active slide's Lightbox.Zoom publishes its controls here so a single
+    // set of global zoom controls (and Content's pull/keyboard logic) can drive
+    // whichever slide is active. `activeZoom` is reactive (buttons re-render on
+    // enabled-state changes); `activeZoomRef` mirrors it for imperative,
+    // always-fresh reads.
+    const [activeZoom, setActiveZoom] = React.useState<ActiveZoomControls | null>(null);
+    const activeZoomRef = React.useRef<ActiveZoomControls | null>(null);
+    React.useEffect(() => {
+      activeZoomRef.current = activeZoom;
+    }, [activeZoom]);
+
+    // Functional-updater form lets the publishing Zoom guard its own cleanup by
+    // identity, so a slide swap (new Zoom publishes, old Zoom's cleanup runs)
+    // never nulls out the incoming controls regardless of effect ordering.
+    const publishActiveZoom = React.useCallback<PublishActiveZoom>((next) => {
+      setActiveZoom((prev) => (typeof next === 'function' ? next(prev) : next));
+    }, []);
+
+    const zoomPublishValue = React.useMemo<LightboxZoomPublishContextValue>(
+      () => ({ publish: publishActiveZoom, activeZoomRef }),
+      [publishActiveZoom],
+    );
+
+    // --- View Transition morph ---
+    // The morph mechanics (startViewTransition, document-level morph state,
+    // flushSync timing, generation-guarded completion) live in the hook. Root
+    // owns React state via commit callbacks and the lifecycle callbacks.
+    const commitOpen = React.useCallback(() => {
+      setMounted(true);
+      if (!isControlledOpen) {
+        setUncontrolledOpen(true);
+      }
+      onOpenChangeRef.current?.(true);
+    }, [isControlledOpen]);
+
+    const commitClose = React.useCallback(() => {
+      if (!isControlledOpen) {
+        setUncontrolledOpen(false);
+      }
+      onOpenChangeRef.current?.(false);
+      setMounted(false);
+    }, [isControlledOpen]);
+
+    const handleOpenComplete = React.useCallback(() => {
+      onOpenChangeCompleteRef.current?.(true);
+    }, []);
+
+    const handleCloseComplete = React.useCallback((triggerEl: HTMLElement | undefined) => {
+      triggerEl?.focus({ preventScroll: true });
+      onOpenChangeCompleteRef.current?.(false);
+    }, []);
+
+    const morph = useViewTransitionMorph({
+      morphTo,
+      scrollTriggerIntoView,
+      decodeMaxWait,
+      triggerElementsRef,
+      activeItemElementRef,
+      openingTriggerIndexRef,
+      activeIndexRef,
+      closeGenRef,
+      commitOpen,
+      commitClose,
+      onOpenComplete: handleOpenComplete,
+      onCloseComplete: handleCloseComplete,
+    });
+
     const setOpen = React.useCallback(
       (nextOpen: boolean) => {
         closeGenRef.current += 1;
@@ -285,172 +347,24 @@ const LightboxRoot = React.forwardRef<LightboxRootRef, LightboxRootProps>(
         const useVT = viewTransition && supportsViewTransitions();
 
         if (useVT) {
-          const docEl = document.documentElement;
-
-          const gen = closeGenRef.current;
-
+          // The generation was bumped above; the morph captures it on call.
           if (nextOpen) {
-            // --- OPEN with view transition ---
-            const triggerIdx = openingTriggerIndexRef.current;
-            const triggerEl = triggerElementsRef.current.get(triggerIdx);
-            const triggerTarget = triggerEl ? findMorphTarget(triggerEl) : null;
-            const useCrossfade = triggerEl?.dataset.crossfade === 'true';
-
-            // Batch all reads before any writes to avoid forced reflow
-            const fromRadius = triggerTarget ? getComputedStyle(triggerTarget).borderRadius : null;
-
-            // Writes
-            docEl.setAttribute('data-lightbox-view-transition', 'opening');
-            if (!useCrossfade) {
-              docEl.setAttribute('data-lightbox-no-crossfade', '');
-              docEl.style.setProperty('--lightbox-morph-old-opacity', '0');
-              docEl.style.setProperty('--lightbox-morph-new-opacity', '1');
-            }
-            if (triggerTarget) {
-              triggerTarget.style.viewTransitionName = VIEW_TRANSITION_NAME;
-            }
-            if (fromRadius) {
-              docEl.style.setProperty('--lightbox-morph-border-radius-from', fromRadius);
-            }
-
-            const transition = startViewTransition(async () => {
-              if (triggerTarget) {
-                triggerTarget.style.viewTransitionName = '';
-              }
-              flushSync(() => {
-                setMounted(true);
-                if (!isControlledOpen) {
-                  setUncontrolledOpen(true);
-                }
-                onOpenChangeRef.current?.(true);
-              });
-              const itemEl = activeItemElementRef.current;
-              const itemTarget = itemEl ? findMorphTarget(itemEl) : null;
-
-              // Wait for the destination image to decode before the browser
-              // captures the "new" snapshot, preventing a flash of empty space
-              // during the morph animation.
-              await waitForImageDecode(itemTarget);
-
-              // Read before write to avoid forced reflow
-              const toRadius = itemTarget ? getComputedStyle(itemTarget).borderRadius : null;
-              if (itemTarget) {
-                itemTarget.style.viewTransitionName = VIEW_TRANSITION_NAME;
-              }
-              if (toRadius) {
-                docEl.style.setProperty('--lightbox-morph-border-radius-to', toRadius);
-              }
-              if (itemEl) {
-                itemEl.setAttribute('data-skip-fade', '');
-              }
-            });
-
-            transition.finished.finally(() => {
-              if (closeGenRef.current !== gen) return;
-              const itemEl = activeItemElementRef.current;
-              const itemTarget = itemEl ? findMorphTarget(itemEl) : null;
-              if (itemTarget) {
-                itemTarget.style.viewTransitionName = '';
-              }
-              docEl.removeAttribute('data-lightbox-view-transition');
-              docEl.removeAttribute('data-lightbox-no-crossfade');
-              docEl.style.removeProperty('--lightbox-morph-old-opacity');
-              docEl.style.removeProperty('--lightbox-morph-new-opacity');
-              docEl.style.removeProperty('--lightbox-morph-border-radius-from');
-              docEl.style.removeProperty('--lightbox-morph-border-radius-to');
-              onOpenChangeCompleteRef.current?.(true);
-            });
+            morph.open();
           } else {
-            // --- CLOSE with view transition ---
-            const itemEl = activeItemElementRef.current;
-            const itemTarget = itemEl ? findMorphTarget(itemEl) : null;
-            const triggerIdx = resolveTriggerIndex(
-              activeIndexRef.current,
-              morphTo,
-              openingTriggerIndexRef.current,
-              triggerElementsRef.current,
-            );
-            const triggerEl = triggerElementsRef.current.get(triggerIdx);
-            const triggerTarget = triggerEl ? findMorphTarget(triggerEl) : null;
-            const useCrossfade = triggerEl?.dataset.crossfade === 'true';
-
-            // Batch all reads before any writes to avoid forced reflow
-            const fromRadius = itemTarget ? getComputedStyle(itemTarget).borderRadius : null;
-            const toRadius = triggerTarget ? getComputedStyle(triggerTarget).borderRadius : null;
-
-            // Writes
-            docEl.setAttribute('data-lightbox-view-transition', 'closing');
-            if (!useCrossfade) {
-              docEl.setAttribute('data-lightbox-no-crossfade', '');
-              docEl.style.setProperty('--lightbox-morph-old-opacity', '1');
-              docEl.style.setProperty('--lightbox-morph-new-opacity', '0');
-            }
-            if (itemTarget) {
-              itemTarget.style.viewTransitionName = VIEW_TRANSITION_NAME;
-            }
-            if (fromRadius) {
-              docEl.style.setProperty('--lightbox-morph-border-radius-from', fromRadius);
-            }
-            if (toRadius) {
-              docEl.style.setProperty('--lightbox-morph-border-radius-to', toRadius);
-            }
-
-            const transition = startViewTransition(() => {
-              if (itemTarget) {
-                itemTarget.style.viewTransitionName = '';
-              }
-              flushSync(() => {
-                if (!isControlledOpen) {
-                  setUncontrolledOpen(false);
-                }
-                onOpenChangeRef.current?.(false);
-                setMounted(false);
-              });
-              if (scrollTriggerIntoView) {
-                scrollTriggerEl(triggerEl, 'instant');
-              }
-              if (triggerTarget) {
-                triggerTarget.style.viewTransitionName = VIEW_TRANSITION_NAME;
-              }
-            });
-
-            transition.finished.finally(() => {
-              if (triggerTarget) {
-                triggerTarget.style.viewTransitionName = '';
-              }
-              docEl.removeAttribute('data-lightbox-view-transition');
-              docEl.removeAttribute('data-lightbox-no-crossfade');
-              docEl.style.removeProperty('--lightbox-morph-old-opacity');
-              docEl.style.removeProperty('--lightbox-morph-new-opacity');
-              docEl.style.removeProperty('--lightbox-morph-border-radius-from');
-              docEl.style.removeProperty('--lightbox-morph-border-radius-to');
-              if (closeGenRef.current === gen) {
-                triggerEl?.focus({ preventScroll: true });
-                onOpenChangeCompleteRef.current?.(false);
-              }
-            });
+            morph.close();
           }
         } else {
           // --- No view transition ---
           if (nextOpen) {
-            setMounted(true);
-            if (!isControlledOpen) {
-              setUncontrolledOpen(true);
-            }
-            onOpenChangeRef.current?.(true);
+            commitOpen();
+            // Wait a frame for the enter animation to register before
+            // observing it, then fire the completion callback once it settles.
             const gen = closeGenRef.current;
             requestAnimationFrame(() => {
               if (closeGenRef.current !== gen) return;
-              const el = dialogElementRef.current;
-              if (el) {
-                Promise.allSettled(el.getAnimations().map((a) => a.finished)).then(() => {
-                  if (closeGenRef.current === gen) {
-                    onOpenChangeCompleteRef.current?.(true);
-                  }
-                });
-              } else {
+              runAfterAnimations(dialogElementRef.current, gen, closeGenRef, () => {
                 onOpenChangeCompleteRef.current?.(true);
-              }
+              });
             });
           } else {
             const closeTriggerIdx = resolveTriggerIndex(
@@ -467,26 +381,19 @@ const LightboxRoot = React.forwardRef<LightboxRootRef, LightboxRootProps>(
               setUncontrolledOpen(false);
             }
             onOpenChangeRef.current?.(false);
-            const el = dialogElementRef.current;
             const gen = closeGenRef.current;
             const focusTarget = triggerElementsRef.current.get(closeTriggerIdx);
-            if (el) {
-              Promise.allSettled(el.getAnimations().map((a) => a.finished)).then(() => {
-                if (closeGenRef.current === gen) {
-                  setMounted(false);
-                  requestAnimationFrame(() => focusTarget?.focus({ preventScroll: true }));
-                  onOpenChangeCompleteRef.current?.(false);
-                }
-              });
-            } else {
+            // Keep the item mounted until the consumer's exit transition
+            // finishes, then unmount, restore focus, and fire completion.
+            runAfterAnimations(dialogElementRef.current, gen, closeGenRef, () => {
               setMounted(false);
               requestAnimationFrame(() => focusTarget?.focus({ preventScroll: true }));
               onOpenChangeCompleteRef.current?.(false);
-            }
+            });
           }
         }
       },
-      [isControlledOpen, viewTransition, scrollTriggerIntoView, morphTo],
+      [isControlledOpen, viewTransition, scrollTriggerIntoView, morphTo, morph, commitOpen],
     );
 
     // Sync `mounted` to externally-driven changes of a controlled
@@ -514,16 +421,9 @@ const LightboxRoot = React.forwardRef<LightboxRootRef, LightboxRootProps>(
       }
 
       const gen = ++closeGenRef.current;
-      const el = dialogElementRef.current;
-      if (el) {
-        Promise.allSettled(el.getAnimations().map((a) => a.finished)).then(() => {
-          if (closeGenRef.current === gen) {
-            setMounted(false);
-          }
-        });
-      } else {
+      runAfterAnimations(dialogElementRef.current, gen, closeGenRef, () => {
         setMounted(false);
-      }
+      });
     }, [open]);
 
     // Imperative handle
@@ -555,6 +455,7 @@ const LightboxRoot = React.forwardRef<LightboxRootRef, LightboxRootProps>(
         loop,
         captionsRef,
         registerCaption,
+        subscribeCaptions,
         viewTransition,
         morphTo,
         triggerElementsRef,
@@ -563,10 +464,16 @@ const LightboxRoot = React.forwardRef<LightboxRootRef, LightboxRootProps>(
         dialogElementRef,
         backdropElementRef,
       }),
-      [open, setOpen, mounted, activeIndex, setActiveIndex, itemCount, registerItem, loop, registerCaption, viewTransition, morphTo],
+      [open, setOpen, mounted, activeIndex, setActiveIndex, itemCount, registerItem, loop, registerCaption, subscribeCaptions, viewTransition, morphTo],
     );
 
-    return <LightboxContext.Provider value={contextValue}>{children}</LightboxContext.Provider>;
+    return (
+      <LightboxContext.Provider value={contextValue}>
+        <LightboxZoomPublishContext.Provider value={zoomPublishValue}>
+          <LightboxActiveZoomContext.Provider value={activeZoom}>{children}</LightboxActiveZoomContext.Provider>
+        </LightboxZoomPublishContext.Provider>
+      </LightboxContext.Provider>
+    );
   },
 );
 
