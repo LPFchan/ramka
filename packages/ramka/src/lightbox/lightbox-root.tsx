@@ -4,6 +4,7 @@ import * as React from 'react';
 
 import {
   LightboxContext,
+  isLowEndDevice,
   supportsViewTransitions,
   type LightboxContextValue,
   type NavigationSource,
@@ -344,7 +345,9 @@ const LightboxRoot = React.forwardRef<LightboxRootRef, LightboxRootProps>(
         // controlled `open` prop subsequently updates via onOpenChange.
         lastInternalOpenRef.current = nextOpen;
 
-        const useVT = viewTransition && supportsViewTransitions();
+        // Skip the (document-snapshotting) morph on low-end hardware and fall
+        // back to the plain fade path, which is far cheaper to composite.
+        const useVT = viewTransition && supportsViewTransitions() && !isLowEndDevice();
 
         if (useVT) {
           // The generation was bumped above; the morph captures it on call.
