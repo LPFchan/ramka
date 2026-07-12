@@ -197,7 +197,10 @@ export default function PhotosAppPage() {
                 // (Lightbox.Item) are deliberately SEPARATE elements so a
                 // vertical pull-to-dismiss transform never nudges the
                 // horizontal scroll-snap container.
-                <ScrollGallery.Item key={photo.id} className="relative h-full w-screen shrink-0 snap-center">
+                <ScrollGallery.Item
+                  key={photo.id}
+                  className="relative h-full w-screen shrink-0 snap-center [scroll-snap-stop:always]"
+                >
                   <Lightbox.Item
                     index={i}
                     caption={photo.caption}

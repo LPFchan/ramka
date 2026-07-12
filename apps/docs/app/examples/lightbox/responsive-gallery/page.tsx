@@ -444,7 +444,10 @@ function FeedPostGallery({ post }: { post: FeedPost }) {
               // transform OFF the snap box stops the mandatory scroll-snap
               // container from re-aligning (and scrolling) in response to the
               // transformed item during a vertical pull.
-              <ScrollGallery.Item key={i} className="relative h-full w-screen shrink-0 snap-center">
+              <ScrollGallery.Item
+                key={i}
+                className="relative h-full w-screen shrink-0 snap-center [scroll-snap-stop:always]"
+              >
                 <Lightbox.Item
                   index={i}
                   caption={img.caption}
