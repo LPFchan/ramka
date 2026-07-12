@@ -13,6 +13,7 @@ import {
   maxPanOffset,
   round,
 } from './gesture-math';
+import { triggerHaptic } from './haptics';
 import { useLightboxContext } from './lightbox-context';
 import { useOptionalLightboxItemContext } from './lightbox-item';
 import {
@@ -390,6 +391,9 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
     const snapToBoundsAction = React.useCallback(() => {
       const currentZoom = zoomRef.current;
       if (currentZoom >= minZoom && currentZoom <= maxZoom) return;
+      // The gesture was released past a zoom bound — mirror iOS's light
+      // rubber-band tick as the scale snaps back into range.
+      triggerHaptic('snap');
       captureStart(SNAP_OPTS);
       const snapped = clamp(currentZoom, minZoom, maxZoom);
       const offsets = clampOffsets(offsetXRef.current, offsetYRef.current, snapped);
