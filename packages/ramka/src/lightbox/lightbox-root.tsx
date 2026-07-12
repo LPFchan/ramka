@@ -328,6 +328,8 @@ const LightboxRoot = React.forwardRef<LightboxRootRef, LightboxRootProps>(
       decodeMaxWait,
       triggerElementsRef,
       activeItemElementRef,
+      backdropElementRef,
+      dialogElementRef,
       openingTriggerIndexRef,
       activeIndexRef,
       closeGenRef,

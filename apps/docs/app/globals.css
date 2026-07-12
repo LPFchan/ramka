@@ -95,8 +95,27 @@
 }
 
 @media (prefers-reduced-motion: no-preference) {
+  /* The lightbox lifts its backdrop, content, and morph image into their own
+     transition groups (named with inline !important so they survive the
+     isolation rule above), which leaves the underlying page as the only thing
+     in the root snapshot. The page is unchanged between the old and new states,
+     so crossfading root is pure cost on every open/close — most punishing on
+     low-end GPUs, which have to blend two full-screen textures for the whole
+     duration. Making root instant lets the cheaper per-element groups below own
+     the animation instead. */
   :root[data-lightbox-view-transition]::view-transition-old(root),
   :root[data-lightbox-view-transition]::view-transition-new(root) {
+    animation: none !important;
+  }
+
+  /* Backdrop + content fade on their own layers, matched to the morph timing so
+     they don't finish early. Each is present in only one state per direction
+     (enter → new only; exit → old only), so only opacity animates — no
+     transform interpolation. */
+  ::view-transition-old(lightbox-backdrop),
+  ::view-transition-new(lightbox-backdrop),
+  ::view-transition-old(lightbox-content),
+  ::view-transition-new(lightbox-content) {
     animation-duration: 340ms;
     animation-timing-function: var(--ease-out-expo);
   }
@@ -149,7 +168,13 @@
   transition: none !important;
 }
 
-:root[data-lightbox-view-transition] .lightbox-chrome-fade[data-open] {
+/* Only pin chrome/backdrop opaque while OPENING, so their groups capture fully
+   visible and fade in. On CLOSE we must NOT pin: a pull-to-dismiss leaves the
+   backdrop dimmed via --lightbox-pull-progress, and forcing it to 1 right
+   before the close snapshot makes it flash bright for a frame. Letting close
+   capture the current opacity fades it out smoothly from where the gesture
+   left it. */
+:root[data-lightbox-view-transition='opening'] .lightbox-chrome-fade[data-open] {
   opacity: 1;
 }
 
