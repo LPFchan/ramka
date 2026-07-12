@@ -46,14 +46,37 @@ function getMorphImage(target: HTMLElement | null): HTMLImageElement | null {
   return target.querySelector<HTMLImageElement>('img');
 }
 
-/** Parses the first token of a computed `border-radius` into pixels. */
-function parseRadius(cssRadius: string, box: Box): number {
-  const first = cssRadius.split(' ')[0] ?? '0';
+interface CornerRadii {
+  tl: number;
+  tr: number;
+  br: number;
+  bl: number;
+}
+
+/** Parses one corner's computed radius (first token) into pixels. */
+function parseCorner(value: string, box: Box): number {
+  const first = value.split(' ')[0] ?? '0';
   if (first.endsWith('%')) {
-    const pct = parseFloat(first) / 100;
-    return Math.min(box.width, box.height) * pct;
+    return (Math.min(box.width, box.height) * parseFloat(first)) / 100;
   }
   return parseFloat(first) || 0;
+}
+
+/**
+ * Reads the four *individual* corner radii off an element. Triggers frequently
+ * round only some corners (e.g. a grid cell with `rounded-tl-xl`), so reading
+ * the `border-radius` shorthand's first token and applying it to all corners
+ * would fill in corners that should stay square. The four longhands preserve
+ * the exact per-corner shape.
+ */
+function parseRadii(el: HTMLElement, box: Box): CornerRadii {
+  const cs = getComputedStyle(el);
+  return {
+    tl: parseCorner(cs.borderTopLeftRadius, box),
+    tr: parseCorner(cs.borderTopRightRadius, box),
+    br: parseCorner(cs.borderBottomRightRadius, box),
+    bl: parseCorner(cs.borderBottomLeftRadius, box),
+  };
 }
 
 /**
@@ -67,7 +90,7 @@ function keyframeFor(
   nh: number,
   box: Box,
   fit: 'cover' | 'contain',
-  radius: number,
+  radii: CornerRadii,
 ): Keyframe {
   const scale =
     fit === 'cover'
@@ -84,11 +107,16 @@ function keyframeFor(
   const top = Math.max(0, (box.top - drawnY) / scale);
   const right = Math.max(0, drawnX + drawnW - (box.left + box.width)) / scale;
   const bottom = Math.max(0, drawnY + drawnH - (box.top + box.height)) / scale;
-  const localRadius = scale > 0 ? radius / scale : 0;
+
+  // Per-corner radii, in local space. Because the clone is uniformly scaled,
+  // dividing by `scale` yields the intended on-screen radius after transform,
+  // and preserves asymmetric rounding (e.g. a single rounded trigger corner).
+  const s = scale > 0 ? scale : 1;
+  const round = `${radii.tl / s}px ${radii.tr / s}px ${radii.br / s}px ${radii.bl / s}px`;
 
   return {
     transform: `translate(${drawnX}px, ${drawnY}px) scale(${scale})`,
-    clipPath: `inset(${top}px ${right}px ${bottom}px ${left}px round ${localRadius}px)`,
+    clipPath: `inset(${top}px ${right}px ${bottom}px ${left}px round ${round})`,
   };
 }
 
@@ -245,7 +273,7 @@ function useFlipMorph(config: FlipMorphConfig): FlipMorph {
 
     const triggerImg = getMorphImage(triggerTarget);
     const triggerBox = triggerTarget.getBoundingClientRect();
-    const triggerRadius = parseRadius(getComputedStyle(triggerTarget).borderRadius, triggerBox);
+    const triggerRadii = parseRadii(triggerTarget, triggerBox);
 
     // Hide the trigger *before* mounting so it doesn't sit under the fading-in
     // backdrop next to the flying clone for a frame.
@@ -283,12 +311,12 @@ function useFlipMorph(config: FlipMorphConfig): FlipMorph {
     }
 
     const itemBox = (itemImg ?? itemTarget).getBoundingClientRect();
-    const itemRadius = parseRadius(getComputedStyle(itemTarget).borderRadius, itemBox);
+    const itemRadii = parseRadii(itemTarget, itemBox);
 
     const restoreItem = forceStyle(itemImg ?? itemTarget, 'opacity', '0');
 
-    const fromKf = keyframeFor(nw, nh, triggerBox, 'cover', triggerRadius);
-    const toKf = keyframeFor(nw, nh, itemBox, 'contain', itemRadius);
+    const fromKf = keyframeFor(nw, nh, triggerBox, 'cover', triggerRadii);
+    const toKf = keyframeFor(nw, nh, itemBox, 'contain', itemRadii);
     const { clone, finished } = flyClone(src, nw, nh, fromKf, toKf, duration, easing);
 
     finished.then(() => {
@@ -336,9 +364,9 @@ function useFlipMorph(config: FlipMorphConfig): FlipMorph {
     }
 
     const itemBox = (itemImg ?? itemTarget).getBoundingClientRect();
-    const itemRadius = parseRadius(getComputedStyle(itemTarget).borderRadius, itemBox);
+    const itemRadii = parseRadii(itemTarget, itemBox);
     const triggerBox = triggerTarget.getBoundingClientRect();
-    const triggerRadius = parseRadius(getComputedStyle(triggerTarget).borderRadius, triggerBox);
+    const triggerRadii = parseRadii(triggerTarget, triggerBox);
 
     let src: string | undefined;
     let nw = 0;
@@ -369,8 +397,8 @@ function useFlipMorph(config: FlipMorphConfig): FlipMorph {
     cfg.beginClose();
     const restoreTrigger = forceStyle(triggerTarget, 'visibility', 'hidden');
 
-    const fromKf = keyframeFor(nw, nh, itemBox, 'contain', itemRadius);
-    const toKf = keyframeFor(nw, nh, triggerBox, 'cover', triggerRadius);
+    const fromKf = keyframeFor(nw, nh, itemBox, 'contain', itemRadii);
+    const toKf = keyframeFor(nw, nh, triggerBox, 'cover', triggerRadii);
     const { clone, finished } = flyClone(src, nw, nh, fromKf, toKf, duration, easing);
 
     finished.then(() => {
