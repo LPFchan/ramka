@@ -22,6 +22,16 @@ import {
   scrollTriggerEl,
   useViewTransitionMorph,
 } from './use-view-transition-morph';
+import { useFlipMorph } from './use-flip-morph';
+
+/** SSR-safe `prefers-reduced-motion` check. */
+function prefersReducedMotion(): boolean {
+  return (
+    typeof window !== 'undefined' &&
+    typeof window.matchMedia === 'function' &&
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  );
+}
 
 interface LightboxRootProps {
   children?: React.ReactNode;
@@ -85,6 +95,30 @@ interface LightboxRootProps {
    * @default 'active'
    */
   morphTo?: 'active' | 'origin' | 'closest';
+  /**
+   * Which mechanism drives the trigger ⇄ item morph.
+   *
+   * - `'viewTransition'` (default) — uses the View Transitions API. Highest
+   *   fidelity (morphs arbitrary content), but snapshots the whole document
+   *   per open/close, which is costly on low-end hardware.
+   * - `'flip'` — flies a single transform-animated image clone from the
+   *   trigger to the item (and back). Starts instantly with no document
+   *   snapshot; best for image/video galleries on constrained devices.
+   *
+   * @default 'viewTransition'
+   */
+  morphEngine?: 'viewTransition' | 'flip';
+  /**
+   * Duration (ms) of the FLIP morph. Only applies when
+   * `morphEngine="flip"` (the View Transitions morph is timed in CSS).
+   * @default 500
+   */
+  morphDuration?: number;
+  /**
+   * CSS easing for the FLIP morph. Only applies when `morphEngine="flip"`.
+   * @default 'cubic-bezier(0.32, 0.72, 0, 1)'
+   */
+  morphEasing?: string;
   /**
    * How long the open morph waits for the destination image to decode
    * before starting, so the lightbox doesn't flash empty space while the
@@ -150,6 +184,9 @@ const LightboxRoot = React.forwardRef<LightboxRootRef, LightboxRootProps>(
       viewTransition = false,
       scrollTriggerIntoView = null,
       morphTo = 'active',
+      morphEngine = 'viewTransition',
+      morphDuration,
+      morphEasing,
       awaitImageDecode = true,
     } = props;
 
@@ -313,6 +350,20 @@ const LightboxRoot = React.forwardRef<LightboxRootRef, LightboxRootProps>(
       setMounted(false);
     }, [isControlledOpen]);
 
+    // FLIP close is split in two: `beginClose` flips the open state (so the
+    // consumer's backdrop/content fade-out CSS starts) while keeping the portal
+    // mounted for the flying-clone morph; `finishClose` unmounts once it lands.
+    const beginClose = React.useCallback(() => {
+      if (!isControlledOpen) {
+        setUncontrolledOpen(false);
+      }
+      onOpenChangeRef.current?.(false);
+    }, [isControlledOpen]);
+
+    const finishClose = React.useCallback(() => {
+      setMounted(false);
+    }, []);
+
     const handleOpenComplete = React.useCallback(() => {
       onOpenChangeCompleteRef.current?.(true);
     }, []);
@@ -339,6 +390,24 @@ const LightboxRoot = React.forwardRef<LightboxRootRef, LightboxRootProps>(
       onCloseComplete: handleCloseComplete,
     });
 
+    const flip = useFlipMorph({
+      morphTo,
+      scrollTriggerIntoView,
+      duration: morphDuration,
+      easing: morphEasing,
+      triggerElementsRef,
+      activeItemElementRef,
+      openingTriggerIndexRef,
+      dialogElementRef,
+      activeIndexRef,
+      closeGenRef,
+      commitOpen,
+      beginClose,
+      finishClose,
+      onOpenComplete: handleOpenComplete,
+      onCloseComplete: handleCloseComplete,
+    });
+
     const setOpen = React.useCallback(
       (nextOpen: boolean) => {
         closeGenRef.current += 1;
@@ -347,11 +416,26 @@ const LightboxRoot = React.forwardRef<LightboxRootRef, LightboxRootProps>(
         // controlled `open` prop subsequently updates via onOpenChange.
         lastInternalOpenRef.current = nextOpen;
 
-        // Skip the (document-snapshotting) morph on low-end hardware and fall
-        // back to the plain fade path, which is far cheaper to composite.
-        const useVT = viewTransition && supportsViewTransitions() && !isLowEndDevice();
+        // Morph is enabled by either the legacy `viewTransition` flag or by
+        // explicitly selecting the FLIP engine. Reduced-motion always opts out.
+        const wantMorph =
+          (viewTransition || morphEngine === 'flip') &&
+          typeof document !== 'undefined' &&
+          !prefersReducedMotion();
+        // FLIP is transform-only (cheap everywhere); the VT path still skips
+        // the document-snapshotting morph on low-end hardware.
+        const useFlip = wantMorph && morphEngine === 'flip';
+        const useVT =
+          wantMorph && morphEngine === 'viewTransition' && supportsViewTransitions() && !isLowEndDevice();
 
-        if (useVT) {
+        if (useFlip) {
+          // The generation was bumped above; the morph captures it on call.
+          if (nextOpen) {
+            flip.open();
+          } else {
+            flip.close();
+          }
+        } else if (useVT) {
           // The generation was bumped above; the morph captures it on call.
           if (nextOpen) {
             morph.open();
@@ -398,7 +482,7 @@ const LightboxRoot = React.forwardRef<LightboxRootRef, LightboxRootProps>(
           }
         }
       },
-      [isControlledOpen, viewTransition, scrollTriggerIntoView, morphTo, morph, commitOpen],
+      [isControlledOpen, viewTransition, morphEngine, scrollTriggerIntoView, morphTo, morph, flip, commitOpen],
     );
 
     // Sync `mounted` to externally-driven changes of a controlled

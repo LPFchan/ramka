@@ -397,7 +397,7 @@ function FeedPostGallery({ post }: { post: FeedPost }) {
   const morphTo = post.images.length > 4 ? 'closest' : undefined;
 
   return (
-    <Lightbox.Root viewTransition morphTo={morphTo} {...sync.lightboxRootProps}>
+    <Lightbox.Root morphEngine="flip" morphTo={morphTo} {...sync.lightboxRootProps}>
       <article className="flex gap-3 py-4">
         <div className="shrink-0 pt-0.5">
           <Avatar size="lg">
