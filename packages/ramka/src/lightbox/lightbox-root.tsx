@@ -250,6 +250,9 @@ const LightboxRoot = React.forwardRef<LightboxRootRef, LightboxRootProps>(
     // mount is visible immediately instead of flashing closed for a
     // tick before the sync effect catches up.
     const [mounted, setMounted] = React.useState(() => (isControlledOpen ? Boolean(openProp) : defaultOpen));
+    // Pre-mount phase flag for the VT open path (see `commitPrepare` /
+    // `commitReveal`). Never true for an initially-open lightbox.
+    const [preparing, setPreparing] = React.useState(false);
     const closeGenRef = React.useRef(0);
 
     // Tracks the most recent open value that internal setOpen has
@@ -305,6 +308,31 @@ const LightboxRoot = React.forwardRef<LightboxRootRef, LightboxRootProps>(
       onOpenChangeRef.current?.(true);
     }, [isControlledOpen]);
 
+    // VT open is split into two commits so the expensive React reconciliation
+    // (mounting the whole viewer + gallery) happens BEFORE `startViewTransition`
+    // — off the transition's render-suppressed critical path — and only a cheap
+    // reveal runs inside the callback.
+    //
+    // `commitPrepare` mounts the tree but keeps `open` false, so Content/Backdrop
+    // render `visibility: hidden` (invisible in the transition's old snapshot)
+    // while their layout settles and destination images start decoding.
+    const commitPrepare = React.useCallback(() => {
+      setMounted(true);
+      setPreparing(true);
+    }, []);
+
+    // `commitReveal` flips the prepared tree visible and marks the lightbox open
+    // (firing onOpenChange). The DOM already exists, so this is a paint-only flip
+    // rather than a mount.
+    const commitReveal = React.useCallback(() => {
+      setPreparing(false);
+      setMounted(true);
+      if (!isControlledOpen) {
+        setUncontrolledOpen(true);
+      }
+      onOpenChangeRef.current?.(true);
+    }, [isControlledOpen]);
+
     const commitClose = React.useCallback(() => {
       if (!isControlledOpen) {
         setUncontrolledOpen(false);
@@ -328,12 +356,11 @@ const LightboxRoot = React.forwardRef<LightboxRootRef, LightboxRootProps>(
       decodeMaxWait,
       triggerElementsRef,
       activeItemElementRef,
-      backdropElementRef,
-      dialogElementRef,
       openingTriggerIndexRef,
       activeIndexRef,
       closeGenRef,
-      commitOpen,
+      commitPrepare,
+      commitReveal,
       commitClose,
       onOpenComplete: handleOpenComplete,
       onCloseComplete: handleCloseComplete,
@@ -453,6 +480,7 @@ const LightboxRoot = React.forwardRef<LightboxRootRef, LightboxRootProps>(
         open,
         setOpen,
         mounted,
+        preparing,
         activeIndex,
         setActiveIndex,
         itemCount,
@@ -469,7 +497,7 @@ const LightboxRoot = React.forwardRef<LightboxRootRef, LightboxRootProps>(
         dialogElementRef,
         backdropElementRef,
       }),
-      [open, setOpen, mounted, activeIndex, setActiveIndex, itemCount, registerItem, loop, registerCaption, subscribeCaptions, viewTransition, morphTo],
+      [open, setOpen, mounted, preparing, activeIndex, setActiveIndex, itemCount, registerItem, loop, registerCaption, subscribeCaptions, viewTransition, morphTo],
     );
 
     return (

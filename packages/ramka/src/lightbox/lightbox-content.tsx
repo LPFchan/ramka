@@ -55,6 +55,7 @@ const LightboxContent = React.forwardRef<HTMLDivElement, LightboxContentProps>(
     const {
       open,
       mounted,
+      preparing,
       setOpen,
       activeIndex,
       setActiveIndex,
@@ -88,12 +89,15 @@ const LightboxContent = React.forwardRef<HTMLDivElement, LightboxContentProps>(
       [forwardedRef, dialogElementRef],
     );
 
-    // Focus the content element on mount so keyboard events work immediately.
+    // Focus the content element once revealed so keyboard events work
+    // immediately. Held off during the VT pre-mount phase (`preparing`) so we
+    // don't move focus (and possibly scroll) while the viewer is still hidden;
+    // it fires when `preparing` flips false at reveal.
     useLayoutEffect(() => {
-      if (mounted) {
+      if (mounted && !preparing) {
         contentRef.current?.focus();
       }
-    }, [mounted]);
+    }, [mounted, preparing]);
 
     // Focus containment (canonical modal focus trap, completing the Tab guards
     // below). Slides are non-focusable, so normal usage never strands focus.
@@ -121,16 +125,19 @@ const LightboxContent = React.forwardRef<HTMLDivElement, LightboxContentProps>(
       return () => el.removeEventListener('focusout', handleFocusOut);
     }, [mounted]);
 
-    // Lock document scroll while the lightbox is open.
+    // Lock document scroll while the lightbox is open. Held off during the VT
+    // pre-mount phase so hiding the scrollbar (which can reflow/shift the page)
+    // happens at reveal — masked by the transition — rather than as a visible
+    // pre-transition jump.
     React.useEffect(() => {
-      if (!mounted) return;
+      if (!mounted || preparing) return;
       const html = document.documentElement;
       const originalOverflow = html.style.overflow;
       html.style.overflow = 'hidden';
       return () => {
         html.style.overflow = originalOverflow;
       };
-    }, [mounted]);
+    }, [mounted, preparing]);
 
     // Prevent native pinch-zoom gestures (touch and trackpad).
     //
@@ -365,7 +372,17 @@ const LightboxContent = React.forwardRef<HTMLDivElement, LightboxContentProps>(
         // the macOS trackpad momentum tail latched to this container — from
         // chaining out to the page, including after the lightbox closes.
         // Consumers can still override via the `style` prop.
-        style: { overflow: 'hidden', overscrollBehavior: 'contain', ...style },
+        //
+        // While `preparing` (VT pre-mount), force `visibility: hidden` so the
+        // freshly-mounted viewer lays out and decodes images without painting
+        // into the transition's old snapshot. Placed after `...style` so it
+        // wins for the (transient) hidden phase regardless of consumer styles.
+        style: {
+          overflow: 'hidden',
+          overscrollBehavior: 'contain',
+          ...style,
+          ...(preparing ? { visibility: 'hidden' as const } : null),
+        },
         'data-open': open || undefined,
         onKeyDown: handleKeyDown,
         onClick: handleClick,

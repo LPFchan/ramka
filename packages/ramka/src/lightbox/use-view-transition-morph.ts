@@ -135,80 +135,28 @@ function applyMorphState(
 }
 
 /**
- * Establishes a paint + layout containment boundary on an element about to be
- * captured. Before snapshotting each state the browser must rasterize the
- * element's layout tree; `contain: layout paint` scopes style, layout, and
- * paint to that element's box so the snapshot generation can't thrash the rest
- * of the page's layout — the single cheapest win on low-end GPUs per the VT
- * performance guidance. Applied to every element we lift into its own group
- * (morph target, backdrop, content), always *before* the relevant capture.
- */
-function containForCapture(el: HTMLElement) {
-  el.style.setProperty('contain', 'layout paint', 'important');
-}
-
-/** Reverts a {@link containForCapture} call. */
-function releaseContain(el: HTMLElement) {
-  el.style.removeProperty('contain');
-}
-
-/**
  * Assigns the morph `view-transition-name` to an element with inline
- * `!important`. The document-level isolation rule sets
- * `view-transition-name: none !important` on every element while the morph is
- * running (so unrelated consumer-named elements aren't captured); an inline
- * `!important` declaration outranks that author-`!important` rule on
- * specificity, keeping the morph target the sole captured group.
+ * `!important`, plus a `contain: layout paint` boundary. The name: the
+ * document-level isolation rule sets `view-transition-name: none !important`
+ * on every element while the morph is running (so unrelated consumer-named
+ * elements aren't captured); an inline `!important` declaration outranks that
+ * author-`!important` rule on specificity, keeping the morph target the sole
+ * captured group. The containment: before snapshotting the browser must
+ * rasterize the element's layout tree, so scoping style/layout/paint to this
+ * element's box keeps snapshot generation from thrashing the rest of the page —
+ * the cheap per-element win on low-end GPUs. (Unlike the reverted backdrop/
+ * content grouping, this stays inside the single root snapshot — it just adds
+ * containment to the one element that already had its own group.)
  */
 function setMorphName(el: HTMLElement) {
   el.style.setProperty('view-transition-name', VIEW_TRANSITION_NAME, 'important');
-  containForCapture(el);
+  el.style.setProperty('contain', 'layout paint', 'important');
 }
 
-/** Clears a name set by {@link setMorphName}. */
+/** Clears the name + containment set by {@link setMorphName}. */
 function clearMorphName(el: HTMLElement) {
   el.style.removeProperty('view-transition-name');
-  releaseContain(el);
-}
-
-// Group names for the backdrop and content. Lifting these into their own VT
-// groups (instead of leaving them in the whole-page root snapshot) lets the
-// root crossfade go instant — only these cheap per-element layers animate.
-const BACKDROP_VT_NAME = 'lightbox-backdrop';
-const CONTENT_VT_NAME = 'lightbox-content';
-
-/**
- * Lifts an element (the backdrop or content) into its own transition group by
- * assigning a `view-transition-name` with inline `!important` so it survives
- * the isolation rule.
- */
-function nameGroup(el: HTMLElement, name: string) {
-  el.style.setProperty('view-transition-name', name, 'important');
-  containForCapture(el);
-}
-
-/**
- * Like {@link nameGroup}, but also pins `opacity: 1` (inline `!important`) so
- * the captured snapshot is fully opaque even if the element's enter transition
- * (`@starting-style` opacity 0 → 1) hasn't finished by capture time — the group
- * fade then animates the pseudo cleanly from transparent to opaque.
- *
- * Only used on OPEN. On CLOSE we must NOT pin opacity: the backdrop may be
- * mid-pull (dimmed via `--lightbox-pull-progress`), and forcing it to 1 right
- * before the snapshot makes it flash bright for a frame before fading out.
- * Capturing it at its current opacity fades out smoothly from wherever the
- * gesture left it.
- */
-function captureAsGroup(el: HTMLElement, name: string) {
-  nameGroup(el, name);
-  el.style.setProperty('opacity', '1', 'important');
-}
-
-/** Reverts a {@link captureAsGroup} / {@link nameGroup} call. */
-function releaseGroup(el: HTMLElement) {
-  el.style.removeProperty('view-transition-name');
-  el.style.removeProperty('opacity');
-  releaseContain(el);
+  el.style.removeProperty('contain');
 }
 
 /** Removes every document-level attribute/var set by {@link applyMorphState}. */
@@ -235,16 +183,21 @@ interface ViewTransitionMorphConfig {
   decodeMaxWait: number;
   triggerElementsRef: React.RefObject<Map<number, HTMLElement>>;
   activeItemElementRef: React.RefObject<HTMLElement | null>;
-  /** Backdrop element (if `Lightbox.Backdrop` is rendered) — lifted into its
-   *  own VT group so the root crossfade can stay instant. */
-  backdropElementRef: React.RefObject<HTMLElement | null>;
-  /** Content/dialog element — lifted into its own VT group. */
-  dialogElementRef: React.RefObject<HTMLElement | null>;
   openingTriggerIndexRef: React.RefObject<number>;
   activeIndexRef: React.RefObject<number>;
   closeGenRef: React.MutableRefObject<number>;
-  /** flushSync body that flips React state to the open/mounted state. */
-  commitOpen: () => void;
+  /**
+   * flushSync body that MOUNTS the viewer in a hidden ("preparing") state.
+   * Runs before `startViewTransition` so the expensive reconciliation and image
+   * decode happen off the transition's render-suppressed path; the hidden tree
+   * is absent from the old snapshot.
+   */
+  commitPrepare: () => void;
+  /**
+   * flushSync body that reveals the prepared tree and marks the lightbox open.
+   * Runs inside the transition callback; a cheap paint-only flip (no mount).
+   */
+  commitReveal: () => void;
   /** flushSync body that flips React state to the closed/unmounted state. */
   commitClose: () => void;
   /** Fired once the open morph settles (and its generation is still current). */
@@ -284,7 +237,8 @@ function useViewTransitionMorph(config: ViewTransitionMorphConfig): ViewTransiti
       activeItemElementRef,
       openingTriggerIndexRef,
       closeGenRef,
-      commitOpen,
+      commitPrepare,
+      commitReveal,
     } = configRef.current;
 
     const docEl = document.documentElement;
@@ -294,6 +248,16 @@ function useViewTransitionMorph(config: ViewTransitionMorphConfig): ViewTransiti
     const triggerEl = triggerElementsRef.current.get(triggerIdx);
     const triggerTarget = triggerEl ? findTriggerMorphTarget(triggerEl) : null;
     const useCrossfade = triggerEl?.dataset.crossfade === 'true';
+
+    // PRE-MOUNT (Guideline #3): build the viewer + gallery NOW, while the page
+    // is still live and interactive, so the heavy React reconciliation and the
+    // destination image's fetch/decode happen OFF the transition's
+    // render-suppressed critical path. The tree mounts `visibility: hidden`
+    // (see LightboxContent/Backdrop `preparing`), so it doesn't paint into the
+    // old snapshot captured below. The transition callback then only has to
+    // flip it visible — no mount — so the morph starts promptly instead of the
+    // screen freezing on the old snapshot for the duration of the mount.
+    flushSync(commitPrepare);
 
     // Batch all reads before any writes to avoid forced reflow
     const fromRadius = triggerTarget ? getComputedStyle(triggerTarget).borderRadius : null;
@@ -311,16 +275,10 @@ function useViewTransitionMorph(config: ViewTransitionMorphConfig): ViewTransiti
       if (triggerTarget) {
         clearMorphName(triggerTarget);
       }
-      flushSync(commitOpen);
-
-      // Backdrop + content are now mounted (flushSync ran their ref callbacks
-      // synchronously). Lift them into their own groups so they fade on cheap
-      // per-element layers while the root snapshot (the unchanged page) stays
-      // static — see the `animation: none` root rule in the VT CSS contract.
-      const backdropEl = configRef.current.backdropElementRef.current;
-      const contentEl = configRef.current.dialogElementRef.current;
-      if (backdropEl) captureAsGroup(backdropEl, BACKDROP_VT_NAME);
-      if (contentEl) captureAsGroup(contentEl, CONTENT_VT_NAME);
+      // Reveal the already-mounted tree (paint-only flip; no reconciliation).
+      // The backdrop + content are part of the root snapshot, which crossfades
+      // between the old and new states (see the VT CSS contract).
+      flushSync(commitReveal);
 
       const itemEl = activeItemElementRef.current;
       const itemTarget = itemEl ? findItemMorphTarget(itemEl) : null;
@@ -353,10 +311,6 @@ function useViewTransitionMorph(config: ViewTransitionMorphConfig): ViewTransiti
       if (itemTarget) {
         clearMorphName(itemTarget);
       }
-      const backdropEl = configRef.current.backdropElementRef.current;
-      const contentEl = configRef.current.dialogElementRef.current;
-      if (backdropEl) releaseGroup(backdropEl);
-      if (contentEl) releaseGroup(contentEl);
       clearMorphState(docEl);
       configRef.current.onOpenComplete();
     });
@@ -398,15 +352,6 @@ function useViewTransitionMorph(config: ViewTransitionMorphConfig): ViewTransiti
     if (itemTarget) {
       setMorphName(itemTarget);
     }
-    // Lift backdrop + content into their own groups now, while still mounted,
-    // so the OLD snapshot captures them as separate fading layers. Name only —
-    // no opacity pin — so a pull-dimmed backdrop fades out from its current
-    // opacity instead of flashing to full first. They unmount in `commitClose`
-    // below, so there's nothing to release afterwards.
-    const backdropEl = configRef.current.backdropElementRef.current;
-    const contentEl = configRef.current.dialogElementRef.current;
-    if (backdropEl) nameGroup(backdropEl, BACKDROP_VT_NAME);
-    if (contentEl) nameGroup(contentEl, CONTENT_VT_NAME);
 
     const transition = startViewTransition(() => {
       if (itemTarget) {
