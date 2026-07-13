@@ -212,8 +212,25 @@ const LightboxSlides = React.forwardRef<HTMLDivElement, LightboxSlidesProps>(
       if (!viewport) return;
       geometryRef.current = measureGeometry(viewport);
 
+      // ResizeObserver fires an initial callback on `observe()` with the current
+      // size. In a real browser we already measured the same values in the
+      // layout effect above, so re-centering from that initial callback is a
+      // redundant scroll write landing *during the open commit* (it dirties
+      // layout, forcing the next read to reflow). Only re-center when geometry
+      // actually changed — genuine resizes still work, and the no-op initial
+      // callback is skipped. See LIGHTBOX_PERF.md.
       const observer = new ResizeObserver(() => {
-        geometryRef.current = measureGeometry(viewport);
+        const prev = geometryRef.current;
+        const next = measureGeometry(viewport);
+        geometryRef.current = next;
+        if (
+          prev &&
+          next.base === prev.base &&
+          next.step === prev.step &&
+          next.count === prev.count
+        ) {
+          return;
+        }
         scrollToIndex(activeIndexRef.current);
       });
       observer.observe(viewport);
