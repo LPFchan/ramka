@@ -6,9 +6,11 @@
  *
  * Key design decisions:
  *
- * - **Swap-based rendering**: Only the active item (plus `preload` adjacent
- *   items) is rendered in the DOM. Unlike ScrollGallery which uses native
- *   scroll, this keeps memory usage low for large image collections.
+ * - **Swap-based rendering**: In the stacked `Lightbox.ItemGroup` layout only
+ *   the active item (plus `preload` adjacent items) is rendered in the DOM,
+ *   keeping memory usage low for large image collections. (The swipeable
+ *   `Lightbox.Slides` layout keeps slide boxes mounted but preload-gates their
+ *   contents the same way.)
  *
  * - **Multiple triggers**: Each Trigger accepts an `index` prop, so a grid
  *   of thumbnails can each open the lightbox at the corresponding item.

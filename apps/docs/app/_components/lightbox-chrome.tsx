@@ -57,8 +57,8 @@ export function LightboxFrame({
   ariaLabel: string;
   /**
    * Overrides the default `flex flex-col items-center justify-between`
-   * layout. Useful when the content is e.g. a ScrollGallery that should
-   * stretch to fill the frame.
+   * layout. Useful when the content is e.g. a `Lightbox.Slides` scroller
+   * that should stretch to fill the frame.
    */
   className?: string;
 }) {

@@ -438,7 +438,7 @@ function useZoomGestures(
   //
   // Safari quirk: a non-passive wheel listener on an ancestor kills
   // compositor-thread momentum scrolling in descendant scroll containers
-  // (e.g. ScrollGallery). Chrome/Firefox don't have this issue so
+  // (e.g. Lightbox.Slides). Chrome/Firefox don't have this issue so
   // non-passive is always safe there.
   //
   // On Safari, trackpad pinch-to-zoom is handled via GestureEvent (below),

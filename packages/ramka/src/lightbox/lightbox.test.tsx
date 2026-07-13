@@ -74,7 +74,7 @@ afterEach(() => {
 });
 
 // ---------------------------------------------------------------------------
-// Helper component — mirrors the Gallery helper in scroll-gallery.test.tsx
+// Helper component
 // ---------------------------------------------------------------------------
 
 function TestLightbox({
@@ -556,9 +556,9 @@ describe('Lightbox', () => {
     });
 
     it('defers navigation when a descendant already handled the key (defaultPrevented)', () => {
-      // Simulates a composed ScrollGallery: a descendant calls preventDefault
-      // on the arrow key before it bubbles to Content, so Content must not
-      // also navigate (single keyboard authority).
+      // Simulates a composed scroller (e.g. Lightbox.Slides): a descendant
+      // calls preventDefault on the arrow key before it bubbles to Content, so
+      // Content must not also navigate (single keyboard authority).
       render(
         <LightboxRoot defaultOpen defaultValue={0}>
           <LightboxTrigger index={0}>Trigger 0</LightboxTrigger>

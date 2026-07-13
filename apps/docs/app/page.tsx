@@ -9,8 +9,9 @@ export default function HomePage() {
         ramka
       </h1>
       <p className="mt-4 max-w-2xl text-lg leading-relaxed text-neutral-600 dark:text-neutral-400">
-        Unstyled, accessible primitives for image galleries, carousels, and lightboxes — in the style of Radix UI and
-        Base UI. Compose any UI on top of the same headless components.
+        Unstyled, accessible lightbox primitives — in the style of Radix UI and Base UI. Compose any lightbox UI on top
+        of the same headless components, with a built-in swipeable <code>Lightbox.Slides</code> carousel, view-transition
+        morph, zoom, and pull-to-dismiss.
       </p>
 
       <section className="mt-10">
@@ -23,19 +24,28 @@ export default function HomePage() {
       <section className="mt-10">
         <h2 className="text-sm font-semibold uppercase tracking-widest text-neutral-500">Quick start</h2>
         <pre className="mt-3 overflow-x-auto rounded-lg border border-neutral-200 bg-neutral-50 p-4 font-mono text-sm leading-relaxed text-neutral-800 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-200">
-          {`import { ScrollGallery, Lightbox } from 'ramka';
+          {`import { Lightbox } from 'ramka';
 
-<ScrollGallery.Root>
-  <ScrollGallery.Viewport style={{ display: 'flex', overflowX: 'auto' }}>
-    {items.map((item) => (
-      <ScrollGallery.Item key={item.id} style={{ flexShrink: 0 }}>
-        {/* your content */}
-      </ScrollGallery.Item>
-    ))}
-  </ScrollGallery.Viewport>
-  <ScrollGallery.Previous>Prev</ScrollGallery.Previous>
-  <ScrollGallery.Next>Next</ScrollGallery.Next>
-</ScrollGallery.Root>`}
+<Lightbox.Root viewTransition>
+  {items.map((item, i) => (
+    <Lightbox.Trigger key={item.id} index={i}>
+      <img src={item.thumb} alt={item.alt} />
+    </Lightbox.Trigger>
+  ))}
+
+  <Lightbox.Backdrop />
+  <Lightbox.Content>
+    <Lightbox.Slides>
+      {items.map((item, i) => (
+        <Lightbox.Slide key={item.id}>
+          <Lightbox.Item index={i}>
+            <img src={item.src} alt={item.alt} />
+          </Lightbox.Item>
+        </Lightbox.Slide>
+      ))}
+    </Lightbox.Slides>
+  </Lightbox.Content>
+</Lightbox.Root>`}
         </pre>
       </section>
 

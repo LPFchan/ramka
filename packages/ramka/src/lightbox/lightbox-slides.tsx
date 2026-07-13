@@ -9,7 +9,7 @@ import { LightboxItemGroupContext, type LightboxItemGroupContextValue } from './
 /**
  * `Lightbox.Slides` — a dedicated, lightbox-only horizontal snap scroller.
  *
- * ## Why this exists (and isn't the general `ScrollGallery`)
+ * ## Why this is lightbox-specific (and not a general scroll gallery)
  *
  * A lightbox carousel is a *very* constrained scroller, and leaning into those
  * constraints is what makes state-sync bulletproof:
@@ -56,8 +56,8 @@ import { LightboxItemGroupContext, type LightboxItemGroupContextValue } from './
  *
  * ## Direct Lightbox integration
  *
- * Reads/writes the Lightbox's own `activeIndex` — no `ScrollGallery`, no
- * `useLightboxScrollSync` bridge. It also provides the item-group context so
+ * Reads/writes the Lightbox's own `activeIndex` directly — no external scroll
+ * primitive and no state-sync bridge. It also provides the item-group context so
  * `Lightbox.Item`s inside `Lightbox.Slide`s get active/preload/direction, and
  * carries `data-orientation` so shared CSS (e.g. disabling item entrance fades
  * inside a scroller) keeps working.

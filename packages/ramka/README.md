@@ -1,6 +1,6 @@
 # ramka
 
-Unstyled, accessible image gallery primitives for React — in the style of [Radix UI](https://www.radix-ui.com/) and [Base UI](https://base-ui.com/).
+Unstyled, accessible lightbox primitives for React — in the style of [Radix UI](https://www.radix-ui.com/) and [Base UI](https://base-ui.com/).
 
 > _ramka_ (РАмка) is Polish for "frame".
 
@@ -19,13 +19,14 @@ yarn add ramka
 ## Usage
 
 ```tsx
-import { ScrollGallery, Lightbox } from 'ramka';
+import { Lightbox } from 'ramka';
 ```
 
-Two primitive families are shipped today:
+`Lightbox.*` is a fullscreen modal image viewer composed of headless parts:
 
-- `ScrollGallery.*` — a horizontally / vertically snapping scroll gallery with scroll markers, keyboard navigation, and an imperative API.
-- `Lightbox.*` — a fullscreen modal image viewer with optional View Transition morph, zoom, captions, thumbnails, and pull-to-dismiss.
+- `Lightbox.Trigger` / `Lightbox.Content` / `Lightbox.Backdrop` — the modal shell with an optional View Transition morph from the trigger.
+- `Lightbox.Slides` / `Lightbox.Slide` — a swipeable, snapping carousel wired directly to the lightbox's active index.
+- `Lightbox.Zoom`, `Lightbox.Caption`, `Lightbox.ThumbnailGroup`, `Lightbox.Previous` / `Lightbox.Next` — zoom, captions, thumbnails, and navigation, plus built-in pull-to-dismiss.
 
 See the [docs site](../../apps/docs) for live examples.
 

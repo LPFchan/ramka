@@ -143,7 +143,8 @@ const LightboxContent = React.forwardRef<HTMLDivElement, LightboxContentProps>(
     //
     // Safari quirk: a non-passive `wheel` listener on an ancestor forces Safari
     // to fall back from compositor-thread scrolling to main-thread scrolling,
-    // killing momentum/flick scrolling in descendant ScrollGallery containers.
+    // killing momentum/flick scrolling in descendant scroll containers (e.g.
+    // Lightbox.Slides).
     // Safari fires its own GestureEvent (gesturestart/gesturechange) for
     // trackpad pinch — preventing those stops native zoom without touching the
     // wheel event path. For Chrome/Firefox (no GestureEvent), trackpad pinch
@@ -221,12 +222,12 @@ const LightboxContent = React.forwardRef<HTMLDivElement, LightboxContentProps>(
     //   - zoom keys (`+`/`-`/`Cmd|Ctrl+0`): always routed to the active slide's
     //     zoom via the bridge, regardless of current zoom level.
     //   - arrows while zoomed (> 1x): pan the active slide's zoom.
-    //   - arrows / Home / End at 1x: navigate the gallery (index-driven, so the
-    //     composed ScrollGallery scrolls with its configured behavior and keeps
-    //     markers in sync).
+    //   - arrows / Home / End at 1x: navigate the gallery (index-driven, so a
+    //     composed scroller like Lightbox.Slides follows the active index and
+    //     keeps thumbnails in sync).
     const handleKeyDown = React.useCallback(
       (event: React.KeyboardEvent) => {
-        // A descendant (e.g. a composed ScrollGallery viewport or its marker
+        // A descendant (e.g. a Lightbox.Slides viewport or the thumbnail
         // group) already handled this key and called preventDefault. Defer so
         // navigation has a single authority and we don't double-handle it.
         if (event.defaultPrevented) return;

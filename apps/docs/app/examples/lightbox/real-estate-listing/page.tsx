@@ -1,7 +1,6 @@
 'use client';
 
-import * as React from 'react';
-import { Lightbox, ScrollGallery } from 'ramka';
+import { Lightbox } from 'ramka';
 import { X } from 'lucide-react';
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -41,17 +40,6 @@ const amenities = [
 
 const iconButton =
   'inline-flex h-9 w-9 items-center justify-center rounded-full text-white/80 transition hover:bg-white/10 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70 disabled:cursor-not-allowed disabled:opacity-30';
-
-const scrollItemStyle: React.CSSProperties = {
-  position: 'relative',
-  inset: 'auto',
-  visibility: 'visible',
-  animation: 'none',
-  scrollSnapAlign: 'center',
-  flexShrink: 0,
-  width: '85vw',
-  maxWidth: 900,
-};
 
 // Per-cell outer corners. The 5-cell grid: index 0 is the tall left
 // column, then top-middle (1), top-right (2), bottom-middle (3),
@@ -137,8 +125,6 @@ function RemainingPhotosGrid() {
 }
 
 export default function RealEstateListingPage() {
-  const [activeIndex, setActiveIndex] = React.useState(0);
-
   return (
     <ExampleShell
       title="Real estate listing"
@@ -146,7 +132,7 @@ export default function RealEstateListingPage() {
         <>
           A property page in the style of Airbnb or Zillow: a hero grid for the first five photos, then an &quot;all photos&quot;
           gallery below. The lightbox opens a horizontally-snapping{' '}
-          <code className="rounded bg-neutral-100 px-1 py-0.5 text-xs dark:bg-neutral-800">ScrollGallery</code> over
+          <code className="rounded bg-neutral-100 px-1 py-0.5 text-xs dark:bg-neutral-800">Lightbox.Slides</code> viewport over
           all 10 photos, with{' '}
           <code className="rounded bg-neutral-100 px-1 py-0.5 text-xs dark:bg-neutral-800">scrollTriggerIntoView</code>{' '}
           set to instant on close so the morph target is always on screen.
@@ -156,8 +142,6 @@ export default function RealEstateListingPage() {
       <Lightbox.Root
         viewTransition
         loop
-        value={activeIndex}
-        onValueChange={setActiveIndex}
         scrollTriggerIntoView={{ type: 'onClose', behavior: 'instant' }}
       >
         <div className="mx-auto max-w-5xl py-4 pb-12">
@@ -252,21 +236,17 @@ export default function RealEstateListingPage() {
             <Lightbox.Counter className="font-mono text-sm tabular-nums text-white/70" />
           </div>
 
-          <ScrollGallery.Root value={activeIndex} onValueChange={setActiveIndex}>
-            <Lightbox.ItemGroup
-              render={<ScrollGallery.Viewport aria-label="Property photos" />}
-              preload={propertyPhotos.length}
-              className="flex flex-1 gap-4 overflow-x-auto overscroll-x-contain [scroll-snap-type:x_mandatory] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-              style={{ paddingInline: 'max(7.5vw, calc(50vw - 450px))' }}
-            >
-              {propertyPhotos.map((photo, i) => (
+          <Lightbox.Slides
+            aria-label="Property photos"
+            preload={2}
+            className="flex-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          >
+            {propertyPhotos.map((photo, i) => (
+              <Lightbox.Slide key={photo.id} className="relative h-full">
                 <Lightbox.Item
-                  key={photo.id}
                   index={i}
                   caption={`${photo.label} — The Olive Grove Residence`}
-                  render={<ScrollGallery.Item />}
-                  style={scrollItemStyle}
-                  className="flex items-center justify-center"
+                  className="flex h-full w-full items-center justify-center"
                 >
                   <img
                     src={photo.src}
@@ -274,26 +254,26 @@ export default function RealEstateListingPage() {
                     className="max-h-[75vh] max-w-full rounded-lg object-contain"
                   />
                 </Lightbox.Item>
-              ))}
-            </Lightbox.ItemGroup>
+              </Lightbox.Slide>
+            ))}
+          </Lightbox.Slides>
 
-            <Lightbox.Caption className="block min-h-[1.5rem] px-6 pb-3 text-center text-sm text-white/80" />
+          <Lightbox.Caption className="block min-h-[1.5rem] px-6 pb-3 text-center text-sm text-white/80" />
 
-            <ScrollGallery.ScrollMarkerGroup
-              aria-label="Property photo thumbnails"
-              className="flex max-w-full justify-center gap-2 overflow-x-auto px-3 pb-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-            >
-              {propertyPhotos.map((photo, i) => (
-                <ScrollGallery.ScrollMarker
-                  key={photo.id}
-                  index={i}
-                  className="h-[38px] w-14 shrink-0 overflow-hidden rounded-sm border-2 border-transparent p-0 opacity-40 transition data-[active]:border-white data-[active]:opacity-100"
-                >
-                  <img src={photo.thumb} alt={photo.alt} className="h-full w-full object-cover" />
-                </ScrollGallery.ScrollMarker>
-              ))}
-            </ScrollGallery.ScrollMarkerGroup>
-          </ScrollGallery.Root>
+          <Lightbox.ThumbnailGroup
+            aria-label="Property photo thumbnails"
+            className="flex max-w-full justify-center gap-2 overflow-x-auto px-3 pb-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          >
+            {propertyPhotos.map((photo, i) => (
+              <Lightbox.Thumbnail
+                key={photo.id}
+                index={i}
+                className="h-[38px] w-14 shrink-0 overflow-hidden rounded-sm border-2 border-transparent p-0 opacity-40 transition data-[active]:border-white data-[active]:opacity-100"
+              >
+                <img src={photo.thumb} alt={photo.alt} className="h-full w-full object-cover" />
+              </Lightbox.Thumbnail>
+            ))}
+          </Lightbox.ThumbnailGroup>
         </LightboxFrame>
       </Lightbox.Root>
     </ExampleShell>

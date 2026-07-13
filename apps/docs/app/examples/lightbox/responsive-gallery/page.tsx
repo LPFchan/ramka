@@ -22,7 +22,7 @@ import { ExampleShell } from '../../../_components/example-shell';
  * closes sensibly.
  *
  * Opening a post reveals the production media viewer: swipe navigation via
- * a `ScrollGallery` viewport, thumbnails on desktop only, a View Transition
+ * a `Lightbox.Slides` viewport, thumbnails on desktop only, a View Transition
  * morph from the tapped tile, per-item pinch/scroll/keyboard zoom, and
  * pull-to-dismiss. Chrome (top controls + thumbnails) hides while zoomed
  * purely through CSS: `Lightbox.Zoom` sets `data-zoomed` on the Content
