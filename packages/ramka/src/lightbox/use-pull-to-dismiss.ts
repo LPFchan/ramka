@@ -252,8 +252,8 @@ function usePullToDismiss({
         return;
       }
 
-      const deltaX = event.clientX - startXRef.current;
-      const deltaY = event.clientY - startYRef.current;
+      let deltaX = event.clientX - startXRef.current;
+      let deltaY = event.clientY - startYRef.current;
 
       // Direction lock: determine gesture direction after a small movement
       if (directionRef.current === 'none') {
@@ -264,6 +264,15 @@ function usePullToDismiss({
           cleanup();
           return;
         }
+        // Re-anchor the origin to where the vertical pull was recognized so the
+        // image starts moving from 0. Otherwise the first frame would jump by
+        // the distance the finger already traveled during direction detection —
+        // a visible snap that grows the faster the pull begins. From here the
+        // image trails the finger smoothly from rest.
+        startXRef.current = event.clientX;
+        startYRef.current = event.clientY;
+        deltaX = 0;
+        deltaY = 0;
       }
 
       if (directionRef.current !== 'vertical') return;

@@ -2204,8 +2204,11 @@ describe('Lightbox', () => {
 
       act(() => {
         dispatchPointer(img, 'pointerdown', { clientX: 200, clientY: 200 });
-        // 50px of a 100px dismiss threshold → 0.5 progress.
-        dispatchPointer(content, 'pointermove', { clientX: 200, clientY: 250 });
+        // First move recognizes the vertical pull and re-anchors the origin
+        // here (so the image starts from 0, no snap).
+        dispatchPointer(content, 'pointermove', { clientX: 200, clientY: 210 });
+        // 50px past the anchor, of a 100px dismiss threshold → 0.5 progress.
+        dispatchPointer(content, 'pointermove', { clientX: 200, clientY: 260 });
       });
 
       const progress = Number(content.style.getPropertyValue('--lightbox-pull-progress'));
@@ -2249,8 +2252,11 @@ describe('Lightbox', () => {
 
       act(() => {
         dispatchPointer(img, 'pointerdown', { clientX: 200, clientY: 200 });
-        dispatchPointer(content, 'pointermove', { clientX: 200, clientY: 370 });
-        dispatchPointer(content, 'pointerup', { clientX: 200, clientY: 370 });
+        // Recognize the pull + re-anchor origin here, then drag 170px past it
+        // (> the 100px dismiss threshold).
+        dispatchPointer(content, 'pointermove', { clientX: 200, clientY: 210 });
+        dispatchPointer(content, 'pointermove', { clientX: 200, clientY: 380 });
+        dispatchPointer(content, 'pointerup', { clientX: 200, clientY: 380 });
       });
       await flushMicrotasks();
 
