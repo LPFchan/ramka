@@ -64,6 +64,7 @@ const LightboxContent = React.forwardRef<HTMLDivElement, LightboxContentProps>(
       dialogElementRef,
       backdropElementRef,
       activeItemElementRef,
+      navigationLockedRef,
     } = useLightboxContext();
     // The active slide's zoom is exposed via the Root-owned bridge (not the
     // per-slide ZoomContext, which is a descendant and unreadable here).
@@ -209,6 +210,8 @@ const LightboxContent = React.forwardRef<HTMLDivElement, LightboxContentProps>(
       getZoom,
       onClose: stableSetOpen,
       disabled: !pullToClose || !mounted,
+      // Suppress the pull gesture while a Lightbox.Slides swipe/fling is running.
+      isScrollingRef: navigationLockedRef,
     });
 
     // Keyboard is owned entirely by Content — the single authority.

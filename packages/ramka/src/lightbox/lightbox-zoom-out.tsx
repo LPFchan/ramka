@@ -3,6 +3,7 @@
 import { mergeProps, useRender } from '@base-ui/react';
 import * as React from 'react';
 
+import { useLightboxContext } from './lightbox-context';
 import { useOptionalActiveZoom, useOptionalZoomContext } from './lightbox-zoom-context';
 
 interface LightboxZoomOutState extends Record<string, unknown> {
@@ -26,6 +27,14 @@ const LightboxZoomOut = React.forwardRef<HTMLButtonElement, LightboxZoomOutProps
     const ctx = localCtx ?? activeCtx;
     const disabled = ctx ? !ctx.canZoomOut : true;
 
+    const { navigationLockedRef } = useLightboxContext();
+    const handleClick = React.useCallback(() => {
+      // A Lightbox.Slides swipe/fling is in flight — drop the click so a scroll
+      // can't be hijacked into a zoom (matches the pinch/wheel gesture guards).
+      if (navigationLockedRef.current) return;
+      ctx?.zoomOut();
+    }, [ctx, navigationLockedRef]);
+
     const state = React.useMemo<LightboxZoomOutState>(() => ({ disabled }), [disabled]);
 
     return useRender({
@@ -38,7 +47,7 @@ const LightboxZoomOut = React.forwardRef<HTMLButtonElement, LightboxZoomOutProps
           type: 'button',
           'aria-label': 'Zoom out',
           disabled,
-          onClick: ctx?.zoomOut,
+          onClick: handleClick,
         } as React.ComponentPropsWithRef<'button'>,
         elementProps as React.ComponentPropsWithRef<'button'>,
       ),

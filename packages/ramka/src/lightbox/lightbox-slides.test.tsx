@@ -10,6 +10,8 @@ import { LightboxSlides } from './lightbox-slides';
 import { LightboxThumbnail } from './lightbox-thumbnail';
 import { LightboxThumbnailGroup } from './lightbox-thumbnail-group';
 import { LightboxTrigger } from './lightbox-trigger';
+import { LightboxZoom, type LightboxZoomRef } from './lightbox-zoom';
+import { LightboxZoomIn } from './lightbox-zoom-in';
 
 // ---------------------------------------------------------------------------
 // jsdom has no layout engine, no ResizeObserver, and no scroll animation. The
@@ -434,5 +436,163 @@ describe('Lightbox.Slides', () => {
     // Exactly one step from the settled position, not 3 (or 4).
     expect(activeThumb()).toBe(4);
     expect(viewport.scrollLeft).toBe(4 * WIDTH);
+  });
+
+  // -------------------------------------------------------------------------
+  // Gesture suppression while a swipe/fling is in flight. `Lightbox.Slides`
+  // owns the "a scroll is in progress" signal (navigationLockedRef); pull-to-
+  // dismiss and zoom/pan defer to it so a swipe can't be hijacked mid-scroll.
+  // -------------------------------------------------------------------------
+  describe('gesture suppression while scrolling', () => {
+    const origPointerEvent = globalThis.PointerEvent;
+
+    beforeEach(() => {
+      if (!globalThis.PointerEvent) {
+        (globalThis as Record<string, unknown>).PointerEvent = class PointerEvent extends MouseEvent {
+          pointerId: number;
+          pointerType: string;
+          constructor(type: string, init: PointerEventInit & { pointerId?: number; pointerType?: string } = {}) {
+            super(type, init);
+            this.pointerId = init.pointerId ?? 0;
+            this.pointerType = init.pointerType ?? 'mouse';
+          }
+        };
+      }
+      if (!Element.prototype.setPointerCapture) Element.prototype.setPointerCapture = vi.fn();
+      if (!Element.prototype.releasePointerCapture) Element.prototype.releasePointerCapture = vi.fn();
+      if (!Element.prototype.animate) {
+        Element.prototype.animate = vi.fn(() => ({
+          finished: Promise.resolve(),
+          cancel: vi.fn(),
+        })) as unknown as typeof Element.prototype.animate;
+      }
+    });
+
+    afterEach(() => {
+      if (origPointerEvent) (globalThis as Record<string, unknown>).PointerEvent = origPointerEvent;
+    });
+
+    function dispatchPointer(
+      el: Element,
+      type: string,
+      init: { pointerId?: number; clientX?: number; clientY?: number } = {},
+    ) {
+      el.dispatchEvent(
+        new PointerEvent(type, { bubbles: true, cancelable: true, pointerId: 1, pointerType: 'touch', ...init }),
+      );
+    }
+
+    function GestureLightbox({
+      withZoom = false,
+      withButtons = false,
+      zoomRef,
+      observedIndex = 0,
+      itemCount = 8,
+    }: {
+      withZoom?: boolean;
+      withButtons?: boolean;
+      zoomRef?: React.RefObject<LightboxZoomRef | null>;
+      observedIndex?: number;
+      itemCount?: number;
+    } = {}) {
+      return (
+        <LightboxRoot defaultOpen defaultValue={0}>
+          {Array.from({ length: itemCount }, (_, i) => (
+            <LightboxTrigger key={`t-${i}`} index={i}>
+              Trigger {i}
+            </LightboxTrigger>
+          ))}
+          <LightboxContent data-testid="content" aria-label="Gesture lightbox">
+            {withButtons ? <LightboxZoomIn data-testid="zoom-in">+</LightboxZoomIn> : null}
+            <LightboxSlides data-testid="slides" preload={itemCount}>
+              {Array.from({ length: itemCount }, (_, i) => (
+                <LightboxSlide key={`s-${i}`} data-testid={`slide-${i}`}>
+                  <LightboxItem index={i} data-testid={`item-${i}`}>
+                    {withZoom ? (
+                      <LightboxZoom ref={i === observedIndex ? zoomRef : undefined} maxZoom={4}>
+                        <img src={`p${i}.jpg`} alt={`photo ${i}`} data-testid={`img-${i}`} />
+                      </LightboxZoom>
+                    ) : (
+                      <img src={`p${i}.jpg`} alt={`photo ${i}`} data-testid={`img-${i}`} />
+                    )}
+                  </LightboxItem>
+                </LightboxSlide>
+              ))}
+            </LightboxSlides>
+          </LightboxContent>
+        </LightboxRoot>
+      );
+    }
+
+    it('suppresses pull-to-dismiss while a scroll is in flight, then resumes after it settles', () => {
+      render(<GestureLightbox />);
+      const viewport = screen.getByTestId('slides');
+      const content = screen.getByTestId('content');
+      setupGeometry(viewport, 8);
+
+      // User swipe locks the scroller. A vertical drag on the active item must
+      // NOT start a pull while the fling is in flight.
+      swipeTo(viewport, 2);
+      const img = screen.getByTestId('img-2');
+      act(() => {
+        dispatchPointer(img, 'pointerdown', { clientX: 200, clientY: 200 });
+        dispatchPointer(content, 'pointermove', { clientX: 200, clientY: 240 });
+      });
+      expect(content).not.toHaveAttribute('data-pulling');
+
+      // Once the scroll settles, the same drag starts a pull normally.
+      endScroll(viewport);
+      act(() => {
+        dispatchPointer(img, 'pointerdown', { clientX: 200, clientY: 200 });
+        dispatchPointer(content, 'pointermove', { clientX: 200, clientY: 240 });
+      });
+      expect(content).toHaveAttribute('data-pulling');
+    });
+
+    it('suppresses zoom gestures while a scroll is in flight, then resumes after it settles', () => {
+      const zoomRef = React.createRef<LightboxZoomRef>();
+      render(<GestureLightbox withZoom zoomRef={zoomRef} observedIndex={1} />);
+      const viewport = screen.getByTestId('slides');
+      setupGeometry(viewport, 8);
+
+      // Swipe locks the scroller; a ctrl+wheel zoom on the slide is ignored.
+      swipeTo(viewport, 1);
+      expect(zoomRef.current?.zoom).toBe(1);
+      const img = screen.getByTestId('img-1');
+      act(() => {
+        fireEvent.wheel(img, { deltaY: -100, ctrlKey: true });
+      });
+      expect(zoomRef.current?.zoom).toBe(1);
+
+      // After settling, the same wheel gesture zooms in.
+      endScroll(viewport);
+      act(() => {
+        fireEvent.wheel(img, { deltaY: -100, ctrlKey: true });
+      });
+      expect(zoomRef.current!.zoom).toBeGreaterThan(1);
+    });
+
+    it('drops zoom-button clicks while a scroll is in flight, then resumes after it settles', () => {
+      const zoomRef = React.createRef<LightboxZoomRef>();
+      render(<GestureLightbox withZoom withButtons zoomRef={zoomRef} observedIndex={1} />);
+      const viewport = screen.getByTestId('slides');
+      setupGeometry(viewport, 8);
+
+      // Swipe locks the scroller; the chrome zoom button (active-zoom bridge)
+      // must no-op so a scroll can't be hijacked into a zoom.
+      swipeTo(viewport, 1);
+      expect(zoomRef.current?.zoom).toBe(1);
+      act(() => {
+        fireEvent.click(screen.getByTestId('zoom-in'));
+      });
+      expect(zoomRef.current?.zoom).toBe(1);
+
+      // After settling, the button zooms in normally.
+      endScroll(viewport);
+      act(() => {
+        fireEvent.click(screen.getByTestId('zoom-in'));
+      });
+      expect(zoomRef.current!.zoom).toBeGreaterThan(1);
+    });
   });
 });

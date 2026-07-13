@@ -57,6 +57,10 @@ function useZoomGestures(
    *  non-passive (zoomed → need preventDefault for pan) or can be passive
    *  (1× → preserve Safari compositor-thread momentum scrolling). */
   currentZoom = 1,
+  /** True while a `Lightbox.Slides` user scroll/fling is in flight. Gesture
+   *  starts (pinch / pan / double-tap / scroll-to-zoom) are ignored while this
+   *  is set, so an in-progress swipe can't be hijacked mid-scroll. */
+  isScrollingRef?: React.RefObject<boolean>,
 ) {
   const activePointers = React.useRef<PointerEvent[]>([]);
   const lastPointerDown = React.useRef(0);
@@ -143,6 +147,9 @@ function useZoomGestures(
 
   const handlePointerDown = React.useCallback(
     (event: PointerEvent) => {
+      // A Lightbox.Slides swipe/fling is in flight — ignore new zoom/pan
+      // gestures so the scroll stays authoritative until it settles.
+      if (isScrollingRef?.current) return;
       const pointers = activePointers.current;
       const { zoomStep, doubleClickDelay } = configRef.current;
       const { getZoom, changeZoom } = actionsRef.current;
@@ -239,7 +246,7 @@ function useZoomGestures(
         hadPinch.current = true;
       }
     },
-    [wrapperRef, contentElementRef, translateCoordinates, replacePointer, setZooming],
+    [wrapperRef, contentElementRef, isScrollingRef, translateCoordinates, replacePointer, setZooming],
   );
 
   const handlePointerMove = React.useCallback(
@@ -373,6 +380,9 @@ function useZoomGestures(
 
   const handleWheel = React.useCallback(
     (event: WheelEvent) => {
+      // Defer to an in-flight Lightbox.Slides scroll (passive: the event still
+      // scrolls the slides; we just don't start a scroll-to-zoom).
+      if (isScrollingRef?.current) return;
       const { scrollToZoom, wheelSensitivity } = configRef.current;
       const { getZoom, changeZoom, changeOffsets } = actionsRef.current;
       const zoom = getZoom();
@@ -403,7 +413,7 @@ function useZoomGestures(
         }
       }
     },
-    [translateCoordinates],
+    [translateCoordinates, isScrollingRef],
   );
 
   // -------------------------------------------------------------------
@@ -474,13 +484,20 @@ function useZoomGestures(
     let initialZoom = 1;
 
     const onGestureStart = (e: Event) => {
+      // Always swallow the native page-zoom gesture over the lightbox. Then, if a
+      // Lightbox.Slides swipe/fling is in flight, leave `gestureActiveRef` false so
+      // the whole gesture (gesturechange/gestureend) is a no-op — the pinch can't
+      // hijack the scroll. It re-arms naturally on the next gesture once settled.
       e.preventDefault();
+      if (isScrollingRef?.current) return;
       gestureActiveRef.current = true;
       initialZoom = actionsRef.current.getZoom();
     };
 
     const onGestureChange = (e: Event) => {
       e.preventDefault();
+      // Gesture never started (suppressed mid-scroll) — don't zoom.
+      if (!gestureActiveRef.current) return;
       const scale = (e as { scale?: number }).scale;
       if (typeof scale !== 'number') return;
       const target = initialZoom * scale;
@@ -490,6 +507,7 @@ function useZoomGestures(
 
     const onGestureEnd = (e: Event) => {
       e.preventDefault();
+      if (!gestureActiveRef.current) return;
       gestureActiveRef.current = false;
       actionsRef.current.snapToBounds();
     };
@@ -503,7 +521,7 @@ function useZoomGestures(
       el.removeEventListener('gesturechange', onGestureChange);
       el.removeEventListener('gestureend', onGestureEnd);
     };
-  }, [disabled, containerRef, translateCoordinates]);
+  }, [disabled, containerRef, translateCoordinates, isScrollingRef]);
 
   // Cleanup when disabled changes or component unmounts
   React.useEffect(() => {

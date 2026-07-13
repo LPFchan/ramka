@@ -131,7 +131,7 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
       ...elementProps
     } = props;
 
-    const { activeIndex, dialogElementRef } = useLightboxContext();
+    const { activeIndex, dialogElementRef, navigationLockedRef } = useLightboxContext();
     const itemContext = useOptionalLightboxItemContext();
     const { publish: publishActiveZoom } = useLightboxZoomPublish();
     // A Zoom used inside a Lightbox.Item only publishes when its slide is
@@ -460,7 +460,7 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
       [zoomInAction, zoomOutAction, changeZoomAction, changeOffsetsAction, snapToBoundsAction, snapOffsetsToBoundsAction, momentumPanAction],
     );
 
-    useZoomGestures(containerRef, wrapperRef, gestureConfig, gestureActions, false, dialogElementRef, zoom);
+    useZoomGestures(containerRef, wrapperRef, gestureConfig, gestureActions, false, dialogElementRef, zoom, navigationLockedRef);
 
     // ----- Imperative ref -----
     React.useImperativeHandle(

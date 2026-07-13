@@ -22,11 +22,15 @@ interface LightboxContextValue {
   setActiveIndex: (index: number, source: NavigationSource) => void;
   /**
    * Set by a scroller (e.g. `Lightbox.Slides`) while a *user* scroll/fling is in
-   * flight. A browser fling can't be cancelled from JS, so rather than fight it,
-   * `setActiveIndex` ignores discrete navigation (`keyboard`/`thumbnail`/
-   * `button`) while this is `true` — the swipe stays authoritative until it
-   * settles. Stays `false` when no scroller writes it (non-`Slides` lightboxes),
-   * so their navigation is never gated.
+   * flight — the single "a swipe is in progress" signal. A browser fling can't
+   * be cancelled from JS, so rather than fight it, three consumers defer to the
+   * swipe while this is `true`:
+   *   - `setActiveIndex` drops discrete navigation (`keyboard`/`thumbnail`/
+   *     `button`) so the marker can't diverge from the real scroll position.
+   *   - pull-to-dismiss won't start (a swipe can't become a dismiss mid-scroll).
+   *   - zoom/pan gestures won't start (a swipe can't be hijacked into a zoom).
+   * Stays `false` when no scroller writes it (non-`Slides` lightboxes), so their
+   * navigation and gestures are never gated.
    */
   navigationLockedRef: React.MutableRefObject<boolean>;
   itemCount: number;

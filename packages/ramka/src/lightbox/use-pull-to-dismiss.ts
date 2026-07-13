@@ -44,6 +44,13 @@ interface PullToDismissOptions {
   getZoom: () => number;
   onClose: () => void;
   disabled?: boolean;
+  /**
+   * True while a `Lightbox.Slides` user scroll/fling is in flight. The pull
+   * gesture won't start (touch or trackpad) while this is set, so a swipe can't
+   * be turned into a dismiss mid-scroll. Stays `false` for non-`Slides`
+   * lightboxes, so their pull-to-dismiss is never gated.
+   */
+  isScrollingRef?: React.RefObject<boolean>;
 }
 
 // ---------------------------------------------------------------------------
@@ -57,6 +64,7 @@ function usePullToDismiss({
   getZoom,
   onClose,
   disabled = false,
+  isScrollingRef,
 }: PullToDismissOptions) {
   const pointerIdRef = React.useRef<number | null>(null);
   const startYRef = React.useRef(0);
@@ -199,6 +207,8 @@ function usePullToDismiss({
       // Touch-only gesture — ignore mouse and pen
       if (event.pointerType !== 'touch') return;
       if (pointerIdRef.current !== null) return;
+      // A Lightbox.Slides swipe/fling is in flight — don't start a pull.
+      if (isScrollingRef?.current) return;
 
       // Only activate when touching the visual content (morph target) inside
       // an item — not controls, backdrop, or the item's empty padding area.
@@ -377,6 +387,9 @@ function usePullToDismiss({
     const handleWheel = (event: WheelEvent) => {
       // Already committed to dismissing — ignore the momentum tail.
       if (wheelDismissedRef.current) return;
+      // A Lightbox.Slides scroll/fling is in flight — don't start a pull
+      // (passive listener: the slides keep scrolling normally).
+      if (isScrollingRef?.current) return;
       // Precision devices (trackpads) report pixel-mode deltas; line/page mode
       // is a classic mouse wheel — leave those alone.
       if (event.deltaMode !== 0) return;
@@ -459,7 +472,7 @@ function usePullToDismiss({
       }
       clearTransform();
     };
-  }, [disabled, contentRef, backdropRef, activeItemRef, getZoom, onClose, applyTransform, clearTransform, snapBack, cleanup, computeVelocity]);
+  }, [disabled, contentRef, backdropRef, activeItemRef, getZoom, onClose, isScrollingRef, applyTransform, clearTransform, snapBack, cleanup, computeVelocity]);
 }
 
 export { usePullToDismiss };
