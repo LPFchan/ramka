@@ -9,6 +9,15 @@ interface LightboxContextValue {
   setOpen: (open: boolean) => void;
   /** Whether the portal should be in the DOM (stays true during exit animations). */
   mounted: boolean;
+  /**
+   * True during the brief "pre-mount" phase of a View Transition open: the
+   * portal is mounted (so its DOM/layout and image decode happen off the
+   * transition's render-suppressed critical path) but must not paint yet, or
+   * it would appear in the transition's *old* snapshot. `Lightbox.Content` and
+   * `Lightbox.Backdrop` render `visibility: hidden` while this is true, and
+   * focus/scroll-lock side effects hold off until the reveal.
+   */
+  preparing: boolean;
   activeIndex: number;
   setActiveIndex: (index: number, source: NavigationSource) => void;
   itemCount: number;

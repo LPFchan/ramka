@@ -69,7 +69,7 @@ const backdropStateAttributesMapping = {
 const LightboxBackdrop = React.forwardRef<HTMLDivElement, LightboxBackdropProps>(
   function LightboxBackdrop(props, forwardedRef) {
     const { render, container, ...elementProps } = props;
-    const { open, mounted, setOpen, backdropElementRef } = useLightboxContext();
+    const { open, mounted, preparing, setOpen, backdropElementRef } = useLightboxContext();
 
     const mergedRefCallback = React.useCallback(
       (node: HTMLDivElement | null) => {
@@ -98,6 +98,10 @@ const LightboxBackdrop = React.forwardRef<HTMLDivElement, LightboxBackdropProps>
         {
           'aria-hidden': true,
           onClick: handleClick,
+          // Hidden during the VT pre-mount phase so a dark scrim isn't painted
+          // into the transition's old snapshot. Consumers don't set
+          // `visibility`, so this transient flag survives the style merge.
+          ...(preparing ? { style: { visibility: 'hidden' as const } } : null),
         } as React.ComponentPropsWithRef<'div'>,
         elementProps as React.ComponentPropsWithRef<'div'>,
       ),
