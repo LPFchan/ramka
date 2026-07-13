@@ -94,9 +94,16 @@ const LightboxContent = React.forwardRef<HTMLDivElement, LightboxContentProps>(
     // immediately. Held off during the VT pre-mount phase (`preparing`) so we
     // don't move focus (and possibly scroll) while the viewer is still hidden;
     // it fires when `preparing` flips false at reveal.
+    //
+    // `preventScroll: true` matters for perf: the content is `position: fixed`
+    // covering the viewport, so it's already fully visible — but a default
+    // `focus()` still runs the browser's "scroll focused element into view"
+    // pass, which forces a synchronous whole-page layout right inside the reveal
+    // commit (measured at ~6ms @6× / ~14ms @20× CPU). Skipping it removes that
+    // forced reflow with no behavioral change. See LIGHTBOX_PERF.md.
     useLayoutEffect(() => {
       if (mounted && !preparing) {
-        contentRef.current?.focus();
+        contentRef.current?.focus({ preventScroll: true });
       }
     }, [mounted, preparing]);
 
