@@ -135,6 +135,24 @@ function applyMorphState(
 }
 
 /**
+ * Establishes a paint + layout containment boundary on an element about to be
+ * captured. Before snapshotting each state the browser must rasterize the
+ * element's layout tree; `contain: layout paint` scopes style, layout, and
+ * paint to that element's box so the snapshot generation can't thrash the rest
+ * of the page's layout — the single cheapest win on low-end GPUs per the VT
+ * performance guidance. Applied to every element we lift into its own group
+ * (morph target, backdrop, content), always *before* the relevant capture.
+ */
+function containForCapture(el: HTMLElement) {
+  el.style.setProperty('contain', 'layout paint', 'important');
+}
+
+/** Reverts a {@link containForCapture} call. */
+function releaseContain(el: HTMLElement) {
+  el.style.removeProperty('contain');
+}
+
+/**
  * Assigns the morph `view-transition-name` to an element with inline
  * `!important`. The document-level isolation rule sets
  * `view-transition-name: none !important` on every element while the morph is
@@ -144,11 +162,13 @@ function applyMorphState(
  */
 function setMorphName(el: HTMLElement) {
   el.style.setProperty('view-transition-name', VIEW_TRANSITION_NAME, 'important');
+  containForCapture(el);
 }
 
 /** Clears a name set by {@link setMorphName}. */
 function clearMorphName(el: HTMLElement) {
   el.style.removeProperty('view-transition-name');
+  releaseContain(el);
 }
 
 // Group names for the backdrop and content. Lifting these into their own VT
@@ -164,6 +184,7 @@ const CONTENT_VT_NAME = 'lightbox-content';
  */
 function nameGroup(el: HTMLElement, name: string) {
   el.style.setProperty('view-transition-name', name, 'important');
+  containForCapture(el);
 }
 
 /**
@@ -187,6 +208,7 @@ function captureAsGroup(el: HTMLElement, name: string) {
 function releaseGroup(el: HTMLElement) {
   el.style.removeProperty('view-transition-name');
   el.style.removeProperty('opacity');
+  releaseContain(el);
 }
 
 /** Removes every document-level attribute/var set by {@link applyMorphState}. */
