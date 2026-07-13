@@ -140,28 +140,37 @@ const LightboxContent = React.forwardRef<HTMLDivElement, LightboxContentProps>(
       };
     }, [mounted, preparing]);
 
-    // Prevent native pinch-zoom gestures (touch and trackpad).
+    // Prevent native pinch-zoom gestures (touch and trackpad) for the entire
+    // time the lightbox is mounted.
+    //
+    // Attached on `document`, NOT the content element. During the VT open the
+    // content mounts `visibility: hidden` (see `preparing`), which makes it
+    // non-hit-testable — so a quick pinch mid-open lands on the page/trigger/
+    // backdrop instead of the content, triggers native page zoom, and then our
+    // per-image `Lightbox.Zoom` gesture guards (which `preventDefault` every
+    // subsequent gesture over the viewer) trap the page in that zoomed state
+    // with no way to pinch back out. A document-level guard blocks native
+    // pinch-zoom everywhere, from mount through the whole transition. The
+    // per-Zoom listeners still perform the actual image zoom — `preventDefault`
+    // cancels only the browser's native default, not our own handlers.
     //
     // Safari quirk: a non-passive `wheel` listener on an ancestor forces Safari
     // to fall back from compositor-thread scrolling to main-thread scrolling,
     // killing momentum/flick scrolling in descendant scroll containers (e.g.
-    // Lightbox.Slides).
-    // Safari fires its own GestureEvent (gesturestart/gesturechange) for
-    // trackpad pinch — preventing those stops native zoom without touching the
-    // wheel event path. For Chrome/Firefox (no GestureEvent), trackpad pinch
-    // arrives as ctrlKey+wheel and non-passive wheel listeners don't break
-    // momentum scrolling, so a non-passive wheel handler is safe.
+    // Lightbox.Slides). Safari fires its own GestureEvent (gesturestart/
+    // gesturechange) for trackpad pinch — preventing those stops native zoom
+    // without any wheel listener. For Chrome/Firefox (no GestureEvent), trackpad
+    // pinch arrives as ctrlKey+wheel and non-passive wheel listeners don't break
+    // their momentum scrolling, so a non-passive wheel handler is safe.
     React.useEffect(() => {
       if (!mounted) return;
-      const el = contentRef.current;
-      if (!el) return;
 
       const preventTouchPinch = (event: TouchEvent) => {
         if (event.touches.length > 1) {
           event.preventDefault();
         }
       };
-      el.addEventListener('touchmove', preventTouchPinch, { passive: false });
+      document.addEventListener('touchmove', preventTouchPinch, { passive: false });
 
       const hasSafariGestures = 'GestureEvent' in window;
 
@@ -170,23 +179,23 @@ const LightboxContent = React.forwardRef<HTMLDivElement, LightboxContentProps>(
 
       if (hasSafariGestures) {
         preventGesture = (e: Event) => e.preventDefault();
-        el.addEventListener('gesturestart', preventGesture);
-        el.addEventListener('gesturechange', preventGesture);
+        document.addEventListener('gesturestart', preventGesture);
+        document.addEventListener('gesturechange', preventGesture);
       } else {
         preventWheelZoom = (e: WheelEvent) => {
           if (e.ctrlKey) e.preventDefault();
         };
-        el.addEventListener('wheel', preventWheelZoom, { passive: false });
+        document.addEventListener('wheel', preventWheelZoom, { passive: false });
       }
 
       return () => {
-        el.removeEventListener('touchmove', preventTouchPinch);
+        document.removeEventListener('touchmove', preventTouchPinch);
         if (preventGesture) {
-          el.removeEventListener('gesturestart', preventGesture);
-          el.removeEventListener('gesturechange', preventGesture);
+          document.removeEventListener('gesturestart', preventGesture);
+          document.removeEventListener('gesturechange', preventGesture);
         }
         if (preventWheelZoom) {
-          el.removeEventListener('wheel', preventWheelZoom);
+          document.removeEventListener('wheel', preventWheelZoom);
         }
       };
     }, [mounted]);
