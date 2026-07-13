@@ -289,6 +289,13 @@ function useViewTransitionMorph(config: ViewTransitionMorphConfig): ViewTransiti
     const triggerTarget = triggerEl ? findTriggerMorphTarget(triggerEl) : null;
     const useCrossfade = triggerEl?.dataset.crossfade === 'true';
 
+    // Read the trigger's border-radius NOW, before any writes. At this point the
+    // page is idle (the click's React state updates are still batched and
+    // uncommitted), so this read is served from clean style — no forced reflow.
+    // Reading it later (after commitPrepare) would force a full style+layout
+    // flush. See LIGHTBOX_PERF.md.
+    const fromRadius = triggerTarget ? getComputedStyle(triggerTarget).borderRadius : null;
+
     // PRE-MOUNT (Guideline #3): build the viewer + gallery NOW, while the page
     // is still live and interactive, so the heavy React reconciliation and the
     // destination image's fetch/decode happen OFF the transition's
@@ -327,11 +334,18 @@ function useViewTransitionMorph(config: ViewTransitionMorphConfig): ViewTransiti
       }
     }
 
-    // Batch all reads before any writes to avoid forced reflow
-    const fromRadius = triggerTarget ? getComputedStyle(triggerTarget).borderRadius : null;
+    // Read the destination item's border-radius here, after the mount. The
+    // slides' layout effect (measureGeometry) has already forced layout during
+    // commitPrepare above, so style/layout are clean and this read is cheap —
+    // and it lets the transition callback below stay pure-writes (no reads),
+    // which avoids a forced reflow *inside* the render-suppressed VT callback.
+    // Radius is unaffected by the `visibility: hidden` prepare state.
+    const itemElPrep = activeItemElementRef.current;
+    const itemTargetPrep = itemElPrep ? findItemMorphTarget(itemElPrep) : null;
+    const toRadius = itemTargetPrep ? getComputedStyle(itemTargetPrep).borderRadius : null;
 
-    // Writes
-    applyMorphState(docEl, 'opening', { useCrossfade, fromRadius, toRadius: null });
+    // Writes (both radii known up front)
+    applyMorphState(docEl, 'opening', { useCrossfade, fromRadius, toRadius });
     if (triggerTarget) {
       // Inline `!important` so the document-level isolation rule (which sets
       // `view-transition-name: none !important` on every element during the
@@ -348,16 +362,12 @@ function useViewTransitionMorph(config: ViewTransitionMorphConfig): ViewTransiti
       // between the old and new states (see the VT CSS contract).
       flushSync(commitReveal);
 
+      // Pure writes only — no layout reads — so the browser can capture the new
+      // snapshot without a forced reflow interrupting the transition.
       const itemEl = activeItemElementRef.current;
       const itemTarget = itemEl ? findItemMorphTarget(itemEl) : null;
-
-      // Read before write to avoid forced reflow
-      const toRadius = itemTarget ? getComputedStyle(itemTarget).borderRadius : null;
       if (itemTarget) {
         setMorphName(itemTarget);
-      }
-      if (toRadius) {
-        docEl.style.setProperty('--lightbox-morph-border-radius-to', toRadius);
       }
       if (itemEl) {
         itemEl.setAttribute('data-skip-fade', '');
