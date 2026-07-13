@@ -240,7 +240,7 @@ export default function PhotosAppPage() {
                   index={i}
                   className="h-14 w-14 shrink-0 overflow-hidden rounded-md border-2 border-transparent p-0 opacity-50 transition data-[active]:border-black data-[active]:opacity-100 dark:data-[active]:border-white"
                 >
-                  <img src={photo.thumb} alt={photo.alt} className="h-full w-full object-cover" />
+                  <img src={photo.thumb} alt={photo.alt} loading="lazy" decoding="async" className="h-full w-full object-cover" />
                 </Lightbox.Thumbnail>
               ))}
             </Lightbox.ThumbnailGroup>
