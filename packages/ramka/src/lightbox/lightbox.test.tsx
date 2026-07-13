@@ -1309,18 +1309,22 @@ describe('Lightbox', () => {
         expect(screen.getByTestId('content')).toBeInTheDocument();
       });
 
-      it('passes an async callback to startViewTransition on open', () => {
+      it('passes a synchronous callback to startViewTransition on open', () => {
         const { startViewTransition } = mockViewTransitionAPI();
 
         render(<TestLightbox viewTransition />);
         fireEvent.click(screen.getByTestId('trigger-0'));
 
         expect(startViewTransition).toHaveBeenCalledOnce();
+        // The decode wait happens BEFORE startViewTransition, so the update
+        // callback is synchronous: the browser captures old -> runs the
+        // callback -> captures new in one uninterrupted rendering update, with
+        // no intermediate paint (which otherwise flashes an empty frame).
         const callback = startViewTransition.mock.calls[0][0];
-        expect(callback.constructor.name).toBe('AsyncFunction');
+        expect(callback.constructor.name).not.toBe('AsyncFunction');
       });
 
-      it('close VT callback is not async (no decode needed on close)', async () => {
+      it('both open and close VT callbacks are synchronous (decode waited before open)', async () => {
         const callbacks: Array<() => void | Promise<void>> = [];
         let resolveOpen: () => void;
         let resolveClose: () => void;
@@ -1348,7 +1352,7 @@ describe('Lightbox', () => {
         fireEvent.click(screen.getByTestId('close'));
 
         expect(callbacks).toHaveLength(2);
-        expect(callbacks[0].constructor.name).toBe('AsyncFunction');
+        expect(callbacks[0].constructor.name).not.toBe('AsyncFunction');
         expect(callbacks[1].constructor.name).not.toBe('AsyncFunction');
 
         await act(async () => resolveClose!());

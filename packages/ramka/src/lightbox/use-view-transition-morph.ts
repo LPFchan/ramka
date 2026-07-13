@@ -71,6 +71,27 @@ function waitForImageDecode(
   });
 }
 
+/**
+ * Returns the `<img>` the open morph should wait on, or `null` when there's
+ * nothing to wait for (no image, no `decode()` support, or already decoded).
+ *
+ * This lets the caller decide *synchronously* whether an `await` is needed at
+ * all. Awaiting an already-resolved promise still yields a microtask, which
+ * would turn the open path async even when the destination is ready — deferring
+ * `startViewTransition` past the click tick. Checking readiness up front keeps
+ * the common (cached / no-image) case fully synchronous.
+ */
+function getPendingDecodeImage(target: HTMLElement | null): HTMLImageElement | null {
+  if (!target) return null;
+  const img =
+    target.tagName === 'IMG'
+      ? (target as HTMLImageElement)
+      : target.querySelector<HTMLImageElement>('img');
+  if (!img || !('decode' in img)) return null;
+  if (img.complete && img.naturalWidth > 0) return null;
+  return img;
+}
+
 // ---------------------------------------------------------------------------
 // Trigger resolution (shared with Root's non-VT close paths)
 // ---------------------------------------------------------------------------
@@ -122,8 +143,27 @@ function applyMorphState(
   docEl.setAttribute('data-lightbox-view-transition', phase);
   if (!opts.useCrossfade) {
     docEl.setAttribute('data-lightbox-no-crossfade', '');
-    // Opening reveals the destination (old 0 -> new 1); closing hides it.
-    docEl.style.setProperty('--lightbox-morph-old-opacity', phase === 'opening' ? '0' : '1');
+    // No-crossfade keeps whichever snapshot is the "source of truth" fully
+    // opaque and hard-cuts the other — but we ALWAYS keep the *old* snapshot
+    // opaque underneath as a paint fallback, never 0:
+    //
+    // - Opening: `new` is the destination item, which was `visibility: hidden`
+    //   during prepare and only flips visible inside the (synchronous) VT
+    //   callback, right before the new snapshot is captured. If that freshly
+    //   revealed layer isn't rasterized in time the new snapshot is blank —
+    //   and with `old` hidden there's nothing behind it, so you get a one-frame
+    //   flash of empty space (independent of image caching; it's a compositing
+    //   race). Keeping `old` (the trigger, captured from a fully-painted live
+    //   element) at opacity 1 underneath means a blank `new` falls back to the
+    //   trigger instead of to nothing. When `new` IS painted it's opaque and
+    //   fully covers `old`, so the result is visually identical — this only
+    //   ever shows through on the (bad) frame it would otherwise be blank.
+    //   `crossfade={false}` is documented for the "same image at different
+    //   crops/sizes" case, so the trigger underneath is always a safe fallback.
+    // - Closing: `old` is the item (already on-screen and painted), `new` is
+    //   the trigger, hard-cut to 0 so a scrolled-away/again-unpainted trigger
+    //   can't ghost over the item as it shrinks back.
+    docEl.style.setProperty('--lightbox-morph-old-opacity', '1');
     docEl.style.setProperty('--lightbox-morph-new-opacity', phase === 'opening' ? '1' : '0');
   }
   if (opts.fromRadius) {
@@ -230,7 +270,7 @@ function useViewTransitionMorph(config: ViewTransitionMorphConfig): ViewTransiti
   const configRef = React.useRef(config);
   configRef.current = config;
 
-  const open = React.useCallback(() => {
+  const open = React.useCallback(async () => {
     const {
       decodeMaxWait,
       triggerElementsRef,
@@ -259,6 +299,34 @@ function useViewTransitionMorph(config: ViewTransitionMorphConfig): ViewTransiti
     // screen freezing on the old snapshot for the duration of the mount.
     flushSync(commitPrepare);
 
+    // Wait for the destination image to decode HERE — before starting the
+    // transition — rather than inside the update callback. Awaiting inside the
+    // callback makes it an *async* callback: the browser reveals the new DOM
+    // (via `commitReveal`) but hasn't captured the "new" snapshot yet, so it
+    // paints that half-updated state for a frame before the transition's
+    // pseudo-elements take over — the one-frame flash of empty space on open.
+    //
+    // Doing the wait now keeps the trigger fully painted and interactive on
+    // screen for the (bounded) duration, and — crucially — lets the update
+    // callback stay SYNCHRONOUS, so the browser captures old -> runs the
+    // callback -> captures new in a single uninterrupted rendering update with
+    // no intermediate paint. Bounded by `decodeMaxWait`; skipped entirely when
+    // the consumer opts out (awaitImageDecode={false}).
+    if (decodeMaxWait > 0) {
+      const pendingItemEl = activeItemElementRef.current;
+      const pendingItemTarget = pendingItemEl ? findItemMorphTarget(pendingItemEl) : null;
+      // Only actually await when the destination image is still loading. When
+      // it's cached (or there's no image), skip the await so the open path
+      // stays synchronous and the transition starts on the same tick as the
+      // click — no microtask deferral, no perceptible lag.
+      if (getPendingDecodeImage(pendingItemTarget)) {
+        await waitForImageDecode(pendingItemTarget, decodeMaxWait);
+        // A newer open/close superseded this one during the await — bail before
+        // touching any document-level morph state so we don't corrupt it.
+        if (configRef.current.closeGenRef.current !== gen) return;
+      }
+    }
+
     // Batch all reads before any writes to avoid forced reflow
     const fromRadius = triggerTarget ? getComputedStyle(triggerTarget).borderRadius : null;
 
@@ -271,7 +339,7 @@ function useViewTransitionMorph(config: ViewTransitionMorphConfig): ViewTransiti
       setMorphName(triggerTarget);
     }
 
-    const transition = startViewTransition(async () => {
+    const transition = startViewTransition(() => {
       if (triggerTarget) {
         clearMorphName(triggerTarget);
       }
@@ -282,14 +350,6 @@ function useViewTransitionMorph(config: ViewTransitionMorphConfig): ViewTransiti
 
       const itemEl = activeItemElementRef.current;
       const itemTarget = itemEl ? findItemMorphTarget(itemEl) : null;
-
-      // Wait for the destination image to decode before the browser
-      // captures the "new" snapshot, preventing a flash of empty space
-      // during the morph animation. Bounded by `decodeMaxWait`; skipped
-      // entirely when the consumer opts out (awaitImageDecode={false}).
-      if (decodeMaxWait > 0) {
-        await waitForImageDecode(itemTarget, decodeMaxWait);
-      }
 
       // Read before write to avoid forced reflow
       const toRadius = itemTarget ? getComputedStyle(itemTarget).borderRadius : null;
