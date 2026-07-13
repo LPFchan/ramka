@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { flushSync } from 'react-dom';
-import { Lightbox, ScrollGallery, useLightboxScrollSync } from 'ramka';
+import { Lightbox } from 'ramka';
 import { Heart, Minus, Plus, X, ZoomIn, ZoomOut } from 'lucide-react';
 
 /**
@@ -81,10 +81,6 @@ const prefersReducedMotion = () =>
 
 export default function PhotosAppPage() {
   const [columns, setColumns] = React.useState(DEFAULT_COLUMNS);
-  // A single source of truth for the active index, shared between
-  // `Lightbox.Root` and the inner `ScrollGallery.Root` so swiping, thumbnails,
-  // and keyboard navigation all stay in sync.
-  const sync = useLightboxScrollSync({ loop: true, scrollBehavior: 'instant' });
 
   const zoomTo = (next: number) => {
     const target = clampColumns(next);
@@ -108,7 +104,7 @@ export default function PhotosAppPage() {
 
   return (
     <div className="min-h-screen bg-white dark:bg-[#1c1c1e]">
-      <Lightbox.Root viewTransition {...sync.lightboxRootProps} scrollTriggerIntoView={{ type: 'onChange', behavior: 'instant' }}>
+      <Lightbox.Root viewTransition loop scrollTriggerIntoView={{ type: 'onChange', behavior: 'instant' }}>
         {/* The sticky nav AND the grid share a single `view-transition-name` so
             the density crossfade captures them as ONE group. Naming only the
             grid would lift it onto the VT layer *above* the sticky header,
@@ -185,77 +181,70 @@ export default function PhotosAppPage() {
           className="fixed inset-0 z-50 flex flex-col overscroll-contain opacity-0 outline-none transition-opacity duration-200 data-[open]:opacity-100 starting:data-[open]:opacity-0"
           
         >
-          <ScrollGallery.Root {...sync.scrollGalleryRootProps} >
-            {/* Swipeable, snapping viewport of full-size images */}
-            <Lightbox.ItemGroup
-              render={<ScrollGallery.Viewport aria-label="Full-size photos" />}
-              preload={2}
-              className="flex flex-1 gap-5 overflow-x-auto overscroll-x-contain [scroll-snap-type:x_mandatory] [scrollbar-width:none] md:gap-0 [&::-webkit-scrollbar]:hidden"
+          {/* Swipeable, snapping viewport of full-size photos. `Lightbox.Slides`
+              keeps every slide *box* mounted (so scroll extent is correct across
+              all photos) while `preload` gates which slides render their heavy
+              `Lightbox.Item` content. */}
+          <Lightbox.Slides aria-label="Full-size photos" preload={2} className="flex-1 [&::-webkit-scrollbar]:hidden gap-5 md:gap-0">
+            {photos.map((photo, i) => (
+              // The snap box (Lightbox.Slide) and the drag target (Lightbox.Item)
+              // are deliberately SEPARATE elements so a vertical pull-to-dismiss
+              // transform never nudges the horizontal scroll-snap container.
+              <Lightbox.Slide key={photo.id} className="relative h-full">
+                <Lightbox.Item
+                  index={i}
+                  caption={photo.caption}
+                  className="relative flex h-full w-full items-center justify-center"
+                >
+                  <Lightbox.Zoom maxZoom={6} className="flex h-full w-full items-center justify-center">
+                    <img
+                      src={photo.src}
+                      alt={photo.alt}
+                      loading="eager"
+                      draggable={false}
+                      className="max-h-[calc(100%-6rem)] max-w-full select-none rounded-none object-contain md:max-h-[calc(100%-11rem)] md:max-w-[calc(100%-4rem)] md:rounded-lg"
+                    />
+                  </Lightbox.Zoom>
+                </Lightbox.Item>
+              </Lightbox.Slide>
+            ))}
+          </Lightbox.Slides>
+
+          {/* Top-right controls — hidden while zoomed or while pulling to
+              dismiss (fades back in as the item snaps back, same as zoom). */}
+          <div className="absolute right-3 top-3 z-10 flex gap-2 transition-[opacity,filter] duration-200 [[data-zoomed]_&]:pointer-events-none [[data-zoomed]_&]:opacity-0 [[data-zoomed]_&]:blur-[6px] [[data-pulling]_&]:pointer-events-none [[data-pulling]_&]:opacity-0 [[data-pulling]_&]:blur-[6px] [[data-pull-dismissing]_&]:pointer-events-none [[data-pull-dismissing]_&]:opacity-0 [[data-pull-dismissing]_&]:blur-[6px]">
+            <Lightbox.ZoomOut className={chromeButton} aria-label="Zoom out">
+              <ZoomOut aria-hidden className="h-4 w-4" />
+            </Lightbox.ZoomOut>
+            <Lightbox.ZoomIn className={chromeButton} aria-label="Zoom in">
+              <ZoomIn aria-hidden className="h-4 w-4" />
+            </Lightbox.ZoomIn>
+            <Lightbox.Close className={chromeButton} aria-label="Close">
+              <X aria-hidden className="h-5 w-5" />
+            </Lightbox.Close>
+          </div>
+
+          {/* Caption + thumbnails — thumbnails only render on desktop and
+              scroll horizontally (there are many). Hidden while zoomed or
+              pulling to dismiss. */}
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 flex flex-col items-center gap-3 px-3 pb-4 transition-[opacity,filter] duration-200 [[data-zoomed]_&]:opacity-0 [[data-zoomed]_&]:blur-[6px] [[data-pulling]_&]:opacity-0 [[data-pulling]_&]:blur-[6px] [[data-pull-dismissing]_&]:opacity-0 [[data-pull-dismissing]_&]:blur-[6px]">
+            <Lightbox.Caption className="pointer-events-auto block min-h-[1.25rem] max-w-full truncate px-6 text-center text-sm text-black/70 dark:text-white/80" />
+
+            <Lightbox.ThumbnailGroup
+              aria-label="Photo thumbnails"
+              className="pointer-events-auto hidden max-w-full gap-2 overflow-x-auto px-3 [scrollbar-width:none] md:flex [&::-webkit-scrollbar]:hidden"
             >
               {photos.map((photo, i) => (
-                // The scroll-snap box (ScrollGallery.Item) and the drag target
-                // (Lightbox.Item) are deliberately SEPARATE elements so a
-                // vertical pull-to-dismiss transform never nudges the
-                // horizontal scroll-snap container.
-                <ScrollGallery.Item
+                <Lightbox.Thumbnail
                   key={photo.id}
-                  className="relative h-full w-screen shrink-0 snap-center [scroll-snap-stop:always]"
+                  index={i}
+                  className="h-14 w-14 shrink-0 overflow-hidden rounded-md border-2 border-transparent p-0 opacity-50 transition data-[active]:border-black data-[active]:opacity-100 dark:data-[active]:border-white"
                 >
-                  <Lightbox.Item
-                    index={i}
-                    caption={photo.caption}
-                    className="relative flex h-full w-full items-center justify-center"
-                  >
-                    <Lightbox.Zoom maxZoom={6} className="flex h-full w-full items-center justify-center">
-                      <img
-                        src={photo.src}
-                        alt={photo.alt}
-                        loading="eager"
-                        draggable={false}
-                        className="max-h-[calc(100%-6rem)] max-w-full select-none rounded-none object-contain md:max-h-[calc(100%-11rem)] md:max-w-[calc(100%-4rem)] md:rounded-lg"
-                      />
-                    </Lightbox.Zoom>
-                  </Lightbox.Item>
-                </ScrollGallery.Item>
+                  <img src={photo.thumb} alt={photo.alt} className="h-full w-full object-cover" />
+                </Lightbox.Thumbnail>
               ))}
-            </Lightbox.ItemGroup>
-
-            {/* Top-right controls — hidden while zoomed or while pulling to
-                dismiss (fades back in as the item snaps back, same as zoom). */}
-            <div className="absolute right-3 top-3 z-10 flex gap-2 transition-[opacity,filter] duration-200 [[data-zoomed]_&]:pointer-events-none [[data-zoomed]_&]:opacity-0 [[data-zoomed]_&]:blur-[6px] [[data-pulling]_&]:pointer-events-none [[data-pulling]_&]:opacity-0 [[data-pulling]_&]:blur-[6px] [[data-pull-dismissing]_&]:pointer-events-none [[data-pull-dismissing]_&]:opacity-0 [[data-pull-dismissing]_&]:blur-[6px]">
-              <Lightbox.ZoomOut className={chromeButton} aria-label="Zoom out">
-                <ZoomOut aria-hidden className="h-4 w-4" />
-              </Lightbox.ZoomOut>
-              <Lightbox.ZoomIn className={chromeButton} aria-label="Zoom in">
-                <ZoomIn aria-hidden className="h-4 w-4" />
-              </Lightbox.ZoomIn>
-              <Lightbox.Close className={chromeButton} aria-label="Close">
-                <X aria-hidden className="h-5 w-5" />
-              </Lightbox.Close>
-            </div>
-
-            {/* Caption + thumbnails — thumbnails only render on desktop and
-                scroll horizontally (there are many). Hidden while zoomed or
-                pulling to dismiss. */}
-            <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 flex flex-col items-center gap-3 px-3 pb-4 transition-[opacity,filter] duration-200 [[data-zoomed]_&]:opacity-0 [[data-zoomed]_&]:blur-[6px] [[data-pulling]_&]:opacity-0 [[data-pulling]_&]:blur-[6px] [[data-pull-dismissing]_&]:opacity-0 [[data-pull-dismissing]_&]:blur-[6px]">
-              <Lightbox.Caption className="pointer-events-auto block min-h-[1.25rem] max-w-full truncate px-6 text-center text-sm text-black/70 dark:text-white/80" />
-
-              <ScrollGallery.ScrollMarkerGroup
-                aria-label="Photo thumbnails"
-                className="pointer-events-auto hidden max-w-full gap-2 overflow-x-auto px-3 [scrollbar-width:none] md:flex [&::-webkit-scrollbar]:hidden"
-              >
-                {photos.map((photo, i) => (
-                  <ScrollGallery.ScrollMarker
-                    key={photo.id}
-                    index={i}
-                    className="h-14 w-14 shrink-0 overflow-hidden rounded-md border-2 border-transparent p-0 opacity-50 transition data-[active]:border-black data-[active]:opacity-100 dark:data-[active]:border-white"
-                  >
-                    <img src={photo.thumb} alt={photo.alt} className="h-full w-full object-cover" />
-                  </ScrollGallery.ScrollMarker>
-                ))}
-              </ScrollGallery.ScrollMarkerGroup>
-            </div>
-          </ScrollGallery.Root>
+            </Lightbox.ThumbnailGroup>
+          </div>
         </Lightbox.Content>
       </Lightbox.Root>
     </div>

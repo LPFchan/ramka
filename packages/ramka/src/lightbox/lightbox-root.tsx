@@ -187,8 +187,22 @@ const LightboxRoot = React.forwardRef<LightboxRootRef, LightboxRootProps>(
       onValueChangeRef.current = onValueChange;
     }, [onValueChange]);
 
+    // Set by a scroller while a user scroll/fling is in flight (see context).
+    const navigationLockedRef = React.useRef(false);
+
     const setActiveIndex = React.useCallback(
       (index: number, source: NavigationSource) => {
+        // A user swipe/fling owns the position while it's in flight: a browser
+        // fling can't be cancelled from JS, so discrete navigation that lands
+        // mid-scroll is dropped (not queued) to keep the marker and the actual
+        // scroll position from ever diverging. Swipe-derived (`scroll`) updates
+        // and opening (`trigger`) always pass.
+        if (
+          navigationLockedRef.current &&
+          (source === 'keyboard' || source === 'thumbnail' || source === 'button')
+        ) {
+          return;
+        }
         if (!isControlledValue) {
           setUncontrolledValue(index);
         }
@@ -483,6 +497,7 @@ const LightboxRoot = React.forwardRef<LightboxRootRef, LightboxRootProps>(
         preparing,
         activeIndex,
         setActiveIndex,
+        navigationLockedRef,
         itemCount,
         registerItem,
         loop,

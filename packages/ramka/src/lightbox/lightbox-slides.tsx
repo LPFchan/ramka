@@ -1,0 +1,351 @@
+'use client';
+
+import { mergeProps, useRender } from '@base-ui/react';
+import * as React from 'react';
+
+import { useLightboxContext } from './lightbox-context';
+import { LightboxItemGroupContext, type LightboxItemGroupContextValue } from './lightbox-item-group';
+
+/**
+ * `Lightbox.Slides` — a dedicated, lightbox-only horizontal snap scroller.
+ *
+ * ## Why this exists (and isn't the general `ScrollGallery`)
+ *
+ * A lightbox carousel is a *very* constrained scroller, and leaning into those
+ * constraints is what makes state-sync bulletproof:
+ *
+ * - **One axis** (horizontal), **one slide per page** (each slide is exactly one
+ *   viewport wide), **center snap**, **mandatory snap**, **`scroll-snap-stop:
+ *   always`** (a fling advances at most one slide, iOS-Photos style).
+ *
+ * Because every slide is the same width, the CSS Overflow §3.1.8 "active scroll
+ * marker" algorithm — per-item `getBoundingClientRect` + unreachable-position
+ * redistribution — collapses to O(1) arithmetic on **offset geometry**:
+ *
+ *   step  = offsetLeft(slide₁) − offsetLeft(slide₀)      // uniform stride
+ *   base  = offsetLeft(slide₀) + width/2 − clientWidth/2 // scrollLeft that centers slide 0
+ *   index = clamp(round((scrollLeft − base) / step), 0, n−1)
+ *
+ * `offsetLeft`/`offsetWidth` are layout values, so unlike `getBoundingClientRect`
+ * they are reliable inside a `<dialog>`/portal on mobile Safari (a long-standing
+ * source of "lands on the wrong slide" bugs).
+ *
+ * ## Eventual-scroll-position authority (the reliability core)
+ *
+ * The spec activates a marker from the scroll's *eventual* position, not its
+ * transient one. We do the same, and split the two ways the position changes so
+ * they can never race:
+ *
+ * - **Swipe → marker.** A user scroll drives `activeIndex` (`scroll` source) from
+ *   the O(1) derived index, and — crucially — *locks* discrete navigation while
+ *   it's in flight (`navigationLockedRef`). A compositor fling cannot be
+ *   cancelled from JS (since 2021, Chromium commit 539fe37, a programmatic scroll
+ *   does NOT abort the fling curve; only a real input gesture does), so rather
+ *   than fight it we simply refuse to navigate over it: thumbnail/keyboard/button
+ *   navigation that lands mid-scroll is dropped upstream until the scroll
+ *   settles. The lock clears on `scrollend` (with a `SCROLL_IDLE_MS` fallback),
+ *   at which point the marker is reconciled to the resting position.
+ *
+ * - **Marker → scroll.** Because discrete navigation only ever runs while the
+ *   scroller is at rest, `scrollToIndex` is a plain instant jump to the slide's
+ *   **exact** snap offset (snap briefly off so `scroll-snap-stop: always` can't
+ *   intercept it), followed by a repaint — no fling to fight, ever.
+ *
+ * This makes the whole class of races (Safari desync, Chrome "off by a few" /
+ * momentum bleed, snap-stop freezes) structurally impossible.
+ *
+ * ## Direct Lightbox integration
+ *
+ * Reads/writes the Lightbox's own `activeIndex` — no `ScrollGallery`, no
+ * `useLightboxScrollSync` bridge. It also provides the item-group context so
+ * `Lightbox.Item`s inside `Lightbox.Slide`s get active/preload/direction, and
+ * carries `data-orientation` so shared CSS (e.g. disabling item entrance fades
+ * inside a scroller) keeps working.
+ */
+
+interface LightboxSlidesState extends Record<string, unknown> {
+  activeIndex: number;
+  direction: 'forward' | 'backward';
+}
+
+interface LightboxSlidesProps extends useRender.ComponentProps<'div', LightboxSlidesState> {
+  /**
+   * How many slides on each side of the active one keep their `Lightbox.Item`
+   * content mounted. Slide *boxes* are always present (so scroll extent is
+   * correct); only their content is preload-gated. `1` keeps the neighbours you
+   * can swipe to ready. @default 1
+   */
+  preload?: number;
+}
+
+interface Geometry {
+  /** `scrollLeft` that centers slide 0. */
+  base: number;
+  /** Uniform stride between consecutive slides' snap positions. */
+  step: number;
+  /** Number of slide boxes measured. */
+  count: number;
+}
+
+/**
+ * Quiet gap (ms without a scroll event) after which we treat a user scroll as
+ * finished, for browsers without `scrollend` (the primary signal) or that drop
+ * it. Comfortably longer than a frame so an in-progress fling never trips it.
+ */
+const SCROLL_IDLE_MS = 140;
+
+const SLIDE_SELECTOR = '[data-lightbox-slide]';
+
+/**
+ * Measure the (uniform) slide geometry from offset values. `offsetLeft` is a
+ * layout property → reliable inside a `<dialog>`/portal where mobile Safari's
+ * `getBoundingClientRect` is not.
+ */
+function measureGeometry(viewport: HTMLElement): Geometry {
+  const slides = viewport.querySelectorAll<HTMLElement>(SLIDE_SELECTOR);
+  const count = slides.length;
+  const clientWidth = viewport.clientWidth || 1;
+  if (count === 0) return { base: 0, step: clientWidth, count: 0 };
+
+  const first = slides[0]!;
+  const width = first.offsetWidth || clientWidth;
+  // scrollLeft that centers slide 0 (0 for full-width slides).
+  const base = first.offsetLeft + width / 2 - clientWidth / 2;
+  const step = count > 1 ? slides[1]!.offsetLeft - first.offsetLeft : clientWidth;
+  return { base, step: step > 0 ? step : clientWidth, count };
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return value < min ? min : value > max ? max : value;
+}
+
+const slidesStateAttributesMapping = {
+  activeIndex: (value: unknown) => ({ 'data-active-index': String(value) }),
+  direction: (value: unknown) => ({ 'data-direction': String(value) }),
+};
+
+const LightboxSlides = React.forwardRef<HTMLDivElement, LightboxSlidesProps>(
+  function LightboxSlides(props, forwardedRef) {
+    const { render, preload = 1, style, ...elementProps } = props;
+    const { activeIndex, setActiveIndex, navigationLockedRef, loop, itemCount } = useLightboxContext();
+
+    const viewportRef = React.useRef<HTMLDivElement | null>(null);
+    const geometryRef = React.useRef<Geometry>({ base: 0, step: 1, count: 0 });
+    // True while our own programmatic jump is settling; its scroll event lands on
+    // `jumpTargetRef` and must not be mistaken for a user scroll (which locks
+    // navigation). See the scroll handler.
+    const programmaticRef = React.useRef(false);
+    const jumpTargetRef = React.useRef(0);
+    // setTimeout id for the scroll-idle fallback that clears the lock in browsers
+    // without (or that miss) `scrollend`.
+    const idleTimerRef = React.useRef(0);
+    // Always-fresh mirror of activeIndex for use inside stable event listeners.
+    const activeIndexRef = React.useRef(activeIndex);
+    activeIndexRef.current = activeIndex;
+
+    const mergedRef = React.useCallback(
+      (node: HTMLDivElement | null) => {
+        viewportRef.current = node;
+        if (typeof forwardedRef === 'function') forwardedRef(node);
+        else if (forwardedRef) forwardedRef.current = node;
+      },
+      [forwardedRef],
+    );
+
+    const indexFromScroll = React.useCallback((viewport: HTMLElement): number => {
+      const { base, step, count } = geometryRef.current;
+      if (count === 0) return 0;
+      return clamp(Math.round((viewport.scrollLeft - base) / step), 0, count - 1);
+    }, []);
+
+    // Force WebKit to re-rasterize a slide's tile (a synchronous visibility
+    // toggle with a reflow between — no frame ever paints it hidden, so it can't
+    // flicker). Fixes the half-decoded image Safari leaves after a long jump.
+    const repaintSlide = React.useCallback((index: number) => {
+      const viewport = viewportRef.current;
+      if (!viewport) return;
+      const slide = viewport.querySelectorAll<HTMLElement>(SLIDE_SELECTOR)[index];
+      if (!slide) return;
+      const previous = slide.style.visibility;
+      slide.style.visibility = 'hidden';
+      void slide.offsetWidth;
+      slide.style.visibility = previous;
+    }, []);
+
+    // Jump to a slide's exact snap offset. Only ever runs while the scroller is
+    // at rest — a user scroll locks discrete navigation upstream (see
+    // `navigationLockedRef`), so there is never a fling to fight here. Snap is
+    // momentarily disabled so `scroll-snap-stop: always` can't intercept the
+    // exact set; the follow-up frame restores it, re-asserts the offset, and
+    // repaints (fixing Safari's half-decoded tile after a long jump).
+    const scrollToIndex = React.useCallback(
+      (index: number) => {
+        const viewport = viewportRef.current;
+        if (!viewport) return;
+        const { base, step } = geometryRef.current;
+        const max = viewport.scrollWidth - viewport.clientWidth;
+        const target = clamp(base + index * step, 0, max > 0 ? max : 0);
+        if (Math.abs(viewport.scrollLeft - target) < 1) return;
+
+        programmaticRef.current = true;
+        jumpTargetRef.current = target;
+
+        const savedSnap = viewport.style.scrollSnapType;
+        viewport.style.scrollSnapType = 'none';
+        viewport.scrollLeft = target;
+        requestAnimationFrame(() => {
+          const vp = viewportRef.current;
+          if (!vp) return;
+          vp.style.scrollSnapType = savedSnap;
+          if (Math.abs(vp.scrollLeft - target) >= 1) vp.scrollLeft = target;
+          repaintSlide(index);
+        });
+      },
+      [repaintSlide],
+    );
+
+    // Measure on mount / item-count change, and re-center on viewport resize so
+    // the active slide stays centered (a fractional scrollLeft would otherwise
+    // drift after a resize).
+    React.useLayoutEffect(() => {
+      const viewport = viewportRef.current;
+      if (!viewport) return;
+      geometryRef.current = measureGeometry(viewport);
+
+      const observer = new ResizeObserver(() => {
+        geometryRef.current = measureGeometry(viewport);
+        scrollToIndex(activeIndexRef.current);
+      });
+      observer.observe(viewport);
+      return () => observer.disconnect();
+    }, [itemCount, scrollToIndex]);
+
+    // Drive scroll position from the active index. Skip when the viewport is
+    // already showing it (our own swipe-derived updates, which must not
+    // re-trigger a jump and fight momentum).
+    React.useLayoutEffect(() => {
+      const viewport = viewportRef.current;
+      if (!viewport) return;
+      if (indexFromScroll(viewport) === activeIndex) return;
+      scrollToIndex(activeIndex);
+    }, [activeIndex, indexFromScroll, scrollToIndex]);
+
+    // Swipe → active index, and lock discrete navigation while the user scroll /
+    // fling is in flight. The lock is what makes this bulletproof: since a fling
+    // can't be cancelled from JS, we never navigate over one — thumbnail/keyboard
+    // /button navigation is dropped upstream (see `navigationLockedRef`) until
+    // the scroll settles, so the marker and the real position can't diverge.
+    React.useEffect(() => {
+      const viewport = viewportRef.current;
+      if (!viewport) return;
+
+      // Scrolling has fully stopped: unlock and reconcile the marker to the
+      // resting position (in case a fling ended between two derived slides).
+      const settle = () => {
+        window.clearTimeout(idleTimerRef.current);
+        idleTimerRef.current = 0;
+        navigationLockedRef.current = false;
+        programmaticRef.current = false;
+        const derived = indexFromScroll(viewport);
+        if (derived !== activeIndexRef.current) setActiveIndex(derived, 'scroll');
+      };
+      const armIdleFallback = () => {
+        window.clearTimeout(idleTimerRef.current);
+        // Fallback for browsers without `scrollend` (or that drop it): treat a
+        // quiet gap as the scroll having ended.
+        idleTimerRef.current = window.setTimeout(settle, SCROLL_IDLE_MS);
+      };
+
+      let frame = 0;
+      const process = () => {
+        frame = 0;
+        // Our own jump landing on its exact target: not a user scroll, so it must
+        // not lock navigation. Clear the programmatic flag and bail.
+        if (programmaticRef.current && Math.abs(viewport.scrollLeft - jumpTargetRef.current) < 1) {
+          programmaticRef.current = false;
+          return;
+        }
+        // Genuine user scroll/fling: lock discrete nav, keep the marker following
+        // the swipe, and (re)arm the idle-settle fallback.
+        programmaticRef.current = false;
+        navigationLockedRef.current = true;
+        armIdleFallback();
+        const derived = indexFromScroll(viewport);
+        if (derived !== activeIndexRef.current) setActiveIndex(derived, 'scroll');
+      };
+      const onScroll = () => {
+        if (frame === 0) frame = requestAnimationFrame(process);
+      };
+
+      viewport.addEventListener('scroll', onScroll, { passive: true });
+      viewport.addEventListener('scrollend', settle);
+      return () => {
+        if (frame !== 0) cancelAnimationFrame(frame);
+        window.clearTimeout(idleTimerRef.current);
+        idleTimerRef.current = 0;
+        viewport.removeEventListener('scroll', onScroll);
+        viewport.removeEventListener('scrollend', settle);
+      };
+    }, [indexFromScroll, setActiveIndex, navigationLockedRef]);
+
+    // Direction (used by item-entrance CSS / consumers). Mirrors ItemGroup.
+    const prevIndexRef = React.useRef(activeIndex);
+    const [direction, setDirection] = React.useState<'forward' | 'backward'>('forward');
+    React.useEffect(() => {
+      if (activeIndex !== prevIndexRef.current) {
+        setDirection(activeIndex > prevIndexRef.current ? 'forward' : 'backward');
+        prevIndexRef.current = activeIndex;
+      }
+    }, [activeIndex]);
+
+    const groupContext = React.useMemo<LightboxItemGroupContextValue>(
+      () => ({ activeIndex, preload, direction, loop, itemCount }),
+      [activeIndex, preload, direction, loop, itemCount],
+    );
+
+    const state = React.useMemo<LightboxSlidesState>(
+      () => ({ activeIndex, direction }),
+      [activeIndex, direction],
+    );
+
+    return (
+      <LightboxItemGroupContext.Provider value={groupContext}>
+        {useRender({
+          render,
+          ref: mergedRef,
+          state,
+          stateAttributesMapping: slidesStateAttributesMapping,
+          props: mergeProps<'div'>(
+            {
+              role: 'group',
+              'data-orientation': 'horizontal',
+              // The scroller assumptions, baked in. Consumers can still layer
+              // gap/padding/scrollbar-hiding via className/style; the offset-based
+              // geometry accounts for any gap automatically.
+              style: {
+                display: 'flex',
+                overflowX: 'auto',
+                overflowY: 'hidden',
+                overscrollBehaviorX: 'contain',
+                scrollSnapType: 'x mandatory',
+                // Programmatic navigation sets scrollLeft directly (instant); a
+                // smooth scroll-behavior here would turn those exact jumps into
+                // animations that snap-stop:always could intercept.
+                scrollBehavior: 'auto',
+                scrollbarWidth: 'none',
+                ...style,
+              },
+            } as React.ComponentPropsWithRef<'div'>,
+            elementProps as React.ComponentPropsWithRef<'div'>,
+          ),
+          defaultTagName: 'div',
+        })}
+      </LightboxItemGroupContext.Provider>
+    );
+  },
+);
+
+LightboxSlides.displayName = 'LightboxSlides';
+
+export { LightboxSlides };
+export type { LightboxSlidesProps, LightboxSlidesState };

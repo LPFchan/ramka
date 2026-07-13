@@ -24,49 +24,57 @@ const thumbnailGroupStateAttributesMapping = {
 const LightboxThumbnailGroup = React.forwardRef<HTMLDivElement, LightboxThumbnailGroupProps>(
   function LightboxThumbnailGroup(props, forwardedRef) {
     const { render, ...elementProps } = props;
-    const { loop } = useLightboxContext();
+    const { activeIndex, setActiveIndex, navigationLockedRef, itemCount, loop } = useLightboxContext();
 
     const [focusWithin, setFocusWithin] = React.useState(false);
 
     const handleKeyDown = React.useCallback(
       (event: React.KeyboardEvent<HTMLDivElement>) => {
-        const group = event.currentTarget;
-        const tabs = Array.from(group.querySelectorAll<HTMLElement>('[role="tab"][data-index]'));
-        if (tabs.length === 0) return;
-
-        const currentIndex = tabs.findIndex((el) => el === document.activeElement);
-        if (currentIndex === -1) return;
-
         let nextIndex: number | null = null;
 
         switch (event.key) {
           case 'ArrowRight':
           case 'ArrowDown':
-            nextIndex = loop ? (currentIndex + 1) % tabs.length : Math.min(currentIndex + 1, tabs.length - 1);
+            nextIndex = loop ? (activeIndex + 1) % itemCount : Math.min(activeIndex + 1, itemCount - 1);
             break;
           case 'ArrowLeft':
           case 'ArrowUp':
             nextIndex = loop
-              ? (currentIndex - 1 + tabs.length) % tabs.length
-              : Math.max(currentIndex - 1, 0);
+              ? (activeIndex - 1 + itemCount) % itemCount
+              : Math.max(activeIndex - 1, 0);
             break;
           case 'Home':
             nextIndex = 0;
             break;
           case 'End':
-            nextIndex = tabs.length - 1;
+            nextIndex = itemCount - 1;
             break;
           default:
             return;
         }
 
-        if (nextIndex === currentIndex) return;
-
+        // We own these keys in the tablist: always block native scroll / signal
+        // `Lightbox.Content`'s handler to defer (single navigation authority).
         event.preventDefault();
-        tabs[nextIndex].focus();
-        tabs[nextIndex].click();
+
+        // A user scroll/fling is in flight — disregard entirely. Crucially this
+        // also skips the focus rove, so focus can't drift away from the active
+        // thumbnail while the scroll settles (the "jump by many" bug).
+        if (navigationLockedRef.current || itemCount === 0) return;
+
+        // Navigate relative to the *active* index (the source of truth), not the
+        // currently-focused tab. A swipe moves `activeIndex` without moving focus,
+        // so roving off `document.activeElement` would compute from a stale tab.
+        if (nextIndex === activeIndex) return;
+        setActiveIndex(nextIndex, 'thumbnail');
+
+        // Keep roving focus on the newly-active tab.
+        const tab = event.currentTarget.querySelector<HTMLElement>(
+          `[role="tab"][data-index="${nextIndex}"]`,
+        );
+        tab?.focus();
       },
-      [loop],
+      [activeIndex, itemCount, loop, navigationLockedRef, setActiveIndex],
     );
 
     const state = React.useMemo<LightboxThumbnailGroupState>(() => ({ focusWithin }), [focusWithin]);

@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 
-type NavigationSource = 'trigger' | 'keyboard' | 'thumbnail' | 'button';
+type NavigationSource = 'trigger' | 'keyboard' | 'thumbnail' | 'button' | 'scroll';
 
 interface LightboxContextValue {
   open: boolean;
@@ -20,6 +20,15 @@ interface LightboxContextValue {
   preparing: boolean;
   activeIndex: number;
   setActiveIndex: (index: number, source: NavigationSource) => void;
+  /**
+   * Set by a scroller (e.g. `Lightbox.Slides`) while a *user* scroll/fling is in
+   * flight. A browser fling can't be cancelled from JS, so rather than fight it,
+   * `setActiveIndex` ignores discrete navigation (`keyboard`/`thumbnail`/
+   * `button`) while this is `true` — the swipe stays authoritative until it
+   * settles. Stays `false` when no scroller writes it (non-`Slides` lightboxes),
+   * so their navigation is never gated.
+   */
+  navigationLockedRef: React.MutableRefObject<boolean>;
   itemCount: number;
   registerItem: (index: number) => () => void;
   loop: boolean;

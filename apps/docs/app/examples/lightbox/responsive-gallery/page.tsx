@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { Lightbox, ScrollGallery, useLightboxScrollSync } from 'ramka';
+import { Lightbox } from 'ramka';
 import { Heart, MessageCircle, Share, X, ZoomIn, ZoomOut } from 'lucide-react';
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -381,23 +381,18 @@ function ActionBar({ stats }: { stats: FeedPost['stats'] }) {
 
 /**
  * One self-contained gallery: a feed post (avatar, header, text, image
- * grid, actions) wired to the full-screen media viewer. `useLightboxScrollSync`
- * owns the single shared active index and returns ready-to-spread props for
- * both `Lightbox.Root` and the inner `ScrollGallery.Root`, so swiping,
- * thumbnail clicks, and keyboard navigation all stay in sync.
+ * grid, actions) wired to the full-screen media viewer. Swipe navigation uses
+ * `Lightbox.Slides` — a dedicated lightbox scroller that reads/writes the
+ * lightbox's own active index directly, so swiping, thumbnail clicks, and
+ * keyboard navigation all stay in sync without a bridge hook.
  */
 function FeedPostGallery({ post }: { post: FeedPost }) {
-  // A single source of truth for the active index, shared between
-  // `Lightbox.Root` and the inner `ScrollGallery.Root`. The hook dedupes
-  // updates from either root and keeps `loop`/`scrollBehavior` consistent so
-  // swiping, thumbnails, and keyboard all stay in sync.
-  const sync = useLightboxScrollSync({ loop: true, scrollBehavior: 'instant' });
   // Posts with hidden extras (behind the `+N` tile) have no trigger for
   // those indexes — close to the nearest one instead of flashing.
   const morphTo = post.images.length > 4 ? 'closest' : undefined;
 
   return (
-    <Lightbox.Root viewTransition morphTo={morphTo} {...sync.lightboxRootProps}>
+    <Lightbox.Root viewTransition loop morphTo={morphTo}>
       <article className="flex gap-3 py-4">
         <div className="shrink-0 pt-0.5">
           <Avatar size="lg">
@@ -430,78 +425,75 @@ function FeedPostGallery({ post }: { post: FeedPost }) {
         aria-label={`Photos by ${post.user.name}`}
         className="fixed inset-0 z-50 flex flex-col overscroll-contain opacity-0 outline-none transition-opacity duration-200 data-[open]:opacity-100 starting:data-[open]:opacity-0"
       >
-        <ScrollGallery.Root {...sync.scrollGalleryRootProps}>
-          {/* Swipeable, snapping viewport of full-size images */}
-          <Lightbox.ItemGroup
-            render={<ScrollGallery.Viewport aria-label="Full-size images" />}
-            preload={post.images.length}
-            className="flex flex-1 overflow-x-auto overscroll-x-contain [scroll-snap-type:x_mandatory] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden gap-5 md:gap-0"
+        {/* Swipeable, snapping viewport of full-size images. `Lightbox.Slides`
+            is the dedicated scroller: one slide per viewport, center snap,
+            mandatory + scroll-snap-stop:always, wired straight to the
+            lightbox's active index. */}
+        <Lightbox.Slides
+          aria-label="Full-size images"
+          preload={post.images.length}
+          className="flex-1 [&::-webkit-scrollbar]:hidden gap-5 md:gap-0"
+        >
+          {post.images.map((img, i) => (
+            // The snap box (Lightbox.Slide) and the drag target (Lightbox.Item)
+            // are deliberately SEPARATE elements. Pull-to-dismiss transforms the
+            // Lightbox.Item; keeping that transform OFF the snap box stops the
+            // mandatory scroll-snap container from re-aligning during a vertical
+            // pull.
+            <Lightbox.Slide key={i} className="relative h-full">
+              <Lightbox.Item
+                index={i}
+                caption={img.caption}
+                className="relative flex h-full w-full items-center justify-center"
+              >
+                <Lightbox.Zoom maxZoom={6} className="flex h-full w-full items-center justify-center">
+                  <img
+                    src={img.src}
+                    alt={img.alt}
+                    loading="eager"
+                    draggable={false}
+                    className="max-h-[calc(100%-6rem)]  max-w-full select-none rounded-none object-contain md:max-h-[calc(100%-11rem)]  md:max-w-[calc(100%-4rem)] md:rounded-lg"
+                  />
+                </Lightbox.Zoom>
+              </Lightbox.Item>
+            </Lightbox.Slide>
+          ))}
+        </Lightbox.Slides>
+
+        {/* Top-right controls — hidden while zoomed or while pulling to
+            dismiss (fades back in as the item snaps back, same as zoom). */}
+        <div className="absolute right-3 top-3 z-10 flex gap-2 transition-[opacity,filter] duration-200 [[data-zoomed]_&]:pointer-events-none [[data-zoomed]_&]:opacity-0 [[data-zoomed]_&]:blur-[6px] [[data-pulling]_&]:pointer-events-none [[data-pulling]_&]:opacity-0 [[data-pulling]_&]:blur-[6px] [[data-pull-dismissing]_&]:pointer-events-none [[data-pull-dismissing]_&]:opacity-0 [[data-pull-dismissing]_&]:blur-[6px]">
+          <Lightbox.ZoomOut className={iconButton} aria-label="Zoom out">
+            <ZoomOut aria-hidden className="h-4 w-4" />
+          </Lightbox.ZoomOut>
+          <Lightbox.ZoomIn className={iconButton} aria-label="Zoom in">
+            <ZoomIn aria-hidden className="h-4 w-4" />
+          </Lightbox.ZoomIn>
+          <Lightbox.Close className={iconButton} aria-label="Close">
+            <X aria-hidden className="h-5 w-5" />
+          </Lightbox.Close>
+        </div>
+
+        {/* Caption + thumbnails — thumbnails only render on desktop.
+            Hidden while zoomed or pulling to dismiss. */}
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 flex flex-col items-center gap-3 px-3 pb-4 transition-[opacity,filter] duration-200 [[data-zoomed]_&]:opacity-0 [[data-zoomed]_&]:blur-[6px] [[data-pulling]_&]:opacity-0 [[data-pulling]_&]:blur-[6px] [[data-pull-dismissing]_&]:opacity-0 [[data-pull-dismissing]_&]:blur-[6px]">
+          <Lightbox.Caption className="pointer-events-auto block min-h-[1.25rem] max-w-full truncate px-6 text-center text-sm text-black/70 dark:text-white/80" />
+
+          <Lightbox.ThumbnailGroup
+            aria-label="Photo thumbnails"
+            className="pointer-events-auto hidden justify-center gap-2 md:flex"
           >
             {post.images.map((img, i) => (
-              // The scroll-snap box (ScrollGallery.Item) and the drag target
-              // (Lightbox.Item) are deliberately SEPARATE elements. The pull-
-              // to-dismiss gesture transforms the Lightbox.Item; keeping that
-              // transform OFF the snap box stops the mandatory scroll-snap
-              // container from re-aligning (and scrolling) in response to the
-              // transformed item during a vertical pull.
-              <ScrollGallery.Item
+              <Lightbox.Thumbnail
                 key={i}
-                className="relative h-full w-screen shrink-0 snap-center [scroll-snap-stop:always]"
+                index={i}
+                className="h-14 w-14 shrink-0 overflow-hidden rounded-md border-2 border-transparent p-0 opacity-50 transition data-[active]:border-black data-[active]:opacity-100 dark:data-[active]:border-white"
               >
-                <Lightbox.Item
-                  index={i}
-                  caption={img.caption}
-                  className="relative flex h-full w-full items-center justify-center"
-                >
-                  <Lightbox.Zoom maxZoom={6} className="flex h-full w-full items-center justify-center">
-                    <img
-                      src={img.src}
-                      alt={img.alt}
-                      loading="eager"
-                      draggable={false}
-                      className="max-h-[calc(100%-6rem)]  max-w-full select-none rounded-none object-contain md:max-h-[calc(100%-11rem)]  md:max-w-[calc(100%-4rem)] md:rounded-lg"
-                    />
-                  </Lightbox.Zoom>
-                </Lightbox.Item>
-              </ScrollGallery.Item>
+                <img src={img.thumb} alt={img.alt} className="h-full w-full object-cover" />
+              </Lightbox.Thumbnail>
             ))}
-          </Lightbox.ItemGroup>
-
-          {/* Top-right controls — hidden while zoomed or while pulling to
-              dismiss (fades back in as the item snaps back, same as zoom). */}
-          <div className="absolute right-3 top-3 z-10 flex gap-2 transition-[opacity,filter] duration-200 [[data-zoomed]_&]:pointer-events-none [[data-zoomed]_&]:opacity-0 [[data-zoomed]_&]:blur-[6px] [[data-pulling]_&]:pointer-events-none [[data-pulling]_&]:opacity-0 [[data-pulling]_&]:blur-[6px] [[data-pull-dismissing]_&]:pointer-events-none [[data-pull-dismissing]_&]:opacity-0 [[data-pull-dismissing]_&]:blur-[6px]">
-            <Lightbox.ZoomOut className={iconButton} aria-label="Zoom out">
-              <ZoomOut aria-hidden className="h-4 w-4" />
-            </Lightbox.ZoomOut>
-            <Lightbox.ZoomIn className={iconButton} aria-label="Zoom in">
-              <ZoomIn aria-hidden className="h-4 w-4" />
-            </Lightbox.ZoomIn>
-            <Lightbox.Close className={iconButton} aria-label="Close">
-              <X aria-hidden className="h-5 w-5" />
-            </Lightbox.Close>
-          </div>
-
-          {/* Caption + thumbnails — thumbnails only render on desktop.
-              Hidden while zoomed or pulling to dismiss. */}
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 flex flex-col items-center gap-3 px-3 pb-4 transition-[opacity,filter] duration-200 [[data-zoomed]_&]:opacity-0 [[data-zoomed]_&]:blur-[6px] [[data-pulling]_&]:opacity-0 [[data-pulling]_&]:blur-[6px] [[data-pull-dismissing]_&]:opacity-0 [[data-pull-dismissing]_&]:blur-[6px]">
-            <Lightbox.Caption className="pointer-events-auto block min-h-[1.25rem] max-w-full truncate px-6 text-center text-sm text-black/70 dark:text-white/80" />
-
-            <ScrollGallery.ScrollMarkerGroup
-              aria-label="Photo thumbnails"
-              className="pointer-events-auto hidden justify-center gap-2 md:flex"
-            >
-              {post.images.map((img, i) => (
-                <ScrollGallery.ScrollMarker
-                  key={i}
-                  index={i}
-                  className="h-14 w-14 shrink-0 overflow-hidden rounded-md border-2 border-transparent p-0 opacity-50 transition data-[active]:border-black data-[active]:opacity-100 dark:data-[active]:border-white"
-                >
-                  <img src={img.thumb} alt={img.alt} className="h-full w-full object-cover" />
-                </ScrollGallery.ScrollMarker>
-              ))}
-            </ScrollGallery.ScrollMarkerGroup>
-          </div>
-        </ScrollGallery.Root>
+          </Lightbox.ThumbnailGroup>
+        </div>
       </Lightbox.Content>
     </Lightbox.Root>
   );

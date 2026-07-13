@@ -51,6 +51,8 @@ export { LightboxBackdrop as Backdrop } from './lightbox-backdrop';
 export { LightboxClose as Close } from './lightbox-close';
 export { LightboxItemGroup as ItemGroup } from './lightbox-item-group';
 export { LightboxItem as Item } from './lightbox-item';
+export { LightboxSlides as Slides } from './lightbox-slides';
+export { LightboxSlide as Slide } from './lightbox-slide';
 export { LightboxPrevious as Previous } from './lightbox-previous';
 export { LightboxNext as Next } from './lightbox-next';
 export { LightboxCounter as Counter } from './lightbox-counter';
@@ -68,6 +70,8 @@ export type { LightboxBackdropProps, LightboxBackdropState } from './lightbox-ba
 export type { LightboxCloseProps, LightboxCloseState } from './lightbox-close';
 export type { LightboxItemGroupProps, LightboxItemGroupState } from './lightbox-item-group';
 export type { LightboxItemProps, LightboxItemState } from './lightbox-item';
+export type { LightboxSlidesProps, LightboxSlidesState } from './lightbox-slides';
+export type { LightboxSlideProps } from './lightbox-slide';
 export type { LightboxPreviousProps, LightboxPreviousState } from './lightbox-previous';
 export type { LightboxNextProps, LightboxNextState } from './lightbox-next';
 export type { LightboxCounterProps, LightboxCounterState } from './lightbox-counter';
