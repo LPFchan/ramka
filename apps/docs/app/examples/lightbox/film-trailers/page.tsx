@@ -72,6 +72,17 @@ const films = [
 const iconButton =
   'inline-flex h-10 w-10 items-center justify-center rounded-full text-white/80 transition hover:bg-white/10 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70 disabled:cursor-not-allowed disabled:opacity-30';
 
+/**
+ * Intrinsic pixel dimensions encoded in a picsum URL (`…/{width}/{height}`).
+ * Spread onto `<img>` as `width`/`height` so the box (and aspect ratio) is
+ * reserved before the pixels load — which keeps the morph target sized on slow
+ * connections and prevents layout shift.
+ */
+function imgDims(url: string) {
+  const m = url.match(/\/(\d+)\/(\d+)$/);
+  return m ? { width: Number(m[1]), height: Number(m[2]) } : undefined;
+}
+
 function FilmCard({ film, index }: { film: (typeof films)[number]; index: number }) {
   return (
     <Lightbox.Trigger
@@ -80,6 +91,7 @@ function FilmCard({ film, index }: { film: (typeof films)[number]; index: number
     >
       <div className="relative overflow-hidden rounded-xl">
         <img
+          {...imgDims(film.poster)}
           data-lightbox-morph
           src={film.poster}
           alt={film.title}

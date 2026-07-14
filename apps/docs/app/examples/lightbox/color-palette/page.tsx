@@ -8,6 +8,7 @@ import {
   LightboxCaptionLine,
   LightboxCloseButton,
   LightboxFrame,
+  LightboxFullImage,
   LightboxOverlay,
   StackedItemGroup,
   stackedItemClass,
@@ -91,12 +92,7 @@ export default function ColorPalettePage() {
                 caption={`${color.name} — ${color.alt}`}
                 className={stackedItemClass}
               >
-                <img
-                  src={color.src}
-                  alt={color.alt}
-                  className="max-h-[75vh] max-w-[90vw] rounded-lg object-contain"
-                  loading="eager"
-                />
+                <LightboxFullImage src={color.src} alt={color.alt} />
               </Lightbox.Item>
             ))}
           </StackedItemGroup>

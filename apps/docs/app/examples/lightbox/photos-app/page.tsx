@@ -56,6 +56,42 @@ const photos: Photo[] = Array.from({ length: 48 }, (_, i) => {
   };
 });
 
+/**
+ * Intrinsic pixel dimensions encoded in a picsum URL (`…/{width}/{height}`).
+ * Spread onto `<img>` as `width`/`height` so the box (and aspect ratio) is
+ * reserved before the pixels load — which keeps the morph target sized on slow
+ * connections and prevents layout shift.
+ */
+function imgDims(url: string) {
+  const m = url.match(/\/(\d+)\/(\d+)$/);
+  return m ? { width: Number(m[1]), height: Number(m[2]) } : undefined;
+}
+
+/** Intrinsic aspect ratio (w/h) from the URL, falling back to 16/9. */
+function imgAspect(url: string): number {
+  const d = imgDims(url);
+  return d ? d.width / d.height : 16 / 9;
+}
+
+/**
+ * Wrapper style for the "largest rectangle of the given aspect ratio that fits
+ * inside the container" trick. The parent must set `container-type: size` so
+ * `cqw`/`cqh` resolve to its box. Width is the smaller of the full container
+ * width and the width that would make the height equal the container height;
+ * `aspect-ratio` then derives a height that never exceeds it.
+ * `--lb-inset-w`/`--lb-inset-h` leave room for the overlapping chrome.
+ *
+ * This keeps the box correctly sized *before the image loads* — unlike
+ * `size: auto`, which collapses an unloaded `<img>` to 0×0 and would skip the
+ * open morph on a slow connection.
+ */
+function fitBoxStyle(ratio: number): React.CSSProperties {
+  return {
+    width: `min(calc(100cqw - var(--lb-inset-w, 0px)), calc((100cqh - var(--lb-inset-h, 0px)) * ${ratio}))`,
+    aspectRatio: `${ratio}`,
+  };
+}
+
 // Small toolbar buttons (grid density).
 const toolbarButton =
   'inline-flex h-7 w-7 items-center justify-center rounded-full text-neutral-600 transition hover:bg-black/5 disabled:pointer-events-none disabled:opacity-30 dark:text-neutral-300 dark:hover:bg-white/10';
@@ -158,7 +194,7 @@ export default function PhotosAppPage() {
                 index={i}
                 className="relative block aspect-square cursor-pointer overflow-hidden bg-transparent p-0"
               >
-                <img src={photo.thumb} alt={photo.alt} loading="lazy" className="block h-full w-full object-cover" />
+                <img {...imgDims(photo.thumb)} src={photo.thumb} alt={photo.alt} loading="lazy" className="block h-full w-full object-cover" />
                 {photo.favorite ? (
                   <Heart
                     aria-hidden
@@ -196,14 +232,23 @@ export default function PhotosAppPage() {
                   caption={photo.caption}
                   className="relative flex h-full w-full items-center justify-center"
                 >
-                  <Lightbox.Zoom maxZoom={6} className="flex h-full w-full items-center justify-center">
-                    <img
-                      src={photo.src}
-                      alt={photo.alt}
-                      loading="eager"
-                      draggable={false}
-                      className="max-h-[calc(100%-6rem)] max-w-full select-none rounded-none object-contain md:max-h-[calc(100%-11rem)] md:max-w-[calc(100%-4rem)] md:rounded-lg"
-                    />
+                  <Lightbox.Zoom maxZoom={6} className="flex h-full w-full items-center justify-center [container-type:size]">
+                    {/* Reserve the largest correctly-shaped box up front (see
+                        fitBoxStyle) so the morph target has a real size even
+                        before the image loads. */}
+                    <div
+                      className="relative shrink-0 [--lb-inset-h:6rem] [--lb-inset-w:0px] md:[--lb-inset-h:11rem] md:[--lb-inset-w:4rem]"
+                      style={fitBoxStyle(imgAspect(photo.src))}
+                    >
+                      <img
+                        {...imgDims(photo.src)}
+                        src={photo.src}
+                        alt={photo.alt}
+                        loading="eager"
+                        draggable={false}
+                        className="h-full w-full select-none rounded-none object-contain md:rounded-lg"
+                      />
+                    </div>
                   </Lightbox.Zoom>
                 </Lightbox.Item>
               </Lightbox.Slide>
@@ -240,7 +285,7 @@ export default function PhotosAppPage() {
                   index={i}
                   className="h-14 w-14 shrink-0 overflow-hidden rounded-md border-2 border-transparent p-0 opacity-50 transition data-[active]:border-black data-[active]:opacity-100 dark:data-[active]:border-white"
                 >
-                  <img src={photo.thumb} alt={photo.alt} loading="lazy" decoding="async" className="h-full w-full object-cover" />
+                  <img {...imgDims(photo.thumb)} src={photo.thumb} alt={photo.alt} loading="lazy" decoding="async" className="h-full w-full object-cover" />
                 </Lightbox.Thumbnail>
               ))}
             </Lightbox.ThumbnailGroup>

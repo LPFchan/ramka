@@ -13,6 +13,17 @@ import {
   stackedItemClass,
 } from '../../../_components/lightbox-chrome';
 
+/**
+ * Intrinsic pixel dimensions encoded in a picsum URL (`…/{width}/{height}`).
+ * Spread onto `<img>` as `width`/`height` so the box (and aspect ratio) is
+ * reserved before the pixels load — which keeps the morph target sized on slow
+ * connections and prevents layout shift.
+ */
+function imgDims(url: string) {
+  const m = url.match(/\/(\d+)\/(\d+)$/);
+  return m ? { width: Number(m[1]), height: Number(m[2]) } : undefined;
+}
+
 const messageImages = [
   {
     src: 'https://picsum.photos/seed/msg1/1200/1600',
@@ -74,6 +85,7 @@ export default function TextMessagePage() {
                   return (
                     <img
                       key={img.src}
+                      {...imgDims(img.thumb)}
                       src={img.thumb}
                       alt={img.alt}
                       className="absolute block h-[280px] w-[200px] rounded-2xl object-cover shadow-[0_4px_20px_rgba(0,0,0,0.15)]"

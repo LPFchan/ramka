@@ -16,6 +16,17 @@ import {
   stackedItemClass,
 } from '../../../_components/lightbox-chrome';
 
+/**
+ * Intrinsic pixel dimensions encoded in a picsum URL (`…/{width}/{height}`).
+ * Spread onto `<img>` as `width`/`height` so the box (and aspect ratio) is
+ * reserved before the pixels load — which keeps the morph target sized on slow
+ * connections and prevents layout shift.
+ */
+function imgDims(url: string) {
+  const m = url.match(/\/(\d+)\/(\d+)$/);
+  return m ? { width: Number(m[1]), height: Number(m[2]) } : undefined;
+}
+
 const articleImages = [
   {
     id: 'hero',
@@ -82,7 +93,7 @@ function ArticleFigure({
         index={index}
         className="block w-full cursor-pointer rounded-xl border-none bg-transparent p-0"
       >
-        <img src={image.inline} alt={image.alt} className="block w-full rounded-xl" loading="lazy" />
+        <img {...imgDims(image.inline)} src={image.inline} alt={image.alt} className="block w-full rounded-xl" loading="lazy" />
       </Lightbox.Trigger>
       <figcaption className="mt-2 text-xs italic text-neutral-500 dark:text-neutral-400">
         {image.caption}

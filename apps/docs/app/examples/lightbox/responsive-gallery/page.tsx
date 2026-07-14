@@ -243,6 +243,42 @@ function formatCount(n: number): string {
 }
 
 /**
+ * Intrinsic pixel dimensions encoded in a picsum URL (`…/{width}/{height}`).
+ * Spread onto `<img>` as `width`/`height` so the box (and aspect ratio) is
+ * reserved before the pixels load — which keeps the morph target sized on slow
+ * connections and prevents layout shift.
+ */
+function imgDims(url: string) {
+  const m = url.match(/\/(\d+)\/(\d+)$/);
+  return m ? { width: Number(m[1]), height: Number(m[2]) } : undefined;
+}
+
+/** Intrinsic aspect ratio (w/h) from the URL, falling back to 16/9. */
+function imgAspect(url: string): number {
+  const d = imgDims(url);
+  return d ? d.width / d.height : 16 / 9;
+}
+
+/**
+ * Wrapper style for the "largest rectangle of the given aspect ratio that fits
+ * inside the container" trick. The parent must set `container-type: size` so
+ * `cqw`/`cqh` resolve to its box. Width is the smaller of the full container
+ * width and the width that would make the height equal the container height;
+ * `aspect-ratio` then derives a height that never exceeds it.
+ * `--lb-inset-w`/`--lb-inset-h` leave room for the overlapping chrome.
+ *
+ * This keeps the box correctly sized *before the image loads* — unlike
+ * `size: auto`, which collapses an unloaded `<img>` to 0×0 and would skip the
+ * open morph on a slow connection.
+ */
+function fitBoxStyle(ratio: number): React.CSSProperties {
+  return {
+    width: `min(calc(100cqw - var(--lb-inset-w, 0px)), calc((100cqh - var(--lb-inset-h, 0px)) * ${ratio}))`,
+    aspectRatio: `${ratio}`,
+  };
+}
+
+/**
  * Per-cell rounded-corner classes for the 1- to 4-cell grids. Inner edges
  * stay sharp; outer corners get the same rounding as the parent grid.
  */
@@ -280,7 +316,7 @@ function ImageGrid({ imgs }: { imgs: GalleryImage[] }) {
     const only = imgs[0]!;
     return (
       <Lightbox.Trigger index={0} className="block w-full overflow-hidden rounded-xl bg-transparent p-0">
-        <img src={only.thumb} alt={only.alt} className="block  w-full object-cover" />
+        <img {...imgDims(only.thumb)} src={only.thumb} alt={only.alt} className="block  w-full object-cover" />
       </Lightbox.Trigger>
     );
   }
@@ -295,6 +331,7 @@ function ImageGrid({ imgs }: { imgs: GalleryImage[] }) {
             className={`block overflow-hidden bg-transparent p-0 ${cornerClass(i, 2)}`}
           >
             <img
+              {...imgDims(img.thumb)}
               src={img.thumb}
               alt={img.alt}
               className="block aspect-[4/5] w-full object-cover"
@@ -313,7 +350,7 @@ function ImageGrid({ imgs }: { imgs: GalleryImage[] }) {
           index={0}
           className={`row-span-2 block overflow-hidden bg-transparent p-0 ${cornerClass(0, 3)}`}
         >
-          <img src={first.thumb} alt={first.alt} className="block h-full w-full object-cover" />
+          <img {...imgDims(first.thumb)} src={first.thumb} alt={first.alt} className="block h-full w-full object-cover" />
         </Lightbox.Trigger>
         {imgs.slice(1, 3).map((img, idx) => {
           const i = idx + 1;
@@ -323,7 +360,7 @@ function ImageGrid({ imgs }: { imgs: GalleryImage[] }) {
               index={i}
               className={`block overflow-hidden bg-transparent p-0 ${cornerClass(i, 3)}`}
             >
-              <img src={img.thumb} alt={img.alt} className="block h-full w-full object-cover" />
+              <img {...imgDims(img.thumb)} src={img.thumb} alt={img.alt} className="block h-full w-full object-cover" />
             </Lightbox.Trigger>
           );
         })}
@@ -346,7 +383,7 @@ function ImageGrid({ imgs }: { imgs: GalleryImage[] }) {
             <div
               className={`relative h-full w-full overflow-hidden ${cornerClass(i, 4)}`}
             >
-              <img src={img.thumb} alt={img.alt} className="block h-full w-full object-cover" />
+              <img {...imgDims(img.thumb)} src={img.thumb} alt={img.alt} className="block h-full w-full object-cover" />
               {showOverlay && (
                 <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/50">
                   <span className="text-2xl font-bold text-white">+{extra}</span>
@@ -446,14 +483,23 @@ function FeedPostGallery({ post }: { post: FeedPost }) {
                 caption={img.caption}
                 className="relative flex h-full w-full items-center justify-center"
               >
-                <Lightbox.Zoom maxZoom={6} className="flex h-full w-full items-center justify-center">
-                  <img
-                    src={img.src}
-                    alt={img.alt}
-                    loading="eager"
-                    draggable={false}
-                    className="max-h-[calc(100%-6rem)]  max-w-full select-none rounded-none object-contain md:max-h-[calc(100%-11rem)]  md:max-w-[calc(100%-4rem)] md:rounded-lg"
-                  />
+                <Lightbox.Zoom maxZoom={6} className="flex h-full w-full items-center justify-center [container-type:size]">
+                  {/* Reserve the largest correctly-shaped box up front (see
+                      fitBoxStyle) so the morph target has a real size even
+                      before the image loads. */}
+                  <div
+                    className="relative shrink-0 [--lb-inset-h:6rem] [--lb-inset-w:0px] md:[--lb-inset-h:11rem] md:[--lb-inset-w:4rem]"
+                    style={fitBoxStyle(imgAspect(img.src))}
+                  >
+                    <img
+                      {...imgDims(img.src)}
+                      src={img.src}
+                      alt={img.alt}
+                      loading="eager"
+                      draggable={false}
+                      className="h-full w-full select-none rounded-none object-contain md:rounded-lg"
+                    />
+                  </div>
                 </Lightbox.Zoom>
               </Lightbox.Item>
             </Lightbox.Slide>
@@ -489,7 +535,7 @@ function FeedPostGallery({ post }: { post: FeedPost }) {
                 index={i}
                 className="h-14 w-14 shrink-0 overflow-hidden rounded-md border-2 border-transparent p-0 opacity-50 transition data-[active]:border-black data-[active]:opacity-100 dark:data-[active]:border-white"
               >
-                <img src={img.thumb} alt={img.alt} className="h-full w-full object-cover" />
+                <img {...imgDims(img.thumb)} src={img.thumb} alt={img.alt} className="h-full w-full object-cover" />
               </Lightbox.Thumbnail>
             ))}
           </Lightbox.ThumbnailGroup>

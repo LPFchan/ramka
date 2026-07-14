@@ -32,6 +32,42 @@ import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 const buttonBase =
   'inline-flex h-9 w-9 items-center justify-center rounded-full text-white/80 transition hover:bg-white/10 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70 disabled:cursor-not-allowed disabled:opacity-30';
 
+/**
+ * Intrinsic pixel dimensions encoded in a picsum URL (`…/{width}/{height}`).
+ * Spread onto `<img>` as `width`/`height` so the box (and aspect ratio) is
+ * reserved before the pixels load — which keeps the morph target sized on slow
+ * connections and prevents layout shift.
+ */
+function imgDims(url: string) {
+  const m = url.match(/\/(\d+)\/(\d+)$/);
+  return m ? { width: Number(m[1]), height: Number(m[2]) } : undefined;
+}
+
+/** Intrinsic aspect ratio (w/h) from the URL, falling back to 16/9. */
+function imgAspect(url: string): number {
+  const d = imgDims(url);
+  return d ? d.width / d.height : 16 / 9;
+}
+
+/**
+ * Wrapper style for the "largest rectangle of the given aspect ratio that fits
+ * inside the container" trick. The parent must set `container-type: size` so
+ * `cqw`/`cqh` resolve to its box. The wrapper's width is the smaller of the
+ * full container width and the width that would make its height equal the
+ * container height; `aspect-ratio` then derives a height that never exceeds it.
+ * `--lb-inset-w`/`--lb-inset-h` (default 0) leave room for overlapping chrome.
+ *
+ * This keeps the box correctly sized *before the image loads* — unlike
+ * `size: auto`, which collapses an unloaded `<img>` to 0×0 and would skip the
+ * open morph on a slow connection.
+ */
+function fitBoxStyle(ratio: number): React.CSSProperties {
+  return {
+    width: `min(calc(100cqw - var(--lb-inset-w, 0px)), calc((100cqh - var(--lb-inset-h, 0px)) * ${ratio}))`,
+    aspectRatio: `${ratio}`,
+  };
+}
+
 const fadeBase =
   'lightbox-chrome-fade opacity-0 ease-out-expo data-[open]:opacity-100 starting:data-[open]:opacity-0';
 
@@ -171,6 +207,7 @@ export function LightboxTriggerImage({
 }) {
   return (
     <img
+      {...imgDims(src)}
       src={src}
       alt={alt}
       className={
@@ -181,12 +218,19 @@ export function LightboxTriggerImage({
 }
 
 export function LightboxFullImage({ src, alt }: { src: string; alt: string }) {
+  // The item area is `flex-1` in the frame (chrome lives in sibling rows), so
+  // no inset is needed — a small one just keeps the image off the edges.
   return (
-    <img
-      src={src}
-      alt={alt}
-      loading="eager"
-      className="max-h-[75vh] max-w-[90vw] rounded-lg object-contain"
-    />
+    <div className="flex h-full w-full items-center justify-center [container-type:size] [--lb-inset-h:2rem] [--lb-inset-w:2rem]">
+      <div className="relative shrink-0" style={fitBoxStyle(imgAspect(src))}>
+        <img
+          {...imgDims(src)}
+          src={src}
+          alt={alt}
+          loading="eager"
+          className="h-full w-full rounded-lg object-contain"
+        />
+      </div>
+    </div>
   );
 }

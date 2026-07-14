@@ -23,6 +23,42 @@ const propertyPhotos = [
   { id: 'prop-exterior', src: 'https://picsum.photos/seed/prop-ext/900/1400', thumb: 'https://picsum.photos/seed/prop-ext/450/700', alt: 'Front elevation at dusk with warm lighting', label: 'Exterior' },
 ];
 
+/**
+ * Intrinsic pixel dimensions encoded in a picsum URL (`…/{width}/{height}`).
+ * Spread onto `<img>` as `width`/`height` so the box (and aspect ratio) is
+ * reserved before the pixels load — which keeps the morph target sized on slow
+ * connections and prevents layout shift.
+ */
+function imgDims(url: string) {
+  const m = url.match(/\/(\d+)\/(\d+)$/);
+  return m ? { width: Number(m[1]), height: Number(m[2]) } : undefined;
+}
+
+/** Intrinsic aspect ratio (w/h) from the URL, falling back to 16/9. */
+function imgAspect(url: string): number {
+  const d = imgDims(url);
+  return d ? d.width / d.height : 16 / 9;
+}
+
+/**
+ * Wrapper style for the "largest rectangle of the given aspect ratio that fits
+ * inside the container" trick. The parent must set `container-type: size` so
+ * `cqw`/`cqh` resolve to its box. Width is the smaller of the full container
+ * width and the width that would make the height equal the container height;
+ * `aspect-ratio` then derives a height that never exceeds it.
+ * `--lb-inset-w`/`--lb-inset-h` leave room for the chrome.
+ *
+ * This keeps the box correctly sized *before the image loads* — unlike
+ * `size: auto`, which collapses an unloaded `<img>` to 0×0 and would skip the
+ * open morph on a slow connection.
+ */
+function fitBoxStyle(ratio: number): React.CSSProperties {
+  return {
+    width: `min(calc(100cqw - var(--lb-inset-w, 0px)), calc((100cqh - var(--lb-inset-h, 0px)) * ${ratio}))`,
+    aspectRatio: `${ratio}`,
+  };
+}
+
 const amenities = [
   'Central Air Conditioning',
   'Heated Floors',
@@ -64,6 +100,7 @@ function HeroGrid() {
         className={`row-span-2 block cursor-pointer border-none bg-transparent p-0 transition-opacity duration-[200ms] ease-out-expo data-[morph-target]:opacity-0 ${heroCornerClass[0]}`}
       >
         <img
+          {...imgDims(hero.thumb)}
           src={hero.thumb}
           alt={hero.alt}
           className={`block h-full w-full object-cover ${heroCornerClass[0]}`}
@@ -76,6 +113,7 @@ function HeroGrid() {
           className={`block cursor-pointer border-none bg-transparent p-0 transition-opacity duration-[200ms] ease-out-expo data-[morph-target]:opacity-0 ${heroCornerClass[i + 1] ?? ''}`}
         >
           <img
+            {...imgDims(photo.thumb)}
             src={photo.thumb}
             alt={photo.alt}
             className={`block h-full w-full object-cover ${heroCornerClass[i + 1] ?? ''}`}
@@ -109,6 +147,7 @@ function RemainingPhotosGrid() {
           >
             <div data-lightbox-morph className="relative overflow-hidden rounded-lg">
               <img
+                {...imgDims(photo.thumb)}
                 src={photo.thumb}
                 alt={photo.alt}
                 className="block aspect-[3/2] w-full object-cover"
@@ -246,13 +285,19 @@ export default function RealEstateListingPage() {
                 <Lightbox.Item
                   index={i}
                   caption={`${photo.label} — The Olive Grove Residence`}
-                  className="flex h-full w-full items-center justify-center"
+                  className="flex h-full w-full items-center justify-center [container-type:size] [--lb-inset-h:4rem] [--lb-inset-w:2rem]"
                 >
-                  <img
-                    src={photo.src}
-                    alt={photo.alt}
-                    className="max-h-[75vh] max-w-full rounded-lg object-contain"
-                  />
+                  {/* Reserve the largest correctly-shaped box up front (see
+                      fitBoxStyle) so the morph target has a real size even
+                      before the image loads. */}
+                  <div className="relative shrink-0" style={fitBoxStyle(imgAspect(photo.src))}>
+                    <img
+                      {...imgDims(photo.src)}
+                      src={photo.src}
+                      alt={photo.alt}
+                      className="h-full w-full rounded-lg object-contain"
+                    />
+                  </div>
                 </Lightbox.Item>
               </Lightbox.Slide>
             ))}
@@ -270,7 +315,7 @@ export default function RealEstateListingPage() {
                 index={i}
                 className="h-[38px] w-14 shrink-0 overflow-hidden rounded-sm border-2 border-transparent p-0 opacity-40 transition data-[active]:border-white data-[active]:opacity-100"
               >
-                <img src={photo.thumb} alt={photo.alt} className="h-full w-full object-cover" />
+                <img {...imgDims(photo.thumb)} src={photo.thumb} alt={photo.alt} className="h-full w-full object-cover" />
               </Lightbox.Thumbnail>
             ))}
           </Lightbox.ThumbnailGroup>

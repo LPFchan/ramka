@@ -15,6 +15,17 @@ import {
   stackedItemClass,
 } from '../../../_components/lightbox-chrome';
 
+/**
+ * Intrinsic pixel dimensions encoded in a picsum URL (`…/{width}/{height}`).
+ * Spread onto `<img>` as `width`/`height` so the box (and aspect ratio) is
+ * reserved before the pixels load — which keeps the morph target sized on slow
+ * connections and prevents layout shift.
+ */
+function imgDims(url: string) {
+  const m = url.match(/\/(\d+)\/(\d+)$/);
+  return m ? { width: Number(m[1]), height: Number(m[2]) } : undefined;
+}
+
 const morphImages = [
   { src: 'https://picsum.photos/seed/morph1/1200/800', thumb: 'https://picsum.photos/seed/morph1/300/200', alt: 'Alpine meadow' },
   { src: 'https://picsum.photos/seed/morph2/1200/800', thumb: 'https://picsum.photos/seed/morph2/300/200', alt: 'Rocky coastline' },
@@ -53,6 +64,7 @@ function MorphDemo({
               className="block cursor-pointer rounded-lg border-none bg-transparent p-0 transition-opacity duration-[200ms] ease-out-expo data-[morph-target]:opacity-0"
             >
               <img
+                {...imgDims(img.thumb)}
                 src={img.thumb}
                 alt={img.alt}
                 className="block aspect-[3/2] w-full rounded-lg object-cover"
