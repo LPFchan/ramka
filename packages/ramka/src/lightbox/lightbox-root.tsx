@@ -269,6 +269,29 @@ const LightboxRoot = React.forwardRef<LightboxRootRef, LightboxRootProps>(
     const [preparing, setPreparing] = React.useState(false);
     const closeGenRef = React.useRef(0);
 
+    // Document scroll lock, owned here in Root rather than in Lightbox.Content.
+    // Content unmounts at the *start* of the VT close (commitClose runs inside
+    // the transition callback), so a lock tied to Content's lifecycle would be
+    // released while the close animation is still playing — letting the page
+    // scroll behind the transition. Root outlives the transition, so it holds
+    // the lock until the close fully completes (handleCloseComplete / the
+    // post-exit-animation unmount). Imperative + idempotent so the various
+    // open/close code paths can acquire/release it at explicit lifecycle points.
+    const scrollLockCleanupRef = React.useRef<(() => void) | null>(null);
+    const lockScroll = React.useCallback(() => {
+      if (scrollLockCleanupRef.current || typeof document === 'undefined') return;
+      const html = document.documentElement;
+      const original = html.style.overflow;
+      html.style.overflow = 'hidden';
+      scrollLockCleanupRef.current = () => {
+        html.style.overflow = original;
+      };
+    }, []);
+    const unlockScroll = React.useCallback(() => {
+      scrollLockCleanupRef.current?.();
+      scrollLockCleanupRef.current = null;
+    }, []);
+
     // Tracks the most recent open value that internal setOpen has
     // claimed responsibility for. When the derived `open` differs from
     // this ref, the change came from outside (e.g. a controlled prop
@@ -316,11 +339,12 @@ const LightboxRoot = React.forwardRef<LightboxRootRef, LightboxRootProps>(
     // owns React state via commit callbacks and the lifecycle callbacks.
     const commitOpen = React.useCallback(() => {
       setMounted(true);
+      lockScroll();
       if (!isControlledOpen) {
         setUncontrolledOpen(true);
       }
       onOpenChangeRef.current?.(true);
-    }, [isControlledOpen]);
+    }, [isControlledOpen, lockScroll]);
 
     // VT open is split into two commits so the expensive React reconciliation
     // (mounting the whole viewer + gallery) happens BEFORE `startViewTransition`
@@ -341,11 +365,14 @@ const LightboxRoot = React.forwardRef<LightboxRootRef, LightboxRootProps>(
     const commitReveal = React.useCallback(() => {
       setPreparing(false);
       setMounted(true);
+      // Lock at reveal (not prepare) so hiding the scrollbar — which can reflow
+      // the page — is masked by the transition rather than showing as a jump.
+      lockScroll();
       if (!isControlledOpen) {
         setUncontrolledOpen(true);
       }
       onOpenChangeRef.current?.(true);
-    }, [isControlledOpen]);
+    }, [isControlledOpen, lockScroll]);
 
     const commitClose = React.useCallback(() => {
       if (!isControlledOpen) {
@@ -359,10 +386,16 @@ const LightboxRoot = React.forwardRef<LightboxRootRef, LightboxRootProps>(
       onOpenChangeCompleteRef.current?.(true);
     }, []);
 
-    const handleCloseComplete = React.useCallback((triggerEl: HTMLElement | undefined) => {
-      triggerEl?.focus({ preventScroll: true });
-      onOpenChangeCompleteRef.current?.(false);
-    }, []);
+    const handleCloseComplete = React.useCallback(
+      (triggerEl: HTMLElement | undefined) => {
+        // Release the page scroll lock only now — after the close transition has
+        // finished — so the page can't scroll behind an in-flight VT close.
+        unlockScroll();
+        triggerEl?.focus({ preventScroll: true });
+        onOpenChangeCompleteRef.current?.(false);
+      },
+      [unlockScroll],
+    );
 
     const morph = useViewTransitionMorph({
       morphTo,
@@ -433,13 +466,15 @@ const LightboxRoot = React.forwardRef<LightboxRootRef, LightboxRootProps>(
             // finishes, then unmount, restore focus, and fire completion.
             runAfterAnimations(dialogElementRef.current, gen, closeGenRef, () => {
               setMounted(false);
+              // Release the scroll lock only after the exit animation settles.
+              unlockScroll();
               requestAnimationFrame(() => focusTarget?.focus({ preventScroll: true }));
               onOpenChangeCompleteRef.current?.(false);
             });
           }
         }
       },
-      [isControlledOpen, viewTransition, scrollTriggerIntoView, morphTo, morph, commitOpen],
+      [isControlledOpen, viewTransition, scrollTriggerIntoView, morphTo, morph, commitOpen, unlockScroll],
     );
 
     // Sync `mounted` to externally-driven changes of a controlled
@@ -463,14 +498,26 @@ const LightboxRoot = React.forwardRef<LightboxRootRef, LightboxRootProps>(
 
       if (open) {
         setMounted(true);
+        lockScroll();
         return;
       }
 
       const gen = ++closeGenRef.current;
       runAfterAnimations(dialogElementRef.current, gen, closeGenRef, () => {
         setMounted(false);
+        unlockScroll();
       });
-    }, [open]);
+    }, [open, lockScroll, unlockScroll]);
+
+    // Initially-open lightbox (defaultOpen / controlled-open at mount): the
+    // open-commit paths above don't run, so acquire the lock here. The cleanup
+    // also guarantees the lock is released if Root unmounts while still open.
+    React.useEffect(() => {
+      if (mounted && !preparing) lockScroll();
+      return () => unlockScroll();
+      // Mount/unmount only — subsequent opens lock via commitOpen/commitReveal.
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     // Imperative handle
     React.useImperativeHandle(

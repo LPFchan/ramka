@@ -133,19 +133,11 @@ const LightboxContent = React.forwardRef<HTMLDivElement, LightboxContentProps>(
       return () => el.removeEventListener('focusout', handleFocusOut);
     }, [mounted]);
 
-    // Lock document scroll while the lightbox is open. Held off during the VT
-    // pre-mount phase so hiding the scrollbar (which can reflow/shift the page)
-    // happens at reveal — masked by the transition — rather than as a visible
-    // pre-transition jump.
-    React.useEffect(() => {
-      if (!mounted || preparing) return;
-      const html = document.documentElement;
-      const originalOverflow = html.style.overflow;
-      html.style.overflow = 'hidden';
-      return () => {
-        html.style.overflow = originalOverflow;
-      };
-    }, [mounted, preparing]);
+    // NOTE: the document scroll lock lives in Lightbox.Root (not here). Content
+    // unmounts at the *start* of the VT close (commitClose runs inside the
+    // transition callback), so a lock tied to Content's lifecycle would release
+    // mid-animation and let the page scroll behind the closing transition. Root
+    // outlives the transition and holds the lock until close completes.
 
     // Prevent native pinch-zoom gestures (touch and trackpad) for the entire
     // time the lightbox is mounted.

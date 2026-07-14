@@ -1264,6 +1264,44 @@ describe('Lightbox', () => {
       expect(document.documentElement).not.toHaveAttribute('data-lightbox-view-transition');
     });
 
+    it('keeps the page scroll locked until the VT close transition finishes', async () => {
+      let resolveOpen: () => void;
+      let resolveClose: () => void;
+
+      const startViewTransition = vi.fn((callback: () => void | Promise<void>) => {
+        const result = callback();
+        if (result && typeof (result as Promise<void>).then === 'function') {
+          (result as Promise<void>).catch(vi.fn());
+        }
+        if (startViewTransition.mock.calls.length === 1) {
+          return { finished: new Promise<void>((r) => { resolveOpen = r; }) };
+        }
+        return { finished: new Promise<void>((r) => { resolveClose = r; }) };
+      });
+
+      Object.defineProperty(document, 'startViewTransition', {
+        value: startViewTransition,
+        writable: true,
+        configurable: true,
+      });
+
+      render(<TestLightbox viewTransition />);
+      fireEvent.click(screen.getByTestId('trigger-0'));
+      await act(async () => resolveOpen!());
+
+      // Open: page scroll is locked.
+      expect(document.documentElement.style.overflow).toBe('hidden');
+
+      // Close starts — but the transition hasn't finished yet, so the lock must
+      // still hold (otherwise the page scrolls behind the closing animation).
+      fireEvent.click(screen.getByTestId('close'));
+      expect(document.documentElement.style.overflow).toBe('hidden');
+
+      // Only once the close transition finishes is scrolling restored.
+      await act(async () => resolveClose!());
+      expect(document.documentElement.style.overflow).toBe('');
+    });
+
     it('fires onOpenChangeComplete(false) after VT close finishes', async () => {
       let resolveOpen: () => void;
       let resolveClose: () => void;
