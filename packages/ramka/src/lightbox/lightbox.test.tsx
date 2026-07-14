@@ -1459,6 +1459,85 @@ describe('Lightbox', () => {
       });
     });
 
+    describe('morph fallback when destination target has no resolvable size', () => {
+      let originalRect: PropertyDescriptor | undefined;
+
+      // jsdom has no layout, so every getBoundingClientRect is 0×0. Force the
+      // morph target's rendered box to a fixed size to model whether the layout
+      // is reserved (loaded image, or explicit width/height / CSS dimensions
+      // like a Next.js <Image>) vs. a collapsed 0×0 unsized-and-unloaded image.
+      function mockTargetBox(sized: boolean) {
+        originalRect = Object.getOwnPropertyDescriptor(
+          HTMLImageElement.prototype,
+          'getBoundingClientRect',
+        );
+        const w = sized ? 800 : 0;
+        const h = sized ? 600 : 0;
+        Object.defineProperty(HTMLImageElement.prototype, 'getBoundingClientRect', {
+          value: () => ({ width: w, height: h, top: 0, left: 0, right: w, bottom: h, x: 0, y: 0, toJSON() {} }),
+          writable: true,
+          configurable: true,
+        });
+      }
+
+      afterEach(() => {
+        if (originalRect) {
+          Object.defineProperty(HTMLImageElement.prototype, 'getBoundingClientRect', originalRect);
+        }
+        originalRect = undefined;
+      });
+
+      function renderImageLightbox() {
+        return render(
+          // awaitImageDecode={false} keeps the open path synchronous so the VT
+          // callback (which assigns the item morph name) runs during the click.
+          <LightboxRoot viewTransition awaitImageDecode={false}>
+            <LightboxTrigger index={0} data-testid="trigger-0">
+              Open
+            </LightboxTrigger>
+            <LightboxContent data-testid="content" aria-label="morph fallback test">
+              <LightboxItemGroup>
+                <LightboxItem index={0} data-testid="item-0">
+                  <img src="a.jpg" alt="a" />
+                </LightboxItem>
+              </LightboxItemGroup>
+            </LightboxContent>
+          </LightboxRoot>,
+        );
+      }
+
+      it('morphs when the target box is reserved even if the image has not loaded (e.g. Next.js <Image>)', () => {
+        mockViewTransitionAPI();
+        // Box reserved by layout, but the image itself is unloaded (jsdom never
+        // loads it): the morph should still proceed off the resolved box.
+        mockTargetBox(true);
+        renderImageLightbox();
+        fireEvent.click(screen.getByTestId('trigger-0'));
+
+        // Morph path: the destination image gets the morph view-transition-name
+        // and the no-crossfade opt-out is applied (crossfade defaults to false).
+        const img = screen.getByTestId('item-0').querySelector('img')!;
+        expect(img.style.getPropertyValue('view-transition-name')).toBe('lightbox-morph');
+        expect(document.documentElement).toHaveAttribute('data-lightbox-no-crossfade');
+      });
+
+      it('falls back to a plain crossfade when the target box is 0×0 (unsized image that never loaded)', () => {
+        mockViewTransitionAPI();
+        mockTargetBox(false);
+        renderImageLightbox();
+        fireEvent.click(screen.getByTestId('trigger-0'));
+
+        // Fallback path: no morph name (which would shrink the trigger into a
+        // 0×0 box) and no no-crossfade opt-out — a clean root crossfade instead.
+        const img = screen.getByTestId('item-0').querySelector('img')!;
+        expect(img.style.getPropertyValue('view-transition-name')).toBe('');
+        expect(document.documentElement).not.toHaveAttribute('data-lightbox-no-crossfade');
+        // Still a real View Transition, and the item is still marked ready.
+        expect(document.documentElement).toHaveAttribute('data-lightbox-view-transition');
+        expect(screen.getByTestId('item-0')).toHaveAttribute('data-skip-fade');
+      });
+    });
+
     it('does not use VT when prefers-reduced-motion is set', () => {
       mockViewTransitionAPI();
       vi.spyOn(window, 'matchMedia').mockImplementation((query: string) => ({

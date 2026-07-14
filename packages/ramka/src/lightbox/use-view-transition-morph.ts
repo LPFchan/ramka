@@ -92,6 +92,32 @@ function getPendingDecodeImage(target: HTMLElement | null): HTMLImageElement | n
   return img;
 }
 
+/**
+ * Whether the destination morph target has a resolvable size to morph *into*.
+ *
+ * Uses the target's **rendered box** (`getBoundingClientRect`) rather than the
+ * image's `naturalWidth`, because the box is the ground truth for what the View
+ * Transition captures — and it's already correct *before* the pixels load
+ * whenever the layout is reserved by explicit `width`/`height` attributes or CSS
+ * dimensions (e.g. a Next.js `<Image>`). So a sized-but-not-yet-loaded image
+ * still morphs correctly.
+ *
+ * The one case we skip is a genuinely collapsed 0×0 box — an unsized `<img>`
+ * whose intrinsic size is its only sizing and which hasn't loaded (decode wait
+ * timed out on a slow connection). Morphing into a 0×0 box shrinks the trigger
+ * into the corner (Firefox) / center (Chrome), so we fall back to a plain root
+ * crossfade instead.
+ *
+ * Called after the `commitPrepare` mount, so layout is already flushed and this
+ * read is cheap. Note the tree is `visibility: hidden` during prepare, which
+ * still lays out (unlike `display: none`), so the box is accurate.
+ */
+function isMorphTargetSizeResolvable(target: HTMLElement | null): boolean {
+  if (!target) return false;
+  const rect = target.getBoundingClientRect();
+  return rect.width > 0 && rect.height > 0;
+}
+
 // ---------------------------------------------------------------------------
 // Trigger resolution (shared with Root's non-VT close paths)
 // ---------------------------------------------------------------------------
@@ -342,20 +368,36 @@ function useViewTransitionMorph(config: ViewTransitionMorphConfig): ViewTransiti
     // Radius is unaffected by the `visibility: hidden` prepare state.
     const itemElPrep = activeItemElementRef.current;
     const itemTargetPrep = itemElPrep ? findItemMorphTarget(itemElPrep) : null;
-    const toRadius = itemTargetPrep ? getComputedStyle(itemTargetPrep).borderRadius : null;
 
-    // Writes (both radii known up front)
-    applyMorphState(docEl, 'opening', { useCrossfade, fromRadius, toRadius });
-    if (triggerTarget) {
+    // Decide whether to morph. A morph needs both a trigger (the "old" group)
+    // and a destination whose size we can resolve (the "new" group). If the
+    // destination image never loaded/decoded within the timeout its box is 0×0,
+    // and morphing the trigger into it just shrinks it into the corner/center.
+    // In that case, skip the morph and fall back to a plain root crossfade.
+    const canMorph = !!triggerTarget && isMorphTargetSizeResolvable(itemTargetPrep);
+
+    // Read the destination radius only when morphing (style/layout are already
+    // flushed by the mount, so it's cheap and keeps the VT callback read-free).
+    // Radius is unaffected by the `visibility: hidden` prepare state.
+    const toRadius = canMorph ? getComputedStyle(itemTargetPrep!).borderRadius : null;
+
+    // In the fallback we force the root crossfade on (no `data-no-crossfade`)
+    // and set no morph name/radius, so the transition is a clean fade.
+    applyMorphState(docEl, 'opening', {
+      useCrossfade: canMorph ? useCrossfade : true,
+      fromRadius: canMorph ? fromRadius : null,
+      toRadius,
+    });
+    if (canMorph) {
       // Inline `!important` so the document-level isolation rule (which sets
       // `view-transition-name: none !important` on every element during the
       // morph) can't neutralize the one element we actually want captured.
-      setMorphName(triggerTarget);
+      setMorphName(triggerTarget!);
     }
 
     const transition = startViewTransition(() => {
-      if (triggerTarget) {
-        clearMorphName(triggerTarget);
+      if (canMorph) {
+        clearMorphName(triggerTarget!);
       }
       // Reveal the already-mounted tree (paint-only flip; no reconciliation).
       // The backdrop + content are part of the root snapshot, which crossfades
@@ -365,9 +407,11 @@ function useViewTransitionMorph(config: ViewTransitionMorphConfig): ViewTransiti
       // Pure writes only — no layout reads — so the browser can capture the new
       // snapshot without a forced reflow interrupting the transition.
       const itemEl = activeItemElementRef.current;
-      const itemTarget = itemEl ? findItemMorphTarget(itemEl) : null;
-      if (itemTarget) {
-        setMorphName(itemTarget);
+      if (canMorph) {
+        const itemTarget = itemEl ? findItemMorphTarget(itemEl) : null;
+        if (itemTarget) {
+          setMorphName(itemTarget);
+        }
       }
       if (itemEl) {
         itemEl.setAttribute('data-skip-fade', '');
