@@ -215,12 +215,12 @@ export default function PhotosAppPage() {
         {/* Scrim. `data-pulling:transition-none` hands the fade to the
             pull-to-dismiss gesture, which drives it 1:1 with the finger via
             the `--lightbox-pull-progress` variable. */}
-        <Lightbox.Backdrop className="fixed inset-0 z-40 bg-white opacity-0 transition-opacity duration-300 data-[open]:[opacity:calc(1_-_var(--lightbox-pull-progress,0)_*_0.6)] data-pulling:transition-none starting:data-[open]:opacity-0 dark:bg-black" />
+        <Lightbox.Backdrop className="fixed inset-0 z-40 bg-white opacity-0 transition-opacity duration-300 data-[open]:[opacity:calc(1_-_var(--lightbox-pull-progress,0)_*_0.6)] data-pulling:transition-none starting:opacity-0 dark:bg-black" />
 
         {/* Fullscreen viewer */}
         <Lightbox.Content
           aria-label="Library photos"
-          className="fixed inset-0 z-50 flex flex-col overscroll-contain opacity-0 outline-none transition-opacity duration-200 data-[open]:opacity-100 starting:data-[open]:opacity-0"
+          className="fixed inset-0 z-50 flex flex-col overscroll-contain opacity-0 outline-none transition-opacity duration-200 data-[open]:opacity-100 starting:opacity-0"
           
         >
           {/* Swipeable, snapping viewport of full-size photos. `Lightbox.Slides`
