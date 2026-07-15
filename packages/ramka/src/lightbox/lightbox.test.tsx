@@ -1576,6 +1576,103 @@ describe('Lightbox', () => {
       });
     });
 
+    describe('dev warning: item morphs into its own element (no ref wired)', () => {
+      let originalRect: PropertyDescriptor | undefined;
+
+      // Give the item's own <div> a resolvable box so `canMorph` is true and the
+      // warn path (morph target === item element) is actually reached. Mock on
+      // HTMLElement.prototype so it applies to the container div (and any img).
+      function mockResolvableBox() {
+        originalRect = Object.getOwnPropertyDescriptor(
+          HTMLElement.prototype,
+          'getBoundingClientRect',
+        );
+        Object.defineProperty(HTMLElement.prototype, 'getBoundingClientRect', {
+          value: () => ({
+            width: 800,
+            height: 600,
+            top: 0,
+            left: 0,
+            right: 800,
+            bottom: 600,
+            x: 0,
+            y: 0,
+            toJSON() {},
+          }),
+          writable: true,
+          configurable: true,
+        });
+      }
+
+      afterEach(() => {
+        if (originalRect) {
+          Object.defineProperty(HTMLElement.prototype, 'getBoundingClientRect', originalRect);
+        }
+        originalRect = undefined;
+      });
+
+      const MORPH_WARN = 'morphing into its own element';
+
+      it('warns when a morphing item has no imageRef / morphElementRef wired', () => {
+        mockViewTransitionAPI();
+        mockResolvableBox();
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+        render(
+          // awaitImageDecode={false} keeps the open path synchronous so the VT
+          // callback (and the warn check) runs during the click.
+          <LightboxRoot viewTransition awaitImageDecode={false}>
+            <LightboxTrigger index={0} data-testid="trigger-0">
+              Open
+            </LightboxTrigger>
+            <LightboxContent data-testid="content" aria-label="unwired warn">
+              <LightboxItemGroup>
+                <LightboxItem index={0} data-testid="item-0">
+                  {/* No imageRef / morphElementRef → target resolves to the item element. */}
+                  <div>no morph target here</div>
+                </LightboxItem>
+              </LightboxItemGroup>
+            </LightboxContent>
+          </LightboxRoot>,
+        );
+        fireEvent.click(screen.getByTestId('trigger-0'));
+
+        expect(warn).toHaveBeenCalledWith(
+          expect.stringContaining(MORPH_WARN),
+          screen.getByTestId('item-0'),
+        );
+        warn.mockRestore();
+      });
+
+      it('does NOT warn when imageRef designates the destination image', () => {
+        mockViewTransitionAPI();
+        mockResolvableBox();
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+        render(
+          <LightboxRoot viewTransition awaitImageDecode={false}>
+            <LightboxTrigger index={0} data-testid="trigger-0">
+              Open
+            </LightboxTrigger>
+            <LightboxContent data-testid="content" aria-label="wired ok">
+              <LightboxItemGroup>
+                <LightboxItem index={0} data-testid="item-0">
+                  {({ imageRef }) => <img ref={imageRef} src="a.jpg" alt="a" />}
+                </LightboxItem>
+              </LightboxItemGroup>
+            </LightboxContent>
+          </LightboxRoot>,
+        );
+        fireEvent.click(screen.getByTestId('trigger-0'));
+
+        expect(warn).not.toHaveBeenCalledWith(
+          expect.stringContaining(MORPH_WARN),
+          expect.anything(),
+        );
+        warn.mockRestore();
+      });
+    });
+
     it('does not use VT when prefers-reduced-motion is set', () => {
       mockViewTransitionAPI();
       vi.spyOn(window, 'matchMedia').mockImplementation((query: string) => ({
