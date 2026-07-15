@@ -194,11 +194,22 @@ function resolveScrollBehavior(
 
 function scrollTriggerEl(el: HTMLElement | undefined, behavior: ScrollBehavior = 'smooth') {
   if (!el) return;
-  const rect = el.getBoundingClientRect();
-  const fullyVisible = rect.top >= 0 && rect.bottom <= window.innerHeight;
-  if (!fullyVisible) {
-    el.scrollIntoView({ block: 'nearest', behavior });
-  }
+  // Defer the "is it already visible?" decision to the browser via
+  // `block: 'nearest'`: it's a no-op when the trigger is already within the
+  // scrollport and otherwise scrolls the minimum amount to reveal it. Crucially
+  // it honors CSS `scroll-margin`/`scroll-padding`, so a sticky header's safe
+  // area is respected — a trigger tucked *under* a sticky nav is treated as
+  // not-visible and scrolled clear of it. (Consumers set `scroll-padding-top`
+  // on the scroll container, or `scroll-margin-top` on the trigger, to the
+  // header height.)
+  //
+  // We deliberately do NOT gate this on a manual getBoundingClientRect check:
+  // that check measures against the raw viewport (top >= 0), so it considers a
+  // trigger occluded by a sticky header "fully visible" and skips the scroll.
+  // IntersectionObserver can't fix this either — v1 is purely geometric (same
+  // blind spot) and v2's occlusion-aware `isVisible` is Chromium-only, async,
+  // and expensive, so unusable for a synchronous cross-browser decision here.
+  el.scrollIntoView({ block: 'nearest', behavior });
 }
 
 function resolveTriggerIndex(

@@ -201,7 +201,11 @@ export default function PhotosAppPage() {
               <Lightbox.Trigger
                 key={photo.id}
                 index={i}
-                className="relative block aspect-square cursor-pointer overflow-hidden bg-transparent p-0"
+                // scroll-margin clears the sticky toolbar so scrollTriggerIntoView
+                // doesn't leave a tile tucked under it. On mobile the docs
+                // MobileNav overlaps the toolbar and is handled by the document's
+                // scroll-pt-14, so this only needs to kick in at md+.
+                className="relative block aspect-square cursor-pointer overflow-hidden bg-transparent p-0 md:scroll-mt-16"
               >
                 {({ triggerImageRef }) => (
                   <>

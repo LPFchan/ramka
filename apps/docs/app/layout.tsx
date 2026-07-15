@@ -18,7 +18,15 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en" className={cn('font-sans', inter.variable)} suppressHydrationWarning>
+    <html
+      lang="en"
+      // Reserve the sticky MobileNav's height (h-14) as scroll-padding on the
+      // document scroller, so Lightbox `scrollTriggerIntoView` (which uses
+      // scrollIntoView({ block: 'nearest' })) doesn't leave a trigger tucked
+      // under the nav. MobileNav is md:hidden, so the padding only applies below md.
+      className={cn('scroll-pt-14 font-sans md:scroll-pt-0', inter.variable)}
+      suppressHydrationWarning
+    >
       <body className="min-h-screen bg-background text-foreground antialiased">
         <ThemeProvider>
           <TooltipProvider delay={150}>
