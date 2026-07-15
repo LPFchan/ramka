@@ -66,6 +66,18 @@
   transition: opacity 200ms var(--ease-out-expo);
 }
 
+/* ...but during a View Transition the morph snapshot fully owns the
+   trigger -> item continuity, so the real trigger must vanish with NO fade.
+   Its 200ms opacity transition above would otherwise start inside the VT
+   reveal (commitReveal sets data-open), get captured in the root "new"
+   snapshot mid-fade at ~opacity 1, and read as the trigger image ghosting/
+   fading out beside the morph. Hiding it instantly while a VT is in flight
+   keeps the open free of trigger artifacts. Higher specificity (0,4,0 >
+   0,3,0) wins without !important. */
+:root[data-lightbox-view-transition] [data-lightbox-trigger][data-morph-target][data-open] {
+  transition: none;
+}
+
 /* Default focus outline for every Lightbox.Trigger. Uses outline (not
    ring) so the radius automatically follows the trigger's own
    `border-radius`, which each demo aligns with its rounded image so
