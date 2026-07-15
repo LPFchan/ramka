@@ -142,7 +142,14 @@ export default function PhotosAppPage() {
 
   return (
     <div className="min-h-screen bg-white dark:bg-[#1c1c1e]">
-      <Lightbox.Root viewTransition loop scrollTriggerIntoView={{ type: 'onChange', behavior: 'instant' }}>
+      <Lightbox.Root
+        viewTransition
+        loop
+        scrollTriggerIntoView={[
+          { type: 'onChange', behavior: 'instant' },
+          { type: 'onOpenComplete', behavior: 'instant' },
+        ]}
+      >
         {/* The sticky nav AND the grid share a single `view-transition-name` so
             the density crossfade captures them as ONE group. Naming only the
             grid would lift it onto the VT layer *above* the sticky header,
