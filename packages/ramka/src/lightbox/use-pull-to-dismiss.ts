@@ -41,6 +41,14 @@ interface PullToDismissOptions {
   backdropRef: React.RefObject<HTMLElement | null>;
   /** The currently-active slide element, tracked in context by Lightbox.Item. */
   activeItemRef: React.RefObject<HTMLElement | null>;
+  /**
+   * Item element → its registered content/morph element (the `<img>` marked via
+   * `imageRef`, or a `morphElementRef` override). The touch gate starts a pull
+   * only when the finger lands inside this element, so grabbing an item's
+   * letterbox padding or chrome never drags. Falls back to the whole item box
+   * when an item registered nothing.
+   */
+  itemContentElementsRef?: React.RefObject<WeakMap<HTMLElement, HTMLElement>>;
   getZoom: () => number;
   onClose: () => void;
   disabled?: boolean;
@@ -61,6 +69,7 @@ function usePullToDismiss({
   contentRef,
   backdropRef,
   activeItemRef,
+  itemContentElementsRef,
   getZoom,
   onClose,
   disabled = false,
@@ -210,20 +219,24 @@ function usePullToDismiss({
       // A Lightbox.Slides swipe/fling is in flight — don't start a pull.
       if (isScrollingRef?.current) return;
 
-      // Only activate when touching the visual content inside an item — not
-      // controls, backdrop, or the item's empty padding area.
+      // Resolve the owning item from whatever was touched. `data-lightbox-item`
+      // is the item's structural identity (also used by the wheel path and the
+      // morph registry), so this isn't a content-type guess.
       const target = event.target as HTMLElement | null;
-      if (
-        !target?.closest('[data-lightbox-item] img, [data-lightbox-item] video')
-      ) return;
+      const activeItem = target?.closest('[data-lightbox-item]') as HTMLElement | null;
+      if (!activeItem) return;
+
+      // Only activate when touching the item's registered content element (the
+      // `<img>`/`<video>`/element the consumer marked via `imageRef` /
+      // `morphElementRef` — the same element that morphs), not chrome, backdrop,
+      // or the item's empty letterbox padding. When an item registered nothing,
+      // fall back to the whole item box so the gesture still works.
+      const contentEl = itemContentElementsRef?.current?.get(activeItem) ?? activeItem;
+      if (!target || !contentEl.contains(target)) return;
 
       // Don't activate if zoomed or if zoom gestures are in progress
       if (getZoom() > 1) return;
       if (el.hasAttribute('data-zooming')) return;
-
-      // Resolve the drag target: the active item element
-      const activeItem = target?.closest('[data-lightbox-item]') as HTMLElement | null;
-      if (!activeItem) return;
 
       // Cancel any in-progress snap-back
       if (animationRef.current) {
@@ -481,7 +494,7 @@ function usePullToDismiss({
       }
       clearTransform();
     };
-  }, [disabled, contentRef, backdropRef, activeItemRef, getZoom, onClose, isScrollingRef, applyTransform, clearTransform, snapBack, cleanup, computeVelocity]);
+  }, [disabled, contentRef, backdropRef, activeItemRef, itemContentElementsRef, getZoom, onClose, isScrollingRef, applyTransform, clearTransform, snapBack, cleanup, computeVelocity]);
 }
 
 export { usePullToDismiss };

@@ -64,6 +64,7 @@ const LightboxContent = React.forwardRef<HTMLDivElement, LightboxContentProps>(
       dialogElementRef,
       backdropElementRef,
       activeItemElementRef,
+      itemMorphElementsRef,
       navigationLockedRef,
     } = useLightboxContext();
     // The active slide's zoom is exposed via the Root-owned bridge (not the
@@ -215,6 +216,10 @@ const LightboxContent = React.forwardRef<HTMLDivElement, LightboxContentProps>(
       // The wheel/trackpad pull path reads it directly instead of re-querying
       // the DOM for `[data-lightbox-item][data-active]`.
       activeItemRef: activeItemElementRef,
+      // The touch gate starts a pull only inside an item's registered content
+      // element (imageRef / morphElementRef) — the same element that morphs —
+      // rather than sniffing the DOM for an inner <img>/<video>.
+      itemContentElementsRef: itemMorphElementsRef,
       getZoom,
       onClose: stableSetOpen,
       disabled: !pullToClose || !mounted,

@@ -2638,5 +2638,46 @@ describe('Lightbox', () => {
 
       content.removeAttribute('data-zooming');
     });
+
+    it('touch gate: pulls from the registered content element but not a sibling', () => {
+      function WiredPullLightbox() {
+        return (
+          <LightboxRoot defaultOpen>
+            <LightboxContent data-testid="content" aria-label="Wired pull test">
+              <LightboxItemGroup>
+                <LightboxItem index={0}>
+                  {({ imageRef }) => (
+                    <>
+                      {/* A non-registered sibling inside the item (e.g. the empty
+                          letterbox area beside a contain-fit image). */}
+                      <div data-testid="letterbox" />
+                      <img ref={imageRef} data-testid="content-img" src="wired.jpg" alt="wired" />
+                    </>
+                  )}
+                </LightboxItem>
+              </LightboxItemGroup>
+            </LightboxContent>
+          </LightboxRoot>
+        );
+      }
+
+      render(<WiredPullLightbox />);
+      const content = screen.getByTestId('content');
+
+      // Touching the non-registered sibling must NOT start a pull, even though
+      // it's inside the item — the gate is scoped to the registered content.
+      act(() => {
+        dispatchPointer(screen.getByTestId('letterbox'), 'pointerdown', { clientX: 200, clientY: 200 });
+        dispatchPointer(content, 'pointermove', { clientX: 200, clientY: 250 });
+      });
+      expect(content).not.toHaveAttribute('data-pulling');
+
+      // Touching the imageRef-registered image DOES start a pull.
+      act(() => {
+        dispatchPointer(screen.getByTestId('content-img'), 'pointerdown', { clientX: 200, clientY: 200 });
+        dispatchPointer(content, 'pointermove', { clientX: 200, clientY: 250 });
+      });
+      expect(content).toHaveAttribute('data-pulling');
+    });
   });
 });
