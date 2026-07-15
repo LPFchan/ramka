@@ -147,25 +147,6 @@
   }
 }
 
-/* While a view transition is in flight the VT root cross-fade owns the
-   visual fade — suppress the chrome's own opacity transition on the
-   backdrop and frame so they jump straight to the final state. Without
-   this, @starting-style would re-trigger when the VT layer is torn down
-   and the real DOM becomes visible again, producing a double fade. */
-:root[data-lightbox-view-transition] .lightbox-chrome-fade {
-  transition: none !important;
-}
-
-/* Only pin chrome/backdrop opaque while OPENING, so their groups capture fully
-   visible and fade in. On CLOSE we must NOT pin: a pull-to-dismiss leaves the
-   backdrop dimmed via --lightbox-pull-progress, and forcing it to 1 right
-   before the close snapshot makes it flash bright for a frame. Letting close
-   capture the current opacity fades it out smoothly from where the gesture
-   left it. */
-:root[data-lightbox-view-transition='opening'] .lightbox-chrome-fade[data-open] {
-  opacity: 1;
-}
-
 /* Belt-and-suspenders: also suppress the item fade-in while VT is in
    flight. The `:not([data-skip-fade])` rule above already excludes the
    destination item, but `data-skip-fade` is applied *inside* the VT

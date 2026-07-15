@@ -24,9 +24,11 @@ import { ChevronLeft, ChevronRight, X } from 'lucide-react';
  * styled in globals.css since UA pseudo-elements aren't reachable from
  * className-based Tailwind utilities.
  *
- * The `lightbox-chrome-fade` class is a hook that lets globals.css
- * suppress the chrome's CSS transition while a view transition is in
- * flight — see `:root[data-lightbox-view-transition]` rules there.
+ * The backdrop and chrome fade via their own live opacity transitions —
+ * never via the VT root-crossfade snapshot. Crossfading two full-viewport
+ * bitmaps every frame is measurably jankier on mobile Safari than animating
+ * a single layer's opacity, so we let each element run its own transition
+ * even while a view transition is in flight.
  */
 
 const buttonBase =
@@ -69,8 +71,7 @@ function fitBoxStyle(ratio: number): React.CSSProperties {
   };
 }
 
-const fadeBase =
-  'lightbox-chrome-fade opacity-0 ease-out-expo data-[open]:opacity-100 starting:data-[open]:opacity-0';
+const fadeBase = 'opacity-0 ease-out-expo data-[open]:opacity-100 starting:data-[open]:opacity-0';
 
 // The backdrop derives its open opacity from the `--lightbox-pull-progress`
 // variable the pull-to-dismiss gesture publishes (0 at rest → 1 at the
@@ -78,7 +79,7 @@ const fadeBase =
 // the scrim tracks the finger 1:1. On release the variable resets to 0 and
 // `data-pulling` is dropped, so this transition eases the scrim back.
 const backdropFade =
-  'lightbox-chrome-fade opacity-0 ease-out-expo duration-[340ms] transition-opacity data-[open]:[opacity:calc(1_-_var(--lightbox-pull-progress,0)_*_0.6)] data-pulling:transition-none starting:data-[open]:opacity-0';
+  'opacity-0 ease-out-expo duration-[340ms] transition-opacity data-[open]:[opacity:calc(1_-_var(--lightbox-pull-progress,0)_*_0.6)] data-pulling:transition-none starting:data-[open]:opacity-0';
 const contentFade = `${fadeBase} duration-[280ms] transition-opacity`;
 
 export function LightboxOverlay({ className }: { className?: string } = {}) {

@@ -474,7 +474,7 @@ function FeedPostGallery({ post }: { post: FeedPost }) {
       {/* Scrim. `data-pulling:transition-none` hands the fade to the
           pull-to-dismiss gesture, which drives it 1:1 with the finger via
           the `--lightbox-pull-progress` variable. */}
-      <Lightbox.Backdrop className="fixed inset-0 z-40 bg-white/90 opacity-0 transition-opacity duration-300 data-[open]:[opacity:calc(1_-_var(--lightbox-pull-progress,0)_*_0.6)] data-pulling:transition-none starting:data-[open]:opacity-0 dark:bg-black/90" />
+        <Lightbox.Backdrop className="fixed inset-0 z-40 bg-white/90 opacity-0 transition-opacity duration-300 data-[open]:[opacity:calc(1_-_var(--lightbox-pull-progress,0)_*_0.6)] data-pulling:transition-none starting:data-[open]:opacity-0 dark:bg-black/90" />
 
       {/* Fullscreen viewer */}
       <Lightbox.Content
