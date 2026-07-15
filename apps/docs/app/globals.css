@@ -95,13 +95,20 @@
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  /* The root snapshot (the whole page, including the lightbox's backdrop and
-     content) cross-fades between the old and new states. This is the plain,
-     robust choice: WebKit/Safari rasterizes each *named* transition group on
-     the CPU, so lifting the full-viewport backdrop/content into their own
-     groups (and the blur/backdrop-filter chrome inside content) tanked Safari
-     while barely helping elsewhere — the low-end path already skips the VT
-     entirely (see `isLowEndDevice`). One root cross-fade it is. */
+  /* The root snapshot cross-fades between the old and new states, carrying the
+     unavoidable page-behind transition (e.g. the trigger grid receding as the
+     lightbox opens). It must stay a SINGLE root group: WebKit/Safari rasterizes
+     each *named* transition group on the CPU, so lifting the full-viewport
+     backdrop/content into their own groups (and the blur/backdrop-filter chrome
+     inside content) tanked Safari while barely helping elsewhere — the low-end
+     path already skips the VT entirely (see `isLowEndDevice`).
+
+     Crucially, the backdrop and chrome do NOT rely on this root cross-fade for
+     their own fade. They animate their own `opacity` via live CSS transitions
+     (a single GPU-composited layer each) instead of being pinned opaque and
+     crossfaded as full-viewport bitmaps. That plain-opacity path is measurably
+     smoother on mobile Safari — do not route element fades back through the
+     root snapshot (the removed `.lightbox-chrome-fade` hook did exactly that). */
   :root[data-lightbox-view-transition]::view-transition-old(root),
   :root[data-lightbox-view-transition]::view-transition-new(root) {
     animation-duration: 340ms;
