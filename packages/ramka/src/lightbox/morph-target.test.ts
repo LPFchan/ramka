@@ -53,49 +53,51 @@ describe('findTriggerMorphTarget', () => {
 });
 
 describe('findItemMorphTarget', () => {
-  it('prefers a registered override (morphElementRef / imageRef) above all else', () => {
+  it('returns the registered override (morphElementRef / imageRef)', () => {
     const item = makeEl('<div><span></span><img src="x" /></div>');
     const marker = item.querySelector('span') as HTMLElement;
     const registry = new WeakMap<HTMLElement, HTMLElement>();
     registry.set(item, marker);
-    // The registered override wins over the <img> fallback.
     expect(findItemMorphTarget(item, registry)).toBe(marker);
   });
 
-  it('falls back to the first <img> when there is no registered override', () => {
-    const item = makeEl('<div class="fullscreen"><img src="x" /></div>');
-    const img = item.querySelector('img');
-    // Lands on the letterboxed image, not the full-viewport container.
-    expect(findItemMorphTarget(item)).toBe(img);
+  it('returns the container itself when nothing is registered (no img/video hunting)', () => {
+    // Registry-only resolution: an unwired item does NOT auto-discover its
+    // inner <img>/<video>. Consumers must attach `imageRef`/`morphElementRef`
+    // via the render function; otherwise the container is the target (and
+    // `isMorphTargetSizeResolvable` rejects the oversized box → crossfade).
+    const withImg = makeEl('<div class="fullscreen"><img src="x" /></div>');
+    expect(findItemMorphTarget(withImg)).toBe(withImg);
+    expect(findItemMorphTarget(withImg, new WeakMap())).toBe(withImg);
+
+    const withVideo = makeEl('<div class="fullscreen"><video></video></div>');
+    expect(findItemMorphTarget(withVideo)).toBe(withVideo);
+
+    const noMedia = makeEl('<div><p>caption only</p></div>');
+    expect(findItemMorphTarget(noMedia)).toBe(noMedia);
   });
 
-  it('falls back to a <video> when there is no marker and no image', () => {
-    const item = makeEl('<div class="fullscreen"><video></video></div>');
-    const video = item.querySelector('video');
-    expect(findItemMorphTarget(item)).toBe(video);
-  });
-
-  it('prefers <img> over <video> when both are present', () => {
-    const item = makeEl('<div><video></video><img src="x" /></div>');
-    const img = item.querySelector('img');
-    expect(findItemMorphTarget(item)).toBe(img);
-  });
-
-  it('falls back to the container when there is no marker, image, or video', () => {
-    const item = makeEl('<div><p>caption only</p></div>');
-    expect(findItemMorphTarget(item)).toBe(item);
+  it('is keyed by element, so items resolve independently', () => {
+    const a = makeEl('<div><span></span></div>');
+    const b = makeEl('<div><em></em></div>');
+    const markerA = a.querySelector('span') as HTMLElement;
+    const registry = new WeakMap<HTMLElement, HTMLElement>();
+    registry.set(a, markerA);
+    expect(findItemMorphTarget(a, registry)).toBe(markerA);
+    expect(findItemMorphTarget(b, registry)).toBe(b);
   });
 });
 
-describe('trigger vs item divergence (same markup, different resolution)', () => {
-  it('resolves an unmarked button+image differently per side', () => {
+describe('trigger vs item resolution (symmetric, registry-only)', () => {
+  it('resolves an unwired button+image to the element itself on both sides', () => {
     const html = '<button><img src="x" /></button>';
     const trigger = makeEl(html);
     const item = makeEl(html);
 
-    // Trigger → the element itself; item → the inner image.
+    // Neither side hunts for the inner <img> — both morph their own element
+    // until a descendant is explicitly registered.
     expect(findTriggerMorphTarget(trigger)).toBe(trigger);
-    expect(findItemMorphTarget(item)).toBe(item.querySelector('img'));
+    expect(findItemMorphTarget(item)).toBe(item);
   });
 
   it('overrides resolve from each side\u2019s element-keyed registry', () => {

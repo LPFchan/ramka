@@ -118,6 +118,38 @@ function isMorphTargetSizeResolvable(target: HTMLElement | null): boolean {
   return rect.width > 0 && rect.height > 0;
 }
 
+/**
+ * Dev-only: items already warned about, so we nudge each offending item exactly
+ * once instead of on every open. Keyed by element via a WeakSet so it never
+ * leaks and resets naturally when the item unmounts.
+ */
+const warnedUnwiredItems =
+  process.env.NODE_ENV !== 'production' ? new WeakSet<HTMLElement>() : null;
+
+/**
+ * Dev-only guardrail. Fires when an item is about to morph but resolved its own
+ * element as the morph target — i.e. the consumer never wired `imageRef` or
+ * `morphElementRef` via the `Lightbox.Item` render function. The trigger will
+ * then animate into the *entire* `<Lightbox.Item>` box (usually the full,
+ * flex-centered viewport slide) instead of the letterboxed media, which reads
+ * as a broken, non-native morph.
+ */
+function warnUnwiredItemMorph(itemEl: HTMLElement, target: HTMLElement) {
+  if (!warnedUnwiredItems || target !== itemEl || warnedUnwiredItems.has(itemEl)) {
+    return;
+  }
+  warnedUnwiredItems.add(itemEl);
+  // eslint-disable-next-line no-console
+  console.warn(
+    '[ramka] Lightbox.Item is morphing into its own element (the full ' +
+      '<Lightbox.Item> box, not its parent) because no morph target was ' +
+      'designated. Pass a render function to Lightbox.Item and attach ' +
+      '`imageRef` to the destination <img> (or `morphElementRef` to a custom ' +
+      'element) so the trigger morphs into the media instead.',
+    itemEl,
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Trigger resolution (shared with Root's non-VT close paths)
 // ---------------------------------------------------------------------------
@@ -387,6 +419,12 @@ function useViewTransitionMorph(config: ViewTransitionMorphConfig): ViewTransiti
     // and morphing the trigger into it just shrinks it into the corner/center.
     // In that case, skip the morph and fall back to a plain root crossfade.
     const canMorph = !!triggerTarget && isMorphTargetSizeResolvable(itemTargetPrep);
+
+    // Dev nudge: a morph into the bare item container means the consumer forgot
+    // to designate a morph target (imageRef / morphElementRef).
+    if (canMorph && itemElPrep && itemTargetPrep === itemElPrep) {
+      warnUnwiredItemMorph(itemElPrep, itemTargetPrep);
+    }
 
     // Read the destination radius only when morphing (style/layout are already
     // flushed by the mount, so it's cheap and keeps the VT callback read-free).

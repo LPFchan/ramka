@@ -161,26 +161,25 @@ function isLowEndDevice(): boolean {
 /**
  * Resolves the morph target for the **destination item**.
  *
- * A registered override always wins — the item render-prop's `morphElementRef`
- * (explicit) or, failing that, its `imageRef` (the destination image), both
- * registered in `registry` keyed by the item element. Without a registered
- * override it falls back to the first `<img>`/`<video>` (the convenience
- * default for unwired plain children), then the container itself.
+ * The consumer designates the exact element to morph into via the item
+ * render-prop's `morphElementRef` (explicit) or `imageRef` (the destination
+ * image), whichever is registered in `registry` keyed by the item element.
+ * With no registered override, the item container itself is the target.
  *
- * The media fallback matters here: an item is a full-viewport container, so
- * morphing to its image lands the animation on the letterboxed image rather
- * than blowing the thumbnail up to fill the whole viewport.
+ * Resolution is registry-only — symmetric with {@link findTriggerMorphTarget}.
+ * We deliberately do NOT hunt for an inner `<img>`/`<video>`: an item is a
+ * full-viewport container, so an un-designated morph lands on that container
+ * (a clean crossfade fallback once `isMorphTargetSizeResolvable` rejects the
+ * oversized box) rather than silently guessing which descendant is "the"
+ * media. Explicit refs are the price of a pixel-perfect, native-feeling morph
+ * — there's no ambiguity about which element the trigger animates into, even
+ * for items with captions, overlays, or multiple images.
  */
 function findItemMorphTarget(
   container: HTMLElement,
   registry?: WeakMap<HTMLElement, HTMLElement> | null,
 ): HTMLElement {
-  return (
-    registry?.get(container) ??
-    container.querySelector<HTMLElement>('img') ??
-    container.querySelector<HTMLElement>('video') ??
-    container
-  );
+  return registry?.get(container) ?? container;
 }
 
 /**
