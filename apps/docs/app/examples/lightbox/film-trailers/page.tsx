@@ -161,7 +161,7 @@ function LightboxVideo({
       controls
       playsInline
       preload="metadata"
-      className="block w-full max-h-[80vh] rounded-lg bg-black object-contain"
+      className="block w-full aspect-[16/9] max-h-[80vh] rounded-lg bg-black object-contain"
     />
   );
 }
