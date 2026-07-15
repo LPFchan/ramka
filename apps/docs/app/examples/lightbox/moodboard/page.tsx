@@ -1,5 +1,6 @@
 'use client';
 
+import * as React from 'react';
 import { Lightbox } from 'ramka';
 
 import { ExampleShell } from '../../../_components/example-shell';
@@ -27,7 +28,7 @@ import {
  */
 const THUMB_WIDTH = 400;
 /** The fullscreen image fetches this many times bigger (same aspect ratio). */
-const FULL_SCALE = 4;
+const FULL_SCALE = 2;
 
 function thumbUrl(seed: string, w: number, h: number) {
   const scale = THUMB_WIDTH / w;
@@ -60,36 +61,69 @@ const images = (
   full: fullUrl(img.id, img.w, img.h),
 }));
 
+type Tile = (typeof images)[number];
+
+/** Responsive column count without CSS multicol (2 on mobile, 3 from `sm`). */
+function useColumnCount() {
+  const [cols, setCols] = React.useState(2);
+  React.useEffect(() => {
+    const mq = window.matchMedia('(min-width: 640px)');
+    const update = () => setCols(mq.matches ? 3 : 2);
+    update();
+    mq.addEventListener('change', update);
+    return () => mq.removeEventListener('change', update);
+  }, []);
+  return cols;
+}
+
 export default function MoodboardPage() {
+  const cols = useColumnCount();
+  // Distribute tiles round-robin into flex columns. This intentionally avoids
+  // CSS `columns` (multicol): opening the lightbox locks page scroll (hides the
+  // scrollbar → width change) and toggles a document-wide view-transition-name
+  // reset, either of which forces the background to re-layout DURING the
+  // transition. Multicol re-balances every item on any such invalidation — one
+  // of the heaviest layouts there is — which starves the morph/backdrop of
+  // frames (worst on mobile Safari). A flex-column reflow is cheap by contrast.
+  const columns = React.useMemo(() => {
+    const buckets: { tile: Tile; index: number }[][] = Array.from({ length: cols }, () => []);
+    images.forEach((tile, i) => buckets[i % cols]!.push({ tile, index: i }));
+    return buckets;
+  }, [cols]);
+
   return (
     <ExampleShell
       title="Moodboard"
       description="A masonry wall of images with unknown dimensions — no width/height attributes and no reserved aspect ratio, so each tile is sized only once its pixels load. Each tile fetches a small thumbnail while the lightbox loads a 4× larger version of the same photo, so opening one paints the cached thumbnail as a placeholder while the big image downloads. This stresses the morph's size-resolution fallback (an un-sized box crossfades instead of shrinking to a corner) and the trigger-thumbnail placeholder that bridges the blank frame."
     >
       <Lightbox.Root viewTransition awaitImageDecode={360}>
-        {/* CSS columns masonry: tiles keep their natural aspect once loaded and
-            flow into whichever column is shortest. `break-inside-avoid` keeps a
-            tile from splitting across columns. */}
-        <div className="mx-auto max-w-2xl columns-2 gap-4 sm:columns-3 *:mb-4">
-          {images.map((img, i) => (
-            <Lightbox.Trigger
-              key={img.id}
-              index={i}
-              className="block w-full break-inside-avoid cursor-pointer overflow-hidden rounded-xl border-none bg-transparent p-0"
-            >
-              {({ triggerImageRef }) => (
-                <img
-                  ref={triggerImageRef}
-                  src={img.thumb}
-                  alt={img.alt}
-                  loading="lazy"
-                  // No width/height and no aspect-ratio on purpose. The neutral
-                  // fill gives the not-yet-loaded tile a clean look instead of a
-                  // collapsed 0-height sliver.
-                  className="block w-full rounded-xl bg-neutral-100 object-cover transition duration-200 hover:opacity-90 dark:bg-neutral-800"
-                />
-              )}
-            </Lightbox.Trigger>
+        {/* Flex-column masonry (not CSS `columns`) — see useColumnCount above for
+            why. Tiles keep their natural aspect once loaded; round-robin keeps a
+            balanced-ish layout without measuring heights. */}
+        <div className="mx-auto flex max-w-2xl gap-4">
+          {columns.map((column, ci) => (
+            <div key={ci} className="flex min-w-0 flex-1 flex-col gap-4">
+              {column.map(({ tile, index }) => (
+                <Lightbox.Trigger
+                  key={tile.id}
+                  index={index}
+                  className="block w-full cursor-pointer overflow-hidden rounded-xl border-none bg-transparent p-0"
+                >
+                  {({ triggerImageRef }) => (
+                    <img
+                      ref={triggerImageRef}
+                      src={tile.thumb}
+                      alt={tile.alt}
+                      loading="lazy"
+                      // No width/height and no aspect-ratio on purpose. The neutral
+                      // fill gives the not-yet-loaded tile a clean look instead of a
+                      // collapsed 0-height sliver.
+                      className="block w-full rounded-xl bg-neutral-100 object-cover transition duration-200 hover:opacity-90 dark:bg-neutral-800"
+                    />
+                  )}
+                </Lightbox.Trigger>
+              ))}
+            </div>
           ))}
         </div>
 
