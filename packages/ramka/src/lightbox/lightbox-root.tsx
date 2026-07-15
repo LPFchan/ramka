@@ -302,8 +302,15 @@ const LightboxRoot = React.forwardRef<LightboxRootRef, LightboxRootProps>(
 
     // View transition refs
     const triggerElementsRef = React.useRef<Map<number, HTMLElement>>(new Map());
+    // Trigger element → its designated morph descendant (via the trigger
+    // render-prop's `morphElementRef`). Keyed by element so it's correct even
+    // when several triggers share an index. See findTriggerMorphTarget.
+    const triggerMorphElementsRef = React.useRef<WeakMap<HTMLElement, HTMLElement>>(new WeakMap());
     const activeItemElementRef = React.useRef<HTMLElement | null>(null);
     const openingTriggerIndexRef = React.useRef(0);
+    const openingTriggerElementRef = React.useRef<HTMLElement | null>(null);
+    const openingTriggerImageRef = React.useRef<HTMLImageElement | null>(null);
+    const triggerImageElementsRef = React.useRef<Map<number, HTMLImageElement>>(new Map());
     const dialogElementRef = React.useRef<HTMLElement | null>(null);
     const backdropElementRef = React.useRef<HTMLElement | null>(null);
     const activeIndexRef = React.useRef(activeIndex);
@@ -402,6 +409,7 @@ const LightboxRoot = React.forwardRef<LightboxRootRef, LightboxRootProps>(
       scrollTriggerIntoView,
       decodeMaxWait,
       triggerElementsRef,
+      triggerMorphElementsRef,
       activeItemElementRef,
       openingTriggerIndexRef,
       activeIndexRef,
@@ -497,6 +505,10 @@ const LightboxRoot = React.forwardRef<LightboxRootRef, LightboxRootProps>(
       lastInternalOpenRef.current = open;
 
       if (open) {
+        // External/controlled open has no originating click element; clear it
+        // so a stale clicked trigger from a prior open isn't reused.
+        openingTriggerElementRef.current = null;
+        openingTriggerImageRef.current = null;
         setMounted(true);
         lockScroll();
         return;
@@ -528,6 +540,10 @@ const LightboxRoot = React.forwardRef<LightboxRootRef, LightboxRootProps>(
             openingTriggerIndexRef.current = index;
             setActiveIndex(index, 'trigger');
           }
+          // Programmatic open: no originating element, so clear it. Placeholder
+          // sourcing falls back to the index-keyed trigger map.
+          openingTriggerElementRef.current = null;
+          openingTriggerImageRef.current = null;
           setOpen(true);
         },
         close: () => setOpen(false),
@@ -554,8 +570,12 @@ const LightboxRoot = React.forwardRef<LightboxRootRef, LightboxRootProps>(
         viewTransition,
         morphTo,
         triggerElementsRef,
+        triggerMorphElementsRef,
         activeItemElementRef,
         openingTriggerIndexRef,
+        openingTriggerElementRef,
+        openingTriggerImageRef,
+        triggerImageElementsRef,
         dialogElementRef,
         backdropElementRef,
       }),

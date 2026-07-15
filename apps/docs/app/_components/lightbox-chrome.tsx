@@ -1,6 +1,6 @@
 'use client';
 
-import { Lightbox } from 'ramka';
+import { Lightbox, useLightboxItemContext, useLightboxTriggerContext } from 'ramka';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 
 /**
@@ -59,7 +59,8 @@ function imgAspect(url: string): number {
  *
  * This keeps the box correctly sized *before the image loads* — unlike
  * `size: auto`, which collapses an unloaded `<img>` to 0×0 and would skip the
- * open morph on a slow connection.
+ * open morph on a slow connection. Sizing lives here, in consumer code — the
+ * lightbox primitives stay headless and never impose layout.
  */
 function fitBoxStyle(ratio: number): React.CSSProperties {
   return {
@@ -205,8 +206,13 @@ export function LightboxTriggerImage({
   alt: string;
   className?: string;
 }) {
+  // Grab `triggerImageRef` from the enclosing Lightbox.Trigger so this thumbnail
+  // becomes the flash-free placeholder source for the item it opens — no render
+  // prop threading required.
+  const trigger = useLightboxTriggerContext();
   return (
     <img
+      ref={trigger?.triggerImageRef}
       {...imgDims(src)}
       src={src}
       alt={alt}
@@ -218,12 +224,17 @@ export function LightboxTriggerImage({
 }
 
 export function LightboxFullImage({ src, alt }: { src: string; alt: string }) {
-  // The item area is `flex-1` in the frame (chrome lives in sibling rows), so
-  // no inset is needed — a small one just keeps the image off the edges.
+  // Consumer owns layout: the container establishes the query context and the
+  // fit-box reserves the aspect-ratio box before load. `imageRef` (from the
+  // enclosing Lightbox.Item) marks this as the morph destination and lets the
+  // open transition bridge the blank frame with the trigger's thumbnail until
+  // the pixels arrive.
+  const item = useLightboxItemContext();
   return (
     <div className="flex h-full w-full items-center justify-center [container-type:size] [--lb-inset-h:2rem] [--lb-inset-w:2rem]">
       <div className="relative shrink-0" style={fitBoxStyle(imgAspect(src))}>
         <img
+          ref={item?.imageRef}
           {...imgDims(src)}
           src={src}
           alt={alt}

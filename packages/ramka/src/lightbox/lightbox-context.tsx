@@ -51,8 +51,40 @@ interface LightboxContextValue {
   viewTransition: boolean;
   morphTo: 'active' | 'origin' | 'closest';
   triggerElementsRef: React.RefObject<Map<number, HTMLElement>>;
+  /**
+   * Registry mapping each trigger element → the descendant it should morph
+   * into, as designated by the trigger render-prop's `morphElementRef`. Keyed
+   * by the trigger *element* (not its index) so it stays correct when several
+   * triggers share an index. A trigger with no entry morphs itself.
+   */
+  triggerMorphElementsRef: React.RefObject<WeakMap<HTMLElement, HTMLElement>>;
   activeItemElementRef: React.MutableRefObject<HTMLElement | null>;
   openingTriggerIndexRef: React.MutableRefObject<number>;
+  /**
+   * The exact trigger element the user clicked to open the lightbox. Set
+   * synchronously in the trigger's click handler and cleared (null) on
+   * programmatic opens where there is no originating element. Unlike
+   * `triggerElementsRef` (keyed by index, last-registered wins), this
+   * disambiguates the *clicked* trigger when several triggers share one index.
+   */
+  openingTriggerElementRef: React.MutableRefObject<HTMLElement | null>;
+  /**
+   * The `<img>` of the exact trigger the user clicked, as designated by the
+   * consumer via the trigger render-prop's `triggerImageRef`. Its live
+   * `currentSrc` (the already-decoded, cached candidate the browser actually
+   * fetched — the only flash-free source when `srcSet` is involved) is what
+   * `Lightbox.Item` paints as the destination image's placeholder background.
+   * Cleared (null) on programmatic opens; falls back to `triggerImageElementsRef`
+   * keyed by index when there is no clicked element.
+   */
+  openingTriggerImageRef: React.MutableRefObject<HTMLImageElement | null>;
+  /**
+   * Per-index map of the `<img>` each trigger designated via `triggerImageRef`.
+   * Last-registered wins (like `triggerElementsRef`); used as the placeholder
+   * source when a specific item opens without a clicked element (controlled /
+   * programmatic open) or for preloaded adjacent slides.
+   */
+  triggerImageElementsRef: React.RefObject<Map<number, HTMLImageElement>>;
   dialogElementRef: React.MutableRefObject<HTMLElement | null>;
 
   /**
@@ -138,18 +170,24 @@ function findItemMorphTarget(container: HTMLElement): HTMLElement {
 }
 
 /**
- * Resolves the morph target for the **trigger**. An explicit
- * `[data-lightbox-morph]` marker wins; otherwise the trigger element itself is
- * used.
+ * Resolves the morph target for the **trigger**.
  *
- * Unlike the item, the trigger deliberately does NOT hunt for an inner
- * `<img>`: the border-radius, clipping, and chrome a consumer applies live on
- * the trigger element (e.g. a `rounded-xl overflow-hidden` button wrapping an
- * image), so morphing the element itself reproduces exactly what the user
- * sees. Mark a descendant with `data-lightbox-morph` to morph just that part.
+ * The consumer designates a specific descendant via the trigger render-prop's
+ * `morphElementRef`, which registers it in `registry` keyed by the trigger
+ * element. When there's no registered override, the trigger element itself is
+ * the target — its border-radius, clipping, and chrome live on that element, so
+ * morphing it reproduces exactly what the user sees.
+ *
+ * Unlike the item, the trigger deliberately does NOT hunt for an inner `<img>`.
+ * Resolution is registry-based rather than a DOM `[data-lightbox-morph]` scan:
+ * the lookup is O(1), order-independent, and correct even when several triggers
+ * share an index (the registry is keyed by element, not index).
  */
-function findTriggerMorphTarget(container: HTMLElement): HTMLElement {
-  return container.querySelector<HTMLElement>(MORPH_MARKER_SELECTOR) ?? container;
+function findTriggerMorphTarget(
+  container: HTMLElement,
+  registry?: WeakMap<HTMLElement, HTMLElement> | null,
+): HTMLElement {
+  return registry?.get(container) ?? container;
 }
 
 export {

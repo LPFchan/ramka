@@ -89,27 +89,31 @@ function FilmCard({ film, index }: { film: (typeof films)[number]; index: number
       index={index}
       className="group block cursor-pointer rounded-xl border-none bg-transparent p-0 text-left"
     >
-      <div className="relative overflow-hidden rounded-xl">
-        <img
-          {...imgDims(film.poster)}
-          data-lightbox-morph
-          src={film.poster}
-          alt={film.title}
-          className="block aspect-[2/3] w-full rounded-xl object-cover"
-          loading="lazy"
-        />
-        <div className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-xl bg-black/25 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white/95 text-black">
-            <Play aria-hidden className="h-5 w-5 fill-current" />
+      {({ morphElementRef }) => (
+        <>
+          <div className="relative overflow-hidden rounded-xl">
+            <img
+              ref={morphElementRef}
+              {...imgDims(film.poster)}
+              src={film.poster}
+              alt={film.title}
+              className="block aspect-[2/3] w-full rounded-xl object-cover"
+              loading="lazy"
+            />
+            <div className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-xl bg-black/25 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white/95 text-black">
+                <Play aria-hidden className="h-5 w-5 fill-current" />
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
-      <div className="px-0.5 pt-2.5">
-        <div className="text-sm font-medium leading-snug">{film.title}</div>
-        <div className="text-xs text-muted-foreground">
-          {film.year} · {film.genre}
-        </div>
-      </div>
+          <div className="px-0.5 pt-2.5">
+            <div className="text-sm font-medium leading-snug">{film.title}</div>
+            <div className="text-xs text-muted-foreground">
+              {film.year} · {film.genre}
+            </div>
+          </div>
+        </>
+      )}
     </Lightbox.Trigger>
   );
 }

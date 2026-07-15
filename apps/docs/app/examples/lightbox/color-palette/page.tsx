@@ -38,8 +38,9 @@ export default function ColorPalettePage() {
       title="Color palette"
       description={
         <>
-          Triggers don&apos;t have to be images. Each swatch below is a plain coloured rectangle marked with{' '}
-          <code className="rounded bg-neutral-100 px-1 py-0.5 text-xs dark:bg-neutral-800">data-lightbox-morph</code>;
+          Triggers don&apos;t have to be images. Each swatch below is a plain coloured rectangle designated as the
+          morph element via the trigger&apos;s{' '}
+          <code className="rounded bg-neutral-100 px-1 py-0.5 text-xs dark:bg-neutral-800">morphElementRef</code>;
           the View Transition cleanly morphs the solid block into a full photograph dominated by that hue. The counter
           in the lightbox doubles as a contextual swatch + name.
         </>
@@ -62,18 +63,22 @@ export default function ColorPalettePage() {
                 crossfade
                 className="flex w-full flex-col gap-0 overflow-hidden rounded-xl bg-transparent text-left transition-opacity duration-[200ms] ease-out-expo data-[morph-target]:opacity-0"
               >
-                <div
-                  data-lightbox-morph
-                  className="aspect-[3/2] w-full rounded-xl"
-                  style={{ background: color.hex }}
-                />
-                <div className="px-1 py-2">
-                  <div className="text-sm font-medium text-neutral-900 dark:text-neutral-50">{color.name}</div>
-                  <div className="mt-0.5 flex items-center justify-between text-xs text-neutral-500 dark:text-neutral-400">
-                    <span>{color.family}</span>
-                    <span className="font-mono">{color.hex}</span>
-                  </div>
-                </div>
+                {({ morphElementRef }) => (
+                  <>
+                    <div
+                      ref={morphElementRef}
+                      className="aspect-[3/2] w-full rounded-xl"
+                      style={{ background: color.hex }}
+                    />
+                    <div className="px-1 py-2">
+                      <div className="text-sm font-medium text-neutral-900 dark:text-neutral-50">{color.name}</div>
+                      <div className="mt-0.5 flex items-center justify-between text-xs text-neutral-500 dark:text-neutral-400">
+                        <span>{color.family}</span>
+                        <span className="font-mono">{color.hex}</span>
+                      </div>
+                    </div>
+                  </>
+                )}
               </Lightbox.Trigger>
             ))}
           </div>

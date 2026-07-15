@@ -269,7 +269,8 @@ function imgAspect(url: string): number {
  *
  * This keeps the box correctly sized *before the image loads* — unlike
  * `size: auto`, which collapses an unloaded `<img>` to 0×0 and would skip the
- * open morph on a slow connection.
+ * open morph on a slow connection. Sizing is the consumer's responsibility —
+ * the lightbox primitives stay headless.
  */
 function fitBoxStyle(ratio: number): React.CSSProperties {
   return {
@@ -316,7 +317,9 @@ function ImageGrid({ imgs }: { imgs: GalleryImage[] }) {
     const only = imgs[0]!;
     return (
       <Lightbox.Trigger index={0} className="block w-full overflow-hidden rounded-xl bg-transparent p-0">
-        <img {...imgDims(only.thumb)} src={only.thumb} alt={only.alt} className="block  w-full object-cover" />
+        {({ triggerImageRef }) => (
+          <img ref={triggerImageRef} {...imgDims(only.thumb)} src={only.thumb} alt={only.alt} className="block  w-full object-cover" />
+        )}
       </Lightbox.Trigger>
     );
   }
@@ -330,12 +333,15 @@ function ImageGrid({ imgs }: { imgs: GalleryImage[] }) {
             index={i}
             className={`block overflow-hidden bg-transparent p-0 ${cornerClass(i, 2)}`}
           >
-            <img
-              {...imgDims(img.thumb)}
-              src={img.thumb}
-              alt={img.alt}
-              className="block aspect-[4/5] w-full object-cover"
-            />
+            {({ triggerImageRef }) => (
+              <img
+                ref={triggerImageRef}
+                {...imgDims(img.thumb)}
+                src={img.thumb}
+                alt={img.alt}
+                className="block aspect-[4/5] w-full object-cover"
+              />
+            )}
           </Lightbox.Trigger>
         ))}
       </div>
@@ -350,7 +356,9 @@ function ImageGrid({ imgs }: { imgs: GalleryImage[] }) {
           index={0}
           className={`row-span-2 block overflow-hidden bg-transparent p-0 ${cornerClass(0, 3)}`}
         >
-          <img {...imgDims(first.thumb)} src={first.thumb} alt={first.alt} className="block h-full w-full object-cover" />
+          {({ triggerImageRef }) => (
+            <img ref={triggerImageRef} {...imgDims(first.thumb)} src={first.thumb} alt={first.alt} className="block h-full w-full object-cover" />
+          )}
         </Lightbox.Trigger>
         {imgs.slice(1, 3).map((img, idx) => {
           const i = idx + 1;
@@ -360,7 +368,9 @@ function ImageGrid({ imgs }: { imgs: GalleryImage[] }) {
               index={i}
               className={`block overflow-hidden bg-transparent p-0 ${cornerClass(i, 3)}`}
             >
-              <img {...imgDims(img.thumb)} src={img.thumb} alt={img.alt} className="block h-full w-full object-cover" />
+              {({ triggerImageRef }) => (
+                <img ref={triggerImageRef} {...imgDims(img.thumb)} src={img.thumb} alt={img.alt} className="block h-full w-full object-cover" />
+              )}
             </Lightbox.Trigger>
           );
         })}
@@ -380,16 +390,25 @@ function ImageGrid({ imgs }: { imgs: GalleryImage[] }) {
             crossfade={showOverlay}
             className={`block overflow-hidden bg-transparent p-0 ${cornerClass(i, 4)}`}
           >
-            <div
-              className={`relative h-full w-full overflow-hidden ${cornerClass(i, 4)}`}
-            >
-              <img {...imgDims(img.thumb)} src={img.thumb} alt={img.alt} className="block h-full w-full object-cover" />
-              {showOverlay && (
-                <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/50">
-                  <span className="text-2xl font-bold text-white">+{extra}</span>
-                </div>
-              )}
-            </div>
+            {({ triggerImageRef }) => (
+              // The whole tile morphs (overlay included) by default, but the
+              // placeholder is sourced only from `triggerImageRef` — so the
+              // "+N" overlay is excluded from the destination bridge.
+              <div className={`relative h-full w-full overflow-hidden ${cornerClass(i, 4)}`}>
+                <img
+                  ref={triggerImageRef}
+                  {...imgDims(img.thumb)}
+                  src={img.thumb}
+                  alt={img.alt}
+                  className="block h-full w-full object-cover"
+                />
+                {showOverlay && (
+                  <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/50">
+                    <span className="text-2xl font-bold text-white">+{extra}</span>
+                  </div>
+                )}
+              </div>
+            )}
           </Lightbox.Trigger>
         );
       })}
@@ -483,24 +502,30 @@ function FeedPostGallery({ post }: { post: FeedPost }) {
                 caption={img.caption}
                 className="relative flex h-full w-full items-center justify-center"
               >
-                <Lightbox.Zoom maxZoom={6} className="flex h-full w-full items-center justify-center [container-type:size]">
-                  {/* Reserve the largest correctly-shaped box up front (see
-                      fitBoxStyle) so the morph target has a real size even
-                      before the image loads. */}
-                  <div
-                    className="relative shrink-0 [--lb-inset-h:6rem] [--lb-inset-w:0px] md:[--lb-inset-h:11rem] md:[--lb-inset-w:4rem]"
-                    style={fitBoxStyle(imgAspect(img.src))}
-                  >
-                    <img
-                      {...imgDims(img.src)}
-                      src={img.src}
-                      alt={img.alt}
-                      loading="eager"
-                      draggable={false}
-                      className="h-full w-full select-none rounded-none object-contain md:rounded-lg"
-                    />
-                  </div>
-                </Lightbox.Zoom>
+                {({ imageRef }) => (
+                  <Lightbox.Zoom maxZoom={6} className="flex h-full w-full items-center justify-center [container-type:size]">
+                    {/* Consumer owns layout: reserve the largest correctly-shaped
+                        box up front (see fitBoxStyle) so the morph target has a
+                        real size before the image loads. `imageRef` (from the
+                        Item render fn) marks the destination image so the open
+                        morph is bridged with the trigger thumbnail until this
+                        loads — no blank frame. */}
+                    <div
+                      className="relative shrink-0 [--lb-inset-h:6rem] [--lb-inset-w:0px] md:[--lb-inset-h:11rem] md:[--lb-inset-w:4rem]"
+                      style={fitBoxStyle(imgAspect(img.src))}
+                    >
+                      <img
+                        ref={imageRef}
+                        {...imgDims(img.src)}
+                        src={img.src}
+                        alt={img.alt}
+                        loading="eager"
+                        draggable={false}
+                        className="h-full w-full select-none rounded-none object-contain md:rounded-lg"
+                      />
+                    </div>
+                  </Lightbox.Zoom>
+                )}
               </Lightbox.Item>
             </Lightbox.Slide>
           ))}

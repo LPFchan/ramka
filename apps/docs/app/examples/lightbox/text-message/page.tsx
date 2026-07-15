@@ -78,27 +78,29 @@ export default function TextMessagePage() {
               crossfade
               className="relative block h-80 w-[260px] cursor-pointer rounded-2xl border-none bg-transparent p-0"
             >
-              <div data-lightbox-morph className="absolute -inset-5">
-                {messageImages.map((img, i) => {
-                  const offset = stackOffsets[i] ?? { x: 0, y: 0 };
-                  const rotation = stackRotations[i] ?? 0;
-                  return (
-                    <img
-                      key={img.src}
-                      {...imgDims(img.thumb)}
-                      src={img.thumb}
-                      alt={img.alt}
-                      className="absolute block h-[280px] w-[200px] rounded-2xl object-cover shadow-[0_4px_20px_rgba(0,0,0,0.15)]"
-                      style={{
-                        left: '50%',
-                        top: '50%',
-                        transform: `translate(-50%, -50%) translate(${offset.x}px, ${offset.y}px) rotate(${rotation}deg)`,
-                        zIndex: messageImages.length - i,
-                      }}
-                    />
-                  );
-                })}
-              </div>
+              {({ morphElementRef }) => (
+                <div ref={morphElementRef} className="absolute -inset-5">
+                  {messageImages.map((img, i) => {
+                    const offset = stackOffsets[i] ?? { x: 0, y: 0 };
+                    const rotation = stackRotations[i] ?? 0;
+                    return (
+                      <img
+                        key={img.src}
+                        {...imgDims(img.thumb)}
+                        src={img.thumb}
+                        alt={img.alt}
+                        className="absolute block h-[280px] w-[200px] rounded-2xl object-cover shadow-[0_4px_20px_rgba(0,0,0,0.15)]"
+                        style={{
+                          left: '50%',
+                          top: '50%',
+                          transform: `translate(-50%, -50%) translate(${offset.x}px, ${offset.y}px) rotate(${rotation}deg)`,
+                          zIndex: messageImages.length - i,
+                        }}
+                      />
+                    );
+                  })}
+                </div>
+              )}
             </Lightbox.Trigger>
 
             <div className="flex items-center gap-2 text-xs text-neutral-500">
