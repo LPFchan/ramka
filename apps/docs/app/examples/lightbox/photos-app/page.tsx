@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { flushSync } from 'react-dom';
+import Image from 'next/image';
 import { Lightbox } from 'ramka';
 import { Heart, Minus, Plus, X, ZoomIn, ZoomOut } from 'lucide-react';
 
@@ -83,7 +84,8 @@ function imgAspect(url: string): number {
  *
  * This keeps the box correctly sized *before the image loads* — unlike
  * `size: auto`, which collapses an unloaded `<img>` to 0×0 and would skip the
- * open morph on a slow connection.
+ * open morph on a slow connection. Sizing is the consumer's responsibility —
+ * the lightbox primitives stay headless.
  */
 function fitBoxStyle(ratio: number): React.CSSProperties {
   return {
@@ -194,13 +196,17 @@ export default function PhotosAppPage() {
                 index={i}
                 className="relative block aspect-square cursor-pointer overflow-hidden bg-transparent p-0"
               >
-                <img {...imgDims(photo.thumb)} src={photo.thumb} alt={photo.alt} loading="lazy" className="block h-full w-full object-cover" />
-                {photo.favorite ? (
-                  <Heart
-                    aria-hidden
-                    className="pointer-events-none absolute bottom-1.5 left-1.5 h-4 w-4 fill-white text-white drop-shadow"
-                  />
-                ) : null}
+                {({ triggerImageRef }) => (
+                  <>
+                    <img ref={triggerImageRef} {...imgDims(photo.thumb)} src={photo.thumb} alt={photo.alt} loading="lazy" className="block h-full w-full object-cover" />
+                    {photo.favorite ? (
+                      <Heart
+                        aria-hidden
+                        className="pointer-events-none absolute bottom-1.5 left-1.5 h-4 w-4 fill-white text-white drop-shadow"
+                      />
+                    ) : null}
+                  </>
+                )}
               </Lightbox.Trigger>
             ))}
           </div>
@@ -232,24 +238,33 @@ export default function PhotosAppPage() {
                   caption={photo.caption}
                   className="relative flex h-full w-full items-center justify-center"
                 >
-                  <Lightbox.Zoom maxZoom={6} className="flex h-full w-full items-center justify-center [container-type:size]">
-                    {/* Reserve the largest correctly-shaped box up front (see
-                        fitBoxStyle) so the morph target has a real size even
-                        before the image loads. */}
-                    <div
-                      className="relative shrink-0 [--lb-inset-h:6rem] [--lb-inset-w:0px] md:[--lb-inset-h:11rem] md:[--lb-inset-w:4rem]"
-                      style={fitBoxStyle(imgAspect(photo.src))}
-                    >
-                      <img
-                        {...imgDims(photo.src)}
-                        src={photo.src}
-                        alt={photo.alt}
-                        loading="eager"
-                        draggable={false}
-                        className="h-full w-full select-none rounded-none object-contain md:rounded-lg"
-                      />
-                    </div>
-                  </Lightbox.Zoom>
+                  {({ imageRef }) => (
+                    <Lightbox.Zoom maxZoom={6} className="flex h-full w-full items-center justify-center [container-type:size]">
+                      {/* Consumer owns layout: the fit-box reserves the box up
+                          front (see fitBoxStyle) so the morph target has a real
+                          size before the image loads. `imageRef` attaches to a
+                          next/image element — proof the ref-based placeholder
+                          composes with framework image components while the
+                          consumer keeps full control of sizing. */}
+                      <div
+                        className="relative shrink-0 [--lb-inset-h:6rem] [--lb-inset-w:0px] md:[--lb-inset-h:11rem] md:[--lb-inset-w:4rem]"
+                        style={fitBoxStyle(imgAspect(photo.src))}
+                      >
+                        <Image
+                          ref={imageRef}
+                          src={photo.src}
+                          alt={photo.alt}
+                          width={imgDims(photo.src)?.width ?? 1600}
+                          height={imgDims(photo.src)?.height ?? 1200}
+                          sizes="100vw"
+                          priority
+                          unoptimized
+                          draggable={false}
+                          className="h-full w-full select-none rounded-none object-contain md:rounded-lg"
+                        />
+                      </div>
+                    </Lightbox.Zoom>
+                  )}
                 </Lightbox.Item>
               </Lightbox.Slide>
             ))}

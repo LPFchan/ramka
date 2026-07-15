@@ -14,23 +14,36 @@ afterEach(() => {
 });
 
 describe('findTriggerMorphTarget', () => {
-  it('uses the trigger element itself when there is no marker (even if it wraps an image)', () => {
+  it('uses the trigger element itself when there is no registry (even if it wraps an image)', () => {
     const trigger = makeEl('<button><img src="x" /></button>');
     // The whole button morphs — carrying its border-radius / clipping — rather
     // than hunting for the inner <img>.
     expect(findTriggerMorphTarget(trigger)).toBe(trigger);
   });
 
-  it('uses a descendant marked with data-lightbox-morph when present', () => {
-    const trigger = makeEl('<button><span data-lightbox-morph><img src="x" /></span></button>');
-    const marker = trigger.querySelector('[data-lightbox-morph]');
-    expect(findTriggerMorphTarget(trigger)).toBe(marker);
+  it('uses the trigger element itself when the registry has no entry for it', () => {
+    const trigger = makeEl('<button><img src="x" /></button>');
+    const registry = new WeakMap<HTMLElement, HTMLElement>();
+    expect(findTriggerMorphTarget(trigger, registry)).toBe(trigger);
   });
 
-  it('prefers the marker over the trigger even when the marker is the image', () => {
-    const trigger = makeEl('<button><img data-lightbox-morph src="x" /></button>');
-    const img = trigger.querySelector('img');
-    expect(findTriggerMorphTarget(trigger)).toBe(img);
+  it('returns the registered descendant when one is designated (via morphElementRef)', () => {
+    const trigger = makeEl('<button><span><img src="x" /></span></button>');
+    const marker = trigger.querySelector('span') as HTMLElement;
+    const registry = new WeakMap<HTMLElement, HTMLElement>();
+    registry.set(trigger, marker);
+    expect(findTriggerMorphTarget(trigger, registry)).toBe(marker);
+  });
+
+  it('is keyed by element, so triggers sharing an index resolve independently', () => {
+    const a = makeEl('<button><span></span></button>');
+    const b = makeEl('<button><em></em></button>');
+    const markerA = a.querySelector('span') as HTMLElement;
+    const registry = new WeakMap<HTMLElement, HTMLElement>();
+    registry.set(a, markerA);
+    // `a` → its registered override; `b` (no entry) → itself.
+    expect(findTriggerMorphTarget(a, registry)).toBe(markerA);
+    expect(findTriggerMorphTarget(b, registry)).toBe(b);
   });
 
   it('uses the trigger itself for non-image triggers', () => {
@@ -84,12 +97,15 @@ describe('trigger vs item divergence (same markup, different resolution)', () =>
     expect(findItemMorphTarget(item)).toBe(item.querySelector('img'));
   });
 
-  it('resolves identically when a marker is present (marker always wins)', () => {
-    const html = '<div><img data-lightbox-morph src="x" /></div>';
-    const trigger = makeEl(html);
-    const item = makeEl(html);
+  it('overrides resolve per side: trigger via the registry, item via the attribute marker', () => {
+    const trigger = makeEl('<button><span><img src="x" /></span></button>');
+    const item = makeEl('<div><span data-lightbox-morph></span><img src="x" /></div>');
 
-    expect(findTriggerMorphTarget(trigger)).toBe(trigger.querySelector('[data-lightbox-morph]'));
+    const triggerMarker = trigger.querySelector('span') as HTMLElement;
+    const registry = new WeakMap<HTMLElement, HTMLElement>();
+    registry.set(trigger, triggerMarker);
+
+    expect(findTriggerMorphTarget(trigger, registry)).toBe(triggerMarker);
     expect(findItemMorphTarget(item)).toBe(item.querySelector('[data-lightbox-morph]'));
   });
 });

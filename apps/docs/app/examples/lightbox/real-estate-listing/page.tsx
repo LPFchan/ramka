@@ -50,7 +50,8 @@ function imgAspect(url: string): number {
  *
  * This keeps the box correctly sized *before the image loads* — unlike
  * `size: auto`, which collapses an unloaded `<img>` to 0×0 and would skip the
- * open morph on a slow connection.
+ * open morph on a slow connection. Sizing is the consumer's responsibility —
+ * the lightbox primitives stay headless.
  */
 function fitBoxStyle(ratio: number): React.CSSProperties {
   return {
@@ -99,12 +100,15 @@ function HeroGrid() {
         index={0}
         className={`row-span-2 block cursor-pointer border-none bg-transparent p-0 transition-opacity duration-[200ms] ease-out-expo data-[morph-target]:opacity-0 ${heroCornerClass[0]}`}
       >
-        <img
-          {...imgDims(hero.thumb)}
-          src={hero.thumb}
-          alt={hero.alt}
-          className={`block h-full w-full object-cover ${heroCornerClass[0]}`}
-        />
+        {({ triggerImageRef }) => (
+          <img
+            ref={triggerImageRef}
+            {...imgDims(hero.thumb)}
+            src={hero.thumb}
+            alt={hero.alt}
+            className={`block h-full w-full object-cover ${heroCornerClass[0]}`}
+          />
+        )}
       </Lightbox.Trigger>
       {propertyPhotos.slice(1, 5).map((photo, i) => (
         <Lightbox.Trigger
@@ -112,12 +116,15 @@ function HeroGrid() {
           index={i + 1}
           className={`block cursor-pointer border-none bg-transparent p-0 transition-opacity duration-[200ms] ease-out-expo data-[morph-target]:opacity-0 ${heroCornerClass[i + 1] ?? ''}`}
         >
-          <img
-            {...imgDims(photo.thumb)}
-            src={photo.thumb}
-            alt={photo.alt}
-            className={`block h-full w-full object-cover ${heroCornerClass[i + 1] ?? ''}`}
-          />
+          {({ triggerImageRef }) => (
+            <img
+              ref={triggerImageRef}
+              {...imgDims(photo.thumb)}
+              src={photo.thumb}
+              alt={photo.alt}
+              className={`block h-full w-full object-cover ${heroCornerClass[i + 1] ?? ''}`}
+            />
+          )}
         </Lightbox.Trigger>
       ))}
     </div>
@@ -145,17 +152,20 @@ function RemainingPhotosGrid() {
             crossfade
             className="block rounded-lg bg-transparent p-0 transition-opacity duration-[200ms] ease-out-expo data-[morph-target]:opacity-0"
           >
-            <div data-lightbox-morph className="relative overflow-hidden rounded-lg">
-              <img
-                {...imgDims(photo.thumb)}
-                src={photo.thumb}
-                alt={photo.alt}
-                className="block aspect-[3/2] w-full object-cover"
-              />
-              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent px-3 pb-2 pt-4">
-                <span className="text-xs font-medium text-white">{photo.label}</span>
+            {({ triggerImageRef, morphElementRef }) => (
+              <div ref={morphElementRef} className="relative overflow-hidden rounded-lg">
+                <img
+                  ref={triggerImageRef}
+                  {...imgDims(photo.thumb)}
+                  src={photo.thumb}
+                  alt={photo.alt}
+                  className="block aspect-[3/2] w-full object-cover"
+                />
+                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent px-3 pb-2 pt-4">
+                  <span className="text-xs font-medium text-white">{photo.label}</span>
+                </div>
               </div>
-            </div>
+            )}
           </Lightbox.Trigger>
         ))}
       </div>
@@ -287,17 +297,22 @@ export default function RealEstateListingPage() {
                   caption={`${photo.label} — The Olive Grove Residence`}
                   className="flex h-full w-full items-center justify-center [container-type:size] [--lb-inset-h:4rem] [--lb-inset-w:2rem]"
                 >
-                  {/* Reserve the largest correctly-shaped box up front (see
-                      fitBoxStyle) so the morph target has a real size even
-                      before the image loads. */}
-                  <div className="relative shrink-0" style={fitBoxStyle(imgAspect(photo.src))}>
-                    <img
-                      {...imgDims(photo.src)}
-                      src={photo.src}
-                      alt={photo.alt}
-                      className="h-full w-full rounded-lg object-contain"
-                    />
-                  </div>
+                  {({ imageRef }) => (
+                    // Consumer owns layout: reserve the largest correctly-shaped
+                    // box up front (see fitBoxStyle) so the morph target has a
+                    // real size before the image loads. `imageRef` bridges the
+                    // post-morph blank frame with the trigger thumbnail.
+                    <div className="relative shrink-0" style={fitBoxStyle(imgAspect(photo.src))}>
+                      <img
+                        ref={imageRef}
+                        {...imgDims(photo.src)}
+                        src={photo.src}
+                        alt={photo.alt}
+                        loading="eager"
+                        className="h-full w-full rounded-lg object-contain"
+                      />
+                    </div>
+                  )}
                 </Lightbox.Item>
               </Lightbox.Slide>
             ))}

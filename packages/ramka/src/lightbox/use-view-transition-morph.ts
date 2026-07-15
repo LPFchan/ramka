@@ -248,6 +248,8 @@ interface ViewTransitionMorphConfig {
   /** Upper bound (ms) to await the destination image decode; 0 disables. */
   decodeMaxWait: number;
   triggerElementsRef: React.RefObject<Map<number, HTMLElement>>;
+  /** Trigger element → its designated morph descendant (see findTriggerMorphTarget). */
+  triggerMorphElementsRef: React.RefObject<WeakMap<HTMLElement, HTMLElement>>;
   activeItemElementRef: React.RefObject<HTMLElement | null>;
   openingTriggerIndexRef: React.RefObject<number>;
   activeIndexRef: React.RefObject<number>;
@@ -300,6 +302,7 @@ function useViewTransitionMorph(config: ViewTransitionMorphConfig): ViewTransiti
     const {
       decodeMaxWait,
       triggerElementsRef,
+      triggerMorphElementsRef,
       activeItemElementRef,
       openingTriggerIndexRef,
       closeGenRef,
@@ -312,7 +315,9 @@ function useViewTransitionMorph(config: ViewTransitionMorphConfig): ViewTransiti
 
     const triggerIdx = openingTriggerIndexRef.current;
     const triggerEl = triggerElementsRef.current.get(triggerIdx);
-    const triggerTarget = triggerEl ? findTriggerMorphTarget(triggerEl) : null;
+    const triggerTarget = triggerEl
+      ? findTriggerMorphTarget(triggerEl, triggerMorphElementsRef.current)
+      : null;
     const useCrossfade = triggerEl?.dataset.crossfade === 'true';
 
     // Read the trigger's border-radius NOW, before any writes. At this point the
@@ -435,6 +440,7 @@ function useViewTransitionMorph(config: ViewTransitionMorphConfig): ViewTransiti
       morphTo,
       scrollTriggerIntoView,
       triggerElementsRef,
+      triggerMorphElementsRef,
       activeItemElementRef,
       openingTriggerIndexRef,
       activeIndexRef,
@@ -454,7 +460,9 @@ function useViewTransitionMorph(config: ViewTransitionMorphConfig): ViewTransiti
       triggerElementsRef.current,
     );
     const triggerEl = triggerElementsRef.current.get(triggerIdx);
-    const triggerTarget = triggerEl ? findTriggerMorphTarget(triggerEl) : null;
+    const triggerTarget = triggerEl
+      ? findTriggerMorphTarget(triggerEl, triggerMorphElementsRef.current)
+      : null;
     const useCrossfade = triggerEl?.dataset.crossfade === 'true';
 
     // Batch all reads before any writes to avoid forced reflow

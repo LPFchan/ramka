@@ -36,7 +36,10 @@
  *   Backdrop        — Optional visible scrim, closes on click, animated by pull-to-dismiss
  *   Close           — Closes the lightbox
  *   ItemGroup       — Container for items, manages swap rendering + preload
- *   Item            — Individual media item with lazy-load support
+ *   Item            — Individual media item with lazy-load support. Its render
+ *                     function exposes `imageRef` (mark the destination image,
+ *                     enabling the flash-free trigger-thumbnail placeholder) and
+ *                     `morphElementRef` (override what morphs)
  *   Previous/Next   — Navigation buttons (auto-disable at boundaries)
  *   Counter         — "1 / 12" display with aria-live
  *   Caption         — Per-item caption from Item's caption prop
@@ -66,12 +69,20 @@ export { LightboxZoomIn as ZoomIn } from './lightbox-zoom-in';
 export { LightboxZoomOut as ZoomOut } from './lightbox-zoom-out';
 
 export type { LightboxRootProps, LightboxRootRef } from './lightbox-root';
-export type { LightboxTriggerProps, LightboxTriggerState } from './lightbox-trigger';
+export type {
+  LightboxTriggerProps,
+  LightboxTriggerState,
+  LightboxTriggerRenderState,
+} from './lightbox-trigger';
 export type { LightboxContentProps } from './lightbox-content';
 export type { LightboxBackdropProps, LightboxBackdropState } from './lightbox-backdrop';
 export type { LightboxCloseProps, LightboxCloseState } from './lightbox-close';
 export type { LightboxItemGroupProps, LightboxItemGroupState } from './lightbox-item-group';
-export type { LightboxItemProps, LightboxItemState } from './lightbox-item';
+export type {
+  LightboxItemProps,
+  LightboxItemState,
+  LightboxItemRenderState,
+} from './lightbox-item';
 export type { LightboxSlidesProps, LightboxSlidesState } from './lightbox-slides';
 export type { LightboxSlideProps } from './lightbox-slide';
 export type { LightboxPreviousProps, LightboxPreviousState } from './lightbox-previous';
