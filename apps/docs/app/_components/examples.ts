@@ -23,6 +23,12 @@ export const lightboxExamples: ExampleLink[] = [
     description: 'macOS Photos–style square grid under a sticky, blurred toolbar with a fade gradient and "Library" title.',
   },
   {
+    slug: 'moodboard',
+    title: 'Moodboard',
+    description:
+      'Masonry wall of images with unknown dimensions (no width/height, no reserved aspect ratio) — stresses the morph size-resolution fallback and trigger-thumbnail placeholder.',
+  },
+  {
     slug: 'default',
     title: 'Default',
     description: 'A grid of triggers opens a fullscreen modal — uses Lightbox.Backdrop for the scrim.',
