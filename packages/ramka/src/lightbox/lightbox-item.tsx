@@ -136,8 +136,10 @@ const LightboxItem = React.forwardRef<HTMLDivElement, LightboxItemProps>(
     // element. No-op until the item element is mounted — on first mount the
     // child refs (`imageRef` / `morphElementRef`) fire before the item's own
     // ref (refs resolve bottom-up), so `mergedRefCallback` re-runs this once the
-    // element exists; later toggles re-run it directly. When neither is set, the
-    // resolver falls back to a `querySelector('img'/'video')` scan.
+    // element exists; later toggles re-run it directly. When neither is set,
+    // nothing is registered and the resolver morphs into the item container
+    // itself (which `isMorphTargetSizeResolvable` then rejects, falling back to
+    // a plain crossfade) — attach `imageRef`/`morphElementRef` to morph the media.
     const registerMorphElement = React.useCallback(() => {
       const container = internalRef.current;
       const registry = itemMorphElementsRef.current;

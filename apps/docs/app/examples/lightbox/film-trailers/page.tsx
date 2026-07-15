@@ -118,8 +118,29 @@ function FilmCard({ film, index }: { film: (typeof films)[number]; index: number
   );
 }
 
-function LightboxVideo({ src, poster, active }: { src: string; poster: string; active: boolean }) {
+function LightboxVideo({
+  src,
+  poster,
+  active,
+  morphElementRef,
+}: {
+  src: string;
+  poster: string;
+  active: boolean;
+  morphElementRef: (node: HTMLElement | null) => void;
+}) {
   const videoRef = React.useRef<HTMLVideoElement>(null);
+
+  // Combine the local ref (play/pause control) with the item's `morphElementRef`
+  // so the <video> is the designated morph target — the item no longer guesses
+  // at an inner <video>, so this wiring is required for the poster→video morph.
+  const setVideoRef = React.useCallback(
+    (node: HTMLVideoElement | null) => {
+      videoRef.current = node;
+      morphElementRef(node);
+    },
+    [morphElementRef],
+  );
 
   React.useEffect(() => {
     const el = videoRef.current;
@@ -134,7 +155,7 @@ function LightboxVideo({ src, poster, active }: { src: string; poster: string; a
 
   return (
     <video
-      ref={videoRef}
+      ref={setVideoRef}
       src={src}
       poster={poster}
       controls
@@ -206,8 +227,13 @@ export default function FilmTrailersPage() {
                   caption={`${film.title} (${film.year}) — ${film.synopsis}`}
                   className={stackedItemClass}
                 >
-                  {({ active }) => (
-                    <LightboxVideo src={film.video} poster={film.poster} active={active} />
+                  {({ active, morphElementRef }) => (
+                    <LightboxVideo
+                      src={film.video}
+                      poster={film.poster}
+                      active={active}
+                      morphElementRef={morphElementRef}
+                    />
                   )}
                 </Lightbox.Item>
               ))}

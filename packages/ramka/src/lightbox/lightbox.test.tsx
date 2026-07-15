@@ -1536,7 +1536,7 @@ describe('Lightbox', () => {
             <LightboxContent data-testid="content" aria-label="morph fallback test">
               <LightboxItemGroup>
                 <LightboxItem index={0} data-testid="item-0">
-                  <img src="a.jpg" alt="a" />
+                  {({ imageRef }) => <img ref={imageRef} src="a.jpg" alt="a" />}
                 </LightboxItem>
               </LightboxItemGroup>
             </LightboxContent>
