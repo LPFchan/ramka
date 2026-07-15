@@ -395,7 +395,6 @@ const LightboxContent = React.forwardRef<HTMLDivElement, LightboxContentProps>(
         // into the transition's old snapshot. Placed after `...style` so it
         // wins for the (transient) hidden phase regardless of consumer styles.
         style: {
-          backgroundColor: 'red',
           overflow: 'hidden',
           overscrollBehavior: 'contain',
           // Prevent accidental text selection when performing touch gestures.
