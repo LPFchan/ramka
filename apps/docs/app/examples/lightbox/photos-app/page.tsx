@@ -141,7 +141,7 @@ export default function PhotosAppPage() {
   const zoomOut = () => zoomTo(columns + 1);
 
   return (
-    <div className="min-h-screen bg-white dark:bg-[#1c1c1e]">
+    <div className="min-h-screen bg-white dark:bg-[#1c1c1e] select-none">
       <Lightbox.Root
         viewTransition
         loop
@@ -149,6 +149,7 @@ export default function PhotosAppPage() {
           { type: 'onChange', behavior: 'instant' },
           { type: 'onOpenComplete', behavior: 'instant' },
         ]}
+        
       >
         {/* The sticky nav AND the grid share a single `view-transition-name` so
             the density crossfade captures them as ONE group. Naming only the
@@ -157,8 +158,8 @@ export default function PhotosAppPage() {
         <div style={{ viewTransitionName: 'photos-grid' }}>
           {/* Sticky toolbar + fade gradient. The gradient strip lets the grid
               visibly fade away as it scrolls beneath the chrome. */}
-          <div className="pointer-events-none sticky top-0 z-20">
-            <div className="pointer-events-auto flex items-center gap-3 bg-white/70 px-4 py-3 backdrop-blur-xl dark:bg-[#1c1c1e]/70">
+          
+            <div className="pointer-events-auto flex shrink-0 items-center gap-3 bg-white/70 px-4 py-3 backdrop-blur-xl dark:bg-[#1c1c1e]/70">
               <div className="flex flex-col leading-tight">
                 <span className="text-lg font-bold tracking-tight text-neutral-900 dark:text-neutral-50">Library</span>
                 <span className="text-[11px] text-neutral-500 dark:text-neutral-400">Jul 15–16, 2024</span>
@@ -187,14 +188,13 @@ export default function PhotosAppPage() {
                 </div>
               </div>
             </div>
-            <div className="h-8 bg-gradient-to-b from-white/70 to-transparent dark:from-[#1c1c1e]/70" />
-          </div>
+          
 
           {/* The grid sits behind the sticky header; the negative margin pulls
               it up so the first rows start under the fading chrome. Every tile
               is a `Lightbox.Trigger`, so tapping one morphs into the viewer. */}
           <div
-            className="-mt-8 grid gap-0.5"
+            className="grid gap-0.5"
             style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}
           >
             {photos.map((photo, i) => (
