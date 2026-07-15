@@ -59,6 +59,15 @@ interface LightboxContextValue {
    */
   triggerMorphElementsRef: React.RefObject<WeakMap<HTMLElement, HTMLElement>>;
   activeItemElementRef: React.MutableRefObject<HTMLElement | null>;
+  /**
+   * Registry mapping each item element → the descendant it should morph into.
+   * Populated by the item render-prop's `morphElementRef` (explicit override)
+   * or, failing that, its `imageRef` (the destination image is the natural
+   * target). Keyed by the item element. An item with no entry falls back to a
+   * `querySelector('img'/'video')` scan, then the container. See
+   * findItemMorphTarget.
+   */
+  itemMorphElementsRef: React.RefObject<WeakMap<HTMLElement, HTMLElement>>;
   openingTriggerIndexRef: React.MutableRefObject<number>;
   /**
    * The exact trigger element the user clicked to open the lightbox. Set
@@ -149,20 +158,25 @@ function isLowEndDevice(): boolean {
   return false;
 }
 
-const MORPH_MARKER_SELECTOR = '[data-lightbox-morph]';
-
 /**
- * Resolves the morph target for the **destination item**. An explicit
- * `[data-lightbox-morph]` marker always wins; otherwise it falls back to the
- * first `<img>`/`<video>`, then the container itself.
+ * Resolves the morph target for the **destination item**.
+ *
+ * A registered override always wins — the item render-prop's `morphElementRef`
+ * (explicit) or, failing that, its `imageRef` (the destination image), both
+ * registered in `registry` keyed by the item element. Without a registered
+ * override it falls back to the first `<img>`/`<video>` (the convenience
+ * default for unwired plain children), then the container itself.
  *
  * The media fallback matters here: an item is a full-viewport container, so
  * morphing to its image lands the animation on the letterboxed image rather
  * than blowing the thumbnail up to fill the whole viewport.
  */
-function findItemMorphTarget(container: HTMLElement): HTMLElement {
+function findItemMorphTarget(
+  container: HTMLElement,
+  registry?: WeakMap<HTMLElement, HTMLElement> | null,
+): HTMLElement {
   return (
-    container.querySelector<HTMLElement>(MORPH_MARKER_SELECTOR) ??
+    registry?.get(container) ??
     container.querySelector<HTMLElement>('img') ??
     container.querySelector<HTMLElement>('video') ??
     container

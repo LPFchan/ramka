@@ -105,6 +105,7 @@ const LightboxItem = React.forwardRef<HTMLDivElement, LightboxItemProps>(
       registerCaption,
       registerItem,
       activeItemElementRef,
+      itemMorphElementsRef,
       openingTriggerIndexRef,
       openingTriggerElementRef,
       openingTriggerImageRef,
@@ -125,33 +126,63 @@ const LightboxItem = React.forwardRef<HTMLDivElement, LightboxItemProps>(
     const internalRef = React.useRef<HTMLDivElement | null>(null);
     // The destination image the consumer designated via `imageRef`, if any.
     const imageNodeRef = React.useRef<HTMLImageElement | null>(null);
-    // The morph node designated via `morphElementRef`, tracked so we can move
-    // the `data-lightbox-morph` marker off it when it changes.
-    const prevMorphNodeRef = React.useRef<HTMLElement | null>(null);
+    // The morph node the consumer designated via `morphElementRef`, if any.
+    const morphNodeRef = React.useRef<HTMLElement | null>(null);
     const warnedRef = React.useRef(false);
+
+    // Register (or clear) this item's morph target in the element-keyed
+    // registry: the explicit `morphElementRef` override, else the `imageRef`
+    // image (the destination image is the natural target). Keyed by the item
+    // element. No-op until the item element is mounted — on first mount the
+    // child refs (`imageRef` / `morphElementRef`) fire before the item's own
+    // ref (refs resolve bottom-up), so `mergedRefCallback` re-runs this once the
+    // element exists; later toggles re-run it directly. When neither is set, the
+    // resolver falls back to a `querySelector('img'/'video')` scan.
+    const registerMorphElement = React.useCallback(() => {
+      const container = internalRef.current;
+      const registry = itemMorphElementsRef.current;
+      if (!container || !registry) return;
+      const node = morphNodeRef.current ?? imageNodeRef.current;
+      if (node) {
+        registry.set(container, node);
+      } else {
+        registry.delete(container);
+      }
+    }, [itemMorphElementsRef]);
 
     const mergedRefCallback = React.useCallback(
       (node: HTMLDivElement | null) => {
+        const prev = internalRef.current;
         internalRef.current = node;
+        if (node) {
+          registerMorphElement();
+        } else if (prev) {
+          itemMorphElementsRef.current?.delete(prev);
+        }
         if (typeof forwardedRef === 'function') {
           forwardedRef(node);
         } else if (forwardedRef) {
           forwardedRef.current = node;
         }
       },
-      [forwardedRef],
+      [forwardedRef, itemMorphElementsRef, registerMorphElement],
     );
 
-    const imageRef = React.useCallback((node: HTMLImageElement | null) => {
-      imageNodeRef.current = node;
-    }, []);
+    const imageRef = React.useCallback(
+      (node: HTMLImageElement | null) => {
+        imageNodeRef.current = node;
+        registerMorphElement();
+      },
+      [registerMorphElement],
+    );
 
-    const morphElementRef = React.useCallback((node: HTMLElement | null) => {
-      const prev = prevMorphNodeRef.current;
-      if (prev && prev !== node) prev.removeAttribute('data-lightbox-morph');
-      if (node) node.setAttribute('data-lightbox-morph', '');
-      prevMorphNodeRef.current = node;
-    }, []);
+    const morphElementRef = React.useCallback(
+      (node: HTMLElement | null) => {
+        morphNodeRef.current = node;
+        registerMorphElement();
+      },
+      [registerMorphElement],
+    );
 
     // Bridge the blank frame after the open morph: until the destination image
     // loads, paint the opening trigger's already-decoded thumbnail as this

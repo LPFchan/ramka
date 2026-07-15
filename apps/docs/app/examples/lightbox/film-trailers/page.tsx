@@ -135,7 +135,6 @@ function LightboxVideo({ src, poster, active }: { src: string; poster: string; a
   return (
     <video
       ref={videoRef}
-      data-lightbox-morph
       src={src}
       poster={poster}
       controls

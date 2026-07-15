@@ -210,11 +210,11 @@ function usePullToDismiss({
       // A Lightbox.Slides swipe/fling is in flight — don't start a pull.
       if (isScrollingRef?.current) return;
 
-      // Only activate when touching the visual content (morph target) inside
-      // an item — not controls, backdrop, or the item's empty padding area.
+      // Only activate when touching the visual content inside an item — not
+      // controls, backdrop, or the item's empty padding area.
       const target = event.target as HTMLElement | null;
       if (
-        !target?.closest('[data-lightbox-morph], [data-lightbox-item] img, [data-lightbox-item] video')
+        !target?.closest('[data-lightbox-item] img, [data-lightbox-item] video')
       ) return;
 
       // Don't activate if zoomed or if zoom gestures are in progress

@@ -204,7 +204,7 @@ describe('render-fn placeholder wiring (triggerImageRef -> imageRef)', () => {
     expect(bg).not.toContain('/b.jpg');
   });
 
-  it('morphElementRef: the item marks the attribute; the trigger registers without touching the DOM', () => {
+  it('morphElementRef: both the trigger and the item register without touching consumer DOM', () => {
     render(
       <LightboxRoot>
         <LightboxTrigger index={0} data-testid="trigger">
@@ -230,13 +230,12 @@ describe('render-fn placeholder wiring (triggerImageRef -> imageRef)', () => {
 
     clickTrigger('trigger');
 
-    // Item side still uses the attribute marker (item resolution is unchanged).
-    expect(document.querySelector('[data-testid="item-morph"]')).toHaveAttribute(
+    // Both sides are registry-based now — neither pollutes consumer DOM with a
+    // marker attribute.
+    expect(document.querySelector('[data-testid="trigger-morph"]')).not.toHaveAttribute(
       'data-lightbox-morph',
     );
-    // Trigger side is registry-based now — it must NOT pollute consumer DOM
-    // with a marker attribute.
-    expect(document.querySelector('[data-testid="trigger-morph"]')).not.toHaveAttribute(
+    expect(document.querySelector('[data-testid="item-morph"]')).not.toHaveAttribute(
       'data-lightbox-morph',
     );
   });
