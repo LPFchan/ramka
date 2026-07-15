@@ -18,9 +18,11 @@ import {
 } from './lightbox-zoom-context';
 import {
   DEFAULT_DECODE_MAX_WAIT,
+  resolveScrollBehavior,
   resolveTriggerIndex,
   scrollTriggerEl,
   useViewTransitionMorph,
+  type ScrollTriggerIntoView,
 } from './use-view-transition-morph';
 
 interface LightboxRootProps {
@@ -58,20 +60,32 @@ interface LightboxRootProps {
    * Scroll the active trigger element into the viewport so close
    * animations land on-screen instead of animating off-viewport.
    *
-   * - `null` (default) — no automatic scrolling
-   * - `{ type: "onClose" }` — scroll to the active trigger just before closing
-   * - `{ type: "onChange" }` — scroll to the active trigger whenever the active
-   *   index changes while the lightbox is open (preemptive; trigger
-   *   is always in view by the time the user closes)
+   * Accepts a single option or an array of options, so you can combine the
+   * moments below. `behavior` controls the scroll animation per option:
+   * `"smooth"` (default) or `"instant"`.
    *
-   * `behavior` controls the scroll animation: `"smooth"` (default) or `"instant"`.
+   * - `null` (default) — no automatic scrolling
+   * - `{ type: "onChange" }` — scroll to the active trigger whenever the active
+   *   index changes while the lightbox is open (preemptive; keeps the trigger
+   *   in view as the user navigates)
+   * - `{ type: "onOpenComplete" }` — scroll to the active trigger once the open
+   *   transition finishes. The viewer covers the page and scroll is locked, so
+   *   this reposition is invisible — it only pays off by ensuring the close
+   *   morph lands on-screen without a jump when the trigger was partially
+   *   off-screen at open time. `"instant"` recommended.
+   * - `{ type: "onClose" }` — scroll to the active trigger just before the close
+   *   morph runs (visible reposition at close start)
+   *
+   * @example
+   * // Trigger is always positioned for the close morph, with no visible jump:
+   * scrollTriggerIntoView={[
+   *   { type: 'onChange', behavior: 'instant' },
+   *   { type: 'onOpenComplete', behavior: 'instant' },
+   * ]}
    *
    * @default null
    */
-  scrollTriggerIntoView?: null | {
-    type: 'onChange' | 'onClose';
-    behavior?: 'smooth' | 'instant';
-  };
+  scrollTriggerIntoView?: ScrollTriggerIntoView;
   /**
    * Controls which trigger receives the View Transition morph on close.
    *
@@ -211,12 +225,24 @@ const LightboxRoot = React.forwardRef<LightboxRootRef, LightboxRootProps>(
       [isControlledValue],
     );
 
-    // Scroll the active trigger into view when activeIndex changes while open
+    // Scroll the active trigger into view when the active index changes *while
+    // already open* (preemptive, so the destination trigger is on-screen for the
+    // close morph). This must NOT fire on the open→true edge: nothing changed
+    // yet — the lightbox just opened — and the clicked trigger is the open
+    // morph's origin, so scrolling it would move the morph's start point and
+    // jump the page mid-open. We therefore only scroll on a real index change
+    // between two consecutive open states (also skipping no-op re-renders where
+    // the index is unchanged). The close path scrolls the origin trigger into
+    // view on its own, so opening never needs to.
+    const scrollSyncRef = React.useRef({ open, activeIndex });
     React.useEffect(() => {
-      if (scrollTriggerIntoView?.type === 'onChange' && open) {
-        const el = triggerElementsRef.current.get(activeIndex);
-        scrollTriggerEl(el, scrollTriggerIntoView.behavior);
-      }
+      const prev = scrollSyncRef.current;
+      scrollSyncRef.current = { open, activeIndex };
+      const behavior = resolveScrollBehavior(scrollTriggerIntoView, 'onChange');
+      if (!behavior || !open) return;
+      if (!prev.open || prev.activeIndex === activeIndex) return;
+      const el = triggerElementsRef.current.get(activeIndex);
+      scrollTriggerEl(el, behavior);
     }, [scrollTriggerIntoView, open, activeIndex]);
 
     // Item registry — tracks mounted items so count can grow and shrink
@@ -455,6 +481,19 @@ const LightboxRoot = React.forwardRef<LightboxRootRef, LightboxRootProps>(
             requestAnimationFrame(() => {
               if (closeGenRef.current !== gen) return;
               runAfterAnimations(dialogElementRef.current, gen, closeGenRef, () => {
+                const openCompleteBehavior = resolveScrollBehavior(
+                  scrollTriggerIntoView,
+                  'onOpenComplete',
+                );
+                if (openCompleteBehavior) {
+                  const idx = resolveTriggerIndex(
+                    activeIndexRef.current,
+                    morphTo,
+                    openingTriggerIndexRef.current,
+                    triggerElementsRef.current,
+                  );
+                  scrollTriggerEl(triggerElementsRef.current.get(idx), openCompleteBehavior);
+                }
                 onOpenChangeCompleteRef.current?.(true);
               });
             });
@@ -465,9 +504,10 @@ const LightboxRoot = React.forwardRef<LightboxRootRef, LightboxRootProps>(
               openingTriggerIndexRef.current,
               triggerElementsRef.current,
             );
-            if (scrollTriggerIntoView) {
+            const closeBehavior = resolveScrollBehavior(scrollTriggerIntoView, 'onClose');
+            if (closeBehavior) {
               const triggerEl = triggerElementsRef.current.get(closeTriggerIdx);
-              scrollTriggerEl(triggerEl, 'instant');
+              scrollTriggerEl(triggerEl, closeBehavior);
             }
             if (!isControlledOpen) {
               setUncontrolledOpen(false);

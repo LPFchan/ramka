@@ -121,7 +121,14 @@ export default function MoodboardPage() {
       title="Moodboard"
       description="A masonry wall of tiles with unknown dimensions — the grid images set no width/height and reserve no aspect ratio, so each is sized only once its pixels load (the CMS / user-upload scenario). Tapping a tile opens the same fullscreen viewer as the Photos-app demo: a swipeable, snapping scroller with pinch / scroll / keyboard zoom, desktop thumbnails, edge-to-edge images, and pull-to-dismiss. Each tile fetches a small thumbnail while the viewer loads a 2× larger version of the same photo, so opening one paints the cached thumbnail as a placeholder that bridges the blank frame while the big image downloads."
     >
-      <Lightbox.Root viewTransition loop scrollTriggerIntoView={{ type: 'onChange', behavior: 'instant' }}>
+      <Lightbox.Root
+        viewTransition
+        loop
+        scrollTriggerIntoView={[
+          { type: 'onChange', behavior: 'instant' },
+          { type: 'onOpenComplete', behavior: 'instant' },
+        ]}
+      >
         {/* Flex-column masonry (not CSS `columns`) — see useColumnCount above for
             why. Tiles keep their natural aspect once loaded; round-robin keeps a
             balanced-ish layout without measuring heights. */}

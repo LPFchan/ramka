@@ -2680,4 +2680,135 @@ describe('Lightbox', () => {
       expect(content).toHaveAttribute('data-pulling');
     });
   });
+
+  describe('scrollTriggerIntoView onChange', () => {
+    it('does not scroll the origin trigger into view on open, only on an index change while open', () => {
+      // 'onChange' must scroll when the active index changes while already open
+      // (so the destination trigger is on-screen for the close morph), but NEVER
+      // on the open→true edge: nothing changed yet and the clicked trigger is the
+      // open morph's origin — scrolling it would move the morph start / jump the
+      // page mid-open.
+      const scrollIntoView = vi.fn();
+      // Patch on HTMLElement.prototype (the most-derived prototype jsdom resolves
+      // for our button triggers) so a leaked Element/HTMLElement rect mock from an
+      // earlier test can't shadow ours and make the trigger read as fully visible.
+      const origScroll = HTMLElement.prototype.scrollIntoView;
+      const origRect = HTMLElement.prototype.getBoundingClientRect;
+      HTMLElement.prototype.scrollIntoView = scrollIntoView;
+      // Force every trigger to read as "not fully visible" so scrollTriggerEl
+      // would scroll if it were called.
+      HTMLElement.prototype.getBoundingClientRect = function () {
+        return { top: -50, bottom: 50, left: 0, right: 50, width: 50, height: 100, x: 0, y: -50, toJSON() {} } as DOMRect;
+      };
+      try {
+        function Harness() {
+          return (
+            <LightboxRoot scrollTriggerIntoView={{ type: 'onChange', behavior: 'instant' }}>
+              {[0, 1, 2].map((i) => (
+                <LightboxTrigger key={i} index={i} data-testid={`trigger-${i}`}>
+                  T{i}
+                </LightboxTrigger>
+              ))}
+              <LightboxContent data-testid="content" aria-label="scroll test">
+                <LightboxItemGroup preload={1}>
+                  {[0, 1, 2].map((i) => (
+                    <LightboxItem key={i} index={i}>
+                      Item {i}
+                    </LightboxItem>
+                  ))}
+                </LightboxItemGroup>
+                <LightboxNext data-testid="next">Next</LightboxNext>
+              </LightboxContent>
+            </LightboxRoot>
+          );
+        }
+        render(<Harness />);
+
+        // Opening must NOT scroll the origin trigger.
+        act(() => {
+          fireEvent.click(screen.getByTestId('trigger-0'));
+        });
+        expect(scrollIntoView).not.toHaveBeenCalled();
+
+        // Navigating to another item while open SHOULD scroll its trigger in.
+        act(() => {
+          fireEvent.click(screen.getByTestId('next'));
+        });
+        expect(scrollIntoView).toHaveBeenCalled();
+      } finally {
+        HTMLElement.prototype.scrollIntoView = origScroll;
+        HTMLElement.prototype.getBoundingClientRect = origRect;
+      }
+    });
+  });
+
+  describe('scrollTriggerIntoView onOpenComplete', () => {
+    it('scrolls the active trigger into view once the open transition finishes (array config)', async () => {
+      // 'onOpenComplete' repositions the trigger while the viewer covers the page
+      // and scroll is locked, so the later close morph lands on-screen with no
+      // jump. It must NOT fire while the open is still in flight, and the array
+      // config form ({ [{ type: 'onOpenComplete' }] }) must normalize correctly.
+      let resolveFinished: () => void = () => {};
+      const finished = new Promise<void>((r) => {
+        resolveFinished = r;
+      });
+      const startViewTransition = vi.fn((cb: () => void | Promise<void>) => {
+        const res = cb();
+        if (res && typeof (res as Promise<void>).then === 'function') {
+          (res as Promise<void>).catch(vi.fn());
+        }
+        return { finished };
+      });
+      Object.defineProperty(document, 'startViewTransition', {
+        value: startViewTransition,
+        writable: true,
+        configurable: true,
+      });
+
+      const scrollIntoView = vi.fn();
+      const origScroll = HTMLElement.prototype.scrollIntoView;
+      const origRect = HTMLElement.prototype.getBoundingClientRect;
+      HTMLElement.prototype.scrollIntoView = scrollIntoView;
+      // Every trigger reads as "not fully visible" so scrollTriggerEl would scroll.
+      HTMLElement.prototype.getBoundingClientRect = function () {
+        return { top: -50, bottom: 50, left: 0, right: 50, width: 50, height: 100, x: 0, y: -50, toJSON() {} } as DOMRect;
+      };
+      try {
+        function Harness() {
+          return (
+            <LightboxRoot viewTransition scrollTriggerIntoView={[{ type: 'onOpenComplete', behavior: 'instant' }]}>
+              {[0, 1, 2].map((i) => (
+                <LightboxTrigger key={i} index={i} data-testid={`trigger-${i}`}>
+                  T{i}
+                </LightboxTrigger>
+              ))}
+              <LightboxContent data-testid="content" aria-label="open complete scroll test">
+                <LightboxItemGroup preload={1}>
+                  {[0, 1, 2].map((i) => (
+                    <LightboxItem key={i} index={i}>
+                      Item {i}
+                    </LightboxItem>
+                  ))}
+                </LightboxItemGroup>
+              </LightboxContent>
+            </LightboxRoot>
+          );
+        }
+        render(<Harness />);
+
+        fireEvent.click(screen.getByTestId('trigger-1'));
+        // Open transition in flight — must not have repositioned yet.
+        expect(scrollIntoView).not.toHaveBeenCalled();
+
+        await act(async () => resolveFinished());
+        // Open finished — the active trigger is scrolled into view.
+        expect(scrollIntoView).toHaveBeenCalled();
+      } finally {
+        HTMLElement.prototype.scrollIntoView = origScroll;
+        HTMLElement.prototype.getBoundingClientRect = origRect;
+        delete (document as unknown as Record<string, unknown>).startViewTransition;
+        document.documentElement.removeAttribute('data-lightbox-view-transition');
+      }
+    });
+  });
 });

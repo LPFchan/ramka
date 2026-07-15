@@ -151,6 +151,44 @@ function warnUnwiredItemMorph(itemEl: HTMLElement, target: HTMLElement) {
 }
 
 // ---------------------------------------------------------------------------
+// scrollTriggerIntoView config
+// ---------------------------------------------------------------------------
+
+/**
+ * The moments at which the active trigger can be scrolled into view:
+ * - `onChange` — the active index changes while open (navigation)
+ * - `onOpenComplete` — the open transition finishes (page is covered + locked,
+ *   so this reposition is invisible; recommended with `instant`)
+ * - `onClose` — just before the close morph runs
+ */
+type ScrollTriggerMoment = 'onChange' | 'onOpenComplete' | 'onClose';
+
+interface ScrollTriggerOption {
+  type: ScrollTriggerMoment;
+  behavior?: 'smooth' | 'instant';
+}
+
+/** Single option, an array of options, or `null` to disable. */
+type ScrollTriggerIntoView = null | ScrollTriggerOption | ScrollTriggerOption[];
+
+/**
+ * Resolve the scroll behavior configured for a given moment, or `null` when
+ * that moment isn't enabled. Accepts both the single-object and array config
+ * forms so `scrollTriggerIntoView={{ type: 'onChange' }}` and
+ * `scrollTriggerIntoView={[{ type: 'onChange' }, { type: 'onOpenComplete' }]}`
+ * both work.
+ */
+function resolveScrollBehavior(
+  config: ScrollTriggerIntoView | undefined,
+  moment: ScrollTriggerMoment,
+): ScrollBehavior | null {
+  if (!config) return null;
+  const options = Array.isArray(config) ? config : [config];
+  const match = options.find((option) => option.type === moment);
+  return match ? (match.behavior ?? 'smooth') : null;
+}
+
+// ---------------------------------------------------------------------------
 // Trigger resolution (shared with Root's non-VT close paths)
 // ---------------------------------------------------------------------------
 
@@ -159,7 +197,7 @@ function scrollTriggerEl(el: HTMLElement | undefined, behavior: ScrollBehavior =
   const rect = el.getBoundingClientRect();
   const fullyVisible = rect.top >= 0 && rect.bottom <= window.innerHeight;
   if (!fullyVisible) {
-    el.scrollIntoView({ block: 'center', behavior });
+    el.scrollIntoView({ block: 'nearest', behavior });
   }
 }
 
@@ -273,10 +311,7 @@ function clearMorphState(docEl: HTMLElement) {
 
 interface ViewTransitionMorphConfig {
   morphTo: 'active' | 'origin' | 'closest';
-  scrollTriggerIntoView: null | {
-    type: 'onChange' | 'onClose';
-    behavior?: 'smooth' | 'instant';
-  };
+  scrollTriggerIntoView: ScrollTriggerIntoView;
   /** Upper bound (ms) to await the destination image decode; 0 disables. */
   decodeMaxWait: number;
   triggerElementsRef: React.RefObject<Map<number, HTMLElement>>;
@@ -470,15 +505,31 @@ function useViewTransitionMorph(config: ViewTransitionMorphConfig): ViewTransiti
 
     transition.finished.finally(() => {
       if (configRef.current.closeGenRef.current !== gen) return;
-      const itemEl = configRef.current.activeItemElementRef.current;
+      const cfg = configRef.current;
+      const itemEl = cfg.activeItemElementRef.current;
       const itemTarget = itemEl
-        ? findItemMorphTarget(itemEl, configRef.current.itemMorphElementsRef.current)
+        ? findItemMorphTarget(itemEl, cfg.itemMorphElementsRef.current)
         : null;
       if (itemTarget) {
         clearMorphName(itemTarget);
       }
       clearMorphState(docEl);
-      configRef.current.onOpenComplete();
+
+      // Reposition the active trigger while the viewer still covers the page
+      // (and scroll is locked), so a later close morph lands on-screen with no
+      // visible jump at close start. Invisible now; only pays off on close.
+      const openCompleteBehavior = resolveScrollBehavior(cfg.scrollTriggerIntoView, 'onOpenComplete');
+      if (openCompleteBehavior) {
+        const idx = resolveTriggerIndex(
+          cfg.activeIndexRef.current,
+          cfg.morphTo,
+          cfg.openingTriggerIndexRef.current,
+          cfg.triggerElementsRef.current,
+        );
+        scrollTriggerEl(cfg.triggerElementsRef.current.get(idx), openCompleteBehavior);
+      }
+
+      cfg.onOpenComplete();
     });
   }, []);
 
@@ -528,8 +579,9 @@ function useViewTransitionMorph(config: ViewTransitionMorphConfig): ViewTransiti
         clearMorphName(itemTarget);
       }
       flushSync(commitClose);
-      if (scrollTriggerIntoView) {
-        scrollTriggerEl(triggerEl, 'instant');
+      const closeBehavior = resolveScrollBehavior(scrollTriggerIntoView, 'onClose');
+      if (closeBehavior) {
+        scrollTriggerEl(triggerEl, closeBehavior);
       }
       if (triggerTarget) {
         setMorphName(triggerTarget);
@@ -556,6 +608,13 @@ export {
   waitForImageDecode,
   scrollTriggerEl,
   resolveTriggerIndex,
+  resolveScrollBehavior,
   DEFAULT_DECODE_MAX_WAIT,
 };
-export type { ViewTransitionMorphConfig, ViewTransitionMorph };
+export type {
+  ViewTransitionMorphConfig,
+  ViewTransitionMorph,
+  ScrollTriggerIntoView,
+  ScrollTriggerOption,
+  ScrollTriggerMoment,
+};
