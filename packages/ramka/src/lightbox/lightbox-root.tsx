@@ -307,6 +307,10 @@ const LightboxRoot = React.forwardRef<LightboxRootRef, LightboxRootProps>(
     // when several triggers share an index. See findTriggerMorphTarget.
     const triggerMorphElementsRef = React.useRef<WeakMap<HTMLElement, HTMLElement>>(new WeakMap());
     const activeItemElementRef = React.useRef<HTMLElement | null>(null);
+    // Item element → its designated morph descendant (via the item render-prop's
+    // `morphElementRef`, else its `imageRef`). Keyed by element. See
+    // findItemMorphTarget.
+    const itemMorphElementsRef = React.useRef<WeakMap<HTMLElement, HTMLElement>>(new WeakMap());
     const openingTriggerIndexRef = React.useRef(0);
     const openingTriggerElementRef = React.useRef<HTMLElement | null>(null);
     const openingTriggerImageRef = React.useRef<HTMLImageElement | null>(null);
@@ -411,6 +415,7 @@ const LightboxRoot = React.forwardRef<LightboxRootRef, LightboxRootProps>(
       triggerElementsRef,
       triggerMorphElementsRef,
       activeItemElementRef,
+      itemMorphElementsRef,
       openingTriggerIndexRef,
       activeIndexRef,
       closeGenRef,
@@ -572,6 +577,7 @@ const LightboxRoot = React.forwardRef<LightboxRootRef, LightboxRootProps>(
         triggerElementsRef,
         triggerMorphElementsRef,
         activeItemElementRef,
+        itemMorphElementsRef,
         openingTriggerIndexRef,
         openingTriggerElementRef,
         openingTriggerImageRef,

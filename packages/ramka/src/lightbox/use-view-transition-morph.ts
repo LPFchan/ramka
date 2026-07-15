@@ -251,6 +251,8 @@ interface ViewTransitionMorphConfig {
   /** Trigger element → its designated morph descendant (see findTriggerMorphTarget). */
   triggerMorphElementsRef: React.RefObject<WeakMap<HTMLElement, HTMLElement>>;
   activeItemElementRef: React.RefObject<HTMLElement | null>;
+  /** Item element → its designated morph descendant (see findItemMorphTarget). */
+  itemMorphElementsRef: React.RefObject<WeakMap<HTMLElement, HTMLElement>>;
   openingTriggerIndexRef: React.RefObject<number>;
   activeIndexRef: React.RefObject<number>;
   closeGenRef: React.MutableRefObject<number>;
@@ -304,6 +306,7 @@ function useViewTransitionMorph(config: ViewTransitionMorphConfig): ViewTransiti
       triggerElementsRef,
       triggerMorphElementsRef,
       activeItemElementRef,
+      itemMorphElementsRef,
       openingTriggerIndexRef,
       closeGenRef,
       commitPrepare,
@@ -352,7 +355,9 @@ function useViewTransitionMorph(config: ViewTransitionMorphConfig): ViewTransiti
     // the consumer opts out (awaitImageDecode={false}).
     if (decodeMaxWait > 0) {
       const pendingItemEl = activeItemElementRef.current;
-      const pendingItemTarget = pendingItemEl ? findItemMorphTarget(pendingItemEl) : null;
+      const pendingItemTarget = pendingItemEl
+        ? findItemMorphTarget(pendingItemEl, itemMorphElementsRef.current)
+        : null;
       // Only actually await when the destination image is still loading. When
       // it's cached (or there's no image), skip the await so the open path
       // stays synchronous and the transition starts on the same tick as the
@@ -372,7 +377,9 @@ function useViewTransitionMorph(config: ViewTransitionMorphConfig): ViewTransiti
     // which avoids a forced reflow *inside* the render-suppressed VT callback.
     // Radius is unaffected by the `visibility: hidden` prepare state.
     const itemElPrep = activeItemElementRef.current;
-    const itemTargetPrep = itemElPrep ? findItemMorphTarget(itemElPrep) : null;
+    const itemTargetPrep = itemElPrep
+      ? findItemMorphTarget(itemElPrep, itemMorphElementsRef.current)
+      : null;
 
     // Decide whether to morph. A morph needs both a trigger (the "old" group)
     // and a destination whose size we can resolve (the "new" group). If the
@@ -413,7 +420,7 @@ function useViewTransitionMorph(config: ViewTransitionMorphConfig): ViewTransiti
       // snapshot without a forced reflow interrupting the transition.
       const itemEl = activeItemElementRef.current;
       if (canMorph) {
-        const itemTarget = itemEl ? findItemMorphTarget(itemEl) : null;
+        const itemTarget = itemEl ? findItemMorphTarget(itemEl, itemMorphElementsRef.current) : null;
         if (itemTarget) {
           setMorphName(itemTarget);
         }
@@ -426,7 +433,9 @@ function useViewTransitionMorph(config: ViewTransitionMorphConfig): ViewTransiti
     transition.finished.finally(() => {
       if (configRef.current.closeGenRef.current !== gen) return;
       const itemEl = configRef.current.activeItemElementRef.current;
-      const itemTarget = itemEl ? findItemMorphTarget(itemEl) : null;
+      const itemTarget = itemEl
+        ? findItemMorphTarget(itemEl, configRef.current.itemMorphElementsRef.current)
+        : null;
       if (itemTarget) {
         clearMorphName(itemTarget);
       }
@@ -442,6 +451,7 @@ function useViewTransitionMorph(config: ViewTransitionMorphConfig): ViewTransiti
       triggerElementsRef,
       triggerMorphElementsRef,
       activeItemElementRef,
+      itemMorphElementsRef,
       openingTriggerIndexRef,
       activeIndexRef,
       closeGenRef,
@@ -452,7 +462,7 @@ function useViewTransitionMorph(config: ViewTransitionMorphConfig): ViewTransiti
     const gen = closeGenRef.current;
 
     const itemEl = activeItemElementRef.current;
-    const itemTarget = itemEl ? findItemMorphTarget(itemEl) : null;
+    const itemTarget = itemEl ? findItemMorphTarget(itemEl, itemMorphElementsRef.current) : null;
     const triggerIdx = resolveTriggerIndex(
       activeIndexRef.current,
       morphTo,
