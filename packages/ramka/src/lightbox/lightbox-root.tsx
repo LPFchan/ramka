@@ -307,10 +307,22 @@ const LightboxRoot = React.forwardRef<LightboxRootRef, LightboxRootProps>(
     const lockScroll = React.useCallback(() => {
       if (scrollLockCleanupRef.current || typeof document === 'undefined') return;
       const html = document.documentElement;
-      const original = html.style.overflow;
+      const body = document.body;
+      // Width freed when the classic scrollbar disappears under
+      // `overflow: hidden`. Compensate with body padding so locking doesn't
+      // shift page content left. Zero on overlay-scrollbar platforms
+      // (mobile / macOS overlay), so this is a no-op there.
+      const scrollbarWidth = Math.max(0, window.innerWidth - html.clientWidth);
+      const originalOverflow = html.style.overflow;
+      const originalPaddingRight = body.style.paddingRight;
       html.style.overflow = 'hidden';
+      if (scrollbarWidth > 0) {
+        const currentPadding = parseFloat(window.getComputedStyle(body).paddingRight) || 0;
+        body.style.paddingRight = `${currentPadding + scrollbarWidth}px`;
+      }
       scrollLockCleanupRef.current = () => {
-        html.style.overflow = original;
+        html.style.overflow = originalOverflow;
+        body.style.paddingRight = originalPaddingRight;
       };
     }, []);
     const unlockScroll = React.useCallback(() => {

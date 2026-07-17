@@ -1128,6 +1128,53 @@ describe('Lightbox', () => {
   });
 
   // ---------------------------------------------------------------------------
+  // 11b. Scroll lock (scrollbar compensation)
+  // ---------------------------------------------------------------------------
+
+  describe('scroll lock', () => {
+    it('compensates body padding for the disappearing scrollbar, then restores it on close', async () => {
+      // Simulate a classic (non-overlay) scrollbar by making the viewport wider
+      // than the documentElement's clientWidth. lockScroll must pad the body by
+      // that delta so hiding the scrollbar doesn't shift page content.
+      const origInnerWidth = Object.getOwnPropertyDescriptor(window, 'innerWidth');
+      const origClientWidth = Object.getOwnPropertyDescriptor(
+        document.documentElement,
+        'clientWidth',
+      );
+      Object.defineProperty(window, 'innerWidth', { configurable: true, get: () => 1020 });
+      Object.defineProperty(document.documentElement, 'clientWidth', {
+        configurable: true,
+        get: () => 1000,
+      });
+      document.body.style.paddingRight = '10px';
+
+      try {
+        render(<TestLightbox />);
+        fireEvent.click(screen.getByTestId('trigger-0'));
+
+        expect(document.documentElement.style.overflow).toBe('hidden');
+        // Existing 10px + 20px scrollbar width.
+        expect(document.body.style.paddingRight).toBe('30px');
+
+        fireEvent.click(screen.getByTestId('close'));
+        await flushMicrotasks();
+
+        expect(document.documentElement.style.overflow).toBe('');
+        expect(document.body.style.paddingRight).toBe('10px');
+      } finally {
+        document.body.style.paddingRight = '';
+        if (origInnerWidth) Object.defineProperty(window, 'innerWidth', origInnerWidth);
+        else delete (window as unknown as { innerWidth?: number }).innerWidth;
+        if (origClientWidth) {
+          Object.defineProperty(document.documentElement, 'clientWidth', origClientWidth);
+        } else {
+          delete (document.documentElement as unknown as { clientWidth?: number }).clientWidth;
+        }
+      }
+    });
+  });
+
+  // ---------------------------------------------------------------------------
   // 12. View Transitions
   // ---------------------------------------------------------------------------
 
