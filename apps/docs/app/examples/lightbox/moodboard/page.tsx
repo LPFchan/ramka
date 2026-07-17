@@ -183,16 +183,19 @@ export default function MoodboardPage() {
                   className="relative flex h-full w-full items-center justify-center"
                 >
                   {({ imageRef }) => (
-                    <Lightbox.Zoom maxZoom={6} className="flex h-full w-full items-center justify-center [container-type:size]">
+                    <Lightbox.Zoom
+                      maxZoom={6}
+                      // Asymmetric padding (not symmetric --lb-inset-h): top only
+                      // needs the close/zoom row; bottom needs caption (+ thumbs
+                      // on md). Safe-area is folded in for viewport-fit=cover.
+                      className="flex h-full w-full items-center justify-center [container-type:size] px-0 pt-[calc(env(safe-area-inset-top,0px)+3.5rem)] pb-[calc(env(safe-area-inset-bottom,0px)+3.5rem)] md:px-8 md:pt-[calc(env(safe-area-inset-top,0px)+3.5rem)] md:pb-[calc(env(safe-area-inset-bottom,0px)+7.5rem)]"
+                    >
                       {/* Consumer owns layout: the fit-box reserves the box up
                           front so the morph target has a real size before the
                           image loads. `imageRef` marks the morph destination and
                           placeholder paint target. */}
                       <div
-                        // Inset = 2× the larger chrome side so a centered fit-box
-                        // clears top controls and bottom caption/thumbs, including
-                        // iOS safe-area (viewport-fit=cover) on both edges.
-                        className="relative shrink-0 [--lb-inset-h:calc(2*max(env(safe-area-inset-top,0px)+3.5rem,env(safe-area-inset-bottom,0px)+3.5rem))] [--lb-inset-w:0px] md:[--lb-inset-h:calc(2*max(env(safe-area-inset-top,0px)+3.5rem,env(safe-area-inset-bottom,0px)+7rem))] md:[--lb-inset-w:4rem]"
+                        className="relative shrink-0 [--lb-inset-h:0px] [--lb-inset-w:0px]"
                         style={fitBoxStyle(imgAspect(img.full))}
                       >
                         <img
