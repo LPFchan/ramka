@@ -21,6 +21,27 @@ if (typeof window !== 'undefined' && !window.matchMedia) {
   });
 }
 
+// jsdom derives `navigator.hardwareConcurrency` from the HOST machine's CPU
+// count. CI runners (e.g. GitHub Actions `ubuntu-latest`) expose only ~2 cores,
+// which trips `isLowEndDevice()` — so the lightbox silently takes the non-View-
+// Transition fallback path and every VT-dependent test fails on CI while passing
+// on high-core dev machines. Pin a comfortably high core count (and device
+// memory) so `isLowEndDevice()` is deterministically `false` everywhere. Plain
+// (non-vi.fn) definitions so they survive `vi.restoreAllMocks()`; a test that
+// needs the low-end path can override these locally.
+if (typeof navigator !== 'undefined') {
+  Object.defineProperty(navigator, 'hardwareConcurrency', {
+    writable: true,
+    configurable: true,
+    value: 8,
+  });
+  Object.defineProperty(navigator, 'deviceMemory', {
+    writable: true,
+    configurable: true,
+    value: 8,
+  });
+}
+
 // jsdom doesn't implement ResizeObserver. A plain no-op stub is enough for
 // components that observe element size (e.g. Lightbox.Zoom's container
 // measurement); tests that need to drive resize callbacks stub it themselves.
