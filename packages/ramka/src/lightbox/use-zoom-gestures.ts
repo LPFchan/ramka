@@ -354,12 +354,18 @@ function useZoomGestures(
           const { minZoom, maxZoom, zoomStep } = configRef.current;
           const zoom = actionsRef.current.getZoom();
           const targetZoom = doubleTapTargetZoom(zoom, minZoom, maxZoom, zoomStep);
+          // Flag the zoom in flight, then schedule its delayed removal (covers
+          // the zoom animation). Both halves matter: without the `false` the
+          // `data-zooming` flag stays stuck on the content element and blocks
+          // the next pull-to-dismiss (which bails while zooming). This mirrors
+          // the set-on-pointerdown / clear-on-pointerup split of the old path.
           setZooming(true);
           if (focal) {
             actionsRef.current.changeZoom(targetZoom, false, focal[0], focal[1]);
           } else {
             actionsRef.current.changeZoom(targetZoom, false);
           }
+          setZooming(false);
           return;
         }
         pendingDoubleTap.current = false;

@@ -2706,6 +2706,44 @@ describe('Lightbox', () => {
       expect(ref.current!.zoom).toBeGreaterThan(1);
     });
 
+    it('clears data-zooming after a double-tap reset so the next pull-to-dismiss works', () => {
+      // Regression: the deferred double-tap committed on pointerup but only
+      // flagged `data-zooming` (setZooming(true)) without scheduling its
+      // removal. It stayed stuck on the content element, and pull-to-dismiss
+      // bails while zooming — so the first pull after a double-tap was dropped.
+      vi.useFakeTimers();
+      try {
+        const ref = React.createRef<LightboxZoomRef>();
+        render(<PullDismissLightbox withZoom zoomRef={ref} />);
+        const content = screen.getByTestId('content');
+        const img = screen.getByAltText('test');
+
+        act(() => ref.current!.zoomTo(2));
+
+        // Double-tap to reset zoom back to 1 (deferred commit on 2nd pointerup).
+        act(() => {
+          dispatchPointer(img, 'pointerdown', { clientX: 200, clientY: 200, pointerId: 1, isPrimary: true, timeStamp: 0 });
+          dispatchPointer(img, 'pointerup', { clientX: 200, clientY: 200, pointerId: 1, timeStamp: 10 });
+          dispatchPointer(img, 'pointerdown', { clientX: 202, clientY: 201, pointerId: 2, isPrimary: true, timeStamp: 120 });
+          dispatchPointer(img, 'pointerup', { clientX: 202, clientY: 201, pointerId: 2, timeStamp: 130 });
+        });
+        expect(ref.current!.zoom).toBe(1);
+
+        // The zooming flag must not be stuck — it clears after its cover window.
+        act(() => { vi.advanceTimersByTime(300); });
+        expect(content).not.toHaveAttribute('data-zooming');
+
+        // A pull now starts on the first attempt.
+        act(() => {
+          dispatchPointer(img, 'pointerdown', { clientX: 200, clientY: 200, pointerId: 3, isPrimary: true });
+          dispatchPointer(content, 'pointermove', { clientX: 200, clientY: 250, pointerId: 3 });
+        });
+        expect(content).toHaveAttribute('data-pulling');
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
     it('is disabled when pullToClose is false', () => {
       render(<PullDismissLightbox pullToClose={false} />);
       const content = screen.getByTestId('content');
