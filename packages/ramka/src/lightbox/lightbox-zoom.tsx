@@ -235,20 +235,6 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
       onZoomChangeRef.current?.(zoom);
     }, [zoom]);
 
-    // ----- Sync data-zoomed attribute on Content element -----
-    // Only the active slide writes this attribute, so it has a single writer
-    // and never fights with preloaded (inactive) siblings.
-    React.useEffect(() => {
-      if (!isActive) return;
-      const el = dialogElementRef.current;
-      if (!el) return;
-      if (zoom > minZoom) {
-        el.setAttribute('data-zoomed', '');
-      } else {
-        el.removeAttribute('data-zoomed');
-      }
-    }, [isActive, zoom, minZoom, dialogElementRef]);
-
     // ----- Offset clamping -----
     const clampOffsets = React.useCallback(
       (newOffsetX: number, newOffsetY: number, newZoom: number) => {
@@ -282,7 +268,33 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
     );
 
     // ----- Core actions -----
-    const captureStart = useZoomAnimation(zoom, offsetX, offsetY, wrapperRef, animationDuration);
+    const { captureStart, isAnimating } = useZoomAnimation(
+      zoom,
+      offsetX,
+      offsetY,
+      wrapperRef,
+      animationDuration,
+    );
+
+    // ----- Sync data-zoomed attribute on Content element -----
+    // Only the active slide writes this attribute, so it has a single writer
+    // and never fights with preloaded (inactive) siblings.
+    //
+    // React `zoom` commits immediately on double-tap reset, but the visual
+    // transform still animates for `animationDuration`. Keep `data-zoomed`
+    // set while that WAAPI transition is in flight so chrome that hides on
+    // `[data-zoomed]` (close button, captions) doesn't flash back early.
+    // Addition is eager; removal waits until `isAnimating` is false.
+    React.useEffect(() => {
+      if (!isActive) return;
+      const el = dialogElementRef.current;
+      if (!el) return;
+      if (zoom > minZoom) {
+        el.setAttribute('data-zoomed', '');
+      } else if (!isAnimating) {
+        el.removeAttribute('data-zoomed');
+      }
+    }, [isActive, zoom, minZoom, isAnimating, dialogElementRef]);
 
     const offsetXRef = React.useRef(offsetX);
     offsetXRef.current = offsetX;

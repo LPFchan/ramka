@@ -2073,7 +2073,7 @@ describe('Lightbox', () => {
       expect(contentEl).toHaveAttribute('data-zoomed');
     });
 
-    it('data-zoomed attribute is removed when zoom resets to 1x', () => {
+    it('data-zoomed attribute is removed when zoom resets to 1x (rapid)', () => {
       const ref = React.createRef<LightboxZoomRef>();
       render(
         <LightboxRoot defaultOpen>
@@ -2090,11 +2090,74 @@ describe('Lightbox', () => {
       );
       const contentEl = screen.getByTestId('content');
 
-      act(() => ref.current!.zoomTo(3));
+      act(() => ref.current!.zoomTo(3, { rapid: true }));
+      expect(contentEl).toHaveAttribute('data-zoomed');
+
+      act(() => ref.current!.reset(true));
+      expect(contentEl).not.toHaveAttribute('data-zoomed');
+    });
+
+    it('data-zoomed stays until the zoom-out animation finishes', () => {
+      type AnimStub = {
+        finished: Promise<void>;
+        cancel: ReturnType<typeof vi.fn>;
+        play: ReturnType<typeof vi.fn>;
+        pause: ReturnType<typeof vi.fn>;
+        onfinish: ((this: Animation, ev: AnimationPlaybackEvent) => void) | null;
+        oncancel: ((this: Animation, ev: AnimationPlaybackEvent) => void) | null;
+      };
+      let latest: AnimStub | undefined;
+      const animateImpl = vi.fn(() => {
+        const stub: AnimStub = {
+          finished: Promise.resolve(),
+          cancel: vi.fn(),
+          play: vi.fn(),
+          pause: vi.fn(),
+          onfinish: null,
+          oncancel: null,
+        };
+        latest = stub;
+        return stub as unknown as Animation;
+      });
+      const hadAnimate = 'animate' in Element.prototype;
+      const previousAnimate = Element.prototype.animate;
+      Element.prototype.animate = animateImpl as unknown as typeof Element.prototype.animate;
+
+      const ref = React.createRef<LightboxZoomRef>();
+      render(
+        <LightboxRoot defaultOpen>
+          <LightboxContent data-testid="content" aria-label="Zoom animated reset attr test">
+            <LightboxItemGroup>
+              <LightboxItem index={0}>
+                <LightboxZoom ref={ref} maxZoom={4} animationDuration={300}>
+                  <img src="test.jpg" alt="test" />
+                </LightboxZoom>
+              </LightboxItem>
+            </LightboxItemGroup>
+          </LightboxContent>
+        </LightboxRoot>,
+      );
+      const contentEl = screen.getByTestId('content');
+
+      act(() => ref.current!.zoomTo(3, { rapid: true }));
       expect(contentEl).toHaveAttribute('data-zoomed');
 
       act(() => ref.current!.reset());
+      // React zoom is already 1x, but the WAAPI transition is still running —
+      // chrome that keys off data-zoomed must not flash back early.
+      expect(contentEl).toHaveAttribute('data-zoomed');
+      expect(latest).toBeDefined();
+
+      act(() => {
+        latest?.onfinish?.call(latest as unknown as Animation, {} as AnimationPlaybackEvent);
+      });
       expect(contentEl).not.toHaveAttribute('data-zoomed');
+
+      if (hadAnimate) {
+        Element.prototype.animate = previousAnimate;
+      } else {
+        delete (Element.prototype as { animate?: typeof Element.prototype.animate }).animate;
+      }
     });
 
     it('data-zoomed attribute is removed when slide changes', () => {
