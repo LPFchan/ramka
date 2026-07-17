@@ -2449,10 +2449,12 @@ describe('Lightbox', () => {
         (globalThis as Record<string, unknown>).PointerEvent = class PointerEvent extends MouseEvent {
           pointerId: number;
           pointerType: string;
-          constructor(type: string, init: PointerEventInit & { pointerId?: number; pointerType?: string } = {}) {
+          isPrimary: boolean;
+          constructor(type: string, init: PointerEventInit & { pointerId?: number; pointerType?: string; isPrimary?: boolean } = {}) {
             super(type, init);
             this.pointerId = init.pointerId ?? 0;
             this.pointerType = init.pointerType ?? 'mouse';
+            this.isPrimary = init.isPrimary ?? false;
           }
         };
       }
@@ -2478,7 +2480,7 @@ describe('Lightbox', () => {
       }
     });
 
-    function dispatchPointer(el: Element, type: string, init: Partial<PointerEventInit> & { pointerId?: number; clientX?: number; clientY?: number; timeStamp?: number } = {}) {
+    function dispatchPointer(el: Element, type: string, init: Partial<PointerEventInit> & { pointerId?: number; clientX?: number; clientY?: number; timeStamp?: number; isPrimary?: boolean } = {}) {
       const event = new PointerEvent(type, {
         bubbles: true,
         cancelable: true,
@@ -2636,6 +2638,72 @@ describe('Lightbox', () => {
       });
 
       expect(content).not.toHaveAttribute('data-pulling');
+    });
+
+    it('does not zoom from a lone finger after a stale captured pointer', () => {
+      // Regression: pull-to-dismiss captures the pointer via setPointerCapture
+      // (on the content ancestor), so the zoom hook records the first touch's
+      // pointerdown but never its pointerup — leaving a stale pointer. A
+      // subsequent single-finger flick must NOT pair with that ghost into a
+      // phantom pinch. `isPrimary` marks the lone new finger so stale pointers
+      // are dropped first.
+      const ref = React.createRef<LightboxZoomRef>();
+      render(<PullDismissLightbox withZoom zoomRef={ref} />);
+      const img = screen.getByAltText('test');
+
+      // First touch: recorded by the zoom hook, then "captured" by pull (no
+      // pointerup ever reaches the zoom container).
+      act(() => {
+        dispatchPointer(img, 'pointerdown', { clientX: 200, clientY: 200, pointerId: 1, isPrimary: true });
+      });
+
+      // A fresh lone finger flicks across the screen.
+      act(() => {
+        dispatchPointer(img, 'pointerdown', { clientX: 210, clientY: 210, pointerId: 2, isPrimary: true });
+        dispatchPointer(img, 'pointermove', { clientX: 280, clientY: 320, pointerId: 2 });
+      });
+
+      expect(ref.current!.zoom).toBe(1);
+    });
+
+    it('does not double-tap-zoom when the second touch is a swipe near the first tap', () => {
+      // Regression: a clean tap arms double-tap detection; a quick swipe/flick
+      // starting near that tap satisfies the timing + distance gate. Zoom must
+      // NOT fire, because the second touch moved (it's a swipe, not a tap).
+      const ref = React.createRef<LightboxZoomRef>();
+      render(<PullDismissLightbox withZoom zoomRef={ref} />);
+      const img = screen.getByAltText('test');
+
+      // First interaction: a clean stationary tap.
+      act(() => {
+        dispatchPointer(img, 'pointerdown', { clientX: 200, clientY: 200, pointerId: 1, isPrimary: true });
+        dispatchPointer(img, 'pointerup', { clientX: 200, clientY: 200, pointerId: 1 });
+      });
+
+      // Second interaction: lands near the first tap (within DOUBLE_TAP_DISTANCE)
+      // but immediately swipes away.
+      act(() => {
+        dispatchPointer(img, 'pointerdown', { clientX: 210, clientY: 205, pointerId: 2, isPrimary: true });
+        dispatchPointer(img, 'pointermove', { clientX: 260, clientY: 305, pointerId: 2 });
+        dispatchPointer(img, 'pointerup', { clientX: 260, clientY: 305, pointerId: 2 });
+      });
+
+      expect(ref.current!.zoom).toBe(1);
+    });
+
+    it('still double-tap-zooms when the second touch is a genuine tap', () => {
+      const ref = React.createRef<LightboxZoomRef>();
+      render(<PullDismissLightbox withZoom zoomRef={ref} />);
+      const img = screen.getByAltText('test');
+
+      act(() => {
+        dispatchPointer(img, 'pointerdown', { clientX: 200, clientY: 200, pointerId: 1, isPrimary: true, timeStamp: 0 });
+        dispatchPointer(img, 'pointerup', { clientX: 200, clientY: 200, pointerId: 1, timeStamp: 10 });
+        dispatchPointer(img, 'pointerdown', { clientX: 202, clientY: 201, pointerId: 2, isPrimary: true, timeStamp: 120 });
+        dispatchPointer(img, 'pointerup', { clientX: 202, clientY: 201, pointerId: 2, timeStamp: 130 });
+      });
+
+      expect(ref.current!.zoom).toBeGreaterThan(1);
     });
 
     it('is disabled when pullToClose is false', () => {

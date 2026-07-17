@@ -74,6 +74,12 @@ function useZoomGestures(
   const lastTapPos = React.useRef<{ x: number; y: number } | null>(null);
   const tapCandidate = React.useRef(false);
   const tapStartPos = React.useRef<{ x: number; y: number } | null>(null);
+  // A double-tap is only committed once the SECOND touch also ends as a
+  // stationary tap. These hold the armed state between that touch's
+  // pointerdown (where timing/distance qualify) and its pointerup (where we
+  // confirm it didn't turn into a swipe/flick) — see handlePointerDown/Up.
+  const pendingDoubleTap = React.useRef(false);
+  const doubleTapFocal = React.useRef<[number, number] | null>(null);
   const pinchState = React.useRef<{
     initialDistance: number;
     initialZoom: number;
@@ -151,8 +157,8 @@ function useZoomGestures(
       // gestures so the scroll stays authoritative until it settles.
       if (isScrollingRef?.current) return;
       const pointers = activePointers.current;
-      const { zoomStep, doubleClickDelay } = configRef.current;
-      const { getZoom, changeZoom } = actionsRef.current;
+      const { doubleClickDelay } = configRef.current;
+      const { getZoom } = actionsRef.current;
       const zoom = getZoom();
 
       if (
@@ -172,6 +178,20 @@ function useZoomGestures(
         pinchState.current = undefined;
         hadPinch.current = false;
         return;
+      }
+
+      // A primary touch is the first finger to land on an otherwise empty
+      // screen — by definition nothing else is down. So any pointers still in
+      // `activePointers` are stale: pull-to-dismiss captures the pointer via
+      // setPointerCapture (on an ancestor), so its `pointerup` never reaches
+      // this hook and the entry lingers. Drop them now, otherwise this lone
+      // finger pairs with the ghost into a phantom two-finger pinch — e.g. tap
+      // the image (a hair of movement arms pull), then flick, and it "zooms".
+      // A genuine pinch is unaffected: its second finger is never primary.
+      if (event.pointerType === 'touch' && event.isPrimary && pointers.length > 0) {
+        pointers.length = 0;
+        pinchState.current = undefined;
+        hadPinch.current = false;
       }
 
       // Stale pointer cleanup: if all recorded pointers are old (>500ms),
@@ -195,28 +215,23 @@ function useZoomGestures(
 
       // Double-click / double-tap: toggle between zoomed and 1x.
       // Both taps must be genuine taps — the previous interaction must have
-      // been a stationary single-finger tap (lastWasTap), not a drag/pinch.
-      // The two taps must also be close together spatially.
+      // been a stationary single-finger tap (lastWasTap), not a drag/pinch,
+      // and the two taps must be close together spatially and in time.
+      //
+      // Crucially the zoom is NOT fired here on pointerdown: we can't yet tell
+      // whether this second touch is a tap or the start of a swipe/flick. A
+      // quick swipe beginning near the first tap satisfies the distance+timing
+      // gate and would zoom by mistake. Instead we ARM it and commit on
+      // pointerup, but only if the touch stayed stationary (tapCandidate).
       const now = event.timeStamp;
       const prevTap = lastTapPos.current;
       const tapDist = prevTap ? Math.hypot(event.clientX - prevTap.x, event.clientY - prevTap.y) : 0;
-      if (
+      pendingDoubleTap.current =
         pointers.length === 0 &&
         lastWasTap.current &&
         now - lastPointerDown.current < doubleClickDelay &&
-        tapDist < DOUBLE_TAP_DISTANCE
-      ) {
-        lastPointerDown.current = 0;
-        lastWasTap.current = false;
-        lastTapPos.current = null;
-
-        const { minZoom, maxZoom } = configRef.current;
-        const targetZoom = doubleTapTargetZoom(zoom, minZoom, maxZoom, zoomStep);
-
-        setZooming(true);
-        changeZoom(targetZoom, false, ...translateCoordinates(event));
-        return;
-      }
+        tapDist < DOUBLE_TAP_DISTANCE;
+      doubleTapFocal.current = pendingDoubleTap.current ? translateCoordinates(event) : null;
 
       lastPointerDown.current = now;
 
@@ -319,15 +334,45 @@ function useZoomGestures(
       }
       clearPointer(event.pointerId);
       if (activePointers.current.length === 0) {
+        const wasTap = tapCandidate.current;
+        const wasPinch = hadPinch.current;
+
+        // Commit a deferred double-tap only if this second touch actually
+        // ended as a stationary tap (not a swipe/flick, which clears
+        // tapCandidate on move) and wasn't part of a pinch.
+        if (pendingDoubleTap.current && wasTap && !wasPinch) {
+          pendingDoubleTap.current = false;
+          const focal = doubleTapFocal.current;
+          doubleTapFocal.current = null;
+          lastWasTap.current = false;
+          lastTapPos.current = null;
+          lastPointerDown.current = 0;
+          tapCandidate.current = false;
+          tapStartPos.current = null;
+          actionsRef.current.setDragging(false);
+
+          const { minZoom, maxZoom, zoomStep } = configRef.current;
+          const zoom = actionsRef.current.getZoom();
+          const targetZoom = doubleTapTargetZoom(zoom, minZoom, maxZoom, zoomStep);
+          setZooming(true);
+          if (focal) {
+            actionsRef.current.changeZoom(targetZoom, false, focal[0], focal[1]);
+          } else {
+            actionsRef.current.changeZoom(targetZoom, false);
+          }
+          return;
+        }
+        pendingDoubleTap.current = false;
+        doubleTapFocal.current = null;
+
         // Finalize tap detection: was this a clean single-finger tap?
-        lastWasTap.current = tapCandidate.current;
-        if (tapCandidate.current) {
+        lastWasTap.current = wasTap;
+        if (wasTap) {
           lastTapPos.current = { x: event.clientX, y: event.clientY };
         }
         tapCandidate.current = false;
         tapStartPos.current = null;
         actionsRef.current.setDragging(false);
-        const wasPinch = hadPinch.current;
         if (wasPinch) {
           hadPinch.current = false;
           actionsRef.current.snapToBounds();
