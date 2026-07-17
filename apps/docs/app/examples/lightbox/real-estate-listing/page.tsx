@@ -11,6 +11,7 @@ import { ExampleShell } from '../../../_components/example-shell';
 import {
   LightboxFrame,
   LightboxOverlay,
+  lightboxChromeButton,
   triggerMorphHideClass,
 } from '../../../_components/lightbox-chrome';
 
@@ -78,9 +79,6 @@ const amenities = [
   'Sauna',
   'Fiber Internet',
 ];
-
-const iconButton =
-  'inline-flex h-9 w-9 items-center justify-center rounded-full text-white/80 transition hover:bg-white/10 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70 disabled:cursor-not-allowed disabled:opacity-30';
 
 // Per-cell outer corners. The 5-cell grid: index 0 is the tall left
 // column, then top-middle (1), top-right (2), bottom-middle (3),
@@ -281,8 +279,8 @@ export default function RealEstateListingPage() {
         <LightboxOverlay />
         <LightboxFrame ariaLabel="Property photos" className="flex flex-col items-stretch">
           <div className="absolute right-4 top-4 z-10">
-            <Lightbox.Close className={iconButton} aria-label="Close">
-              <X aria-hidden className="h-5 w-5" />
+            <Lightbox.Close className={lightboxChromeButton} aria-label="Close">
+              <X aria-hidden className="h-[18px] w-[18px]" strokeWidth={2.25} />
             </Lightbox.Close>
           </div>
           <div className="absolute left-4 top-4 z-10">

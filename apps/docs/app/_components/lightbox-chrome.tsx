@@ -31,8 +31,27 @@ import { ChevronLeft, ChevronRight, X } from 'lucide-react';
  * even while a view transition is in flight.
  */
 
-const buttonBase =
-  'inline-flex h-9 w-9 items-center justify-center rounded-full text-white/80 transition hover:bg-white/10 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70 disabled:cursor-not-allowed disabled:opacity-30';
+/**
+ * iOS-style liquid-glass control — frosted fill, specular rim, soft depth.
+ * Desktop-only zoom uses {@link lightboxChromeButtonMd} (`hidden` below `md`).
+ */
+export const lightboxChromeButton =
+  'pointer-events-auto inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full ' +
+  'border border-black/20 bg-white/55 text-neutral-900 ' +
+  // iOS: tight, low-opacity drop + hairline specular — not a soft ambient blob.
+  'shadow-[0_0.5px_1px_rgba(0,0,0,0.12),0_1px_2px_rgba(0,0,0,0.08),inset_0_0.5px_0_rgba(255,255,255,0.65)] ' +
+  'backdrop-blur-2xl backdrop-saturate-150 ' +
+  'transition-[background-color,box-shadow,transform,opacity,color] duration-150 ease-out ' +
+  'hover:bg-white/65 active:scale-[0.96] active:bg-white/75 ' +
+  'focus:outline-none focus-visible:ring-2 focus-visible:ring-black/25 ' +
+  'disabled:cursor-not-allowed disabled:opacity-30 disabled:active:scale-100 ' +
+  'dark:border-white/25 dark:bg-neutral-900/45 dark:text-white ' +
+  // 0.5px black outline (via shadow so it follows the circle) + crisp drop shadow.
+  'dark:shadow-[0_0_0_0.5px_#000,0_0.5px_1px_rgba(0,0,0,0.45),0_1px_2px_rgba(0,0,0,0.35),inset_0_0.5px_0_rgba(255,255,255,0.14)] ' +
+  'dark:hover:bg-neutral-900/55 dark:active:bg-neutral-900/65 dark:focus-visible:ring-white/40';
+
+/** Glass control hidden below `md` (zoom in/out — pinch covers mobile). */
+export const lightboxChromeButtonMd = `hidden md:inline-flex ${lightboxChromeButton.replace('inline-flex ', '')}`;
 
 /**
  * Intrinsic pixel dimensions encoded in a picsum URL (`…/{width}/{height}`).
@@ -117,8 +136,8 @@ export function LightboxFrame({
 export function LightboxCloseButton() {
   return (
     <div className="absolute right-4 top-4 z-10">
-      <Lightbox.Close className={buttonBase} aria-label="Close">
-        <X aria-hidden className="h-5 w-5" />
+      <Lightbox.Close className={lightboxChromeButton} aria-label="Close">
+        <X aria-hidden className="h-[18px] w-[18px]" strokeWidth={2.25} />
       </Lightbox.Close>
     </div>
   );
@@ -126,16 +145,16 @@ export function LightboxCloseButton() {
 
 export function LightboxPrevButton() {
   return (
-    <Lightbox.Previous className={buttonBase}>
-      <ChevronLeft aria-hidden className="h-5 w-5" />
+    <Lightbox.Previous className={lightboxChromeButton} aria-label="Previous">
+      <ChevronLeft aria-hidden className="h-5 w-5" strokeWidth={2.25} />
     </Lightbox.Previous>
   );
 }
 
 export function LightboxNextButton() {
   return (
-    <Lightbox.Next className={buttonBase}>
-      <ChevronRight aria-hidden className="h-5 w-5" />
+    <Lightbox.Next className={lightboxChromeButton} aria-label="Next">
+      <ChevronRight aria-hidden className="h-5 w-5" strokeWidth={2.25} />
     </Lightbox.Next>
   );
 }

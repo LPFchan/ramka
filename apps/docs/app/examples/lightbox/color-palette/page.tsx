@@ -10,6 +10,7 @@ import {
   LightboxFrame,
   LightboxFullImage,
   LightboxOverlay,
+  lightboxChromeButton,
   morphElementHideClass,
   StackedItemGroup,
   stackedItemClass,
@@ -29,9 +30,6 @@ const colorPalette = [
   { id: 'teal', name: 'Teal', hex: '#2a8a8a', family: 'Teal', src: 'https://picsum.photos/seed/color-teal/1400/900', alt: 'Tropical lagoon with turquoise water' },
   { id: 'ivory', name: 'Ivory', hex: '#d6cdb7', family: 'Cream', src: 'https://picsum.photos/seed/color-ivory/1400/900', alt: 'Soft morning light on white sand dunes' },
 ];
-
-const navButton =
-  'inline-flex h-9 w-9 items-center justify-center rounded-full text-white/80 transition hover:bg-white/10 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70 disabled:cursor-not-allowed disabled:opacity-30';
 
 export default function ColorPalettePage() {
   return (
@@ -105,8 +103,8 @@ export default function ColorPalettePage() {
           </StackedItemGroup>
 
           <div className="flex items-center gap-4 px-4 py-3">
-            <Lightbox.Previous className={navButton}>
-              <ChevronLeft aria-hidden className="h-5 w-5" />
+            <Lightbox.Previous className={lightboxChromeButton} aria-label="Previous">
+              <ChevronLeft aria-hidden className="h-5 w-5" strokeWidth={2.25} />
             </Lightbox.Previous>
 
             <Lightbox.Counter className="flex min-w-[180px] items-center justify-center gap-3">
@@ -128,8 +126,8 @@ export default function ColorPalettePage() {
               }}
             </Lightbox.Counter>
 
-            <Lightbox.Next className={navButton}>
-              <ChevronRight aria-hidden className="h-5 w-5" />
+            <Lightbox.Next className={lightboxChromeButton} aria-label="Next">
+              <ChevronRight aria-hidden className="h-5 w-5" strokeWidth={2.25} />
             </Lightbox.Next>
           </div>
 

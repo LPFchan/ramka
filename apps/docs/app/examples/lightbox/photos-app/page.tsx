@@ -6,7 +6,11 @@ import Image from 'next/image';
 import { Lightbox } from 'ramka';
 import { Heart, Minus, Plus, X, ZoomIn, ZoomOut } from 'lucide-react';
 
-import { triggerMorphHideClass } from '../../../_components/lightbox-chrome';
+import {
+  lightboxChromeButton,
+  lightboxChromeButtonMd,
+  triggerMorphHideClass,
+} from '../../../_components/lightbox-chrome';
 
 /**
  * A macOS Photos–style app surface: a dense grid of square thumbnails under a
@@ -99,10 +103,6 @@ function fitBoxStyle(ratio: number): React.CSSProperties {
 // Small toolbar buttons (grid density).
 const toolbarButton =
   'inline-flex h-7 w-7 items-center justify-center rounded-full text-neutral-600 transition hover:bg-black/5 disabled:pointer-events-none disabled:opacity-30 dark:text-neutral-300 dark:hover:bg-white/10';
-
-// Fullscreen viewer chrome buttons — identical to the responsive-gallery demo.
-const chromeButton =
-  'inline-flex h-9 w-9 items-center justify-center rounded-full text-black/70 transition hover:bg-black/10 hover:text-black focus:outline-none focus-visible:ring-2 focus-visible:ring-black/40 disabled:cursor-not-allowed disabled:opacity-30 pointer-events-auto dark:text-white/80 dark:hover:bg-white/10 dark:hover:text-white dark:focus-visible:ring-white/70';
 
 // Grid density (columns). Fewer columns = larger photos. The zoom buttons
 // step between these bounds; `+` grows the photos, `−` shrinks them.
@@ -283,17 +283,17 @@ export default function PhotosAppPage() {
             ))}
           </Lightbox.Slides>
 
-          {/* Top-right controls — hidden while zoomed or while pulling to
-              dismiss (fades back in as the item snaps back, same as zoom). */}
-          <div className="absolute right-3 top-3 z-10 flex gap-2 transition-[opacity,filter] duration-200 [[data-zoomed]_&]:pointer-events-none [[data-zoomed]_&]:opacity-0 [[data-zoomed]_&]:blur-[6px] [[data-pulling]_&]:pointer-events-none [[data-pulling]_&]:opacity-0 [[data-pulling]_&]:blur-[6px] [[data-pull-dismissing]_&]:pointer-events-none [[data-pull-dismissing]_&]:opacity-0 [[data-pull-dismissing]_&]:blur-[6px]">
-            <Lightbox.ZoomOut className={chromeButton} aria-label="Zoom out">
-              <ZoomOut aria-hidden className="h-4 w-4" />
+          {/* Top-right: zoom desktop-only; close always. Stay visible while
+              zoomed; fade only during pull-to-dismiss. */}
+          <div className="absolute right-3 top-3 z-10 flex gap-2 transition-[opacity,filter] duration-200 [[data-pulling]_&]:pointer-events-none [[data-pulling]_&]:opacity-0 [[data-pulling]_&]:blur-[6px] [[data-pull-dismissing]_&]:pointer-events-none [[data-pull-dismissing]_&]:opacity-0 [[data-pull-dismissing]_&]:blur-[6px]">
+            <Lightbox.ZoomOut className={lightboxChromeButtonMd} aria-label="Zoom out">
+              <ZoomOut aria-hidden className="h-4 w-4" strokeWidth={2.25} />
             </Lightbox.ZoomOut>
-            <Lightbox.ZoomIn className={chromeButton} aria-label="Zoom in">
-              <ZoomIn aria-hidden className="h-4 w-4" />
+            <Lightbox.ZoomIn className={lightboxChromeButtonMd} aria-label="Zoom in">
+              <ZoomIn aria-hidden className="h-4 w-4" strokeWidth={2.25} />
             </Lightbox.ZoomIn>
-            <Lightbox.Close className={chromeButton} aria-label="Close">
-              <X aria-hidden className="h-5 w-5" />
+            <Lightbox.Close className={lightboxChromeButton} aria-label="Close">
+              <X aria-hidden className="h-[18px] w-[18px]" strokeWidth={2.25} />
             </Lightbox.Close>
           </div>
 

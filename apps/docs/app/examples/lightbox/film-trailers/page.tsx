@@ -5,7 +5,7 @@ import { Lightbox } from 'ramka';
 import { Play, X } from 'lucide-react';
 
 import { ExampleShell } from '../../../_components/example-shell';
-import { morphElementHideClass } from '../../../_components/lightbox-chrome';
+import { lightboxChromeButton, morphElementHideClass } from '../../../_components/lightbox-chrome';
 
 /**
  * Blender Open Movies — real trailers/shorts with their official posters
@@ -64,9 +64,6 @@ const films = [
 
 const contentFade =
   'opacity-0 ease-out-expo duration-[280ms] transition-opacity data-[open]:opacity-100 starting:opacity-0';
-
-const closeButton =
-  'inline-flex h-10 w-10 items-center justify-center rounded-full bg-black/40 text-white/90 backdrop-blur-sm transition hover:bg-black/55 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70';
 
 function LightboxVideo({
   src,
@@ -176,8 +173,8 @@ function FilmLightbox({ film }: { film: (typeof films)[number] }) {
         aria-label={film.title}
         className={`fixed inset-0 z-50 size-full overscroll-contain outline-none ${contentFade}`}
       >
-        <Lightbox.Close className={`absolute right-4 top-4 z-10 ${closeButton}`} aria-label="Close">
-          <X aria-hidden className="h-5 w-5" />
+        <Lightbox.Close className={`absolute right-4 top-4 z-10 ${lightboxChromeButton}`} aria-label="Close">
+          <X aria-hidden className="h-[18px] w-[18px]" strokeWidth={2.25} />
         </Lightbox.Close>
 
         <Lightbox.ItemGroup className="size-full">

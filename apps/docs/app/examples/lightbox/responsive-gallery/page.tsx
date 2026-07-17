@@ -8,6 +8,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { ExampleShell } from '../../../_components/example-shell';
+import { lightboxChromeButton, lightboxChromeButtonMd } from '../../../_components/lightbox-chrome';
 
 /**
  * The canonical, real-world lightbox — deliberately self-contained (no
@@ -24,9 +25,9 @@ import { ExampleShell } from '../../../_components/example-shell';
  * Opening a post reveals the production media viewer: swipe navigation via
  * a `Lightbox.Slides` viewport, thumbnails on desktop only, a View Transition
  * morph from the tapped tile, per-item pinch/scroll/keyboard zoom, and
- * pull-to-dismiss. Chrome (top controls + thumbnails) hides while zoomed
- * purely through CSS: `Lightbox.Zoom` sets `data-zoomed` on the Content
- * element, and the chrome targets an ancestor with `[[data-zoomed]_&]`.
+ * pull-to-dismiss. Zoom buttons are desktop-only; close stays visible.
+ * Caption + thumbnails hide while zoomed via `[[data-zoomed]_&]` (Zoom
+ * sets `data-zoomed` on Content).
  */
 
 interface GalleryImage {
@@ -233,9 +234,6 @@ const feedPosts: FeedPost[] = [
     stats: { replies: 34, likes: 1567, shares: 201 },
   },
 ];
-
-const iconButton =
-  'inline-flex h-9 w-9 items-center justify-center rounded-full text-black/70 transition hover:bg-black/10 hover:text-black focus:outline-none focus-visible:ring-2 focus-visible:ring-black/40 disabled:cursor-not-allowed disabled:opacity-30 pointer-events-auto dark:text-white/80 dark:hover:bg-white/10 dark:hover:text-white dark:focus-visible:ring-white/70';
 
 function formatCount(n: number): string {
   if (n >= 1000) return `${(n / 1000).toFixed(1).replace(/\.0$/, '')}K`;
@@ -535,17 +533,17 @@ function FeedPostGallery({ post }: { post: FeedPost }) {
           ))}
         </Lightbox.Slides>
 
-        {/* Top-right controls — hidden while zoomed or while pulling to
-            dismiss (fades back in as the item snaps back, same as zoom). */}
-        <div className="absolute right-3 top-3 z-10 flex gap-2 transition-[opacity,filter] duration-200 [[data-zoomed]_&]:pointer-events-none [[data-zoomed]_&]:opacity-0 [[data-zoomed]_&]:blur-[6px] [[data-pulling]_&]:pointer-events-none [[data-pulling]_&]:opacity-0 [[data-pulling]_&]:blur-[6px] [[data-pull-dismissing]_&]:pointer-events-none [[data-pull-dismissing]_&]:opacity-0 [[data-pull-dismissing]_&]:blur-[6px]">
-          <Lightbox.ZoomOut className={iconButton} aria-label="Zoom out">
-            <ZoomOut aria-hidden className="h-4 w-4" />
+        {/* Top-right: zoom desktop-only; close always. Stay visible while
+            zoomed; fade only during pull-to-dismiss. */}
+        <div className="absolute right-3 top-3 z-10 flex gap-2 transition-[opacity,filter] duration-200 [[data-pulling]_&]:pointer-events-none [[data-pulling]_&]:opacity-0 [[data-pulling]_&]:blur-[6px] [[data-pull-dismissing]_&]:pointer-events-none [[data-pull-dismissing]_&]:opacity-0 [[data-pull-dismissing]_&]:blur-[6px]">
+          <Lightbox.ZoomOut className={lightboxChromeButtonMd} aria-label="Zoom out">
+            <ZoomOut aria-hidden className="h-4 w-4" strokeWidth={2.25} />
           </Lightbox.ZoomOut>
-          <Lightbox.ZoomIn className={iconButton} aria-label="Zoom in">
-            <ZoomIn aria-hidden className="h-4 w-4" />
+          <Lightbox.ZoomIn className={lightboxChromeButtonMd} aria-label="Zoom in">
+            <ZoomIn aria-hidden className="h-4 w-4" strokeWidth={2.25} />
           </Lightbox.ZoomIn>
-          <Lightbox.Close className={iconButton} aria-label="Close">
-            <X aria-hidden className="h-5 w-5" />
+          <Lightbox.Close className={lightboxChromeButton} aria-label="Close">
+            <X aria-hidden className="h-[18px] w-[18px]" strokeWidth={2.25} />
           </Lightbox.Close>
         </div>
 

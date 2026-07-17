@@ -5,7 +5,11 @@ import { Lightbox } from 'ramka';
 import { X, ZoomIn, ZoomOut } from 'lucide-react';
 
 import { ExampleShell } from '../../../_components/example-shell';
-import { triggerMorphHideClass } from '../../../_components/lightbox-chrome';
+import {
+  lightboxChromeButton,
+  lightboxChromeButtonMd,
+  triggerMorphHideClass,
+} from '../../../_components/lightbox-chrome';
 
 /**
  * Unlike the other examples, these images carry NO known dimensions: the markup
@@ -84,10 +88,6 @@ function fitBoxStyle(ratio: number): React.CSSProperties {
     aspectRatio: `${ratio}`,
   };
 }
-
-// Fullscreen viewer chrome buttons — identical to the photos-app demo.
-const chromeButton =
-  'inline-flex h-9 w-9 items-center justify-center rounded-full text-black/70 transition hover:bg-black/10 hover:text-black focus:outline-none focus-visible:ring-2 focus-visible:ring-black/40 disabled:cursor-not-allowed disabled:opacity-30 pointer-events-auto dark:text-white/80 dark:hover:bg-white/10 dark:hover:text-white dark:focus-visible:ring-white/70';
 
 /** Responsive column count without CSS multicol (2 on mobile, 3 from `sm`). */
 function useColumnCount() {
@@ -209,16 +209,17 @@ export default function MoodboardPage() {
             ))}
           </Lightbox.Slides>
 
-          {/* Top-right controls — hidden while zoomed or pulling to dismiss. */}
-          <div className="absolute right-3 top-3 z-10 flex gap-2 transition-[opacity,filter] duration-200 [[data-zoomed]_&]:pointer-events-none [[data-zoomed]_&]:opacity-0 [[data-zoomed]_&]:blur-[6px] [[data-pulling]_&]:pointer-events-none [[data-pulling]_&]:opacity-0 [[data-pulling]_&]:blur-[6px] [[data-pull-dismissing]_&]:pointer-events-none [[data-pull-dismissing]_&]:opacity-0 [[data-pull-dismissing]_&]:blur-[6px]">
-            <Lightbox.ZoomOut className={chromeButton} aria-label="Zoom out">
-              <ZoomOut aria-hidden className="h-4 w-4" />
+          {/* Top-right: zoom desktop-only; close always. Stay visible while
+              zoomed; fade only during pull-to-dismiss. */}
+          <div className="absolute right-3 top-3 z-10 flex gap-2 transition-[opacity,filter] duration-200 [[data-pulling]_&]:pointer-events-none [[data-pulling]_&]:opacity-0 [[data-pulling]_&]:blur-[6px] [[data-pull-dismissing]_&]:pointer-events-none [[data-pull-dismissing]_&]:opacity-0 [[data-pull-dismissing]_&]:blur-[6px]">
+            <Lightbox.ZoomOut className={lightboxChromeButtonMd} aria-label="Zoom out">
+              <ZoomOut aria-hidden className="h-4 w-4" strokeWidth={2.25} />
             </Lightbox.ZoomOut>
-            <Lightbox.ZoomIn className={chromeButton} aria-label="Zoom in">
-              <ZoomIn aria-hidden className="h-4 w-4" />
+            <Lightbox.ZoomIn className={lightboxChromeButtonMd} aria-label="Zoom in">
+              <ZoomIn aria-hidden className="h-4 w-4" strokeWidth={2.25} />
             </Lightbox.ZoomIn>
-            <Lightbox.Close className={chromeButton} aria-label="Close">
-              <X aria-hidden className="h-5 w-5" />
+            <Lightbox.Close className={lightboxChromeButton} aria-label="Close">
+              <X aria-hidden className="h-[18px] w-[18px]" strokeWidth={2.25} />
             </Lightbox.Close>
           </div>
 
