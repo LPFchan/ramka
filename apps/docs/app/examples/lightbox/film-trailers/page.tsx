@@ -8,6 +8,7 @@ import { ExampleShell } from '../../../_components/example-shell';
 import {
   LightboxFrame,
   LightboxOverlay,
+  morphElementHideClass,
   StackedItemGroup,
   stackedItemClass,
 } from '../../../_components/lightbox-chrome';
@@ -91,7 +92,8 @@ function FilmCard({ film, index }: { film: (typeof films)[number]; index: number
     >
       {({ morphElementRef }) => (
         <>
-          <div className="relative overflow-hidden rounded-xl">
+          {/* Only the poster morphs / hides — title + meta stay put. */}
+          <div className={`relative overflow-hidden rounded-xl ${morphElementHideClass}`}>
             <img
               ref={morphElementRef}
               {...imgDims(film.poster)}

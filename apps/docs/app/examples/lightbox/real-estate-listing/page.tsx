@@ -8,7 +8,11 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { ExampleShell } from '../../../_components/example-shell';
-import { LightboxFrame, LightboxOverlay } from '../../../_components/lightbox-chrome';
+import {
+  LightboxFrame,
+  LightboxOverlay,
+  triggerMorphHideClass,
+} from '../../../_components/lightbox-chrome';
 
 const propertyPhotos = [
   { id: 'prop-hero', src: 'https://picsum.photos/seed/prop-hero/1400/900', thumb: 'https://picsum.photos/seed/prop-hero/700/450', alt: 'Living room with floor-to-ceiling windows', label: 'Living Room' },
@@ -98,7 +102,7 @@ function HeroGrid() {
     <div className="grid aspect-[2.2/1] grid-cols-[2fr_1fr_1fr] grid-rows-2 gap-1">
       <Lightbox.Trigger
         index={0}
-        className={`row-span-2 block cursor-pointer border-none bg-transparent p-0 transition-opacity duration-[200ms] ease-out-expo data-[morph-target]:opacity-0 ${heroCornerClass[0]}`}
+        className={`row-span-2 block cursor-pointer border-none bg-transparent p-0 ${triggerMorphHideClass} ${heroCornerClass[0]}`}
       >
         {({ triggerImageRef }) => (
           <img
@@ -114,7 +118,7 @@ function HeroGrid() {
         <Lightbox.Trigger
           key={photo.id}
           index={i + 1}
-          className={`block cursor-pointer border-none bg-transparent p-0 transition-opacity duration-[200ms] ease-out-expo data-[morph-target]:opacity-0 ${heroCornerClass[i + 1] ?? ''}`}
+          className={`block cursor-pointer border-none bg-transparent p-0 ${triggerMorphHideClass} ${heroCornerClass[i + 1] ?? ''}`}
         >
           {({ triggerImageRef }) => (
             <img
@@ -150,7 +154,7 @@ function RemainingPhotosGrid() {
             key={photo.id}
             index={i + 5}
             crossfade
-            className="block rounded-lg bg-transparent p-0 transition-opacity duration-[200ms] ease-out-expo data-[morph-target]:opacity-0"
+            className={`block rounded-lg bg-transparent p-0 ${triggerMorphHideClass}`}
           >
             {({ triggerImageRef, morphElementRef }) => (
               <div ref={morphElementRef} className="relative overflow-hidden rounded-lg">

@@ -10,7 +10,7 @@
 
 @theme {
   /* Snappy decelerating curve — "easeOutExpo". Used for the backdrop,
-     content, and trigger morph-target opacity transitions, plus the
+     content, and (in demos) morph-target opacity transitions, plus the
      View Transition root cross-fade. */
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
 
@@ -51,31 +51,6 @@
    lets this win without `!important`. */
 [data-orientation] [data-lightbox-item][data-active] {
   animation: none;
-}
-
-/* Hide the active morph-target trigger while the lightbox is open so it
-   doesn't show through behind the semi-transparent backdrop. The View
-   Transition snapshot (or the chrome fade in non-VT mode) already owns
-   the visual continuity from trigger -> item, so the trigger itself
-   should disappear once the lightbox is open. Mirrors frosted-ui's
-   `.fui-LightboxTrigger[data-open][data-morph-target]` rule from
-   lightbox.css — except scoped to a data-attribute hook since the
-   library is unstyled and ships no identifying class. */
-[data-lightbox-trigger][data-morph-target][data-open] {
-  opacity: 0;
-  transition: opacity 200ms var(--ease-out-expo);
-}
-
-/* ...but during a View Transition the morph snapshot fully owns the
-   trigger -> item continuity, so the real trigger must vanish with NO fade.
-   Its 200ms opacity transition above would otherwise start inside the VT
-   reveal (commitReveal sets data-open), get captured in the root "new"
-   snapshot mid-fade at ~opacity 1, and read as the trigger image ghosting/
-   fading out beside the morph. Hiding it instantly while a VT is in flight
-   keeps the open free of trigger artifacts. Higher specificity (0,4,0 >
-   0,3,0) wins without !important. */
-:root[data-lightbox-view-transition] [data-lightbox-trigger][data-morph-target][data-open] {
-  transition: none;
 }
 
 /* Default focus outline for every Lightbox.Trigger. Uses outline (not

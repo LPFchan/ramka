@@ -15,6 +15,7 @@ import {
   LightboxTriggerImage,
   StackedItemGroup,
   stackedItemClass,
+  triggerMorphHideClass,
 } from '../../../_components/lightbox-chrome';
 
 export default function LazyLoadingPage() {
@@ -35,7 +36,7 @@ export default function LazyLoadingPage() {
       <Lightbox.Root>
         <LightboxTriggerGrid>
           {lightboxImages.map((img, i) => (
-            <Lightbox.Trigger key={img.id} index={i} crossfade className="block overflow-hidden rounded-2xl">
+            <Lightbox.Trigger key={img.id} index={i} crossfade className={`block overflow-hidden rounded-2xl ${triggerMorphHideClass}`}>
               <LightboxTriggerImage src={img.thumb} alt={img.alt} />
             </Lightbox.Trigger>
           ))}

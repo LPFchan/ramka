@@ -14,6 +14,7 @@ import {
   LightboxOverlay,
   StackedItemGroup,
   stackedItemClass,
+  triggerMorphHideClass,
 } from '../../../_components/lightbox-chrome';
 
 /**
@@ -91,7 +92,7 @@ function ArticleFigure({
     <figure className={floatClass}>
       <Lightbox.Trigger
         index={index}
-        className="block w-full cursor-pointer rounded-xl border-none bg-transparent p-0"
+        className={`block w-full cursor-pointer rounded-xl border-none bg-transparent p-0 ${triggerMorphHideClass}`}
       >
         <img {...imgDims(image.inline)} src={image.inline} alt={image.alt} className="block w-full rounded-xl" loading="lazy" />
       </Lightbox.Trigger>

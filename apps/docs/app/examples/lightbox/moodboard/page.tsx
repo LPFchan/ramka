@@ -5,6 +5,7 @@ import { Lightbox } from 'ramka';
 import { X, ZoomIn, ZoomOut } from 'lucide-react';
 
 import { ExampleShell } from '../../../_components/example-shell';
+import { triggerMorphHideClass } from '../../../_components/lightbox-chrome';
 
 /**
  * Unlike the other examples, these images carry NO known dimensions: the markup
@@ -139,7 +140,7 @@ export default function MoodboardPage() {
                 <Lightbox.Trigger
                   key={tile.id}
                   index={index}
-                  className="block w-full cursor-pointer overflow-hidden rounded-xl border-none bg-transparent p-0"
+                  className={`block w-full cursor-pointer overflow-hidden rounded-xl border-none bg-transparent p-0 ${triggerMorphHideClass}`}
                 >
                   {({ triggerImageRef }) => (
                     <img

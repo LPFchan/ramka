@@ -13,6 +13,7 @@ import {
   LightboxOverlay,
   StackedItemGroup,
   stackedItemClass,
+  triggerMorphHideClass,
 } from '../../../_components/lightbox-chrome';
 
 /**
@@ -61,7 +62,7 @@ function MorphDemo({
               key={img.src}
               index={i}
               crossfade={isCrossfade}
-              className="block cursor-pointer rounded-lg border-none bg-transparent p-0 transition-opacity duration-[200ms] ease-out-expo data-[morph-target]:opacity-0"
+              className={`block cursor-pointer rounded-lg border-none bg-transparent p-0 ${triggerMorphHideClass}`}
             >
               <img
                 {...imgDims(img.thumb)}

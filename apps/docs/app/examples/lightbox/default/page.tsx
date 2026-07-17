@@ -15,6 +15,7 @@ import {
   LightboxTriggerImage,
   StackedItemGroup,
   stackedItemClass,
+  triggerMorphHideClass,
 } from '../../../_components/lightbox-chrome';
 
 export default function DefaultLightboxPage() {
@@ -26,7 +27,7 @@ export default function DefaultLightboxPage() {
       <Lightbox.Root>
         <LightboxTriggerGrid>
           {lightboxImages.map((img, i) => (
-            <Lightbox.Trigger key={img.id} index={i} className="block overflow-hidden rounded-2xl">
+            <Lightbox.Trigger key={img.id} index={i} className={`block overflow-hidden rounded-2xl ${triggerMorphHideClass}`}>
               <LightboxTriggerImage src={img.thumb} alt={img.alt} />
             </Lightbox.Trigger>
           ))}

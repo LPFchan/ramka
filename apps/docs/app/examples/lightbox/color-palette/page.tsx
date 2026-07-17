@@ -10,6 +10,7 @@ import {
   LightboxFrame,
   LightboxFullImage,
   LightboxOverlay,
+  morphElementHideClass,
   StackedItemGroup,
   stackedItemClass,
 } from '../../../_components/lightbox-chrome';
@@ -61,13 +62,14 @@ export default function ColorPalettePage() {
                 key={color.id}
                 index={i}
                 crossfade
-                className="flex w-full flex-col gap-0 overflow-hidden rounded-xl bg-transparent text-left transition-opacity duration-[200ms] ease-out-expo data-[morph-target]:opacity-0"
+                className="flex w-full flex-col gap-0 overflow-hidden rounded-xl bg-transparent text-left"
               >
                 {({ morphElementRef }) => (
                   <>
+                    {/* Only the swatch morphs / hides — name + hex stay put. */}
                     <div
                       ref={morphElementRef}
-                      className="aspect-[3/2] w-full rounded-xl"
+                      className={`aspect-[3/2] w-full rounded-xl ${morphElementHideClass}`}
                       style={{ background: color.hex }}
                     />
                     <div className="px-1 py-2">

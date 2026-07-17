@@ -15,7 +15,7 @@ import { ChevronLeft, ChevronRight, X } from 'lucide-react';
  *
  *   - backdrop opacity        340ms ease-out-expo
  *   - content opacity         280ms ease-out-expo
- *   - trigger morph-target    200ms ease-out-expo
+ *   - morph-target hide       200ms ease-out-expo (see triggerMorphHideClass)
  *   - active item fade-in     250ms ease-out (keyframe in globals.css)
  *
  * The `ease-out-expo` token and `animate-lightbox-item-fade-in` utility
@@ -193,6 +193,24 @@ export function StackedItemGroup({
  */
 export const stackedItemClass =
   'absolute inset-0 flex items-center justify-center aria-hidden:invisible data-[active]:visible';
+
+/**
+ * Consumer-side hide for a trigger that *is* the morph element (image-only
+ * tiles). Fades the whole trigger while it's `data-morph-target`, and kills
+ * the transition during a View Transition so the fade isn't captured mid-flight
+ * in the root snapshot. Prefer {@link morphElementHideClass} when only a child
+ * designated via `morphElementRef` should disappear (e.g. a swatch + label card).
+ */
+export const triggerMorphHideClass =
+  'transition-opacity duration-[200ms] ease-out-expo data-[morph-target]:opacity-0 [:root[data-lightbox-view-transition]_&]:transition-none';
+
+/**
+ * Consumer-side hide for the morph *child* only. Apply to the element that
+ * carries `morphElementRef` (or its media wrapper) so chrome around it — titles,
+ * labels, captions — stays visible while the lightbox is open.
+ */
+export const morphElementHideClass =
+  'transition-opacity duration-[200ms] ease-out-expo in-data-morph-target:opacity-0 [:root[data-lightbox-view-transition]_&]:transition-none';
 
 export function LightboxTriggerGrid({ children }: { children: React.ReactNode }) {
   return <div className="grid max-w-md grid-cols-3 gap-3">{children}</div>;

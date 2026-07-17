@@ -6,6 +6,8 @@ import Image from 'next/image';
 import { Lightbox } from 'ramka';
 import { Heart, Minus, Plus, X, ZoomIn, ZoomOut } from 'lucide-react';
 
+import { triggerMorphHideClass } from '../../../_components/lightbox-chrome';
+
 /**
  * A macOS Photos–style app surface: a dense grid of square thumbnails under a
  * sticky, blurred toolbar. The whole page *is* the app — no docs chrome. The
@@ -205,7 +207,7 @@ export default function PhotosAppPage() {
                 // doesn't leave a tile tucked under it. On mobile the docs
                 // MobileNav overlaps the toolbar and is handled by the document's
                 // scroll-pt-14, so this only needs to kick in at md+.
-                className="relative block aspect-square cursor-pointer overflow-hidden bg-transparent p-0 md:scroll-mt-16"
+                className={`relative block aspect-square cursor-pointer overflow-hidden bg-transparent p-0 md:scroll-mt-16 ${triggerMorphHideClass}`}
               >
                 {({ triggerImageRef }) => (
                   <>
