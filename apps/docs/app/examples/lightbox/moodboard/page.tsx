@@ -189,7 +189,10 @@ export default function MoodboardPage() {
                           image loads. `imageRef` marks the morph destination and
                           placeholder paint target. */}
                       <div
-                        className="relative shrink-0 [--lb-inset-h:6rem] [--lb-inset-w:0px] md:[--lb-inset-h:11rem] md:[--lb-inset-w:4rem]"
+                        // Inset = 2× the larger chrome side so a centered fit-box
+                        // clears top controls and bottom caption/thumbs, including
+                        // iOS safe-area (viewport-fit=cover) on both edges.
+                        className="relative shrink-0 [--lb-inset-h:calc(2*max(env(safe-area-inset-top,0px)+3.5rem,env(safe-area-inset-bottom,0px)+3.5rem))] [--lb-inset-w:0px] md:[--lb-inset-h:calc(2*max(env(safe-area-inset-top,0px)+3.5rem,env(safe-area-inset-bottom,0px)+7rem))] md:[--lb-inset-w:4rem]"
                         style={fitBoxStyle(imgAspect(img.full))}
                       >
                         <img
@@ -211,7 +214,7 @@ export default function MoodboardPage() {
 
           {/* Top-right: zoom desktop-only; close always. On mobile, fade
               close while zoomed; on md+ stay visible. Also fade on pull. */}
-          <div className="absolute right-3 top-3 z-10 flex gap-2 transition-[opacity,filter] duration-200 max-md:[[data-zoomed]_&]:pointer-events-none max-md:[[data-zoomed]_&]:opacity-0 max-md:[[data-zoomed]_&]:blur-[6px] [[data-pulling]_&]:pointer-events-none [[data-pulling]_&]:opacity-0 [[data-pulling]_&]:blur-[6px] [[data-pull-dismissing]_&]:pointer-events-none [[data-pull-dismissing]_&]:opacity-0 [[data-pull-dismissing]_&]:blur-[6px]">
+          <div className="absolute right-3 top-[calc(0.75rem+env(safe-area-inset-top,0px))] z-10 flex gap-2 transition-[opacity,filter] duration-200 max-md:[[data-zoomed]_&]:pointer-events-none max-md:[[data-zoomed]_&]:opacity-0 max-md:[[data-zoomed]_&]:blur-[6px] [[data-pulling]_&]:pointer-events-none [[data-pulling]_&]:opacity-0 [[data-pulling]_&]:blur-[6px] [[data-pull-dismissing]_&]:pointer-events-none [[data-pull-dismissing]_&]:opacity-0 [[data-pull-dismissing]_&]:blur-[6px]">
             <Lightbox.ZoomOut className={lightboxChromeButtonMd} aria-label="Zoom out">
               <ZoomOut aria-hidden className="h-4 w-4" strokeWidth={2.25} />
             </Lightbox.ZoomOut>
@@ -224,7 +227,7 @@ export default function MoodboardPage() {
           </div>
 
           {/* Caption + thumbnails (desktop only). Hidden while zoomed or pulling. */}
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 flex flex-col items-center gap-3 px-3 pb-4 transition-[opacity,filter] duration-200 [[data-zoomed]_&]:opacity-0 [[data-zoomed]_&]:blur-[6px] [[data-pulling]_&]:opacity-0 [[data-pulling]_&]:blur-[6px] [[data-pull-dismissing]_&]:opacity-0 [[data-pull-dismissing]_&]:blur-[6px]">
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 flex flex-col items-center gap-3 px-3 pb-[calc(1rem+env(safe-area-inset-bottom,0px))] transition-[opacity,filter] duration-200 [[data-zoomed]_&]:opacity-0 [[data-zoomed]_&]:blur-[6px] [[data-pulling]_&]:opacity-0 [[data-pulling]_&]:blur-[6px] [[data-pull-dismissing]_&]:opacity-0 [[data-pull-dismissing]_&]:blur-[6px]">
             <Lightbox.Caption className="pointer-events-auto block min-h-[1.25rem] max-w-full truncate px-6 text-center text-sm text-black/70 dark:text-white/80" />
 
             <Lightbox.ThumbnailGroup
