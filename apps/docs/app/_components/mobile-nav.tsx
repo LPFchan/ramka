@@ -19,34 +19,52 @@ export function MobileNav() {
   const [open, setOpen] = React.useState(false);
 
   return (
-    <header className="sticky top-0 z-40 flex h-14 items-center justify-between gap-2 border-b border-neutral-200 bg-white/80 px-4 backdrop-blur-sm dark:border-neutral-800 dark:bg-neutral-950/80 md:hidden">
-      <Drawer open={open} onOpenChange={setOpen} swipeDirection="down" showSwipeHandle>
-        <DrawerTrigger
-          aria-label="Open navigation"
-          className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-neutral-200 bg-white text-neutral-700 transition hover:bg-neutral-100 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-800"
-        >
-          <Menu className="h-4 w-4" />
-        </DrawerTrigger>
+    <>
+      {/* iOS 26 Safari ignores `theme-color` and tints the status bar from
+          fixed/sticky elements near the top (`background-color` +
+          `backdrop-filter`). A thin solid strip gives it pure white/black to
+          sample; the sticky nav keeps its glass blur on an absolute child so
+          Safari doesn't read the frosted gray into the status bar. */}
+      
+      <header className="sticky top-0 z-40 md:hidden">
+      <div
+        aria-hidden
+        className="pointer-events-none fixed top-0 left-0 z-30 h-1 w-full bg-white dark:bg-black md:hidden"
+      />
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 border-b border-neutral-200 bg-gradient-to-b from-white to-white/80 backdrop-blur-sm dark:border-neutral-800 dark:from-black dark:to-neutral-950/80"
+        />
+        <div className="relative flex h-14 items-center justify-between gap-2 px-4">
+          <Drawer open={open} onOpenChange={setOpen} swipeDirection="down" showSwipeHandle>
+            <DrawerTrigger
+              aria-label="Open navigation"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-neutral-200 bg-white text-neutral-700 transition hover:bg-neutral-100 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-800"
+            >
+              <Menu className="h-4 w-4" />
+            </DrawerTrigger>
 
-        <DrawerContent className="data-[swipe-axis=y]:[--drawer-content-max-height:85dvh]">
-          <DrawerHeader className="text-left">
-            <DrawerTitle>ramka</DrawerTitle>
-            <DrawerDescription>Unstyled gallery & lightbox primitives</DrawerDescription>
-          </DrawerHeader>
-          <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-6 pt-2">
-            <SidebarNav onNavigate={() => setOpen(false)} />
-          </div>
-        </DrawerContent>
-      </Drawer>
+            <DrawerContent className="data-[swipe-axis=y]:[--drawer-content-max-height:85dvh]">
+              <DrawerHeader className="text-left">
+                <DrawerTitle>ramka</DrawerTitle>
+                <DrawerDescription>Unstyled gallery & lightbox primitives</DrawerDescription>
+              </DrawerHeader>
+              <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-6 pt-2">
+                <SidebarNav onNavigate={() => setOpen(false)} />
+              </div>
+            </DrawerContent>
+          </Drawer>
 
-      <Link
-        href="/"
-        className="text-sm font-semibold tracking-tight text-neutral-900 hover:text-neutral-600 dark:text-neutral-50 dark:hover:text-neutral-300"
-      >
-        ramka
-      </Link>
+          <Link
+            href="/"
+            className="text-sm font-semibold tracking-tight text-neutral-900 hover:text-neutral-600 dark:text-neutral-50 dark:hover:text-neutral-300"
+          >
+            ramka
+          </Link>
 
-      <ThemeToggle />
-    </header>
+          <ThemeToggle />
+        </div>
+      </header>
+    </>
   );
 }
