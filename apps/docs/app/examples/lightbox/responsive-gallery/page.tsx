@@ -533,9 +533,9 @@ function FeedPostGallery({ post }: { post: FeedPost }) {
           ))}
         </Lightbox.Slides>
 
-        {/* Top-right: zoom desktop-only; close always. Stay visible while
-            zoomed; fade only during pull-to-dismiss. */}
-        <div className="absolute right-3 top-3 z-10 flex gap-2 transition-[opacity,filter] duration-200 [[data-pulling]_&]:pointer-events-none [[data-pulling]_&]:opacity-0 [[data-pulling]_&]:blur-[6px] [[data-pull-dismissing]_&]:pointer-events-none [[data-pull-dismissing]_&]:opacity-0 [[data-pull-dismissing]_&]:blur-[6px]">
+        {/* Top-right: zoom desktop-only; close always. On mobile, fade
+            close while zoomed; on md+ stay visible. Also fade on pull. */}
+        <div className="absolute right-3 top-3 z-10 flex gap-2 transition-[opacity,filter] duration-200 max-md:[[data-zoomed]_&]:pointer-events-none max-md:[[data-zoomed]_&]:opacity-0 max-md:[[data-zoomed]_&]:blur-[6px] [[data-pulling]_&]:pointer-events-none [[data-pulling]_&]:opacity-0 [[data-pulling]_&]:blur-[6px] [[data-pull-dismissing]_&]:pointer-events-none [[data-pull-dismissing]_&]:opacity-0 [[data-pull-dismissing]_&]:blur-[6px]">
           <Lightbox.ZoomOut className={lightboxChromeButtonMd} aria-label="Zoom out">
             <ZoomOut aria-hidden className="h-4 w-4" strokeWidth={2.25} />
           </Lightbox.ZoomOut>
