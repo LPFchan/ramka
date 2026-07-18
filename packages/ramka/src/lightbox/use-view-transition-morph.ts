@@ -93,6 +93,56 @@ function getPendingDecodeImage(target: HTMLElement | null): HTMLImageElement | n
 }
 
 /**
+ * Extracts the first `url(...)` from an element's computed `background-image`,
+ * or `null` when there's none (a gradient, `none`, or an unset value). Used to
+ * pre-decode a CSS background placeholder before the open morph's new snapshot.
+ */
+function getBackgroundImageUrl(target: HTMLElement | null): string | null {
+  if (!target) return null;
+  const backgroundImage = getComputedStyle(target).backgroundImage;
+  if (!backgroundImage || backgroundImage === 'none') return null;
+  const match = backgroundImage.match(/url\((['"]?)([^'")]+)\1\)/);
+  return match ? match[2]! : null;
+}
+
+/**
+ * Decodes an image URL so its pixels are paint-ready *before* the View
+ * Transition captures the new snapshot. Mirrors {@link waitForImageDecode}, but
+ * for a bare URL — a CSS `background-image` has no element to call `decode()` on.
+ *
+ * Why this exists: Safari/WebKit decodes background images ASYNCHRONOUSLY and
+ * per painted box, at the box's draw size. A thumbnail the trigger already
+ * decoded *small* (its grid size) is NOT reused when the lightbox item paints
+ * that same url much larger — WebKit kicks off a fresh async decode at the new
+ * size and, until it lands, paints only the element's `background-color`. That's
+ * the red/placeholder flash for the first frame(s) of the morph. WebKit only
+ * sidesteps this when a decode already exists at the drawn size; see
+ * https://bugs.webkit.org/show_bug.cgi?id=270330.
+ *
+ * A detached `Image` for the same url resolves to the browser's single
+ * `CachedImage` shared with every on-page user of that resource (the trigger's
+ * `<img>`, the item's `background-image`). Decoding here at natural size (no
+ * width/height) produces the largest frame; the item's `cover` paint (which
+ * never needs more than the source's own pixels) is then satisfied from cache
+ * synchronously — no flash. Always resolves, bounded by `maxWait`, and never
+ * rejects, so a slow/broken decode can't stall the open morph.
+ */
+function decodeImageUrl(url: string, maxWait: number = DEFAULT_DECODE_MAX_WAIT): Promise<void> {
+  return new Promise<void>((resolve) => {
+    let settled = false;
+    const settle = () => {
+      if (settled) return;
+      settled = true;
+      resolve();
+    };
+    const img = new Image();
+    img.src = url;
+    img.decode().then(settle, settle);
+    setTimeout(settle, maxWait);
+  });
+}
+
+/**
  * Whether the destination morph target has a resolvable size to morph *into*.
  *
  * Uses the target's **rendered box** (`getBoundingClientRect`) rather than the
@@ -250,27 +300,22 @@ function applyMorphState(
   docEl.setAttribute('data-lightbox-view-transition', phase);
   if (!opts.useCrossfade) {
     docEl.setAttribute('data-lightbox-no-crossfade', '');
-    // No-crossfade keeps whichever snapshot is the "source of truth" fully
-    // opaque and hard-cuts the other — but we ALWAYS keep the *old* snapshot
-    // opaque underneath as a paint fallback, never 0:
+    // No-crossfade shows ONLY the item snapshot for the whole morph and hard-
+    // cuts the trigger. The item is the single visible, animated layer in BOTH
+    // directions; the trigger snapshot is never shown:
     //
-    // - Opening: `new` is the destination item, which was `visibility: hidden`
-    //   during prepare and only flips visible inside the (synchronous) VT
-    //   callback, right before the new snapshot is captured. If that freshly
-    //   revealed layer isn't rasterized in time the new snapshot is blank —
-    //   and with `old` hidden there's nothing behind it, so you get a one-frame
-    //   flash of empty space (independent of image caching; it's a compositing
-    //   race). Keeping `old` (the trigger, captured from a fully-painted live
-    //   element) at opacity 1 underneath means a blank `new` falls back to the
-    //   trigger instead of to nothing. When `new` IS painted it's opaque and
-    //   fully covers `old`, so the result is visually identical — this only
-    //   ever shows through on the (bad) frame it would otherwise be blank.
-    //   `crossfade={false}` is documented for the "same image at different
-    //   crops/sizes" case, so the trigger underneath is always a safe fallback.
+    // - Opening: `new` is the destination item; keep it opaque and hard-cut
+    //   `old` (the trigger) to 0 so only the item image animates from the
+    //   trigger's box into place — the trigger itself is not animated at all.
+    //   Trade-off: `old` is no longer a paint fallback, so if the freshly
+    //   revealed item layer isn't rasterized in time (a compositing race, or
+    //   `awaitImageDecode={false}` / an item with no image) the new snapshot
+    //   can be blank for one frame with nothing behind it. The bounded
+    //   image-decode wait on the open path mitigates this in the common case.
     // - Closing: `old` is the item (already on-screen and painted), `new` is
     //   the trigger, hard-cut to 0 so a scrolled-away/again-unpainted trigger
     //   can't ghost over the item as it shrinks back.
-    docEl.style.setProperty('--lightbox-morph-old-opacity', '1');
+    docEl.style.setProperty('--lightbox-morph-old-opacity', phase === 'opening' ? '0' : '1');
     docEl.style.setProperty('--lightbox-morph-new-opacity', phase === 'opening' ? '1' : '0');
   }
   if (opts.fromRadius) {
@@ -431,21 +476,46 @@ function useViewTransitionMorph(config: ViewTransitionMorphConfig): ViewTransiti
     // callback -> captures new in a single uninterrupted rendering update with
     // no intermediate paint. Bounded by `decodeMaxWait`; skipped entirely when
     // the consumer opts out (awaitImageDecode={false}).
-    if (decodeMaxWait > 0) {
-      const pendingItemEl = activeItemElementRef.current;
-      const pendingItemTarget = pendingItemEl
-        ? findItemMorphTarget(pendingItemEl, itemMorphElementsRef.current)
-        : null;
-      // Only actually await when the destination image is still loading. When
-      // it's cached (or there's no image), skip the await so the open path
-      // stays synchronous and the transition starts on the same tick as the
-      // click — no microtask deferral, no perceptible lag.
-      if (getPendingDecodeImage(pendingItemTarget)) {
-        await waitForImageDecode(pendingItemTarget, decodeMaxWait);
-        // A newer open/close superseded this one during the await — bail before
-        // touching any document-level morph state so we don't corrupt it.
-        if (configRef.current.closeGenRef.current !== gen) return;
-      }
+    const pendingItemEl = activeItemElementRef.current;
+    const pendingItemTarget = pendingItemEl
+      ? findItemMorphTarget(pendingItemEl, itemMorphElementsRef.current)
+      : null;
+
+    // Everything that must be paint-ready BEFORE the new snapshot is captured.
+    // Awaiting here (rather than inside the VT callback) keeps the callback
+    // synchronous — see the note above waitForImageDecode.
+    const decodes: Promise<void>[] = [];
+
+    // (1) The destination <img>'s own decode — the potentially heavy full-size
+    // image. Governed by `awaitImageDecode`: only await when the consumer opted
+    // in (`decodeMaxWait > 0`) AND the image is still loading. A cached/absent
+    // image adds nothing, so the open path stays fully synchronous (no microtask
+    // deferral) in the common case.
+    if (decodeMaxWait > 0 && getPendingDecodeImage(pendingItemTarget)) {
+      decodes.push(waitForImageDecode(pendingItemTarget, decodeMaxWait));
+    }
+
+    // (2) A CSS background-image placeholder on the morph target (e.g. a low-res
+    // thumb painted behind a still-loading full <img>). Primed UNCONDITIONALLY —
+    // independent of `awaitImageDecode`, which governs only the heavy image in
+    // (1). The placeholder is small and typically already fetched (the trigger
+    // rendered it), so the wait is negligible, and priming its decode is what
+    // stops Safari from flashing the element's background-color for the first
+    // frame(s) of the morph while it re-decodes the thumb at the item's larger
+    // draw size. See decodeImageUrl for the full why. The wait is bounded so a
+    // slow/broken placeholder can never stall the open.
+    const backgroundUrl = getBackgroundImageUrl(pendingItemTarget);
+    if (backgroundUrl) {
+      decodes.push(
+        decodeImageUrl(backgroundUrl, decodeMaxWait > 0 ? decodeMaxWait : DEFAULT_DECODE_MAX_WAIT),
+      );
+    }
+
+    if (decodes.length > 0) {
+      await Promise.all(decodes);
+      // A newer open/close superseded this one during the await — bail before
+      // touching any document-level morph state so we don't corrupt it.
+      if (configRef.current.closeGenRef.current !== gen) return;
     }
 
     // Read the destination item's border-radius here, after the mount. The
