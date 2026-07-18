@@ -151,6 +151,7 @@ export default function PhotosAppPage() {
           { type: 'onChange', behavior: 'instant' },
           { type: 'onOpenComplete', behavior: 'instant' },
         ]}
+        awaitImageDecode={false}
         
       >
         {/* The sticky nav AND the grid share a single `view-transition-name` so
@@ -240,7 +241,7 @@ export default function PhotosAppPage() {
               keeps every slide *box* mounted (so scroll extent is correct across
               all photos) while `preload` gates which slides render their heavy
               `Lightbox.Item` content. */}
-          <Lightbox.Slides aria-label="Full-size photos" preload={2} className="flex-1 [&::-webkit-scrollbar]:hidden gap-5 md:gap-0">
+          <Lightbox.Slides  aria-label="Full-size photos" preload={0} className="flex-1 [&::-webkit-scrollbar]:hidden gap-5 md:gap-0">
             {photos.map((photo, i) => (
               // The snap box (Lightbox.Slide) and the drag target (Lightbox.Item)
               // are deliberately SEPARATE elements so a vertical pull-to-dismiss
@@ -269,17 +270,22 @@ export default function PhotosAppPage() {
                         className="relative shrink-0 [--lb-inset-h:0px] [--lb-inset-w:0px]"
                         style={fitBoxStyle(imgAspect(photo.src))}
                       >
-                        <Image
+                        <img
                           ref={imageRef}
-                          src={photo.src}
+                          // src={photo.src}
                           alt={photo.alt}
                           width={imgDims(photo.src)?.width ?? 1600}
                           height={imgDims(photo.src)?.height ?? 1200}
                           sizes="100vw"
-                          priority
-                          unoptimized
+                          
+                          // style={{
+                          //   backgroundImage: `url(${photo.thumb})`,
+                          //   backgroundSize: 'cover',
+                          //   backgroundPosition: 'center',
+                          //   backgroundRepeat: 'no-repeat',
+                          // }}
                           draggable={false}
-                          className="h-full w-full select-none rounded-none object-contain md:rounded-lg"
+                          className="h-full w-full select-none rounded-none object-contain md:rounded-lg bg-red-500"
                         />
                       </div>
                     </Lightbox.Zoom>

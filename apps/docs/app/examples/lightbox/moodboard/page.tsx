@@ -129,6 +129,7 @@ export default function MoodboardPage() {
           { type: 'onChange', behavior: 'instant' },
           { type: 'onOpenComplete', behavior: 'instant' },
         ]}
+        awaitImageDecode={false}
       >
         {/* Flex-column masonry (not CSS `columns`) — see useColumnCount above for
             why. Tiles keep their natural aspect once loaded; round-robin keeps a
@@ -201,11 +202,11 @@ export default function MoodboardPage() {
                         <img
                           ref={imageRef}
                           {...imgDims(img.full)}
-                          src={img.full}
+                          // src={img.full}
                           alt={img.alt}
                           loading="eager"
                           draggable={false}
-                          className="h-full w-full select-none rounded-none object-contain md:rounded-lg"
+                          className="h-full w-full select-none rounded-none object-contain md:rounded-lg bg-red-600"
                         />
                       </div>
                     </Lightbox.Zoom>
