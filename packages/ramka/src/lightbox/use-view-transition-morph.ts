@@ -93,39 +93,35 @@ function getPendingDecodeImage(target: HTMLElement | null): HTMLImageElement | n
 }
 
 /**
- * Extracts the first `url(...)` from an element's computed `background-image`,
- * or `null` when there's none (a gradient, `none`, or an unset value). Used to
- * pre-decode a CSS background placeholder before the open morph's new snapshot.
- */
-function getBackgroundImageUrl(target: HTMLElement | null): string | null {
-  if (!target) return null;
-  const backgroundImage = getComputedStyle(target).backgroundImage;
-  if (!backgroundImage || backgroundImage === 'none') return null;
-  const match = backgroundImage.match(/url\((['"]?)([^'")]+)\1\)/);
-  return match ? match[2]! : null;
-}
-
-/**
+ * ⚠️ IMPORTANT — Safari placeholder-flash fix. Do not remove without reading
+ * `waitForPlaceholderDecode` below and the linked regression tests
+ * (`lightbox.test.tsx` → "placeholder decode priming (Safari flash fix)").
+ *
  * Decodes an image URL so its pixels are paint-ready *before* the View
  * Transition captures the new snapshot. Mirrors {@link waitForImageDecode}, but
- * for a bare URL — a CSS `background-image` has no element to call `decode()` on.
+ * primes by URL (via a detached `Image`) rather than by element, because it must
+ * force a *fresh, natural-size* decode even for a source the browser already
+ * considers "complete".
  *
- * Why this exists: Safari/WebKit decodes background images ASYNCHRONOUSLY and
- * per painted box, at the box's draw size. A thumbnail the trigger already
- * decoded *small* (its grid size) is NOT reused when the lightbox item paints
- * that same url much larger — WebKit kicks off a fresh async decode at the new
- * size and, until it lands, paints only the element's `background-color`. That's
- * the red/placeholder flash for the first frame(s) of the morph. WebKit only
- * sidesteps this when a decode already exists at the drawn size; see
+ * Why by URL and not the element: the trigger's `<img>` is already `complete`,
+ * so `waitForImageDecode` would early-return without decoding — yet its only
+ * decoded frame is at the trigger's *small* grid size. A detached `Image` with
+ * the same url resolves to the browser's single `CachedImage` shared with every
+ * on-page user of that resource, and `decode()` always runs, producing a
+ * natural-size frame in that shared cache.
+ *
+ * Why this matters (the bug it fixes): Safari/WebKit decodes images
+ * ASYNCHRONOUSLY and per painted box, keyed by the box's draw size. When the
+ * lightbox item paints the trigger's thumbnail as its placeholder background at
+ * a much larger size, WebKit finds no decode at that size and kicks off a fresh
+ * async one — painting only the element's `background-color` (a blank/coloured
+ * flash) for the first frame(s) of the morph until the decode lands. Priming a
+ * natural-size decode up front (the source is never larger than its own pixels)
+ * satisfies the item's paint from cache synchronously, so there's no flash. See
  * https://bugs.webkit.org/show_bug.cgi?id=270330.
  *
- * A detached `Image` for the same url resolves to the browser's single
- * `CachedImage` shared with every on-page user of that resource (the trigger's
- * `<img>`, the item's `background-image`). Decoding here at natural size (no
- * width/height) produces the largest frame; the item's `cover` paint (which
- * never needs more than the source's own pixels) is then satisfied from cache
- * synchronously — no flash. Always resolves, bounded by `maxWait`, and never
- * rejects, so a slow/broken decode can't stall the open morph.
+ * Always resolves, bounded by `maxWait`, and never rejects, so a slow/broken
+ * decode can't stall the open morph.
  */
 function decodeImageUrl(url: string, maxWait: number = DEFAULT_DECODE_MAX_WAIT): Promise<void> {
   return new Promise<void>((resolve) => {
@@ -140,6 +136,31 @@ function decodeImageUrl(url: string, maxWait: number = DEFAULT_DECODE_MAX_WAIT):
     img.decode().then(settle, settle);
     setTimeout(settle, maxWait);
   });
+}
+
+/**
+ * ⚠️ IMPORTANT — this is the actual Safari placeholder-flash fix; keep it.
+ * Covered by "placeholder decode priming (Safari flash fix)" in lightbox.test.tsx.
+ *
+ * Forces the browser to flush style + layout for the morph target *after*
+ * `Lightbox.Item` has applied its placeholder `background-image`, so Safari
+ * begins decoding that background at the element's real box size BEFORE the View
+ * Transition captures the new snapshot. The subsequent decode `await` then gives
+ * that decode time to land.
+ *
+ * Priming the shared decode cache with a detached `Image` (see decodeImageUrl)
+ * turned out NOT to be sufficient on its own — Safari decodes per-element and
+ * per-draw-size and asynchronously, so without touching the element WebKit still
+ * paints only the element's `background-color` for the first frame(s) of the
+ * morph. Reading resolved style (`backgroundImage`) plus a layout box on the
+ * element is what kicks its own decode off in time. The reads are intentional
+ * side effects; `void` marks them as such. See
+ * https://bugs.webkit.org/show_bug.cgi?id=270330.
+ */
+function forcePlaceholderPaint(target: HTMLElement | null): void {
+  if (!target) return;
+  void getComputedStyle(target).backgroundImage;
+  void target.getBoundingClientRect();
 }
 
 /**
@@ -373,6 +394,15 @@ interface ViewTransitionMorphConfig {
   triggerElementsRef: React.RefObject<Map<number, HTMLElement>>;
   /** Trigger element → its designated morph descendant (see findTriggerMorphTarget). */
   triggerMorphElementsRef: React.RefObject<WeakMap<HTMLElement, HTMLElement>>;
+  /**
+   * Opening trigger's `<img>` (the clicked one). Its `currentSrc` is exactly the
+   * source `Lightbox.Item` paints as the destination image's placeholder
+   * background, so priming its decode is what bridges the open morph in Safari
+   * (see `decodeImageUrl`). Mirrors the placeholder resolution in lightbox-item.
+   */
+  openingTriggerImageRef: React.RefObject<HTMLImageElement | null>;
+  /** Index → trigger `<img>`; the placeholder source when the opening image ref is unset. */
+  triggerImageElementsRef: React.RefObject<Map<number, HTMLImageElement>>;
   activeItemElementRef: React.RefObject<HTMLElement | null>;
   /** Item element → its designated morph descendant (see findItemMorphTarget). */
   itemMorphElementsRef: React.RefObject<WeakMap<HTMLElement, HTMLElement>>;
@@ -428,6 +458,8 @@ function useViewTransitionMorph(config: ViewTransitionMorphConfig): ViewTransiti
       decodeMaxWait,
       triggerElementsRef,
       triggerMorphElementsRef,
+      openingTriggerImageRef,
+      triggerImageElementsRef,
       activeItemElementRef,
       itemMorphElementsRef,
       openingTriggerIndexRef,
@@ -486,29 +518,53 @@ function useViewTransitionMorph(config: ViewTransitionMorphConfig): ViewTransiti
     // synchronous — see the note above waitForImageDecode.
     const decodes: Promise<void>[] = [];
 
+    // Is the destination image still loading? When it is, `Lightbox.Item` paints
+    // the trigger's thumbnail as a placeholder background to bridge the morph —
+    // which is exactly the case that needs the Safari decode-priming below. When
+    // it's already loaded (or absent), there's no placeholder and nothing to
+    // prime, so the open path can stay fully synchronous.
+    const destinationPending = !!getPendingDecodeImage(pendingItemTarget);
+
     // (1) The destination <img>'s own decode — the potentially heavy full-size
     // image. Governed by `awaitImageDecode`: only await when the consumer opted
-    // in (`decodeMaxWait > 0`) AND the image is still loading. A cached/absent
-    // image adds nothing, so the open path stays fully synchronous (no microtask
-    // deferral) in the common case.
-    if (decodeMaxWait > 0 && getPendingDecodeImage(pendingItemTarget)) {
+    // in (`decodeMaxWait > 0`) AND the image is still loading.
+    if (decodeMaxWait > 0 && destinationPending) {
       decodes.push(waitForImageDecode(pendingItemTarget, decodeMaxWait));
     }
 
-    // (2) A CSS background-image placeholder on the morph target (e.g. a low-res
-    // thumb painted behind a still-loading full <img>). Primed UNCONDITIONALLY —
-    // independent of `awaitImageDecode`, which governs only the heavy image in
-    // (1). The placeholder is small and typically already fetched (the trigger
-    // rendered it), so the wait is negligible, and priming its decode is what
-    // stops Safari from flashing the element's background-color for the first
-    // frame(s) of the morph while it re-decodes the thumb at the item's larger
-    // draw size. See decodeImageUrl for the full why. The wait is bounded so a
-    // slow/broken placeholder can never stall the open.
-    const backgroundUrl = getBackgroundImageUrl(pendingItemTarget);
-    if (backgroundUrl) {
-      decodes.push(
-        decodeImageUrl(backgroundUrl, decodeMaxWait > 0 ? decodeMaxWait : DEFAULT_DECODE_MAX_WAIT),
-      );
+    // (2) ⚠️ IMPORTANT — Safari placeholder-flash fix (do not remove; covered by
+    // "placeholder decode priming (Safari flash fix)" in lightbox.test.tsx).
+    //
+    // While the destination image is still loading, `Lightbox.Item` paints the
+    // trigger's thumbnail as the <img>'s placeholder background. On Safari that
+    // placeholder flashes the element's background-color for the first frame(s)
+    // of the morph, because WebKit decodes background images asynchronously,
+    // per-element and per-draw-size. Two steps fix it, and BOTH are required:
+    //
+    //   a) forcePlaceholderPaint — flush the target's style + layout so WebKit
+    //      begins decoding ITS OWN background at the real box size. This is the
+    //      step that actually prevents the flash; cache-priming alone did not.
+    //   b) decodeImageUrl — prime/await a decode of the same source (the opening
+    //      trigger image's `currentSrc`, which is BY CONSTRUCTION the placeholder
+    //      url — see the placeholder effect in lightbox-item, so we read it from
+    //      refs, not getComputedStyle). Awaiting it holds the open until the
+    //      shared decode has landed, right before the new snapshot is captured.
+    //
+    // Runs independent of `awaitImageDecode` (which governs only the heavy image
+    // in (1)): the placeholder is small and typically already fetched, so the
+    // wait is negligible and bounded — a slow/broken source can't stall the
+    // open. Gated on `destinationPending`, matching exactly when the item paints
+    // the placeholder.
+    if (destinationPending) {
+      const placeholderImg =
+        openingTriggerImageRef.current ?? triggerImageElementsRef.current?.get(triggerIdx) ?? null;
+      const placeholderSrc = placeholderImg?.currentSrc || null;
+      if (placeholderSrc) {
+        forcePlaceholderPaint(pendingItemTarget);
+        decodes.push(
+          decodeImageUrl(placeholderSrc, decodeMaxWait > 0 ? decodeMaxWait : DEFAULT_DECODE_MAX_WAIT),
+        );
+      }
     }
 
     if (decodes.length > 0) {
