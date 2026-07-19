@@ -321,22 +321,28 @@ function applyMorphState(
   docEl.setAttribute('data-lightbox-view-transition', phase);
   if (!opts.useCrossfade) {
     docEl.setAttribute('data-lightbox-no-crossfade', '');
-    // No-crossfade shows ONLY the item snapshot for the whole morph and hard-
-    // cuts the trigger. The item is the single visible, animated layer in BOTH
-    // directions; the trigger snapshot is never shown:
+    // No-crossfade makes the item the single visible, animated layer in both
+    // directions and never crossfades the trigger. But on OPEN we ALWAYS keep
+    // the `old` (trigger) snapshot opaque underneath as a paint fallback —
+    // never 0. (In the CSS both pseudos have `animation: none` and stretch to
+    // the group box, with `new` painted on top of `old`.)
     //
-    // - Opening: `new` is the destination item; keep it opaque and hard-cut
-    //   `old` (the trigger) to 0 so only the item image animates from the
-    //   trigger's box into place — the trigger itself is not animated at all.
-    //   Trade-off: `old` is no longer a paint fallback, so if the freshly
-    //   revealed item layer isn't rasterized in time (a compositing race, or
-    //   `awaitImageDecode={false}` / an item with no image) the new snapshot
-    //   can be blank for one frame with nothing behind it. The bounded
-    //   image-decode wait on the open path mitigates this in the common case.
-    // - Closing: `old` is the item (already on-screen and painted), `new` is
-    //   the trigger, hard-cut to 0 so a scrolled-away/again-unpainted trigger
-    //   can't ghost over the item as it shrinks back.
-    docEl.style.setProperty('--lightbox-morph-old-opacity', phase === 'opening' ? '0' : '1');
+    // - Opening: `new` is the destination item, which is `visibility: hidden`
+    //   during prepare and only flips visible inside the (synchronous) VT
+    //   callback, right before the new snapshot is captured. If that freshly
+    //   revealed layer isn't rasterized in time the new snapshot is blank for a
+    //   frame — a compositing race independent of image caching (worst on mobile
+    //   Safari). With `old` hidden there'd be nothing behind it, so you'd see a
+    //   one-frame flash of empty space between the trigger vanishing and the
+    //   item painting. Keeping `old` (the trigger, captured from a fully-painted
+    //   live element) opaque underneath makes a blank `new` fall back to the
+    //   trigger instead of to nothing. When `new` IS painted it's opaque and
+    //   fully OCCLUDES `old`, so the trigger is never *seen* animating — visually
+    //   identical to hard-cutting it, except on the frame it would be blank.
+    // - Closing: `old` is the item (already on-screen and painted) and stays
+    //   opaque; `new` is the trigger, hard-cut to 0 so a scrolled-away/unpainted
+    //   trigger can't ghost over the item as it shrinks back.
+    docEl.style.setProperty('--lightbox-morph-old-opacity', '1');
     docEl.style.setProperty('--lightbox-morph-new-opacity', phase === 'opening' ? '1' : '0');
   }
   if (opts.fromRadius) {
