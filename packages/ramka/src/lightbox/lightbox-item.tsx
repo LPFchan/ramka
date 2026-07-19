@@ -111,6 +111,8 @@ const LightboxItem = React.forwardRef<HTMLDivElement, LightboxItemProps>(
       openingTriggerImageRef,
       triggerImageElementsRef,
       triggerElementsRef,
+      openTransitionPendingRef,
+      subscribeOpenComplete,
     } = useLightboxContext();
     const groupContext = useLightboxItemGroupContext();
 
@@ -251,30 +253,44 @@ const LightboxItem = React.forwardRef<HTMLDivElement, LightboxItemProps>(
       let cleared = false;
       let rafA = 0;
       let rafB = 0;
+      let imagePainted = false;
 
-      const finishRestore = () => {
-        if (cleared) return;
+      // Only gate on the open transition when one is actually in flight as this
+      // item mounts — i.e. the morphing slide. Items navigated to *after* the
+      // open (adjacent slides) see no pending transition and clear on load as
+      // usual; otherwise they'd wait forever for an open-complete that already
+      // fired.
+      let openSettled = !openTransitionPendingRef.current;
+
+      // ⚠️ IMPORTANT — the placeholder is the bridge for the open morph, so two
+      // independent conditions must BOTH hold before we pull it out from under
+      // the destination <img>. Whichever lands last performs the single restore.
+      //
+      //   (a) the full-res image is actually painted. `load` only means the
+      //       bytes arrived; the <img>'s replaced content isn't composited until
+      //       a later frame (notably mobile Safari). So decode() (pixels ready)
+      //       then wait two animation frames (content composited) before marking
+      //       it painted. Clearing any earlier flashes a blank frame.
+      //
+      //   (b) the open transition has finished. Clearing the placeholder while
+      //       the morph is still running swaps the element's paint out mid-
+      //       transition and flashes on mobile Safari, so we defer to
+      //       `subscribeOpenComplete` (fires on open finish, and on close so an
+      //       interrupted open still releases the gate).
+      const tryRestore = () => {
+        if (cleared || !imagePainted || !openSettled) return;
         cleared = true;
         restore();
       };
 
-      // ⚠️ IMPORTANT — do not restore synchronously on `load`.
-      //
-      // `load` fires once the full-res bytes are in, but the <img>'s replaced
-      // content is not composited to screen until a later frame (notably on
-      // mobile Safari). Pulling the placeholder background out now leaves a gap
-      // where the background is gone but the image hasn't painted yet — a blank
-      // flash right after the open morph settles.
-      //
-      // So we (1) `decode()` to guarantee the pixels are ready, then (2) wait
-      // two animation frames so the browser has actually composited the <img>
-      // content on top of the placeholder before we remove the placeholder from
-      // underneath it. The extra ~2 frames only prolong the (already-visible)
-      // placeholder, so the swap is seamless.
+      const markPainted = () => {
+        imagePainted = true;
+        tryRestore();
+      };
       const scheduleRestore = () => {
         if (cleared) return;
         rafA = requestAnimationFrame(() => {
-          rafB = requestAnimationFrame(finishRestore);
+          rafB = requestAnimationFrame(markPainted);
         });
       };
       const onLoad = () => {
@@ -286,8 +302,17 @@ const LightboxItem = React.forwardRef<HTMLDivElement, LightboxItemProps>(
         }
       };
       img.addEventListener('load', onLoad);
+
+      const unsubscribeOpenComplete = openSettled
+        ? null
+        : subscribeOpenComplete(() => {
+            openSettled = true;
+            tryRestore();
+          });
+
       return () => {
         img.removeEventListener('load', onLoad);
+        unsubscribeOpenComplete?.();
         if (rafA) cancelAnimationFrame(rafA);
         if (rafB) cancelAnimationFrame(rafB);
         if (!cleared) restore();
