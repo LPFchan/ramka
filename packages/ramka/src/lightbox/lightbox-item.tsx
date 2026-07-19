@@ -249,14 +249,47 @@ const LightboxItem = React.forwardRef<HTMLDivElement, LightboxItemProps>(
       img.style.backgroundRepeat = 'no-repeat';
 
       let cleared = false;
-      const onLoad = () => {
+      let rafA = 0;
+      let rafB = 0;
+
+      const finishRestore = () => {
         if (cleared) return;
         cleared = true;
         restore();
       };
+
+      // ⚠️ IMPORTANT — do not restore synchronously on `load`.
+      //
+      // `load` fires once the full-res bytes are in, but the <img>'s replaced
+      // content is not composited to screen until a later frame (notably on
+      // mobile Safari). Pulling the placeholder background out now leaves a gap
+      // where the background is gone but the image hasn't painted yet — a blank
+      // flash right after the open morph settles.
+      //
+      // So we (1) `decode()` to guarantee the pixels are ready, then (2) wait
+      // two animation frames so the browser has actually composited the <img>
+      // content on top of the placeholder before we remove the placeholder from
+      // underneath it. The extra ~2 frames only prolong the (already-visible)
+      // placeholder, so the swap is seamless.
+      const scheduleRestore = () => {
+        if (cleared) return;
+        rafA = requestAnimationFrame(() => {
+          rafB = requestAnimationFrame(finishRestore);
+        });
+      };
+      const onLoad = () => {
+        if (cleared) return;
+        if (typeof img.decode === 'function') {
+          img.decode().then(scheduleRestore, scheduleRestore);
+        } else {
+          scheduleRestore();
+        }
+      };
       img.addEventListener('load', onLoad);
       return () => {
         img.removeEventListener('load', onLoad);
+        if (rafA) cancelAnimationFrame(rafA);
+        if (rafB) cancelAnimationFrame(rafB);
         if (!cleared) restore();
       };
       // Run once on mount: the source trigger and destination image are fixed

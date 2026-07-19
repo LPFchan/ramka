@@ -47,13 +47,27 @@ function restoreImageStubs() {
   }
 }
 
-function simulateLoad(img: HTMLImageElement) {
+async function simulateLoad(img: HTMLImageElement) {
   const withState = img as HTMLImageElement & { __complete?: boolean; __naturalWidth?: number };
   withState.__complete = true;
   withState.__naturalWidth = 200;
-  act(() => {
+  // The placeholder is intentionally NOT cleared synchronously on `load`: it's
+  // deferred behind decode() + two animation frames so mobile Safari has
+  // composited the full-res <img> before we pull the background out from under
+  // it. Run those rAFs synchronously here so the cleared state is observable.
+  const raf = vi
+    .spyOn(window, 'requestAnimationFrame')
+    .mockImplementation((cb: FrameRequestCallback) => {
+      cb(0);
+      return 0;
+    });
+  await act(async () => {
     fireEvent.load(img);
+    // Flush the decode().then microtask (when decode exists in the env).
+    await Promise.resolve();
+    await Promise.resolve();
   });
+  raf.mockRestore();
 }
 
 beforeEach(() => {
@@ -103,7 +117,7 @@ function clickTrigger(testid: string) {
 // ---------------------------------------------------------------------------
 
 describe('render-fn placeholder wiring (triggerImageRef -> imageRef)', () => {
-  it('paints the trigger image as the destination background and clears it on load', () => {
+  it('paints the trigger image as the destination background and clears it on load', async () => {
     render(
       <LightboxRoot>
         <LightboxTrigger index={0} data-testid="trigger">
@@ -126,7 +140,43 @@ describe('render-fn placeholder wiring (triggerImageRef -> imageRef)', () => {
     const img = itemImg();
     expect(img.style.backgroundImage).toContain('/thumb.jpg');
 
-    simulateLoad(img);
+    await simulateLoad(img);
+    expect(img.style.backgroundImage).toBe('');
+  });
+
+  it('defers clearing the placeholder until after the image paints (Safari flash fix)', async () => {
+    render(
+      <LightboxRoot>
+        <LightboxTrigger index={0} data-testid="trigger">
+          {({ triggerImageRef }) => <img ref={triggerImageRef} src="/thumb.jpg" alt="thumb" />}
+        </LightboxTrigger>
+        <LightboxContent aria-label="viewer">
+          <LightboxItemGroup>
+            <LightboxItem index={0}>
+              {({ imageRef }) => <img ref={imageRef} src="/full.jpg" alt="full" />}
+            </LightboxItem>
+          </LightboxItemGroup>
+        </LightboxContent>
+      </LightboxRoot>,
+    );
+
+    clickTrigger('trigger');
+    const img = itemImg();
+    expect(img.style.backgroundImage).toContain('/thumb.jpg');
+
+    // Fire `load` WITHOUT flushing the deferred frames. The placeholder must
+    // still be painted — clearing it here (before the full-res <img> composites)
+    // is exactly the mobile-Safari blank-flash regression this guards against.
+    const withState = img as HTMLImageElement & { __complete?: boolean; __naturalWidth?: number };
+    withState.__complete = true;
+    withState.__naturalWidth = 200;
+    act(() => {
+      fireEvent.load(img);
+    });
+    expect(img.style.backgroundImage).toContain('/thumb.jpg');
+
+    // Once the deferred decode + animation frames run, the placeholder clears.
+    await simulateLoad(img);
     expect(img.style.backgroundImage).toBe('');
   });
 
