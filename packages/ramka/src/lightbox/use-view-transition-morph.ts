@@ -499,10 +499,13 @@ function useViewTransitionMorph(config: ViewTransitionMorphConfig): ViewTransiti
       fromRadius: canMorph ? fromRadius : null,
       toRadius,
     });
+
     if (canMorph) {
       // Inline `!important` so the document-level isolation rule (which sets
       // `view-transition-name: none !important` on every element during the
       // morph) can't neutralize the one element we actually want captured.
+      // Shape (border-radius) is owned entirely by the VT group CSS + the
+      // from/to vars written above — we never mutate live element radii.
       setMorphName(triggerTarget!);
     }
 
@@ -594,7 +597,8 @@ function useViewTransitionMorph(config: ViewTransitionMorphConfig): ViewTransiti
     const fromRadius = itemTarget ? getComputedStyle(itemTarget).borderRadius : null;
     const toRadius = triggerTarget ? getComputedStyle(triggerTarget).borderRadius : null;
 
-    // Writes
+    // Writes — radii go to CSS vars; the VT group interpolates them (no live
+    // border-radius mutation).
     applyMorphState(docEl, 'closing', { useCrossfade, fromRadius, toRadius });
     if (itemTarget) {
       setMorphName(itemTarget);

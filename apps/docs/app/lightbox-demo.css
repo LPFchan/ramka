@@ -98,30 +98,41 @@
     animation-timing-function: var(--ease-out-expo);
   }
 
+  /* Shape morph is CSS-only: JS writes --lightbox-morph-border-radius-from/to
+     on :root; this group owns clipping for the whole transition. The `from`
+     radius is the cascade base (not only a keyframe) so frame 0 can't flash
+     the 0px fallback before the animation applies. */
   @keyframes lightbox-morph-border-radius {
-    from {
-      border-radius: var(--lightbox-morph-border-radius-from, 0px);
-    }
     to {
       border-radius: var(--lightbox-morph-border-radius-to, 0px);
     }
   }
 
   ::view-transition-group(lightbox-morph) {
+    overflow: hidden;
+    border-radius: var(--lightbox-morph-border-radius-from, 0px);
     animation-name: -ua-view-transition-group-anim-lightbox-morph, lightbox-morph-border-radius;
     animation-duration: 340ms;
     animation-timing-function: var(--ease-vt-morph);
     animation-fill-mode: both;
-    overflow: hidden;
     z-index: 2;
   }
 
   ::view-transition-old(lightbox-morph),
   ::view-transition-new(lightbox-morph) {
+    /* Same-image hard-cuts keep cover so crops stay correct. */
     object-fit: cover;
     width: 100%;
     height: 100%;
     mix-blend-mode: plus-lighter;
+  }
+
+  /* Crossfade (dissimilar snapshots): fill the morph box so a circular trigger's
+     baked alpha can't "balloon" under cover — the group's border-radius is the
+     visible shape, interpolating via the from/to vars above. */
+  :root[data-lightbox-view-transition]:not([data-lightbox-no-crossfade])::view-transition-old(lightbox-morph),
+  :root[data-lightbox-view-transition]:not([data-lightbox-no-crossfade])::view-transition-new(lightbox-morph) {
+    object-fit: fill;
   }
 
   :root[data-lightbox-no-crossfade]::view-transition-old(lightbox-morph),

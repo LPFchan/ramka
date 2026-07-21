@@ -137,8 +137,7 @@ interface CanvasPlaceholderArgs {
  * synchronous, so unlike an async image decode (which WebKit does per-draw-size
  * and often *after* it captures the view-transition "new" snapshot) the pixels
  * are guaranteed present in the snapshot and across the VT→live handoff — no
- * blank frame, no fallback to the opaque trigger snapshot (whose baked radius
- * balloons), no late letterboxing.
+ * blank frame, no fallback to the opaque trigger snapshot, no late letterboxing.
  */
 function tryPaintCanvasPlaceholder(args: CanvasPlaceholderArgs): (() => void) | null {
   const { img, source, fit, borderRadius, objectPosition, morphOverride } = args;

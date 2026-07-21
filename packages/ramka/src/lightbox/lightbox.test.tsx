@@ -1206,10 +1206,10 @@ describe('Lightbox', () => {
       delete (document as unknown as Record<string, unknown>).startViewTransition;
       document.documentElement.removeAttribute('data-lightbox-view-transition');
       document.documentElement.removeAttribute('data-lightbox-no-crossfade');
-      document.documentElement.style.removeProperty('--fui-morph-border-radius-from');
-      document.documentElement.style.removeProperty('--fui-morph-border-radius-to');
-      document.documentElement.style.removeProperty('--fui-morph-old-opacity');
-      document.documentElement.style.removeProperty('--fui-morph-new-opacity');
+      document.documentElement.style.removeProperty('--lightbox-morph-border-radius-from');
+      document.documentElement.style.removeProperty('--lightbox-morph-border-radius-to');
+      document.documentElement.style.removeProperty('--lightbox-morph-old-opacity');
+      document.documentElement.style.removeProperty('--lightbox-morph-new-opacity');
     }
 
     afterEach(() => {
@@ -1253,8 +1253,8 @@ describe('Lightbox', () => {
 
       await act(async () => resolveFinished());
       const docStyle = document.documentElement.style;
-      expect(docStyle.getPropertyValue('--fui-morph-border-radius-from')).toBe('');
-      expect(docStyle.getPropertyValue('--fui-morph-border-radius-to')).toBe('');
+      expect(docStyle.getPropertyValue('--lightbox-morph-border-radius-from')).toBe('');
+      expect(docStyle.getPropertyValue('--lightbox-morph-border-radius-to')).toBe('');
     });
 
     it('fires onOpenChangeComplete(true) after VT open finishes', async () => {
@@ -1756,6 +1756,79 @@ describe('Lightbox', () => {
         fireEvent.click(screen.getByTestId('close'));
         expect(document.documentElement).toHaveAttribute('data-lightbox-view-transition', 'closing');
         expect(document.documentElement).toHaveAttribute('data-lightbox-no-crossfade');
+      });
+    });
+
+    describe('border-radius CSS vars', () => {
+      let originalRect: PropertyDescriptor | undefined;
+
+      function mockTargetBox() {
+        originalRect = Object.getOwnPropertyDescriptor(
+          HTMLImageElement.prototype,
+          'getBoundingClientRect',
+        );
+        Object.defineProperty(HTMLImageElement.prototype, 'getBoundingClientRect', {
+          value: () => ({
+            width: 800,
+            height: 600,
+            top: 0,
+            left: 0,
+            right: 800,
+            bottom: 600,
+            x: 0,
+            y: 0,
+            toJSON() {},
+          }),
+          writable: true,
+          configurable: true,
+        });
+      }
+
+      afterEach(() => {
+        if (originalRect) {
+          Object.defineProperty(HTMLImageElement.prototype, 'getBoundingClientRect', originalRect);
+        }
+        originalRect = undefined;
+      });
+
+      it('writes from/to radius vars for the VT group CSS without mutating live radii', () => {
+        mockViewTransitionAPI();
+        mockTargetBox();
+        render(
+          <LightboxRoot viewTransition awaitImageDecode={false}>
+            <LightboxTrigger
+              index={0}
+              crossfade="both"
+              data-testid="trigger-0"
+              style={{ borderRadius: '32px' }}
+            >
+              {({ imageRef }) => (
+                <img ref={imageRef} src="thumb.jpg" alt="thumb" style={{ borderRadius: '32px' }} />
+              )}
+            </LightboxTrigger>
+            <LightboxContent data-testid="content" aria-label="radius vars test">
+              <LightboxItemGroup>
+                <LightboxItem index={0} data-testid="item-0">
+                  {({ imageRef }) => (
+                    <img ref={imageRef} src="full.jpg" alt="full" style={{ borderRadius: '8px' }} />
+                  )}
+                </LightboxItem>
+              </LightboxItemGroup>
+            </LightboxContent>
+          </LightboxRoot>,
+        );
+
+        fireEvent.click(screen.getByTestId('trigger-0'));
+
+        expect(
+          document.documentElement.style.getPropertyValue('--lightbox-morph-border-radius-from'),
+        ).toBe('32px');
+        expect(
+          document.documentElement.style.getPropertyValue('--lightbox-morph-border-radius-to'),
+        ).toBe('8px');
+        // Live elements keep their radii — shape morph is CSS on the VT group.
+        expect(screen.getByTestId('trigger-0').style.borderRadius).toBe('32px');
+        expect(screen.getByTestId('item-0').querySelector('img')!.style.borderRadius).toBe('8px');
       });
     });
 
