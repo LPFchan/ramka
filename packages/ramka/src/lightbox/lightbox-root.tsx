@@ -295,6 +295,27 @@ const LightboxRoot = React.forwardRef<LightboxRootRef, LightboxRootProps>(
     const [preparing, setPreparing] = React.useState(false);
     const closeGenRef = React.useRef(0);
 
+    // Open-transition lifecycle, observed by `Lightbox.Item` so it can hold its
+    // morph placeholder until the open morph is fully done (see the placeholder
+    // effect in lightbox-item). `openTransitionPendingRef` is true from the
+    // start of an open until it settles; `openCompleteListenersRef` holds the
+    // items currently waiting for that settle.
+    const openTransitionPendingRef = React.useRef(false);
+    const openCompleteListenersRef = React.useRef<Set<() => void>>(new Set());
+    const subscribeOpenComplete = React.useCallback((listener: () => void) => {
+      openCompleteListenersRef.current.add(listener);
+      return () => {
+        openCompleteListenersRef.current.delete(listener);
+      };
+    }, []);
+    // Mark the open transition settled and release every waiting placeholder.
+    // Called both when an open finishes and when a close starts (so a
+    // placeholder gated on an interrupted open isn't left waiting forever).
+    const settleOpenTransition = React.useCallback(() => {
+      openTransitionPendingRef.current = false;
+      openCompleteListenersRef.current.forEach((listener) => listener());
+    }, []);
+
     // Document scroll lock, owned here in Root rather than in Lightbox.Content.
     // Content unmounts at the *start* of the VT close (commitClose runs inside
     // the transition callback), so a lock tied to Content's lifecycle would be
@@ -432,8 +453,9 @@ const LightboxRoot = React.forwardRef<LightboxRootRef, LightboxRootProps>(
     }, [isControlledOpen]);
 
     const handleOpenComplete = React.useCallback(() => {
+      settleOpenTransition();
       onOpenChangeCompleteRef.current?.(true);
-    }, []);
+    }, [settleOpenTransition]);
 
     const handleCloseComplete = React.useCallback(
       (triggerEl: HTMLElement | undefined) => {
@@ -472,6 +494,16 @@ const LightboxRoot = React.forwardRef<LightboxRootRef, LightboxRootProps>(
         // controlled `open` prop subsequently updates via onOpenChange.
         lastInternalOpenRef.current = nextOpen;
 
+        // Open-transition gate for `Lightbox.Item` placeholders: mark it pending
+        // as the open begins (items mounting during the morph will wait for it),
+        // and settle it as a close begins (so a placeholder gated on an
+        // interrupted open is released before the item unmounts).
+        if (nextOpen) {
+          openTransitionPendingRef.current = true;
+        } else {
+          settleOpenTransition();
+        }
+
         // Skip the (document-snapshotting) morph on low-end hardware and fall
         // back to the plain fade path, which is far cheaper to composite.
         const useVT = viewTransition && supportsViewTransitions() && !isLowEndDevice();
@@ -506,6 +538,7 @@ const LightboxRoot = React.forwardRef<LightboxRootRef, LightboxRootProps>(
                   );
                   scrollTriggerEl(triggerElementsRef.current.get(idx), openCompleteBehavior);
                 }
+                settleOpenTransition();
                 onOpenChangeCompleteRef.current?.(true);
               });
             });
@@ -539,7 +572,7 @@ const LightboxRoot = React.forwardRef<LightboxRootRef, LightboxRootProps>(
           }
         }
       },
-      [isControlledOpen, viewTransition, scrollTriggerIntoView, morphTo, morph, commitOpen, unlockScroll],
+      [isControlledOpen, viewTransition, scrollTriggerIntoView, morphTo, morph, commitOpen, unlockScroll, settleOpenTransition],
     );
 
     // Sync `mounted` to externally-driven changes of a controlled
@@ -615,6 +648,8 @@ const LightboxRoot = React.forwardRef<LightboxRootRef, LightboxRootProps>(
         setOpen,
         mounted,
         preparing,
+        openTransitionPendingRef,
+        subscribeOpenComplete,
         activeIndex,
         setActiveIndex,
         navigationLockedRef,
@@ -637,7 +672,7 @@ const LightboxRoot = React.forwardRef<LightboxRootRef, LightboxRootProps>(
         dialogElementRef,
         backdropElementRef,
       }),
-      [open, setOpen, mounted, preparing, activeIndex, setActiveIndex, itemCount, registerItem, loop, registerCaption, subscribeCaptions, viewTransition, morphTo],
+      [open, setOpen, mounted, preparing, subscribeOpenComplete, activeIndex, setActiveIndex, itemCount, registerItem, loop, registerCaption, subscribeCaptions, viewTransition, morphTo],
     );
 
     return (

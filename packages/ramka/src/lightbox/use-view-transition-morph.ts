@@ -250,26 +250,27 @@ function applyMorphState(
   docEl.setAttribute('data-lightbox-view-transition', phase);
   if (!opts.useCrossfade) {
     docEl.setAttribute('data-lightbox-no-crossfade', '');
-    // No-crossfade keeps whichever snapshot is the "source of truth" fully
-    // opaque and hard-cuts the other — but we ALWAYS keep the *old* snapshot
-    // opaque underneath as a paint fallback, never 0:
+    // No-crossfade makes the item the single visible, animated layer in both
+    // directions and never crossfades the trigger. But on OPEN we ALWAYS keep
+    // the `old` (trigger) snapshot opaque underneath as a paint fallback —
+    // never 0. (In the CSS both pseudos have `animation: none` and stretch to
+    // the group box, with `new` painted on top of `old`.)
     //
-    // - Opening: `new` is the destination item, which was `visibility: hidden`
+    // - Opening: `new` is the destination item, which is `visibility: hidden`
     //   during prepare and only flips visible inside the (synchronous) VT
     //   callback, right before the new snapshot is captured. If that freshly
-    //   revealed layer isn't rasterized in time the new snapshot is blank —
-    //   and with `old` hidden there's nothing behind it, so you get a one-frame
-    //   flash of empty space (independent of image caching; it's a compositing
-    //   race). Keeping `old` (the trigger, captured from a fully-painted live
-    //   element) at opacity 1 underneath means a blank `new` falls back to the
+    //   revealed layer isn't rasterized in time the new snapshot is blank for a
+    //   frame — a compositing race independent of image caching (worst on mobile
+    //   Safari). With `old` hidden there'd be nothing behind it, so you'd see a
+    //   one-frame flash of empty space between the trigger vanishing and the
+    //   item painting. Keeping `old` (the trigger, captured from a fully-painted
+    //   live element) opaque underneath makes a blank `new` fall back to the
     //   trigger instead of to nothing. When `new` IS painted it's opaque and
-    //   fully covers `old`, so the result is visually identical — this only
-    //   ever shows through on the (bad) frame it would otherwise be blank.
-    //   `crossfade={false}` is documented for the "same image at different
-    //   crops/sizes" case, so the trigger underneath is always a safe fallback.
-    // - Closing: `old` is the item (already on-screen and painted), `new` is
-    //   the trigger, hard-cut to 0 so a scrolled-away/again-unpainted trigger
-    //   can't ghost over the item as it shrinks back.
+    //   fully OCCLUDES `old`, so the trigger is never *seen* animating — visually
+    //   identical to hard-cutting it, except on the frame it would be blank.
+    // - Closing: `old` is the item (already on-screen and painted) and stays
+    //   opaque; `new` is the trigger, hard-cut to 0 so a scrolled-away/unpainted
+    //   trigger can't ghost over the item as it shrinks back.
     docEl.style.setProperty('--lightbox-morph-old-opacity', '1');
     docEl.style.setProperty('--lightbox-morph-new-opacity', phase === 'opening' ? '1' : '0');
   }
@@ -283,27 +284,25 @@ function applyMorphState(
 
 /**
  * Assigns the morph `view-transition-name` to an element with inline
- * `!important`, plus a `contain: layout paint` boundary. The name: the
- * document-level isolation rule sets `view-transition-name: none !important`
- * on every element while the morph is running (so unrelated consumer-named
- * elements aren't captured); an inline `!important` declaration outranks that
- * author-`!important` rule on specificity, keeping the morph target the sole
- * captured group. The containment: before snapshotting the browser must
- * rasterize the element's layout tree, so scoping style/layout/paint to this
- * element's box keeps snapshot generation from thrashing the rest of the page —
- * the cheap per-element win on low-end GPUs. (Unlike the reverted backdrop/
- * content grouping, this stays inside the single root snapshot — it just adds
- * containment to the one element that already had its own group.)
+ * `!important`: the document-level isolation rule sets `view-transition-name:
+ * none !important` on every element while the morph is running (so unrelated
+ * consumer-named elements aren't captured), and an inline `!important`
+ * declaration outranks that author-`!important` rule on specificity, keeping the
+ * morph target the sole captured group.
+ *
+ * NOTE: we deliberately do NOT also set `contain: layout paint` here. It was a
+ * snapshot-raster perf hint, but establishing a fresh paint/containment context
+ * on the morph target forces its backing store to be rasterized from scratch at
+ * capture time — which races the placeholder image's decode/upload and can leave
+ * the captured "new" snapshot blank or unsized for the first frame(s).
  */
 function setMorphName(el: HTMLElement) {
   el.style.setProperty('view-transition-name', VIEW_TRANSITION_NAME, 'important');
-  el.style.setProperty('contain', 'layout paint', 'important');
 }
 
-/** Clears the name + containment set by {@link setMorphName}. */
+/** Clears the name set by {@link setMorphName}. */
 function clearMorphName(el: HTMLElement) {
   el.style.removeProperty('view-transition-name');
-  el.style.removeProperty('contain');
 }
 
 /** Removes every document-level attribute/var set by {@link applyMorphState}. */
@@ -437,9 +436,12 @@ function useViewTransitionMorph(config: ViewTransitionMorphConfig): ViewTransiti
         ? findItemMorphTarget(pendingItemEl, itemMorphElementsRef.current)
         : null;
       // Only actually await when the destination image is still loading. When
-      // it's cached (or there's no image), skip the await so the open path
-      // stays synchronous and the transition starts on the same tick as the
-      // click — no microtask deferral, no perceptible lag.
+      // it's cached (or there's no image), skip the await so the open path stays
+      // synchronous and the transition starts on the same tick as the click — no
+      // microtask deferral, no perceptible lag. (The trigger-thumbnail bridge no
+      // longer needs its own decode priming here: `Lightbox.Item` now paints it
+      // into a <canvas>, a pre-rasterized bitmap with no async decode — see the
+      // placeholder effect in lightbox-item.)
       if (getPendingDecodeImage(pendingItemTarget)) {
         await waitForImageDecode(pendingItemTarget, decodeMaxWait);
         // A newer open/close superseded this one during the await — bail before
