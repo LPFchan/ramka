@@ -47,13 +47,27 @@ function restoreImageStubs() {
   }
 }
 
-function simulateLoad(img: HTMLImageElement) {
+// Advance a few animation frames (flushing microtasks between each). Covers the
+// placeholder's deferred restore, which waits on BOTH the image paint (decode()
+// + two rAFs) and the open-transition settle (an rAF + a microtask).
+async function flushFrames(count = 4) {
+  for (let i = 0; i < count; i++) {
+    // eslint-disable-next-line no-await-in-loop
+    await act(() => new Promise<void>((r) => requestAnimationFrame(() => r())));
+  }
+}
+
+// Fire `load`, then flush enough frames for the placeholder's gated restore to
+// run: the destination image must be painted (decode + two rAFs) AND the open
+// transition must have settled. Neither is synchronous with `load`.
+async function simulateLoad(img: HTMLImageElement) {
   const withState = img as HTMLImageElement & { __complete?: boolean; __naturalWidth?: number };
   withState.__complete = true;
   withState.__naturalWidth = 200;
   act(() => {
     fireEvent.load(img);
   });
+  await flushFrames();
 }
 
 beforeEach(() => {
@@ -83,8 +97,36 @@ beforeEach(() => {
   }
 });
 
+// Controllable View Transition: the open morph stays pending until
+// `resolveFinished()` is called, so we can assert the placeholder gate.
+function mockViewTransitionAPI() {
+  let resolveFinished!: () => void;
+  const finishedPromise = new Promise<void>((r) => {
+    resolveFinished = r;
+  });
+  const startViewTransition = vi.fn((callback: () => void | Promise<void>) => {
+    const result = callback();
+    if (result && typeof (result as Promise<void>).then === 'function') {
+      (result as Promise<void>).catch(vi.fn());
+    }
+    return { finished: finishedPromise };
+  });
+  Object.defineProperty(document, 'startViewTransition', {
+    value: startViewTransition,
+    writable: true,
+    configurable: true,
+  });
+  return { startViewTransition, resolveFinished: () => resolveFinished() };
+}
+
+function cleanupViewTransitionAPI() {
+  delete (document as unknown as Record<string, unknown>).startViewTransition;
+  document.documentElement.removeAttribute('data-lightbox-view-transition');
+}
+
 afterEach(() => {
   restoreImageStubs();
+  cleanupViewTransitionAPI();
   vi.restoreAllMocks();
 });
 
@@ -103,7 +145,7 @@ function clickTrigger(testid: string) {
 // ---------------------------------------------------------------------------
 
 describe('render-fn placeholder wiring (triggerImageRef -> imageRef)', () => {
-  it('paints the trigger image as the destination background and clears it on load', () => {
+  it('paints the trigger image as the destination background and clears it on load', async () => {
     render(
       <LightboxRoot>
         <LightboxTrigger index={0} data-testid="trigger">
@@ -126,7 +168,81 @@ describe('render-fn placeholder wiring (triggerImageRef -> imageRef)', () => {
     const img = itemImg();
     expect(img.style.backgroundImage).toContain('/thumb.jpg');
 
-    simulateLoad(img);
+    await simulateLoad(img);
+    expect(img.style.backgroundImage).toBe('');
+  });
+
+  it('defers clearing the placeholder until after the image paints (Safari flash fix)', async () => {
+    render(
+      <LightboxRoot>
+        <LightboxTrigger index={0} data-testid="trigger">
+          {({ triggerImageRef }) => <img ref={triggerImageRef} src="/thumb.jpg" alt="thumb" />}
+        </LightboxTrigger>
+        <LightboxContent aria-label="viewer">
+          <LightboxItemGroup>
+            <LightboxItem index={0}>
+              {({ imageRef }) => <img ref={imageRef} src="/full.jpg" alt="full" />}
+            </LightboxItem>
+          </LightboxItemGroup>
+        </LightboxContent>
+      </LightboxRoot>,
+    );
+
+    clickTrigger('trigger');
+    const img = itemImg();
+    expect(img.style.backgroundImage).toContain('/thumb.jpg');
+
+    // Fire `load` WITHOUT flushing the deferred frames. The placeholder must
+    // still be painted — clearing it here (before the full-res <img> composites)
+    // is exactly the mobile-Safari blank-flash regression this guards against.
+    const withState = img as HTMLImageElement & { __complete?: boolean; __naturalWidth?: number };
+    withState.__complete = true;
+    withState.__naturalWidth = 200;
+    act(() => {
+      fireEvent.load(img);
+    });
+    expect(img.style.backgroundImage).toContain('/thumb.jpg');
+
+    // Once the deferred decode + animation frames run, the placeholder clears.
+    await simulateLoad(img);
+    expect(img.style.backgroundImage).toBe('');
+  });
+
+  it('holds the placeholder until the open transition finishes, even after the image paints', async () => {
+    const { resolveFinished } = mockViewTransitionAPI();
+
+    render(
+      <LightboxRoot viewTransition>
+        <LightboxTrigger index={0} data-testid="trigger">
+          {({ triggerImageRef }) => <img ref={triggerImageRef} src="/thumb.jpg" alt="thumb" />}
+        </LightboxTrigger>
+        <LightboxContent aria-label="viewer">
+          <LightboxItemGroup>
+            <LightboxItem index={0}>
+              {({ imageRef }) => <img ref={imageRef} src="/full.jpg" alt="full" />}
+            </LightboxItem>
+          </LightboxItemGroup>
+        </LightboxContent>
+      </LightboxRoot>,
+    );
+
+    clickTrigger('trigger');
+    const img = itemImg();
+    expect(img.style.backgroundImage).toContain('/thumb.jpg');
+
+    // The full-res image loads AND paints while the open morph is still running.
+    // The placeholder must stay — pulling it mid-transition flashes on Safari.
+    const withState = img as HTMLImageElement & { __complete?: boolean; __naturalWidth?: number };
+    withState.__complete = true;
+    withState.__naturalWidth = 200;
+    act(() => {
+      fireEvent.load(img);
+    });
+    await flushFrames();
+    expect(img.style.backgroundImage).toContain('/thumb.jpg');
+
+    // Only once the open transition finishes does the placeholder clear.
+    await act(async () => resolveFinished());
     expect(img.style.backgroundImage).toBe('');
   });
 

@@ -18,6 +18,22 @@ interface LightboxContextValue {
    * focus/scroll-lock side effects hold off until the reveal.
    */
   preparing: boolean;
+  /**
+   * True from the start of an open transition until it finishes (the morph's
+   * `finished` promise resolves, or the non-VT enter animation settles). Lets
+   * `Lightbox.Item` hold its morph placeholder in place until the open is fully
+   * done — clearing it mid-morph can flash on mobile Safari. Only meaningful for
+   * items that mount *during* the open (the morphing slide); items navigated to
+   * afterwards see `false` and clear their placeholder on image load as usual.
+   */
+  openTransitionPendingRef: React.MutableRefObject<boolean>;
+  /**
+   * Subscribe to open-transition completion. Fires once per open when the morph
+   * finishes (and on close, so a placeholder gated on an interrupted open is
+   * released). Returns an unsubscribe fn. Used by `Lightbox.Item` to defer
+   * clearing its placeholder until the open morph is over.
+   */
+  subscribeOpenComplete: (listener: () => void) => () => void;
   activeIndex: number;
   setActiveIndex: (index: number, source: NavigationSource) => void;
   /**
