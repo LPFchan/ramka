@@ -27,7 +27,7 @@ describe('findTriggerMorphTarget', () => {
     expect(findTriggerMorphTarget(trigger, registry)).toBe(trigger);
   });
 
-  it('returns the registered descendant when one is designated (via morphElementRef)', () => {
+  it('returns the registered descendant when one is designated (via morphRef)', () => {
     const trigger = makeEl('<button><span><img src="x" /></span></button>');
     const marker = trigger.querySelector('span') as HTMLElement;
     const registry = new WeakMap<HTMLElement, HTMLElement>();
@@ -53,7 +53,7 @@ describe('findTriggerMorphTarget', () => {
 });
 
 describe('findItemMorphTarget', () => {
-  it('returns the registered override (morphElementRef / imageRef)', () => {
+  it('returns the registered override (morphRef / imageRef)', () => {
     const item = makeEl('<div><span></span><img src="x" /></div>');
     const marker = item.querySelector('span') as HTMLElement;
     const registry = new WeakMap<HTMLElement, HTMLElement>();
@@ -63,7 +63,7 @@ describe('findItemMorphTarget', () => {
 
   it('returns the container itself when nothing is registered (no img/video hunting)', () => {
     // Registry-only resolution: an unwired item does NOT auto-discover its
-    // inner <img>/<video>. Consumers must attach `imageRef`/`morphElementRef`
+    // inner <img>/<video>. Consumers must attach `imageRef`/`morphRef`
     // via the render function; otherwise the container is the target (and
     // `isMorphTargetSizeResolvable` rejects the oversized box → crossfade).
     const withImg = makeEl('<div class="fullscreen"><img src="x" /></div>');

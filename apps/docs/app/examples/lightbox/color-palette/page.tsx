@@ -11,7 +11,7 @@ import {
   LightboxFullImage,
   LightboxOverlay,
   lightboxChromeButton,
-  morphElementHideClass,
+  morphHideClass,
   StackedItemGroup,
   stackedItemClass,
   triggerFocusClass,
@@ -40,7 +40,7 @@ export default function ColorPalettePage() {
         <>
           Triggers don&apos;t have to be images. Each swatch below is a plain coloured rectangle designated as the
           morph element via the trigger&apos;s{' '}
-          <code className="rounded bg-neutral-100 px-1 py-0.5 text-xs dark:bg-neutral-800">morphElementRef</code>;
+          <code className="rounded bg-neutral-100 px-1 py-0.5 text-xs dark:bg-neutral-800">morphRef</code>;
           the View Transition cleanly morphs the solid block into a full photograph dominated by that hue. The counter
           in the lightbox doubles as a contextual swatch + name.
         </>
@@ -63,12 +63,12 @@ export default function ColorPalettePage() {
                 crossfade
                 className={`flex w-full flex-col gap-0 overflow-hidden rounded-xl bg-transparent text-left ${triggerFocusClass}`}
               >
-                {({ morphElementRef }) => (
+                {({ morphRef }) => (
                   <>
                     {/* Only the swatch morphs / hides — name + hex stay put. */}
                     <div
-                      ref={morphElementRef}
-                      className={`aspect-[3/2] w-full rounded-xl ${morphElementHideClass}`}
+                      ref={morphRef}
+                      className={`aspect-[3/2] w-full rounded-xl ${morphHideClass}`}
                       style={{ background: color.hex }}
                     />
                     <div className="px-1 py-2">

@@ -129,7 +129,7 @@ const warnedUnwiredItems =
 /**
  * Dev-only guardrail. Fires when an item is about to morph but resolved its own
  * element as the morph target — i.e. the consumer never wired `imageRef` or
- * `morphElementRef` via the `Lightbox.Item` render function. The trigger will
+ * `morphRef` via the `Lightbox.Item` render function. The trigger will
  * then animate into the *entire* `<Lightbox.Item>` box (usually the full,
  * flex-centered viewport slide) instead of the letterboxed media, which reads
  * as a broken, non-native morph.
@@ -144,7 +144,7 @@ function warnUnwiredItemMorph(itemEl: HTMLElement, target: HTMLElement) {
     '[ramka] Lightbox.Item is morphing into its own element (the full ' +
       '<Lightbox.Item> box, not its parent) because no morph target was ' +
       'designated. Pass a render function to Lightbox.Item and attach ' +
-      '`imageRef` to the destination <img> (or `morphElementRef` to a custom ' +
+      '`imageRef` to the destination <img> (or `morphRef` to a custom ' +
       'element) so the trigger morphs into the media instead.',
     itemEl,
   );
@@ -469,7 +469,7 @@ function useViewTransitionMorph(config: ViewTransitionMorphConfig): ViewTransiti
     const canMorph = !!triggerTarget && isMorphTargetSizeResolvable(itemTargetPrep);
 
     // Dev nudge: a morph into the bare item container means the consumer forgot
-    // to designate a morph target (imageRef / morphElementRef).
+    // to designate a morph target (imageRef / morphRef).
     if (canMorph && itemElPrep && itemTargetPrep === itemElPrep) {
       warnUnwiredItemMorph(itemElPrep, itemTargetPrep);
     }

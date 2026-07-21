@@ -5,7 +5,7 @@ import { Lightbox } from 'ramka';
 import { Play, X } from 'lucide-react';
 
 import { ExampleShell } from '../../../_components/example-shell';
-import { lightboxChromeButton, morphElementHideClass, triggerFocusClass } from '../../../_components/lightbox-chrome';
+import { lightboxChromeButton, morphHideClass, triggerFocusClass } from '../../../_components/lightbox-chrome';
 
 /**
  * Blender Open Movies — real trailers/shorts with their official posters
@@ -69,24 +69,24 @@ function LightboxVideo({
   src,
   poster,
   readyToPlay,
-  morphElementRef,
+  morphRef,
 }: {
   src: string;
   poster: string;
   /** True only after `onOpenChangeComplete(true)` — keeps playback off during the open morph. */
   readyToPlay: boolean;
-  morphElementRef: (node: HTMLElement | null) => void;
+  morphRef: (node: HTMLElement | null) => void;
 }) {
   const videoRef = React.useRef<HTMLVideoElement>(null);
 
-  // Combine the local ref (play/pause) with the item's `morphElementRef` so the
+  // Combine the local ref (play/pause) with the item's `morphRef` so the
   // <video> is the designated morph target.
   const setVideoRef = React.useCallback(
     (node: HTMLVideoElement | null) => {
       videoRef.current = node;
-      morphElementRef(node);
+      morphRef(node);
     },
-    [morphElementRef],
+    [morphRef],
   );
 
   // Autoplay only after the open transition finishes. While closed / mid-open /
@@ -139,12 +139,12 @@ function FilmLightbox({ film }: { film: (typeof films)[number] }) {
         crossfade={crossfadeOnClose}
         className={`group block w-full cursor-pointer rounded-xl border-none bg-transparent p-0 text-left ${triggerFocusClass}`}
       >
-        {({ morphElementRef }) => (
+        {({ morphRef }) => (
           <>
             {/* Only the poster morphs / hides — title + meta stay put. */}
-            <div className={`relative overflow-hidden rounded-xl ${morphElementHideClass}`}>
+            <div className={`relative overflow-hidden rounded-xl ${morphHideClass}`}>
               <img
-                ref={morphElementRef}
+                ref={morphRef}
                 width={film.posterWidth}
                 height={film.posterHeight}
                 src={film.poster}
@@ -179,12 +179,12 @@ function FilmLightbox({ film }: { film: (typeof films)[number] }) {
 
         <Lightbox.ItemGroup className="size-full">
           <Lightbox.Item index={0} className="size-full">
-            {({ morphElementRef }) => (
+            {({ morphRef }) => (
               <LightboxVideo
                 src={film.video}
                 poster={film.poster}
                 readyToPlay={readyToPlay}
-                morphElementRef={morphElementRef}
+                morphRef={morphRef}
               />
             )}
           </Lightbox.Item>

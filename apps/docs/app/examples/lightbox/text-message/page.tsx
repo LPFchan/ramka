@@ -80,8 +80,8 @@ export default function TextMessagePage() {
               crossfade
               className={`relative block h-80 w-[260px] cursor-pointer rounded-2xl border-none bg-transparent p-0 ${triggerMorphHideClass} ${triggerFocusClass}`}
             >
-              {({ morphElementRef }) => (
-                <div ref={morphElementRef} className="absolute -inset-5">
+              {({ morphRef }) => (
+                <div ref={morphRef} className="absolute -inset-5">
                   {messageImages.map((img, i) => {
                     const offset = stackOffsets[i] ?? { x: 0, y: 0 };
                     const rotation = stackRotations[i] ?? 0;

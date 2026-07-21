@@ -217,18 +217,18 @@ export const stackedItemClass =
  * Consumer-side hide for a trigger that *is* the morph element (image-only
  * tiles). Fades the whole trigger while it's `data-morph-target`, and kills
  * the transition during a View Transition so the fade isn't captured mid-flight
- * in the root snapshot. Prefer {@link morphElementHideClass} when only a child
- * designated via `morphElementRef` should disappear (e.g. a swatch + label card).
+ * in the root snapshot. Prefer {@link morphHideClass} when only a child
+ * designated via `morphRef` should disappear (e.g. a swatch + label card).
  */
 export const triggerMorphHideClass =
   'transition-opacity duration-[200ms] ease-out-expo data-[morph-target]:opacity-0 [:root[data-lightbox-view-transition]_&]:transition-none';
 
 /**
  * Consumer-side hide for the morph *child* only. Apply to the element that
- * carries `morphElementRef` (or its media wrapper) so chrome around it — titles,
+ * carries `morphRef` (or its media wrapper) so chrome around it — titles,
  * labels, captions — stays visible while the lightbox is open.
  */
-export const morphElementHideClass =
+export const morphHideClass =
   'transition-opacity duration-[200ms] ease-out-expo in-data-morph-target:opacity-0 [:root[data-lightbox-view-transition]_&]:transition-none';
 
 /**
@@ -254,13 +254,13 @@ export function LightboxTriggerImage({
   alt: string;
   className?: string;
 }) {
-  // Grab `triggerImageRef` from the enclosing Lightbox.Trigger so this thumbnail
+  // Grab `imageRef` from the enclosing Lightbox.Trigger so this thumbnail
   // becomes the flash-free placeholder source for the item it opens — no render
   // prop threading required.
   const trigger = useLightboxTriggerContext();
   return (
     <img
-      ref={trigger?.triggerImageRef}
+      ref={trigger?.imageRef}
       {...imgDims(src)}
       src={src}
       alt={alt}

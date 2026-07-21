@@ -144,12 +144,12 @@ function clickTrigger(testid: string) {
 // Tests
 // ---------------------------------------------------------------------------
 
-describe('render-fn placeholder wiring (triggerImageRef -> imageRef)', () => {
+describe('render-fn placeholder wiring (Trigger imageRef -> Item imageRef)', () => {
   it('paints the trigger image as the destination background and clears it on load', async () => {
     render(
       <LightboxRoot>
         <LightboxTrigger index={0} data-testid="trigger">
-          {({ triggerImageRef }) => <img ref={triggerImageRef} src="/thumb.jpg" alt="thumb" />}
+          {({ imageRef }) => <img ref={imageRef} src="/thumb.jpg" alt="thumb" />}
         </LightboxTrigger>
         <LightboxContent aria-label="viewer">
           <LightboxItemGroup>
@@ -176,7 +176,7 @@ describe('render-fn placeholder wiring (triggerImageRef -> imageRef)', () => {
     render(
       <LightboxRoot>
         <LightboxTrigger index={0} data-testid="trigger">
-          {({ triggerImageRef }) => <img ref={triggerImageRef} src="/thumb.jpg" alt="thumb" />}
+          {({ imageRef }) => <img ref={imageRef} src="/thumb.jpg" alt="thumb" />}
         </LightboxTrigger>
         <LightboxContent aria-label="viewer">
           <LightboxItemGroup>
@@ -214,7 +214,7 @@ describe('render-fn placeholder wiring (triggerImageRef -> imageRef)', () => {
     render(
       <LightboxRoot viewTransition>
         <LightboxTrigger index={0} data-testid="trigger">
-          {({ triggerImageRef }) => <img ref={triggerImageRef} src="/thumb.jpg" alt="thumb" />}
+          {({ imageRef }) => <img ref={imageRef} src="/thumb.jpg" alt="thumb" />}
         </LightboxTrigger>
         <LightboxContent aria-label="viewer">
           <LightboxItemGroup>
@@ -252,7 +252,7 @@ describe('render-fn placeholder wiring (triggerImageRef -> imageRef)', () => {
     render(
       <LightboxRoot>
         <LightboxTrigger index={0} data-testid="trigger">
-          {({ triggerImageRef }) => <img ref={triggerImageRef} src="/thumb.jpg" alt="thumb" />}
+          {({ imageRef }) => <img ref={imageRef} src="/thumb.jpg" alt="thumb" />}
         </LightboxTrigger>
         <LightboxContent aria-label="viewer">
           <LightboxItemGroup>
@@ -268,13 +268,13 @@ describe('render-fn placeholder wiring (triggerImageRef -> imageRef)', () => {
     expect(itemImg().style.backgroundImage).toBe('');
   });
 
-  it('sources the placeholder only from triggerImageRef, excluding a +N overlay', () => {
+  it('sources the placeholder only from Trigger imageRef, excluding a +N overlay', () => {
     render(
       <LightboxRoot>
         <LightboxTrigger index={0} data-testid="trigger">
-          {({ triggerImageRef }) => (
+          {({ imageRef }) => (
             <div className="relative">
-              <img ref={triggerImageRef} src="/thumb.jpg" alt="thumb" />
+              <img ref={imageRef} src="/thumb.jpg" alt="thumb" />
               <div className="absolute inset-0">+3</div>
             </div>
           )}
@@ -297,10 +297,10 @@ describe('render-fn placeholder wiring (triggerImageRef -> imageRef)', () => {
     render(
       <LightboxRoot>
         <LightboxTrigger index={0} data-testid="trigger-a">
-          {({ triggerImageRef }) => <img ref={triggerImageRef} src="/a.jpg" alt="a" />}
+          {({ imageRef }) => <img ref={imageRef} src="/a.jpg" alt="a" />}
         </LightboxTrigger>
         <LightboxTrigger index={0} data-testid="trigger-b">
-          {({ triggerImageRef }) => <img ref={triggerImageRef} src="/b.jpg" alt="b" />}
+          {({ imageRef }) => <img ref={imageRef} src="/b.jpg" alt="b" />}
         </LightboxTrigger>
         <LightboxContent aria-label="viewer">
           <LightboxItemGroup>
@@ -320,21 +320,21 @@ describe('render-fn placeholder wiring (triggerImageRef -> imageRef)', () => {
     expect(bg).not.toContain('/b.jpg');
   });
 
-  it('morphElementRef: both the trigger and the item register without touching consumer DOM', () => {
+  it('morphRef: both the trigger and the item register without touching consumer DOM', () => {
     render(
       <LightboxRoot>
         <LightboxTrigger index={0} data-testid="trigger">
-          {({ triggerImageRef, morphElementRef }) => (
-            <div ref={morphElementRef} data-testid="trigger-morph">
-              <img ref={triggerImageRef} src="/thumb.jpg" alt="thumb" />
+          {({ imageRef, morphRef }) => (
+            <div ref={morphRef} data-testid="trigger-morph">
+              <img ref={imageRef} src="/thumb.jpg" alt="thumb" />
             </div>
           )}
         </LightboxTrigger>
         <LightboxContent aria-label="viewer">
           <LightboxItemGroup>
             <LightboxItem index={0}>
-              {({ imageRef, morphElementRef }) => (
-                <div ref={morphElementRef} data-testid="item-morph">
+              {({ imageRef, morphRef }) => (
+                <div ref={morphRef} data-testid="item-morph">
                   <img ref={imageRef} src="/full.jpg" alt="full" />
                 </div>
               )}
@@ -356,12 +356,12 @@ describe('render-fn placeholder wiring (triggerImageRef -> imageRef)', () => {
     );
   });
 
-  it('warns in dev when a trigger has no triggerImageRef and the item image is unloaded', () => {
+  it('warns in dev when a Trigger has no imageRef and the item image is unloaded', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
     render(
       <LightboxRoot>
-        {/* plain children: no triggerImageRef attached */}
+        {/* plain children: no imageRef attached */}
         <LightboxTrigger index={0} data-testid="trigger">
           <img src="/thumb.jpg" alt="thumb" />
         </LightboxTrigger>

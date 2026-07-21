@@ -28,7 +28,7 @@ interface LightboxItemContextValue {
    */
   imageRef: (node: HTMLImageElement | null) => void;
   /** Attach to override what morphs (defaults to the image). */
-  morphElementRef: (node: HTMLElement | null) => void;
+  morphRef: (node: HTMLElement | null) => void;
 }
 
 const LightboxItemContext = React.createContext<LightboxItemContextValue | null>(null);
@@ -50,15 +50,16 @@ interface LightboxItemRenderState {
   /**
    * Attach to the destination `<img>`. Until the full-resolution pixels load,
    * the lightbox bridges the open morph by painting the opening trigger's
-   * already-decoded thumbnail (see `triggerImageRef`) into a `<canvas>` underlay
-   * behind this image, then removes it once the image is painted.
+   * already-decoded thumbnail (see `Lightbox.Trigger`'s `imageRef`) into a
+   * `<canvas>` underlay behind this image, then removes it once the image is
+   * painted.
    */
   imageRef: (node: HTMLImageElement | null) => void;
   /**
    * Optional. Attach to override what morphs (defaults to the image). Use when
    * a wrapper — e.g. a rounded card around the image — should morph instead.
    */
-  morphElementRef: (node: HTMLElement | null) => void;
+  morphRef: (node: HTMLElement | null) => void;
 }
 
 interface LightboxItemProps extends Omit<useRender.ComponentProps<'div', LightboxItemState>, 'children'> {
@@ -68,9 +69,9 @@ interface LightboxItemProps extends Omit<useRender.ComponentProps<'div', Lightbo
   caption?: React.ReactNode;
   /**
    * Static children, or a render function that receives per-item state plus
-   * `imageRef` / `morphElementRef`. Prefer the render function and attach
+   * `imageRef` / `morphRef`. Prefer the render function and attach
    * `imageRef` to your `<img>` so the open transition bridges the blank frame
-   * with the trigger's thumbnail (see `Lightbox.Trigger`'s `triggerImageRef`).
+   * with the trigger's thumbnail (see `Lightbox.Trigger`'s `imageRef`).
    */
   children?: React.ReactNode | ((state: LightboxItemRenderState) => React.ReactNode);
 }
@@ -117,7 +118,7 @@ interface CanvasPlaceholderArgs {
   fit: 'contain' | 'cover';
   borderRadius: string;
   objectPosition: string;
-  /** The consumer's explicit `morphElementRef`, if any. */
+  /** The consumer's explicit `morphRef`, if any. */
   morphOverride: HTMLElement | null;
   /** Called with the placeholder host when the morph must be retargeted to it. */
   onRetarget: (host: HTMLElement) => void;
@@ -149,7 +150,7 @@ function tryPaintCanvasPlaceholder(args: CanvasPlaceholderArgs): (() => void) | 
   const natH = source.naturalHeight;
   if (!(source.complete && natW > 0 && natH > 0)) return null;
 
-  // The canvas lives in the image's host: the explicit `morphElementRef` (which
+  // The canvas lives in the image's host: the explicit `morphRef` (which
   // is already the morph target) if present, else the image's parent (which we
   // then retarget the morph to, since a replaced <img> can't contain a sibling).
   const usingParentHost = !morphOverride || morphOverride === img;
@@ -275,28 +276,28 @@ const LightboxItem = React.forwardRef<HTMLDivElement, LightboxItemProps>(
     const internalRef = React.useRef<HTMLDivElement | null>(null);
     // The destination image the consumer designated via `imageRef`, if any.
     const imageNodeRef = React.useRef<HTMLImageElement | null>(null);
-    // The morph node the consumer designated via `morphElementRef`, if any.
+    // The morph node the consumer designated via `morphRef`, if any.
     const morphNodeRef = React.useRef<HTMLElement | null>(null);
     // While the canvas placeholder is bridging the open morph, the destination
     // `<img>` can't host the placeholder (it's a replaced element with no room
     // for a sibling that the VT would capture), so the placeholder effect points
     // the morph at the image's *host* (its parent, which contains the canvas)
     // and records it here. Takes precedence over `imageNodeRef` — but never over
-    // an explicit `morphElementRef` — so the canvas is captured in the "new"
+    // an explicit `morphRef` — so the canvas is captured in the "new"
     // snapshot. Cleared (restoring the image as the target) once the bridge ends.
     const placeholderMorphOverrideRef = React.useRef<HTMLElement | null>(null);
     const warnedRef = React.useRef(false);
 
     // Register (or clear) this item's morph target in the element-keyed
-    // registry: the explicit `morphElementRef` override, else the `imageRef`
+    // registry: the explicit `morphRef` override, else the `imageRef`
     // image (the destination image is the natural target). Keyed by the item
     // element. No-op until the item element is mounted — on first mount the
-    // child refs (`imageRef` / `morphElementRef`) fire before the item's own
+    // child refs (`imageRef` / `morphRef`) fire before the item's own
     // ref (refs resolve bottom-up), so `mergedRefCallback` re-runs this once the
     // element exists; later toggles re-run it directly. When neither is set,
     // nothing is registered and the resolver morphs into the item container
     // itself (which `isMorphTargetSizeResolvable` then rejects, falling back to
-    // a plain crossfade) — attach `imageRef`/`morphElementRef` to morph the media.
+    // a plain crossfade) — attach `imageRef`/`morphRef` to morph the media.
     const registerMorphElement = React.useCallback(() => {
       const container = internalRef.current;
       const registry = itemMorphElementsRef.current;
@@ -336,7 +337,7 @@ const LightboxItem = React.forwardRef<HTMLDivElement, LightboxItemProps>(
       [registerMorphElement],
     );
 
-    const morphElementRef = React.useCallback(
+    const morphRef = React.useCallback(
       (node: HTMLElement | null) => {
         morphNodeRef.current = node;
         registerMorphElement();
@@ -379,7 +380,7 @@ const LightboxItem = React.forwardRef<HTMLDivElement, LightboxItemProps>(
             console.warn(
               `[ramka] Lightbox.Item index=${index}: image not yet loaded and no placeholder ` +
                 `source found, so the open transition may flash a blank frame. Attach ` +
-                `\`triggerImageRef\` to the trigger's <img> (via the Lightbox.Trigger render ` +
+                `\`imageRef\` on Lightbox.Trigger's <img> (via its render ` +
                 `function) to bridge it, or pass an already-loaded image.`,
             );
           }
@@ -404,7 +405,7 @@ const LightboxItem = React.forwardRef<HTMLDivElement, LightboxItemProps>(
       // ourselves from the trigger's intrinsic dimensions (`source.natural*`).
       //
       // Because a canvas can't live inside a replaced <img>, it's inserted into
-      // the image's *host* (the designated `morphElementRef`, else the image's
+      // the image's *host* (the designated `morphRef`, else the image's
       // parent) and the morph is retargeted there so the canvas is captured in
       // the "new" snapshot. Falls back to the CSS background when 2D canvas is
       // unavailable (SSR/jsdom/old engines) so behavior degrades gracefully.
@@ -559,15 +560,15 @@ const LightboxItem = React.forwardRef<HTMLDivElement, LightboxItemProps>(
     const resolvedChildren = React.useMemo(() => {
       if (!isVisible) return null;
       return typeof children === 'function'
-        ? children({ active: isActive, visible: isVisible, index, imageRef, morphElementRef })
+        ? children({ active: isActive, visible: isVisible, index, imageRef, morphRef })
         : children;
-    }, [isVisible, isActive, index, children, imageRef, morphElementRef]);
+    }, [isVisible, isActive, index, children, imageRef, morphRef]);
 
     const state = React.useMemo<LightboxItemState>(() => ({ active: isActive, index }), [isActive, index]);
 
     const itemContextValue = React.useMemo<LightboxItemContextValue>(
-      () => ({ index, active: isActive, imageRef, morphElementRef }),
-      [index, isActive, imageRef, morphElementRef],
+      () => ({ index, active: isActive, imageRef, morphRef }),
+      [index, isActive, imageRef, morphRef],
     );
 
     // useRender is a hook — must always be called regardless of visibility

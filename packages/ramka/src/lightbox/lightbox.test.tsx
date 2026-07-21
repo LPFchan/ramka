@@ -1660,7 +1660,7 @@ describe('Lightbox', () => {
 
       const MORPH_WARN = 'morphing into its own element';
 
-      it('warns when a morphing item has no imageRef / morphElementRef wired', () => {
+      it('warns when a morphing item has no imageRef / morphRef wired', () => {
         mockViewTransitionAPI();
         mockResolvableBox();
         const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
@@ -1675,7 +1675,7 @@ describe('Lightbox', () => {
             <LightboxContent data-testid="content" aria-label="unwired warn">
               <LightboxItemGroup>
                 <LightboxItem index={0} data-testid="item-0">
-                  {/* No imageRef / morphElementRef → target resolves to the item element. */}
+                  {/* No imageRef / morphRef → target resolves to the item element. */}
                   <div>no morph target here</div>
                 </LightboxItem>
               </LightboxItemGroup>

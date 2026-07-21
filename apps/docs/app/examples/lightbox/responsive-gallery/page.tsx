@@ -319,8 +319,8 @@ function ImageGrid({ imgs }: { imgs: GalleryImage[] }) {
     const only = imgs[0]!;
     return (
       <Lightbox.Trigger index={0} className={`block w-full overflow-hidden rounded-xl bg-transparent p-0 ${triggerMorphHideClass} ${triggerFocusClass}`}>
-        {({ triggerImageRef }) => (
-          <img ref={triggerImageRef} {...imgDims(only.thumb)} src={only.thumb} alt={only.alt} className="block  w-full object-cover" />
+        {({ imageRef }) => (
+          <img ref={imageRef} {...imgDims(only.thumb)} src={only.thumb} alt={only.alt} className="block  w-full object-cover" />
         )}
       </Lightbox.Trigger>
     );
@@ -335,9 +335,9 @@ function ImageGrid({ imgs }: { imgs: GalleryImage[] }) {
             index={i}
             className={`block overflow-hidden bg-transparent p-0 ${triggerMorphHideClass} ${triggerFocusClass} ${cornerClass(i, 2)}`}
           >
-            {({ triggerImageRef }) => (
+            {({ imageRef }) => (
               <img
-                ref={triggerImageRef}
+                ref={imageRef}
                 {...imgDims(img.thumb)}
                 src={img.thumb}
                 alt={img.alt}
@@ -358,8 +358,8 @@ function ImageGrid({ imgs }: { imgs: GalleryImage[] }) {
           index={0}
           className={`row-span-2 block overflow-hidden bg-transparent p-0 ${triggerMorphHideClass} ${triggerFocusClass} ${cornerClass(0, 3)}`}
         >
-          {({ triggerImageRef }) => (
-            <img ref={triggerImageRef} {...imgDims(first.thumb)} src={first.thumb} alt={first.alt} className="block h-full w-full object-cover" />
+          {({ imageRef }) => (
+            <img ref={imageRef} {...imgDims(first.thumb)} src={first.thumb} alt={first.alt} className="block h-full w-full object-cover" />
           )}
         </Lightbox.Trigger>
         {imgs.slice(1, 3).map((img, idx) => {
@@ -370,8 +370,8 @@ function ImageGrid({ imgs }: { imgs: GalleryImage[] }) {
               index={i}
               className={`block overflow-hidden bg-transparent p-0 ${triggerMorphHideClass} ${triggerFocusClass} ${cornerClass(i, 3)}`}
             >
-              {({ triggerImageRef }) => (
-                <img ref={triggerImageRef} {...imgDims(img.thumb)} src={img.thumb} alt={img.alt} className="block h-full w-full object-cover" />
+              {({ imageRef }) => (
+                <img ref={imageRef} {...imgDims(img.thumb)} src={img.thumb} alt={img.alt} className="block h-full w-full object-cover" />
               )}
             </Lightbox.Trigger>
           );
@@ -392,13 +392,13 @@ function ImageGrid({ imgs }: { imgs: GalleryImage[] }) {
             crossfade={showOverlay}
             className={`block overflow-hidden bg-transparent p-0 ${triggerMorphHideClass} ${triggerFocusClass} ${cornerClass(i, 4)}`}
           >
-            {({ triggerImageRef }) => (
+            {({ imageRef }) => (
               // The whole tile morphs (overlay included) by default, but the
-              // placeholder is sourced only from `triggerImageRef` — so the
+              // placeholder is sourced only from `imageRef` — so the
               // "+N" overlay is excluded from the destination bridge.
               <div className={`relative h-full w-full overflow-hidden ${cornerClass(i, 4)}`}>
                 <img
-                  ref={triggerImageRef}
+                  ref={imageRef}
                   {...imgDims(img.thumb)}
                   src={img.thumb}
                   alt={img.alt}

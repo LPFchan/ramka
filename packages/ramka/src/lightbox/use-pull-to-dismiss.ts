@@ -43,7 +43,7 @@ interface PullToDismissOptions {
   activeItemRef: React.RefObject<HTMLElement | null>;
   /**
    * Item element → its registered content/morph element (the `<img>` marked via
-   * `imageRef`, or a `morphElementRef` override). The touch gate starts a pull
+   * `imageRef`, or a `morphRef` override). The touch gate starts a pull
    * only when the finger lands inside this element, so grabbing an item's
    * letterbox padding or chrome never drags. Falls back to the whole item box
    * when an item registered nothing.
@@ -228,7 +228,7 @@ function usePullToDismiss({
 
       // Only activate when touching the item's registered content element (the
       // `<img>`/`<video>`/element the consumer marked via `imageRef` /
-      // `morphElementRef` — the same element that morphs), not chrome, backdrop,
+      // `morphRef` — the same element that morphs), not chrome, backdrop,
       // or the item's empty letterbox padding. When an item registered nothing,
       // fall back to the whole item box so the gesture still works.
       const contentEl = itemContentElementsRef?.current?.get(activeItem) ?? activeItem;

@@ -103,9 +103,9 @@ function HeroGrid() {
         index={0}
         className={`row-span-2 block cursor-pointer border-none bg-transparent p-0 ${triggerMorphHideClass} ${triggerFocusClass} ${heroCornerClass[0]}`}
       >
-        {({ triggerImageRef }) => (
+        {({ imageRef }) => (
           <img
-            ref={triggerImageRef}
+            ref={imageRef}
             {...imgDims(hero.thumb)}
             src={hero.thumb}
             alt={hero.alt}
@@ -119,9 +119,9 @@ function HeroGrid() {
           index={i + 1}
           className={`block cursor-pointer border-none bg-transparent p-0 ${triggerMorphHideClass} ${triggerFocusClass} ${heroCornerClass[i + 1] ?? ''}`}
         >
-          {({ triggerImageRef }) => (
+          {({ imageRef }) => (
             <img
-              ref={triggerImageRef}
+              ref={imageRef}
               {...imgDims(photo.thumb)}
               src={photo.thumb}
               alt={photo.alt}
@@ -155,10 +155,10 @@ function RemainingPhotosGrid() {
             crossfade
             className={`block rounded-lg bg-transparent p-0 ${triggerMorphHideClass} ${triggerFocusClass}`}
           >
-            {({ triggerImageRef, morphElementRef }) => (
-              <div ref={morphElementRef} className="relative overflow-hidden rounded-lg">
+            {({ imageRef, morphRef }) => (
+              <div ref={morphRef} className="relative overflow-hidden rounded-lg">
                 <img
-                  ref={triggerImageRef}
+                  ref={imageRef}
                   {...imgDims(photo.thumb)}
                   src={photo.thumb}
                   alt={photo.alt}

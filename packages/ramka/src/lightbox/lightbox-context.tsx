@@ -69,7 +69,7 @@ interface LightboxContextValue {
   triggerElementsRef: React.RefObject<Map<number, HTMLElement>>;
   /**
    * Registry mapping each trigger element → the descendant it should morph
-   * into, as designated by the trigger render-prop's `morphElementRef`. Keyed
+   * into, as designated by the trigger render-prop's `morphRef`. Keyed
    * by the trigger *element* (not its index) so it stays correct when several
    * triggers share an index. A trigger with no entry morphs itself.
    */
@@ -77,7 +77,7 @@ interface LightboxContextValue {
   activeItemElementRef: React.MutableRefObject<HTMLElement | null>;
   /**
    * Registry mapping each item element → the descendant it should morph into.
-   * Populated by the item render-prop's `morphElementRef` (explicit override)
+   * Populated by the item render-prop's `morphRef` (explicit override)
    * or, failing that, its `imageRef` (the destination image is the natural
    * target). Keyed by the item element. An item with no entry falls back to a
    * `querySelector('img'/'video')` scan, then the container. See
@@ -95,7 +95,7 @@ interface LightboxContextValue {
   openingTriggerElementRef: React.MutableRefObject<HTMLElement | null>;
   /**
    * The `<img>` of the exact trigger the user clicked, as designated by the
-   * consumer via the trigger render-prop's `triggerImageRef`. Its live
+   * consumer via the trigger render-prop's `imageRef`. Its live
    * `currentSrc` (the already-decoded, cached candidate the browser actually
    * fetched — the only flash-free source when `srcSet` is involved) is what
    * `Lightbox.Item` paints as the destination image's placeholder background.
@@ -104,7 +104,7 @@ interface LightboxContextValue {
    */
   openingTriggerImageRef: React.MutableRefObject<HTMLImageElement | null>;
   /**
-   * Per-index map of the `<img>` each trigger designated via `triggerImageRef`.
+   * Per-index map of the `<img>` each trigger designated via `imageRef`.
    * Last-registered wins (like `triggerElementsRef`); used as the placeholder
    * source when a specific item opens without a clicked element (controlled /
    * programmatic open) or for preloaded adjacent slides.
@@ -178,7 +178,7 @@ function isLowEndDevice(): boolean {
  * Resolves the morph target for the **destination item**.
  *
  * The consumer designates the exact element to morph into via the item
- * render-prop's `morphElementRef` (explicit) or `imageRef` (the destination
+ * render-prop's `morphRef` (explicit) or `imageRef` (the destination
  * image), whichever is registered in `registry` keyed by the item element.
  * With no registered override, the item container itself is the target.
  *
@@ -202,7 +202,7 @@ function findItemMorphTarget(
  * Resolves the morph target for the **trigger**.
  *
  * The consumer designates a specific descendant via the trigger render-prop's
- * `morphElementRef`, which registers it in `registry` keyed by the trigger
+ * `morphRef`, which registers it in `registry` keyed by the trigger
  * element. When there's no registered override, the trigger element itself is
  * the target — its border-radius, clipping, and chrome live on that element, so
  * morphing it reproduces exactly what the user sees.

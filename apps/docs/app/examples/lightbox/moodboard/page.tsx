@@ -143,9 +143,9 @@ export default function MoodboardPage() {
                   index={index}
                   className={`block w-full cursor-pointer overflow-hidden rounded-xl border-none bg-transparent p-0 ${triggerMorphHideClass} ${triggerFocusClass}`}
                 >
-                  {({ triggerImageRef }) => (
+                  {({ imageRef }) => (
                     <img
-                      ref={triggerImageRef}
+                      ref={imageRef}
                       src={tile.thumb}
                       alt={tile.alt}
                       loading="lazy"

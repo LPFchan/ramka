@@ -210,9 +210,9 @@ export default function PhotosAppPage() {
                 // scroll-pt-14, so this only needs to kick in at md+.
                 className={`relative block aspect-square cursor-pointer overflow-hidden bg-transparent p-0 md:scroll-mt-16 ${triggerMorphHideClass} ${triggerFocusClass}`}
               >
-                {({ triggerImageRef }) => (
+                {({ imageRef }) => (
                   <>
-                    <img ref={triggerImageRef} {...imgDims(photo.thumb)} src={photo.thumb} alt={photo.alt} loading="lazy" className="block h-full w-full object-cover" />
+                    <img ref={imageRef} {...imgDims(photo.thumb)} src={photo.thumb} alt={photo.alt} loading="lazy" className="block h-full w-full object-cover" />
                     {photo.favorite ? (
                       <Heart
                         aria-hidden

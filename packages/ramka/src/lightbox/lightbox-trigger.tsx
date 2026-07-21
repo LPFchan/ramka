@@ -22,16 +22,17 @@ interface LightboxTriggerRenderState {
    * as the destination image's placeholder so the open transition never shows a
    * blank frame. Works correctly with `srcSet` (reads the candidate the browser
    * actually fetched). Attach it to the single image whose pixels should bridge
-   * — e.g. the photo, *not* a `+N` overlay.
+   * — e.g. the photo, *not* a `+N` overlay. This does not control what morphs;
+   * use `morphRef` (or the trigger root by default) for that.
    */
-  triggerImageRef: (node: HTMLImageElement | null) => void;
+  imageRef: (node: HTMLImageElement | null) => void;
   /**
    * Optional. Attach to the element that should morph when it should be a
    * *bigger* element than the image (e.g. a tile that also contains an overlay).
    * When unattached the whole trigger morphs, which already includes any
    * overlay — so you rarely need this.
    */
-  morphElementRef: (node: HTMLElement | null) => void;
+  morphRef: (node: HTMLElement | null) => void;
   /** Whether the lightbox is open. */
   open: boolean;
   /** Whether this trigger's index is the active item. */
@@ -40,9 +41,9 @@ interface LightboxTriggerRenderState {
 
 /**
  * Context published by each `Lightbox.Trigger` so a nested wrapper component —
- * e.g. a shared `<TriggerImage>` — can attach `triggerImageRef` without the
- * consumer threading the render function through it. Mirrors the render
- * function's arguments.
+ * e.g. a shared `<TriggerImage>` — can attach `imageRef` without the consumer
+ * threading the render function through it. Mirrors the render function's
+ * arguments.
  */
 const LightboxTriggerContext = React.createContext<LightboxTriggerRenderState | null>(null);
 
@@ -65,8 +66,8 @@ interface LightboxTriggerProps
    */
   crossfade?: boolean;
   /**
-   * Static children, or a render function that receives `triggerImageRef` /
-   * `morphElementRef` (attach them to designate the placeholder source and the
+   * Static children, or a render function that receives `imageRef` /
+   * `morphRef` (attach them to designate the placeholder source and the
    * morph element) plus `open` / `active` state. The render function is the
    * recommended form: it wires the flash-free placeholder without any DOM
    * guessing.
@@ -88,7 +89,7 @@ const triggerStateAttributesMapping = {
  * used as the morph source for the view transition animation.
  *
  * Prefer the render-function form of `children` so you can attach
- * `triggerImageRef` to the trigger's image — that's what lets the destination
+ * `imageRef` to the trigger's image — that's what lets the destination
  * image reuse the already-decoded thumbnail as a placeholder and avoid a blank
  * frame during the open morph.
  */
@@ -110,18 +111,18 @@ const LightboxTrigger = React.forwardRef<HTMLButtonElement, LightboxTriggerProps
     } = useLightboxContext();
 
     const internalRef = React.useRef<HTMLButtonElement | null>(null);
-    // The image node the consumer designated via `triggerImageRef`, if any.
-    const triggerImageNodeRef = React.useRef<HTMLImageElement | null>(null);
-    // The morph node the consumer designated via `morphElementRef`, if any.
+    // The image node the consumer designated via `imageRef`, if any.
+    const imageNodeRef = React.useRef<HTMLImageElement | null>(null);
+    // The morph node the consumer designated via `morphRef`, if any.
     const morphNodeRef = React.useRef<HTMLElement | null>(null);
 
     // Register (or clear) this trigger's morph override in the element-keyed
     // registry. Keyed by the trigger element so it's correct even when several
     // triggers share an index; the resolver falls back to the trigger itself
     // when there's no entry. No-op until the trigger element is mounted — on
-    // first mount the child's `morphElementRef` fires before the trigger's own
+    // first mount the child's `morphRef` fires before the trigger's own
     // ref (refs resolve bottom-up), so `mergedRefCallback` re-runs this once the
-    // element exists; later toggles re-run it directly from `morphElementRef`.
+    // element exists; later toggles re-run it directly from `morphRef`.
     const registerMorphElement = React.useCallback(() => {
       const triggerEl = internalRef.current;
       const registry = triggerMorphElementsRef.current;
@@ -141,7 +142,7 @@ const LightboxTrigger = React.forwardRef<HTMLButtonElement, LightboxTriggerProps
         // Register in the trigger elements map for view transitions
         if (node) {
           triggerElementsRef.current.set(index, node);
-          // Child refs (incl. `morphElementRef`) have already fired by now, so
+          // Child refs (incl. `morphRef`) have already fired by now, so
           // pick up any designated morph node for this freshly-mounted trigger.
           registerMorphElement();
         } else {
@@ -157,9 +158,9 @@ const LightboxTrigger = React.forwardRef<HTMLButtonElement, LightboxTriggerProps
       [forwardedRef, index, triggerElementsRef, triggerMorphElementsRef, registerMorphElement],
     );
 
-    const triggerImageRef = React.useCallback(
+    const imageRef = React.useCallback(
       (node: HTMLImageElement | null) => {
-        triggerImageNodeRef.current = node;
+        imageNodeRef.current = node;
         if (node) {
           triggerImageElementsRef.current?.set(index, node);
         } else {
@@ -169,7 +170,7 @@ const LightboxTrigger = React.forwardRef<HTMLButtonElement, LightboxTriggerProps
       [index, triggerImageElementsRef],
     );
 
-    const morphElementRef = React.useCallback(
+    const morphRef = React.useCallback(
       (node: HTMLElement | null) => {
         morphNodeRef.current = node;
         registerMorphElement();
@@ -182,7 +183,7 @@ const LightboxTrigger = React.forwardRef<HTMLButtonElement, LightboxTriggerProps
       // Capture the exact clicked element + its designated image so placeholder/
       // morph sourcing is correct even when multiple triggers share this index.
       openingTriggerElementRef.current = internalRef.current;
-      openingTriggerImageRef.current = triggerImageNodeRef.current;
+      openingTriggerImageRef.current = imageNodeRef.current;
       setActiveIndex(index, 'trigger');
       setOpen(true);
     }, [
@@ -215,8 +216,8 @@ const LightboxTrigger = React.forwardRef<HTMLButtonElement, LightboxTriggerProps
     const state = React.useMemo<LightboxTriggerState>(() => ({ open, active, morphTarget }), [open, active, morphTarget]);
 
     const renderState = React.useMemo<LightboxTriggerRenderState>(
-      () => ({ triggerImageRef, morphElementRef, open, active }),
-      [triggerImageRef, morphElementRef, open, active],
+      () => ({ imageRef, morphRef, open, active }),
+      [imageRef, morphRef, open, active],
     );
 
     const resolvedChildren =
