@@ -59,6 +59,12 @@ export const lightboxExamples: ExampleLink[] = [
     description: 'Side-by-side comparison of morphTo="active" vs "origin" vs "closest".',
   },
   {
+    slug: 'crossfade',
+    title: 'Trigger crossfade',
+    description:
+      'When to omit crossfade vs "both" / "close" / "open" — same-image morphs, +N overlays, and poster→video.',
+  },
+  {
     slug: 'text-message',
     title: 'Text message',
     description: 'iMessage-style chat with a single morphTo="origin" trigger over a stack of attachments.',

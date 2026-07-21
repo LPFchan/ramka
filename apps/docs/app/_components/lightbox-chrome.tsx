@@ -287,7 +287,7 @@ export function LightboxFullImage({ src, alt }: { src: string; alt: string }) {
           src={src}
           alt={alt}
           loading="eager"
-          className="h-full w-full rounded-lg object-contain"
+          className="h-full w-full rounded-lg object-cover"
         />
       </div>
     </div>
