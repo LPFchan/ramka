@@ -269,15 +269,15 @@ export default function PhotosAppPage() {
                         className="relative shrink-0 [--lb-inset-h:0px] [--lb-inset-w:0px]"
                         style={fitBoxStyle(imgAspect(photo.src))}
                       >
-                        <Image
+                        <img
                           ref={imageRef}
                           src={photo.src}
                           alt={photo.alt}
                           width={imgDims(photo.src)?.width ?? 1600}
                           height={imgDims(photo.src)?.height ?? 1200}
                           sizes="100vw"
-                          priority
-                          unoptimized
+                          
+                          
                           draggable={false}
                           className="h-full w-full select-none rounded-none object-contain md:rounded-lg"
                         />
