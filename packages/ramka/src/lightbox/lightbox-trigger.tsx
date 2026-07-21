@@ -5,6 +5,9 @@ import * as React from 'react';
 
 import { useLightboxContext } from './lightbox-context';
 
+/** Direction(s) in which the trigger↔item morph should crossfade snapshots. */
+type LightboxCrossfade = 'open' | 'close' | 'both';
+
 interface LightboxTriggerState extends Record<string, unknown> {
   open: boolean;
   active: boolean;
@@ -56,15 +59,15 @@ interface LightboxTriggerProps
   /** The item index this trigger opens the lightbox at. */
   index: number;
   /**
-   * Whether to crossfade between trigger and item snapshots during the
-   * view transition morph. The default (`false`) shows only the
-   * high-quality snapshot — ideal when trigger and item display the
-   * same image at different crops/sizes. Set to `true` when trigger
-   * and item have visually different content (e.g. a stack of images
-   * morphing into a single photo).
-   * @default false
+   * Crossfade between trigger and item snapshots during the view-transition
+   * morph. Omit (default) for a hard-cut morph — ideal when trigger and item
+   * show the same image at different crops/sizes. Use a direction when they
+   * differ visually:
+   * - `'both'` — crossfade on open and close (e.g. a stack → single photo)
+   * - `'open'` — crossfade only when opening
+   * - `'close'` — crossfade only when closing (e.g. poster → live video)
    */
-  crossfade?: boolean;
+  crossfade?: LightboxCrossfade;
   /**
    * Static children, or a render function that receives `imageRef` /
    * `morphRef` (attach them to designate the placeholder source and the
@@ -237,7 +240,7 @@ const LightboxTrigger = React.forwardRef<HTMLButtonElement, LightboxTriggerProps
           // state-only attributes like `data-open` or `data-active`.
           // Mirrors the `data-lightbox-item` hook on Lightbox.Item.
           'data-lightbox-trigger': '',
-          ...(crossfade === true ? { 'data-crossfade': 'true' } : undefined),
+          ...(crossfade ? { 'data-crossfade': crossfade } : undefined),
         } as React.ComponentPropsWithRef<'button'>,
         elementProps as React.ComponentPropsWithRef<'button'>,
         { children: resolvedChildren } as React.ComponentPropsWithRef<'button'>,
@@ -256,4 +259,9 @@ const LightboxTrigger = React.forwardRef<HTMLButtonElement, LightboxTriggerProps
 LightboxTrigger.displayName = 'LightboxTrigger';
 
 export { LightboxTrigger, LightboxTriggerContext, useOptionalLightboxTriggerContext };
-export type { LightboxTriggerProps, LightboxTriggerState, LightboxTriggerRenderState };
+export type {
+  LightboxTriggerProps,
+  LightboxTriggerState,
+  LightboxTriggerRenderState,
+  LightboxCrossfade,
+};

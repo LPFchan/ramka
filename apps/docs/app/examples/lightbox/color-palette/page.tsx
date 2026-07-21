@@ -60,7 +60,7 @@ export default function ColorPalettePage() {
               <Lightbox.Trigger
                 key={color.id}
                 index={i}
-                crossfade
+                crossfade="both"
                 className={`flex w-full flex-col gap-0 overflow-hidden rounded-xl bg-transparent text-left ${triggerFocusClass}`}
               >
                 {({ morphRef }) => (

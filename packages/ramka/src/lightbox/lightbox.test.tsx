@@ -1600,7 +1600,7 @@ describe('Lightbox', () => {
         fireEvent.click(screen.getByTestId('trigger-0'));
 
         // Morph path: the destination image gets the morph view-transition-name
-        // and the no-crossfade opt-out is applied (crossfade defaults to false).
+        // and the no-crossfade opt-out is applied (crossfade defaults to unset).
         const img = screen.getByTestId('item-0').querySelector('img')!;
         expect(img.style.getPropertyValue('view-transition-name')).toBe('lightbox-morph');
         expect(document.documentElement).toHaveAttribute('data-lightbox-no-crossfade');
@@ -1620,6 +1620,142 @@ describe('Lightbox', () => {
         // Still a real View Transition, and the item is still marked ready.
         expect(document.documentElement).toHaveAttribute('data-lightbox-view-transition');
         expect(screen.getByTestId('item-0')).toHaveAttribute('data-skip-fade');
+      });
+    });
+
+    describe('crossfade direction', () => {
+      let originalRect: PropertyDescriptor | undefined;
+
+      function mockTargetBox() {
+        originalRect = Object.getOwnPropertyDescriptor(
+          HTMLImageElement.prototype,
+          'getBoundingClientRect',
+        );
+        Object.defineProperty(HTMLImageElement.prototype, 'getBoundingClientRect', {
+          value: () => ({
+            width: 800,
+            height: 600,
+            top: 0,
+            left: 0,
+            right: 800,
+            bottom: 600,
+            x: 0,
+            y: 0,
+            toJSON() {},
+          }),
+          writable: true,
+          configurable: true,
+        });
+      }
+
+      afterEach(() => {
+        if (originalRect) {
+          Object.defineProperty(HTMLImageElement.prototype, 'getBoundingClientRect', originalRect);
+        }
+        originalRect = undefined;
+      });
+
+      function renderCrossfadeLightbox(crossfade?: 'open' | 'close' | 'both') {
+        return render(
+          <LightboxRoot viewTransition awaitImageDecode={false}>
+            <LightboxTrigger index={0} crossfade={crossfade} data-testid="trigger-0">
+              {({ imageRef }) => <img ref={imageRef} src="thumb.jpg" alt="thumb" />}
+            </LightboxTrigger>
+            <LightboxContent data-testid="content" aria-label="crossfade test">
+              <LightboxClose data-testid="close">Close</LightboxClose>
+              <LightboxItemGroup>
+                <LightboxItem index={0} data-testid="item-0">
+                  {({ imageRef }) => <img ref={imageRef} src="full.jpg" alt="full" />}
+                </LightboxItem>
+              </LightboxItemGroup>
+            </LightboxContent>
+          </LightboxRoot>,
+        );
+      }
+
+      it('writes data-crossfade on the trigger for the chosen mode', () => {
+        renderCrossfadeLightbox('close');
+        expect(screen.getByTestId('trigger-0')).toHaveAttribute('data-crossfade', 'close');
+      });
+
+      it('omits data-crossfade when unset', () => {
+        renderCrossfadeLightbox();
+        expect(screen.getByTestId('trigger-0')).not.toHaveAttribute('data-crossfade');
+      });
+
+      it('hard-cuts open when crossfade="close"', () => {
+        mockViewTransitionAPI();
+        mockTargetBox();
+        renderCrossfadeLightbox('close');
+        fireEvent.click(screen.getByTestId('trigger-0'));
+        expect(document.documentElement).toHaveAttribute('data-lightbox-no-crossfade');
+      });
+
+      it('crossfades open when crossfade="open"', () => {
+        mockViewTransitionAPI();
+        mockTargetBox();
+        renderCrossfadeLightbox('open');
+        fireEvent.click(screen.getByTestId('trigger-0'));
+        expect(document.documentElement).not.toHaveAttribute('data-lightbox-no-crossfade');
+      });
+
+      it('crossfades open when crossfade="both"', () => {
+        mockViewTransitionAPI();
+        mockTargetBox();
+        renderCrossfadeLightbox('both');
+        fireEvent.click(screen.getByTestId('trigger-0'));
+        expect(document.documentElement).not.toHaveAttribute('data-lightbox-no-crossfade');
+      });
+
+      function mockOpenThenCloseTransition() {
+        let resolveOpen: () => void;
+        let resolveClose: () => void;
+        const startViewTransition = vi.fn((callback: () => void | Promise<void>) => {
+          const result = callback();
+          if (result && typeof (result as Promise<void>).then === 'function') {
+            (result as Promise<void>).catch(vi.fn());
+          }
+          if (startViewTransition.mock.calls.length === 1) {
+            return { finished: new Promise<void>((r) => { resolveOpen = r; }) };
+          }
+          return { finished: new Promise<void>((r) => { resolveClose = r; }) };
+        });
+        Object.defineProperty(document, 'startViewTransition', {
+          value: startViewTransition,
+          writable: true,
+          configurable: true,
+        });
+        return {
+          resolveOpen: () => resolveOpen!(),
+          resolveClose: () => resolveClose!(),
+        };
+      }
+
+      it('crossfades close when crossfade="close"', async () => {
+        const { resolveOpen } = mockOpenThenCloseTransition();
+        mockTargetBox();
+        renderCrossfadeLightbox('close');
+        fireEvent.click(screen.getByTestId('trigger-0'));
+        // Open was hard-cut.
+        expect(document.documentElement).toHaveAttribute('data-lightbox-no-crossfade');
+        await act(async () => resolveOpen());
+
+        fireEvent.click(screen.getByTestId('close'));
+        expect(document.documentElement).toHaveAttribute('data-lightbox-view-transition', 'closing');
+        expect(document.documentElement).not.toHaveAttribute('data-lightbox-no-crossfade');
+      });
+
+      it('hard-cuts close when crossfade="open"', async () => {
+        const { resolveOpen } = mockOpenThenCloseTransition();
+        mockTargetBox();
+        renderCrossfadeLightbox('open');
+        fireEvent.click(screen.getByTestId('trigger-0'));
+        expect(document.documentElement).not.toHaveAttribute('data-lightbox-no-crossfade');
+        await act(async () => resolveOpen());
+
+        fireEvent.click(screen.getByTestId('close'));
+        expect(document.documentElement).toHaveAttribute('data-lightbox-view-transition', 'closing');
+        expect(document.documentElement).toHaveAttribute('data-lightbox-no-crossfade');
       });
     });
 

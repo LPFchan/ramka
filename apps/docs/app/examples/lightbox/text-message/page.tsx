@@ -77,7 +77,7 @@ export default function TextMessagePage() {
 
             <Lightbox.Trigger
               index={0}
-              crossfade
+              crossfade="both"
               className={`relative block h-80 w-[260px] cursor-pointer rounded-2xl border-none bg-transparent p-0 ${triggerMorphHideClass} ${triggerFocusClass}`}
             >
               {({ morphRef }) => (

@@ -73,6 +73,7 @@ export type {
   LightboxTriggerProps,
   LightboxTriggerState,
   LightboxTriggerRenderState,
+  LightboxCrossfade,
 } from './lightbox-trigger';
 export type { LightboxContentProps } from './lightbox-content';
 export type { LightboxBackdropProps, LightboxBackdropState } from './lightbox-backdrop';

@@ -18,7 +18,7 @@ import { lightboxChromeButton, lightboxChromeButtonMd, triggerFocusClass } from 
  * The entry surface is a social feed: each post is an independent
  * `Lightbox.Root` whose attachments render in a Facebook-style image grid.
  * Posts with more than four images collapse the extras behind a `+N`
- * overlay tile that uses `crossfade` (rather than a shared morph), and
+ * overlay tile that uses `crossfade="both"` (rather than a shared morph), and
  * `morphTo="closest"` so navigating past the visible thumbnails still
  * closes sensibly.
  *
@@ -309,7 +309,7 @@ function cornerClass(index: number, count: number): string {
  * Facebook-style trigger grid: 1 image fills the width, 2–4 tile into a
  * grid, and 5+ collapse the extras behind a `+N` overlay tile. Every tile
  * is a `Lightbox.Trigger`, so tapping one morphs into the viewer at that
- * index. The overlay tile uses `crossfade` — there is no single full-size
+ * index. The overlay tile uses `crossfade="both"` — there is no single full-size
  * image behind it, so a morph would look wrong.
  */
 function ImageGrid({ imgs }: { imgs: GalleryImage[] }) {
@@ -389,7 +389,7 @@ function ImageGrid({ imgs }: { imgs: GalleryImage[] }) {
           <Lightbox.Trigger
             key={i}
             index={i}
-            crossfade={showOverlay}
+            crossfade={showOverlay ? 'both' : undefined}
             className={`block overflow-hidden bg-transparent p-0 ${triggerMorphHideClass} ${triggerFocusClass} ${cornerClass(i, 4)}`}
           >
             {({ imageRef }) => (
@@ -587,7 +587,7 @@ export default function ResponsiveGalleryPage() {
           The canonical real-world lightbox, shown inside a social feed. Each post is an independent{' '}
           <code className="rounded bg-neutral-100 px-1 py-0.5 text-xs dark:bg-neutral-800">Lightbox.Root</code> whose
           attachments render in a Facebook-style grid; posts with more than four images collapse the extras behind a{' '}
-          <code className="rounded bg-neutral-100 px-1 py-0.5 text-xs dark:bg-neutral-800">crossfade</code> overlay tile.
+          <code className="rounded bg-neutral-100 px-1 py-0.5 text-xs dark:bg-neutral-800">crossfade=&quot;both&quot;</code> overlay tile.
           Opening a post reveals the full viewer: swipe navigation, desktop-only thumbnails, a View Transition morph,
           pinch / scroll / keyboard zoom, and pull-to-dismiss.
         </>

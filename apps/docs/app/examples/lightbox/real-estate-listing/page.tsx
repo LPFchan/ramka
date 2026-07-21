@@ -152,7 +152,7 @@ function RemainingPhotosGrid() {
           <Lightbox.Trigger
             key={photo.id}
             index={i + 5}
-            crossfade
+            crossfade="both"
             className={`block rounded-lg bg-transparent p-0 ${triggerMorphHideClass} ${triggerFocusClass}`}
           >
             {({ imageRef, morphRef }) => (

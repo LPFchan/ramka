@@ -118,10 +118,6 @@ function LightboxVideo({
 
 function FilmLightbox({ film }: { film: (typeof films)[number] }) {
   const [readyToPlay, setReadyToPlay] = React.useState(false);
-  // Open stays hard-cut (matching poster → video poster). After open completes,
-  // flip crossfade on so the *close* morph dissolves the live video frame into
-  // the trigger instead of pretending they're the same image.
-  const [crossfadeOnClose, setCrossfadeOnClose] = React.useState(false);
 
   return (
     <Lightbox.Root
@@ -131,12 +127,12 @@ function FilmLightbox({ film }: { film: (typeof films)[number] }) {
       }}
       onOpenChangeComplete={(open) => {
         setReadyToPlay(open);
-        setCrossfadeOnClose(open);
       }}
     >
       <Lightbox.Trigger
         index={0}
-        crossfade={crossfadeOnClose}
+        // Hard-cut open (poster → video poster), dissolve on close (live frame → trigger).
+        crossfade="close"
         className={`group block w-full cursor-pointer rounded-xl border-none bg-transparent p-0 text-left ${triggerFocusClass}`}
       >
         {({ morphRef }) => (
@@ -202,11 +198,11 @@ export default function FilmTrailersPage() {
         <>
           Each poster is its own{' '}
           <code className="rounded bg-neutral-100 px-1 py-0.5 text-xs dark:bg-neutral-800">Lightbox.Root</code> — no
-          shared gallery, backdrop, caption, or counter. Open is a hard-cut morph into the video; after{' '}
-          <code className="rounded bg-neutral-100 px-1 py-0.5 text-xs dark:bg-neutral-800">onOpenChangeComplete</code>{' '}
-          we enable <code className="rounded bg-neutral-100 px-1 py-0.5 text-xs dark:bg-neutral-800">crossfade</code>{' '}
-          so close dissolves the live frame into the trigger. Video autoplays (muted) only after open
-          completes.
+          shared gallery, backdrop, caption, or counter.{' '}
+          <code className="rounded bg-neutral-100 px-1 py-0.5 text-xs dark:bg-neutral-800">crossfade=&quot;close&quot;</code>{' '}
+          hard-cuts the open morph into the video and dissolves the live frame back into the poster on close. Video
+          autoplays (muted) only after{' '}
+          <code className="rounded bg-neutral-100 px-1 py-0.5 text-xs dark:bg-neutral-800">onOpenChangeComplete</code>.
         </>
       }
     >

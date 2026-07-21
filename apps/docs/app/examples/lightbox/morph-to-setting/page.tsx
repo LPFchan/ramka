@@ -62,7 +62,7 @@ function MorphDemo({
             <Lightbox.Trigger
               key={img.src}
               index={i}
-              crossfade={isCrossfade}
+              crossfade={isCrossfade ? 'both' : undefined}
               className={`block cursor-pointer rounded-lg border-none bg-transparent p-0 ${triggerMorphHideClass} ${triggerFocusClass}`}
             >
               <img

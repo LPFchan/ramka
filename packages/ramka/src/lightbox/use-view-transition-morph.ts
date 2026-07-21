@@ -237,6 +237,19 @@ function resolveTriggerIndex(
 // ---------------------------------------------------------------------------
 
 /**
+ * Whether the trigger's `crossfade` mode applies to the given morph phase.
+ * `data-crossfade` is `'open' | 'close' | 'both'` (or absent = neither).
+ */
+export function shouldUseCrossfade(
+  mode: string | undefined,
+  phase: 'opening' | 'closing',
+): boolean {
+  if (mode === 'both') return true;
+  if (phase === 'opening') return mode === 'open';
+  return mode === 'close';
+}
+
+/**
  * Applies the document-level state that drives the morph CSS: the phase
  * attribute, the optional no-crossfade opt-out (with its old/new opacity
  * vars), and the from/to border-radius vars. Only defined values are written,
@@ -398,7 +411,7 @@ function useViewTransitionMorph(config: ViewTransitionMorphConfig): ViewTransiti
     const triggerTarget = triggerEl
       ? findTriggerMorphTarget(triggerEl, triggerMorphElementsRef.current)
       : null;
-    const useCrossfade = triggerEl?.dataset.crossfade === 'true';
+    const useCrossfade = shouldUseCrossfade(triggerEl?.dataset.crossfade, 'opening');
 
     // Read the trigger's border-radius NOW, before any writes. At this point the
     // page is idle (the click's React state updates are still batched and
@@ -575,7 +588,7 @@ function useViewTransitionMorph(config: ViewTransitionMorphConfig): ViewTransiti
     const triggerTarget = triggerEl
       ? findTriggerMorphTarget(triggerEl, triggerMorphElementsRef.current)
       : null;
-    const useCrossfade = triggerEl?.dataset.crossfade === 'true';
+    const useCrossfade = shouldUseCrossfade(triggerEl?.dataset.crossfade, 'closing');
 
     // Batch all reads before any writes to avoid forced reflow
     const fromRadius = itemTarget ? getComputedStyle(itemTarget).borderRadius : null;
