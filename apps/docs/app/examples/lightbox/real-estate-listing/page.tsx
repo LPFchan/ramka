@@ -12,6 +12,7 @@ import {
   LightboxFrame,
   LightboxOverlay,
   lightboxChromeButton,
+  triggerFocusClass,
   triggerMorphHideClass,
 } from '../../../_components/lightbox-chrome';
 
@@ -100,7 +101,7 @@ function HeroGrid() {
     <div className="grid aspect-[2.2/1] grid-cols-[2fr_1fr_1fr] grid-rows-2 gap-1">
       <Lightbox.Trigger
         index={0}
-        className={`row-span-2 block cursor-pointer border-none bg-transparent p-0 ${triggerMorphHideClass} ${heroCornerClass[0]}`}
+        className={`row-span-2 block cursor-pointer border-none bg-transparent p-0 ${triggerMorphHideClass} ${triggerFocusClass} ${heroCornerClass[0]}`}
       >
         {({ triggerImageRef }) => (
           <img
@@ -116,7 +117,7 @@ function HeroGrid() {
         <Lightbox.Trigger
           key={photo.id}
           index={i + 1}
-          className={`block cursor-pointer border-none bg-transparent p-0 ${triggerMorphHideClass} ${heroCornerClass[i + 1] ?? ''}`}
+          className={`block cursor-pointer border-none bg-transparent p-0 ${triggerMorphHideClass} ${triggerFocusClass} ${heroCornerClass[i + 1] ?? ''}`}
         >
           {({ triggerImageRef }) => (
             <img
@@ -152,7 +153,7 @@ function RemainingPhotosGrid() {
             key={photo.id}
             index={i + 5}
             crossfade
-            className={`block rounded-lg bg-transparent p-0 ${triggerMorphHideClass}`}
+            className={`block rounded-lg bg-transparent p-0 ${triggerMorphHideClass} ${triggerFocusClass}`}
           >
             {({ triggerImageRef, morphElementRef }) => (
               <div ref={morphElementRef} className="relative overflow-hidden rounded-lg">

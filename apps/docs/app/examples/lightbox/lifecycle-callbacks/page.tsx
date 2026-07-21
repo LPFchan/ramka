@@ -15,6 +15,7 @@ import {
   LightboxTriggerImage,
   StackedItemGroup,
   stackedItemClass,
+  triggerFocusClass,
   triggerMorphHideClass,
 } from '../../../_components/lightbox-chrome';
 
@@ -58,7 +59,7 @@ export default function LifecycleCallbacksPage() {
       >
         <LightboxTriggerGrid>
           {lightboxImages.map((img, i) => (
-            <Lightbox.Trigger key={img.id} index={i} className={`block overflow-hidden rounded-2xl ${triggerMorphHideClass}`}>
+            <Lightbox.Trigger key={img.id} index={i} className={`block overflow-hidden rounded-2xl ${triggerMorphHideClass} ${triggerFocusClass}`}>
               <LightboxTriggerImage src={img.thumb} alt={img.alt} />
             </Lightbox.Trigger>
           ))}

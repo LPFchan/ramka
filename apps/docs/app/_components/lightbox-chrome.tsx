@@ -231,6 +231,16 @@ export const triggerMorphHideClass =
 export const morphElementHideClass =
   'transition-opacity duration-[200ms] ease-out-expo in-data-morph-target:opacity-0 [:root[data-lightbox-view-transition]_&]:transition-none';
 
+/**
+ * Keyboard focus ring for a `Lightbox.Trigger`. Purely a demo affordance — the
+ * headless library ships no trigger styling — so it lives here rather than in
+ * lightbox-demo.css (which is reserved for styles the lightbox needs to work).
+ * `outline` (not `ring`) so the radius follows each trigger's own
+ * `border-radius`, matching the rounded image it wraps.
+ */
+export const triggerFocusClass =
+  'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500';
+
 export function LightboxTriggerGrid({ children }: { children: React.ReactNode }) {
   return <div className="grid max-w-md grid-cols-3 gap-3">{children}</div>;
 }

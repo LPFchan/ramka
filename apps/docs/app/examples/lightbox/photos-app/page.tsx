@@ -9,6 +9,7 @@ import { Heart, Minus, Plus, X, ZoomIn, ZoomOut } from 'lucide-react';
 import {
   lightboxChromeButton,
   lightboxChromeButtonMd,
+  triggerFocusClass,
   triggerMorphHideClass,
 } from '../../../_components/lightbox-chrome';
 
@@ -207,7 +208,7 @@ export default function PhotosAppPage() {
                 // doesn't leave a tile tucked under it. On mobile the docs
                 // MobileNav overlaps the toolbar and is handled by the document's
                 // scroll-pt-14, so this only needs to kick in at md+.
-                className={`relative block aspect-square cursor-pointer overflow-hidden bg-transparent p-0 md:scroll-mt-16 ${triggerMorphHideClass}`}
+                className={`relative block aspect-square cursor-pointer overflow-hidden bg-transparent p-0 md:scroll-mt-16 ${triggerMorphHideClass} ${triggerFocusClass}`}
               >
                 {({ triggerImageRef }) => (
                   <>

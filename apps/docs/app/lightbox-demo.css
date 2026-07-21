@@ -56,15 +56,6 @@
   animation: none;
 }
 
-/* Default focus outline for every Lightbox.Trigger. Uses outline (not
-   ring) so the radius automatically follows the trigger's own
-   `border-radius`, which each demo aligns with its rounded image so
-   the focus shape matches the visible content. */
-[data-lightbox-trigger]:focus-visible {
-  outline: 2px solid var(--color-blue-500, #3b82f6);
-  outline-offset: 2px;
-}
-
 /* ---------------------------------------------------------------------------
    View Transition pseudo-elements
    These live on the document, not in the React tree, so they cannot be

@@ -14,6 +14,7 @@ import {
   morphElementHideClass,
   StackedItemGroup,
   stackedItemClass,
+  triggerFocusClass,
 } from '../../../_components/lightbox-chrome';
 
 const colorPalette = [
@@ -60,7 +61,7 @@ export default function ColorPalettePage() {
                 key={color.id}
                 index={i}
                 crossfade
-                className="flex w-full flex-col gap-0 overflow-hidden rounded-xl bg-transparent text-left"
+                className={`flex w-full flex-col gap-0 overflow-hidden rounded-xl bg-transparent text-left ${triggerFocusClass}`}
               >
                 {({ morphElementRef }) => (
                   <>

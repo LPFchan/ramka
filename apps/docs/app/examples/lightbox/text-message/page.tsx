@@ -11,6 +11,7 @@ import {
   LightboxOverlay,
   StackedItemGroup,
   stackedItemClass,
+  triggerFocusClass,
   triggerMorphHideClass,
 } from '../../../_components/lightbox-chrome';
 
@@ -77,7 +78,7 @@ export default function TextMessagePage() {
             <Lightbox.Trigger
               index={0}
               crossfade
-              className={`relative block h-80 w-[260px] cursor-pointer rounded-2xl border-none bg-transparent p-0 ${triggerMorphHideClass}`}
+              className={`relative block h-80 w-[260px] cursor-pointer rounded-2xl border-none bg-transparent p-0 ${triggerMorphHideClass} ${triggerFocusClass}`}
             >
               {({ morphElementRef }) => (
                 <div ref={morphElementRef} className="absolute -inset-5">

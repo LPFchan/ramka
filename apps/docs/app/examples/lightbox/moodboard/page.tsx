@@ -8,6 +8,7 @@ import { ExampleShell } from '../../../_components/example-shell';
 import {
   lightboxChromeButton,
   lightboxChromeButtonMd,
+  triggerFocusClass,
   triggerMorphHideClass,
 } from '../../../_components/lightbox-chrome';
 
@@ -140,7 +141,7 @@ export default function MoodboardPage() {
                 <Lightbox.Trigger
                   key={tile.id}
                   index={index}
-                  className={`block w-full cursor-pointer overflow-hidden rounded-xl border-none bg-transparent p-0 ${triggerMorphHideClass}`}
+                  className={`block w-full cursor-pointer overflow-hidden rounded-xl border-none bg-transparent p-0 ${triggerMorphHideClass} ${triggerFocusClass}`}
                 >
                   {({ triggerImageRef }) => (
                     <img

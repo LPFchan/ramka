@@ -5,7 +5,7 @@ import { Lightbox } from 'ramka';
 import { Play, X } from 'lucide-react';
 
 import { ExampleShell } from '../../../_components/example-shell';
-import { lightboxChromeButton, morphElementHideClass } from '../../../_components/lightbox-chrome';
+import { lightboxChromeButton, morphElementHideClass, triggerFocusClass } from '../../../_components/lightbox-chrome';
 
 /**
  * Blender Open Movies — real trailers/shorts with their official posters
@@ -137,7 +137,7 @@ function FilmLightbox({ film }: { film: (typeof films)[number] }) {
       <Lightbox.Trigger
         index={0}
         crossfade={crossfadeOnClose}
-        className="group block w-full cursor-pointer rounded-xl border-none bg-transparent p-0 text-left"
+        className={`group block w-full cursor-pointer rounded-xl border-none bg-transparent p-0 text-left ${triggerFocusClass}`}
       >
         {({ morphElementRef }) => (
           <>
