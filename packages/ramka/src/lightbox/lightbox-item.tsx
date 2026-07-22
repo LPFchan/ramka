@@ -33,6 +33,10 @@ interface LightboxItemContextValue {
 
 const LightboxItemContext = React.createContext<LightboxItemContextValue | null>(null);
 
+/**
+ * Optional context from the enclosing Item. Returns
+ * `{ index, active, imageRef, morphRef }`, or `null` outside an Item.
+ */
 function useOptionalLightboxItemContext(): LightboxItemContextValue | null {
   return React.useContext(LightboxItemContext);
 }

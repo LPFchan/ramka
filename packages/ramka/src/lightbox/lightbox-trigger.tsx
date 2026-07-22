@@ -50,6 +50,10 @@ interface LightboxTriggerRenderState {
  */
 const LightboxTriggerContext = React.createContext<LightboxTriggerRenderState | null>(null);
 
+/**
+ * Optional context from the enclosing Trigger. Returns
+ * `{ imageRef, morphRef, open, active }`, or `null` outside a Trigger.
+ */
 function useOptionalLightboxTriggerContext(): LightboxTriggerRenderState | null {
   return React.useContext(LightboxTriggerContext);
 }

@@ -1,5 +1,7 @@
 import type { CssVarRow } from '../../_content/lightbox/api/types';
 
+import { DocDescription } from './doc-description';
+
 export function CssVariablesTable({ variables }: { variables: CssVarRow[] }) {
   if (variables.length === 0) return null;
 
@@ -10,7 +12,7 @@ export function CssVariablesTable({ variables }: { variables: CssVarRow[] }) {
           <tr>
             <th className="px-3 py-2 font-medium">Variable</th>
             <th className="px-3 py-2 font-medium">Type</th>
-            <th className="px-3 py-2 font-medium">Description</th>
+            <th className="min-w-[16rem] px-3 py-2 font-medium">Description</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800">
@@ -22,8 +24,8 @@ export function CssVariablesTable({ variables }: { variables: CssVarRow[] }) {
               <td className="px-3 py-2.5 font-mono text-xs text-neutral-500">
                 {v.type ? <code>{v.type}</code> : '—'}
               </td>
-              <td className="px-3 py-2.5 text-neutral-600 dark:text-neutral-400">
-                {v.description}
+              <td className="px-3 py-2.5">
+                <DocDescription text={v.description} />
               </td>
             </tr>
           ))}

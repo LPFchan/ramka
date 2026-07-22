@@ -1,5 +1,7 @@
 import type { PropRow } from '../../_content/lightbox/api/types';
 
+import { DocDescription } from './doc-description';
+
 export function PropsTable({ props }: { props: PropRow[] }) {
   if (props.length === 0) {
     return <p className="text-sm text-neutral-500">This part has no custom props.</p>;
@@ -13,7 +15,7 @@ export function PropsTable({ props }: { props: PropRow[] }) {
             <th className="px-3 py-2 font-medium">Prop</th>
             <th className="px-3 py-2 font-medium">Type</th>
             <th className="px-3 py-2 font-medium">Default</th>
-            <th className="px-3 py-2 font-medium">Description</th>
+            <th className="min-w-[16rem] px-3 py-2 font-medium">Description</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800">
@@ -33,8 +35,8 @@ export function PropsTable({ props }: { props: PropRow[] }) {
               <td className="px-3 py-2.5 font-mono text-xs text-neutral-500">
                 {prop.default != null ? <code>{prop.default}</code> : '—'}
               </td>
-              <td className="px-3 py-2.5 text-neutral-600 dark:text-neutral-400">
-                {prop.description}
+              <td className="px-3 py-2.5">
+                <DocDescription text={prop.description} />
               </td>
             </tr>
           ))}

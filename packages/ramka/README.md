@@ -30,6 +30,8 @@ import { Lightbox } from 'ramka';
 
 Full API reference: run the [docs site](../../apps/docs) and open `/docs/lightbox`. Live demos live under `/examples/lightbox/*`.
 
+Prop tables are generated from this package’s TypeScript + JSDoc. After changing public props, run `pnpm docs:api` from the repo root (CI fails if the generated file is stale).
+
 ## License
 
 MIT

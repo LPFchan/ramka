@@ -26,6 +26,7 @@ import {
 } from './use-view-transition-morph';
 
 interface LightboxRootProps {
+  /** Lightbox parts and page content (triggers typically live as children of Root). */
   children?: React.ReactNode;
   /** Uncontrolled initial open state. @default false */
   defaultOpen?: boolean;
@@ -122,8 +123,11 @@ interface LightboxRootProps {
 }
 
 interface LightboxRootRef {
+  /** Open the lightbox. Optional index sets the active item. Without a click origin there is no trigger-element morph. */
   open: (index?: number) => void;
+  /** Close the lightbox. */
   close: () => void;
+  /** Navigate to an index (source: button). */
   goTo: (index: number) => void;
 }
 

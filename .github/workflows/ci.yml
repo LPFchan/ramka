@@ -35,6 +35,9 @@ jobs:
       - name: Typecheck
         run: pnpm typecheck
 
+      - name: Check Lightbox API docs
+        run: pnpm docs:api:check
+
       - name: Test
         run: pnpm test
 

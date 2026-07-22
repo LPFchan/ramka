@@ -54,6 +54,7 @@ interface LightboxZoomState extends Record<string, unknown> {
  */
 interface LightboxZoomProps
   extends Omit<useRender.ComponentProps<'div', LightboxZoomState>, 'children' | 'ref'> {
+  /** Zoomable content, or a render function exposing zoom state. */
   children: React.ReactNode | ((state: LightboxZoomState) => React.ReactNode);
   /** Minimum zoom level. @default 1 */
   minZoom?: number;
@@ -86,13 +87,21 @@ const stateAttributesMapping = {
 };
 
 interface LightboxZoomRef {
+  /** Current zoom level. */
   zoom: number;
+  /** Resolved maximum zoom. */
   maxZoom: number;
+  /** Current pan X. */
   offsetX: number;
+  /** Current pan Y. */
   offsetY: number;
+  /** Step zoom in by zoomStep. */
   zoomIn: () => void;
+  /** Step zoom out by zoomStep. */
   zoomOut: () => void;
+  /** Zoom to an absolute level, optionally recentering. */
   zoomTo: (target: number, options?: { rapid?: boolean; dx?: number; dy?: number }) => void;
+  /** Reset zoom and pan to the resting state. */
   reset: (rapid?: boolean) => void;
 }
 
