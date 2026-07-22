@@ -17,6 +17,15 @@ import {
   type PublishActiveZoom,
 } from './lightbox-zoom-context';
 import {
+  bindLightboxHandle,
+  getHandleTrigger,
+  notifyLightboxHandle,
+  unbindLightboxHandle,
+  type LightboxHandle,
+  type LightboxHandleOpenOptions,
+  type LightboxHandleTriggerRegistration,
+} from './lightbox-handle';
+import {
   DEFAULT_DECODE_MAX_WAIT,
   resolveScrollBehavior,
   resolveTriggerIndex,
@@ -28,6 +37,11 @@ import {
 interface LightboxRootProps {
   /** Lightbox parts and page content (triggers typically live as children of Root). */
   children?: React.ReactNode;
+  /**
+   * Imperative handle from `Lightbox.createHandle()`. Pass the same handle to
+   * detached `Lightbox.Trigger`s outside this Root.
+   */
+  handle?: LightboxHandle;
   /** Uncontrolled initial open state. @default false */
   defaultOpen?: boolean;
   /** Controlled open state. */
@@ -122,15 +136,6 @@ interface LightboxRootProps {
   awaitImageDecode?: boolean | number;
 }
 
-interface LightboxRootRef {
-  /** Open the lightbox. Optional index sets the active item. Without a click origin there is no trigger-element morph. */
-  open: (index?: number) => void;
-  /** Close the lightbox. */
-  close: () => void;
-  /** Navigate to an index (source: button). */
-  goTo: (index: number) => void;
-}
-
 /**
  * Waits for the currently-running animations on `el` to finish, then invokes
  * `onSettled` — but only while `gen` is still the current generation, so a
@@ -156,10 +161,10 @@ function runAfterAnimations(
   });
 }
 
-const LightboxRoot = React.forwardRef<LightboxRootRef, LightboxRootProps>(
-  function LightboxRoot(props, forwardedRef) {
+function LightboxRoot(props: LightboxRootProps) {
     const {
       children,
+      handle: handleProp,
       defaultOpen = false,
       open: openProp,
       onOpenChange,
@@ -362,7 +367,7 @@ const LightboxRoot = React.forwardRef<LightboxRootRef, LightboxRootProps>(
     // claimed responsibility for. When the derived `open` differs from
     // this ref, the change came from outside (e.g. a controlled prop
     // mutated by something other than Lightbox.Trigger / Close /
-    // imperative handle) and the sync effect below needs to mount or
+    // createHandle) and the sync effect below needs to mount or
     // unmount the portal manually.
     const lastInternalOpenRef = React.useRef(open);
 
@@ -381,10 +386,23 @@ const LightboxRoot = React.forwardRef<LightboxRootRef, LightboxRootProps>(
     const openingTriggerElementRef = React.useRef<HTMLElement | null>(null);
     const openingTriggerImageRef = React.useRef<HTMLImageElement | null>(null);
     const triggerImageElementsRef = React.useRef<Map<number, HTMLImageElement>>(new Map());
+    const triggerIdsRef = React.useRef<
+      Map<
+        string,
+        {
+          id: string;
+          index: number;
+          element: HTMLElement | null;
+          image: HTMLImageElement | null;
+        }
+      >
+    >(new Map());
     const dialogElementRef = React.useRef<HTMLElement | null>(null);
     const backdropElementRef = React.useRef<HTMLElement | null>(null);
     const activeIndexRef = React.useRef(activeIndex);
     activeIndexRef.current = activeIndex;
+    const openRef = React.useRef(open);
+    openRef.current = open;
 
     // --- Active-zoom bridge ---
     // The active slide's Lightbox.Zoom publishes its controls here so a single
@@ -484,6 +502,7 @@ const LightboxRoot = React.forwardRef<LightboxRootRef, LightboxRootProps>(
       activeItemElementRef,
       itemMorphElementsRef,
       openingTriggerIndexRef,
+      openingTriggerElementRef,
       activeIndexRef,
       closeGenRef,
       commitPrepare,
@@ -628,26 +647,115 @@ const LightboxRoot = React.forwardRef<LightboxRootRef, LightboxRootProps>(
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    // Imperative handle
-    React.useImperativeHandle(
-      forwardedRef,
-      () => ({
-        open: (index?: number) => {
-          if (index !== undefined) {
-            openingTriggerIndexRef.current = index;
-            setActiveIndex(index, 'trigger');
+    const performOpen = React.useCallback(
+      (index?: number, options?: LightboxHandleOpenOptions) => {
+        let resolvedIndex = index;
+        let element: HTMLElement | null = null;
+        let image: HTMLImageElement | null = null;
+
+        if (options?.triggerId) {
+          const fromHandle = handleProp ? getHandleTrigger(handleProp, options.triggerId) : undefined;
+          const fromIds = triggerIdsRef.current.get(options.triggerId);
+          const reg = fromHandle ?? fromIds;
+          if (reg) {
+            resolvedIndex = index ?? reg.index;
+            element = reg.element;
+            image = reg.image;
+          } else if (process.env.NODE_ENV !== 'production') {
+            console.warn(
+              `Lightbox open: no trigger registered with id "${options.triggerId}".`,
+            );
           }
-          // Programmatic open: no originating element, so clear it. Placeholder
-          // sourcing falls back to the index-keyed trigger map.
+        }
+
+        if (resolvedIndex !== undefined) {
+          openingTriggerIndexRef.current = resolvedIndex;
+          setActiveIndex(resolvedIndex, 'imperative');
+        }
+
+        if (element) {
+          openingTriggerElementRef.current = element;
+          openingTriggerImageRef.current = image;
+        } else if (resolvedIndex !== undefined) {
+          // Associate with the registered trigger at this index when present so
+          // view-transition morph / placeholders can still run for handle opens.
+          openingTriggerElementRef.current =
+            triggerElementsRef.current.get(resolvedIndex) ?? null;
+          openingTriggerImageRef.current =
+            triggerImageElementsRef.current.get(resolvedIndex) ?? null;
+        } else {
           openingTriggerElementRef.current = null;
           openingTriggerImageRef.current = null;
-          setOpen(true);
-        },
-        close: () => setOpen(false),
-        goTo: (index: number) => setActiveIndex(index, 'button'),
-      }),
-      [setActiveIndex, setOpen],
+        }
+
+        setOpen(true);
+      },
+      [handleProp, setActiveIndex, setOpen],
     );
+
+    const performClose = React.useCallback(() => setOpen(false), [setOpen]);
+    const performGoTo = React.useCallback(
+      (index: number) => setActiveIndex(index, 'imperative'),
+      [setActiveIndex],
+    );
+
+    // Bind createHandle() host for the lifetime of this Root.
+    React.useLayoutEffect(() => {
+      if (!handleProp) return;
+
+      const syncTrigger = (reg: LightboxHandleTriggerRegistration) => {
+        triggerIdsRef.current.set(reg.id, {
+          id: reg.id,
+          index: reg.index,
+          element: reg.element,
+          image: reg.image,
+        });
+        if (reg.element) {
+          triggerElementsRef.current.set(reg.index, reg.element);
+          if (reg.morphElement) {
+            triggerMorphElementsRef.current.set(reg.element, reg.morphElement);
+          } else {
+            triggerMorphElementsRef.current.delete(reg.element);
+          }
+        }
+        if (reg.image) {
+          triggerImageElementsRef.current.set(reg.index, reg.image);
+        }
+      };
+
+      const unsyncTrigger = (reg: LightboxHandleTriggerRegistration) => {
+        const current = triggerIdsRef.current.get(reg.id);
+        if (current?.element === reg.element) {
+          triggerIdsRef.current.delete(reg.id);
+        }
+        if (reg.element && triggerElementsRef.current.get(reg.index) === reg.element) {
+          triggerElementsRef.current.delete(reg.index);
+          triggerMorphElementsRef.current.delete(reg.element);
+        }
+        if (reg.image && triggerImageElementsRef.current.get(reg.index) === reg.image) {
+          triggerImageElementsRef.current.delete(reg.index);
+        }
+      };
+
+      const host = {
+        open: performOpen,
+        close: performClose,
+        goTo: performGoTo,
+        getOpen: () => openRef.current,
+        getActiveIndex: () => activeIndexRef.current,
+        syncTrigger,
+        unsyncTrigger,
+      };
+
+      bindLightboxHandle(handleProp, host);
+      return () => unbindLightboxHandle(handleProp, host);
+    }, [handleProp, performOpen, performClose, performGoTo]);
+
+    // Keep detached Triggers (subscribed via the handle) in sync with Root state.
+    React.useEffect(() => {
+      if (!handleProp) return;
+      notifyLightboxHandle(handleProp);
+    }, [handleProp, open, activeIndex]);
 
     const contextValue = React.useMemo<LightboxContextValue>(
       () => ({
@@ -676,6 +784,7 @@ const LightboxRoot = React.forwardRef<LightboxRootRef, LightboxRootProps>(
         openingTriggerElementRef,
         openingTriggerImageRef,
         triggerImageElementsRef,
+        triggerIdsRef,
         dialogElementRef,
         backdropElementRef,
       }),
@@ -689,10 +798,9 @@ const LightboxRoot = React.forwardRef<LightboxRootRef, LightboxRootProps>(
         </LightboxZoomPublishContext.Provider>
       </LightboxContext.Provider>
     );
-  },
-);
+}
 
 LightboxRoot.displayName = 'LightboxRoot';
 
 export { LightboxRoot };
-export type { LightboxRootProps, LightboxRootRef };
+export type { LightboxRootProps };

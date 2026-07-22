@@ -447,6 +447,11 @@ interface ViewTransitionMorphConfig {
   /** Item element → its designated morph descendant (see findItemMorphTarget). */
   itemMorphElementsRef: React.RefObject<WeakMap<HTMLElement, HTMLElement>>;
   openingTriggerIndexRef: React.RefObject<number>;
+  /**
+   * Exact opening trigger (click or handle + triggerId). Preferred over the
+   * index map so morph is correct when several triggers share one index.
+   */
+  openingTriggerElementRef: React.RefObject<HTMLElement | null>;
   activeIndexRef: React.RefObject<number>;
   closeGenRef: React.MutableRefObject<number>;
   /**
@@ -501,6 +506,7 @@ function useViewTransitionMorph(config: ViewTransitionMorphConfig): ViewTransiti
       activeItemElementRef,
       itemMorphElementsRef,
       openingTriggerIndexRef,
+      openingTriggerElementRef,
       closeGenRef,
       commitPrepare,
       commitReveal,
@@ -510,7 +516,10 @@ function useViewTransitionMorph(config: ViewTransitionMorphConfig): ViewTransiti
     const gen = closeGenRef.current;
 
     const triggerIdx = openingTriggerIndexRef.current;
-    const triggerEl = triggerElementsRef.current.get(triggerIdx);
+    // Prefer the exact origin element (click / handle.triggerId) over the
+    // index map — last-registered wins in the map when indexes collide.
+    const triggerEl =
+      openingTriggerElementRef.current ?? triggerElementsRef.current.get(triggerIdx) ?? undefined;
     const triggerTarget = triggerEl
       ? findTriggerMorphTarget(triggerEl, triggerMorphElementsRef.current)
       : null;

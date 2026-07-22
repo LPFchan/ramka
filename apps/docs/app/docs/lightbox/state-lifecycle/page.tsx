@@ -6,7 +6,7 @@ import { lightboxApiHref, lightboxDocsPages } from '../../../_content/lightbox/d
 import { lightboxExcerpts } from '../../../_content/lightbox/excerpts/generated';
 import {
   ControlledStateDemo,
-  ImperativeRefDemo,
+  CreateHandleDemo,
   LifecycleCallbacksDemo,
 } from '../state-lifecycle-demos';
 
@@ -22,8 +22,9 @@ export default function LightboxStateLifecyclePage() {
       title="State & lifecycle"
       description={
         <>
-          Control open state and the active index from React, a Root ref, or both — and know when
-          callbacks fire. Part of <DocsLink href={lightboxDocsPages.overview.href}>Lightbox</DocsLink>.
+          Control open state and the active index from React,{' '}
+          <code className="text-xs">createHandle()</code>, or both — and know when callbacks fire. Part of{' '}
+          <DocsLink href={lightboxDocsPages.overview.href}>Lightbox</DocsLink>.
         </>
       }
       toc={toc}
@@ -45,25 +46,16 @@ export default function LightboxStateLifecyclePage() {
 
       <DocsSection id="imperative" title="Imperative API">
         <p>
-          Attach a ref to Root for <code className="text-xs">open(index?)</code>,{' '}
-          <code className="text-xs">close()</code>, and <code className="text-xs">goTo(index)</code> — see{' '}
-          <DocsLink href={lightboxApiHref.rootRef}>LightboxRootRef</DocsLink>. You can combine a ref with
-          controlled props.
-        </p>
-        <p>
-          <strong className="font-medium text-neutral-800 dark:text-neutral-200">View transitions:</strong>{' '}
-          <code className="text-xs">open()</code> without a trigger click has no trigger-element morph
-          (fade path only). Trigger clicks still morph — details in{' '}
-          <DocsLink href={`${lightboxDocsPages.viewTransitions.href}#programmatic`}>
-            View transitions → Programmatic open
-          </DocsLink>
-          .
+          <DocsLink href={lightboxApiHref.createHandle}>Lightbox.createHandle()</DocsLink> lets Triggers
+          and Root live apart — pass the same handle to both. Call{' '}
+          <code className="text-xs">open(index, {'{ triggerId }'})</code> from any button so the open still
+          morphs from the matching <DocsLink href={lightboxApiHref.trigger}>Trigger</DocsLink>.
         </p>
         <CodeBlock
-          code={lightboxExcerpts['imperative-ref'].code}
-          title={lightboxExcerpts['imperative-ref'].title}
+          code={lightboxExcerpts['create-handle'].code}
+          title={lightboxExcerpts['create-handle'].title}
         />
-        <ImperativeRefDemo />
+        <CreateHandleDemo />
       </DocsSection>
 
       <DocsSection id="lifecycle" title="Lifecycle callbacks">
@@ -72,7 +64,8 @@ export default function LightboxStateLifecyclePage() {
           URL or external state. <code className="text-xs">onOpenChangeComplete</code> fires after enter/exit
           motion settles — use it for cleanup and focus. <code className="text-xs">onValueChange</code>{' '}
           reports the new index plus a{' '}
-          <DocsLink href={lightboxApiHref.types}>NavigationSource</DocsLink>.
+          <DocsLink href={lightboxApiHref.types}>NavigationSource</DocsLink> (including{' '}
+          <code className="text-xs">imperative</code> for handle navigation).
         </p>
         <CodeBlock
           code={lightboxExcerpts['lifecycle-callbacks'].code}

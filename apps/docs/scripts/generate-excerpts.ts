@@ -101,17 +101,29 @@ function unwrapReturnJsx(fn: FunctionDeclaration | FunctionExpression | ArrowFun
   if (!body) return undefined;
 
   if (Node.isBlock(body)) {
-    const returns = body.getDescendantsOfKind(SyntaxKind.ReturnStatement);
-    const topReturn = body.getStatements().find((s) => Node.isReturnStatement(s));
-    const ret = topReturn && Node.isReturnStatement(topReturn) ? topReturn : returns[0];
+    const statements = body.getStatements();
+    const topReturn = statements.find((s) => Node.isReturnStatement(s));
+    const ret =
+      topReturn && Node.isReturnStatement(topReturn)
+        ? topReturn
+        : body.getDescendantsOfKind(SyntaxKind.ReturnStatement)[0];
     if (!ret || !Node.isReturnStatement(ret)) return undefined;
     const expr = ret.getExpression();
     if (!expr) return undefined;
-    let text = expr.getText();
+    let jsx = expr.getText();
     if (Node.isParenthesizedExpression(expr)) {
-      text = expr.getExpression().getText();
+      jsx = expr.getExpression().getText();
     }
-    return dedent(text);
+    // Include setup statements before the return (e.g. createHandle()).
+    // Dedent JSX on its own so a flush-left preamble doesn't leave the
+    // fragment over-indented relative to `<>`.
+    const preamble = statements
+      .filter((s) => s !== ret && !Node.isReturnStatement(s))
+      .map((s) => s.getText().trim())
+      .filter(Boolean);
+    const jsxDedented = dedent(jsx).replace(/\n$/, '');
+    if (!preamble.length) return `${jsxDedented}\n`;
+    return `${preamble.join('\n\n')}\n\n${jsxDedented}\n`;
   }
 
   let text = body.getText();

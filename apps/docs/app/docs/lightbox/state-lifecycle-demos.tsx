@@ -65,28 +65,39 @@ export function ControlledStateDemo() {
   );
 }
 
-export function ImperativeRefDemo() {
-  const lightboxRef = React.useRef<Lightbox.LightboxRootRef | null>(null);
+export function CreateHandleDemo() {
+  const lightbox = React.useMemo(() => Lightbox.createHandle(), []);
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
-        {lightboxImages.map((_, i) => (
-          <button key={i} type="button" onClick={() => lightboxRef.current?.open(i)} className={btnClass}>
-            Open #{i + 1}
-          </button>
-        ))}
-        <button type="button" onClick={() => lightboxRef.current?.goTo(0)} className={btnClass}>
-          goTo(0)
-        </button>
-        <button type="button" onClick={() => lightboxRef.current?.close()} className={btnClass}>
-          Close
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm text-neutral-600 dark:text-neutral-400">Product photos</p>
+        <button
+          type="button"
+          onClick={() => lightbox.open(0, { triggerId: 'photo-0' })}
+          className={btnClass}
+        >
+          View gallery
         </button>
       </div>
 
-      <Lightbox.Root ref={lightboxRef}>
+      <LightboxTriggerGrid>
+        {lightboxImages.map((img, i) => (
+          <Lightbox.Trigger
+            key={img.id}
+            handle={lightbox}
+            id={`photo-${i}`}
+            index={i}
+            className={`block overflow-hidden rounded-2xl ${triggerMorphHideClass} ${triggerFocusClass}`}
+          >
+            <LightboxTriggerImage src={img.src} alt={img.alt} />
+          </Lightbox.Trigger>
+        ))}
+      </LightboxTriggerGrid>
+
+      <Lightbox.Root handle={lightbox} viewTransition>
         <LightboxOverlay />
-        <LightboxFrame ariaLabel="Imperative-control photo gallery">
+        <LightboxFrame ariaLabel="Product photo gallery">
           <LightboxCloseButton />
           <StackedItemGroup>
             {lightboxImages.map((img, i) => (

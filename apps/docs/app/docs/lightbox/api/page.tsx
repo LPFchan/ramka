@@ -15,7 +15,7 @@ const byConcern: { label: string; links: { href: string; title: string }[] }[] =
     label: 'State',
     links: [
       { href: lightboxApiHref.root, title: 'Root' },
-      { href: lightboxApiHref.rootRef, title: 'Root ref' },
+      { href: lightboxApiHref.createHandle, title: 'createHandle' },
     ],
   },
   {
@@ -133,10 +133,12 @@ export default function LightboxApiPage() {
             <code className="text-xs">NavigationSource</code> —{' '}
             <code className="text-xs">
               &apos;trigger&apos; | &apos;keyboard&apos; | &apos;thumbnail&apos; | &apos;button&apos; |
-              &apos;scroll&apos;
+              &apos;scroll&apos; | &apos;imperative&apos;
             </code>
-            . Second argument to Root <code className="text-xs">onValueChange</code>. Scroll-driven Slides
-            updates use <code className="text-xs">&apos;scroll&apos;</code>.
+            . Second argument to Root <code className="text-xs">onValueChange</code>. Handle{' '}
+            <code className="text-xs">open</code>/<code className="text-xs">goTo</code> use{' '}
+            <code className="text-xs">&apos;imperative&apos;</code>; scroll-driven Slides use{' '}
+            <code className="text-xs">&apos;scroll&apos;</code>.
           </li>
           <li>
             <code className="text-xs">LightboxCrossfade</code> —{' '}
@@ -164,7 +166,10 @@ export default function LightboxApiPage() {
       ))}
 
       <DocsSection id="imperative" title="Imperative handles">
-        <p>Attach a ref to Root or Zoom to drive the lightbox from outside the tree.</p>
+        <p>
+          Use <code className="text-xs">Lightbox.createHandle()</code> on Root (and optional detached
+          Triggers). Zoom exposes zoom controls via <code className="text-xs">ref</code>.
+        </p>
       </DocsSection>
       {imperativeApi.map((part) => (
         <ApiPartSection key={part.id} part={part} />

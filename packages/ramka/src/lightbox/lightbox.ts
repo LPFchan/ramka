@@ -49,6 +49,9 @@
  *   ZoomIn          — Button to zoom in (consumes ZoomContext)
  *   ZoomOut         — Button to zoom out (consumes ZoomContext)
  */
+export { createHandle } from './lightbox-handle';
+export type { LightboxHandle, LightboxHandleOpenOptions } from './lightbox-handle';
+
 export { LightboxRoot as Root } from './lightbox-root';
 export { LightboxTrigger as Trigger } from './lightbox-trigger';
 export { LightboxContent as Content } from './lightbox-content';
@@ -68,7 +71,7 @@ export { LightboxZoom as Zoom } from './lightbox-zoom';
 export { LightboxZoomIn as ZoomIn } from './lightbox-zoom-in';
 export { LightboxZoomOut as ZoomOut } from './lightbox-zoom-out';
 
-export type { LightboxRootProps, LightboxRootRef } from './lightbox-root';
+export type { LightboxRootProps } from './lightbox-root';
 export type {
   LightboxTriggerProps,
   LightboxTriggerState,

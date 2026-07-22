@@ -3,7 +3,16 @@
 import { mergeProps, useRender } from '@base-ui/react';
 import * as React from 'react';
 
-import { useLightboxContext } from './lightbox-context';
+import { LightboxContext } from './lightbox-context';
+import {
+  getLightboxHandleSnapshot,
+  getLightboxHandleVersion,
+  registerHandleTrigger,
+  subscribeLightboxHandle,
+  touchHandleTrigger,
+  type LightboxHandle,
+  type LightboxHandleTriggerRegistration,
+} from './lightbox-handle';
 
 /** Direction(s) in which the trigger↔item morph should crossfade snapshots. */
 type LightboxCrossfade = 'open' | 'close' | 'both';
@@ -63,6 +72,16 @@ interface LightboxTriggerProps
   /** Item index this trigger opens. Required. */
   index: number;
   /**
+   * Stable id for this trigger. Required for `handle.open(index, { triggerId })`
+   * association and for detached Triggers. Also applied as the DOM `id`.
+   */
+  id?: string;
+  /**
+   * Handle from `Lightbox.createHandle()`. Pass the same handle as Root to use
+   * this Trigger outside the Root tree (Base UI Dialog-style detached triggers).
+   */
+  handle?: LightboxHandle;
+  /**
    * Crossfade between trigger and item snapshots during the view-transition
    * morph. Omit (default) for a hard-cut morph — ideal when trigger and item
    * show the same image at different crops/sizes. Use a direction when they
@@ -90,6 +109,8 @@ const triggerStateAttributesMapping = {
   morphTarget: (value: unknown) => (value ? { 'data-morph-target': '' } : null),
 };
 
+const noopSubscribe = () => () => {};
+
 /**
  * A trigger that opens the Lightbox at a specific item index.
  * Multiple triggers can exist — each opens the lightbox at its `index`.
@@ -101,29 +122,103 @@ const triggerStateAttributesMapping = {
  * `imageRef` to the trigger's image — that's what lets the destination
  * image reuse the already-decoded thumbnail as a placeholder and avoid a blank
  * frame during the open morph.
+ *
+ * Pass `handle` (from `Lightbox.createHandle()`) to render this Trigger
+ * outside `Lightbox.Root`, matching Base UI Dialog detached triggers.
  */
 const LightboxTrigger = React.forwardRef<HTMLButtonElement, LightboxTriggerProps>(
   function LightboxTrigger(props, forwardedRef) {
-    const { render, index, crossfade, children, ...elementProps } = props;
-    const {
-      open,
-      activeIndex,
-      setOpen,
-      setActiveIndex,
-      triggerElementsRef,
-      triggerMorphElementsRef,
-      triggerImageElementsRef,
-      openingTriggerIndexRef,
-      openingTriggerElementRef,
-      openingTriggerImageRef,
-      morphTo,
-    } = useLightboxContext();
+    const { render, index, id: idProp, handle: handleProp, crossfade, children, ...elementProps } =
+      props;
+
+    const rootContext = React.useContext(LightboxContext);
+    if (!rootContext && !handleProp) {
+      throw new Error(
+        'Lightbox.Trigger must be used within a Lightbox.Root, or passed a handle from Lightbox.createHandle()',
+      );
+    }
+
+    // Stable id for handle registration. Prefer the consumer `id` (also used as
+    // DOM id / handle.open triggerId); fall back to useId for detached morph.
+    const reactId = React.useId();
+    const handleTriggerId = idProp ?? reactId;
+
+    // Detached Triggers subscribe to a stable version number (not a new object
+    // each read — that would loop useSyncExternalStore).
+    const handleVersion = React.useSyncExternalStore(
+      handleProp && !rootContext
+        ? (onStoreChange) => subscribeLightboxHandle(handleProp, onStoreChange)
+        : noopSubscribe,
+      () => (handleProp && !rootContext ? getLightboxHandleVersion(handleProp) : 0),
+      () => 0,
+    );
+    void handleVersion;
+    const handleSnapshot =
+      !rootContext && handleProp ? getLightboxHandleSnapshot(handleProp) : null;
+
+    const open = rootContext?.open ?? handleSnapshot?.open ?? false;
+    const activeIndex = rootContext?.activeIndex ?? handleSnapshot?.activeIndex ?? 0;
+    const morphTo = rootContext?.morphTo ?? 'active';
+    const triggerElementsRef = rootContext?.triggerElementsRef;
+    const triggerMorphElementsRef = rootContext?.triggerMorphElementsRef;
+    const triggerImageElementsRef = rootContext?.triggerImageElementsRef;
+    const triggerIdsRef = rootContext?.triggerIdsRef;
+    const openingTriggerIndexRef = rootContext?.openingTriggerIndexRef;
+    const openingTriggerElementRef = rootContext?.openingTriggerElementRef;
+    const openingTriggerImageRef = rootContext?.openingTriggerImageRef;
+    const setOpen = rootContext?.setOpen;
+    const setActiveIndex = rootContext?.setActiveIndex;
 
     const internalRef = React.useRef<HTMLButtonElement | null>(null);
     // The image node the consumer designated via `imageRef`, if any.
     const imageNodeRef = React.useRef<HTMLImageElement | null>(null);
     // The morph node the consumer designated via `morphRef`, if any.
     const morphNodeRef = React.useRef<HTMLElement | null>(null);
+    const handleRegistrationRef = React.useRef<LightboxHandleTriggerRegistration | null>(null);
+
+    const syncHandleRegistration = React.useCallback(() => {
+      const reg = handleRegistrationRef.current;
+      if (!handleProp || !reg) return;
+      reg.index = index;
+      reg.element = internalRef.current;
+      reg.image = imageNodeRef.current;
+      reg.morphElement = morphNodeRef.current;
+      touchHandleTrigger(handleProp, reg);
+    }, [handleProp, index]);
+
+    // Register with the handle for detached / imperative triggerId association.
+    React.useLayoutEffect(() => {
+      if (!handleProp) {
+        handleRegistrationRef.current = null;
+        return;
+      }
+      const reg: LightboxHandleTriggerRegistration = {
+        id: handleTriggerId,
+        index,
+        element: internalRef.current,
+        image: imageNodeRef.current,
+        morphElement: morphNodeRef.current,
+      };
+      handleRegistrationRef.current = reg;
+      return registerHandleTrigger(handleProp, reg);
+    }, [handleProp, handleTriggerId, index]);
+
+    // Register id map when this Trigger is under Root (for handle.open triggerId).
+    React.useLayoutEffect(() => {
+      if (!idProp || !triggerIdsRef) return;
+      const entry = {
+        id: idProp,
+        index,
+        element: internalRef.current,
+        image: imageNodeRef.current,
+      };
+      triggerIdsRef.current.set(idProp, entry);
+      return () => {
+        if (triggerIdsRef.current.get(idProp) === entry) {
+          triggerIdsRef.current.delete(idProp);
+        }
+      };
+    }, [idProp, index, triggerIdsRef]);
 
     // Register (or clear) this trigger's morph override in the element-keyed
     // registry. Keyed by the trigger element so it's correct even when several
@@ -134,7 +229,7 @@ const LightboxTrigger = React.forwardRef<HTMLButtonElement, LightboxTriggerProps
     // element exists; later toggles re-run it directly from `morphRef`.
     const registerMorphElement = React.useCallback(() => {
       const triggerEl = internalRef.current;
-      const registry = triggerMorphElementsRef.current;
+      const registry = triggerMorphElementsRef?.current;
       if (!triggerEl || !registry) return;
       const morphNode = morphNodeRef.current;
       if (morphNode) {
@@ -142,21 +237,40 @@ const LightboxTrigger = React.forwardRef<HTMLButtonElement, LightboxTriggerProps
       } else {
         registry.delete(triggerEl);
       }
-    }, [triggerMorphElementsRef]);
+      syncHandleRegistration();
+    }, [triggerMorphElementsRef, syncHandleRegistration]);
 
     const mergedRefCallback = React.useCallback(
       (node: HTMLButtonElement | null) => {
         const prev = internalRef.current;
         internalRef.current = node;
-        // Register in the trigger elements map for view transitions
-        if (node) {
-          triggerElementsRef.current.set(index, node);
-          // Child refs (incl. `morphRef`) have already fired by now, so
-          // pick up any designated morph node for this freshly-mounted trigger.
-          registerMorphElement();
+        // Register in the trigger elements map for view transitions (Root tree).
+        if (triggerElementsRef) {
+          if (node) {
+            triggerElementsRef.current.set(index, node);
+            // Child refs (incl. `morphRef`) have already fired by now, so
+            // pick up any designated morph node for this freshly-mounted trigger.
+            registerMorphElement();
+          } else {
+            triggerElementsRef.current.delete(index);
+            if (prev) triggerMorphElementsRef?.current?.delete(prev);
+          }
         } else {
-          triggerElementsRef.current.delete(index);
-          if (prev) triggerMorphElementsRef.current?.delete(prev);
+          // Detached: keep handle registration in sync with the DOM node.
+          syncHandleRegistration();
+        }
+        if (idProp && triggerIdsRef) {
+          const existing = triggerIdsRef.current.get(idProp);
+          if (existing) {
+            existing.element = node;
+          } else {
+            triggerIdsRef.current.set(idProp, {
+              id: idProp,
+              index,
+              element: node,
+              image: imageNodeRef.current,
+            });
+          }
         }
         if (typeof forwardedRef === 'function') {
           forwardedRef(node);
@@ -164,19 +278,37 @@ const LightboxTrigger = React.forwardRef<HTMLButtonElement, LightboxTriggerProps
           forwardedRef.current = node;
         }
       },
-      [forwardedRef, index, triggerElementsRef, triggerMorphElementsRef, registerMorphElement],
+      [
+        forwardedRef,
+        index,
+        idProp,
+        triggerElementsRef,
+        triggerMorphElementsRef,
+        triggerIdsRef,
+        registerMorphElement,
+        syncHandleRegistration,
+      ],
     );
 
     const imageRef = React.useCallback(
       (node: HTMLImageElement | null) => {
         imageNodeRef.current = node;
-        if (node) {
-          triggerImageElementsRef.current?.set(index, node);
-        } else {
-          triggerImageElementsRef.current?.delete(index);
+        if (triggerImageElementsRef) {
+          if (node) {
+            triggerImageElementsRef.current.set(index, node);
+          } else {
+            triggerImageElementsRef.current.delete(index);
+          }
         }
+        if (idProp && triggerIdsRef) {
+          const existing = triggerIdsRef.current.get(idProp);
+          if (existing) {
+            existing.image = node;
+          }
+        }
+        syncHandleRegistration();
       },
-      [index, triggerImageElementsRef],
+      [index, idProp, triggerImageElementsRef, triggerIdsRef, syncHandleRegistration],
     );
 
     const morphRef = React.useCallback(
@@ -188,14 +320,26 @@ const LightboxTrigger = React.forwardRef<HTMLButtonElement, LightboxTriggerProps
     );
 
     const handleClick = React.useCallback(() => {
-      openingTriggerIndexRef.current = index;
-      // Capture the exact clicked element + its designated image so placeholder/
-      // morph sourcing is correct even when multiple triggers share this index.
-      openingTriggerElementRef.current = internalRef.current;
-      openingTriggerImageRef.current = imageNodeRef.current;
-      setActiveIndex(index, 'trigger');
-      setOpen(true);
+      if (rootContext && setOpen && setActiveIndex && openingTriggerIndexRef) {
+        openingTriggerIndexRef.current = index;
+        // Capture the exact clicked element + its designated image so placeholder/
+        // morph sourcing is correct even when multiple triggers share this index.
+        if (openingTriggerElementRef) {
+          openingTriggerElementRef.current = internalRef.current;
+        }
+        if (openingTriggerImageRef) {
+          openingTriggerImageRef.current = imageNodeRef.current;
+        }
+        setActiveIndex(index, 'trigger');
+        setOpen(true);
+        return;
+      }
+      // Detached Trigger: open through the shared handle (associates this element).
+      handleProp?.open(index, { triggerId: handleTriggerId });
     }, [
+      rootContext,
+      handleProp,
+      handleTriggerId,
       index,
       setActiveIndex,
       setOpen,
@@ -208,6 +352,9 @@ const LightboxTrigger = React.forwardRef<HTMLButtonElement, LightboxTriggerProps
 
     const morphTarget = React.useMemo(() => {
       if (!open) return false;
+      if (!triggerElementsRef || !openingTriggerIndexRef) {
+        return active;
+      }
       if (morphTo === 'origin') return index === openingTriggerIndexRef.current;
       if (morphTo === 'closest') {
         if (triggerElementsRef.current.has(activeIndex)) return activeIndex === index;
@@ -215,22 +362,27 @@ const LightboxTrigger = React.forwardRef<HTMLButtonElement, LightboxTriggerProps
         let bestDist = Infinity;
         for (const idx of triggerElementsRef.current.keys()) {
           const dist = Math.abs(idx - activeIndex);
-          if (dist < bestDist) { bestDist = dist; best = idx; }
+          if (dist < bestDist) {
+            bestDist = dist;
+            best = idx;
+          }
         }
         return index === best;
       }
       return active;
     }, [open, morphTo, activeIndex, index, active, openingTriggerIndexRef, triggerElementsRef]);
 
-    const state = React.useMemo<LightboxTriggerState>(() => ({ open, active, morphTarget }), [open, active, morphTarget]);
+    const state = React.useMemo<LightboxTriggerState>(
+      () => ({ open, active, morphTarget }),
+      [open, active, morphTarget],
+    );
 
     const renderState = React.useMemo<LightboxTriggerRenderState>(
       () => ({ imageRef, morphRef, open, active }),
       [imageRef, morphRef, open, active],
     );
 
-    const resolvedChildren =
-      typeof children === 'function' ? children(renderState) : children;
+    const resolvedChildren = typeof children === 'function' ? children(renderState) : children;
 
     const rendered = useRender({
       render,
@@ -240,6 +392,7 @@ const LightboxTrigger = React.forwardRef<HTMLButtonElement, LightboxTriggerProps
       props: mergeProps<'button'>(
         {
           type: 'button',
+          id: idProp,
           onClick: handleClick,
           // Stable styling hook — consumer CSS can target every trigger
           // (e.g. for a default focus outline) without relying on

@@ -185,13 +185,16 @@ export default function LightboxViewTransitionsPage() {
 
       <DocsSection id="programmatic" title="Programmatic open">
         <p>
-          <DocsLink href={lightboxApiHref.rootRef}>Root ref</DocsLink>{' '}
-          <code className="text-xs">open(index?)</code> opens without a click origin — there is{' '}
-          <em>no</em> trigger-element morph (fade path only). Trigger clicks still morph. Use{' '}
+          Prefer{' '}
+          <DocsLink href={lightboxApiHref.createHandle}>createHandle()</DocsLink>:{' '}
+          <code className="text-xs">open(index, {'{ triggerId }'})</code> associates a Trigger that
+          declared that <code className="text-xs">id</code> so the open morph can use that element.
+          Without a registered trigger (or <code className="text-xs">triggerId</code>), the open falls
+          back to the fade path. Trigger clicks still morph. Demo:{' '}
           <DocsLink href={`${lightboxDocsPages.stateLifecycle.href}#imperative`}>
             State & lifecycle → Imperative API
-          </DocsLink>{' '}
-          for a live demo.
+          </DocsLink>
+          .
         </p>
       </DocsSection>
 

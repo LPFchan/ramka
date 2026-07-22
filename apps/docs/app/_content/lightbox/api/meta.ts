@@ -57,7 +57,7 @@ export const lightboxApiMeta: ApiPartMeta[] = [
     id: 'api-root',
     name: 'Root',
     description:
-      'Groups all parts of the lightbox and owns open state, active index, view-transition morph, scroll locking, and the active-zoom bridge. Prefer onOpenChangeComplete for post-motion work; use scrollTriggerIntoView so close morphs land on-screen when the page scrolled while open.',
+      'Groups all parts of the lightbox and owns open state, active index, view-transition morph, scroll locking, and the active-zoom bridge. Pass handle from Lightbox.createHandle() for imperative control and detached Triggers. Prefer onOpenChangeComplete for post-motion work; use scrollTriggerIntoView so close morphs land on-screen when the page scrolled while open.',
     extract: {
       kind: 'interface-props',
       typeName: 'LightboxRootProps',
@@ -68,7 +68,7 @@ export const lightboxApiMeta: ApiPartMeta[] = [
     id: 'api-trigger',
     name: 'Trigger',
     description:
-      'Opens the lightbox at a given index. With viewTransition, acts as the morph source. Prefer render-prop children to attach imageRef / morphRef.',
+      'Opens the lightbox at a given index. With viewTransition, acts as the morph source. Pass handle + id to use outside Root or for handle.open(..., { triggerId }). Prefer render-prop children to attach imageRef / morphRef.',
     extract: {
       kind: 'interface-props',
       typeName: 'LightboxTriggerProps',
@@ -369,13 +369,14 @@ export const hooksApiMeta: ApiPartMeta[] = [
 
 export const imperativeApiMeta: ApiPartMeta[] = [
   {
-    id: 'api-root-ref',
-    name: 'LightboxRootRef',
-    description: 'Imperative handle from ref on Root.',
+    id: 'api-create-handle',
+    name: 'LightboxHandle',
+    description:
+      'Imperative handle from Lightbox.createHandle(). Pass to Root (and optional detached Triggers).',
     extract: {
       kind: 'interface-members',
-      typeName: 'LightboxRootRef',
-      file: 'lightbox-root.tsx',
+      typeName: 'LightboxHandle',
+      file: 'lightbox-handle.ts',
     },
   },
   {

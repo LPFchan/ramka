@@ -62,6 +62,6 @@ export const lightboxApiHref = {
   types: `${api}#types`,
   useTriggerContext: `${api}#api-use-trigger-context`,
   useItemContext: `${api}#api-use-item-context`,
-  rootRef: `${api}#api-root-ref`,
+  createHandle: `${api}#api-create-handle`,
   zoomRef: `${api}#api-zoom-ref`,
 } as const;

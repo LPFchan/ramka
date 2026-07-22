@@ -15,7 +15,7 @@ const guideLinks: {
 }[] = [
   {
     title: 'State & lifecycle',
-    description: 'Controlled open/index, Root ref, and open-change callbacks.',
+    description: 'Controlled open/index, createHandle, and open-change callbacks.',
     href: lightboxDocsPages.stateLifecycle.href,
   },
   {
@@ -62,7 +62,7 @@ export default function LightboxOverviewPage() {
         <ol className="list-decimal space-y-3 pl-5">
           <li>
             <strong className="font-medium text-neutral-800 dark:text-neutral-200">State</strong> —
-            controlled props, Root ref, or both? See{' '}
+            controlled props, createHandle, or both? See{' '}
             <DocsLink href={lightboxDocsPages.stateLifecycle.href}>State & lifecycle</DocsLink>.
           </li>
           <li>

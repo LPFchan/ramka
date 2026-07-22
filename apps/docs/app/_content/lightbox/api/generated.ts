@@ -14,6 +14,11 @@ export const generatedProps: Record<string, PropRow[]> = {
       description: "Lightbox parts and page content (triggers typically live as children of Root).",
     },
     {
+      name: "handle",
+      type: "LightboxHandle",
+      description: "Imperative handle from `Lightbox.createHandle()`. Pass the same handle to detached `Lightbox.Trigger`s outside this Root.",
+    },
+    {
       name: "defaultOpen",
       type: "boolean",
       default: "false",
@@ -87,6 +92,16 @@ export const generatedProps: Record<string, PropRow[]> = {
       type: "number",
       required: true,
       description: "Item index this trigger opens. Required.",
+    },
+    {
+      name: "id",
+      type: "string",
+      description: "Stable id for this trigger. Required for `handle.open(index, { triggerId })` association and for detached Triggers. Also applied as the DOM `id`.",
+    },
+    {
+      name: "handle",
+      type: "LightboxHandle",
+      description: "Handle from `Lightbox.createHandle()`. Pass the same handle as Root to use this Trigger outside the Root tree (Base UI Dialog-style detached triggers).",
     },
     {
       name: "crossfade",
@@ -341,11 +356,11 @@ export const generatedProps: Record<string, PropRow[]> = {
       description: "Optional context from the enclosing Item. Returns `{ index, active, imageRef, morphRef }`, or `null` outside an Item.",
     },
   ],
-  "api-root-ref": [
+  "api-create-handle": [
     {
       name: "open",
-      type: "(index?: number) => void",
-      description: "Open the lightbox. Optional index sets the active item. Without a click origin there is no trigger-element morph.",
+      type: "(index?: number, options?: LightboxHandleOpenOptions) => void",
+      description: "Open the lightbox. Optional `index` sets the active item. Pass `options.triggerId` to associate the open with a registered Trigger so view-transition morph / placeholders can use that element.\n\nCall only from an event handler or effect — not during render.",
     },
     {
       name: "close",
@@ -355,7 +370,12 @@ export const generatedProps: Record<string, PropRow[]> = {
     {
       name: "goTo",
       type: "(index: number) => void",
-      description: "Navigate to an index (source: button).",
+      description: "Navigate to an index (source: `imperative`). Does not open.",
+    },
+    {
+      name: "isOpen",
+      type: "boolean",
+      description: "Whether the bound Root is currently open.",
     },
   ],
   "api-zoom-ref": [
@@ -576,7 +596,7 @@ export const generatedAttributes: Record<string, AttrRow[]> = {
   ],
   "api-use-trigger-context": [],
   "api-use-item-context": [],
-  "api-root-ref": [],
+  "api-create-handle": [],
   "api-zoom-ref": [],
 };
 
@@ -629,6 +649,6 @@ export const generatedCssVariables: Record<string, CssVarRow[]> = {
   ],
   "api-use-trigger-context": [],
   "api-use-item-context": [],
-  "api-root-ref": [],
+  "api-create-handle": [],
   "api-zoom-ref": [],
 };

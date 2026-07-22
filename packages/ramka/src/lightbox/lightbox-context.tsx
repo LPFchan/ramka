@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 
-type NavigationSource = 'trigger' | 'keyboard' | 'thumbnail' | 'button' | 'scroll';
+type NavigationSource = 'trigger' | 'keyboard' | 'thumbnail' | 'button' | 'scroll' | 'imperative';
 
 interface LightboxContextValue {
   open: boolean;
@@ -86,21 +86,19 @@ interface LightboxContextValue {
   itemMorphElementsRef: React.RefObject<WeakMap<HTMLElement, HTMLElement>>;
   openingTriggerIndexRef: React.MutableRefObject<number>;
   /**
-   * The exact trigger element the user clicked to open the lightbox. Set
-   * synchronously in the trigger's click handler and cleared (null) on
-   * programmatic opens where there is no originating element. Unlike
-   * `triggerElementsRef` (keyed by index, last-registered wins), this
-   * disambiguates the *clicked* trigger when several triggers share one index.
+   * The exact trigger element that opened the lightbox (click or
+   * `handle.open(..., { triggerId })`). Cleared (null) on opens with no
+   * originating element. Unlike `triggerElementsRef` (keyed by index,
+   * last-registered wins), this disambiguates the origin when several
+   * triggers share one index.
    */
   openingTriggerElementRef: React.MutableRefObject<HTMLElement | null>;
   /**
-   * The `<img>` of the exact trigger the user clicked, as designated by the
-   * consumer via the trigger render-prop's `imageRef`. Its live
-   * `currentSrc` (the already-decoded, cached candidate the browser actually
-   * fetched — the only flash-free source when `srcSet` is involved) is what
-   * `Lightbox.Item` paints as the destination image's placeholder background.
-   * Cleared (null) on programmatic opens; falls back to `triggerImageElementsRef`
-   * keyed by index when there is no clicked element.
+   * The `<img>` of the opening trigger, as designated via the trigger
+   * render-prop's `imageRef`. Its live `currentSrc` is what `Lightbox.Item`
+   * paints as the destination image's placeholder background. Cleared when
+   * there is no originating trigger; falls back to `triggerImageElementsRef`
+   * keyed by index.
    */
   openingTriggerImageRef: React.MutableRefObject<HTMLImageElement | null>;
   /**
@@ -110,6 +108,22 @@ interface LightboxContextValue {
    * programmatic open) or for preloaded adjacent slides.
    */
   triggerImageElementsRef: React.RefObject<Map<number, HTMLImageElement>>;
+  /**
+   * Triggers that declared a stable `id` (for `handle.open` / Root `triggerId`
+   * association). Keyed by id; used when the Trigger is under Root without
+   * going through a detached handle registration.
+   */
+  triggerIdsRef: React.RefObject<
+    Map<
+      string,
+      {
+        id: string;
+        index: number;
+        element: HTMLElement | null;
+        image: HTMLImageElement | null;
+      }
+    >
+  >;
   dialogElementRef: React.MutableRefObject<HTMLElement | null>;
 
   /**

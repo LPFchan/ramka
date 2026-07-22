@@ -15,7 +15,8 @@ import { LightboxItem } from './lightbox-item';
 import { LightboxItemGroup } from './lightbox-item-group';
 import { LightboxNext } from './lightbox-next';
 import { LightboxPrevious } from './lightbox-previous';
-import { LightboxRoot, type LightboxRootRef } from './lightbox-root';
+import { createHandle } from './lightbox-handle';
+import { LightboxRoot } from './lightbox-root';
 import { LightboxThumbnail } from './lightbox-thumbnail';
 import { LightboxThumbnailGroup } from './lightbox-thumbnail-group';
 import { LightboxTrigger } from './lightbox-trigger';
@@ -934,30 +935,14 @@ describe('Lightbox', () => {
   });
 
   // ---------------------------------------------------------------------------
-  // 9. Imperative ref API
+  // 9. createHandle API
   // ---------------------------------------------------------------------------
 
-  describe('imperative ref API', () => {
-    it('ref.open() opens the lightbox', () => {
-      const ref = React.createRef<LightboxRootRef>();
+  describe('createHandle API', () => {
+    it('handle.open/close/goTo control a Root with handle prop', () => {
+      const handle = createHandle();
       render(
-        <LightboxRoot ref={ref}>
-          <LightboxContent data-testid="content" aria-label="Test">
-            <LightboxItemGroup>
-              <LightboxItem index={0}>Item 0</LightboxItem>
-            </LightboxItemGroup>
-          </LightboxContent>
-        </LightboxRoot>,
-      );
-      expect(screen.queryByTestId('content')).toBeNull();
-      act(() => ref.current!.open());
-      expect(screen.getByTestId('content')).toBeInTheDocument();
-    });
-
-    it('ref.open(index) opens at a specific index', () => {
-      const ref = React.createRef<LightboxRootRef>();
-      render(
-        <LightboxRoot ref={ref}>
+        <LightboxRoot handle={handle}>
           <LightboxContent data-testid="content" aria-label="Test">
             <LightboxItemGroup>
               <LightboxItem index={0} data-testid="item-0">Item 0</LightboxItem>
@@ -966,14 +951,20 @@ describe('Lightbox', () => {
           </LightboxContent>
         </LightboxRoot>,
       );
-      act(() => ref.current!.open(1));
+      expect(handle.isOpen).toBe(false);
+      act(() => handle.open(1));
+      expect(handle.isOpen).toBe(true);
       expect(screen.getByTestId('item-1')).toHaveAttribute('aria-hidden', 'false');
+      act(() => handle.goTo(0));
+      expect(screen.getByTestId('item-0')).toHaveAttribute('aria-hidden', 'false');
+      act(() => handle.close());
+      expect(handle.isOpen).toBe(false);
     });
 
-    it('ref.close() closes the lightbox', async () => {
-      const ref = React.createRef<LightboxRootRef>();
+    it('handle.open() opens the lightbox', () => {
+      const handle = createHandle();
       render(
-        <LightboxRoot ref={ref} defaultOpen>
+        <LightboxRoot handle={handle}>
           <LightboxContent data-testid="content" aria-label="Test">
             <LightboxItemGroup>
               <LightboxItem index={0}>Item 0</LightboxItem>
@@ -981,27 +972,84 @@ describe('Lightbox', () => {
           </LightboxContent>
         </LightboxRoot>,
       );
-      expect(screen.getByTestId('content')).toBeInTheDocument();
-      act(() => ref.current!.close());
-      await flushMicrotasks();
       expect(screen.queryByTestId('content')).toBeNull();
+      act(() => handle.open());
+      expect(screen.getByTestId('content')).toBeInTheDocument();
     });
 
-    it('ref.goTo(index) navigates to an index', () => {
-      const ref = React.createRef<LightboxRootRef>();
+    it('handle.open(index, { triggerId }) associates the opening trigger', () => {
+      const handle = createHandle();
+      const onValueChange = vi.fn();
       render(
-        <LightboxRoot ref={ref} defaultOpen>
+        <LightboxRoot handle={handle} onValueChange={onValueChange}>
+          <LightboxTrigger index={0} id="hero-a" data-testid="trigger-a">
+            A
+          </LightboxTrigger>
+          <LightboxTrigger index={0} id="hero-b" data-testid="trigger-b">
+            B
+          </LightboxTrigger>
           <LightboxContent data-testid="content" aria-label="Test">
             <LightboxItemGroup>
-              <LightboxItem index={0} data-testid="item-0">Item 0</LightboxItem>
-              <LightboxItem index={1} data-testid="item-1">Item 1</LightboxItem>
-              <LightboxItem index={2} data-testid="item-2">Item 2</LightboxItem>
+              <LightboxItem index={0}>Item 0</LightboxItem>
             </LightboxItemGroup>
           </LightboxContent>
         </LightboxRoot>,
       );
-      act(() => ref.current!.goTo(2));
-      expect(screen.getByTestId('item-2')).toHaveAttribute('aria-hidden', 'false');
+      act(() => handle.open(0, { triggerId: 'hero-b' }));
+      expect(screen.getByTestId('content')).toBeInTheDocument();
+      expect(onValueChange).toHaveBeenCalledWith(0, { source: 'imperative' });
+      expect(screen.getByTestId('trigger-b')).toHaveAttribute('data-active');
+    });
+
+    it('detached Trigger with handle opens the Root', () => {
+      const handle = createHandle();
+      function Demo() {
+        return (
+          <>
+            <LightboxTrigger handle={handle} id="detached" index={0} data-testid="detached-trigger">
+              Open
+            </LightboxTrigger>
+            <LightboxRoot handle={handle}>
+              <LightboxContent data-testid="content" aria-label="Test">
+                <LightboxItemGroup>
+                  <LightboxItem index={0}>Item 0</LightboxItem>
+                </LightboxItemGroup>
+              </LightboxContent>
+            </LightboxRoot>
+          </>
+        );
+      }
+      render(<Demo />);
+      expect(screen.queryByTestId('content')).toBeNull();
+      fireEvent.click(screen.getByTestId('detached-trigger'));
+      expect(screen.getByTestId('content')).toBeInTheDocument();
+      expect(screen.getByTestId('detached-trigger')).toHaveAttribute('data-open');
+      expect(screen.getByTestId('detached-trigger')).toHaveAttribute('data-active');
+    });
+
+    it('handle.open with triggerId associates a detached Trigger', () => {
+      const handle = createHandle();
+      function Demo() {
+        return (
+          <>
+            <LightboxTrigger handle={handle} id="tile-1" index={1} data-testid="tile-1">
+              Tile 1
+            </LightboxTrigger>
+            <LightboxRoot handle={handle}>
+              <LightboxContent data-testid="content" aria-label="Test">
+                <LightboxItemGroup>
+                  <LightboxItem index={0} data-testid="item-0">Item 0</LightboxItem>
+                  <LightboxItem index={1} data-testid="item-1">Item 1</LightboxItem>
+                </LightboxItemGroup>
+              </LightboxContent>
+            </LightboxRoot>
+          </>
+        );
+      }
+      render(<Demo />);
+      act(() => handle.open(undefined, { triggerId: 'tile-1' }));
+      expect(screen.getByTestId('item-1')).toHaveAttribute('aria-hidden', 'false');
+      expect(screen.getByTestId('tile-1')).toHaveAttribute('data-active');
     });
   });
 
@@ -1036,9 +1084,9 @@ describe('Lightbox', () => {
 
     it('onOpenChangeComplete does not fire if close is interrupted by reopen', async () => {
       const completeSpy = vi.fn();
-      const ref = React.createRef<LightboxRootRef>();
+      const handle = createHandle();
       render(
-        <LightboxRoot ref={ref} onOpenChangeComplete={completeSpy} defaultOpen>
+        <LightboxRoot handle={handle} onOpenChangeComplete={completeSpy} defaultOpen>
           <LightboxContent data-testid="content" aria-label="Test">
             <LightboxItemGroup>
               <LightboxItem index={0}>Item 0</LightboxItem>
@@ -1047,8 +1095,8 @@ describe('Lightbox', () => {
         </LightboxRoot>,
       );
 
-      act(() => ref.current!.close());
-      act(() => ref.current!.open());
+      act(() => handle.close());
+      act(() => handle.open());
 
       await act(() => new Promise((r) => setTimeout(r, 50)));
 
@@ -1085,7 +1133,9 @@ describe('Lightbox', () => {
     it('compound component outside context throws meaningful error', () => {
       expect(() => {
         render(<LightboxTrigger index={0}>orphan</LightboxTrigger>);
-      }).toThrow('Lightbox compound components must be used within a Lightbox.Root');
+      }).toThrow(
+        'Lightbox.Trigger must be used within a Lightbox.Root, or passed a handle from Lightbox.createHandle()',
+      );
     });
 
     it('multiple triggers for the same index work correctly', () => {
@@ -1106,9 +1156,9 @@ describe('Lightbox', () => {
     });
 
     it('rapid open/close does not leave stale state', async () => {
-      const ref = React.createRef<LightboxRootRef>();
+      const handle = createHandle();
       render(
-        <LightboxRoot ref={ref}>
+        <LightboxRoot handle={handle}>
           <LightboxContent data-testid="content" aria-label="Test">
             <LightboxItemGroup>
               <LightboxItem index={0}>Item 0</LightboxItem>
@@ -1117,10 +1167,10 @@ describe('Lightbox', () => {
         </LightboxRoot>,
       );
 
-      act(() => ref.current!.open());
-      act(() => ref.current!.close());
-      act(() => ref.current!.open());
-      act(() => ref.current!.close());
+      act(() => handle.open());
+      act(() => handle.close());
+      act(() => handle.open());
+      act(() => handle.close());
 
       await flushMicrotasks();
       expect(screen.queryByTestId('content')).toBeNull();

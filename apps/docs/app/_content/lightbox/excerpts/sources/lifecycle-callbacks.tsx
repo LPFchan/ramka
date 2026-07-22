@@ -19,7 +19,7 @@ export function LifecycleCallbacksExcerpt() {
       }}
       onValueChange={(value, { source }) => {
         void value;
-        void source; // 'trigger' | 'keyboard' | 'thumbnail' | 'button' | 'scroll'
+        void source; // 'trigger' | 'keyboard' | 'thumbnail' | 'button' | 'scroll' | 'imperative'
       }}
     >
       {/* … */}
