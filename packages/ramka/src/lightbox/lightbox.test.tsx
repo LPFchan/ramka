@@ -1762,12 +1762,14 @@ describe('Lightbox', () => {
     describe('border-radius CSS vars', () => {
       let originalRect: PropertyDescriptor | undefined;
 
+      // `getBoundingClientRect` lives on Element.prototype. Without a non-zero
+      // box, resolveMorphBorderRadius returns "0px" (jsdom layout is always 0).
       function mockTargetBox() {
         originalRect = Object.getOwnPropertyDescriptor(
-          HTMLImageElement.prototype,
+          Element.prototype,
           'getBoundingClientRect',
         );
-        Object.defineProperty(HTMLImageElement.prototype, 'getBoundingClientRect', {
+        Object.defineProperty(Element.prototype, 'getBoundingClientRect', {
           value: () => ({
             width: 800,
             height: 600,
@@ -1786,7 +1788,7 @@ describe('Lightbox', () => {
 
       afterEach(() => {
         if (originalRect) {
-          Object.defineProperty(HTMLImageElement.prototype, 'getBoundingClientRect', originalRect);
+          Object.defineProperty(Element.prototype, 'getBoundingClientRect', originalRect);
         }
         originalRect = undefined;
       });
