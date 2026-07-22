@@ -13,9 +13,17 @@ export function MorphToClosestExcerpt() {
       <Lightbox.Trigger index={1}>{/* +N tile */}</Lightbox.Trigger>
       {/* items 2…n close to the nearest trigger */}
       <Lightbox.Content>
-        <Lightbox.Item index={0} />
-        <Lightbox.Item index={1} />
-        <Lightbox.Item index={2} />
+        <Lightbox.Slides>
+          <Lightbox.Slide>
+            <Lightbox.Item index={0} />
+          </Lightbox.Slide>
+          <Lightbox.Slide>
+            <Lightbox.Item index={1} />
+          </Lightbox.Slide>
+          <Lightbox.Slide>
+            <Lightbox.Item index={2} />
+          </Lightbox.Slide>
+        </Lightbox.Slides>
       </Lightbox.Content>
     </Lightbox.Root>
   );

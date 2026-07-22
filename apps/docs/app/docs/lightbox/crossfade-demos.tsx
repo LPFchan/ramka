@@ -2,27 +2,16 @@
 
 import * as React from 'react';
 import { Lightbox } from 'ramka';
-import { Play, X } from 'lucide-react';
+import { Play } from 'lucide-react';
 
 import { Separator } from '@/components/ui/separator';
 import {
-  LightboxCloseButton,
-  LightboxFrame,
-  LightboxFullImage,
-  LightboxNavBar,
-  LightboxOverlay,
-  StackedItemGroup,
-  lightboxChromeButton,
+  imgDims,
+  LightboxGallery,
   morphHideClass,
-  stackedItemClass,
   triggerFocusClass,
   triggerMorphHideClass,
 } from '../../_components/lightbox-chrome';
-
-function imgDims(url: string) {
-  const m = url.match(/\/(\d+)\/(\d+)$/);
-  return m ? { width: Number(m[1]), height: Number(m[2]) } : undefined;
-}
 
 /** Matching 3∶2 sources — element boxes in the demos may still differ. */
 const photos = [
@@ -84,28 +73,36 @@ const team = [
     initials: 'AC',
     color: '#2a7ab5',
     src: 'https://picsum.photos/seed/xfade-ava/900/1200',
+    thumb: 'https://picsum.photos/seed/xfade-ava/300/400',
     alt: 'Portrait of Ava Chen',
+    caption: 'Ava Chen',
   },
   {
     name: 'Jules Okonkwo',
     initials: 'JO',
     color: '#c93c20',
     src: 'https://picsum.photos/seed/xfade-jules/900/1200',
+    thumb: 'https://picsum.photos/seed/xfade-jules/300/400',
     alt: 'Portrait of Jules Okonkwo',
+    caption: 'Jules Okonkwo',
   },
   {
     name: 'Sam Rivera',
     initials: 'SR',
     color: '#7a9a6d',
     src: 'https://picsum.photos/seed/xfade-sam/900/1200',
+    thumb: 'https://picsum.photos/seed/xfade-sam/300/400',
     alt: 'Portrait of Sam Rivera',
+    caption: 'Sam Rivera',
   },
   {
     name: 'Mei Laurent',
     initials: 'ML',
     color: '#7b3f72',
     src: 'https://picsum.photos/seed/xfade-mei/900/1200',
+    thumb: 'https://picsum.photos/seed/xfade-mei/300/400',
     alt: 'Portrait of Mei Laurent',
+    caption: 'Mei Laurent',
   },
 ];
 
@@ -114,7 +111,7 @@ const code = 'rounded bg-neutral-100 px-1 py-0.5 text-xs dark:bg-neutral-800';
 function SameImageDemo() {
   return (
     <Lightbox.Root>
-      {/* Square trigger boxes vs landscape item (LightboxFullImage) — same 3∶2 sources. */}
+      {/* Square trigger boxes vs landscape gallery items — same 3∶2 sources. */}
       <div className="grid max-w-md grid-cols-3 gap-2">
         {photos.map((img, i) => (
           <Lightbox.Trigger
@@ -134,18 +131,7 @@ function SameImageDemo() {
           </Lightbox.Trigger>
         ))}
       </div>
-      <LightboxOverlay />
-      <LightboxFrame ariaLabel="Same-image morph">
-        <LightboxCloseButton />
-        <StackedItemGroup>
-          {photos.map((img, i) => (
-            <Lightbox.Item key={img.src} index={i} className={stackedItemClass}>
-              <LightboxFullImage src={img.src} alt={img.alt} />
-            </Lightbox.Item>
-          ))}
-        </StackedItemGroup>
-        <LightboxNavBar />
-      </LightboxFrame>
+      <LightboxGallery items={photos} ariaLabel="Same-image morph" />
     </Lightbox.Root>
   );
 }
@@ -189,18 +175,7 @@ function BothDemo() {
           );
         })}
       </div>
-      <LightboxOverlay />
-      <LightboxFrame ariaLabel="Crossfade both demo">
-        <LightboxCloseButton />
-        <StackedItemGroup>
-          {album.map((img, i) => (
-            <Lightbox.Item key={img.src} index={i} className={stackedItemClass}>
-              <LightboxFullImage src={img.src} alt={img.alt} />
-            </Lightbox.Item>
-          ))}
-        </StackedItemGroup>
-        <LightboxNavBar />
-      </LightboxFrame>
+      <LightboxGallery items={album} ariaLabel="Crossfade both demo" />
     </Lightbox.Root>
   );
 }
@@ -229,23 +204,7 @@ function AnyElementDemo() {
           </li>
         ))}
       </ul>
-      <LightboxOverlay />
-      <LightboxFrame ariaLabel="Team portraits">
-        <LightboxCloseButton />
-        <StackedItemGroup>
-          {team.map((person, i) => (
-            <Lightbox.Item
-              key={person.name}
-              index={i}
-              caption={person.name}
-              className={stackedItemClass}
-            >
-              <LightboxFullImage src={person.src} alt={person.alt} />
-            </Lightbox.Item>
-          ))}
-        </StackedItemGroup>
-        <LightboxNavBar />
-      </LightboxFrame>
+      <LightboxGallery items={team} ariaLabel="Team portraits" />
     </Lightbox.Root>
   );
 }
@@ -285,21 +244,27 @@ function CloseDemo() {
         )}
       </Lightbox.Trigger>
 
-      <Lightbox.Content
-        aria-label={trailer.title}
-        className="fixed inset-0 z-50 size-full overscroll-contain opacity-0 outline-none transition-opacity duration-[280ms] ease-out-expo data-[open]:opacity-100 starting:opacity-0"
-      >
-        <Lightbox.Close className={`absolute right-4 top-4 z-10 ${lightboxChromeButton}`} aria-label="Close">
-          <X aria-hidden className="h-[18px] w-[18px]" strokeWidth={2.25} />
-        </Lightbox.Close>
-        <Lightbox.ItemGroup className="size-full">
-          <Lightbox.Item index={0} className="size-full">
-            {({ morphRef }) => (
-              <CloseDemoVideo src={trailer.video} poster={trailer.poster} ready={readyToPlay} morphRef={morphRef} />
-            )}
-          </Lightbox.Item>
-        </Lightbox.ItemGroup>
-      </Lightbox.Content>
+      <LightboxGallery
+        items={[
+          {
+            src: trailer.poster,
+            thumb: trailer.poster,
+            alt: trailer.title,
+            caption: trailer.title,
+          },
+        ]}
+        ariaLabel={trailer.title}
+        thumbnails="never"
+        zoomControls={false}
+        renderItem={(_item, _i, { morphRef }) => (
+          <CloseDemoVideo
+            src={trailer.video}
+            poster={trailer.poster}
+            ready={readyToPlay}
+            morphRef={morphRef}
+          />
+        )}
+      />
     </Lightbox.Root>
   );
 }

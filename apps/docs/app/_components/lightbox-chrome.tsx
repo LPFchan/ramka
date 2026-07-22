@@ -1,7 +1,8 @@
 'use client';
 
+import * as React from 'react';
 import { Lightbox, useLightboxItemContext, useLightboxTriggerContext } from 'ramka';
-import { ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, X, ZoomIn, ZoomOut } from 'lucide-react';
 
 /**
  * Shared Tailwind chrome for Lightbox examples. These are *consumer-side*
@@ -59,13 +60,13 @@ export const lightboxChromeButtonMd = `hidden md:inline-flex ${lightboxChromeBut
  * reserved before the pixels load — which keeps the morph target sized on slow
  * connections and prevents layout shift.
  */
-function imgDims(url: string) {
+export function imgDims(url: string) {
   const m = url.match(/\/(\d+)\/(\d+)$/);
   return m ? { width: Number(m[1]), height: Number(m[2]) } : undefined;
 }
 
 /** Intrinsic aspect ratio (w/h) from the URL, falling back to 16/9. */
-function imgAspect(url: string): number {
+export function imgAspect(url: string): number {
   const d = imgDims(url);
   return d ? d.width / d.height : 16 / 9;
 }
@@ -83,11 +84,163 @@ function imgAspect(url: string): number {
  * open morph on a slow connection. Sizing lives here, in consumer code — the
  * lightbox primitives stay headless and never impose layout.
  */
-function fitBoxStyle(ratio: number): React.CSSProperties {
+export function fitBoxStyle(ratio: number): React.CSSProperties {
   return {
     width: `min(calc(100cqw - var(--lb-inset-w, 0px)), calc((100cqh - var(--lb-inset-h, 0px)) * ${ratio}))`,
     aspectRatio: `${ratio}`,
   };
+}
+
+export type LightboxGalleryItem = {
+  id?: string | number;
+  src: string;
+  thumb: string;
+  alt: string;
+  caption?: string;
+};
+
+type GalleryItemRenderCtx = {
+  imageRef: (node: HTMLImageElement | null) => void;
+  morphRef: (node: HTMLElement | null) => void;
+};
+
+/**
+ * Default product chrome for docs/examples — responsive-gallery viewer:
+ * light pull-fade Backdrop, Slides + Zoom, Counter (top-left), Close/ZoomIn/
+ * ZoomOut, Caption + desktop thumbnails. Place beside Triggers under
+ * `Lightbox.Root` (does not render Root or Triggers).
+ */
+export function LightboxGallery({
+  items,
+  ariaLabel,
+  preload = 2,
+  maxZoom = 6,
+  thumbnails = 'desktop',
+  zoomControls = true,
+  renderItem,
+}: {
+  items: LightboxGalleryItem[];
+  ariaLabel: string;
+  preload?: number;
+  maxZoom?: number;
+  thumbnails?: 'desktop' | 'always' | 'never';
+  /** Desktop ZoomIn/ZoomOut toolbar buttons (default true). Off for video etc. */
+  zoomControls?: boolean;
+  renderItem?: (
+    item: LightboxGalleryItem,
+    index: number,
+    ctx: GalleryItemRenderCtx,
+  ) => React.ReactNode;
+}) {
+  const thumbClass =
+    thumbnails === 'never'
+      ? 'hidden'
+      : thumbnails === 'always'
+        ? 'pointer-events-auto flex max-w-full justify-center gap-2 overflow-x-auto px-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
+        : 'pointer-events-auto hidden max-w-full justify-center gap-2 overflow-x-auto px-3 [scrollbar-width:none] md:flex [&::-webkit-scrollbar]:hidden';
+
+  return (
+    <>
+      <Lightbox.Backdrop
+        className={`lightbox-demo-backdrop-light fixed inset-0 z-40 ${backdropFade}`}
+      />
+      <Lightbox.Content
+        aria-label={ariaLabel}
+        className={`fixed inset-0 z-50 flex flex-col overscroll-contain outline-none ${contentFade}`}
+      >
+        <Lightbox.Slides
+          aria-label="Full-size images"
+          preload={preload}
+          className="flex-1 gap-5 [&::-webkit-scrollbar]:hidden md:gap-0"
+        >
+          {items.map((item, i) => (
+            <Lightbox.Slide key={item.id ?? i} className="relative h-full">
+              <Lightbox.Item
+                index={i}
+                caption={item.caption ?? item.alt}
+                className="relative flex h-full w-full items-center justify-center"
+              >
+                {({ imageRef, morphRef }) =>
+                  renderItem ? (
+                    renderItem(item, i, { imageRef, morphRef })
+                  ) : (
+                    <Lightbox.Zoom
+                      maxZoom={maxZoom}
+                      className="flex h-full w-full items-center justify-center [container-type:size] px-0 pt-[calc(env(safe-area-inset-top,0px)+3.5rem)] pb-[calc(env(safe-area-inset-bottom,0px)+3.5rem)] md:px-8 md:pt-[calc(env(safe-area-inset-top,0px)+3.5rem)] md:pb-[calc(env(safe-area-inset-bottom,0px)+7.5rem)]"
+                    >
+                      <div
+                        className="relative shrink-0 [--lb-inset-h:0px] [--lb-inset-w:0px]"
+                        style={fitBoxStyle(imgAspect(item.src))}
+                      >
+                        <img
+                          ref={imageRef}
+                          {...imgDims(item.src)}
+                          src={item.src}
+                          alt={item.alt}
+                          loading="eager"
+                          draggable={false}
+                          className="h-full w-full select-none rounded-none object-cover md:rounded-lg"
+                        />
+                      </div>
+                    </Lightbox.Zoom>
+                  )
+                }
+              </Lightbox.Item>
+            </Lightbox.Slide>
+          ))}
+        </Lightbox.Slides>
+
+        <div
+          className={`absolute left-3 top-[calc(0.75rem+env(safe-area-inset-top,0px))] z-10 ${chromePullHide} max-md:[[data-zoomed]_&]:pointer-events-none max-md:[[data-zoomed]_&]:opacity-0 max-md:[[data-zoomed]_&]:blur-[6px]`}
+        >
+          <Lightbox.Counter className="min-w-[3.5rem] font-mono text-sm tabular-nums text-black/70 dark:text-white/70" />
+        </div>
+
+        <div
+          className={`absolute right-3 top-[calc(0.75rem+env(safe-area-inset-top,0px))] z-10 flex gap-2 ${chromePullHide} max-md:[[data-zoomed]_&]:pointer-events-none max-md:[[data-zoomed]_&]:opacity-0 max-md:[[data-zoomed]_&]:blur-[6px]`}
+        >
+          {zoomControls ? (
+            <>
+              <Lightbox.ZoomOut className={lightboxChromeButtonMd} aria-label="Zoom out">
+                <ZoomOut aria-hidden className="h-4 w-4" strokeWidth={2.25} />
+              </Lightbox.ZoomOut>
+              <Lightbox.ZoomIn className={lightboxChromeButtonMd} aria-label="Zoom in">
+                <ZoomIn aria-hidden className="h-4 w-4" strokeWidth={2.25} />
+              </Lightbox.ZoomIn>
+            </>
+          ) : null}
+          <Lightbox.Close className={lightboxChromeButton} aria-label="Close">
+            <X aria-hidden className="h-[18px] w-[18px]" strokeWidth={2.25} />
+          </Lightbox.Close>
+        </div>
+
+        <div
+          className={`pointer-events-none absolute inset-x-0 bottom-0 z-10 flex flex-col items-center gap-3 px-3 pb-[calc(1rem+env(safe-area-inset-bottom,0px))] transition-[opacity,filter] duration-200 [[data-zoomed]_&]:opacity-0 [[data-zoomed]_&]:blur-[6px] ${chromePullHide}`}
+        >
+          <Lightbox.Caption className="pointer-events-auto block min-h-[1.25rem] max-w-full truncate px-6 text-center text-sm text-black/70 dark:text-white/80" />
+
+          {thumbnails !== 'never' ? (
+            <Lightbox.ThumbnailGroup aria-label="Photo thumbnails" className={thumbClass}>
+              {items.map((item, i) => (
+                <Lightbox.Thumbnail
+                  key={item.id ?? i}
+                  index={i}
+                  className="h-14 w-14 shrink-0 overflow-hidden rounded-md border-2 border-transparent p-0 opacity-50 transition data-[active]:border-black data-[active]:opacity-100 dark:data-[active]:border-white"
+                >
+                  <img
+                    {...imgDims(item.thumb)}
+                    src={item.thumb}
+                    alt={item.alt}
+                    className="h-full w-full object-cover"
+                  />
+                </Lightbox.Thumbnail>
+              ))}
+            </Lightbox.ThumbnailGroup>
+          ) : null}
+        </div>
+      </Lightbox.Content>
+    </>
+  );
 }
 
 // Open/close opacity on Content; Backdrop also fades with pull progress via

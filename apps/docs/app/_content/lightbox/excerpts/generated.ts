@@ -14,12 +14,12 @@ export type LightboxExcerpt = {
 export const lightboxExcerpts = {
   "anatomy": {
     title: "Anatomy",
-    code: "import { Lightbox } from 'ramka';\n\n<Lightbox.Root>\n  <Lightbox.Trigger index={0}>{/* thumb */}</Lightbox.Trigger>\n  <Lightbox.Backdrop />\n  <Lightbox.Content>\n    <Lightbox.Close />\n    <Lightbox.ItemGroup>\n      <Lightbox.Item index={0}>{/* full image */}</Lightbox.Item>\n    </Lightbox.ItemGroup>\n    {/* or: Lightbox.Slides > Lightbox.Slide > Lightbox.Item */}\n  </Lightbox.Content>\n</Lightbox.Root>\n",
+    code: "import { Lightbox } from 'ramka';\n\n<Lightbox.Root>\n  <Lightbox.Trigger index={0}>{/* thumb */}</Lightbox.Trigger>\n  <Lightbox.Backdrop />\n  <Lightbox.Content>\n    <Lightbox.Slides>\n      <Lightbox.Slide>\n        <Lightbox.Item index={0}>\n          <Lightbox.Zoom>\n            <img alt=\"\" />\n          </Lightbox.Zoom>\n        </Lightbox.Item>\n      </Lightbox.Slide>\n    </Lightbox.Slides>\n    <Lightbox.Counter />\n    <Lightbox.ZoomOut />\n    <Lightbox.ZoomIn />\n    <Lightbox.Close />\n    <Lightbox.Caption />\n    {/* or stacked swap: Lightbox.ItemGroup > Lightbox.Item */}\n  </Lightbox.Content>\n</Lightbox.Root>\n",
     source: "app/_content/lightbox/excerpts/sources/anatomy.tsx",
   },
   "chrome-composition": {
     title: "Chrome composition",
-    code: "import { Lightbox } from 'ramka';\n\n<Lightbox.Root>\n  <Lightbox.Content>\n    <Lightbox.Close />\n    <Lightbox.Previous />\n    <Lightbox.Next />\n    <Lightbox.Counter />\n    <Lightbox.Caption />\n\n    <Lightbox.Slides>\n      {items.map((item, i) => (\n        <Lightbox.Slide key={item.id}>\n          <Lightbox.Item index={i} caption={item.caption}>\n            <img src={item.src} alt={item.alt} />\n          </Lightbox.Item>\n        </Lightbox.Slide>\n      ))}\n    </Lightbox.Slides>\n\n    <Lightbox.ThumbnailGroup>\n      {items.map((item, i) => (\n        <Lightbox.Thumbnail key={item.id} index={i}>\n          <img src={item.thumb} alt=\"\" />\n        </Lightbox.Thumbnail>\n      ))}\n    </Lightbox.ThumbnailGroup>\n  </Lightbox.Content>\n</Lightbox.Root>\n",
+    code: "import { Lightbox } from 'ramka';\n\n<Lightbox.Root>\n  <Lightbox.Backdrop />\n  <Lightbox.Content>\n    <Lightbox.Slides>\n      {items.map((item, i) => (\n        <Lightbox.Slide key={item.id}>\n          <Lightbox.Item index={i} caption={item.caption}>\n            <Lightbox.Zoom>\n              <img src={item.src} alt={item.alt} />\n            </Lightbox.Zoom>\n          </Lightbox.Item>\n        </Lightbox.Slide>\n      ))}\n    </Lightbox.Slides>\n\n    <Lightbox.Counter />\n    <Lightbox.ZoomOut />\n    <Lightbox.ZoomIn />\n    <Lightbox.Close />\n\n    <Lightbox.Caption />\n    <Lightbox.ThumbnailGroup>\n      {items.map((item, i) => (\n        <Lightbox.Thumbnail key={item.id} index={i}>\n          <img src={item.thumb} alt=\"\" />\n        </Lightbox.Thumbnail>\n      ))}\n    </Lightbox.ThumbnailGroup>\n  </Lightbox.Content>\n</Lightbox.Root>\n",
     source: "app/_content/lightbox/excerpts/sources/chrome-composition.tsx",
   },
   "controlled-state": {
@@ -29,12 +29,12 @@ export const lightboxExcerpts = {
   },
   "create-handle": {
     title: "createHandle",
-    code: "import { Lightbox } from 'ramka';\n\nconst lightbox = Lightbox.createHandle();\n\n<>\n  <button type=\"button\" onClick={() => lightbox.open(0, { triggerId: 'photo-0' })}>\n    View gallery\n  </button>\n\n  {images.map((img, i) => (\n    <Lightbox.Trigger key={img.id} handle={lightbox} id={`photo-${i}`} index={i}>\n      <img src={img.src} alt={img.alt} />\n    </Lightbox.Trigger>\n  ))}\n\n  <Lightbox.Root handle={lightbox}>\n    {images.map((img, i) => (\n      <Lightbox.Item key={img.id} index={i}>\n        <img src={img.src} alt={img.alt} />\n      </Lightbox.Item>\n    ))}\n  </Lightbox.Root>\n</>\n",
+    code: "import { Lightbox } from 'ramka';\n\nconst lightbox = Lightbox.createHandle();\n\n<>\n  <button type=\"button\" onClick={() => lightbox.open(0, { triggerId: 'photo-0' })}>\n    View gallery\n  </button>\n\n  {images.map((img, i) => (\n    <Lightbox.Trigger key={img.id} handle={lightbox} id={`photo-${i}`} index={i}>\n      <img src={img.src} alt={img.alt} />\n    </Lightbox.Trigger>\n  ))}\n\n  <Lightbox.Root handle={lightbox}>\n    <Lightbox.Backdrop />\n    <Lightbox.Content>\n      <Lightbox.Slides>\n        {images.map((img, i) => (\n          <Lightbox.Slide key={img.id}>\n            <Lightbox.Item index={i}>\n              <Lightbox.Zoom>\n                <img src={img.src} alt={img.alt} />\n              </Lightbox.Zoom>\n            </Lightbox.Item>\n          </Lightbox.Slide>\n        ))}\n      </Lightbox.Slides>\n      <Lightbox.Close />\n    </Lightbox.Content>\n  </Lightbox.Root>\n</>\n",
     source: "app/_content/lightbox/excerpts/sources/create-handle.tsx",
   },
   "crossfade-both": {
     title: "crossfade=\"both\"",
-    code: "import { Lightbox } from 'ramka';\n\n<Lightbox.Root morphTo=\"closest\">\n  <Lightbox.Trigger index={0} crossfade=\"both\">\n    {({ imageRef }) => (\n      <div className=\"relative\">\n        <img ref={imageRef} src={thumb} alt=\"\" />\n        <span>+{extras}</span>\n      </div>\n    )}\n  </Lightbox.Trigger>\n  <Lightbox.Content>\n    <Lightbox.Item index={0}>\n      {({ imageRef }) => <img ref={imageRef} src={src} alt=\"\" />}\n    </Lightbox.Item>\n  </Lightbox.Content>\n</Lightbox.Root>\n",
+    code: "import { Lightbox } from 'ramka';\n\n<Lightbox.Root morphTo=\"closest\">\n  <Lightbox.Trigger index={0} crossfade=\"both\">\n    {({ imageRef }) => (\n      <div className=\"relative\">\n        <img ref={imageRef} src={thumb} alt=\"\" />\n        <span>+{extras}</span>\n      </div>\n    )}\n  </Lightbox.Trigger>\n  <Lightbox.Content>\n    <Lightbox.Slides>\n      <Lightbox.Slide>\n        <Lightbox.Item index={0}>\n          {({ imageRef }) => <img ref={imageRef} src={src} alt=\"\" />}\n        </Lightbox.Item>\n      </Lightbox.Slide>\n    </Lightbox.Slides>\n  </Lightbox.Content>\n</Lightbox.Root>\n",
     source: "app/_content/lightbox/excerpts/sources/crossfade-both.tsx",
   },
   "item-group-preload": {
@@ -49,7 +49,7 @@ export const lightboxExcerpts = {
   },
   "minimal-morph": {
     title: "Minimal morph",
-    code: "import { Lightbox } from 'ramka';\n\n<Lightbox.Root morphTo=\"active\">\n  <Lightbox.Trigger index={0}>\n    {({ imageRef }) => <img ref={imageRef} src={thumb} alt=\"\" />}\n  </Lightbox.Trigger>\n\n  <Lightbox.Backdrop />\n  <Lightbox.Content>\n    <Lightbox.Item index={0}>\n      {({ imageRef }) => <img ref={imageRef} src={src} alt=\"\" />}\n    </Lightbox.Item>\n  </Lightbox.Content>\n</Lightbox.Root>\n",
+    code: "import { Lightbox } from 'ramka';\n\n<Lightbox.Root morphTo=\"active\">\n  <Lightbox.Trigger index={0}>\n    {({ imageRef }) => <img ref={imageRef} src={thumb} alt=\"\" />}\n  </Lightbox.Trigger>\n\n  <Lightbox.Backdrop />\n  <Lightbox.Content>\n    <Lightbox.Slides>\n      <Lightbox.Slide>\n        <Lightbox.Item index={0}>\n          {({ imageRef }) => (\n            <Lightbox.Zoom>\n              <img ref={imageRef} src={src} alt=\"\" />\n            </Lightbox.Zoom>\n          )}\n        </Lightbox.Item>\n      </Lightbox.Slide>\n    </Lightbox.Slides>\n  </Lightbox.Content>\n</Lightbox.Root>\n",
     source: "app/_content/lightbox/excerpts/sources/minimal-morph.tsx",
   },
   "morph-border-radius": {
@@ -59,7 +59,7 @@ export const lightboxExcerpts = {
   },
   "morph-to-closest": {
     title: "morphTo=\"closest\"",
-    code: "import { Lightbox } from 'ramka';\n\n<Lightbox.Root morphTo=\"closest\">\n  <Lightbox.Trigger index={0}>{/* first thumb */}</Lightbox.Trigger>\n  <Lightbox.Trigger index={1}>{/* +N tile */}</Lightbox.Trigger>\n  {/* items 2…n close to the nearest trigger */}\n  <Lightbox.Content>\n    <Lightbox.Item index={0} />\n    <Lightbox.Item index={1} />\n    <Lightbox.Item index={2} />\n  </Lightbox.Content>\n</Lightbox.Root>\n",
+    code: "import { Lightbox } from 'ramka';\n\n<Lightbox.Root morphTo=\"closest\">\n  <Lightbox.Trigger index={0}>{/* first thumb */}</Lightbox.Trigger>\n  <Lightbox.Trigger index={1}>{/* +N tile */}</Lightbox.Trigger>\n  {/* items 2…n close to the nearest trigger */}\n  <Lightbox.Content>\n    <Lightbox.Slides>\n      <Lightbox.Slide>\n        <Lightbox.Item index={0} />\n      </Lightbox.Slide>\n      <Lightbox.Slide>\n        <Lightbox.Item index={1} />\n      </Lightbox.Slide>\n      <Lightbox.Slide>\n        <Lightbox.Item index={2} />\n      </Lightbox.Slide>\n    </Lightbox.Slides>\n  </Lightbox.Content>\n</Lightbox.Root>\n",
     source: "app/_content/lightbox/excerpts/sources/morph-to-closest.tsx",
   },
   "no-crossfade-hard-cut": {
@@ -69,12 +69,12 @@ export const lightboxExcerpts = {
   },
   "pull-progress-css": {
     title: "Pull progress CSS",
-    code: ".lightbox-demo-backdrop[data-open] {\n  /* --lightbox-pull-progress: 0 → 1 while dragging */\n  opacity: calc(1 - var(--lightbox-pull-progress, 0) * 0.6);\n}\n\n.lightbox-demo-backdrop[data-pulling] {\n  transition: none; /* follow the finger */\n}\n",
+    code: ".lightbox-demo-backdrop[data-open] {\n  /* --lightbox-pull-progress: 0 → 1 while dragging */\n  opacity: calc(1 - var(--lightbox-pull-progress, 0) * 0.6);\n}\n\n.lightbox-demo-backdrop[data-pulling] {\n  transition: none; /* follow the finger */\n}\n\n/* Light scrim used by LightboxGallery (responsive-gallery chrome). */\n.lightbox-demo-backdrop-light {\n  background-color: rgb(255 255 255 / 0.9);\n}\n\nhtml.dark .lightbox-demo-backdrop-light {\n  background-color: rgb(0 0 0 / 0.9);\n}\n",
     source: "app/lightbox-demo/pull-progress.css",
   },
   "quick-start": {
     title: "App.tsx",
-    code: "import { Lightbox } from 'ramka';\n\n<Lightbox.Root>\n  {items.map((item, i) => (\n    <Lightbox.Trigger key={item.id} index={i}>\n      {({ imageRef }) => <img ref={imageRef} src={item.thumb} alt={item.alt} />}\n    </Lightbox.Trigger>\n  ))}\n\n  <Lightbox.Backdrop />\n  <Lightbox.Content>\n    <Lightbox.Slides>\n      {items.map((item, i) => (\n        <Lightbox.Slide key={item.id}>\n          <Lightbox.Item index={i}>\n            {({ imageRef }) => <img ref={imageRef} src={item.src} alt={item.alt} />}\n          </Lightbox.Item>\n        </Lightbox.Slide>\n      ))}\n    </Lightbox.Slides>\n  </Lightbox.Content>\n</Lightbox.Root>\n",
+    code: "import { Lightbox } from 'ramka';\n\n<Lightbox.Root>\n  {items.map((item, i) => (\n    <Lightbox.Trigger key={item.id} index={i}>\n      {({ imageRef }) => <img ref={imageRef} src={item.thumb} alt={item.alt} />}\n    </Lightbox.Trigger>\n  ))}\n\n  <Lightbox.Backdrop />\n  <Lightbox.Content>\n    <Lightbox.Slides>\n      {items.map((item, i) => (\n        <Lightbox.Slide key={item.id}>\n          <Lightbox.Item index={i} caption={item.caption ?? item.alt}>\n            {({ imageRef }) => (\n              <Lightbox.Zoom>\n                <img ref={imageRef} src={item.src} alt={item.alt} />\n              </Lightbox.Zoom>\n            )}\n          </Lightbox.Item>\n        </Lightbox.Slide>\n      ))}\n    </Lightbox.Slides>\n\n    <Lightbox.Counter />\n    <Lightbox.ZoomOut />\n    <Lightbox.ZoomIn />\n    <Lightbox.Close />\n    <Lightbox.Caption />\n  </Lightbox.Content>\n</Lightbox.Root>\n",
     source: "app/_content/lightbox/excerpts/sources/quick-start.tsx",
   },
   "scroll-trigger-into-view": {
@@ -84,7 +84,7 @@ export const lightboxExcerpts = {
   },
   "slides-nesting": {
     title: "Slides + Slide nesting",
-    code: "import { Lightbox } from 'ramka';\n\n<Lightbox.Root>\n  <Lightbox.Content>\n    <Lightbox.Slides preload={1}>\n      {items.map((item, i) => (\n        <Lightbox.Slide key={item.id}>\n          <Lightbox.Item index={i}>\n            {({ imageRef }) => <img ref={imageRef} src={item.src} alt={item.alt} />}\n          </Lightbox.Item>\n        </Lightbox.Slide>\n      ))}\n    </Lightbox.Slides>\n  </Lightbox.Content>\n</Lightbox.Root>\n",
+    code: "import { Lightbox } from 'ramka';\n\n<Lightbox.Root>\n  <Lightbox.Content>\n    <Lightbox.Slides preload={1}>\n      {items.map((item, i) => (\n        <Lightbox.Slide key={item.id}>\n          <Lightbox.Item index={i}>\n            {({ imageRef }) => (\n              <Lightbox.Zoom>\n                <img ref={imageRef} src={item.src} alt={item.alt} />\n              </Lightbox.Zoom>\n            )}\n          </Lightbox.Item>\n        </Lightbox.Slide>\n      ))}\n    </Lightbox.Slides>\n  </Lightbox.Content>\n</Lightbox.Root>\n",
     source: "app/_content/lightbox/excerpts/sources/slides-nesting.tsx",
   },
   "vt-isolate-names": {

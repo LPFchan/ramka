@@ -158,19 +158,6 @@ export const generatedProps: Record<string, PropRow[]> = {
       description: "Allows you to replace the component's HTML element with a different tag, or compose it with another component.\n\nAccepts a `ReactElement` or a function that returns the element to render.",
     },
   ],
-  "api-item-group": [
-    {
-      name: "preload",
-      type: "number",
-      default: "1",
-      description: "How many adjacent items to keep rendered on each side of the active item for preloading. Set to 0 to only render the active item.",
-    },
-    {
-      name: "render",
-      type: "ReactElement | ComponentRenderFn",
-      description: "Allows you to replace the component's HTML element with a different tag, or compose it with another component.\n\nAccepts a `ReactElement` or a function that returns the element to render.",
-    },
-  ],
   "api-item": [
     {
       name: "index",
@@ -208,6 +195,19 @@ export const generatedProps: Record<string, PropRow[]> = {
     },
   ],
   "api-slide": [],
+  "api-item-group": [
+    {
+      name: "preload",
+      type: "number",
+      default: "1",
+      description: "How many adjacent items to keep rendered on each side of the active item for preloading. Set to 0 to only render the active item.",
+    },
+    {
+      name: "render",
+      type: "ReactElement | ComponentRenderFn",
+      description: "Allows you to replace the component's HTML element with a different tag, or compose it with another component.\n\nAccepts a `ReactElement` or a function that returns the element to render.",
+    },
+  ],
   "api-previous": [
     {
       name: "render",
@@ -479,16 +479,6 @@ export const generatedAttributes: Record<string, AttrRow[]> = {
     },
   ],
   "api-close": [],
-  "api-item-group": [
-    {
-      name: "data-active-index",
-      description: "Current active index as a string.",
-    },
-    {
-      name: "data-direction",
-      description: "`forward` or `backward` — last navigation direction.",
-    },
-  ],
   "api-item": [
     {
       name: "data-lightbox-item",
@@ -525,6 +515,16 @@ export const generatedAttributes: Record<string, AttrRow[]> = {
     {
       name: "data-lightbox-slide",
       description: "Always present on the slide element.",
+    },
+  ],
+  "api-item-group": [
+    {
+      name: "data-active-index",
+      description: "Current active index as a string.",
+    },
+    {
+      name: "data-direction",
+      description: "`forward` or `backward` — last navigation direction.",
     },
   ],
   "api-previous": [
@@ -616,10 +616,10 @@ export const generatedCssVariables: Record<string, CssVarRow[]> = {
     },
   ],
   "api-close": [],
-  "api-item-group": [],
   "api-item": [],
   "api-slides": [],
   "api-slide": [],
+  "api-item-group": [],
   "api-previous": [],
   "api-next": [],
   "api-counter": [],

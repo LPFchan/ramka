@@ -18,9 +18,17 @@ export function MinimalMorphExcerpt() {
 
       <Lightbox.Backdrop />
       <Lightbox.Content>
-        <Lightbox.Item index={0}>
-          {({ imageRef }) => <img ref={imageRef} src={src} alt="" />}
-        </Lightbox.Item>
+        <Lightbox.Slides>
+          <Lightbox.Slide>
+            <Lightbox.Item index={0}>
+              {({ imageRef }) => (
+                <Lightbox.Zoom>
+                  <img ref={imageRef} src={src} alt="" />
+                </Lightbox.Zoom>
+              )}
+            </Lightbox.Item>
+          </Lightbox.Slide>
+        </Lightbox.Slides>
       </Lightbox.Content>
     </Lightbox.Root>
   );

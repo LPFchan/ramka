@@ -131,27 +131,10 @@ export const lightboxApiMeta: ApiPartMeta[] = [
     },
   },
   {
-    id: 'api-item-group',
-    name: 'ItemGroup',
-    description:
-      'Swap layout: mounts only the active item plus preload neighbors. Use for stacked (non-carousel) viewers.',
-    extract: {
-      kind: 'interface-props',
-      typeName: 'LightboxItemGroupProps',
-      file: 'lightbox-item-group.tsx',
-      includeInherited: ['render'],
-      exclude: ['className'],
-    },
-    attributesFrom: {
-      enumName: 'LightboxItemGroupDataAttributes',
-      file: 'lightbox-data-attributes.ts',
-    },
-  },
-  {
     id: 'api-item',
     name: 'Item',
     description:
-      'A single lightbox item. Registers captions and morph/placeholder refs. Prefer render-prop children with imageRef on the destination <img>.',
+      'A single lightbox item. Registers captions and morph/placeholder refs. Prefer render-prop children with imageRef on the destination <img>. Typically nested inside Slide (default) or ItemGroup (swap).',
     extract: {
       kind: 'interface-props',
       typeName: 'LightboxItemProps',
@@ -167,7 +150,7 @@ export const lightboxApiMeta: ApiPartMeta[] = [
     id: 'api-slides',
     name: 'Slides',
     description:
-      'Horizontal snap carousel wired to the active index. Provides ItemGroup context; put Slide → Item inside. While the user is flinging, navigation is locked so pull-to-dismiss and zoom chrome do not fight the scroll.',
+      'Default layout: horizontal snap carousel wired to the active index. Provides ItemGroup context; put Slide → Item → Zoom inside. While the user is flinging, navigation is locked so pull-to-dismiss and zoom chrome do not fight the scroll.',
     extract: {
       kind: 'interface-props',
       typeName: 'LightboxSlidesProps',
@@ -183,10 +166,28 @@ export const lightboxApiMeta: ApiPartMeta[] = [
   {
     id: 'api-slide',
     name: 'Slide',
-    description: 'One snap-aligned slide box inside Slides. Place a Lightbox.Item (and optional Zoom) inside.',
+    description:
+      'One snap-aligned slide box inside Slides. Place a Lightbox.Item (and typically Zoom) inside.',
     extract: { kind: 'none' },
     attributesFrom: {
       enumName: 'LightboxSlideDataAttributes',
+      file: 'lightbox-data-attributes.ts',
+    },
+  },
+  {
+    id: 'api-item-group',
+    name: 'ItemGroup',
+    description:
+      'Stacked swap alternative to Slides: mounts only the active item plus preload neighbors. Prefer Slides + Zoom for swipeable galleries.',
+    extract: {
+      kind: 'interface-props',
+      typeName: 'LightboxItemGroupProps',
+      file: 'lightbox-item-group.tsx',
+      includeInherited: ['render'],
+      exclude: ['className'],
+    },
+    attributesFrom: {
+      enumName: 'LightboxItemGroupDataAttributes',
       file: 'lightbox-data-attributes.ts',
     },
   },

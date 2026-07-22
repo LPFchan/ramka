@@ -28,9 +28,9 @@ const byConcern: { label: string; links: { href: string; title: string }[] }[] =
   {
     label: 'Layout',
     links: [
-      { href: lightboxApiHref.itemGroup, title: 'ItemGroup' },
       { href: lightboxApiHref.slides, title: 'Slides' },
       { href: lightboxApiHref.slide, title: 'Slide' },
+      { href: lightboxApiHref.itemGroup, title: 'ItemGroup' },
     ],
   },
   {

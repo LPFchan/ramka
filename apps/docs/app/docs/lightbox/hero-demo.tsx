@@ -3,13 +3,8 @@
 import { Lightbox } from 'ramka';
 
 import {
-  LightboxCloseButton,
-  LightboxFrame,
-  LightboxFullImage,
-  LightboxNavBar,
-  LightboxOverlay,
-  StackedItemGroup,
-  stackedItemClass,
+  imgDims,
+  LightboxGallery,
   triggerFocusClass,
   triggerMorphHideClass,
 } from '../../_components/lightbox-chrome';
@@ -31,11 +26,6 @@ const images = [
     alt: 'Forest light',
   },
 ];
-
-function imgDims(url: string) {
-  const m = url.match(/\/(\d+)\/(\d+)$/);
-  return m ? { width: Number(m[1]), height: Number(m[2]) } : undefined;
-}
 
 /** Compact live demo for the Lightbox docs hero. */
 export function LightboxHeroDemo() {
@@ -60,18 +50,7 @@ export function LightboxHeroDemo() {
           </Lightbox.Trigger>
         ))}
       </div>
-      <LightboxOverlay />
-      <LightboxFrame ariaLabel="Lightbox hero demo">
-        <LightboxCloseButton />
-        <StackedItemGroup>
-          {images.map((img, i) => (
-            <Lightbox.Item key={img.src} index={i} className={stackedItemClass}>
-              <LightboxFullImage src={img.src} alt={img.alt} />
-            </Lightbox.Item>
-          ))}
-        </StackedItemGroup>
-        <LightboxNavBar />
-      </LightboxFrame>
+      <LightboxGallery items={images} ariaLabel="Lightbox hero demo" />
     </Lightbox.Root>
   );
 }

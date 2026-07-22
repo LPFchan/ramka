@@ -20,7 +20,7 @@ const guideLinks: {
   },
   {
     title: 'Composition',
-    description: 'ItemGroup vs Slides, preload, chrome, and dynamic itemCount.',
+    description: 'Slides + Zoom chrome (default), ItemGroup swap, preload, and itemCount.',
     href: lightboxDocsPages.composition.href,
   },
   {
@@ -67,9 +67,11 @@ export default function LightboxOverviewPage() {
           </li>
           <li>
             <strong className="font-medium text-neutral-800 dark:text-neutral-200">Layout</strong> —
-            stacked swap (<DocsLink href={`${lightboxDocsPages.composition.href}#item-group`}>ItemGroup</DocsLink>)
-            or swipe carousel (
-            <DocsLink href={`${lightboxDocsPages.composition.href}#slides`}>Slides</DocsLink>)? See{' '}
+            default to the swipe carousel (
+            <DocsLink href={`${lightboxDocsPages.composition.href}#slides`}>Slides + Zoom</DocsLink>
+            ); use stacked swap (
+            <DocsLink href={`${lightboxDocsPages.composition.href}#item-group`}>ItemGroup</DocsLink>)
+            only when you do not want a carousel. See{' '}
             <DocsLink href={lightboxDocsPages.composition.href}>Composition</DocsLink>.
           </li>
           <li>
@@ -93,7 +95,10 @@ export default function LightboxOverviewPage() {
       </DocsSection>
 
       <DocsSection id="anatomy" title="Anatomy">
-        <p>Import the namespace and compose parts. Every part is optional except Root for state.</p>
+        <p>
+          Import the namespace and compose parts. The sketch below is the default gallery shape (Slides
+          + Zoom + chrome). Every part is optional except Root for state.
+        </p>
         <CodeBlock code={lightboxExcerpts.anatomy.code} title={lightboxExcerpts.anatomy.title} />
       </DocsSection>
 

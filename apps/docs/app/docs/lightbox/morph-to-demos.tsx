@@ -5,28 +5,18 @@ import { Lightbox } from 'ramka';
 
 import { Separator } from '@/components/ui/separator';
 import {
-  LightboxCloseButton,
-  LightboxFrame,
-  LightboxFullImage,
-  LightboxNavBar,
-  LightboxOverlay,
-  StackedItemGroup,
-  stackedItemClass,
+  imgDims,
+  LightboxGallery,
   triggerFocusClass,
   triggerMorphHideClass,
 } from '../../_components/lightbox-chrome';
 
-function imgDims(url: string) {
-  const m = url.match(/\/(\d+)\/(\d+)$/);
-  return m ? { width: Number(m[1]), height: Number(m[2]) } : undefined;
-}
-
 const morphImages = [
-  { src: 'https://picsum.photos/seed/morph1/1200/800', thumb: 'https://picsum.photos/seed/morph1/300/200', alt: 'Alpine meadow' },
-  { src: 'https://picsum.photos/seed/morph2/1200/800', thumb: 'https://picsum.photos/seed/morph2/300/200', alt: 'Rocky coastline' },
-  { src: 'https://picsum.photos/seed/morph3/1200/800', thumb: 'https://picsum.photos/seed/morph3/300/200', alt: 'Autumn vineyard' },
-  { src: 'https://picsum.photos/seed/morph4/1200/800', thumb: 'https://picsum.photos/seed/morph4/300/200', alt: 'Desert canyon' },
-  { src: 'https://picsum.photos/seed/morph5/1200/800', thumb: 'https://picsum.photos/seed/morph5/300/200', alt: 'Northern lake' },
+  { src: 'https://picsum.photos/seed/morph1/1200/800', thumb: 'https://picsum.photos/seed/morph1/300/200', alt: 'Alpine meadow', caption: 'Alpine meadow' },
+  { src: 'https://picsum.photos/seed/morph2/1200/800', thumb: 'https://picsum.photos/seed/morph2/300/200', alt: 'Rocky coastline', caption: 'Rocky coastline' },
+  { src: 'https://picsum.photos/seed/morph3/1200/800', thumb: 'https://picsum.photos/seed/morph3/300/200', alt: 'Autumn vineyard', caption: 'Autumn vineyard' },
+  { src: 'https://picsum.photos/seed/morph4/1200/800', thumb: 'https://picsum.photos/seed/morph4/300/200', alt: 'Desert canyon', caption: 'Desert canyon' },
+  { src: 'https://picsum.photos/seed/morph5/1200/800', thumb: 'https://picsum.photos/seed/morph5/300/200', alt: 'Northern lake', caption: 'Northern lake' },
 ];
 
 function MorphDemo({
@@ -70,18 +60,7 @@ function MorphDemo({
         })}
       </div>
 
-      <LightboxOverlay />
-      <LightboxFrame ariaLabel={ariaLabel}>
-        <LightboxCloseButton />
-        <StackedItemGroup>
-          {morphImages.map((img, i) => (
-            <Lightbox.Item key={img.src} index={i} caption={img.alt} className={stackedItemClass}>
-              <LightboxFullImage src={img.src} alt={img.alt} />
-            </Lightbox.Item>
-          ))}
-        </StackedItemGroup>
-        <LightboxNavBar />
-      </LightboxFrame>
+      <LightboxGallery items={morphImages} ariaLabel={ariaLabel} />
     </Lightbox.Root>
   );
 }

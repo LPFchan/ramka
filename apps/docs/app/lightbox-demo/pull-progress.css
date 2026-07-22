@@ -16,3 +16,12 @@
 .lightbox-demo-backdrop[data-pulling] {
   transition: none; /* follow the finger */
 }
+
+/* Light scrim used by LightboxGallery (responsive-gallery chrome). */
+.lightbox-demo-backdrop-light {
+  background-color: rgb(255 255 255 / 0.9);
+}
+
+html.dark .lightbox-demo-backdrop-light {
+  background-color: rgb(0 0 0 / 0.9);
+}

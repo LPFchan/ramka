@@ -1,9 +1,9 @@
 import { Lightbox } from 'ramka';
 
-declare const items: { id: string; src: string; thumb: string; alt: string }[];
+declare const items: { id: string; src: string; thumb: string; alt: string; caption?: string }[];
 
 /**
- * Getting-started quick start (home page).
+ * Getting-started quick start (home page) — default Slides + Zoom chrome.
  *
  * @docsExcerpt quick-start
  * @docsExcerptTitle App.tsx
@@ -22,12 +22,22 @@ export function QuickStartExcerpt() {
         <Lightbox.Slides>
           {items.map((item, i) => (
             <Lightbox.Slide key={item.id}>
-              <Lightbox.Item index={i}>
-                {({ imageRef }) => <img ref={imageRef} src={item.src} alt={item.alt} />}
+              <Lightbox.Item index={i} caption={item.caption ?? item.alt}>
+                {({ imageRef }) => (
+                  <Lightbox.Zoom>
+                    <img ref={imageRef} src={item.src} alt={item.alt} />
+                  </Lightbox.Zoom>
+                )}
               </Lightbox.Item>
             </Lightbox.Slide>
           ))}
         </Lightbox.Slides>
+
+        <Lightbox.Counter />
+        <Lightbox.ZoomOut />
+        <Lightbox.ZoomIn />
+        <Lightbox.Close />
+        <Lightbox.Caption />
       </Lightbox.Content>
     </Lightbox.Root>
   );

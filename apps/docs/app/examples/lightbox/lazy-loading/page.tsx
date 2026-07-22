@@ -7,13 +7,13 @@ import { useRouter } from 'next/navigation';
 export default function LazyLoadingRedirectPage() {
   const router = useRouter();
   useEffect(() => {
-    router.replace('/docs/lightbox/composition#item-group');
+    router.replace('/docs/lightbox/composition#slides');
   }, [router]);
   return (
     <p className="px-6 py-12 text-sm text-neutral-500">
       Moved to{' '}
-      <a href="/docs/lightbox/composition#item-group" className="underline">
-        Composition → ItemGroup
+      <a href="/docs/lightbox/composition#slides" className="underline">
+        Composition → Slides + Zoom
       </a>
       .
     </p>

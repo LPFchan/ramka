@@ -6,9 +6,9 @@ import { lightboxApiHref, lightboxDocsPages } from '../../../_content/lightbox/d
 import { lightboxExcerpts } from '../../../_content/lightbox/excerpts/generated';
 
 const toc: DocsTocItem[] = [
-  { id: 'item-group', title: 'ItemGroup (swap)' },
-  { id: 'slides', title: 'Slides + Slide' },
+  { id: 'slides', title: 'Slides + Zoom' },
   { id: 'chrome', title: 'Chrome' },
+  { id: 'item-group', title: 'ItemGroup (swap)' },
   { id: 'item-count', title: 'Dynamic itemCount' },
 ];
 
@@ -18,48 +18,24 @@ export default function LightboxCompositionPage() {
       title="Composition"
       description={
         <>
-          Choose a layout model and compose chrome around it. Part of{' '}
+          Default to Slides + Zoom (swipe carousel with pinch zoom), then layer chrome. ItemGroup is
+          the stacked-swap alternative. Part of{' '}
           <DocsLink href={lightboxDocsPages.overview.href}>Lightbox</DocsLink>.
         </>
       }
       toc={toc}
     >
-      <DocsSection id="item-group" title="ItemGroup (swap)">
+      <DocsSection id="slides" title="Slides + Zoom">
         <p>
-          Use <DocsLink href={lightboxApiHref.itemGroup}>ItemGroup</DocsLink> when you want a stacked
-          viewer — one item visible at a time, no horizontal carousel. It mounts the active{' '}
-          <DocsLink href={lightboxApiHref.item}>Item</DocsLink> plus <code className="text-xs">preload</code>{' '}
-          neighbors (default neighbors depend on the prop; use <code className="text-xs">preload={'{0}'}</code>{' '}
-          for active-only).
-        </p>
-        <ul className="list-disc space-y-2 pl-5">
-          <li>
-            <code className="text-xs">active</code> — this item is the current index (drive expensive work
-            here).
-          </li>
-          <li>
-            <code className="text-xs">visible</code> — mounted in the preload window (may include neighbors).
-            Use for lightweight prefetch; prefer <code className="text-xs">active</code> for video autoplay,
-            high-res swaps, etc.
-          </li>
-        </ul>
-        <CodeBlock
-          code={lightboxExcerpts['item-group-preload'].code}
-          title={lightboxExcerpts['item-group-preload'].title}
-        />
-      </DocsSection>
-
-      <DocsSection id="slides" title="Slides + Slide">
-        <p>
-          Use <DocsLink href={lightboxApiHref.slides}>Slides</DocsLink> +{' '}
+          Prefer <DocsLink href={lightboxApiHref.slides}>Slides</DocsLink> +{' '}
           <DocsLink href={lightboxApiHref.slide}>Slide</DocsLink> for a swipeable snap carousel wired to
-          the active index. Slide boxes stay mounted; <code className="text-xs">preload</code> still gates
-          heavy Item content.
+          the active index — this is the layout used by nearly every docs demo and example. Slide boxes
+          stay mounted; <code className="text-xs">preload</code> gates heavy Item content.
         </p>
         <ul className="list-disc space-y-2 pl-5">
           <li>
-            Nesting rule: put <code className="text-xs">Item</code> (and optional{' '}
-            <DocsLink href={lightboxApiHref.zoom}>Zoom</DocsLink>) <em>inside</em> each{' '}
+            Nesting rule: put <code className="text-xs">Item</code> and{' '}
+            <DocsLink href={lightboxApiHref.zoom}>Zoom</DocsLink> <em>inside</em> each{' '}
             <code className="text-xs">Slide</code>. Pull transforms the item, not the snap box.
           </li>
           <li>
@@ -81,9 +57,10 @@ export default function LightboxCompositionPage() {
 
       <DocsSection id="chrome" title="Chrome">
         <p>
-          Place Close, Previous/Next, Counter, Caption, and ThumbnailGroup as siblings of your layout
-          (ItemGroup or Slides) inside <DocsLink href={lightboxApiHref.content}>Content</DocsLink>.
-          Thumbnails register by <code className="text-xs">index</code> like Triggers.
+          The site default viewer is Slides + Zoom with Counter (top-left), Close / ZoomIn / ZoomOut,
+          Caption, and desktop ThumbnailGroup as siblings inside{' '}
+          <DocsLink href={lightboxApiHref.content}>Content</DocsLink>. Thumbnails register by{' '}
+          <code className="text-xs">index</code> like Triggers.
         </p>
         <CodeBlock
           code={lightboxExcerpts['chrome-composition'].code}
@@ -93,6 +70,32 @@ export default function LightboxCompositionPage() {
           Full product composition:{' '}
           <DocsLink href="/examples/lightbox/responsive-gallery">Responsive gallery</DocsLink>.
         </p>
+      </DocsSection>
+
+      <DocsSection id="item-group" title="ItemGroup (swap)">
+        <p>
+          Use <DocsLink href={lightboxApiHref.itemGroup}>ItemGroup</DocsLink> when you want a stacked
+          viewer instead of a swipe carousel — one item visible at a time, typically with Previous /
+          Next / Counter chrome. It mounts the active{' '}
+          <DocsLink href={lightboxApiHref.item}>Item</DocsLink> plus <code className="text-xs">preload</code>{' '}
+          neighbors (default neighbors depend on the prop; use <code className="text-xs">preload={'{0}'}</code>{' '}
+          for active-only).
+        </p>
+        <ul className="list-disc space-y-2 pl-5">
+          <li>
+            <code className="text-xs">active</code> — this item is the current index (drive expensive work
+            here).
+          </li>
+          <li>
+            <code className="text-xs">visible</code> — mounted in the preload window (may include neighbors).
+            Use for lightweight prefetch; prefer <code className="text-xs">active</code> for video autoplay,
+            high-res swaps, etc.
+          </li>
+        </ul>
+        <CodeBlock
+          code={lightboxExcerpts['item-group-preload'].code}
+          title={lightboxExcerpts['item-group-preload'].title}
+        />
       </DocsSection>
 
       <DocsSection id="item-count" title="Dynamic itemCount">

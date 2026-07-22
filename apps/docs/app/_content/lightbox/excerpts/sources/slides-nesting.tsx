@@ -16,7 +16,11 @@ export function SlidesNestingExcerpt() {
           {items.map((item, i) => (
             <Lightbox.Slide key={item.id}>
               <Lightbox.Item index={i}>
-                {({ imageRef }) => <img ref={imageRef} src={item.src} alt={item.alt} />}
+                {({ imageRef }) => (
+                  <Lightbox.Zoom>
+                    <img ref={imageRef} src={item.src} alt={item.alt} />
+                  </Lightbox.Zoom>
+                )}
               </Lightbox.Item>
             </Lightbox.Slide>
           ))}

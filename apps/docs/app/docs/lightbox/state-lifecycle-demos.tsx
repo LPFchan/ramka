@@ -5,15 +5,9 @@ import { Lightbox } from 'ramka';
 
 import { lightboxImages } from '../../_data/lightbox-images';
 import {
-  LightboxCloseButton,
-  LightboxFrame,
-  LightboxFullImage,
-  LightboxNavBar,
-  LightboxOverlay,
+  LightboxGallery,
   LightboxTriggerGrid,
   LightboxTriggerImage,
-  StackedItemGroup,
-  stackedItemClass,
   triggerFocusClass,
   triggerMorphHideClass,
 } from '../../_components/lightbox-chrome';
@@ -48,18 +42,7 @@ export function ControlledStateDemo() {
       </div>
 
       <Lightbox.Root open={open} onOpenChange={setOpen} value={value} onValueChange={setValue}>
-        <LightboxOverlay />
-        <LightboxFrame ariaLabel="Controlled photo gallery">
-          <LightboxCloseButton />
-          <StackedItemGroup>
-            {lightboxImages.map((img, i) => (
-              <Lightbox.Item key={img.id} index={i} className={stackedItemClass}>
-                <LightboxFullImage src={img.src} alt={img.alt} />
-              </Lightbox.Item>
-            ))}
-          </StackedItemGroup>
-          <LightboxNavBar />
-        </LightboxFrame>
+        <LightboxGallery items={lightboxImages} ariaLabel="Controlled photo gallery" />
       </Lightbox.Root>
     </div>
   );
@@ -96,18 +79,7 @@ export function CreateHandleDemo() {
       </LightboxTriggerGrid>
 
       <Lightbox.Root handle={lightbox}>
-        <LightboxOverlay />
-        <LightboxFrame ariaLabel="Product photo gallery">
-          <LightboxCloseButton />
-          <StackedItemGroup>
-            {lightboxImages.map((img, i) => (
-              <Lightbox.Item key={img.id} index={i} className={stackedItemClass}>
-                <LightboxFullImage src={img.src} alt={img.alt} />
-              </Lightbox.Item>
-            ))}
-          </StackedItemGroup>
-          <LightboxNavBar />
-        </LightboxFrame>
+        <LightboxGallery items={lightboxImages} ariaLabel="Product photo gallery" />
       </Lightbox.Root>
     </div>
   );
@@ -157,18 +129,7 @@ export function LifecycleCallbacksDemo() {
             </Lightbox.Trigger>
           ))}
         </LightboxTriggerGrid>
-        <LightboxOverlay />
-        <LightboxFrame ariaLabel="Lifecycle-callbacks photo gallery">
-          <LightboxCloseButton />
-          <StackedItemGroup>
-            {lightboxImages.map((img, i) => (
-              <Lightbox.Item key={img.id} index={i} className={stackedItemClass}>
-                <LightboxFullImage src={img.src} alt={img.alt} />
-              </Lightbox.Item>
-            ))}
-          </StackedItemGroup>
-          <LightboxNavBar />
-        </LightboxFrame>
+        <LightboxGallery items={lightboxImages} ariaLabel="Lifecycle-callbacks photo gallery" />
       </Lightbox.Root>
 
       <section className="w-full max-w-2xl rounded-xl border border-neutral-200 bg-neutral-50 p-4 dark:border-neutral-800 dark:bg-neutral-900">

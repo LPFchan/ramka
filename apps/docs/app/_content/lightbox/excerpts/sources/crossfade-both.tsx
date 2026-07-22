@@ -22,9 +22,13 @@ export function CrossfadeBothExcerpt() {
         )}
       </Lightbox.Trigger>
       <Lightbox.Content>
-        <Lightbox.Item index={0}>
-          {({ imageRef }) => <img ref={imageRef} src={src} alt="" />}
-        </Lightbox.Item>
+        <Lightbox.Slides>
+          <Lightbox.Slide>
+            <Lightbox.Item index={0}>
+              {({ imageRef }) => <img ref={imageRef} src={src} alt="" />}
+            </Lightbox.Item>
+          </Lightbox.Slide>
+        </Lightbox.Slides>
       </Lightbox.Content>
     </Lightbox.Root>
   );
