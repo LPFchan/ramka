@@ -21,6 +21,8 @@ export default function ImperativeApiPage() {
   return (
     <ExampleShell
       title="Imperative API"
+      docsHref="/docs/lightbox#api-root-ref"
+      docsLabel="LightboxRootRef"
       description={
         <>
           Forward a ref to <code className="rounded bg-neutral-100 px-1 py-0.5 text-xs dark:bg-neutral-800">Lightbox.Root</code>{' '}

@@ -22,6 +22,8 @@ export default function ControlledLightboxPage() {
   return (
     <ExampleShell
       title="Controlled"
+      docsHref="/docs/lightbox#api-root"
+      docsLabel="Root props"
       description={
         <>
           The <code className="rounded bg-neutral-100 px-1 py-0.5 text-xs dark:bg-neutral-800">open</code> and{' '}

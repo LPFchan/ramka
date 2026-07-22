@@ -23,6 +23,8 @@ export default function LazyLoadingPage() {
   return (
     <ExampleShell
       title="Lazy loading"
+      docsHref="/docs/lightbox#api-item"
+      docsLabel="Item / ItemGroup API"
       description={
         <>
           Pass <code className="rounded bg-neutral-100 px-1 py-0.5 text-xs dark:bg-neutral-800">preload={'{0}'}</code>{' '}

@@ -56,7 +56,7 @@ function useOptionalLightboxTriggerContext(): LightboxTriggerRenderState | null 
 
 interface LightboxTriggerProps
   extends Omit<useRender.ComponentProps<'button', LightboxTriggerState>, 'children'> {
-  /** The item index this trigger opens the lightbox at. */
+  /** Item index this trigger opens. Required. */
   index: number;
   /**
    * Crossfade between trigger and item snapshots during the view-transition
@@ -66,6 +66,8 @@ interface LightboxTriggerProps
    * - `'both'` — crossfade on open and close (e.g. a stack → single photo)
    * - `'open'` — crossfade only when opening
    * - `'close'` — crossfade only when closing (e.g. poster → live video)
+   *
+   * Sets `data-crossfade` / `data-lightbox-no-crossfade` for CSS.
    */
   crossfade?: LightboxCrossfade;
   /**

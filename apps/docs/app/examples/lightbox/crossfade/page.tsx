@@ -357,6 +357,8 @@ export default function CrossfadePage() {
   return (
     <ExampleShell
       title="Trigger crossfade"
+      docsHref="/docs/lightbox#api-trigger"
+      docsLabel="Trigger crossfade"
       description={
         <>
           <code className={code}>crossfade</code> decides whether the morph dissolves between trigger and item

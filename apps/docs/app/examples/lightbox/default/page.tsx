@@ -23,6 +23,8 @@ export default function DefaultLightboxPage() {
   return (
     <ExampleShell
       title="Default lightbox"
+      docsHref="/docs/lightbox"
+      docsLabel="Lightbox documentation"
       description="A trigger grid opens an unstyled, headless modal. Every visual surface — backdrop, frame, controls — is plain Tailwind on top of Lightbox primitives."
     >
       <Lightbox.Root>

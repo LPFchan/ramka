@@ -97,6 +97,8 @@ export default function MorphToSettingPage() {
   return (
     <ExampleShell
       title="morphTo strategies"
+      docsHref="/docs/lightbox#api-root"
+      docsLabel="Root morphTo"
       description={
         <>
           The <code className="rounded bg-neutral-100 px-1 py-0.5 text-xs dark:bg-neutral-800">morphTo</code> prop

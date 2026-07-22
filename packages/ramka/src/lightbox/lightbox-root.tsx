@@ -31,12 +31,15 @@ interface LightboxRootProps {
   defaultOpen?: boolean;
   /** Controlled open state. */
   open?: boolean;
-  /** Callback when open state changes (fires immediately, before animations). */
+  /**
+   * Called when open state changes (immediately, before enter/exit
+   * animations finish). Prefer this for syncing URL state or stores.
+   */
   onOpenChange?: (open: boolean) => void;
   /**
-   * Callback when the open/close transition finishes. Receives the
-   * final open state — `true` after the open animation completes,
-   * `false` after the close animation completes.
+   * Called when the open/close transition settles. Receives `true` after
+   * open completes, `false` after close completes. Prefer this for cleanup
+   * and focus management.
    */
   onOpenChangeComplete?: (open: boolean) => void;
   /** Uncontrolled initial active index. @default 0 */

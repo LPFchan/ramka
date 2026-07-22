@@ -42,9 +42,13 @@ const focusGuardStyle: React.CSSProperties = {
 interface LightboxContentProps extends React.ComponentPropsWithRef<'div'> {
   className?: string;
   children?: React.ReactNode;
-  /** Container element for the portal. Defaults to `document.body`. */
+  /** Portal container for the dialog. Defaults to `document.body`. */
   container?: Element | DocumentFragment | null;
-  /** Enable pull-to-close gesture on touch devices. @default true */
+  /**
+   * Enable pull-to-close on touch. Publishes `data-pulling`,
+   * `data-pull-dismissing`, and `--lightbox-pull-progress` while active.
+   * @default true
+   */
   pullToClose?: boolean;
 }
 

@@ -72,7 +72,7 @@ interface LightboxZoomProps
   wheelSensitivity?: number;
   /** Keyboard pan distance in px per keypress. @default 50 */
   keyboardPanDistance?: number;
-  /** Max delay between clicks for double-click detection (ms). @default 400 */
+  /** Max delay between clicks for double-click detection (ms). @default 300 */
   doubleClickDelay?: number;
   /** Smooth zoom animation duration (ms). @default 300 */
   animationDuration?: number;

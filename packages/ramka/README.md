@@ -28,7 +28,7 @@ import { Lightbox } from 'ramka';
 - `Lightbox.Slides` / `Lightbox.Slide` — a swipeable, snapping carousel wired directly to the lightbox's active index.
 - `Lightbox.Zoom`, `Lightbox.Caption`, `Lightbox.ThumbnailGroup`, `Lightbox.Previous` / `Lightbox.Next` — zoom, captions, thumbnails, and navigation, plus built-in pull-to-dismiss.
 
-See the [docs site](../../apps/docs) for live examples.
+Full API reference: run the [docs site](../../apps/docs) and open `/docs/lightbox`. Live demos live under `/examples/lightbox/*`.
 
 ## License
 
