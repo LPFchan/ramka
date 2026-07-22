@@ -1,15 +1,21 @@
 import { lightboxExamples, type ExampleLink } from '../_components/examples';
+import { lightboxDocsPages } from './lightbox/docs-pages';
 
 export interface NavLink {
   href: string;
   title: string;
   description?: string;
+  /**
+   * When true (default for most links), only an exact pathname match is active.
+   * Use `prefix` so a parent route stays highlighted on nested pages.
+   */
+  match?: 'exact' | 'prefix';
 }
 
 export interface NavSection {
   title: string;
   links: NavLink[];
-  /** Optional nested groups (e.g. Examples → API patterns / Product). */
+  /** Optional nested groups (e.g. Components → Lightbox, Examples → API patterns). */
   groups?: { title: string; links: NavLink[] }[];
 }
 
@@ -47,7 +53,17 @@ export const navSections: NavSection[] = [
   },
   {
     title: 'Components',
-    links: [{ href: '/docs/lightbox', title: 'Lightbox' }],
+    links: [],
+    groups: [
+      {
+        title: 'Lightbox',
+        links: [
+          lightboxDocsPages.overview,
+          lightboxDocsPages.viewTransitions,
+          lightboxDocsPages.api,
+        ],
+      },
+    ],
   },
   {
     title: 'Examples',

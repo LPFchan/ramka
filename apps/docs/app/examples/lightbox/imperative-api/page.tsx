@@ -21,7 +21,7 @@ export default function ImperativeApiPage() {
   return (
     <ExampleShell
       title="Imperative API"
-      docsHref="/docs/lightbox#api-root-ref"
+      docsHref="/docs/lightbox/api#api-root-ref"
       docsLabel="LightboxRootRef"
       description={
         <>

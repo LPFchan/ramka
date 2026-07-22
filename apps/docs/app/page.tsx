@@ -1,6 +1,7 @@
 import Link from 'next/link';
 
 import { CodeBlock } from './_components/code-block';
+import { docsLinkClassName } from './_components/docs-link';
 
 const quickStart = `import { Lightbox } from 'ramka';
 
@@ -68,20 +69,14 @@ export default function HomePage() {
         </h2>
         <ul className="mt-3 space-y-2 text-sm text-neutral-600 dark:text-neutral-400">
           <li>
-            <Link
-              href="/docs/lightbox"
-              className="font-medium text-neutral-900 underline underline-offset-2 dark:text-neutral-100"
-            >
+            <Link href="/docs/lightbox" className={docsLinkClassName}>
               Lightbox documentation
             </Link>
             {' — '}
-            anatomy, guidelines, and full API reference for every part.
+            overview, view transitions, and API reference.
           </li>
           <li>
-            <Link
-              href="/examples/lightbox/responsive-gallery"
-              className="font-medium text-neutral-900 underline underline-offset-2 dark:text-neutral-100"
-            >
+            <Link href="/examples/lightbox/responsive-gallery" className={docsLinkClassName}>
               Examples
             </Link>
             {' — '}

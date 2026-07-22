@@ -1,14 +1,10 @@
 import Link from 'next/link';
 
-import { ApiPartSection } from '../../_components/api/api-part';
 import { CodeBlock } from '../../_components/code-block';
+import { DocsLink } from '../../_components/docs-link';
+import { DocsPager } from '../../_components/docs-pager';
 import { DocsSection, DocsShell, type DocsTocItem } from '../../_components/docs-shell';
-import {
-  documentViewTransitionApi,
-  hooksApi,
-  imperativeApi,
-  lightboxApiParts,
-} from '../../_content/lightbox/api/parts';
+import { lightboxDocsPages } from '../../_content/lightbox/docs-pages';
 import { LightboxHeroDemo } from './hero-demo';
 
 const anatomy = `import { Lightbox } from 'ramka';
@@ -52,13 +48,8 @@ const examplePatterns: {
   },
   {
     title: 'morphTo strategies',
-    description: 'Compare active, origin, and closest close-morph targets.',
+    description: 'Live comparison of active, origin, and closest close-morph targets.',
     href: '/examples/lightbox/morph-to-setting',
-  },
-  {
-    title: 'Trigger crossfade',
-    description: 'When to omit crossfade vs both / close / open for dissimilar trigger↔item snapshots.',
-    href: '/examples/lightbox/crossfade',
   },
   {
     title: 'Zoom + pull-to-dismiss',
@@ -71,19 +62,9 @@ const toc: DocsTocItem[] = [
   { id: 'usage-guidelines', title: 'Usage guidelines' },
   { id: 'anatomy', title: 'Anatomy' },
   { id: 'examples', title: 'Examples' },
-  {
-    id: 'api-reference',
-    title: 'API reference',
-    children: [
-      ...lightboxApiParts.map((p) => ({ id: p.id, title: p.name })),
-      { id: documentViewTransitionApi.id, title: 'Document (VT)' },
-      ...hooksApi.map((p) => ({ id: p.id, title: p.name })),
-      ...imperativeApi.map((p) => ({ id: p.id, title: p.name })),
-    ],
-  },
 ];
 
-export default function LightboxDocsPage() {
+export default function LightboxOverviewPage() {
   return (
     <DocsShell
       title="Lightbox"
@@ -110,11 +91,10 @@ export default function LightboxDocsPage() {
           </li>
           <li>
             <strong className="font-medium text-neutral-800 dark:text-neutral-200">View transitions:</strong>{' '}
-            set <code className="text-xs">viewTransition</code> on Root and attach{' '}
-            <code className="text-xs">imageRef</code> on Trigger/Item images so the open morph can
-            bridge with the already-decoded thumb. Use Trigger{' '}
-            <code className="text-xs">crossfade</code> when trigger and item do not show the same
-            picture.
+            optional morph from trigger → item. See{' '}
+            <DocsLink href={lightboxDocsPages.viewTransitions.href}>View transitions</DocsLink> for{' '}
+            <code className="text-xs">imageRef</code>, <code className="text-xs">crossfade</code>,{' '}
+            <code className="text-xs">morphTo</code>, and document-level styling hooks.
           </li>
           <li>
             <strong className="font-medium text-neutral-800 dark:text-neutral-200">Gestures:</strong>{' '}
@@ -133,10 +113,11 @@ export default function LightboxDocsPage() {
       <DocsSection id="examples" title="Examples">
         <p>
           Pattern demos and product case studies live under{' '}
-          <Link href="/examples/lightbox/default" className="underline underline-offset-2">
-            Examples
-          </Link>
-          . Start here for the APIs they illustrate:
+          <DocsLink href="/examples/lightbox/default">Examples</DocsLink>. Crossfade cases live on{' '}
+          <DocsLink href={`${lightboxDocsPages.viewTransitions.href}#crossfade`}>
+            View transitions → Trigger crossfade
+          </DocsLink>
+          ; other morph/API patterns:
         </p>
         <ul className="grid gap-3 sm:grid-cols-2">
           {examplePatterns.map((ex) => (
@@ -155,32 +136,7 @@ export default function LightboxDocsPage() {
         </ul>
       </DocsSection>
 
-      <DocsSection id="api-reference" title="API reference">
-        <p>
-          Each part accepts native element props for its default host (via Base UI{' '}
-          <code className="text-xs">render</code> where noted). Custom props are listed below.
-        </p>
-      </DocsSection>
-
-      {lightboxApiParts.map((part) => (
-        <ApiPartSection key={part.id} part={part} />
-      ))}
-
-      <ApiPartSection part={documentViewTransitionApi} />
-
-      <DocsSection id="api-hooks" title="Hooks">
-        <p>Optional contexts for nested wrapper components.</p>
-      </DocsSection>
-      {hooksApi.map((part) => (
-        <ApiPartSection key={part.id} part={part} />
-      ))}
-
-      <DocsSection id="api-imperative" title="Imperative handles">
-        <p>Attach a ref to Root or Zoom to drive the lightbox from outside the tree.</p>
-      </DocsSection>
-      {imperativeApi.map((part) => (
-        <ApiPartSection key={part.id} part={part} />
-      ))}
+      <DocsPager next={lightboxDocsPages.viewTransitions} />
     </DocsShell>
   );
 }

@@ -6,18 +6,26 @@ import { usePathname } from 'next/navigation';
 import { navSections } from '../_content/nav';
 import { cn } from '@/lib/utils';
 
+function isActive(pathname: string, href: string, match: 'exact' | 'prefix' = 'exact') {
+  if (href === '/') return pathname === '/';
+  if (match === 'prefix') return pathname === href || pathname.startsWith(`${href}/`);
+  return pathname === href;
+}
+
 function NavItem({
   href,
   title,
   onNavigate,
   pathname,
+  match = 'exact',
 }: {
   href: string;
   title: string;
   onNavigate?: () => void;
   pathname: string;
+  match?: 'exact' | 'prefix';
 }) {
-  const active = href === '/' ? pathname === '/' : pathname === href || pathname.startsWith(`${href}/`);
+  const active = isActive(pathname, href, match);
 
   return (
     <Link
@@ -57,6 +65,7 @@ export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
                   <NavItem
                     href={link.href}
                     title={link.title}
+                    match={link.match}
                     onNavigate={onNavigate}
                     pathname={pathname}
                   />
@@ -75,6 +84,7 @@ export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
                     <NavItem
                       href={link.href}
                       title={link.title}
+                      match={link.match}
                       onNavigate={onNavigate}
                       pathname={pathname}
                     />

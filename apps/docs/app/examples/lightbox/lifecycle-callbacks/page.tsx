@@ -43,7 +43,7 @@ export default function LifecycleCallbacksPage() {
   return (
     <ExampleShell
       title="Lifecycle callbacks"
-      docsHref="/docs/lightbox#api-root"
+      docsHref="/docs/lightbox/api#api-root"
       docsLabel="Root lifecycle props"
       description={
         <>

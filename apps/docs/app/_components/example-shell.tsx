@@ -1,10 +1,12 @@
 import Link from 'next/link';
 import * as React from 'react';
 
+import { docsLinkClassName } from './docs-link';
+
 interface ExampleShellProps {
   title: string;
   description?: React.ReactNode;
-  /** Deep link into the Lightbox API docs (e.g. `/docs/lightbox#api-root`). */
+  /** Deep link into Lightbox docs (e.g. `/docs/lightbox/api#api-root`). */
   docsHref?: string;
   docsLabel?: string;
   children: React.ReactNode;
@@ -31,10 +33,7 @@ export function ExampleShell({
         {docsHref ? (
           <p className="mt-3 text-sm text-neutral-500">
             See also:{' '}
-            <Link
-              href={docsHref}
-              className="font-medium text-neutral-800 underline underline-offset-2 dark:text-neutral-200"
-            >
+            <Link href={docsHref} className={docsLinkClassName}>
               {docsLabel}
             </Link>
           </p>

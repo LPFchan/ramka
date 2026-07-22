@@ -22,7 +22,7 @@ export default function ControlledLightboxPage() {
   return (
     <ExampleShell
       title="Controlled"
-      docsHref="/docs/lightbox#api-root"
+      docsHref="/docs/lightbox/api#api-root"
       docsLabel="Root props"
       description={
         <>

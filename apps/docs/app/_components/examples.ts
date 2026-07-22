@@ -62,7 +62,7 @@ export const lightboxExamples: ExampleLink[] = [
     slug: 'crossfade',
     title: 'Trigger crossfade',
     description:
-      'When to omit crossfade vs "both" / "close" / "open" — same-image morphs, +N overlays, and poster→video.',
+      'Same demos as /docs/lightbox/view-transitions#crossfade (omit / both / close).',
   },
   {
     slug: 'text-message',

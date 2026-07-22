@@ -23,7 +23,7 @@ export default function LazyLoadingPage() {
   return (
     <ExampleShell
       title="Lazy loading"
-      docsHref="/docs/lightbox#api-item"
+      docsHref="/docs/lightbox/api#api-item"
       docsLabel="Item / ItemGroup API"
       description={
         <>

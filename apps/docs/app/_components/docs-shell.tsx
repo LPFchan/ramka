@@ -79,7 +79,8 @@ export function DocsSection({
   level = 2,
 }: {
   id: string;
-  title: string;
+  /** String titles get a `#id` self-link. Pass a node when the title includes other links (avoid nesting `<a>`). */
+  title: React.ReactNode;
   children: React.ReactNode;
   level?: 2 | 3;
 }) {
@@ -93,9 +94,13 @@ export function DocsSection({
             : 'text-base font-semibold tracking-tight text-neutral-900 dark:text-neutral-50'
         }
       >
-        <a href={`#${id}`} className="hover:underline">
-          {title}
-        </a>
+        {typeof title === 'string' ? (
+          <a href={`#${id}`} className="hover:underline">
+            {title}
+          </a>
+        ) : (
+          title
+        )}
       </Heading>
       <div className="mt-4 space-y-4 text-sm leading-relaxed text-neutral-600 dark:text-neutral-400">
         {children}

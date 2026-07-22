@@ -97,14 +97,15 @@ export default function MorphToSettingPage() {
   return (
     <ExampleShell
       title="morphTo strategies"
-      docsHref="/docs/lightbox#api-root"
-      docsLabel="Root morphTo"
+      docsHref="/docs/lightbox/view-transitions#morph-to"
+      docsLabel="View transitions → Root morphTo"
       description={
         <>
-          The <code className="rounded bg-neutral-100 px-1 py-0.5 text-xs dark:bg-neutral-800">morphTo</code> prop
-          decides which trigger the close animation flies back to. The three strategies handle the common cases of
-          {' '}<em>&quot;every item has a trigger&quot;</em>, <em>&quot;only one trigger opens many items&quot;</em>, and{' '}
-          <em>&quot;some items have triggers, the rest fall back to the nearest one&quot;</em>.
+          Live comparison of Root <code className="rounded bg-neutral-100 px-1 py-0.5 text-xs dark:bg-neutral-800">morphTo</code>{' '}
+          (<code className="rounded bg-neutral-100 px-1 py-0.5 text-xs dark:bg-neutral-800">active</code> /{' '}
+          <code className="rounded bg-neutral-100 px-1 py-0.5 text-xs dark:bg-neutral-800">origin</code> /{' '}
+          <code className="rounded bg-neutral-100 px-1 py-0.5 text-xs dark:bg-neutral-800">closest</code>). Canonical
+          explanation lives in the Lightbox docs.
         </>
       }
     >
