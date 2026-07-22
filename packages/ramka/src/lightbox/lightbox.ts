@@ -129,6 +129,5 @@ export {
 export {
   LightboxContentCssVars,
   LightboxBackdropCssVars,
-  LightboxMediaCssVars,
   LightboxDocumentCssVars,
 } from './lightbox-css-vars';

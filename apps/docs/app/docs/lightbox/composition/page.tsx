@@ -113,15 +113,13 @@ export default function LightboxCompositionPage() {
           <code className="text-xs">width</code>/<code className="text-xs">height</code> to{' '}
           <DocsLink href={lightboxApiHref.media}>Lightbox.Media</DocsLink>. Media applies the inscribed
           fit-box (
-          <code className="text-xs">min(100cqw − inset, 100cqh × w/h)</code> +{' '}
+          <code className="text-xs">min(100cqw, 100cqh × w/h)</code> +{' '}
           <code className="text-xs">aspect-ratio: w / h</code>). Or put HTML{' '}
           <code className="text-xs">width</code>/<code className="text-xs">height</code> on the child
           image and omit the Media props — Media derives the box. When the box matches the source
           aspect, child <code className="text-xs">object-fit</code> is a no-op; put border-radius on Media
-          (morph target). Leave chrome outside Media. Optional{' '}
-          <code className="text-xs">insetX</code>/<code className="text-xs">insetY</code> (or{' '}
-          <code className="text-xs">--lightbox-fit-inset-x/y</code>) shrink the resting box; gallery chrome
-          often uses Zoom padding instead.
+          (morph target). Leave chrome outside Media. Resting insets belong on Zoom padding / safe-area
+          so zoomed media still paints edge-to-edge under chrome.
         </p>
         <CodeBlock
           code={lightboxExcerpts['media-fit-box'].code}

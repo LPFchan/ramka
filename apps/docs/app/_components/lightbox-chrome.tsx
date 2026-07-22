@@ -71,17 +71,6 @@ export function imgAspect(url: string): number {
   return d ? d.width / d.height : 16 / 9;
 }
 
-/**
- * @deprecated Prefer `<Lightbox.Media width={…} height={…} />` — Media applies
- * this structural fit-box itself. Kept for custom layouts that size a non-Media host.
- */
-export function fitBoxStyle(ratio: number): React.CSSProperties {
-  return {
-    width: `min(calc(100cqw - var(--lightbox-fit-inset-x, 0px)), calc((100cqh - var(--lightbox-fit-inset-y, 0px)) * ${ratio}))`,
-    aspectRatio: `${ratio}`,
-  };
-}
-
 export type LightboxGalleryItem = {
   id?: string | number;
   src: string;
@@ -415,24 +404,3 @@ export function LightboxTriggerImage({
   );
 }
 
-export function LightboxFullImage({ src, alt }: { src: string; alt: string }) {
-  // Structural: Media width/height/insets. Cosmetic: rounded-lg on Media (morph target).
-  return (
-    <div className="flex size-full items-center justify-center [container-type:size]">
-      <Lightbox.Media
-        {...imgDims(src)}
-        insetX="2rem"
-        insetY="2rem"
-        className="overflow-hidden rounded-lg"
-      >
-        <img
-          {...imgDims(src)}
-          src={src}
-          alt={alt}
-          loading="eager"
-          className="size-full"
-        />
-      </Lightbox.Media>
-    </div>
-  );
-}

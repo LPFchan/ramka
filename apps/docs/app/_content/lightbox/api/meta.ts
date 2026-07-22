@@ -150,7 +150,7 @@ export const lightboxApiMeta: ApiPartMeta[] = [
     id: 'api-media',
     name: 'Media',
     description:
-      'Sized destination media host — morph target and placeholder canvas container. Structural props: width/height (fit-box, same idea as Next.js Image), insetX/insetY. Cosmetics (radius, colors, object-fit) stay consumer-owned. Prefer Zoom > Media > img|video (Zoom is a size container for Media’s cqw/cqh fit-box). Auto-discovers the primary <img> (or video poster) for decode / thumbnail bridging.',
+      'Sized destination media host — morph target and placeholder canvas container. Structural props: width/height (fit-box, same idea as Next.js Image). Cosmetics (radius, colors, object-fit) stay consumer-owned. Prefer Zoom > Media > img|video (Zoom is a size container for Media’s cqw/cqh fit-box; use Zoom padding for resting chrome insets). Auto-discovers the primary <img> (or video poster) for decode / thumbnail bridging.',
     extract: {
       kind: 'interface-props',
       typeName: 'LightboxMediaProps',
@@ -160,10 +160,6 @@ export const lightboxApiMeta: ApiPartMeta[] = [
     attributesFrom: {
       enumName: 'LightboxMediaDataAttributes',
       file: 'lightbox-data-attributes.ts',
-    },
-    cssVariablesFrom: {
-      enumName: 'LightboxMediaCssVars',
-      file: 'lightbox-css-vars.ts',
     },
   },
   {

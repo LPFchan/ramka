@@ -22,19 +22,6 @@ export enum LightboxBackdropCssVars {
   pullProgress = '--lightbox-pull-progress',
 }
 
-export enum LightboxMediaCssVars {
-  /**
-   * Horizontal inset subtracted from `100cqw` in Media’s fit-box width calc.
-   * @type length
-   */
-  fitInsetX = '--lightbox-fit-inset-x',
-  /**
-   * Vertical inset subtracted from `100cqh` in Media’s fit-box width calc.
-   * @type length
-   */
-  fitInsetY = '--lightbox-fit-inset-y',
-}
-
 export enum LightboxDocumentCssVars {
   /**
    * Start border-radius for the morph group clip (interpolatable px).

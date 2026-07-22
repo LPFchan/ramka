@@ -516,7 +516,7 @@ describe('Lightbox.Media (morph + placeholder host)', () => {
           <LightboxItemGroup>
             <LightboxItem index={0}>
               <LightboxZoom>
-                <LightboxMedia data-testid="media" width={1600} height={900} insetX="2rem">
+                <LightboxMedia data-testid="media" width={1600} height={900}>
                   <img width={1600} height={900} src="/full.jpg" alt="full" />
                 </LightboxMedia>
               </LightboxZoom>
@@ -531,7 +531,6 @@ describe('Lightbox.Media (morph + placeholder host)', () => {
     expect(media).toHaveAttribute('data-height', '900');
     expect(media.style.aspectRatio).toBe('1600 / 900');
     expect(media.style.width).toContain('100cqw');
-    expect(media.style.getPropertyValue('--lightbox-fit-inset-x')).toBe('2rem');
   });
 
   it('derives fit-box from child img width/height when Media props are omitted', () => {

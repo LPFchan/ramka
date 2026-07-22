@@ -193,16 +193,6 @@ export const generatedProps: Record<string, PropRow[]> = {
       description: "Intrinsic pixel height of the media (same idea as Next.js `<Image height>`).",
     },
     {
-      name: "insetX",
-      type: "string | number",
-      description: "Horizontal inset for the fit-box calc (writes `--lightbox-fit-inset-x`). Prefer Zoom padding for chrome; use insets when the resting box must shrink inside the container query.",
-    },
-    {
-      name: "insetY",
-      type: "string | number",
-      description: "Vertical inset for the fit-box calc (writes `--lightbox-fit-inset-y`).",
-    },
-    {
       name: "render",
       type: "ReactElement | ComponentRenderFn",
       description: "Allows you to replace the component's HTML element with a different tag, or compose it with another component.\n\nAccepts a `ReactElement` or a function that returns the element to render.",
@@ -670,16 +660,7 @@ export const generatedCssVariables: Record<string, CssVarRow[]> = {
   ],
   "api-close": [],
   "api-item": [],
-  "api-media": [
-    {
-      name: "--lightbox-fit-inset-x",
-      description: "Horizontal inset subtracted from `100cqw` in Media’s fit-box width calc.",
-    },
-    {
-      name: "--lightbox-fit-inset-y",
-      description: "Vertical inset subtracted from `100cqh` in Media’s fit-box width calc.",
-    },
-  ],
+  "api-media": [],
   "api-slides": [],
   "api-slide": [],
   "api-item-group": [],

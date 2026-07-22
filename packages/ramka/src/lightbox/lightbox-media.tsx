@@ -3,7 +3,6 @@
 import { mergeProps, useRender } from '@base-ui/react';
 import * as React from 'react';
 
-import { LightboxMediaCssVars } from './lightbox-css-vars';
 import { useOptionalLightboxItemContext } from './lightbox-item';
 
 /**
@@ -36,26 +35,11 @@ interface LightboxMediaProps extends useRender.ComponentProps<'div', LightboxMed
    * Intrinsic pixel height of the media (same idea as Next.js `<Image height>`).
    */
   height?: number;
-  /**
-   * Horizontal inset for the fit-box calc (writes `--lightbox-fit-inset-x`).
-   * Prefer Zoom padding for chrome; use insets when the resting box must shrink
-   * inside the container query.
-   */
-  insetX?: string | number;
-  /**
-   * Vertical inset for the fit-box calc (writes `--lightbox-fit-inset-y`).
-   */
-  insetY?: string | number;
 }
 
 const mediaStateAttributesMapping = {
   placeholder: (value: unknown) => (value ? { 'data-placeholder': '' } : null),
 };
-
-function cssLength(value: string | number | undefined): string | undefined {
-  if (value === undefined) return undefined;
-  return typeof value === 'number' ? `${value}px` : value;
-}
 
 function dimsFromImg(img: HTMLImageElement): { width: number; height: number } | null {
   const w = Number(img.getAttribute('width')) || img.naturalWidth;
@@ -67,7 +51,7 @@ function dimsFromImg(img: HTMLImageElement): { width: number; height: number } |
 function fitBoxStyle(width: number, height: number): React.CSSProperties {
   const ratio = width / height;
   return {
-    width: `min(calc(100cqw - var(${LightboxMediaCssVars.fitInsetX}, 0px)), calc((100cqh - var(${LightboxMediaCssVars.fitInsetY}, 0px)) * ${ratio}))`,
+    width: `min(100cqw, calc(100cqh * ${ratio}))`,
     aspectRatio: `${width} / ${height}`,
   };
 }
@@ -85,9 +69,10 @@ function fitBoxStyle(width: number, height: number): React.CSSProperties {
  * </Lightbox.Zoom>
  * ```
  *
- * `width` / `height` / insets are **structural** (correct morph box). Radius,
- * colors, and `object-fit` on the media element remain consumer-owned — when the
- * Media box matches the source aspect, object-fit is a no-op.
+ * `width` / `height` are **structural** (correct morph box). Use Zoom padding for
+ * resting chrome insets. Radius, colors, and `object-fit` on the media element
+ * remain consumer-owned — when the Media box matches the source aspect, object-fit
+ * is a no-op.
  *
  * Discovers the primary `<img>` (direct child preferred) and wires Item's
  * `imageRef` for decode / thumbnail placeholder paint.
@@ -100,8 +85,6 @@ const LightboxMedia = React.forwardRef<HTMLDivElement, LightboxMediaProps>(
       style,
       width: widthProp,
       height: heightProp,
-      insetX,
-      insetY,
       ...elementProps
     } = props;
     const item = useOptionalLightboxItemContext();
@@ -246,25 +229,16 @@ const LightboxMedia = React.forwardRef<HTMLDivElement, LightboxMediaProps>(
       [element],
     );
 
-    const insetXCss = cssLength(insetX);
-    const insetYCss = cssLength(insetY);
-
     const structuralStyle = React.useMemo((): React.CSSProperties => {
       const next: React.CSSProperties = {
         position: 'relative',
         flexShrink: 0,
       };
-      if (insetXCss !== undefined) {
-        (next as Record<string, string>)[LightboxMediaCssVars.fitInsetX] = insetXCss;
-      }
-      if (insetYCss !== undefined) {
-        (next as Record<string, string>)[LightboxMediaCssVars.fitInsetY] = insetYCss;
-      }
       if (hasFitBox && width && height) {
         Object.assign(next, fitBoxStyle(width, height));
       }
       return next;
-    }, [hasFitBox, height, insetXCss, insetYCss, width]);
+    }, [hasFitBox, height, width]);
 
     const rendered = useRender({
       render,
