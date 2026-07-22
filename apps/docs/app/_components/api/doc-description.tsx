@@ -1,5 +1,7 @@
 import * as React from 'react';
 
+import { TypeHighlight } from './type-highlight';
+
 /**
  * Renders JSDoc / docs prose with light formatting:
  * paragraphs, `-` bullet lists, and `inline code`.
@@ -12,17 +14,18 @@ export function DocDescription({ text }: { text: string }) {
   const blocks = text.split(/\n{2,}/).map((b) => b.trim()).filter(Boolean);
 
   return (
-    <div className="space-y-2 text-neutral-600 dark:text-neutral-400">
+    <div className="space-y-3 text-inherit">
       {blocks.map((block, i) => {
         const lines = block.split('\n');
-        const isList = lines.every((l) => /^\s*-\s+/.test(l) || (l.startsWith('  ') && lines[0]?.startsWith('-')));
+        const isList =
+          lines.every((l) => /^\s*-\s+/.test(l) || (l.startsWith('  ') && lines[0]?.startsWith('-')));
 
         if (isList || lines.some((l) => /^\s*-\s+/.test(l))) {
           const items = parseListItems(lines);
           return (
-            <ul key={i} className="list-disc space-y-1 pl-4">
+            <ul key={i} className="list-disc space-y-1.5 pl-4 marker:text-neutral-400">
               {items.map((item, j) => (
-                <li key={j}>
+                <li key={j} className="leading-6">
                   <InlineMarkdown text={item} />
                 </li>
               ))}
@@ -31,7 +34,7 @@ export function DocDescription({ text }: { text: string }) {
         }
 
         return (
-          <p key={i} className="leading-relaxed">
+          <p key={i} className="leading-6">
             <InlineMarkdown text={lines.map((l) => l.trim()).join(' ')} />
           </p>
         );
@@ -56,25 +59,46 @@ function parseListItems(lines: string[]): string[] {
   return items;
 }
 
+function looksLikeTypeOrValue(code: string): boolean {
+  // Highlight TS-ish snippets; leave prose-y identifiers as neutral chips.
+  return (
+    /['"`]|=>|\||&|<|>|\(|\)|\{|\}|\[|\]|:/.test(code) ||
+    /^(true|false|null|undefined|boolean|string|number|function|void|never|any|unknown)$/.test(
+      code,
+    ) ||
+    /^[A-Z][A-Za-z0-9.]*$/.test(code)
+  );
+}
+
 function InlineMarkdown({ text }: { text: string }) {
-  // Split on `code`, **bold**, leaving the rest as text.
   const parts = text.split(/(`[^`]+`|\*\*[^*]+\*\*)/g).filter(Boolean);
   return (
     <>
       {parts.map((part, i) => {
         if (part.startsWith('`') && part.endsWith('`')) {
+          const code = part.slice(1, -1);
+          if (looksLikeTypeOrValue(code)) {
+            return (
+              <code
+                key={i}
+                className="mx-0.5 inline-block rounded-md border border-neutral-200 bg-neutral-100/80 px-1.5 py-0.5 align-baseline dark:border-neutral-700 dark:bg-neutral-900"
+              >
+                <TypeHighlight code={code} className="text-[0.9em]" />
+              </code>
+            );
+          }
           return (
             <code
               key={i}
-              className="rounded bg-neutral-100 px-1 py-0.5 font-mono text-[0.85em] text-neutral-800 dark:bg-neutral-800 dark:text-neutral-200"
+              className="mx-0.5 rounded-md bg-violet-50 px-1.5 py-0.5 font-mono text-[0.9em] text-violet-800 dark:bg-violet-950/60 dark:text-violet-200"
             >
-              {part.slice(1, -1)}
+              {code}
             </code>
           );
         }
         if (part.startsWith('**') && part.endsWith('**')) {
           return (
-            <strong key={i} className="font-medium text-neutral-800 dark:text-neutral-200">
+            <strong key={i} className="font-semibold text-neutral-900 dark:text-neutral-50">
               {part.slice(2, -2)}
             </strong>
           );

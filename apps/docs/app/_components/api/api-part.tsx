@@ -13,7 +13,7 @@ export function ApiPartSection({ part }: { part: ApiPart }) {
           <h4 className="text-xs font-semibold uppercase tracking-wider text-neutral-500">
             Props
           </h4>
-          <PropsTable props={part.props} />
+          <PropsTable props={part.props} partId={part.id} />
         </div>
       ) : null}
       {part.attributes && part.attributes.length > 0 ? (
