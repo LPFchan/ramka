@@ -1,12 +1,14 @@
 /**
- * Extracts docs code excerpts from typechecked TSX sources and writes
+ * Extracts docs code excerpts and writes
  * apps/docs/app/_content/lightbox/excerpts/generated.ts.
  *
- * Sources (under app/_content/lightbox/excerpts/sources/):
- *   - Functions tagged `@docsExcerpt <id>` — return JSX is published
- *     (with a standard `import { Lightbox } from 'ramka'` header).
+ * TSX sources (app/_content/lightbox/excerpts/sources/):
+ *   - Functions tagged `@docsExcerpt <id>` — return JSX (+ Lightbox import)
  *   - Line regions `// @docs-excerpt-start <id>` … `// @docs-excerpt-end`
- *     — exact text between markers (for demo slices).
+ *
+ * CSS sources (app/lightbox-demo/):
+ *   - File header `@docsExcerpt` / `@docsExcerptTitle` — whole file body
+ *   - Regions `/* @docs-excerpt-start <id> *\/` … `/* @docs-excerpt-end *\/`
  *
  *   pnpm --filter docs docs:excerpts          # write
  *   pnpm --filter docs docs:excerpts:check    # fail if stale
@@ -28,10 +30,16 @@ import {
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const docsRoot = path.resolve(__dirname, '..');
 const sourcesDir = path.join(docsRoot, 'app/_content/lightbox/excerpts/sources');
+const cssDemoDir = path.join(docsRoot, 'app/lightbox-demo');
 const outFile = path.join(docsRoot, 'app/_content/lightbox/excerpts/generated.ts');
 
-const START_RE = /^\s*\/\/\s*@docs-excerpt-start\s+(\S+)\s*$/;
-const END_RE = /^\s*\/\/\s*@docs-excerpt-end\s*$/;
+const TS_START_RE = /^\s*\/\/\s*@docs-excerpt-start\s+(\S+)\s*$/;
+const TS_END_RE = /^\s*\/\/\s*@docs-excerpt-end\s*$/;
+const TS_TITLE_RE = /^\s*\/\/\s*@docs-excerpt-title\s+(.+?)\s*$/;
+
+const CSS_START_RE = /^\s*\/\*\s*@docs-excerpt-start\s+(\S+)\s*\*\/\s*$/;
+const CSS_END_RE = /^\s*\/\*\s*@docs-excerpt-end\s*\*\/\s*$/;
+const CSS_TITLE_RE = /^\s*\/\*\s*@docs-excerpt-title\s+(.+?)\s*\*\/\s*$/;
 
 type Excerpt = {
   id: string;
@@ -94,21 +102,18 @@ function unwrapReturnJsx(fn: FunctionDeclaration | FunctionExpression | ArrowFun
 
   if (Node.isBlock(body)) {
     const returns = body.getDescendantsOfKind(SyntaxKind.ReturnStatement);
-    // Prefer the direct return in the function body (not nested).
     const topReturn = body.getStatements().find((s) => Node.isReturnStatement(s));
     const ret = topReturn && Node.isReturnStatement(topReturn) ? topReturn : returns[0];
     if (!ret || !Node.isReturnStatement(ret)) return undefined;
     const expr = ret.getExpression();
     if (!expr) return undefined;
     let text = expr.getText();
-    // Drop wrapping parens around JSX: (` <Foo/> `)
     if (Node.isParenthesizedExpression(expr)) {
       text = expr.getExpression().getText();
     }
     return dedent(text);
   }
 
-  // Arrow with concise body
   let text = body.getText();
   if (Node.isParenthesizedExpression(body)) {
     text = body.getExpression().getText();
@@ -152,7 +157,13 @@ function extractTaggedFunctions(filePath: string, sourceText: string): Excerpt[]
   return out;
 }
 
-function extractLineRegions(filePath: string, sourceText: string): Excerpt[] {
+function extractLineRegions(
+  filePath: string,
+  sourceText: string,
+  startRe: RegExp,
+  endRe: RegExp,
+  titleRe: RegExp,
+): Excerpt[] {
   const lines = sourceText.replace(/\r\n/g, '\n').split('\n');
   const rel = path.relative(docsRoot, filePath);
   const out: Excerpt[] = [];
@@ -161,7 +172,7 @@ function extractLineRegions(filePath: string, sourceText: string): Excerpt[] {
   let titleOverride: string | null = null;
 
   for (const line of lines) {
-    const start = line.match(START_RE);
+    const start = line.match(startRe);
     if (start) {
       if (currentId) {
         throw new Error(`${rel}: nested @docs-excerpt-start (open: ${currentId})`);
@@ -171,7 +182,7 @@ function extractLineRegions(filePath: string, sourceText: string): Excerpt[] {
       titleOverride = null;
       continue;
     }
-    if (END_RE.test(line)) {
+    if (endRe.test(line)) {
       if (!currentId) {
         throw new Error(`${rel}: @docs-excerpt-end without start`);
       }
@@ -188,7 +199,7 @@ function extractLineRegions(filePath: string, sourceText: string): Excerpt[] {
       continue;
     }
     if (currentId) {
-      const titleMatch = line.match(/^\s*\/\/\s*@docs-excerpt-title\s+(.+?)\s*$/);
+      const titleMatch = line.match(titleRe);
       if (titleMatch) {
         titleOverride = titleMatch[1]!;
         continue;
@@ -203,14 +214,36 @@ function extractLineRegions(filePath: string, sourceText: string): Excerpt[] {
   return out;
 }
 
-function collectSourceFiles(dir: string): string[] {
+/** Whole-file CSS excerpt from a leading `/** … @docsExcerpt id … *\/` block. */
+function extractCssFileExcerpt(filePath: string, sourceText: string): Excerpt | null {
+  const rel = path.relative(docsRoot, filePath);
+  const match = sourceText.match(/^\/\*\*([\s\S]*?)\*\//);
+  if (!match) return null;
+  const header = match[1] ?? '';
+  const idMatch = header.match(/@docsExcerpt\s+(\S+)/);
+  if (!idMatch) return null;
+  const id = idMatch[1]!;
+  const titleMatch = header.match(/@docsExcerptTitle\s+(.+)/);
+  const title = titleMatch?.[1]?.trim() || titleFromId(id);
+  const body = sourceText.slice(match[0].length);
+  const code = dedent(body);
+  return {
+    id,
+    title,
+    code: code.endsWith('\n') ? code : `${code}\n`,
+    source: rel,
+  };
+}
+
+function collectFiles(dir: string, exts: string[]): string[] {
   if (!fs.existsSync(dir)) return [];
   const out: string[] = [];
   for (const name of fs.readdirSync(dir)) {
+    if (name === 'index.css') continue; // barrel only
     const full = path.join(dir, name);
     const stat = fs.statSync(full);
-    if (stat.isDirectory()) out.push(...collectSourceFiles(full));
-    else if (name.endsWith('.tsx') || name.endsWith('.ts')) out.push(full);
+    if (stat.isDirectory()) out.push(...collectFiles(full, exts));
+    else if (exts.some((ext) => name.endsWith(ext))) out.push(full);
   }
   return out.sort();
 }
@@ -256,16 +289,23 @@ export type LightboxExcerptId = keyof typeof lightboxExcerpts;
 
 function main() {
   const check = process.argv.includes('--check');
-  const files = collectSourceFiles(sourcesDir);
-  if (files.length === 0) {
-    throw new Error(`No excerpt sources in ${sourcesDir}`);
+  const tsFiles = collectFiles(sourcesDir, ['.ts', '.tsx']);
+  const cssFiles = collectFiles(cssDemoDir, ['.css']);
+  if (tsFiles.length === 0 && cssFiles.length === 0) {
+    throw new Error(`No excerpt sources in ${sourcesDir} or ${cssDemoDir}`);
   }
 
   const excerpts: Excerpt[] = [];
-  for (const file of files) {
+  for (const file of tsFiles) {
     const text = fs.readFileSync(file, 'utf8');
     excerpts.push(...extractTaggedFunctions(file, text));
-    excerpts.push(...extractLineRegions(file, text));
+    excerpts.push(...extractLineRegions(file, text, TS_START_RE, TS_END_RE, TS_TITLE_RE));
+  }
+  for (const file of cssFiles) {
+    const text = fs.readFileSync(file, 'utf8');
+    const whole = extractCssFileExcerpt(file, text);
+    if (whole) excerpts.push(whole);
+    excerpts.push(...extractLineRegions(file, text, CSS_START_RE, CSS_END_RE, CSS_TITLE_RE));
   }
 
   if (excerpts.length === 0) {

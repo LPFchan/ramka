@@ -26,8 +26,6 @@ const apiPatternSlugs = new Set([
   'imperative-api',
   'lifecycle-callbacks',
   'lazy-loading',
-  'morph-to-setting',
-  'crossfade',
 ]);
 
 function toExampleLink(ex: ExampleLink): NavLink {
@@ -59,7 +57,9 @@ export const navSections: NavSection[] = [
         title: 'Lightbox',
         links: [
           lightboxDocsPages.overview,
+          lightboxDocsPages.composition,
           lightboxDocsPages.viewTransitions,
+          lightboxDocsPages.gestures,
           lightboxDocsPages.api,
         ],
       },

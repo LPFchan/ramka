@@ -3,7 +3,7 @@
 @import "shadcn/tailwind.css";
 
 /* Lightbox demo styles (docs-only skin/animation for the headless primitives). */
-@import "./lightbox-demo.css";
+@import "./lightbox-demo/index.css";
 
 @custom-variant dark (&:is(.dark *));
 

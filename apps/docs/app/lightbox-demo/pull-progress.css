@@ -1,0 +1,24 @@
+/**
+ * Fade Content / Backdrop with pull-to-dismiss progress.
+ * Applied by docs chrome via `.lightbox-demo-content` / `.lightbox-demo-backdrop`.
+ *
+ * @docsExcerpt pull-progress-css
+ * @docsExcerptTitle Pull progress CSS
+ */
+
+.lightbox-demo-content[data-open] {
+  /* --lightbox-pull-progress: 0 → 1 while dragging */
+  opacity: calc(1 - var(--lightbox-pull-progress, 0) * 0.35);
+}
+
+.lightbox-demo-content[data-pulling] {
+  transition: none; /* follow the finger */
+}
+
+.lightbox-demo-backdrop[data-open] {
+  opacity: calc(1 - var(--lightbox-pull-progress, 0) * 0.6);
+}
+
+.lightbox-demo-backdrop[data-pulling] {
+  transition: none;
+}

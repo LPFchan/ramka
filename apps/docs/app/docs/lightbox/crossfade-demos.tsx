@@ -351,7 +351,7 @@ function CloseDemoVideo({
   );
 }
 
-/** Live crossfade cases for the View transitions guide (and the Examples alias page). */
+/** Live crossfade cases for the View transitions guide. */
 export function LightboxCrossfadeDemos() {
   return (
     <div className="flex flex-col gap-10">

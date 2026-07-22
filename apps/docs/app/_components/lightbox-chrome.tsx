@@ -90,16 +90,12 @@ function fitBoxStyle(ratio: number): React.CSSProperties {
   };
 }
 
-const fadeBase = 'opacity-0 ease-out-expo data-[open]:opacity-100 starting:opacity-0';
-
-// The backdrop derives its open opacity from the `--lightbox-pull-progress`
-// variable the pull-to-dismiss gesture publishes (0 at rest → 1 at the
-// dismiss threshold), and suppresses the transition while `data-pulling` so
-// the scrim tracks the finger 1:1. On release the variable resets to 0 and
-// `data-pulling` is dropped, so this transition eases the scrim back.
+// Open/close opacity + pull-progress fade live in `app/lightbox-demo/pull-progress.css`
+// (`.lightbox-demo-*` classes). Excerpts for the Gestures docs are generated from that file.
 const backdropFade =
-  'opacity-0 ease-out-expo duration-[340ms] transition-opacity data-[open]:[opacity:calc(1_-_var(--lightbox-pull-progress,0)_*_0.6)] data-pulling:transition-none starting:opacity-0';
-const contentFade = `${fadeBase} duration-[280ms] transition-opacity`;
+  'lightbox-demo-backdrop opacity-0 ease-out-expo duration-[340ms] transition-opacity starting:opacity-0';
+const contentFade =
+  'lightbox-demo-content opacity-0 ease-out-expo duration-[280ms] transition-opacity starting:opacity-0';
 
 export function LightboxOverlay({ className }: { className?: string } = {}) {
   return <Lightbox.Backdrop className={`fixed inset-0 z-40 bg-black/85 ${backdropFade} ${className ?? ''}`} />;
@@ -234,7 +230,7 @@ export const morphHideClass =
 /**
  * Keyboard focus ring for a `Lightbox.Trigger`. Purely a demo affordance — the
  * headless library ships no trigger styling — so it lives here rather than in
- * lightbox-demo.css (which is reserved for styles the lightbox needs to work).
+ * `app/lightbox-demo/` (which is reserved for styles the lightbox needs to work).
  * `outline` (not `ring`) so the radius follows each trigger's own
  * `border-radius`, matching the rounded image it wraps.
  */

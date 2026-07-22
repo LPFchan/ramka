@@ -57,7 +57,7 @@ export const lightboxApiMeta: ApiPartMeta[] = [
     id: 'api-root',
     name: 'Root',
     description:
-      'Groups all parts of the lightbox and owns open state, active index, view-transition morph, scroll locking, and the active-zoom bridge.',
+      'Groups all parts of the lightbox and owns open state, active index, view-transition morph, scroll locking, and the active-zoom bridge. Prefer onOpenChangeComplete for post-motion work; use scrollTriggerIntoView so close morphs land on-screen when the page scrolled while open.',
     extract: {
       kind: 'interface-props',
       typeName: 'LightboxRootProps',
@@ -84,7 +84,7 @@ export const lightboxApiMeta: ApiPartMeta[] = [
     id: 'api-content',
     name: 'Content',
     description:
-      'Portaled dialog surface (role="dialog", aria-modal). Owns focus trap, keyboard navigation, and pull-to-dismiss.',
+      'Portaled dialog surface (role="dialog", aria-modal). Owns focus trap, keyboard navigation (Escape, arrows, zoom shortcuts), and pull-to-dismiss. Keyboard pan vs navigate depends on whether the active Zoom is above 1×.',
     extract: {
       kind: 'interface-props',
       typeName: 'LightboxContentProps',
@@ -167,7 +167,7 @@ export const lightboxApiMeta: ApiPartMeta[] = [
     id: 'api-slides',
     name: 'Slides',
     description:
-      'Horizontal snap carousel wired to the active index. Provides ItemGroup context; put Slide → Item inside.',
+      'Horizontal snap carousel wired to the active index. Provides ItemGroup context; put Slide → Item inside. While the user is flinging, navigation is locked so pull-to-dismiss and zoom chrome do not fight the scroll.',
     extract: {
       kind: 'interface-props',
       typeName: 'LightboxSlidesProps',
@@ -280,7 +280,7 @@ export const lightboxApiMeta: ApiPartMeta[] = [
     id: 'api-zoom',
     name: 'Zoom',
     description:
-      'Pinch, wheel, double-tap, and keyboard zoom/pan surface. Wrap the media inside an Item (typically inside a Slide).',
+      'Pinch, wheel, double-tap, and keyboard zoom/pan surface. Wrap the media inside an Item (typically inside a Slide). Publishes to Root’s active-zoom bridge so ZoomIn/ZoomOut in toolbar chrome can target the active slide.',
     extract: {
       kind: 'interface-props',
       typeName: 'LightboxZoomProps',

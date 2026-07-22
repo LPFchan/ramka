@@ -17,20 +17,65 @@ export const lightboxExcerpts = {
     code: "import { Lightbox } from 'ramka';\n\n<Lightbox.Root>\n  <Lightbox.Trigger index={0}>{/* thumb */}</Lightbox.Trigger>\n  <Lightbox.Backdrop />\n  <Lightbox.Content>\n    <Lightbox.Close />\n    <Lightbox.ItemGroup>\n      <Lightbox.Item index={0}>{/* full image */}</Lightbox.Item>\n    </Lightbox.ItemGroup>\n    {/* or: Lightbox.Slides > Lightbox.Slide > Lightbox.Item */}\n  </Lightbox.Content>\n</Lightbox.Root>\n",
     source: "app/_content/lightbox/excerpts/sources/anatomy.tsx",
   },
+  "chrome-composition": {
+    title: "Chrome composition",
+    code: "import { Lightbox } from 'ramka';\n\n<Lightbox.Root>\n  <Lightbox.Content>\n    <Lightbox.Close />\n    <Lightbox.Previous />\n    <Lightbox.Next />\n    <Lightbox.Counter />\n    <Lightbox.Caption />\n\n    <Lightbox.Slides>\n      {items.map((item, i) => (\n        <Lightbox.Slide key={item.id}>\n          <Lightbox.Item index={i} caption={item.caption}>\n            <img src={item.src} alt={item.alt} />\n          </Lightbox.Item>\n        </Lightbox.Slide>\n      ))}\n    </Lightbox.Slides>\n\n    <Lightbox.ThumbnailGroup>\n      {items.map((item, i) => (\n        <Lightbox.Thumbnail key={item.id} index={i}>\n          <img src={item.thumb} alt=\"\" />\n        </Lightbox.Thumbnail>\n      ))}\n    </Lightbox.ThumbnailGroup>\n  </Lightbox.Content>\n</Lightbox.Root>\n",
+    source: "app/_content/lightbox/excerpts/sources/chrome-composition.tsx",
+  },
   "crossfade-both": {
     title: "crossfade=\"both\"",
     code: "import { Lightbox } from 'ramka';\n\n<Lightbox.Root viewTransition morphTo=\"closest\">\n  <Lightbox.Trigger index={0} crossfade=\"both\">\n    {({ imageRef }) => (\n      <div className=\"relative\">\n        <img ref={imageRef} src={thumb} alt=\"\" />\n        <span>+{extras}</span>\n      </div>\n    )}\n  </Lightbox.Trigger>\n  <Lightbox.Content>\n    <Lightbox.Item index={0}>\n      {({ imageRef }) => <img ref={imageRef} src={src} alt=\"\" />}\n    </Lightbox.Item>\n  </Lightbox.Content>\n</Lightbox.Root>\n",
     source: "app/_content/lightbox/excerpts/sources/crossfade-both.tsx",
+  },
+  "item-group-preload": {
+    title: "ItemGroup + preload",
+    code: "import { Lightbox } from 'ramka';\n\n<Lightbox.Root>\n  <Lightbox.Content>\n    <Lightbox.ItemGroup preload={1}>\n      {items.map((item, i) => (\n        <Lightbox.Item key={item.id} index={i}>\n          {({ active, visible }) =>\n            visible ? (\n              <img\n                src={item.src}\n                alt={item.alt}\n                // Prefer active for expensive work; visible includes preload neighbors.\n                data-active={active || undefined}\n              />\n            ) : null\n          }\n        </Lightbox.Item>\n      ))}\n    </Lightbox.ItemGroup>\n  </Lightbox.Content>\n</Lightbox.Root>\n",
+    source: "app/_content/lightbox/excerpts/sources/item-group-preload.tsx",
   },
   "minimal-morph": {
     title: "Minimal morph",
     code: "import { Lightbox } from 'ramka';\n\n<Lightbox.Root viewTransition morphTo=\"active\">\n  <Lightbox.Trigger index={0}>\n    {({ imageRef }) => <img ref={imageRef} src={thumb} alt=\"\" />}\n  </Lightbox.Trigger>\n\n  <Lightbox.Backdrop />\n  <Lightbox.Content>\n    <Lightbox.Item index={0}>\n      {({ imageRef }) => <img ref={imageRef} src={src} alt=\"\" />}\n    </Lightbox.Item>\n  </Lightbox.Content>\n</Lightbox.Root>\n",
     source: "app/_content/lightbox/excerpts/sources/minimal-morph.tsx",
   },
+  "morph-border-radius": {
+    title: "Morph border-radius",
+    code: "/* Shape morph is CSS-only: JS writes --lightbox-morph-border-radius-from/to\n   on :root; this group owns clipping for the whole transition. The `from`\n   radius is the cascade base (not only a keyframe) so frame 0 can't flash\n   the 0px fallback before the animation applies. */\n@keyframes lightbox-morph-border-radius {\n  to {\n    border-radius: var(--lightbox-morph-border-radius-to, 0px);\n  }\n}\n\n::view-transition-group(lightbox-morph) {\n  overflow: hidden;\n  border-radius: var(--lightbox-morph-border-radius-from, 0px);\n  animation-name: -ua-view-transition-group-anim-lightbox-morph, lightbox-morph-border-radius;\n  animation-duration: 340ms;\n  animation-timing-function: var(--ease-vt-morph);\n  animation-fill-mode: both;\n  z-index: 2;\n}\n",
+    source: "app/lightbox-demo/view-transitions.css",
+  },
   "morph-to-closest": {
     title: "morphTo=\"closest\"",
     code: "import { Lightbox } from 'ramka';\n\n<Lightbox.Root viewTransition morphTo=\"closest\">\n  <Lightbox.Trigger index={0}>{/* first thumb */}</Lightbox.Trigger>\n  <Lightbox.Trigger index={1}>{/* +N tile */}</Lightbox.Trigger>\n  {/* items 2…n close to the nearest trigger */}\n  <Lightbox.Content>\n    <Lightbox.Item index={0} />\n    <Lightbox.Item index={1} />\n    <Lightbox.Item index={2} />\n  </Lightbox.Content>\n</Lightbox.Root>\n",
     source: "app/_content/lightbox/excerpts/sources/morph-to-closest.tsx",
+  },
+  "no-crossfade-hard-cut": {
+    title: "Hard-cut (no crossfade)",
+    code: ":root[data-lightbox-no-crossfade]::view-transition-old(lightbox-morph),\n:root[data-lightbox-no-crossfade]::view-transition-new(lightbox-morph) {\n  animation: none !important;\n  mix-blend-mode: normal;\n}\n:root[data-lightbox-no-crossfade]::view-transition-old(lightbox-morph) {\n  opacity: var(--lightbox-morph-old-opacity, 1);\n}\n:root[data-lightbox-no-crossfade]::view-transition-new(lightbox-morph) {\n  opacity: var(--lightbox-morph-new-opacity, 0);\n}\n",
+    source: "app/lightbox-demo/view-transitions.css",
+  },
+  "pull-progress-css": {
+    title: "Pull progress CSS",
+    code: ".lightbox-demo-content[data-open] {\n  /* --lightbox-pull-progress: 0 → 1 while dragging */\n  opacity: calc(1 - var(--lightbox-pull-progress, 0) * 0.35);\n}\n\n.lightbox-demo-content[data-pulling] {\n  transition: none; /* follow the finger */\n}\n\n.lightbox-demo-backdrop[data-open] {\n  opacity: calc(1 - var(--lightbox-pull-progress, 0) * 0.6);\n}\n\n.lightbox-demo-backdrop[data-pulling] {\n  transition: none;\n}\n",
+    source: "app/lightbox-demo/pull-progress.css",
+  },
+  "quick-start": {
+    title: "App.tsx",
+    code: "import { Lightbox } from 'ramka';\n\n<Lightbox.Root viewTransition>\n  {items.map((item, i) => (\n    <Lightbox.Trigger key={item.id} index={i}>\n      {({ imageRef }) => <img ref={imageRef} src={item.thumb} alt={item.alt} />}\n    </Lightbox.Trigger>\n  ))}\n\n  <Lightbox.Backdrop />\n  <Lightbox.Content>\n    <Lightbox.Slides>\n      {items.map((item, i) => (\n        <Lightbox.Slide key={item.id}>\n          <Lightbox.Item index={i}>\n            {({ imageRef }) => <img ref={imageRef} src={item.src} alt={item.alt} />}\n          </Lightbox.Item>\n        </Lightbox.Slide>\n      ))}\n    </Lightbox.Slides>\n  </Lightbox.Content>\n</Lightbox.Root>\n",
+    source: "app/_content/lightbox/excerpts/sources/quick-start.tsx",
+  },
+  "scroll-trigger-into-view": {
+    title: "scrollTriggerIntoView",
+    code: "import { Lightbox } from 'ramka';\n\n<Lightbox.Root\n  viewTransition\n  scrollTriggerIntoView={[\n    { type: 'onChange', behavior: 'instant' },\n    { type: 'onOpenComplete', behavior: 'instant' },\n  ]}\n>\n  {/* triggers + content */}\n</Lightbox.Root>\n",
+    source: "app/_content/lightbox/excerpts/sources/scroll-trigger-into-view.tsx",
+  },
+  "slides-nesting": {
+    title: "Slides + Slide nesting",
+    code: "import { Lightbox } from 'ramka';\n\n<Lightbox.Root>\n  <Lightbox.Content>\n    <Lightbox.Slides preload={1}>\n      {items.map((item, i) => (\n        <Lightbox.Slide key={item.id}>\n          <Lightbox.Item index={i}>\n            {({ imageRef }) => <img ref={imageRef} src={item.src} alt={item.alt} />}\n          </Lightbox.Item>\n        </Lightbox.Slide>\n      ))}\n    </Lightbox.Slides>\n  </Lightbox.Content>\n</Lightbox.Root>\n",
+    source: "app/_content/lightbox/excerpts/sources/slides-nesting.tsx",
+  },
+  "zoom-bridge": {
+    title: "Active-zoom bridge",
+    code: "import { Lightbox } from 'ramka';\n\n<Lightbox.Root>\n  <Lightbox.Content>\n    {/* Toolbar chrome — targets the active slide's Zoom */}\n    <Lightbox.ZoomOut />\n    <Lightbox.ZoomIn />\n\n    <Lightbox.Slides>\n      <Lightbox.Slide>\n        <Lightbox.Item index={0}>\n          <Lightbox.Zoom>\n            <img src={src} alt={alt} />\n          </Lightbox.Zoom>\n        </Lightbox.Item>\n      </Lightbox.Slide>\n    </Lightbox.Slides>\n  </Lightbox.Content>\n</Lightbox.Root>\n",
+    source: "app/_content/lightbox/excerpts/sources/zoom-bridge.tsx",
   }
 } as const satisfies Record<string, LightboxExcerpt>;
 

@@ -1,0 +1,5 @@
+/* Docs-only lightbox skin/animation. Ramka ships no CSS — imported by globals.css. */
+@import './motion.css';
+@import './item-fade.css';
+@import './view-transitions.css';
+@import './pull-progress.css';

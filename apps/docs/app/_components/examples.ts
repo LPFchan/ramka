@@ -41,7 +41,8 @@ export const lightboxExamples: ExampleLink[] = [
   {
     slug: 'imperative-api',
     title: 'Imperative API',
-    description: 'Drive open / close / goTo via ref.current.* — no buttons needed.',
+    description:
+      'Root ref open/close/goTo — note programmatic open has no trigger morph (View transitions guide).',
   },
   {
     slug: 'lifecycle-callbacks',
@@ -51,18 +52,8 @@ export const lightboxExamples: ExampleLink[] = [
   {
     slug: 'lazy-loading',
     title: 'Lazy loading',
-    description: 'Render heavy items only when active using Item render props and preload={0}.',
-  },
-  {
-    slug: 'morph-to-setting',
-    title: 'morphTo strategies',
-    description: 'Side-by-side comparison of morphTo="active" vs "origin" vs "closest".',
-  },
-  {
-    slug: 'crossfade',
-    title: 'Trigger crossfade',
     description:
-      'Same demos as /docs/lightbox/view-transitions#crossfade (omit / both / close).',
+      'ItemGroup preload + active/visible render props — see Composition → ItemGroup.',
   },
   {
     slug: 'text-message',

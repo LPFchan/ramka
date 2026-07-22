@@ -28,7 +28,7 @@ import { Lightbox } from 'ramka';
 - `Lightbox.Slides` / `Lightbox.Slide` — a swipeable, snapping carousel wired directly to the lightbox's active index.
 - `Lightbox.Zoom`, `Lightbox.Caption`, `Lightbox.ThumbnailGroup`, `Lightbox.Previous` / `Lightbox.Next` — zoom, captions, thumbnails, and navigation, plus built-in pull-to-dismiss.
 
-Docs: run the [docs site](../../apps/docs) and open `/docs/lightbox` (overview), `/docs/lightbox/view-transitions`, and `/docs/lightbox/api`. Live demos live under `/examples/lightbox/*`.
+Docs: run the [docs site](../../apps/docs) and open `/docs/lightbox` (overview → composition → view transitions → gestures → API). Live demos live under `/examples/lightbox/*`.
 
 API tables (props, data attributes, CSS variables) are generated from this package’s TypeScript + JSDoc — including the `*DataAttributes` / `*CssVars` enums. Usage code excerpts are extracted from typechecked sources under `apps/docs/app/_content/lightbox/excerpts/sources/`. After changing public APIs or excerpt sources, run `pnpm docs:api` and `pnpm docs:excerpts` from the repo root (CI fails if generated files are stale).
 

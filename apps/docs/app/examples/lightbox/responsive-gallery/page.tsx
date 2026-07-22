@@ -582,6 +582,8 @@ export default function ResponsiveGalleryPage() {
   return (
     <ExampleShell
       title="Responsive gallery"
+      docsHref="/docs/lightbox/gestures"
+      docsLabel="Gestures"
       description={
         <>
           The canonical real-world lightbox, shown inside a social feed. Each post is an independent{' '}
@@ -589,7 +591,7 @@ export default function ResponsiveGalleryPage() {
           attachments render in a Facebook-style grid; posts with more than four images collapse the extras behind a{' '}
           <code className="rounded bg-neutral-100 px-1 py-0.5 text-xs dark:bg-neutral-800">crossfade=&quot;both&quot;</code> overlay tile.
           Opening a post reveals the full viewer: swipe navigation, desktop-only thumbnails, a View Transition morph,
-          pinch / scroll / keyboard zoom, and pull-to-dismiss.
+          pinch / scroll / keyboard zoom, and pull-to-dismiss. Canonical gesture rules live in the docs.
         </>
       }
     >

@@ -2,33 +2,8 @@ import Link from 'next/link';
 
 import { CodeBlock } from './_components/code-block';
 import { docsLinkClassName } from './_components/docs-link';
-
-const quickStart = `import { Lightbox } from 'ramka';
-
-<Lightbox.Root viewTransition>
-  {items.map((item, i) => (
-    <Lightbox.Trigger key={item.id} index={i}>
-      {({ imageRef }) => (
-        <img ref={imageRef} src={item.thumb} alt={item.alt} />
-      )}
-    </Lightbox.Trigger>
-  ))}
-
-  <Lightbox.Backdrop />
-  <Lightbox.Content>
-    <Lightbox.Slides>
-      {items.map((item, i) => (
-        <Lightbox.Slide key={item.id}>
-          <Lightbox.Item index={i}>
-            {({ imageRef }) => (
-              <img ref={imageRef} src={item.src} alt={item.alt} />
-            )}
-          </Lightbox.Item>
-        </Lightbox.Slide>
-      ))}
-    </Lightbox.Slides>
-  </Lightbox.Content>
-</Lightbox.Root>`;
+import { lightboxDocsPages } from './_content/lightbox/docs-pages';
+import { lightboxExcerpts } from './_content/lightbox/excerpts/generated';
 
 export default function HomePage() {
   return (
@@ -60,7 +35,10 @@ export default function HomePage() {
         <h2 className="text-sm font-semibold uppercase tracking-widest text-neutral-500">
           Quick start
         </h2>
-        <CodeBlock code={quickStart} title="App.tsx" />
+        <CodeBlock
+          code={lightboxExcerpts['quick-start'].code}
+          title={lightboxExcerpts['quick-start'].title}
+        />
       </section>
 
       <section className="mt-12 rounded-xl border border-neutral-200 p-5 dark:border-neutral-800">
@@ -69,11 +47,15 @@ export default function HomePage() {
         </h2>
         <ul className="mt-3 space-y-2 text-sm text-neutral-600 dark:text-neutral-400">
           <li>
-            <Link href="/docs/lightbox" className={docsLinkClassName}>
-              Lightbox documentation
+            <Link href={lightboxDocsPages.overview.href} className={docsLinkClassName}>
+              Lightbox overview
             </Link>
             {' — '}
-            overview, view transitions, and API reference.
+            guidelines and anatomy, then{' '}
+            <Link href={lightboxDocsPages.composition.href} className={docsLinkClassName}>
+              Composition
+            </Link>
+            .
           </li>
           <li>
             <Link href="/examples/lightbox/responsive-gallery" className={docsLinkClassName}>

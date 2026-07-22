@@ -1,24 +1,21 @@
-import { ExampleShell } from '../../../_components/example-shell';
-import { LightboxCrossfadeDemos } from '../../../docs/lightbox/crossfade-demos';
+'use client';
 
-const code = 'rounded bg-neutral-100 px-1 py-0.5 text-xs dark:bg-neutral-800';
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 
-export default function CrossfadePage() {
+/** Old Examples alias — demos live on View transitions. */
+export default function CrossfadeRedirectPage() {
+  const router = useRouter();
+  useEffect(() => {
+    router.replace('/docs/lightbox/view-transitions#crossfade');
+  }, [router]);
   return (
-    <ExampleShell
-      title="Trigger crossfade"
-      docsHref="/docs/lightbox/view-transitions#crossfade"
-      docsLabel="View transitions → Trigger crossfade"
-      description={
-        <>
-          Alias of the live demos on the Lightbox docs. Prefer reading{' '}
-          <code className={code}>crossfade</code> rules there; this page exists for the Examples nav.
-        </>
-      }
-    >
-      <div className="mx-auto max-w-2xl">
-        <LightboxCrossfadeDemos />
-      </div>
-    </ExampleShell>
+    <p className="px-6 py-12 text-sm text-neutral-500">
+      Moved to{' '}
+      <a href="/docs/lightbox/view-transitions#crossfade" className="underline">
+        View transitions → Trigger crossfade
+      </a>
+      .
+    </p>
   );
 }

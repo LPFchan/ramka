@@ -2,37 +2,20 @@ import { CodeBlock } from '../../../_components/code-block';
 import { DocsLink } from '../../../_components/docs-link';
 import { DocsPager } from '../../../_components/docs-pager';
 import { DocsSection, DocsShell, type DocsTocItem } from '../../../_components/docs-shell';
+import { PropSectionTitle } from '../../../_components/prop-section-title';
 import { lightboxApiHref, lightboxDocsPages } from '../../../_content/lightbox/docs-pages';
 import { lightboxExcerpts } from '../../../_content/lightbox/excerpts/generated';
 import { LightboxCrossfadeDemos } from '../crossfade-demos';
+import { LightboxMorphToDemos } from '../morph-to-demos';
 
 const toc: DocsTocItem[] = [
   { id: 'enable', title: 'Enable + refs' },
   { id: 'crossfade', title: 'Trigger crossfade' },
   { id: 'morph-to', title: 'Root morphTo' },
+  { id: 'scroll-trigger', title: 'scrollTriggerIntoView' },
+  { id: 'programmatic', title: 'Programmatic open' },
   { id: 'styling', title: 'Styling hooks' },
 ];
-
-function PropSectionTitle({
-  partHref,
-  part,
-  prop,
-  sectionId,
-}: {
-  partHref: string;
-  part: string;
-  prop: string;
-  sectionId: string;
-}) {
-  return (
-    <>
-      <DocsLink href={partHref}>{part}</DocsLink>{' '}
-      <a href={`#${sectionId}`} className="hover:underline">
-        {prop}
-      </a>
-    </>
-  );
-}
 
 export default function LightboxViewTransitionsPage() {
   return (
@@ -154,18 +137,58 @@ export default function LightboxViewTransitionsPage() {
             registered trigger.
           </li>
         </ul>
-        <p>
-          Pair with <code className="text-xs">scrollTriggerIntoView</code> on{' '}
-          <DocsLink href={lightboxApiHref.root}>Root</DocsLink> when the page scrolls while open so the
-          close morph still lands on-screen.
-        </p>
         <CodeBlock
           code={lightboxExcerpts['morph-to-closest'].code}
           title={lightboxExcerpts['morph-to-closest'].title}
         />
+        <LightboxMorphToDemos />
+      </DocsSection>
+
+      <DocsSection
+        id="scroll-trigger"
+        title={
+          <PropSectionTitle
+            partHref={lightboxApiHref.root}
+            part="Root"
+            prop="scrollTriggerIntoView"
+            sectionId="scroll-trigger"
+          />
+        }
+      >
         <p>
-          Live comparison:{' '}
-          <DocsLink href="/examples/lightbox/morph-to-setting">morphTo strategies</DocsLink>.
+          When the page scrolls while the lightbox is open, the close morph can land off-screen. Use{' '}
+          <code className="text-xs">scrollTriggerIntoView</code> to keep the target trigger in view:
+        </p>
+        <ul className="list-disc space-y-2 pl-5">
+          <li>
+            <code className="text-xs">onChange</code> — scroll to the active trigger as the index changes
+            (preemptive).
+          </li>
+          <li>
+            <code className="text-xs">onOpenComplete</code> — reposition once open settles (invisible under
+            the overlay; <code className="text-xs">instant</code> recommended).
+          </li>
+          <li>
+            <code className="text-xs">onClose</code> — scroll just before the close morph (visible jump at
+            close start).
+          </li>
+        </ul>
+        <p>
+          Pass one option or an array. Pair with <code className="text-xs">morphTo</code> so the scrolled
+          element is the same one that receives the morph.
+        </p>
+        <CodeBlock
+          code={lightboxExcerpts['scroll-trigger-into-view'].code}
+          title={lightboxExcerpts['scroll-trigger-into-view'].title}
+        />
+      </DocsSection>
+
+      <DocsSection id="programmatic" title="Programmatic open">
+        <p>
+          <DocsLink href={lightboxApiHref.rootRef}>Root ref</DocsLink>{' '}
+          <code className="text-xs">open(index?)</code> opens without a click origin — there is{' '}
+          <em>no</em> trigger-element morph (fade path only). Trigger clicks still morph. Use{' '}
+          <DocsLink href="/examples/lightbox/imperative-api">Imperative API</DocsLink> for a live demo.
         </p>
       </DocsSection>
 
@@ -197,9 +220,30 @@ export default function LightboxViewTransitionsPage() {
             entrance fades on the destination while the VT layer is up
           </li>
         </ul>
+        <p>
+          The docs site’s live VT CSS (excerpted from{' '}
+          <code className="text-xs">app/lightbox-demo/view-transitions.css</code>):
+        </p>
+        <CodeBlock
+          code={lightboxExcerpts['morph-border-radius'].code}
+          title={lightboxExcerpts['morph-border-radius'].title}
+          lang="css"
+        />
+        <CodeBlock
+          code={lightboxExcerpts['no-crossfade-hard-cut'].code}
+          title={lightboxExcerpts['no-crossfade-hard-cut'].title}
+          lang="css"
+        />
+        <p>
+          Lifecycle timing for your own CSS: Content/Backdrop stay <code className="text-xs">mounted</code>{' '}
+          through exit animations; while a VT open is preparing they may be{' '}
+          <code className="text-xs">visibility: hidden</code> so the morph layer owns the pixels. Prefer{' '}
+          <code className="text-xs">onOpenChangeComplete</code> for post-motion work — see{' '}
+          <DocsLink href="/examples/lightbox/lifecycle-callbacks">Lifecycle callbacks</DocsLink>.
+        </p>
       </DocsSection>
 
-      <DocsPager prev={lightboxDocsPages.overview} next={lightboxDocsPages.api} />
+      <DocsPager prev={lightboxDocsPages.composition} next={lightboxDocsPages.gestures} />
     </DocsShell>
   );
 }

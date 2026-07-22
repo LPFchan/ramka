@@ -1,0 +1,33 @@
+/* Stacked ItemGroup entrance fade (skipped inside Slides / during VT). */
+
+/* Apply the fade-in to the active item, but skip it when the library
+   has marked the item with `data-skip-fade` — that flag is set on the
+   destination item during a View Transition open, signalling that the
+   morph animation already handled the entrance and a follow-up fade
+   would just produce a flash of `opacity: 0` once the VT layer is
+   torn down. Mirrors frosted-ui's lightbox.css contract. */
+[data-lightbox-item][data-active]:not([data-skip-fade]) {
+  animation: var(--animate-lightbox-item-fade-in);
+}
+
+/* ...but NOT inside a Lightbox.Slides scroller. There, items sit side by
+   side and `data-active` moves as you scroll, so this stacked-navigation
+   entrance fade would replay (flash to opacity 0) on every swipe.
+   Lightbox.Slides is the only ancestor that sets `data-orientation`, so it's
+   a reliable, zero-config marker — consumers building a swipeable lightbox
+   don't have to remember to opt out. Higher specificity (0,4,0 > 0,3,0)
+   lets this win without `!important`. */
+[data-orientation] [data-lightbox-item][data-active] {
+  animation: none;
+}
+
+/* Belt-and-suspenders: also suppress the item fade-in while VT is in
+   flight. The `:not([data-skip-fade])` rule above already excludes the
+   destination item, but `data-skip-fade` is applied *inside* the VT
+   callback (after a `flushSync(setMounted(true))` and an image-decode
+   await), so there is a brief window where data-active is set without
+   data-skip-fade. This rule covers that window without relying on
+   precise ordering. */
+:root[data-lightbox-view-transition] [data-lightbox-item][data-active] {
+  animation: none !important;
+}

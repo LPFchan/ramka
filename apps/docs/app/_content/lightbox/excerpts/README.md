@@ -1,16 +1,15 @@
 # Lightbox docs excerpts
 
-Typechecked teaching snippets for the docs site. The generator reads `sources/` and writes `generated.ts`.
+Teaching snippets for the docs site. The generator writes `generated.ts`.
 
 ```bash
 pnpm docs:excerpts          # regenerate
 pnpm docs:excerpts:check    # CI
 ```
 
-## Adding an excerpt
+## JSX / TS sources
 
-1. Create `sources/my-snippet.tsx` that typechecks against `ramka`.
-2. Tag the exported function:
+Create `sources/my-snippet.tsx` that typechecks against `ramka`, then tag:
 
 ```tsx
 /**
@@ -22,5 +21,30 @@ export function MySnippet() {
 }
 ```
 
-3. Or mark an exact region with `// @docs-excerpt-start my-snippet` … `// @docs-excerpt-end`.
-4. Run `pnpm docs:excerpts` and render `lightboxExcerpts['my-snippet']` in a page.
+Or mark a region with `// @docs-excerpt-start my-snippet` … `// @docs-excerpt-end`.
+
+## CSS sources (preferred for styles)
+
+Demo CSS lives under [`app/lightbox-demo/`](../../../lightbox-demo/) and is imported by the site. Excerpts are sliced from those files so docs stay in sync with what demos actually load.
+
+**Whole file** — put this at the top of e.g. `pull-progress.css`:
+
+```css
+/**
+ * @docsExcerpt pull-progress-css
+ * @docsExcerptTitle Pull progress CSS
+ */
+
+.lightbox-demo-backdrop[data-open] { … }
+```
+
+**Region** — inside any `lightbox-demo/*.css` file:
+
+```css
+/* @docs-excerpt-start morph-border-radius */
+/* @docs-excerpt-title Morph border-radius */
+::view-transition-group(lightbox-morph) { … }
+/* @docs-excerpt-end */
+```
+
+Then run `pnpm docs:excerpts` and render `lightboxExcerpts['…']` with `lang="css"`.
