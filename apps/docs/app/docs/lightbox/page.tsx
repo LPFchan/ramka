@@ -5,21 +5,8 @@ import { DocsLink } from '../../_components/docs-link';
 import { DocsPager } from '../../_components/docs-pager';
 import { DocsSection, DocsShell, type DocsTocItem } from '../../_components/docs-shell';
 import { lightboxDocsPages } from '../../_content/lightbox/docs-pages';
+import { lightboxExcerpts } from '../../_content/lightbox/excerpts/generated';
 import { LightboxHeroDemo } from './hero-demo';
-
-const anatomy = `import { Lightbox } from 'ramka';
-
-<Lightbox.Root>
-  <Lightbox.Trigger index={0}>{/* thumb */}</Lightbox.Trigger>
-  <Lightbox.Backdrop />
-  <Lightbox.Content>
-    <Lightbox.Close />
-    <Lightbox.ItemGroup>
-      <Lightbox.Item index={0}>{/* full image */}</Lightbox.Item>
-    </Lightbox.ItemGroup>
-    {/* or: Lightbox.Slides > Lightbox.Slide > Lightbox.Item */}
-  </Lightbox.Content>
-</Lightbox.Root>`;
 
 const examplePatterns: {
   title: string;
@@ -107,7 +94,7 @@ export default function LightboxOverviewPage() {
 
       <DocsSection id="anatomy" title="Anatomy">
         <p>Import the namespace and compose parts. Every part is optional except Root for state.</p>
-        <CodeBlock code={anatomy} title="Anatomy" />
+        <CodeBlock code={lightboxExcerpts.anatomy.code} title={lightboxExcerpts.anatomy.title} />
       </DocsSection>
 
       <DocsSection id="examples" title="Examples">

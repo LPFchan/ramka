@@ -49,7 +49,7 @@ export default function HomePage() {
         <h2 className="text-sm font-semibold uppercase tracking-widest text-neutral-500">
           Installation
         </h2>
-        <CodeBlock code="pnpm add ramka" />
+        <CodeBlock code="pnpm add ramka" lang="bash" />
         <p className="text-sm text-neutral-600 dark:text-neutral-400">
           Peer dependencies: <code className="text-xs">react</code> and{' '}
           <code className="text-xs">react-dom</code> &gt;= 18.

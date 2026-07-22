@@ -13,7 +13,9 @@
     "format": "prettier --write \"**/*.{ts,tsx,md,json,css,mjs,cjs}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,md,json,css,mjs,cjs}\"",
     "docs:api": "pnpm --filter docs docs:api",
-    "docs:api:check": "pnpm --filter docs docs:api:check"
+    "docs:api:check": "pnpm --filter docs docs:api:check",
+    "docs:excerpts": "pnpm --filter docs docs:excerpts",
+    "docs:excerpts:check": "pnpm --filter docs docs:excerpts:check"
   },
   "devDependencies": {
     "pkg-pr-new": "^0.0.78",

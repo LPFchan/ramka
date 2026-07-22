@@ -30,7 +30,7 @@ import { Lightbox } from 'ramka';
 
 Docs: run the [docs site](../../apps/docs) and open `/docs/lightbox` (overview), `/docs/lightbox/view-transitions`, and `/docs/lightbox/api`. Live demos live under `/examples/lightbox/*`.
 
-API tables (props, data attributes, CSS variables) are generated from this package’s TypeScript + JSDoc — including the `*DataAttributes` / `*CssVars` enums. After changing public APIs, run `pnpm docs:api` from the repo root (CI fails if the generated file is stale).
+API tables (props, data attributes, CSS variables) are generated from this package’s TypeScript + JSDoc — including the `*DataAttributes` / `*CssVars` enums. Usage code excerpts are extracted from typechecked sources under `apps/docs/app/_content/lightbox/excerpts/sources/`. After changing public APIs or excerpt sources, run `pnpm docs:api` and `pnpm docs:excerpts` from the repo root (CI fails if generated files are stale).
 
 ## License
 

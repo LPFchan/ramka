@@ -3,26 +3,8 @@ import { DocsLink } from '../../../_components/docs-link';
 import { DocsPager } from '../../../_components/docs-pager';
 import { DocsSection, DocsShell, type DocsTocItem } from '../../../_components/docs-shell';
 import { lightboxApiHref, lightboxDocsPages } from '../../../_content/lightbox/docs-pages';
+import { lightboxExcerpts } from '../../../_content/lightbox/excerpts/generated';
 import { LightboxCrossfadeDemos } from '../crossfade-demos';
-
-const vtSnippet = `import { Lightbox } from 'ramka';
-
-<Lightbox.Root viewTransition morphTo="active">
-  <Lightbox.Trigger index={0}>
-    {({ imageRef }) => (
-      <img ref={imageRef} src={thumb} alt="" />
-    )}
-  </Lightbox.Trigger>
-
-  <Lightbox.Backdrop />
-  <Lightbox.Content>
-    <Lightbox.Item index={0}>
-      {({ imageRef }) => (
-        <img ref={imageRef} src={src} alt="" />
-      )}
-    </Lightbox.Item>
-  </Lightbox.Content>
-</Lightbox.Root>`;
 
 const toc: DocsTocItem[] = [
   { id: 'enable', title: 'Enable + refs' },
@@ -93,7 +75,10 @@ export default function LightboxViewTransitionsPage() {
           <DocsLink href={lightboxApiHref.root}>Root</DocsLink> when you want a short wait for the
           destination image before the morph starts (default ~200ms cap).
         </p>
-        <CodeBlock code={vtSnippet} title="Minimal morph" />
+        <CodeBlock
+          code={lightboxExcerpts['minimal-morph'].code}
+          title={lightboxExcerpts['minimal-morph'].title}
+        />
       </DocsSection>
 
       <DocsSection
@@ -134,6 +119,10 @@ export default function LightboxViewTransitionsPage() {
           interpolates <code className="text-xs">--lightbox-morph-border-radius-from/to</code> on{' '}
           <code className="text-xs">&lt;html&gt;</code>.
         </p>
+        <CodeBlock
+          code={lightboxExcerpts['crossfade-both'].code}
+          title={lightboxExcerpts['crossfade-both'].title}
+        />
         <LightboxCrossfadeDemos />
       </DocsSection>
 
@@ -170,6 +159,10 @@ export default function LightboxViewTransitionsPage() {
           <DocsLink href={lightboxApiHref.root}>Root</DocsLink> when the page scrolls while open so the
           close morph still lands on-screen.
         </p>
+        <CodeBlock
+          code={lightboxExcerpts['morph-to-closest'].code}
+          title={lightboxExcerpts['morph-to-closest'].title}
+        />
         <p>
           Live comparison:{' '}
           <DocsLink href="/examples/lightbox/morph-to-setting">morphTo strategies</DocsLink>.

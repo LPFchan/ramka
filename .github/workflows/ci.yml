@@ -38,6 +38,9 @@ jobs:
       - name: Check Lightbox API docs
         run: pnpm docs:api:check
 
+      - name: Check Lightbox docs excerpts
+        run: pnpm docs:excerpts:check
+
       - name: Test
         run: pnpm test
 
