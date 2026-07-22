@@ -149,7 +149,7 @@ export function LightboxGallery({
               <Lightbox.Item
                 index={i}
                 caption={item.caption ?? item.alt}
-                className="relative flex size-full items-center justify-center"
+                className="relative size-full"
               >
                 {({ imageRef, morphRef }) =>
                   renderItem ? (
@@ -157,12 +157,12 @@ export function LightboxGallery({
                   ) : (
                     <Lightbox.Zoom
                       maxZoom={maxZoom}
-                      className="flex size-full items-center justify-center [container-type:size] px-0 pt-[calc(env(safe-area-inset-top,0px)+3.5rem)] pb-[calc(env(safe-area-inset-bottom,0px)+3.5rem)] md:px-8 md:pt-[calc(env(safe-area-inset-top,0px)+3.5rem)] md:pb-[calc(env(safe-area-inset-bottom,0px)+7.5rem)]"
+                      className="px-0 pt-[calc(env(safe-area-inset-top,0px)+3.5rem)] pb-[calc(env(safe-area-inset-bottom,0px)+3.5rem)] md:px-8 md:pt-[calc(env(safe-area-inset-top,0px)+3.5rem)] md:pb-[calc(env(safe-area-inset-bottom,0px)+7.5rem)]"
                     >
-                      {/* Radius is cosmetic on Media; width/height are structural. */}
+                      {/* Radius/overflow are cosmetic on Media; width/height are structural. */}
                       <Lightbox.Media
                         {...imgDims(item.src)}
-                        className="relative shrink-0 overflow-hidden rounded-none md:rounded-lg"
+                        className="overflow-hidden rounded-none md:rounded-lg"
                       >
                         <img
                           {...imgDims(item.src)}
@@ -423,7 +423,7 @@ export function LightboxFullImage({ src, alt }: { src: string; alt: string }) {
         {...imgDims(src)}
         insetX="2rem"
         insetY="2rem"
-        className="relative shrink-0 overflow-hidden rounded-lg"
+        className="overflow-hidden rounded-lg"
       >
         <img
           {...imgDims(src)}

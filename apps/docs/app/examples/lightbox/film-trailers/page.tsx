@@ -96,12 +96,12 @@ function LightboxVideo({
   }, [readyToPlay]);
 
   return (
-    <Lightbox.Zoom className="flex size-full items-center justify-center [container-type:size] px-0 pt-[calc(env(safe-area-inset-top,0px)+3.5rem)] pb-[calc(env(safe-area-inset-bottom,0px)+3.5rem)] md:px-8">
+    <Lightbox.Zoom className="px-0 pt-[calc(env(safe-area-inset-top,0px)+3.5rem)] pb-[calc(env(safe-area-inset-bottom,0px)+3.5rem)] md:px-8">
       {/* Media morphs + bridges the poster; video fills the sized host. */}
       <Lightbox.Media
         width={width}
         height={height}
-        className="relative shrink-0 overflow-hidden rounded-xl"
+        className="overflow-hidden rounded-xl"
       >
         <video
           ref={videoRef}

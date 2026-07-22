@@ -18,19 +18,14 @@ export function MediaFitBoxExcerpt() {
       <Lightbox.Content className="fixed inset-0 flex flex-col">
         <Lightbox.Slides className="flex-1">
           <Lightbox.Slide className="h-full">
-            <Lightbox.Item
-              index={0}
-              className="flex size-full items-center justify-center"
-            >
-              {/* Size container for cqw/cqh. Optional insetX/insetY (or
-                  --lightbox-fit-inset-*) shrink the resting Media box. */}
-              <Lightbox.Zoom className="flex size-full items-center justify-center [container-type:size]">
+            <Lightbox.Item index={0} className="size-full">
+              {/* Zoom fills + size-contains; insetX/insetY shrink the Media fit-box. */}
+              <Lightbox.Zoom>
                 <Lightbox.Media
                   width={width}
                   height={height}
                   insetX="2rem"
                   insetY="4rem"
-                  className="relative"
                 >
                   <img
                     width={width}

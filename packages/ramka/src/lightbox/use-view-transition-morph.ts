@@ -156,7 +156,8 @@ function warnUnwiredItemMorph(itemEl: HTMLElement, target: HTMLElement) {
 
 /**
  * Dev-only: Media (or a morph target under Media) collapsed to 0×0 — usually
- * missing `ratio` / img width×height, or Zoom without `container-type: size`.
+ * missing `width`/`height` / img dims, or Media not under a sized Zoom (or
+ * other size container) so the cqw/cqh fit-box cannot resolve.
  */
 function warnCollapsedMediaMorph(target: HTMLElement | null) {
   if (!warnedCollapsedMedia || !target) return;
@@ -171,7 +172,7 @@ function warnCollapsedMediaMorph(target: HTMLElement | null) {
   console.warn(
     '[ramka] Lightbox.Media morph target has no resolvable size (0×0). ' +
       'Pass `width`/`height` on Media (or HTML width/height on the child <img>) ' +
-      'and put `container-type: size` on Zoom so the fit-box can resolve. ' +
+      'and nest Media under Lightbox.Zoom (a size container) so the fit-box can resolve. ' +
       'Falling back to a root crossfade.',
     media,
   );

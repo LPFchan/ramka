@@ -79,12 +79,11 @@ export default function LightboxCompositionPage() {
             <code className="text-xs">Slide</code> — <code className="text-xs">h-full</code>
           </li>
           <li>
-            <code className="text-xs">Item</code> — <code className="text-xs">size-full</code> (centered
-            flex is fine)
+            <code className="text-xs">Item</code> — <code className="text-xs">size-full</code>
           </li>
           <li>
-            <code className="text-xs">Zoom</code> — <code className="text-xs">size-full</code> (the
-            zoom/pan surface)
+            <code className="text-xs">Zoom</code> — already fills + centers (structural); add padding
+            for chrome / safe-area insets
           </li>
           <li>
             <code className="text-xs">Media</code> — sized fit-box (morph + placeholder host);{' '}
@@ -108,8 +107,9 @@ export default function LightboxCompositionPage() {
           <DocsLink href="/examples/lightbox/moodboard">Moodboard</DocsLink>.
         </p>
         <p>
-          To fill the maximum available space without distorting the source aspect ratio, put{' '}
-          <code className="text-xs">container-type: size</code> on Zoom and pass{' '}
+          To fill the maximum available space without distorting the source aspect ratio, nest Media under{' '}
+          <DocsLink href={lightboxApiHref.zoom}>Lightbox.Zoom</DocsLink> (a size container for{' '}
+          <code className="text-xs">cqw</code>/<code className="text-xs">cqh</code>) and pass{' '}
           <code className="text-xs">width</code>/<code className="text-xs">height</code> to{' '}
           <DocsLink href={lightboxApiHref.media}>Lightbox.Media</DocsLink>. Media applies the inscribed
           fit-box (

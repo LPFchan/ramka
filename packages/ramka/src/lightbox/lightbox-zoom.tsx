@@ -48,6 +48,10 @@ interface LightboxZoomState extends Record<string, unknown> {
  * `data-zoom` while scaled past 1x and `data-dragging` while panning — so
  * consumers can style purely through CSS.
  *
+ * Structurally, Zoom is also a CSS size container (`container-type: size`) so
+ * nested `Lightbox.Media` fit-box units (`cqw` / `cqh`) resolve against the
+ * zoom surface. Cosmetics (padding, flex centering, colors) stay consumer-owned.
+ *
  * The zoom transform is applied to an internal wrapper element that is not
  * consumer-configurable; pass your (typically `<img>`) content as `children`.
  * `children` may also be a render function receiving the current zoom state.
@@ -589,6 +593,8 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
             position: 'relative',
             width: '100%',
             height: '100%',
+            // Size container for Media’s cqw/cqh fit-box (structural, not cosmetic).
+            containerType: 'size',
             touchAction: zoom > minZoom ? 'none' : 'pan-x pan-y',
             cursor: dragging ? 'grabbing' : zoom > 1 ? 'grab' : undefined,
             userSelect: 'none',

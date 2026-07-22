@@ -75,10 +75,10 @@ function fitBoxStyle(width: number, height: number): React.CSSProperties {
 /**
  * Sized destination media host. Morph target + placeholder canvas container by
  * contract — place an `<img>` or `<video>` inside (not chrome). Prefer nesting
- * under `Lightbox.Zoom` with `container-type: size`:
+ * under `Lightbox.Zoom` (Zoom is a size container for `cqw` / `cqh`):
  *
  * ```tsx
- * <Lightbox.Zoom className="size-full [container-type:size]">
+ * <Lightbox.Zoom>
  *   <Lightbox.Media width={w} height={h}>
  *     <img width={w} height={h} src={src} alt="" className="size-full" />
  *   </Lightbox.Media>

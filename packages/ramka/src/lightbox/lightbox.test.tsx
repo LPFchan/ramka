@@ -2637,6 +2637,7 @@ describe('Lightbox', () => {
       );
 
       const zoomContainer = screen.getByAltText('test').parentElement!.parentElement!;
+      expect(zoomContainer.style.containerType).toBe('size');
       expect(zoomContainer.style.touchAction).toBe('pan-x pan-y');
 
       act(() => ref.current!.zoomTo(2));

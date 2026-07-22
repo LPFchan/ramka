@@ -194,12 +194,12 @@ export default function PhotosAppPage() {
           renderItem={(photo) => (
             <Lightbox.Zoom
               maxZoom={6}
-              className="flex size-full items-center justify-center [container-type:size] px-0 pt-[calc(env(safe-area-inset-top,0px)+3.5rem)] pb-[calc(env(safe-area-inset-bottom,0px)+3.5rem)] md:px-8 md:pt-[calc(env(safe-area-inset-top,0px)+3.5rem)] md:pb-[calc(env(safe-area-inset-bottom,0px)+7.5rem)]"
+              className="px-0 pt-[calc(env(safe-area-inset-top,0px)+3.5rem)] pb-[calc(env(safe-area-inset-bottom,0px)+3.5rem)] md:px-8 md:pt-[calc(env(safe-area-inset-top,0px)+3.5rem)] md:pb-[calc(env(safe-area-inset-bottom,0px)+7.5rem)]"
             >
               <Lightbox.Media
                 width={imgDims(photo.src)?.width ?? 1600}
                 height={imgDims(photo.src)?.height ?? 1200}
-                className="relative shrink-0 overflow-hidden rounded-none md:rounded-lg"
+                className="overflow-hidden rounded-none md:rounded-lg"
               >
                 <Image
                   src={photo.src}
