@@ -22,15 +22,30 @@ export const lightboxExcerpts = {
     code: "import { Lightbox } from 'ramka';\n\n<Lightbox.Root>\n  <Lightbox.Content>\n    <Lightbox.Close />\n    <Lightbox.Previous />\n    <Lightbox.Next />\n    <Lightbox.Counter />\n    <Lightbox.Caption />\n\n    <Lightbox.Slides>\n      {items.map((item, i) => (\n        <Lightbox.Slide key={item.id}>\n          <Lightbox.Item index={i} caption={item.caption}>\n            <img src={item.src} alt={item.alt} />\n          </Lightbox.Item>\n        </Lightbox.Slide>\n      ))}\n    </Lightbox.Slides>\n\n    <Lightbox.ThumbnailGroup>\n      {items.map((item, i) => (\n        <Lightbox.Thumbnail key={item.id} index={i}>\n          <img src={item.thumb} alt=\"\" />\n        </Lightbox.Thumbnail>\n      ))}\n    </Lightbox.ThumbnailGroup>\n  </Lightbox.Content>\n</Lightbox.Root>\n",
     source: "app/_content/lightbox/excerpts/sources/chrome-composition.tsx",
   },
+  "controlled-state": {
+    title: "Controlled open + value",
+    code: "import { Lightbox } from 'ramka';\n\n<Lightbox.Root open={open} onOpenChange={setOpen} value={value} onValueChange={setValue}>\n  {/* triggers + content */}\n</Lightbox.Root>\n",
+    source: "app/_content/lightbox/excerpts/sources/controlled-state.tsx",
+  },
   "crossfade-both": {
     title: "crossfade=\"both\"",
     code: "import { Lightbox } from 'ramka';\n\n<Lightbox.Root viewTransition morphTo=\"closest\">\n  <Lightbox.Trigger index={0} crossfade=\"both\">\n    {({ imageRef }) => (\n      <div className=\"relative\">\n        <img ref={imageRef} src={thumb} alt=\"\" />\n        <span>+{extras}</span>\n      </div>\n    )}\n  </Lightbox.Trigger>\n  <Lightbox.Content>\n    <Lightbox.Item index={0}>\n      {({ imageRef }) => <img ref={imageRef} src={src} alt=\"\" />}\n    </Lightbox.Item>\n  </Lightbox.Content>\n</Lightbox.Root>\n",
     source: "app/_content/lightbox/excerpts/sources/crossfade-both.tsx",
   },
+  "imperative-ref": {
+    title: "Imperative Root ref",
+    code: "import { Lightbox } from 'ramka';\n\n<>\n  <button type=\"button\" onClick={() => ref.current?.open(0)}>\n    Open\n  </button>\n  <button type=\"button\" onClick={() => ref.current?.goTo(2)}>\n    goTo(2)\n  </button>\n  <button type=\"button\" onClick={() => ref.current?.close()}>\n    Close\n  </button>\n\n  <Lightbox.Root ref={ref}>{/* content */}</Lightbox.Root>\n</>\n",
+    source: "app/_content/lightbox/excerpts/sources/imperative-ref.tsx",
+  },
   "item-group-preload": {
     title: "ItemGroup + preload",
     code: "import { Lightbox } from 'ramka';\n\n<Lightbox.Root>\n  <Lightbox.Content>\n    <Lightbox.ItemGroup preload={1}>\n      {items.map((item, i) => (\n        <Lightbox.Item key={item.id} index={i}>\n          {({ active, visible }) =>\n            visible ? (\n              <img\n                src={item.src}\n                alt={item.alt}\n                // Prefer active for expensive work; visible includes preload neighbors.\n                data-active={active || undefined}\n              />\n            ) : null\n          }\n        </Lightbox.Item>\n      ))}\n    </Lightbox.ItemGroup>\n  </Lightbox.Content>\n</Lightbox.Root>\n",
     source: "app/_content/lightbox/excerpts/sources/item-group-preload.tsx",
+  },
+  "lifecycle-callbacks": {
+    title: "Lifecycle callbacks",
+    code: "import { Lightbox } from 'ramka';\n\n<Lightbox.Root\n  onOpenChange={(open) => {\n    // Fires immediately — sync URL / store here.\n    void open;\n  }}\n  onOpenChangeComplete={(open) => {\n    // Fires after enter/exit motion settles — cleanup / focus here.\n    void open;\n  }}\n  onValueChange={(value, { source }) => {\n    void value;\n    void source; // 'trigger' | 'keyboard' | 'thumbnail' | 'button' | 'scroll'\n  }}\n>\n  {/* … */}\n</Lightbox.Root>\n",
+    source: "app/_content/lightbox/excerpts/sources/lifecycle-callbacks.tsx",
   },
   "minimal-morph": {
     title: "Minimal morph",

@@ -29,27 +29,6 @@ export const lightboxExamples: ExampleLink[] = [
       'Masonry wall of images with unknown dimensions (no width/height, no reserved aspect ratio) — stresses the morph size-resolution fallback and trigger-thumbnail placeholder.',
   },
   {
-    slug: 'default',
-    title: 'Default',
-    description: 'A grid of triggers opens a fullscreen modal — uses Lightbox.Backdrop for the scrim.',
-  },
-  {
-    slug: 'controlled',
-    title: 'Controlled',
-    description: 'External state drives both the open prop and the active index.',
-  },
-  {
-    slug: 'imperative-api',
-    title: 'Imperative API',
-    description:
-      'Root ref open/close/goTo — note programmatic open has no trigger morph (View transitions guide).',
-  },
-  {
-    slug: 'lifecycle-callbacks',
-    title: 'Lifecycle callbacks',
-    description: 'See onOpenChange (fires immediately) and onOpenChangeComplete (after animations) in action.',
-  },
-  {
     slug: 'lazy-loading',
     title: 'Lazy loading',
     description:

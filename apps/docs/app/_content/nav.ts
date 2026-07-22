@@ -20,13 +20,7 @@ export interface NavSection {
 }
 
 /** Example slugs that demonstrate API patterns (vs product case studies). */
-const apiPatternSlugs = new Set([
-  'default',
-  'controlled',
-  'imperative-api',
-  'lifecycle-callbacks',
-  'lazy-loading',
-]);
+const apiPatternSlugs = new Set(['lazy-loading']);
 
 function toExampleLink(ex: ExampleLink): NavLink {
   return {
@@ -57,6 +51,7 @@ export const navSections: NavSection[] = [
         title: 'Lightbox',
         links: [
           lightboxDocsPages.overview,
+          lightboxDocsPages.stateLifecycle,
           lightboxDocsPages.composition,
           lightboxDocsPages.viewTransitions,
           lightboxDocsPages.gestures,

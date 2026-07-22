@@ -4,6 +4,10 @@ export const lightboxDocsPages = {
     href: '/docs/lightbox',
     title: 'Overview',
   },
+  stateLifecycle: {
+    href: '/docs/lightbox/state-lifecycle',
+    title: 'State & lifecycle',
+  },
   composition: {
     href: '/docs/lightbox/composition',
     title: 'Composition',
@@ -25,6 +29,7 @@ export const lightboxDocsPages = {
 /** Ordered pager trail for Lightbox docs. */
 export const lightboxDocsPagerOrder = [
   lightboxDocsPages.overview,
+  lightboxDocsPages.stateLifecycle,
   lightboxDocsPages.composition,
   lightboxDocsPages.viewTransitions,
   lightboxDocsPages.gestures,

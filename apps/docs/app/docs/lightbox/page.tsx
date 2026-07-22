@@ -14,6 +14,11 @@ const guideLinks: {
   href: string;
 }[] = [
   {
+    title: 'State & lifecycle',
+    description: 'Controlled open/index, Root ref, and open-change callbacks.',
+    href: lightboxDocsPages.stateLifecycle.href,
+  },
+  {
     title: 'Composition',
     description: 'ItemGroup vs Slides, preload, chrome, and dynamic itemCount.',
     href: lightboxDocsPages.composition.href,
@@ -55,6 +60,11 @@ export default function LightboxOverviewPage() {
       <DocsSection id="usage-guidelines" title="Usage guidelines">
         <p>Work through these decisions in order:</p>
         <ol className="list-decimal space-y-3 pl-5">
+          <li>
+            <strong className="font-medium text-neutral-800 dark:text-neutral-200">State</strong> —
+            controlled props, Root ref, or both? See{' '}
+            <DocsLink href={lightboxDocsPages.stateLifecycle.href}>State & lifecycle</DocsLink>.
+          </li>
           <li>
             <strong className="font-medium text-neutral-800 dark:text-neutral-200">Layout</strong> —
             stacked swap (<DocsLink href={`${lightboxDocsPages.composition.href}#item-group`}>ItemGroup</DocsLink>)
@@ -103,13 +113,13 @@ export default function LightboxOverviewPage() {
           ))}
         </ul>
         <p className="mt-4">
-          Browse live demos under{' '}
-          <DocsLink href="/examples/lightbox/default">Examples</DocsLink> (API patterns and product case
-          studies). Guides above are canonical for behavior; examples are compositions.
+          Browse product demos under{' '}
+          <DocsLink href="/examples/lightbox/responsive-gallery">Examples</DocsLink>. Guides above are
+          canonical for behavior; examples are compositions.
         </p>
       </DocsSection>
 
-      <DocsPager next={lightboxDocsPages.composition} />
+      <DocsPager next={lightboxDocsPages.stateLifecycle} />
     </DocsShell>
   );
 }

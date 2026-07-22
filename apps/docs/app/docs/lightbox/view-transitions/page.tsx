@@ -188,7 +188,10 @@ export default function LightboxViewTransitionsPage() {
           <DocsLink href={lightboxApiHref.rootRef}>Root ref</DocsLink>{' '}
           <code className="text-xs">open(index?)</code> opens without a click origin — there is{' '}
           <em>no</em> trigger-element morph (fade path only). Trigger clicks still morph. Use{' '}
-          <DocsLink href="/examples/lightbox/imperative-api">Imperative API</DocsLink> for a live demo.
+          <DocsLink href={`${lightboxDocsPages.stateLifecycle.href}#imperative`}>
+            State & lifecycle → Imperative API
+          </DocsLink>{' '}
+          for a live demo.
         </p>
       </DocsSection>
 
