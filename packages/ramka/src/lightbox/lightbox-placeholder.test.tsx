@@ -533,11 +533,60 @@ describe('Lightbox.Media (morph + placeholder host)', () => {
     expect(media.style.width).toContain('100cqw');
     expect(media.style.display).toBe('grid');
     expect(media.id).toBeTruthy();
-    const fillStyle = media.querySelector('style');
-    expect(fillStyle?.textContent).toContain(`#${CSS.escape(media.id)} > img`);
-    expect(fillStyle?.textContent).toContain('width:100%');
-    expect(fillStyle?.textContent).toContain('height:100%');
   });
+
+  it.each([
+    {
+      name: 'img',
+      child: <img width={800} height={600} src="/full.jpg" alt="full" />,
+    },
+    {
+      name: 'video',
+      child: <video width={800} height={600} src="/clip.mp4" />,
+    },
+    {
+      name: 'canvas',
+      child: <canvas width={800} height={600} />,
+    },
+  ] as const)(
+    'scoped style stretches a direct $name child to fill the Media host',
+    ({ name, child }) => {
+      render(
+        <LightboxRoot defaultOpen>
+          <LightboxContent aria-label="viewer">
+            <LightboxItemGroup>
+              <LightboxItem index={0}>
+                <LightboxZoom>
+                  <LightboxMedia data-testid="media" width={800} height={600}>
+                    {child}
+                  </LightboxMedia>
+                </LightboxZoom>
+              </LightboxItem>
+            </LightboxItemGroup>
+          </LightboxContent>
+        </LightboxRoot>,
+      );
+
+      const media = document.querySelector('[data-testid="media"]') as HTMLElement;
+      expect(media.style.display).toBe('grid');
+      expect(media.id).toBeTruthy();
+
+      const fillStyle = media.querySelector('style');
+      expect(fillStyle).toBeTruthy();
+      const css = fillStyle!.textContent ?? '';
+      const id = CSS.escape(media.id);
+
+      // One author rule stretches every direct media child (img / video / canvas).
+      expect(css).toBe(
+        `#${id} > img:not([data-lightbox-media-poster]),#${id} > video,#${id} > canvas{width:100%;height:100%;}`,
+      );
+
+      // Child is a direct Media descendant so the `#id > ${tag}` rule applies.
+      const el = media.querySelector(`:scope > ${name}`);
+      expect(el).toBeTruthy();
+      expect(el!.parentElement).toBe(media);
+    },
+  );
 
   it('derives fit-box from child img width/height when Media props are omitted', () => {
     render(

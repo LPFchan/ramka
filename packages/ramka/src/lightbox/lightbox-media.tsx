@@ -72,7 +72,7 @@ function escapeCssIdent(value: string): string {
 function mediaChildFillCss(mediaId: string): string {
   const id = escapeCssIdent(mediaId);
   return (
-    `#${id} > img:not([data-lightbox-media-poster]),#${id} > video{` +
+    `#${id} > img:not([data-lightbox-media-poster]),#${id} > video,#${id} > canvas{` +
     `width:100%;height:100%;` +
     `}`
   );
@@ -80,8 +80,8 @@ function mediaChildFillCss(mediaId: string): string {
 
 /**
  * Sized destination media host. Morph target + placeholder canvas container by
- * contract — place an `<img>` or `<video>` inside (not chrome). Prefer nesting
- * under `Lightbox.Zoom` (Zoom is a size container for `cqw` / `cqh`):
+ * contract — place an `<img>`, `<video>`, or `<canvas>` inside (not chrome). Prefer
+ * nesting under `Lightbox.Zoom` (Zoom is a size container for `cqw` / `cqh`):
  *
  * ```tsx
  * <Lightbox.Zoom>
@@ -92,8 +92,8 @@ function mediaChildFillCss(mediaId: string): string {
  * ```
  *
  * `width` / `height` are **structural** (correct morph box). Media is a CSS grid
- * and renders a scoped `<style>` so direct `<img>` / `<video>` children fill the
- * fit-box (HTML dimension attrs cannot pin intrinsic size). No consumer
+ * and renders a scoped `<style>` so direct `<img>` / `<video>` / `<canvas>` children
+ * fill the fit-box (HTML dimension attrs cannot pin intrinsic size). No consumer
  * `size-full` required. Use Zoom padding for resting chrome insets. Radius,
  * colors, and `object-fit` remain consumer-owned.
  *

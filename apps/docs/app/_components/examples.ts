@@ -49,6 +49,15 @@ export const lightboxExamples: ExampleLink[] = [
     description: 'Movie posters morph into a fullscreen <video> that auto-plays on becoming active.',
   },
   {
+    slug: '3d-models',
+    title: '3D models',
+    description:
+      'One lightbox with Lightbox.Slides over a Three.js product grid — swipe between models, shared orbit with each trigger.',
+  },
+
+
+
+  {
     slug: 'real-estate-listing',
     title: 'Real estate listing',
     description: 'Property page with hero grid + remaining photos; lightbox shows all photos in a swipeable Lightbox.Slides viewport.',
