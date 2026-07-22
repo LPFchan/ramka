@@ -1,4 +1,4 @@
-import { CodeBlock } from '../../../_components/code-block';
+import { DocsDemo } from '../../../_components/docs-demo';
 import { DocsLink } from '../../../_components/docs-link';
 import { DocsPager } from '../../../_components/docs-pager';
 import { DocsSection, DocsShell, type DocsTocItem } from '../../../_components/docs-shell';
@@ -37,11 +37,12 @@ export default function LightboxStateLifecyclePage() {
           store, or sibling UI. Omit them for uncontrolled defaults (
           <code className="text-xs">defaultOpen</code> / <code className="text-xs">defaultValue</code>).
         </p>
-        <CodeBlock
+        <DocsDemo
           code={lightboxExcerpts['controlled-state'].code}
           title={lightboxExcerpts['controlled-state'].title}
-        />
-        <ControlledStateDemo />
+        >
+          <ControlledStateDemo />
+        </DocsDemo>
       </DocsSection>
 
       <DocsSection id="imperative" title="Imperative API">
@@ -51,11 +52,12 @@ export default function LightboxStateLifecyclePage() {
           <code className="text-xs">open(index, {'{ triggerId }'})</code> from any button so the open still
           morphs from the matching <DocsLink href={lightboxApiHref.trigger}>Trigger</DocsLink>.
         </p>
-        <CodeBlock
+        <DocsDemo
           code={lightboxExcerpts['create-handle'].code}
           title={lightboxExcerpts['create-handle'].title}
-        />
-        <CreateHandleDemo />
+        >
+          <CreateHandleDemo />
+        </DocsDemo>
       </DocsSection>
 
       <DocsSection id="lifecycle" title="Lifecycle callbacks">
@@ -67,11 +69,12 @@ export default function LightboxStateLifecyclePage() {
           <DocsLink href={lightboxApiHref.types}>NavigationSource</DocsLink> (including{' '}
           <code className="text-xs">imperative</code> for handle navigation).
         </p>
-        <CodeBlock
+        <DocsDemo
           code={lightboxExcerpts['lifecycle-callbacks'].code}
           title={lightboxExcerpts['lifecycle-callbacks'].title}
-        />
-        <LifecycleCallbacksDemo />
+        >
+          <LifecycleCallbacksDemo />
+        </DocsDemo>
       </DocsSection>
 
       <DocsPager prev={lightboxDocsPages.overview} next={lightboxDocsPages.composition} />

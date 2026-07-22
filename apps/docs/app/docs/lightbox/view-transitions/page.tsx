@@ -1,4 +1,5 @@
 import { CodeBlock } from '../../../_components/code-block';
+import { DocsDemo } from '../../../_components/docs-demo';
 import { DocsLink } from '../../../_components/docs-link';
 import { DocsPager } from '../../../_components/docs-pager';
 import { DocsSection, DocsShell, type DocsTocItem } from '../../../_components/docs-shell';
@@ -102,11 +103,12 @@ export default function LightboxViewTransitionsPage() {
           interpolates <code className="text-xs">--lightbox-morph-border-radius-from/to</code> on{' '}
           <code className="text-xs">&lt;html&gt;</code>.
         </p>
-        <CodeBlock
+        <DocsDemo
           code={lightboxExcerpts['crossfade-both'].code}
           title={lightboxExcerpts['crossfade-both'].title}
-        />
-        <LightboxCrossfadeDemos />
+        >
+          <LightboxCrossfadeDemos />
+        </DocsDemo>
       </DocsSection>
 
       <DocsSection
@@ -137,11 +139,12 @@ export default function LightboxViewTransitionsPage() {
             registered trigger.
           </li>
         </ul>
-        <CodeBlock
+        <DocsDemo
           code={lightboxExcerpts['morph-to-closest'].code}
           title={lightboxExcerpts['morph-to-closest'].title}
-        />
-        <LightboxMorphToDemos />
+        >
+          <LightboxMorphToDemos />
+        </DocsDemo>
       </DocsSection>
 
       <DocsSection

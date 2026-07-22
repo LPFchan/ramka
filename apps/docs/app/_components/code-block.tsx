@@ -1,3 +1,5 @@
+import { cn } from '@/lib/utils';
+
 import { CodeBlockCopy } from './code-block-copy';
 import { highlightCode, type CodeLang } from './highlight-code';
 
@@ -6,17 +8,26 @@ export async function CodeBlock({
   title,
   lang = 'tsx',
   className,
+  embedded = false,
 }: {
   code: string;
   title?: string;
   lang?: CodeLang;
   className?: string;
+  /** Flatten border/radius when nested inside DocsDemo. */
+  embedded?: boolean;
 }) {
   const html = await highlightCode(code, lang);
 
   return (
     <div
-      className={`code-block overflow-hidden rounded-lg border border-neutral-200 dark:border-neutral-800 ${className ?? ''}`}
+      className={cn(
+        'code-block overflow-hidden',
+        embedded
+          ? 'rounded-none border-0'
+          : 'rounded-lg border border-neutral-200 dark:border-neutral-800',
+        className,
+      )}
     >
       {title ? (
         <div className="flex items-center justify-between border-b border-neutral-200 bg-neutral-50 px-3 py-1.5 dark:border-neutral-800 dark:bg-neutral-900">
