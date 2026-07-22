@@ -150,7 +150,7 @@ export const lightboxApiMeta: ApiPartMeta[] = [
     id: 'api-media',
     name: 'Media',
     description:
-      'Sized destination media host — morph target and placeholder canvas container. Structural props: width/height (fit-box, same idea as Next.js Image); display:grid plus width/height:100% on direct img/video so HTML dimension attrs cannot pin intrinsic size. Cosmetics (radius, colors, object-fit) stay consumer-owned. Prefer Zoom > Media > img|video (Zoom is a size container for Media’s cqw/cqh fit-box; use Zoom padding for resting chrome insets). Auto-discovers the primary <img> (or video poster) for decode / thumbnail bridging.',
+      'Sized destination media host — morph target and placeholder canvas container. Structural props: width/height (fit-box, same idea as Next.js Image); display:grid plus a scoped <style> so direct img/video fill the box (HTML dimension attrs cannot pin intrinsic size). Cosmetics (radius, colors, object-fit) stay consumer-owned. Prefer Zoom > Media > img|video (Zoom is a size container for Media’s cqw/cqh fit-box; use Zoom padding for resting chrome insets). Auto-discovers the primary <img> (or video poster) for decode / thumbnail bridging.',
     extract: {
       kind: 'interface-props',
       typeName: 'LightboxMediaProps',
