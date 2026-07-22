@@ -24,6 +24,11 @@ const guideLinks: {
     href: lightboxDocsPages.composition.href,
   },
   {
+    title: 'Next.js Image',
+    description: 'next/image with Ramka — destination blur only when that item has no trigger image.',
+    href: lightboxDocsPages.nextjsImage.href,
+  },
+  {
     title: 'View transitions',
     description: 'Morph refs (on by default), crossfade, morphTo, and scrollTriggerIntoView.',
     href: lightboxDocsPages.viewTransitions.href,

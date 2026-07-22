@@ -328,7 +328,7 @@ export default function LightboxViewTransitionsPage() {
         </p>
       </DocsSection>
 
-      <DocsPager prev={lightboxDocsPages.composition} next={lightboxDocsPages.gestures} />
+      <DocsPager prev={lightboxDocsPages.nextjsImage} next={lightboxDocsPages.gestures} />
     </DocsShell>
   );
 }

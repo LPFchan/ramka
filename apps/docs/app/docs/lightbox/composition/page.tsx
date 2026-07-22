@@ -185,7 +185,7 @@ export default function LightboxCompositionPage() {
         </p>
       </DocsSection>
 
-      <DocsPager prev={lightboxDocsPages.stateLifecycle} next={lightboxDocsPages.viewTransitions} />
+      <DocsPager prev={lightboxDocsPages.stateLifecycle} next={lightboxDocsPages.nextjsImage} />
     </DocsShell>
   );
 }

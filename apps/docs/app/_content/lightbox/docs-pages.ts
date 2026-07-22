@@ -12,6 +12,10 @@ export const lightboxDocsPages = {
     href: '/docs/lightbox/composition',
     title: 'Composition',
   },
+  nextjsImage: {
+    href: '/docs/lightbox/nextjs-image',
+    title: 'Next.js Image',
+  },
   viewTransitions: {
     href: '/docs/lightbox/view-transitions',
     title: 'View transitions',
@@ -31,6 +35,7 @@ export const lightboxDocsPagerOrder = [
   lightboxDocsPages.overview,
   lightboxDocsPages.stateLifecycle,
   lightboxDocsPages.composition,
+  lightboxDocsPages.nextjsImage,
   lightboxDocsPages.viewTransitions,
   lightboxDocsPages.gestures,
   lightboxDocsPages.api,
