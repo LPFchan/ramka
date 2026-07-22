@@ -250,6 +250,104 @@ export function shouldUseCrossfade(
 }
 
 /**
+ * Split a CSS value list on top-level whitespace, keeping `calc(...)` intact.
+ * `"calc(infinity * 1px) 4px"` → `["calc(infinity * 1px)", "4px"]`.
+ */
+function splitCssList(value: string): string[] {
+  const tokens: string[] = [];
+  let current = '';
+  let depth = 0;
+  for (const ch of value) {
+    if (ch === '(') depth += 1;
+    else if (ch === ')') depth = Math.max(0, depth - 1);
+
+    if (/\s/.test(ch) && depth === 0) {
+      if (current) tokens.push(current);
+      current = '';
+      continue;
+    }
+    current += ch;
+  }
+  if (current) tokens.push(current);
+  return tokens;
+}
+
+/**
+ * Convert one border-radius corner token to a used px length, capped at half
+ * the shorter side (the CSS used value for a full pill on that box).
+ */
+function borderRadiusTokenToPx(
+  token: string,
+  el: HTMLElement,
+  width: number,
+  height: number,
+  cap: number,
+): number {
+  const t = token.trim().toLowerCase();
+  if (!t) return 0;
+
+  // Tailwind v4 `rounded-full` / any non-finite calc.
+  if (/infinity/i.test(t)) return cap;
+
+  if (t.endsWith('%')) {
+    const pct = Number.parseFloat(t);
+    if (!Number.isFinite(pct)) return cap;
+    // Approx: % radii resolve against the box; a 50% corner is a full pill.
+    return Math.min((Math.min(width, height) * pct) / 100, cap);
+  }
+
+  const n = Number.parseFloat(t);
+  if (!Number.isFinite(n)) return cap;
+
+  if (t.endsWith('rem')) {
+    const rootFs = Number.parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+    return Math.min(n * rootFs, cap);
+  }
+  if (t.endsWith('em')) {
+    const fs = Number.parseFloat(getComputedStyle(el).fontSize) || 16;
+    return Math.min(n * fs, cap);
+  }
+
+  // px, or other absolute units already serialized as px by getComputedStyle.
+  // Radii larger than half the short side render as a full pill — same as cap.
+  return Math.min(n, cap);
+}
+
+/**
+ * Resolve an element's border-radius into px values the VT group can
+ * interpolate.
+ *
+ * Tailwind v4 `rounded-full` is `border-radius: calc(infinity * 1px)`. CSS
+ * cannot interpolate `infinity` → `8px`, so the morph group's radius animation
+ * would stick or jump. Percentages, `rem`/`em`, and the old `9999px` full-pill
+ * trick have the same problem relative to a fixed px destination.
+ *
+ * Each corner is resolved independently (so
+ * `calc(infinity * 1px) 4px 4px 4px` becomes `32px 4px 4px 4px` on a 64×64
+ * box) and capped at half the shorter side — the used pill radius.
+ *
+ * Note: `getComputedStyle` usually already returns px for `rem`/`em`; we still
+ * resolve those units for engines that leave them as specified.
+ */
+export function resolveMorphBorderRadius(el: HTMLElement): string {
+  const raw = getComputedStyle(el).borderRadius.trim();
+  if (!raw) return '0px';
+
+  const { width, height } = el.getBoundingClientRect();
+  if (!(width > 0 && height > 0)) return '0px';
+  const cap = Math.min(width, height) / 2;
+
+  // Drop elliptical `/` second list — the morph clip animates a single list.
+  const horizontal = raw.split('/')[0]!.trim();
+  const tokens = splitCssList(horizontal);
+  if (tokens.length === 0) return '0px';
+
+  const px = tokens.map((token) => borderRadiusTokenToPx(token, el, width, height, cap));
+  if (px.every((v) => v === px[0])) return `${px[0]}px`;
+  return px.map((v) => `${v}px`).join(' ');
+}
+
+/**
  * Applies the document-level state that drives the morph CSS: the phase
  * attribute, the optional no-crossfade opt-out (with its old/new opacity
  * vars), and the from/to border-radius vars. Only defined values are written,
@@ -417,8 +515,9 @@ function useViewTransitionMorph(config: ViewTransitionMorphConfig): ViewTransiti
     // page is idle (the click's React state updates are still batched and
     // uncommitted), so this read is served from clean style — no forced reflow.
     // Reading it later (after commitPrepare) would force a full style+layout
-    // flush. See LIGHTBOX_PERF.md.
-    const fromRadius = triggerTarget ? getComputedStyle(triggerTarget).borderRadius : null;
+    // flush. See LIGHTBOX_PERF.md. Resolved to interpolatable px (handles
+    // `rounded-full` / infinity / %).
+    const fromRadius = triggerTarget ? resolveMorphBorderRadius(triggerTarget) : null;
 
     // PRE-MOUNT (Guideline #3): build the viewer + gallery NOW, while the page
     // is still live and interactive, so the heavy React reconciliation and the
@@ -490,7 +589,7 @@ function useViewTransitionMorph(config: ViewTransitionMorphConfig): ViewTransiti
     // Read the destination radius only when morphing (style/layout are already
     // flushed by the mount, so it's cheap and keeps the VT callback read-free).
     // Radius is unaffected by the `visibility: hidden` prepare state.
-    const toRadius = canMorph ? getComputedStyle(itemTargetPrep!).borderRadius : null;
+    const toRadius = canMorph ? resolveMorphBorderRadius(itemTargetPrep!) : null;
 
     // In the fallback we force the root crossfade on (no `data-no-crossfade`)
     // and set no morph name/radius, so the transition is a clean fade.
@@ -593,9 +692,10 @@ function useViewTransitionMorph(config: ViewTransitionMorphConfig): ViewTransiti
       : null;
     const useCrossfade = shouldUseCrossfade(triggerEl?.dataset.crossfade, 'closing');
 
-    // Batch all reads before any writes to avoid forced reflow
-    const fromRadius = itemTarget ? getComputedStyle(itemTarget).borderRadius : null;
-    const toRadius = triggerTarget ? getComputedStyle(triggerTarget).borderRadius : null;
+    // Batch all reads before any writes to avoid forced reflow. Resolve to
+    // interpolatable px so `rounded-full` / % don't break the group animation.
+    const fromRadius = itemTarget ? resolveMorphBorderRadius(itemTarget) : null;
+    const toRadius = triggerTarget ? resolveMorphBorderRadius(triggerTarget) : null;
 
     // Writes — radii go to CSS vars; the VT group interpolates them (no live
     // border-radius mutation).
