@@ -78,6 +78,38 @@ const trailer = {
   video: 'https://download.blender.org/peach/trailer/trailer_iphone.m4v',
 };
 
+/** Initials chips → portraits (non-image morph source). */
+const team = [
+  {
+    name: 'Ava Chen',
+    initials: 'AC',
+    color: '#2a7ab5',
+    src: 'https://picsum.photos/seed/xfade-ava/900/1200',
+    alt: 'Portrait of Ava Chen',
+  },
+  {
+    name: 'Jules Okonkwo',
+    initials: 'JO',
+    color: '#c93c20',
+    src: 'https://picsum.photos/seed/xfade-jules/900/1200',
+    alt: 'Portrait of Jules Okonkwo',
+  },
+  {
+    name: 'Sam Rivera',
+    initials: 'SR',
+    color: '#7a9a6d',
+    src: 'https://picsum.photos/seed/xfade-sam/900/1200',
+    alt: 'Portrait of Sam Rivera',
+  },
+  {
+    name: 'Mei Laurent',
+    initials: 'ML',
+    color: '#7b3f72',
+    src: 'https://picsum.photos/seed/xfade-mei/900/1200',
+    alt: 'Portrait of Mei Laurent',
+  },
+];
+
 const code = 'rounded bg-neutral-100 px-1 py-0.5 text-xs dark:bg-neutral-800';
 
 function SameImageDemo() {
@@ -165,6 +197,52 @@ function BothDemo() {
           {album.map((img, i) => (
             <Lightbox.Item key={img.src} index={i} className={stackedItemClass}>
               <LightboxFullImage src={img.src} alt={img.alt} />
+            </Lightbox.Item>
+          ))}
+        </StackedItemGroup>
+        <LightboxNavBar />
+      </LightboxFrame>
+    </Lightbox.Root>
+  );
+}
+
+function AnyElementDemo() {
+  return (
+    <Lightbox.Root viewTransition>
+      <ul className="flex flex-wrap gap-6">
+        {team.map((person, i) => (
+          <li key={person.name} className="flex w-20 flex-col items-center gap-2">
+            <Lightbox.Trigger
+              index={i}
+              crossfade="both"
+              className={`rounded-full size-16 overflow-hidden bg-transparent p-0 ${triggerFocusClass}`}
+            >
+                <div
+                  
+                  className={`flex size-full items-center justify-center text-sm font-semibold tracking-wide text-white ${morphHideClass}`}
+                  style={{ background: person.color }}
+                >
+                  {person.initials}
+                </div>
+            </Lightbox.Trigger>
+            <span className="text-center text-xs font-medium text-neutral-700 dark:text-neutral-300">
+              {person.name}
+            </span>
+          </li>
+        ))}
+      </ul>
+      <LightboxOverlay />
+      <LightboxFrame ariaLabel="Team portraits">
+        <LightboxCloseButton />
+        <StackedItemGroup>
+          {team.map((person, i) => (
+            <Lightbox.Item
+              key={person.name}
+              index={i}
+              caption={person.name}
+              className={stackedItemClass}
+            >
+              <LightboxFullImage src={person.src} alt={person.alt} />
             </Lightbox.Item>
           ))}
         </StackedItemGroup>
@@ -350,6 +428,20 @@ export default function CrossfadePage() {
             <code className={code}>morphTo=&quot;closest&quot;</code>.
           </p>
           <BothDemo />
+        </section>
+
+        <Separator />
+
+        <section className="space-y-3">
+          <h2 className="text-lg font-semibold tracking-tight">
+            <code className={code}>crossfade=&quot;both&quot;</code> — any element
+          </h2>
+          <p className="text-sm text-neutral-600 dark:text-neutral-400">
+            Morph sources don&apos;t have to be images. A team grid often shows initials until you open a portrait —
+            put <code className={code}>morphRef</code> on the chip and dissolve both ways so the letters don&apos;t
+            stretch into the photo.
+          </p>
+          <AnyElementDemo />
         </section>
 
         <Separator />
