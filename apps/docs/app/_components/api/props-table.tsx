@@ -8,6 +8,12 @@ import { cn } from '@/lib/utils';
 import type { PropRow } from '../../_content/lightbox/api/types';
 
 import { DocDescription } from './doc-description';
+import {
+  API_TABLE_STYLE,
+  apiPropsGridClass,
+  apiTableHeaderClass,
+  apiTableShellClass,
+} from './table-layout';
 import { TypeHighlight } from './type-highlight';
 
 /** Collapsed Type column — match Base UI short forms. */
@@ -19,16 +25,6 @@ function shortType(type: string): string {
   return t;
 }
 
-/**
- * Shared by header, triggers, and expanded detail rows so columns line up.
- * Prop | Type | Default | chevron
- *
- * Expanded rows put the label in col 1 and the value across cols 2–4, so
- * values start exactly where the Type column starts.
- */
-const ROW_GRID =
-  'grid w-full grid-cols-[minmax(0,1.15fr)_minmax(0,1.35fr)_minmax(0,0.9fr)_1.5rem] gap-x-4 px-4';
-
 function DetailRow({
   label,
   children,
@@ -39,7 +35,7 @@ function DetailRow({
   align?: 'start' | 'center';
 }) {
   return (
-    <div className={cn(ROW_GRID, align === 'center' ? 'items-center' : 'items-start')}>
+    <div className={cn(apiPropsGridClass, align === 'center' ? 'items-center' : 'items-start')}>
       <dt
         className={cn(
           'text-[13px] leading-6 text-neutral-500 dark:text-neutral-400',
@@ -67,18 +63,8 @@ export function PropsTable({
   }
 
   return (
-    <div
-      className="overflow-hidden rounded-xl border border-neutral-200 dark:border-neutral-800"
-      role="table"
-      aria-label="Props"
-    >
-      <div
-        role="row"
-        className={cn(
-          ROW_GRID,
-          'items-center border-b border-neutral-200 bg-neutral-50 py-2.5 text-xs font-medium text-neutral-500 dark:border-neutral-800 dark:bg-neutral-900/80 dark:text-neutral-400',
-        )}
-      >
+    <div className={apiTableShellClass} style={API_TABLE_STYLE} role="table" aria-label="Props">
+      <div role="row" className={cn(apiPropsGridClass, apiTableHeaderClass)}>
         <div role="columnheader">Prop</div>
         <div role="columnheader">Type</div>
         <div role="columnheader">Default</div>
@@ -102,7 +88,7 @@ export function PropsTable({
                 <AccordionPrimitive.Trigger
                   id={anchor}
                   className={cn(
-                    ROW_GRID,
+                    apiPropsGridClass,
                     'group items-center py-3 text-left outline-none transition-colors',
                     'hover:bg-neutral-50 dark:hover:bg-neutral-900/60',
                     'focus-visible:bg-neutral-50 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-neutral-400/40 dark:focus-visible:bg-neutral-900/60',

@@ -1,36 +1,55 @@
+import { cn } from '@/lib/utils';
 import type { CssVarRow } from '../../_content/lightbox/api/types';
 
 import { DocDescription } from './doc-description';
+import {
+  API_TABLE_STYLE,
+  apiCssVarsGridClass,
+  apiTableHeaderClass,
+  apiTableShellClass,
+} from './table-layout';
+import { TypeHighlight } from './type-highlight';
 
 export function CssVariablesTable({ variables }: { variables: CssVarRow[] }) {
   if (variables.length === 0) return null;
 
   return (
-    <div className="overflow-x-auto rounded-lg border border-neutral-200 dark:border-neutral-800">
-      <table className="w-full min-w-[28rem] text-left text-sm">
-        <thead className="bg-neutral-50 text-neutral-500 dark:bg-neutral-900 dark:text-neutral-400">
-          <tr>
-            <th className="px-3 py-2 font-medium">Variable</th>
-            <th className="px-3 py-2 font-medium">Type</th>
-            <th className="min-w-[16rem] px-3 py-2 font-medium">Description</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800">
-          {variables.map((v) => (
-            <tr key={v.name} className="align-top">
-              <td className="px-3 py-2.5 font-mono text-xs text-neutral-900 dark:text-neutral-100">
-                <code>{v.name}</code>
-              </td>
-              <td className="px-3 py-2.5 font-mono text-xs text-neutral-500">
-                {v.type ? <code>{v.type}</code> : '—'}
-              </td>
-              <td className="px-3 py-2.5">
-                <DocDescription text={v.description} />
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <div
+      className={apiTableShellClass}
+      style={API_TABLE_STYLE}
+      role="table"
+      aria-label="CSS variables"
+    >
+      <div role="row" className={cn(apiCssVarsGridClass, apiTableHeaderClass)}>
+        <div role="columnheader">Variable</div>
+        <div role="columnheader">Type</div>
+        <div role="columnheader">Description</div>
+      </div>
+      <div role="rowgroup">
+        {variables.map((v) => (
+          <div
+            key={v.name}
+            role="row"
+            className={cn(
+              apiCssVarsGridClass,
+              'items-start border-b border-neutral-200 py-3 last:border-b-0 dark:border-neutral-800',
+            )}
+          >
+            <div
+              role="cell"
+              className="min-w-0 truncate font-mono text-[13px] font-medium text-neutral-900 dark:text-neutral-50"
+            >
+              <code>{v.name}</code>
+            </div>
+            <div role="cell" className="min-w-0 truncate">
+              {v.type ? <TypeHighlight code={v.type} /> : <span className="text-neutral-400">—</span>}
+            </div>
+            <div role="cell" className="min-w-0 text-[13px] leading-6 text-neutral-700 dark:text-neutral-200">
+              <DocDescription text={v.description} />
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

@@ -1,32 +1,50 @@
+import { cn } from '@/lib/utils';
 import type { AttrRow } from '../../_content/lightbox/api/types';
 
 import { DocDescription } from './doc-description';
+import {
+  API_TABLE_STYLE,
+  apiAttrsGridClass,
+  apiTableHeaderClass,
+  apiTableShellClass,
+} from './table-layout';
 
 export function AttributesTable({ attributes }: { attributes: AttrRow[] }) {
   if (attributes.length === 0) return null;
 
   return (
-    <div className="overflow-x-auto rounded-lg border border-neutral-200 dark:border-neutral-800">
-      <table className="w-full min-w-[28rem] text-left text-sm">
-        <thead className="bg-neutral-50 text-neutral-500 dark:bg-neutral-900 dark:text-neutral-400">
-          <tr>
-            <th className="px-3 py-2 font-medium">Attribute</th>
-            <th className="min-w-[16rem] px-3 py-2 font-medium">Description</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800">
-          {attributes.map((attr) => (
-            <tr key={attr.name} className="align-top">
-              <td className="px-3 py-2.5 font-mono text-xs text-neutral-900 dark:text-neutral-100">
-                <code>{attr.name}</code>
-              </td>
-              <td className="px-3 py-2.5">
-                <DocDescription text={attr.description} />
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <div
+      className={apiTableShellClass}
+      style={API_TABLE_STYLE}
+      role="table"
+      aria-label="Data attributes"
+    >
+      <div role="row" className={cn(apiAttrsGridClass, apiTableHeaderClass)}>
+        <div role="columnheader">Attribute</div>
+        <div role="columnheader">Description</div>
+      </div>
+      <div role="rowgroup">
+        {attributes.map((attr) => (
+          <div
+            key={attr.name}
+            role="row"
+            className={cn(
+              apiAttrsGridClass,
+              'items-start border-b border-neutral-200 py-3 last:border-b-0 dark:border-neutral-800',
+            )}
+          >
+            <div
+              role="cell"
+              className="min-w-0 truncate font-mono text-[13px] font-medium text-neutral-900 dark:text-neutral-50"
+            >
+              <code>{attr.name}</code>
+            </div>
+            <div role="cell" className="min-w-0 text-[13px] leading-6 text-neutral-700 dark:text-neutral-200">
+              <DocDescription text={attr.description} />
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
