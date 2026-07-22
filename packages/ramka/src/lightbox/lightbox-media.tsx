@@ -56,6 +56,44 @@ function fitBoxStyle(width: number, height: number): React.CSSProperties {
   };
 }
 
+const MEDIA_CHILD_FILL_STYLE: React.CSSProperties = { width: '100%', height: '100%' };
+
+/**
+ * HTML `width`/`height` on `<img>` are presentational hints (e.g. `width: 320px`),
+ * which defeat CSS Grid stretch. Apply fill during render (SSR + first paint)
+ * so we don't flash intrinsic size before a layout effect can run.
+ */
+function withMediaChildFill(children: React.ReactNode): React.ReactNode {
+  return React.Children.map(children, (child) => {
+    if (!React.isValidElement<{ style?: React.CSSProperties; width?: unknown; height?: unknown }>(child)) {
+      return child;
+    }
+    const type = child.type;
+    const isDomMedia = type === 'img' || type === 'video';
+    // Next.js <Image> and similar: component with numeric width/height props.
+    const isLikelyImageComponent =
+      typeof type !== 'string' && child.props.width != null && child.props.height != null;
+    if (!isDomMedia && !isLikelyImageComponent) return child;
+    return React.cloneElement(child, {
+      style: { ...child.props.style, ...MEDIA_CHILD_FILL_STYLE },
+    });
+  });
+}
+
+/**
+ * Imperative fill for DOM nodes inserted outside React (managed poster path /
+ * late mutations). Skips the managed poster (already absolutely filled).
+ */
+function applyMediaChildFill(host: HTMLElement, managedPoster: HTMLImageElement | null) {
+  for (const child of Array.from(host.children)) {
+    if (!(child instanceof HTMLImageElement || child instanceof HTMLVideoElement)) continue;
+    if (child === managedPoster) continue;
+    const s = child.style;
+    if (s.width !== '100%') s.width = '100%';
+    if (s.height !== '100%') s.height = '100%';
+  }
+}
+
 /**
  * Sized destination media host. Morph target + placeholder canvas container by
  * contract — place an `<img>` or `<video>` inside (not chrome). Prefer nesting
@@ -64,15 +102,17 @@ function fitBoxStyle(width: number, height: number): React.CSSProperties {
  * ```tsx
  * <Lightbox.Zoom>
  *   <Lightbox.Media width={w} height={h}>
- *     <img width={w} height={h} src={src} alt="" className="size-full" />
+ *     <img width={w} height={h} src={src} alt="" />
  *   </Lightbox.Media>
  * </Lightbox.Zoom>
  * ```
  *
- * `width` / `height` are **structural** (correct morph box). Use Zoom padding for
- * resting chrome insets. Radius, colors, and `object-fit` on the media element
- * remain consumer-owned — when the Media box matches the source aspect, object-fit
- * is a no-op.
+ * `width` / `height` are **structural** (correct morph box). Media is a CSS grid
+ * and clones `width/height: 100%` onto direct `<img>` / `<video>` children (and
+ * Next-style image components) during render so HTML dimension attributes cannot
+ * pin intrinsic size on first paint — no consumer `size-full` required. Use Zoom
+ * padding for resting chrome insets. Radius, colors, and `object-fit` remain
+ * consumer-owned.
  *
  * Discovers the primary `<img>` (direct child preferred) and wires Item's
  * `imageRef` for decode / thumbnail placeholder paint.
@@ -130,7 +170,12 @@ const LightboxMedia = React.forwardRef<HTMLDivElement, LightboxMediaProps>(
     // open-morph bridge has a decode/paint target without a fake consumer ref.
     const syncImage = React.useCallback(() => {
       const host = internalRef.current;
-      if (!host || !item) return;
+      if (!host) return;
+
+      applyMediaChildFill(host, managedPosterRef.current);
+
+      // Item wiring (imageRef / dims) needs Item context; fill styles do not.
+      if (!item) return;
 
       const isManaged = (n: Element | null) => n === managedPosterRef.current;
       const direct = Array.from(host.children).find(
@@ -233,12 +278,17 @@ const LightboxMedia = React.forwardRef<HTMLDivElement, LightboxMediaProps>(
       const next: React.CSSProperties = {
         position: 'relative',
         flexShrink: 0,
+        // Stretch a single in-flow media child to the fit-box (grid default
+        // align/justify is stretch). Placeholder canvas stays absolute.
+        display: 'grid',
       };
       if (hasFitBox && width && height) {
         Object.assign(next, fitBoxStyle(width, height));
       }
       return next;
     }, [hasFitBox, height, width]);
+
+    const filledChildren = withMediaChildFill(children);
 
     const rendered = useRender({
       render,
@@ -257,7 +307,7 @@ const LightboxMedia = React.forwardRef<HTMLDivElement, LightboxMediaProps>(
           },
         } as React.ComponentPropsWithRef<'div'>,
         elementProps as React.ComponentPropsWithRef<'div'>,
-        { children } as React.ComponentPropsWithRef<'div'>,
+        { children: filledChildren } as React.ComponentPropsWithRef<'div'>,
       ),
       defaultTagName: 'div',
     });

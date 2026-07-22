@@ -531,6 +531,10 @@ describe('Lightbox.Media (morph + placeholder host)', () => {
     expect(media).toHaveAttribute('data-height', '900');
     expect(media.style.aspectRatio).toBe('1600 / 900');
     expect(media.style.width).toContain('100cqw');
+    expect(media.style.display).toBe('grid');
+    const img = media.querySelector('img') as HTMLImageElement;
+    expect(img.style.width).toBe('100%');
+    expect(img.style.height).toBe('100%');
   });
 
   it('derives fit-box from child img width/height when Media props are omitted', () => {

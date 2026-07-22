@@ -23,13 +23,7 @@ export function MediaFitBoxExcerpt() {
               {/* Zoom fills + size-contains; pad Zoom for chrome insets. */}
               <Lightbox.Zoom className="p-8">
                 <Lightbox.Media width={width} height={height}>
-                  <img
-                    width={width}
-                    height={height}
-                    src={src}
-                    alt={alt}
-                    className="size-full"
-                  />
+                  <img width={width} height={height} src={src} alt={alt} />
                 </Lightbox.Media>
               </Lightbox.Zoom>
             </Lightbox.Item>

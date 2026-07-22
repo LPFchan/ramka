@@ -1,4 +1,5 @@
 import { lightboxExamples, type ExampleLink } from '../_components/examples';
+import { debugPagesList } from './debug-pages';
 import { lightboxDocsPages } from './lightbox/docs-pages';
 
 export interface NavLink {
@@ -27,7 +28,7 @@ function toExampleLink(ex: ExampleLink): NavLink {
   };
 }
 
-export const navSections: NavSection[] = [
+const baseNavSections: NavSection[] = [
   {
     title: 'Getting started',
     links: [{ href: '/', title: 'Installation' }],
@@ -48,3 +49,18 @@ export const navSections: NavSection[] = [
     links: lightboxExamples.map(toExampleLink),
   },
 ];
+
+const debugNavSection: NavSection = {
+  title: 'Debug',
+  links: debugPagesList.map((page) => ({
+    href: page.href,
+    title: page.title,
+    description: page.description,
+  })),
+};
+
+/** Sidebar sections. Debug links are included only outside production builds. */
+export const navSections: NavSection[] =
+  process.env.NODE_ENV === 'production'
+    ? baseNavSections
+    : [...baseNavSections, debugNavSection];

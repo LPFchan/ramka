@@ -111,7 +111,7 @@ function LightboxVideo({
           playsInline
           muted
           preload="metadata"
-          className="size-full bg-black object-contain"
+          className="bg-black object-contain"
         />
       </Lightbox.Media>
     </Lightbox.Zoom>

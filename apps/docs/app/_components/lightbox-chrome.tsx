@@ -159,7 +159,7 @@ export function LightboxGallery({
                           alt={item.alt}
                           loading="eager"
                           draggable={false}
-                          className="size-full select-none"
+                          className="select-none"
                         />
                       </Lightbox.Media>
                     </Lightbox.Zoom>
