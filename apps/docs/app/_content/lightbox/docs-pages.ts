@@ -1,4 +1,4 @@
-/** Lightbox docs IA — left-nav subpages under Components → Lightbox. */
+/** Lightbox docs IA — left-nav pages under Lightbox. */
 export const lightboxDocsPages = {
   overview: {
     href: '/docs/lightbox',

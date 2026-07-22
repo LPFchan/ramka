@@ -29,12 +29,6 @@ export const lightboxExamples: ExampleLink[] = [
       'Masonry wall of images with unknown dimensions (no width/height, no reserved aspect ratio) — stresses the morph size-resolution fallback and trigger-thumbnail placeholder.',
   },
   {
-    slug: 'lazy-loading',
-    title: 'Lazy loading',
-    description:
-      'ItemGroup preload + active/visible render props — see Composition → ItemGroup.',
-  },
-  {
     slug: 'text-message',
     title: 'Text message',
     description: 'iMessage-style chat with a single morphTo="origin" trigger over a stack of attachments.',

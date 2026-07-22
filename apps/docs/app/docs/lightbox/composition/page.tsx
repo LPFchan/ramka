@@ -47,10 +47,6 @@ export default function LightboxCompositionPage() {
           code={lightboxExcerpts['item-group-preload'].code}
           title={lightboxExcerpts['item-group-preload'].title}
         />
-        <p>
-          Live pattern:{' '}
-          <DocsLink href="/examples/lightbox/lazy-loading">Lazy loading</DocsLink>.
-        </p>
       </DocsSection>
 
       <DocsSection id="slides" title="Slides + Slide">

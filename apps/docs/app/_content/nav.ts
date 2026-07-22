@@ -15,12 +15,9 @@ export interface NavLink {
 export interface NavSection {
   title: string;
   links: NavLink[];
-  /** Optional nested groups (e.g. Components → Lightbox, Examples → API patterns). */
+  /** Optional nested groups under a section title. */
   groups?: { title: string; links: NavLink[] }[];
 }
-
-/** Example slugs that demonstrate API patterns (vs product case studies). */
-const apiPatternSlugs = new Set(['lazy-loading']);
 
 function toExampleLink(ex: ExampleLink): NavLink {
   return {
@@ -30,42 +27,24 @@ function toExampleLink(ex: ExampleLink): NavLink {
   };
 }
 
-const apiPatternExamples = lightboxExamples
-  .filter((ex) => apiPatternSlugs.has(ex.slug))
-  .map(toExampleLink);
-
-const productExamples = lightboxExamples
-  .filter((ex) => !apiPatternSlugs.has(ex.slug))
-  .map(toExampleLink);
-
 export const navSections: NavSection[] = [
   {
     title: 'Getting started',
     links: [{ href: '/', title: 'Installation' }],
   },
   {
-    title: 'Components',
-    links: [],
-    groups: [
-      {
-        title: 'Lightbox',
-        links: [
-          lightboxDocsPages.overview,
-          lightboxDocsPages.stateLifecycle,
-          lightboxDocsPages.composition,
-          lightboxDocsPages.viewTransitions,
-          lightboxDocsPages.gestures,
-          lightboxDocsPages.api,
-        ],
-      },
+    title: 'Lightbox',
+    links: [
+      lightboxDocsPages.overview,
+      lightboxDocsPages.stateLifecycle,
+      lightboxDocsPages.composition,
+      lightboxDocsPages.viewTransitions,
+      lightboxDocsPages.gestures,
+      lightboxDocsPages.api,
     ],
   },
   {
     title: 'Examples',
-    links: [],
-    groups: [
-      { title: 'API patterns', links: apiPatternExamples },
-      { title: 'Product', links: productExamples },
-    ],
+    links: lightboxExamples.map(toExampleLink),
   },
 ];
