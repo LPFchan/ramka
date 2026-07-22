@@ -15,7 +15,7 @@ const toc: DocsTocItem[] = [
   { id: 'morph-to', title: 'Root morphTo' },
   { id: 'scroll-trigger', title: 'scrollTriggerIntoView' },
   { id: 'programmatic', title: 'Programmatic open' },
-  { id: 'styling', title: 'Styling hooks' },
+  { id: 'styling', title: 'Styling' },
 ];
 
 export default function LightboxViewTransitionsPage() {
@@ -202,13 +202,11 @@ export default function LightboxViewTransitionsPage() {
         </p>
       </DocsSection>
 
-      <DocsSection id="styling" title="Styling hooks">
+      <DocsSection id="styling" title="Styling">
         <p>
-          During a morph, ramka sets document-level attributes and CSS variables so you can style{' '}
-          <code className="text-xs">::view-transition-*</code> without shipping library CSS. Full tables
-          live under{' '}
-          <DocsLink href={lightboxApiHref.documentVt}>Document (view transitions)</DocsLink> in the API
-          reference. Highlights:
+          Ramka is unstyled: it sets document hooks during a morph so <em>your</em> CSS can drive{' '}
+          <code className="text-xs">::view-transition-*</code>. Attribute / CSS-variable tables live under{' '}
+          <DocsLink href={lightboxApiHref.documentVt}>Document (view transitions)</DocsLink>. Hooks:
         </p>
         <ul className="list-disc space-y-2 pl-5">
           <li>
@@ -216,7 +214,8 @@ export default function LightboxViewTransitionsPage() {
             <code className="text-xs">opening</code> | <code className="text-xs">closing</code>
           </li>
           <li>
-            <code className="text-xs">data-lightbox-no-crossfade</code> — hard-cut path
+            <code className="text-xs">data-lightbox-no-crossfade</code> — hard-cut path (default when Trigger
+            omits <code className="text-xs">crossfade</code>)
           </li>
           <li>
             <code className="text-xs">--lightbox-morph-border-radius-from/to</code>,{' '}
@@ -231,25 +230,97 @@ export default function LightboxViewTransitionsPage() {
           </li>
         </ul>
         <p>
-          The docs site’s live VT CSS (excerpted from{' '}
-          <code className="text-xs">app/lightbox-demo/view-transitions.css</code>):
+          The recipe below is what this docs site loads from{' '}
+          <code className="text-xs">app/lightbox-demo/view-transitions.css</code> — copy and tune it for
+          your app. Gate motion under{' '}
+          <code className="text-xs">prefers-reduced-motion: no-preference</code> (the file does).
+        </p>
+
+        <h3 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
+          Isolate other view-transition names
+        </h3>
+        <p>
+          <code className="text-xs">startViewTransition</code> snapshots the whole document. If a page
+          element already has a <code className="text-xs">view-transition-name</code> (e.g. a photo grid),
+          it becomes a separate VT group and can paint <em>over</em> the lightbox. While{' '}
+          <code className="text-xs">data-lightbox-view-transition</code> is set, clear every name; the morph
+          target re-applies its name inline with <code className="text-xs">!important</code> so it stays
+          the only captured group.
+        </p>
+        <CodeBlock
+          code={lightboxExcerpts['vt-isolate-names'].code}
+          title={lightboxExcerpts['vt-isolate-names'].title}
+          lang="css"
+        />
+
+        <h3 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
+          Root snapshot timing
+        </h3>
+        <p>
+          Keep a <em>single</em> root group for the page-behind crossfade. Do not promote Backdrop /
+          Content into their own named groups — Safari pays heavily for that. Fade scrim and chrome with
+          live <code className="text-xs">opacity</code> transitions instead of the root VT snapshot.
+        </p>
+        <CodeBlock
+          code={lightboxExcerpts['vt-root-snapshot'].code}
+          title={lightboxExcerpts['vt-root-snapshot'].title}
+          lang="css"
+        />
+
+        <h3 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
+          Morph border-radius
+        </h3>
+        <p>
+          Put radius on the morph target element. JS writes{' '}
+          <code className="text-xs">--lightbox-morph-border-radius-from/to</code>; the group clips and
+          interpolates shape for the whole transition.
         </p>
         <CodeBlock
           code={lightboxExcerpts['morph-border-radius'].code}
           title={lightboxExcerpts['morph-border-radius'].title}
           lang="css"
         />
+
+        <h3 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
+          Morph snapshot fit
+        </h3>
+        <p>
+          Default snapshots use <code className="text-xs">object-fit: cover</code> and{' '}
+          <code className="text-xs">mix-blend-mode: plus-lighter</code> so same-image hard-cuts keep crops
+          coherent. When dissolving (no <code className="text-xs">data-lightbox-no-crossfade</code>), switch
+          to <code className="text-xs">fill</code> so circular triggers don’t “balloon” under cover — the
+          group’s border-radius is the visible shape.
+        </p>
+        <CodeBlock
+          code={lightboxExcerpts['vt-morph-snapshots'].code}
+          title={lightboxExcerpts['vt-morph-snapshots'].title}
+          lang="css"
+        />
+
+        <h3 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
+          Hard-cut (no crossfade)
+        </h3>
+        <p>
+          When Trigger omits <code className="text-xs">crossfade</code>, ramka sets{' '}
+          <code className="text-xs">data-lightbox-no-crossfade</code>. Kill the UA dissolve, drop{' '}
+          <code className="text-xs">plus-lighter</code>, and drive opacity from{' '}
+          <code className="text-xs">--lightbox-morph-old/new-opacity</code>.
+        </p>
         <CodeBlock
           code={lightboxExcerpts['no-crossfade-hard-cut'].code}
           title={lightboxExcerpts['no-crossfade-hard-cut'].title}
           lang="css"
         />
+
         <p>
           Lifecycle timing for your own CSS: Content/Backdrop stay <code className="text-xs">mounted</code>{' '}
           through exit animations; while a VT open is preparing they may be{' '}
           <code className="text-xs">visibility: hidden</code> so the morph layer owns the pixels. Prefer{' '}
           <code className="text-xs">onOpenChangeComplete</code> for post-motion work — see{' '}
-          <DocsLink href="/examples/lightbox/lifecycle-callbacks">Lifecycle callbacks</DocsLink>.
+          <DocsLink href={`${lightboxDocsPages.stateLifecycle.href}#lifecycle`}>
+            State & lifecycle → Lifecycle callbacks
+          </DocsLink>
+          .
         </p>
       </DocsSection>
 

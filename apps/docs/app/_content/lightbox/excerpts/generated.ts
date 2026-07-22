@@ -87,6 +87,21 @@ export const lightboxExcerpts = {
     code: "import { Lightbox } from 'ramka';\n\n<Lightbox.Root>\n  <Lightbox.Content>\n    <Lightbox.Slides preload={1}>\n      {items.map((item, i) => (\n        <Lightbox.Slide key={item.id}>\n          <Lightbox.Item index={i}>\n            {({ imageRef }) => <img ref={imageRef} src={item.src} alt={item.alt} />}\n          </Lightbox.Item>\n        </Lightbox.Slide>\n      ))}\n    </Lightbox.Slides>\n  </Lightbox.Content>\n</Lightbox.Root>\n",
     source: "app/_content/lightbox/excerpts/sources/slides-nesting.tsx",
   },
+  "vt-isolate-names": {
+    title: "Isolate other view-transition names",
+    code: "/* Isolate the lightbox morph from the rest of the page. `startViewTransition`\n   captures the WHOLE document, so any consumer element that carries its own\n   `view-transition-name` (e.g. a photo grid) would otherwise be lifted into a\n   separate transition group and painted on the VT layer *over* the backdrop\n   during open/close. Neutralizing every name while the morph runs collapses\n   those elements back into the root snapshot. The morph target re-declares its\n   own name with inline `!important`, which outranks this author-`!important`\n   rule (inline wins on specificity), so it stays the only captured group. */\n:root[data-lightbox-view-transition] * {\n  view-transition-name: none !important;\n}\n",
+    source: "app/lightbox-demo/view-transitions.css",
+  },
+  "vt-morph-snapshots": {
+    title: "Morph snapshot fit",
+    code: "/* Same-image hard-cuts keep cover so crops stay correct. */\n::view-transition-old(lightbox-morph),\n::view-transition-new(lightbox-morph) {\n  object-fit: cover;\n  width: 100%;\n  height: 100%;\n  mix-blend-mode: plus-lighter;\n}\n\n/* Crossfade (dissimilar snapshots): fill the morph box so a circular trigger's\n   baked alpha can't \"balloon\" under cover — the group's border-radius is the\n   visible shape, interpolating via the from/to vars above. */\n:root[data-lightbox-view-transition]:not([data-lightbox-no-crossfade])::view-transition-old(lightbox-morph),\n:root[data-lightbox-view-transition]:not([data-lightbox-no-crossfade])::view-transition-new(lightbox-morph) {\n  object-fit: fill;\n}\n",
+    source: "app/lightbox-demo/view-transitions.css",
+  },
+  "vt-root-snapshot": {
+    title: "Root snapshot timing",
+    code: "/* The root snapshot cross-fades between the old and new states, carrying the\n   unavoidable page-behind transition (e.g. the trigger grid receding as the\n   lightbox opens). It must stay a SINGLE root group: WebKit/Safari rasterizes\n   each *named* transition group on the CPU, so lifting the full-viewport\n   backdrop/content into their own groups (and the blur/backdrop-filter chrome\n   inside content) tanked Safari while barely helping elsewhere — the low-end\n   path already skips the VT entirely (see `isLowEndDevice`).\n\n   Crucially, the backdrop and chrome do NOT rely on this root cross-fade for\n   their own fade. They animate their own `opacity` via live CSS transitions\n   (a single GPU-composited layer each) instead of being pinned opaque and\n   crossfaded as full-viewport bitmaps. That plain-opacity path is measurably\n   smoother on mobile Safari — do not route element fades back through the\n   root snapshot. */\n:root[data-lightbox-view-transition]::view-transition-old(root),\n:root[data-lightbox-view-transition]::view-transition-new(root) {\n  animation-duration: 340ms;\n  animation-timing-function: var(--ease-out-expo);\n}\n",
+    source: "app/lightbox-demo/view-transitions.css",
+  },
   "zoom-bridge": {
     title: "Active-zoom bridge",
     code: "import { Lightbox } from 'ramka';\n\n<Lightbox.Root>\n  <Lightbox.Content>\n    {/* Toolbar chrome — targets the active slide's Zoom */}\n    <Lightbox.ZoomOut />\n    <Lightbox.ZoomIn />\n\n    <Lightbox.Slides>\n      <Lightbox.Slide>\n        <Lightbox.Item index={0}>\n          <Lightbox.Zoom>\n            <img src={src} alt={alt} />\n          </Lightbox.Zoom>\n        </Lightbox.Item>\n      </Lightbox.Slide>\n    </Lightbox.Slides>\n  </Lightbox.Content>\n</Lightbox.Root>\n",
