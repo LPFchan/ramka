@@ -10,7 +10,7 @@ import { LightboxCrossfadeDemos } from '../crossfade-demos';
 import { LightboxMorphToDemos } from '../morph-to-demos';
 
 const toc: DocsTocItem[] = [
-  { id: 'enable', title: 'Enable + refs' },
+  { id: 'enable', title: 'Morph refs' },
   { id: 'crossfade', title: 'Trigger crossfade' },
   { id: 'morph-to', title: 'Root morphTo' },
   { id: 'scroll-trigger', title: 'scrollTriggerIntoView' },
@@ -32,11 +32,12 @@ export default function LightboxViewTransitionsPage() {
       }
       toc={toc}
     >
-      <DocsSection id="enable" title="Enable + refs">
+      <DocsSection id="enable" title="Morph refs">
         <p>
-          Set <code className="text-xs">viewTransition</code> on{' '}
-          <DocsLink href={lightboxApiHref.root}>Root</DocsLink>. Prefer render-prop children on{' '}
-          <DocsLink href={lightboxApiHref.trigger}>Trigger</DocsLink> and{' '}
+          Morph is on by default (<code className="text-xs">viewTransition</code> on{' '}
+          <DocsLink href={lightboxApiHref.root}>Root</DocsLink>). Pass{' '}
+          <code className="text-xs">viewTransition={'{false}'}</code> to opt out. Prefer render-prop
+          children on <DocsLink href={lightboxApiHref.trigger}>Trigger</DocsLink> and{' '}
           <DocsLink href={lightboxApiHref.item}>Item</DocsLink> so you can attach:
         </p>
         <ul className="list-disc space-y-2 pl-5">

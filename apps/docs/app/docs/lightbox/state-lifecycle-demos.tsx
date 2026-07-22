@@ -95,7 +95,7 @@ export function CreateHandleDemo() {
         ))}
       </LightboxTriggerGrid>
 
-      <Lightbox.Root handle={lightbox} viewTransition>
+      <Lightbox.Root handle={lightbox}>
         <LightboxOverlay />
         <LightboxFrame ariaLabel="Product photo gallery">
           <LightboxCloseButton />
@@ -142,7 +142,6 @@ export function LifecycleCallbacksDemo() {
   return (
     <div className="space-y-4">
       <Lightbox.Root
-        viewTransition
         onOpenChange={(open) => push('onOpenChange', String(open))}
         onOpenChangeComplete={(open) => push('onOpenChangeComplete', String(open))}
         onValueChange={(value, { source }) => push('onValueChange', `index=${value} source=${source}`)}

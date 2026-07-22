@@ -65,7 +65,7 @@ export default function TextMessagePage() {
       }
     >
       <div className="flex min-h-[80vh] items-end justify-end rounded-2xl bg-neutral-100 p-6 dark:bg-neutral-900">
-        <Lightbox.Root viewTransition morphTo="origin">
+        <Lightbox.Root morphTo="origin">
           <div className="flex max-w-[300px] flex-col items-end gap-3">
             <span className="text-[10px] font-medium uppercase tracking-[0.05em] text-neutral-500">
               Today at 11:11 AM

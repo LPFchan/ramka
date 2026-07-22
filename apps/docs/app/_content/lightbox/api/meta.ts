@@ -68,7 +68,7 @@ export const lightboxApiMeta: ApiPartMeta[] = [
     id: 'api-trigger',
     name: 'Trigger',
     description:
-      'Opens the lightbox at a given index. With viewTransition, acts as the morph source. Pass handle + id to use outside Root or for handle.open(..., { triggerId }). Prefer render-prop children to attach imageRef / morphRef.',
+      'Opens the lightbox at a given index and is the morph source (view transitions on by default). Pass handle + id to use outside Root or for handle.open(..., { triggerId }). Prefer render-prop children to attach imageRef / morphRef.',
     extract: {
       kind: 'interface-props',
       typeName: 'LightboxTriggerProps',

@@ -113,7 +113,7 @@ const code = 'rounded bg-neutral-100 px-1 py-0.5 text-xs dark:bg-neutral-800';
 
 function SameImageDemo() {
   return (
-    <Lightbox.Root viewTransition>
+    <Lightbox.Root>
       {/* Square trigger boxes vs landscape item (LightboxFullImage) — same 3∶2 sources. */}
       <div className="grid max-w-md grid-cols-3 gap-2">
         {photos.map((img, i) => (
@@ -155,7 +155,7 @@ function BothDemo() {
   const extras = album.length - visible;
   return (
     // Indexes beyond the last trigger close to the nearest one.
-    <Lightbox.Root viewTransition morphTo="closest">
+    <Lightbox.Root morphTo="closest">
       <div className="grid max-w-sm grid-cols-2 gap-0.5">
         {album.slice(0, visible).map((img, i) => {
           const isOverlay = i === visible - 1 && extras > 0;
@@ -207,7 +207,7 @@ function BothDemo() {
 
 function AnyElementDemo() {
   return (
-    <Lightbox.Root viewTransition>
+    <Lightbox.Root>
       <ul className="flex flex-wrap gap-6">
         {team.map((person, i) => (
           <li key={person.name} className="flex w-20 flex-col items-center gap-2">
@@ -255,7 +255,6 @@ function CloseDemo() {
 
   return (
     <Lightbox.Root
-      viewTransition
       onOpenChange={(open) => {
         if (!open) setReadyToPlay(false);
       }}

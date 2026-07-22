@@ -121,7 +121,6 @@ function FilmLightbox({ film }: { film: (typeof films)[number] }) {
 
   return (
     <Lightbox.Root
-      viewTransition
       onOpenChange={(open) => {
         if (!open) setReadyToPlay(false);
       }}

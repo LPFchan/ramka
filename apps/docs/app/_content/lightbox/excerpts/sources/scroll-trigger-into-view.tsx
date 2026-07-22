@@ -9,7 +9,6 @@ import { Lightbox } from 'ramka';
 export function ScrollTriggerIntoViewExcerpt() {
   return (
     <Lightbox.Root
-      viewTransition
       scrollTriggerIntoView={[
         { type: 'onChange', behavior: 'instant' },
         { type: 'onOpenComplete', behavior: 'instant' },

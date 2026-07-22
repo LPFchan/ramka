@@ -23,7 +23,7 @@ export function CreateHandleExcerpt() {
         </Lightbox.Trigger>
       ))}
 
-      <Lightbox.Root handle={lightbox} viewTransition>
+      <Lightbox.Root handle={lightbox}>
         {images.map((img, i) => (
           <Lightbox.Item key={img.id} index={i}>
             <img src={img.src} alt={img.alt} />

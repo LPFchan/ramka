@@ -11,7 +11,7 @@ declare const src: string;
  */
 export function MinimalMorphExcerpt() {
   return (
-    <Lightbox.Root viewTransition morphTo="active">
+    <Lightbox.Root morphTo="active">
       <Lightbox.Trigger index={0}>
         {({ imageRef }) => <img ref={imageRef} src={thumb} alt="" />}
       </Lightbox.Trigger>

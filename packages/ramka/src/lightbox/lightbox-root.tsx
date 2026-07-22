@@ -66,12 +66,12 @@ interface LightboxRootProps {
   /** Wrap navigation at boundaries. @default false */
   loop?: boolean;
   /**
-   * Enable view transition morph animation between trigger and lightbox item.
-   * When clicking a trigger, the element smoothly morphs into the fullscreen
-   * lightbox item. On close, it morphs back. Requires browser support for
-   * the View Transitions API. Falls back to normal fade when unsupported
-   * or when prefers-reduced-motion is set.
-   * @default false
+   * Morph between trigger and lightbox item via the View Transitions API.
+   * On by default: clicking a trigger morphs into the fullscreen item, and
+   * close morphs back. Falls back to a plain fade when unsupported, when
+   * prefers-reduced-motion is set, or on low-end devices. Pass `false` to
+   * opt out.
+   * @default true
    */
   viewTransition?: boolean;
   /**
@@ -173,7 +173,7 @@ function LightboxRoot(props: LightboxRootProps) {
       value: valueProp,
       onValueChange,
       loop = false,
-      viewTransition = false,
+      viewTransition = true,
       scrollTriggerIntoView = null,
       morphTo = 'active',
       awaitImageDecode = true,

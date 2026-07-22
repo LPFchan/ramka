@@ -29,12 +29,12 @@ export const lightboxExcerpts = {
   },
   "create-handle": {
     title: "createHandle",
-    code: "import { Lightbox } from 'ramka';\n\nconst lightbox = Lightbox.createHandle();\n\n<>\n  <button type=\"button\" onClick={() => lightbox.open(0, { triggerId: 'photo-0' })}>\n    View gallery\n  </button>\n\n  {images.map((img, i) => (\n    <Lightbox.Trigger key={img.id} handle={lightbox} id={`photo-${i}`} index={i}>\n      <img src={img.src} alt={img.alt} />\n    </Lightbox.Trigger>\n  ))}\n\n  <Lightbox.Root handle={lightbox} viewTransition>\n    {images.map((img, i) => (\n      <Lightbox.Item key={img.id} index={i}>\n        <img src={img.src} alt={img.alt} />\n      </Lightbox.Item>\n    ))}\n  </Lightbox.Root>\n</>\n",
+    code: "import { Lightbox } from 'ramka';\n\nconst lightbox = Lightbox.createHandle();\n\n<>\n  <button type=\"button\" onClick={() => lightbox.open(0, { triggerId: 'photo-0' })}>\n    View gallery\n  </button>\n\n  {images.map((img, i) => (\n    <Lightbox.Trigger key={img.id} handle={lightbox} id={`photo-${i}`} index={i}>\n      <img src={img.src} alt={img.alt} />\n    </Lightbox.Trigger>\n  ))}\n\n  <Lightbox.Root handle={lightbox}>\n    {images.map((img, i) => (\n      <Lightbox.Item key={img.id} index={i}>\n        <img src={img.src} alt={img.alt} />\n      </Lightbox.Item>\n    ))}\n  </Lightbox.Root>\n</>\n",
     source: "app/_content/lightbox/excerpts/sources/create-handle.tsx",
   },
   "crossfade-both": {
     title: "crossfade=\"both\"",
-    code: "import { Lightbox } from 'ramka';\n\n<Lightbox.Root viewTransition morphTo=\"closest\">\n  <Lightbox.Trigger index={0} crossfade=\"both\">\n    {({ imageRef }) => (\n      <div className=\"relative\">\n        <img ref={imageRef} src={thumb} alt=\"\" />\n        <span>+{extras}</span>\n      </div>\n    )}\n  </Lightbox.Trigger>\n  <Lightbox.Content>\n    <Lightbox.Item index={0}>\n      {({ imageRef }) => <img ref={imageRef} src={src} alt=\"\" />}\n    </Lightbox.Item>\n  </Lightbox.Content>\n</Lightbox.Root>\n",
+    code: "import { Lightbox } from 'ramka';\n\n<Lightbox.Root morphTo=\"closest\">\n  <Lightbox.Trigger index={0} crossfade=\"both\">\n    {({ imageRef }) => (\n      <div className=\"relative\">\n        <img ref={imageRef} src={thumb} alt=\"\" />\n        <span>+{extras}</span>\n      </div>\n    )}\n  </Lightbox.Trigger>\n  <Lightbox.Content>\n    <Lightbox.Item index={0}>\n      {({ imageRef }) => <img ref={imageRef} src={src} alt=\"\" />}\n    </Lightbox.Item>\n  </Lightbox.Content>\n</Lightbox.Root>\n",
     source: "app/_content/lightbox/excerpts/sources/crossfade-both.tsx",
   },
   "item-group-preload": {
@@ -49,7 +49,7 @@ export const lightboxExcerpts = {
   },
   "minimal-morph": {
     title: "Minimal morph",
-    code: "import { Lightbox } from 'ramka';\n\n<Lightbox.Root viewTransition morphTo=\"active\">\n  <Lightbox.Trigger index={0}>\n    {({ imageRef }) => <img ref={imageRef} src={thumb} alt=\"\" />}\n  </Lightbox.Trigger>\n\n  <Lightbox.Backdrop />\n  <Lightbox.Content>\n    <Lightbox.Item index={0}>\n      {({ imageRef }) => <img ref={imageRef} src={src} alt=\"\" />}\n    </Lightbox.Item>\n  </Lightbox.Content>\n</Lightbox.Root>\n",
+    code: "import { Lightbox } from 'ramka';\n\n<Lightbox.Root morphTo=\"active\">\n  <Lightbox.Trigger index={0}>\n    {({ imageRef }) => <img ref={imageRef} src={thumb} alt=\"\" />}\n  </Lightbox.Trigger>\n\n  <Lightbox.Backdrop />\n  <Lightbox.Content>\n    <Lightbox.Item index={0}>\n      {({ imageRef }) => <img ref={imageRef} src={src} alt=\"\" />}\n    </Lightbox.Item>\n  </Lightbox.Content>\n</Lightbox.Root>\n",
     source: "app/_content/lightbox/excerpts/sources/minimal-morph.tsx",
   },
   "morph-border-radius": {
@@ -59,7 +59,7 @@ export const lightboxExcerpts = {
   },
   "morph-to-closest": {
     title: "morphTo=\"closest\"",
-    code: "import { Lightbox } from 'ramka';\n\n<Lightbox.Root viewTransition morphTo=\"closest\">\n  <Lightbox.Trigger index={0}>{/* first thumb */}</Lightbox.Trigger>\n  <Lightbox.Trigger index={1}>{/* +N tile */}</Lightbox.Trigger>\n  {/* items 2…n close to the nearest trigger */}\n  <Lightbox.Content>\n    <Lightbox.Item index={0} />\n    <Lightbox.Item index={1} />\n    <Lightbox.Item index={2} />\n  </Lightbox.Content>\n</Lightbox.Root>\n",
+    code: "import { Lightbox } from 'ramka';\n\n<Lightbox.Root morphTo=\"closest\">\n  <Lightbox.Trigger index={0}>{/* first thumb */}</Lightbox.Trigger>\n  <Lightbox.Trigger index={1}>{/* +N tile */}</Lightbox.Trigger>\n  {/* items 2…n close to the nearest trigger */}\n  <Lightbox.Content>\n    <Lightbox.Item index={0} />\n    <Lightbox.Item index={1} />\n    <Lightbox.Item index={2} />\n  </Lightbox.Content>\n</Lightbox.Root>\n",
     source: "app/_content/lightbox/excerpts/sources/morph-to-closest.tsx",
   },
   "no-crossfade-hard-cut": {
@@ -74,12 +74,12 @@ export const lightboxExcerpts = {
   },
   "quick-start": {
     title: "App.tsx",
-    code: "import { Lightbox } from 'ramka';\n\n<Lightbox.Root viewTransition>\n  {items.map((item, i) => (\n    <Lightbox.Trigger key={item.id} index={i}>\n      {({ imageRef }) => <img ref={imageRef} src={item.thumb} alt={item.alt} />}\n    </Lightbox.Trigger>\n  ))}\n\n  <Lightbox.Backdrop />\n  <Lightbox.Content>\n    <Lightbox.Slides>\n      {items.map((item, i) => (\n        <Lightbox.Slide key={item.id}>\n          <Lightbox.Item index={i}>\n            {({ imageRef }) => <img ref={imageRef} src={item.src} alt={item.alt} />}\n          </Lightbox.Item>\n        </Lightbox.Slide>\n      ))}\n    </Lightbox.Slides>\n  </Lightbox.Content>\n</Lightbox.Root>\n",
+    code: "import { Lightbox } from 'ramka';\n\n<Lightbox.Root>\n  {items.map((item, i) => (\n    <Lightbox.Trigger key={item.id} index={i}>\n      {({ imageRef }) => <img ref={imageRef} src={item.thumb} alt={item.alt} />}\n    </Lightbox.Trigger>\n  ))}\n\n  <Lightbox.Backdrop />\n  <Lightbox.Content>\n    <Lightbox.Slides>\n      {items.map((item, i) => (\n        <Lightbox.Slide key={item.id}>\n          <Lightbox.Item index={i}>\n            {({ imageRef }) => <img ref={imageRef} src={item.src} alt={item.alt} />}\n          </Lightbox.Item>\n        </Lightbox.Slide>\n      ))}\n    </Lightbox.Slides>\n  </Lightbox.Content>\n</Lightbox.Root>\n",
     source: "app/_content/lightbox/excerpts/sources/quick-start.tsx",
   },
   "scroll-trigger-into-view": {
     title: "scrollTriggerIntoView",
-    code: "import { Lightbox } from 'ramka';\n\n<Lightbox.Root\n  viewTransition\n  scrollTriggerIntoView={[\n    { type: 'onChange', behavior: 'instant' },\n    { type: 'onOpenComplete', behavior: 'instant' },\n  ]}\n>\n  {/* triggers + content */}\n</Lightbox.Root>\n",
+    code: "import { Lightbox } from 'ramka';\n\n<Lightbox.Root\n  scrollTriggerIntoView={[\n    { type: 'onChange', behavior: 'instant' },\n    { type: 'onOpenComplete', behavior: 'instant' },\n  ]}\n>\n  {/* triggers + content */}\n</Lightbox.Root>\n",
     source: "app/_content/lightbox/excerpts/sources/scroll-trigger-into-view.tsx",
   },
   "slides-nesting": {

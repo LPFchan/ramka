@@ -40,7 +40,7 @@ function imgDims(url: string) {
 /** Compact live demo for the Lightbox docs hero. */
 export function LightboxHeroDemo() {
   return (
-    <Lightbox.Root viewTransition>
+    <Lightbox.Root>
       <div className="grid max-w-md grid-cols-3 gap-2">
         {images.map((img, i) => (
           <Lightbox.Trigger

@@ -12,7 +12,7 @@ declare const extras: number;
  */
 export function CrossfadeBothExcerpt() {
   return (
-    <Lightbox.Root viewTransition morphTo="closest">
+    <Lightbox.Root morphTo="closest">
       <Lightbox.Trigger index={0} crossfade="both">
         {({ imageRef }) => (
           <div className="relative">

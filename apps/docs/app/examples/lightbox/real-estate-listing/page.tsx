@@ -192,7 +192,6 @@ export default function RealEstateListingPage() {
       }
     >
       <Lightbox.Root
-        viewTransition
         loop
         scrollTriggerIntoView={{ type: 'onClose', behavior: 'instant' }}
       >

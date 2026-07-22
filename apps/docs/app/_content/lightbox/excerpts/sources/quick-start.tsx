@@ -10,7 +10,7 @@ declare const items: { id: string; src: string; thumb: string; alt: string }[];
  */
 export function QuickStartExcerpt() {
   return (
-    <Lightbox.Root viewTransition>
+    <Lightbox.Root>
       {items.map((item, i) => (
         <Lightbox.Trigger key={item.id} index={i}>
           {({ imageRef }) => <img ref={imageRef} src={item.thumb} alt={item.alt} />}

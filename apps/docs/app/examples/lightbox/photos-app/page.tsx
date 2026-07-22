@@ -146,7 +146,6 @@ export default function PhotosAppPage() {
   return (
     <div className="min-h-screen bg-white dark:bg-[#1c1c1e] select-none">
       <Lightbox.Root
-        viewTransition
         loop
         scrollTriggerIntoView={[
           { type: 'onChange', behavior: 'instant' },

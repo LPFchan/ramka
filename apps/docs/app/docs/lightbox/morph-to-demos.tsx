@@ -43,7 +43,7 @@ function MorphDemo({
   const [activeIndex, setActiveIndex] = React.useState(0);
 
   return (
-    <Lightbox.Root viewTransition morphTo={morphTo} value={activeIndex} onValueChange={setActiveIndex}>
+    <Lightbox.Root morphTo={morphTo} value={activeIndex} onValueChange={setActiveIndex}>
       <div
         className="grid gap-2"
         style={{ gridTemplateColumns: `repeat(${triggerCount}, minmax(0, 1fr))` }}

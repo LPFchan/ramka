@@ -16,7 +16,7 @@ export default function HomePage() {
       </h1>
       <p className="mt-4 max-w-2xl text-lg leading-relaxed text-neutral-600 dark:text-neutral-400">
         Unstyled, accessible lightbox primitives for React — in the style of Radix UI and Base UI.
-        Compose your own lightbox UI on headless parts with optional view-transition morph, swipe
+        Compose your own lightbox UI on headless parts with view-transition morph by default, swipe
         slides, zoom, and pull-to-dismiss.
       </p>
 

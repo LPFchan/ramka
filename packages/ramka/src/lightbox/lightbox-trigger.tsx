@@ -115,8 +115,8 @@ const noopSubscribe = () => () => {};
  * A trigger that opens the Lightbox at a specific item index.
  * Multiple triggers can exist — each opens the lightbox at its `index`.
  *
- * When `viewTransition` is enabled on Root, the trigger element is
- * used as the morph source for the view transition animation.
+ * By default the trigger element is the morph source for the view
+ * transition animation (pass `viewTransition={false}` on Root to opt out).
  *
  * Prefer the render-function form of `children` so you can attach
  * `imageRef` to the trigger's image — that's what lets the destination

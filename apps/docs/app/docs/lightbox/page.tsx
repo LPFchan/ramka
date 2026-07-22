@@ -25,7 +25,7 @@ const guideLinks: {
   },
   {
     title: 'View transitions',
-    description: 'Morph refs, crossfade, morphTo, and scrollTriggerIntoView.',
+    description: 'Morph refs (on by default), crossfade, morphTo, and scrollTriggerIntoView.',
     href: lightboxDocsPages.viewTransitions.href,
   },
   {
@@ -73,9 +73,10 @@ export default function LightboxOverviewPage() {
             <DocsLink href={lightboxDocsPages.composition.href}>Composition</DocsLink>.
           </li>
           <li>
-            <strong className="font-medium text-neutral-800 dark:text-neutral-200">Morph?</strong> — enable{' '}
-            <code className="text-xs">viewTransition</code>, attach <code className="text-xs">imageRef</code>,
-            choose <code className="text-xs">crossfade</code> / <code className="text-xs">morphTo</code>. See{' '}
+            <strong className="font-medium text-neutral-800 dark:text-neutral-200">Morph</strong> — on by
+            default; attach <code className="text-xs">imageRef</code>, choose{' '}
+            <code className="text-xs">crossfade</code> / <code className="text-xs">morphTo</code>, or pass{' '}
+            <code className="text-xs">viewTransition={'{false}'}</code> to opt out. See{' '}
             <DocsLink href={lightboxDocsPages.viewTransitions.href}>View transitions</DocsLink>.
           </li>
           <li>

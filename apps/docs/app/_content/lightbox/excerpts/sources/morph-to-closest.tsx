@@ -8,7 +8,7 @@ import { Lightbox } from 'ramka';
  */
 export function MorphToClosestExcerpt() {
   return (
-    <Lightbox.Root viewTransition morphTo="closest">
+    <Lightbox.Root morphTo="closest">
       <Lightbox.Trigger index={0}>{/* first thumb */}</Lightbox.Trigger>
       <Lightbox.Trigger index={1}>{/* +N tile */}</Lightbox.Trigger>
       {/* items 2…n close to the nearest trigger */}
