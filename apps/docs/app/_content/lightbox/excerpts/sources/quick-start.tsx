@@ -23,11 +23,11 @@ export function QuickStartExcerpt() {
           {items.map((item, i) => (
             <Lightbox.Slide key={item.id}>
               <Lightbox.Item index={i} caption={item.caption ?? item.alt}>
-                {({ imageRef }) => (
-                  <Lightbox.Zoom>
-                    <img ref={imageRef} src={item.src} alt={item.alt} />
-                  </Lightbox.Zoom>
-                )}
+                <Lightbox.Zoom>
+                  <Lightbox.Media>
+                    <img src={item.src} alt={item.alt} />
+                  </Lightbox.Media>
+                </Lightbox.Zoom>
               </Lightbox.Item>
             </Lightbox.Slide>
           ))}

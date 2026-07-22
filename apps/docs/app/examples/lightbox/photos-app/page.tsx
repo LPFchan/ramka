@@ -7,8 +7,6 @@ import { Lightbox } from 'ramka';
 import { Heart, Minus, Plus } from 'lucide-react';
 
 import {
-  fitBoxStyle,
-  imgAspect,
   imgDims,
   LightboxGallery,
   triggerFocusClass,
@@ -193,19 +191,17 @@ export default function PhotosAppPage() {
         <LightboxGallery
           items={photos}
           ariaLabel="Library photos"
-          renderItem={(photo, _i, { imageRef }) => (
+          renderItem={(photo) => (
             <Lightbox.Zoom
               maxZoom={6}
               className="flex size-full items-center justify-center [container-type:size] px-0 pt-[calc(env(safe-area-inset-top,0px)+3.5rem)] pb-[calc(env(safe-area-inset-bottom,0px)+3.5rem)] md:px-8 md:pt-[calc(env(safe-area-inset-top,0px)+3.5rem)] md:pb-[calc(env(safe-area-inset-bottom,0px)+7.5rem)]"
             >
-              {/* `imageRef` on next/image — placeholder composes with framework
-                  image components while the consumer keeps sizing control. */}
-              <div
-                className="relative shrink-0 [--lightbox-fit-inset-x:0px] [--lightbox-fit-inset-y:0px]"
-                style={fitBoxStyle(imgAspect(photo.src))}
+              <Lightbox.Media
+                width={imgDims(photo.src)?.width ?? 1600}
+                height={imgDims(photo.src)?.height ?? 1200}
+                className="relative shrink-0 overflow-hidden rounded-none md:rounded-lg"
               >
                 <Image
-                  ref={imageRef}
                   src={photo.src}
                   alt={photo.alt}
                   width={imgDims(photo.src)?.width ?? 1600}
@@ -214,9 +210,9 @@ export default function PhotosAppPage() {
                   priority
                   unoptimized
                   draggable={false}
-                  className="size-full select-none rounded-none object-cover md:rounded-lg"
+                  className="size-full select-none"
                 />
-              </div>
+              </Lightbox.Media>
             </Lightbox.Zoom>
           )}
         />

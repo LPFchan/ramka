@@ -134,7 +134,7 @@ export const lightboxApiMeta: ApiPartMeta[] = [
     id: 'api-item',
     name: 'Item',
     description:
-      'A single lightbox item. Registers captions and morph/placeholder refs. Prefer render-prop children with imageRef on the destination <img>. Typically nested inside Slide (default) or ItemGroup (swap).',
+      'A single lightbox item. Registers captions and morph/placeholder refs. Prefer nesting Lightbox.Media (sized morph + placeholder host) around the destination <img>/<video>; imageRef / morphRef remain escape hatches. Typically nested inside Slide (default) or ItemGroup (swap).',
     extract: {
       kind: 'interface-props',
       typeName: 'LightboxItemProps',
@@ -147,10 +147,30 @@ export const lightboxApiMeta: ApiPartMeta[] = [
     },
   },
   {
+    id: 'api-media',
+    name: 'Media',
+    description:
+      'Sized destination media host — morph target and placeholder canvas container. Structural props: width/height (fit-box, same idea as Next.js Image), insetX/insetY. Cosmetics (radius, colors, object-fit) stay consumer-owned. Prefer Zoom (container-type: size) > Media > img|video. Auto-discovers the primary <img> (or video poster) for decode / thumbnail bridging.',
+    extract: {
+      kind: 'interface-props',
+      typeName: 'LightboxMediaProps',
+      file: 'lightbox-media.tsx',
+      includeInherited: ['render'],
+    },
+    attributesFrom: {
+      enumName: 'LightboxMediaDataAttributes',
+      file: 'lightbox-data-attributes.ts',
+    },
+    cssVariablesFrom: {
+      enumName: 'LightboxMediaCssVars',
+      file: 'lightbox-css-vars.ts',
+    },
+  },
+  {
     id: 'api-slides',
     name: 'Slides',
     description:
-      'Default layout: horizontal snap carousel wired to the active index. Provides ItemGroup context; put Slide → Item → Zoom inside. While the user is flinging, navigation is locked so pull-to-dismiss and zoom chrome do not fight the scroll.',
+      'Default layout: horizontal snap carousel wired to the active index. Provides ItemGroup context; put Slide → Item → Zoom → Media inside. While the user is flinging, navigation is locked so pull-to-dismiss and zoom chrome do not fight the scroll.',
     extract: {
       kind: 'interface-props',
       typeName: 'LightboxSlidesProps',
@@ -167,7 +187,7 @@ export const lightboxApiMeta: ApiPartMeta[] = [
     id: 'api-slide',
     name: 'Slide',
     description:
-      'One snap-aligned slide box inside Slides. Place a Lightbox.Item (and typically Zoom) inside.',
+      'One snap-aligned slide box inside Slides. Place a Lightbox.Item (and typically Zoom → Media) inside.',
     extract: { kind: 'none' },
     attributesFrom: {
       enumName: 'LightboxSlideDataAttributes',
@@ -281,7 +301,7 @@ export const lightboxApiMeta: ApiPartMeta[] = [
     id: 'api-zoom',
     name: 'Zoom',
     description:
-      'Pinch, wheel, double-tap, and keyboard zoom/pan surface. Wrap the media inside an Item (typically inside a Slide). Publishes to Root’s active-zoom bridge so ZoomIn/ZoomOut in toolbar chrome can target the active slide.',
+      'Pinch, wheel, double-tap, and keyboard zoom/pan surface. Prefer Zoom > Media > img|video so pan/maxZoom use Media’s content box. Publishes to Root’s active-zoom bridge so ZoomIn/ZoomOut in toolbar chrome can target the active slide.',
     extract: {
       kind: 'interface-props',
       typeName: 'LightboxZoomProps',
@@ -359,11 +379,22 @@ export const hooksApiMeta: ApiPartMeta[] = [
     id: 'api-use-item-context',
     name: 'useLightboxItemContext',
     description:
-      'Optional context from the enclosing Item. Use in nested wrappers to attach imageRef / morphRef or read active/index.',
+      'Optional context from the enclosing Item. Use in nested wrappers to attach imageRef / morphRef or read active/index. Prefer Lightbox.Media for the common morph/placeholder host.',
     extract: {
       kind: 'hook-return',
       functionName: 'useOptionalLightboxItemContext',
       file: 'lightbox-item.tsx',
+    },
+  },
+  {
+    id: 'api-use-media-context',
+    name: 'useLightboxMediaContext',
+    description:
+      'Optional context from the enclosing Media. Exposes the Media host element for advanced wrappers.',
+    extract: {
+      kind: 'hook-return',
+      functionName: 'useOptionalLightboxMediaContext',
+      file: 'lightbox-media.tsx',
     },
   },
 ];

@@ -127,6 +127,8 @@ function isMorphTargetSizeResolvable(target: HTMLElement | null): boolean {
  */
 const warnedUnwiredItems =
   process.env.NODE_ENV !== 'production' ? new WeakSet<HTMLElement>() : null;
+const warnedCollapsedMedia =
+  process.env.NODE_ENV !== 'production' ? new WeakSet<HTMLElement>() : null;
 
 /**
  * Dev-only guardrail. Fires when an item is about to morph but resolved its own
@@ -144,11 +146,34 @@ function warnUnwiredItemMorph(itemEl: HTMLElement, target: HTMLElement) {
   // eslint-disable-next-line no-console
   console.warn(
     '[ramka] Lightbox.Item is morphing into its own element (the full ' +
-      '<Lightbox.Item> box, not its parent) because no morph target was ' +
-      'designated. Pass a render function to Lightbox.Item and attach ' +
-      '`imageRef` to the destination <img> (or `morphRef` to a custom ' +
-      'element) so the trigger morphs into the media instead.',
+      '<Lightbox.Item> box) because no morph target was designated. Wrap ' +
+      'the destination media in <Lightbox.Media> (recommended), or attach ' +
+      '`imageRef` / `morphRef` on Lightbox.Item so the trigger morphs into ' +
+      'the media instead.',
     itemEl,
+  );
+}
+
+/**
+ * Dev-only: Media (or a morph target under Media) collapsed to 0×0 — usually
+ * missing `ratio` / img width×height, or Zoom without `container-type: size`.
+ */
+function warnCollapsedMediaMorph(target: HTMLElement | null) {
+  if (!warnedCollapsedMedia || !target) return;
+  const media =
+    target.hasAttribute('data-lightbox-media')
+      ? target
+      : (target.closest('[data-lightbox-media]') as HTMLElement | null);
+  if (!media || warnedCollapsedMedia.has(media)) return;
+  if (isMorphTargetSizeResolvable(target)) return;
+  warnedCollapsedMedia.add(media);
+  // eslint-disable-next-line no-console
+  console.warn(
+    '[ramka] Lightbox.Media morph target has no resolvable size (0×0). ' +
+      'Pass `width`/`height` on Media (or HTML width/height on the child <img>) ' +
+      'and put `container-type: size` on Zoom so the fit-box can resolve. ' +
+      'Falling back to a root crossfade.',
+    media,
   );
 }
 
@@ -598,6 +623,9 @@ function useViewTransitionMorph(config: ViewTransitionMorphConfig): ViewTransiti
     // to designate a morph target (imageRef / morphRef).
     if (canMorph && itemElPrep && itemTargetPrep === itemElPrep) {
       warnUnwiredItemMorph(itemElPrep, itemTargetPrep);
+    }
+    if (!canMorph) {
+      warnCollapsedMediaMorph(itemTargetPrep);
     }
 
     // Read the destination radius only when morphing (style/layout are already

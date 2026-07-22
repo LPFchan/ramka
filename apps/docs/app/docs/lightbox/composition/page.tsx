@@ -58,9 +58,13 @@ export default function LightboxCompositionPage() {
 
       <DocsSection id="media-layout" title="Media layout">
         <p>
-          ramka is headless — nothing sizes Slide / Item / Zoom for you. For a fullscreen gallery, make
-          the media stack fill <DocsLink href={lightboxApiHref.content}>Content</DocsLink> so when Zoom
-          scales past 1× the image can cover the viewport and is not clipped by a shorter ancestor.
+          Ramka is <em>cosmetically</em> unstyled — colors and chrome are yours — but Media may apply{' '}
+          <em>structural</em> fit-box styles via <code className="text-xs">width</code>/
+          <code className="text-xs">height</code> (same idea as Next.js{' '}
+          <code className="text-xs">&lt;Image&gt;</code>) so the morph target has a correct aspect before
+          pixels load. Nothing sizes Slide / Item / Zoom for you: for a fullscreen gallery, make the media
+          stack fill <DocsLink href={lightboxApiHref.content}>Content</DocsLink> so when Zoom scales past
+          1× the image can cover the viewport and is not clipped by a shorter ancestor.
         </p>
         <ul className="list-disc space-y-2 pl-5">
           <li>
@@ -82,6 +86,11 @@ export default function LightboxCompositionPage() {
             <code className="text-xs">Zoom</code> — <code className="text-xs">size-full</code> (the
             zoom/pan surface)
           </li>
+          <li>
+            <code className="text-xs">Media</code> — sized fit-box (morph + placeholder host);{' '}
+            <code className="text-xs">&lt;img&gt;</code> / <code className="text-xs">&lt;video&gt;</code>{' '}
+            inside
+          </li>
         </ul>
         <p>
           Keep Close, Counter, Caption, and thumbnails as <em>absolutely positioned siblings</em> of
@@ -100,15 +109,19 @@ export default function LightboxCompositionPage() {
         </p>
         <p>
           To fill the maximum available space without distorting the source aspect ratio, put{' '}
-          <code className="text-xs">container-type: size</code> on Zoom and wrap the image in the largest
-          rectangle of aspect <code className="text-xs">ratio</code> that fits that container (
-          <code className="text-xs">min(100cqw − inset, 100cqh × ratio)</code> +{' '}
-          <code className="text-xs">aspect-ratio</code>). Set{' '}
-          <code className="text-xs">--lightbox-fit-inset-x</code> /{' '}
-          <code className="text-xs">--lightbox-fit-inset-y</code> on Zoom (the size container) to shrink
-          the resting fit box for overlapping chrome — they default to <code className="text-xs">0</code>{' '}
-          if omitted. Gallery chrome often uses Zoom padding for insets instead and leaves these vars at{' '}
-          <code className="text-xs">0</code>.
+          <code className="text-xs">container-type: size</code> on Zoom and pass{' '}
+          <code className="text-xs">width</code>/<code className="text-xs">height</code> to{' '}
+          <DocsLink href={lightboxApiHref.media}>Lightbox.Media</DocsLink>. Media applies the inscribed
+          fit-box (
+          <code className="text-xs">min(100cqw − inset, 100cqh × w/h)</code> +{' '}
+          <code className="text-xs">aspect-ratio: w / h</code>). Or put HTML{' '}
+          <code className="text-xs">width</code>/<code className="text-xs">height</code> on the child
+          image and omit the Media props — Media derives the box. When the box matches the source
+          aspect, child <code className="text-xs">object-fit</code> is a no-op; put border-radius on Media
+          (morph target). Leave chrome outside Media. Optional{' '}
+          <code className="text-xs">insetX</code>/<code className="text-xs">insetY</code> (or{' '}
+          <code className="text-xs">--lightbox-fit-inset-x/y</code>) shrink the resting box; gallery chrome
+          often uses Zoom padding instead.
         </p>
         <CodeBlock
           code={lightboxExcerpts['media-fit-box'].code}

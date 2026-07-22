@@ -31,7 +31,9 @@ export function CreateHandleExcerpt() {
               <Lightbox.Slide key={img.id}>
                 <Lightbox.Item index={i}>
                   <Lightbox.Zoom>
-                    <img src={img.src} alt={img.alt} />
+                    <Lightbox.Media>
+                      <img src={img.src} alt={img.alt} />
+                    </Lightbox.Media>
                   </Lightbox.Zoom>
                 </Lightbox.Item>
               </Lightbox.Slide>

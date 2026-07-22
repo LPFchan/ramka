@@ -50,7 +50,7 @@ export default function LightboxOverviewPage() {
   return (
     <DocsShell
       title="Lightbox"
-      description="Unstyled, accessible primitives for building fullscreen media lightboxes — compound parts in the style of Base UI and Radix. You own all layout and CSS; ramka owns state, focus, gestures, and optional view-transition morphs."
+      description="Accessible primitives for fullscreen media lightboxes — compound parts in the style of Base UI and Radix. Cosmetically unstyled: you own colors, chrome, and radius values. Ramka owns state, focus, gestures, morphs, and structural styles required for those mechanics."
       toc={toc}
     >
       <div className="rounded-xl border border-neutral-200 p-4 dark:border-neutral-800">
@@ -76,7 +76,8 @@ export default function LightboxOverviewPage() {
           </li>
           <li>
             <strong className="font-medium text-neutral-800 dark:text-neutral-200">Morph</strong> — on by
-            default; attach <code className="text-xs">imageRef</code>, choose{' '}
+            default; wrap destination media in <code className="text-xs">Lightbox.Media</code> (and{' '}
+            <code className="text-xs">imageRef</code> on Trigger thumbs), choose{' '}
             <code className="text-xs">crossfade</code> / <code className="text-xs">morphTo</code>, or pass{' '}
             <code className="text-xs">viewTransition={'{false}'}</code> to opt out. See{' '}
             <DocsLink href={lightboxDocsPages.viewTransitions.href}>View transitions</DocsLink>.
@@ -87,9 +88,14 @@ export default function LightboxOverviewPage() {
             <DocsLink href={lightboxDocsPages.gestures.href}>Gestures</DocsLink>.
           </li>
           <li>
-            <strong className="font-medium text-neutral-800 dark:text-neutral-200">Headless styling</strong> — ship
-            your own CSS; use documented <code className="text-xs">data-*</code> attributes and CSS variables from
-            the <DocsLink href={lightboxDocsPages.api.href}>API reference</DocsLink>.
+            <strong className="font-medium text-neutral-800 dark:text-neutral-200">
+              Cosmetics vs mechanics
+            </strong>{' '}
+            — colors, chrome, and radius <em>values</em> are yours. Structural styles (morph host box, zoom
+            overflow, placeholders) are applied by the library or via Media{' '}
+            <code className="text-xs">width</code>/<code className="text-xs">height</code>. Style with
+            documented <code className="text-xs">data-*</code> attributes and CSS variables from the{' '}
+            <DocsLink href={lightboxDocsPages.api.href}>API reference</DocsLink>.
           </li>
         </ol>
       </DocsSection>

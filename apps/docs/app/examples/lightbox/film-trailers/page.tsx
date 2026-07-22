@@ -5,7 +5,11 @@ import { Lightbox } from 'ramka';
 import { Play } from 'lucide-react';
 
 import { ExampleShell } from '../../../_components/example-shell';
-import { LightboxGallery, morphHideClass, triggerFocusClass } from '../../../_components/lightbox-chrome';
+import {
+  LightboxGallery,
+  morphHideClass,
+  triggerFocusClass,
+} from '../../../_components/lightbox-chrome';
 
 /**
  * Blender Open Movies — real trailers/shorts with their official posters
@@ -66,25 +70,17 @@ function LightboxVideo({
   src,
   poster,
   readyToPlay,
-  morphRef,
+  width,
+  height,
 }: {
   src: string;
   poster: string;
   /** True only after `onOpenChangeComplete(true)` — keeps playback off during the open morph. */
   readyToPlay: boolean;
-  morphRef: (node: HTMLElement | null) => void;
+  width: number;
+  height: number;
 }) {
   const videoRef = React.useRef<HTMLVideoElement>(null);
-
-  // Combine the local ref (play/pause) with the item's `morphRef` so the
-  // <video> is the designated morph target.
-  const setVideoRef = React.useCallback(
-    (node: HTMLVideoElement | null) => {
-      videoRef.current = node;
-      morphRef(node);
-    },
-    [morphRef],
-  );
 
   // Autoplay only after the open transition finishes. While closed / mid-open /
   // closing, stay paused at 0 so the poster frame stays stable for the morph.
@@ -100,16 +96,25 @@ function LightboxVideo({
   }, [readyToPlay]);
 
   return (
-    <video
-      ref={setVideoRef}
-      src={src}
-      poster={poster}
-      controls
-      playsInline
-      muted
-      preload="metadata"
-      className="size-full bg-black object-contain"
-    />
+    <Lightbox.Zoom className="flex size-full items-center justify-center [container-type:size] px-0 pt-[calc(env(safe-area-inset-top,0px)+3.5rem)] pb-[calc(env(safe-area-inset-bottom,0px)+3.5rem)] md:px-8">
+      {/* Media morphs + bridges the poster; video fills the sized host. */}
+      <Lightbox.Media
+        width={width}
+        height={height}
+        className="relative shrink-0 overflow-hidden rounded-xl"
+      >
+        <video
+          ref={videoRef}
+          src={src}
+          poster={poster}
+          controls
+          playsInline
+          muted
+          preload="metadata"
+          className="size-full bg-black object-contain"
+        />
+      </Lightbox.Media>
+    </Lightbox.Zoom>
   );
 }
 
@@ -173,12 +178,13 @@ function FilmLightbox({ film }: { film: (typeof films)[number] }) {
         ariaLabel={film.title}
         thumbnails="never"
         zoomControls={false}
-        renderItem={(_item, _i, { morphRef }) => (
+        renderItem={() => (
           <LightboxVideo
             src={film.video}
             poster={film.poster}
             readyToPlay={readyToPlay}
-            morphRef={morphRef}
+            width={film.posterWidth}
+            height={film.posterHeight}
           />
         )}
       />

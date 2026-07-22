@@ -100,6 +100,17 @@ export enum LightboxThumbnailDataAttributes {
   index = 'data-index',
 }
 
+export enum LightboxMediaDataAttributes {
+  /** Always present on the media host. */
+  media = 'data-lightbox-media',
+  /** Present while the open-morph placeholder canvas is bridging. */
+  placeholder = 'data-placeholder',
+  /** Present when a structural fit-box width is resolved (prop or img dims). */
+  width = 'data-width',
+  /** Present when a structural fit-box height is resolved (prop or img dims). */
+  height = 'data-height',
+}
+
 export enum LightboxZoomDataAttributes {
   /** Present when zoom > 1. */
   zoom = 'data-zoom',

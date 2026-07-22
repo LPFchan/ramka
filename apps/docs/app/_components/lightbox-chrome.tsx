@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { Lightbox, useLightboxItemContext, useLightboxTriggerContext } from 'ramka';
+import { Lightbox, useLightboxTriggerContext } from 'ramka';
 import { ChevronLeft, ChevronRight, X, ZoomIn, ZoomOut } from 'lucide-react';
 
 /**
@@ -72,18 +72,8 @@ export function imgAspect(url: string): number {
 }
 
 /**
- * Wrapper style for the "largest rectangle of the given aspect ratio that fits
- * inside the container" trick. The parent must set `container-type: size` so
- * `cqw`/`cqh` resolve to its box. The wrapper's width is the smaller of the
- * full container width and the width that would make its height equal the
- * container height; `aspect-ratio` then derives a height that never exceeds it.
- * `--lightbox-fit-inset-x` / `--lightbox-fit-inset-y` (default 0) leave room
- * for overlapping chrome inside the size container.
- *
- * This keeps the box correctly sized *before the image loads* — unlike
- * `size: auto`, which collapses an unloaded `<img>` to 0×0 and would skip the
- * open morph on a slow connection. Sizing lives here, in consumer code — the
- * lightbox primitives stay headless and never impose layout.
+ * @deprecated Prefer `<Lightbox.Media width={…} height={…} />` — Media applies
+ * this structural fit-box itself. Kept for custom layouts that size a non-Media host.
  */
 export function fitBoxStyle(ratio: number): React.CSSProperties {
   return {
@@ -169,20 +159,20 @@ export function LightboxGallery({
                       maxZoom={maxZoom}
                       className="flex size-full items-center justify-center [container-type:size] px-0 pt-[calc(env(safe-area-inset-top,0px)+3.5rem)] pb-[calc(env(safe-area-inset-bottom,0px)+3.5rem)] md:px-8 md:pt-[calc(env(safe-area-inset-top,0px)+3.5rem)] md:pb-[calc(env(safe-area-inset-bottom,0px)+7.5rem)]"
                     >
-                      <div
-                        className="relative shrink-0 [--lightbox-fit-inset-x:0px] [--lightbox-fit-inset-y:0px]"
-                        style={fitBoxStyle(imgAspect(item.src))}
+                      {/* Radius is cosmetic on Media; width/height are structural. */}
+                      <Lightbox.Media
+                        {...imgDims(item.src)}
+                        className="relative shrink-0 overflow-hidden rounded-none md:rounded-lg"
                       >
                         <img
-                          ref={imageRef}
                           {...imgDims(item.src)}
                           src={item.src}
                           alt={item.alt}
                           loading="eager"
                           draggable={false}
-                          className="size-full select-none rounded-none object-cover md:rounded-lg"
+                          className="size-full select-none"
                         />
-                      </div>
+                      </Lightbox.Media>
                     </Lightbox.Zoom>
                   )
                 }
@@ -426,24 +416,23 @@ export function LightboxTriggerImage({
 }
 
 export function LightboxFullImage({ src, alt }: { src: string; alt: string }) {
-  // Consumer owns layout: the container establishes the query context and the
-  // fit-box reserves the aspect-ratio box before load. `imageRef` (from the
-  // enclosing Lightbox.Item) marks this as the morph destination and lets the
-  // open transition bridge the blank frame with the trigger's thumbnail until
-  // the pixels arrive.
-  const item = useLightboxItemContext();
+  // Structural: Media width/height/insets. Cosmetic: rounded-lg on Media (morph target).
   return (
-    <div className="flex size-full items-center justify-center [container-type:size] [--lightbox-fit-inset-x:2rem] [--lightbox-fit-inset-y:2rem]">
-      <div className="relative shrink-0" style={fitBoxStyle(imgAspect(src))}>
+    <div className="flex size-full items-center justify-center [container-type:size]">
+      <Lightbox.Media
+        {...imgDims(src)}
+        insetX="2rem"
+        insetY="2rem"
+        className="relative shrink-0 overflow-hidden rounded-lg"
+      >
         <img
-          ref={item?.imageRef}
           {...imgDims(src)}
           src={src}
           alt={alt}
           loading="eager"
-          className="size-full rounded-lg object-cover"
+          className="size-full"
         />
-      </div>
+      </Lightbox.Media>
     </div>
   );
 }

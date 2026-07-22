@@ -36,20 +36,22 @@ export default function LightboxViewTransitionsPage() {
         <p>
           Morph is on by default (<code className="text-xs">viewTransition</code> on{' '}
           <DocsLink href={lightboxApiHref.root}>Root</DocsLink>). Pass{' '}
-          <code className="text-xs">viewTransition={'{false}'}</code> to opt out. Prefer render-prop
-          children on <DocsLink href={lightboxApiHref.trigger}>Trigger</DocsLink> and{' '}
-          <DocsLink href={lightboxApiHref.item}>Item</DocsLink> so you can attach:
+          <code className="text-xs">viewTransition={'{false}'}</code> to opt out. Recommended destination
+          shape: <DocsLink href={lightboxApiHref.media}>Lightbox.Media</DocsLink> around the{' '}
+          <code className="text-xs">&lt;img&gt;</code> / <code className="text-xs">&lt;video&gt;</code>{' '}
+          (sized fit-box = morph target + placeholder host). On{' '}
+          <DocsLink href={lightboxApiHref.trigger}>Trigger</DocsLink>, prefer a render prop:
         </p>
         <ul className="list-disc space-y-2 pl-5">
           <li>
-            <code className="text-xs">imageRef</code> — put on the <code className="text-xs">&lt;img&gt;</code>{' '}
-            whose pixels should bridge the morph (thumb on Trigger, destination image on Item). Lets
-            open reuse an already-decoded bitmap so the transition doesn’t flash empty space.
+            <code className="text-xs">imageRef</code> — put on the Trigger thumb{' '}
+            <code className="text-xs">&lt;img&gt;</code> whose pixels bridge the morph. Media
+            auto-discovers the destination image (or video poster). Lets open reuse an already-decoded
+            bitmap so the transition doesn’t flash empty space.
           </li>
           <li>
-            <code className="text-xs">morphRef</code> — optional. Put on a larger element when the morph
-            bounds should be bigger than the image alone (tile with overlay, swatch + label). Default
-            is the whole Trigger / Item host.
+            <code className="text-xs">morphRef</code> — optional escape hatch when morph bounds should
+            differ from Media / the image (tile with overlay, swatch + label).
           </li>
         </ul>
         <p>
@@ -204,8 +206,10 @@ export default function LightboxViewTransitionsPage() {
 
       <DocsSection id="styling" title="Styling">
         <p>
-          Ramka is unstyled: it sets document hooks during a morph so <em>your</em> CSS can drive{' '}
-          <code className="text-xs">::view-transition-*</code>. Attribute / CSS-variable tables live under{' '}
+          Ramka is cosmetically unstyled: it sets document hooks during a morph so <em>your</em> CSS can
+          drive <code className="text-xs">::view-transition-*</code> (and Media may apply a structural
+          fit-box via <code className="text-xs">width</code>/<code className="text-xs">height</code>).
+          Attribute / CSS-variable tables live under{' '}
           <DocsLink href={lightboxApiHref.documentVt}>Document (view transitions)</DocsLink>. Hooks:
         </p>
         <ul className="list-disc space-y-2 pl-5">

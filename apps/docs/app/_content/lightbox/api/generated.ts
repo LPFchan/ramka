@@ -181,6 +181,33 @@ export const generatedProps: Record<string, PropRow[]> = {
       description: "Allows you to replace the component's HTML element with a different tag, or compose it with another component.\n\nAccepts a `ReactElement` or a function that returns the element to render.",
     },
   ],
+  "api-media": [
+    {
+      name: "width",
+      type: "number",
+      description: "Intrinsic pixel width of the media (same idea as Next.js `<Image width>`). With `height`, applies a structural inscribed fit-box. When omitted, dims are taken from the child `<img>`’s HTML `width`/`height` if present.",
+    },
+    {
+      name: "height",
+      type: "number",
+      description: "Intrinsic pixel height of the media (same idea as Next.js `<Image height>`).",
+    },
+    {
+      name: "insetX",
+      type: "string | number",
+      description: "Horizontal inset for the fit-box calc (writes `--lightbox-fit-inset-x`). Prefer Zoom padding for chrome; use insets when the resting box must shrink inside the container query.",
+    },
+    {
+      name: "insetY",
+      type: "string | number",
+      description: "Vertical inset for the fit-box calc (writes `--lightbox-fit-inset-y`).",
+    },
+    {
+      name: "render",
+      type: "ReactElement | ComponentRenderFn",
+      description: "Allows you to replace the component's HTML element with a different tag, or compose it with another component.\n\nAccepts a `ReactElement` or a function that returns the element to render.",
+    },
+  ],
   "api-slides": [
     {
       name: "preload",
@@ -353,7 +380,14 @@ export const generatedProps: Record<string, PropRow[]> = {
     {
       name: "(return)",
       type: "LightboxItemContextValue | null",
-      description: "Optional context from the enclosing Item. Returns `{ index, active, imageRef, morphRef }`, or `null` outside an Item.",
+      description: "Optional context from the enclosing Item. Returns `{ index, active, imageRef, morphRef, registerMedia }`, or `null` outside an Item.",
+    },
+  ],
+  "api-use-media-context": [
+    {
+      name: "(return)",
+      type: "LightboxMediaContextValue | null",
+      description: "—",
     },
   ],
   "api-create-handle": [
@@ -497,6 +531,24 @@ export const generatedAttributes: Record<string, AttrRow[]> = {
       description: "Transient during view-transition open — suppress consumer entrance fades on the destination item.",
     },
   ],
+  "api-media": [
+    {
+      name: "data-lightbox-media",
+      description: "Always present on the media host.",
+    },
+    {
+      name: "data-placeholder",
+      description: "Present while the open-morph placeholder canvas is bridging.",
+    },
+    {
+      name: "data-width",
+      description: "Present when a structural fit-box width is resolved (prop or img dims).",
+    },
+    {
+      name: "data-height",
+      description: "Present when a structural fit-box height is resolved (prop or img dims).",
+    },
+  ],
   "api-slides": [
     {
       name: "data-active-index",
@@ -596,6 +648,7 @@ export const generatedAttributes: Record<string, AttrRow[]> = {
   ],
   "api-use-trigger-context": [],
   "api-use-item-context": [],
+  "api-use-media-context": [],
   "api-create-handle": [],
   "api-zoom-ref": [],
 };
@@ -617,6 +670,16 @@ export const generatedCssVariables: Record<string, CssVarRow[]> = {
   ],
   "api-close": [],
   "api-item": [],
+  "api-media": [
+    {
+      name: "--lightbox-fit-inset-x",
+      description: "Horizontal inset subtracted from `100cqw` in Media’s fit-box width calc.",
+    },
+    {
+      name: "--lightbox-fit-inset-y",
+      description: "Vertical inset subtracted from `100cqh` in Media’s fit-box width calc.",
+    },
+  ],
   "api-slides": [],
   "api-slide": [],
   "api-item-group": [],
@@ -649,6 +712,7 @@ export const generatedCssVariables: Record<string, CssVarRow[]> = {
   ],
   "api-use-trigger-context": [],
   "api-use-item-context": [],
+  "api-use-media-context": [],
   "api-create-handle": [],
   "api-zoom-ref": [],
 };

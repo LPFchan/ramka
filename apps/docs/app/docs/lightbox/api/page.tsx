@@ -23,6 +23,7 @@ const byConcern: { label: string; links: { href: string; title: string }[] }[] =
     links: [
       { href: lightboxApiHref.trigger, title: 'Trigger' },
       { href: lightboxApiHref.item, title: 'Item' },
+      { href: lightboxApiHref.media, title: 'Media' },
     ],
   },
   {

@@ -37,9 +37,10 @@
  *   Close           — Closes the lightbox
  *   ItemGroup       — Container for items, manages swap rendering + preload
  *   Item            — Individual media item with lazy-load support. Its render
- *                     function exposes `imageRef` (mark the destination image,
- *                     enabling the flash-free trigger-thumbnail placeholder) and
- *                     `morphRef` (override what morphs)
+ *                     function exposes `imageRef` / `morphRef` (escape hatches;
+ *                     prefer Media for the common case)
+ *   Media           — Sized destination media host (morph + placeholder canvas).
+ *                     Put fit-box sizing here; place <img>/<video> inside
  *   Previous/Next   — Navigation buttons (auto-disable at boundaries)
  *   Counter         — "1 / 12" display with aria-live
  *   Caption         — Per-item caption from Item's caption prop
@@ -59,6 +60,7 @@ export { LightboxBackdrop as Backdrop } from './lightbox-backdrop';
 export { LightboxClose as Close } from './lightbox-close';
 export { LightboxItemGroup as ItemGroup } from './lightbox-item-group';
 export { LightboxItem as Item } from './lightbox-item';
+export { LightboxMedia as Media } from './lightbox-media';
 export { LightboxSlides as Slides } from './lightbox-slides';
 export { LightboxSlide as Slide } from './lightbox-slide';
 export { LightboxPrevious as Previous } from './lightbox-previous';
@@ -87,6 +89,11 @@ export type {
   LightboxItemState,
   LightboxItemRenderState,
 } from './lightbox-item';
+export type {
+  LightboxMediaProps,
+  LightboxMediaState,
+  LightboxMediaContextValue,
+} from './lightbox-media';
 export type { LightboxSlidesProps, LightboxSlidesState } from './lightbox-slides';
 export type { LightboxSlideProps } from './lightbox-slide';
 export type { LightboxPreviousProps, LightboxPreviousState } from './lightbox-previous';
@@ -106,6 +113,7 @@ export {
   LightboxBackdropDataAttributes,
   LightboxItemGroupDataAttributes,
   LightboxItemDataAttributes,
+  LightboxMediaDataAttributes,
   LightboxSlidesDataAttributes,
   LightboxSlideDataAttributes,
   LightboxPreviousDataAttributes,
@@ -121,5 +129,6 @@ export {
 export {
   LightboxContentCssVars,
   LightboxBackdropCssVars,
+  LightboxMediaCssVars,
   LightboxDocumentCssVars,
 } from './lightbox-css-vars';

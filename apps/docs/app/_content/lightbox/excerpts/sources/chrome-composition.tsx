@@ -18,7 +18,9 @@ export function ChromeCompositionExcerpt() {
             <Lightbox.Slide key={item.id}>
               <Lightbox.Item index={i} caption={item.caption}>
                 <Lightbox.Zoom>
-                  <img src={item.src} alt={item.alt} />
+                  <Lightbox.Media>
+                    <img src={item.src} alt={item.alt} />
+                  </Lightbox.Media>
                 </Lightbox.Zoom>
               </Lightbox.Item>
             </Lightbox.Slide>

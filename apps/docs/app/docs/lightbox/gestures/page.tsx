@@ -46,8 +46,9 @@ export default function LightboxGesturesPage() {
         </p>
         <ul className="list-disc space-y-2 pl-5">
           <li>
-            Hit target prefers the active item’s <code className="text-xs">imageRef</code> /{' '}
-            <code className="text-xs">morphRef</code> when present so chrome does not steal the gesture.
+            Hit target prefers the active item’s <code className="text-xs">Lightbox.Media</code> host
+            (or <code className="text-xs">imageRef</code> / <code className="text-xs">morphRef</code>) so
+            chrome does not steal the gesture.
           </li>
           <li>
             Disabled while zoomed above 1× or while Slides reports an in-progress scroll (navigation
@@ -72,12 +73,13 @@ export default function LightboxGesturesPage() {
       <DocsSection id="zoom" title="Zoom">
         <p>
           Wrap media in <DocsLink href={lightboxApiHref.zoom}>Zoom</DocsLink> (inside Item, typically
-          inside Slide). Supports pinch, pan, double-tap, ctrl/meta+wheel (or{' '}
-          <code className="text-xs">scrollToZoom</code>), and keyboard pan when focused.
+          inside Slide). Prefer <DocsLink href={lightboxApiHref.media}>Media</DocsLink> inside Zoom so
+          pan / maxZoom use the sized content box. Supports pinch, pan, double-tap, ctrl/meta+wheel
+          (or <code className="text-xs">scrollToZoom</code>), and keyboard pan when focused.
         </p>
         <p>
-          Zoomed media can cover the full Content surface only if Slide → Item → Zoom fill that box —
-          see{' '}
+          Zoomed media can cover the full Content surface only if Slide → Item → Zoom → Media fill that
+          box — see{' '}
           <DocsLink href={`${lightboxDocsPages.composition.href}#media-layout`}>
             Composition → Media layout
           </DocsLink>

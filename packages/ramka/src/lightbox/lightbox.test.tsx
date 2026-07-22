@@ -20,6 +20,7 @@ import { LightboxRoot } from './lightbox-root';
 import { LightboxThumbnail } from './lightbox-thumbnail';
 import { LightboxThumbnailGroup } from './lightbox-thumbnail-group';
 import { LightboxTrigger } from './lightbox-trigger';
+import { LightboxMedia } from './lightbox-media';
 import { LightboxZoom, type LightboxZoomRef } from './lightbox-zoom';
 import { LightboxZoomIn } from './lightbox-zoom-in';
 import { LightboxZoomOut } from './lightbox-zoom-out';
@@ -1979,6 +1980,107 @@ describe('Lightbox', () => {
         );
         warn.mockRestore();
       });
+
+      it('does NOT warn when Lightbox.Media wraps the destination image', () => {
+        mockViewTransitionAPI();
+        mockResolvableBox();
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+        render(
+          <LightboxRoot viewTransition awaitImageDecode={false}>
+            <LightboxTrigger index={0} data-testid="trigger-0">
+              Open
+            </LightboxTrigger>
+            <LightboxContent data-testid="content" aria-label="media wired">
+              <LightboxItemGroup>
+                <LightboxItem index={0} data-testid="item-0">
+                  <LightboxZoom>
+                    <LightboxMedia data-testid="media">
+                      <img src="a.jpg" alt="a" />
+                    </LightboxMedia>
+                  </LightboxZoom>
+                </LightboxItem>
+              </LightboxItemGroup>
+            </LightboxContent>
+          </LightboxRoot>,
+        );
+        fireEvent.click(screen.getByTestId('trigger-0'));
+
+        expect(warn).not.toHaveBeenCalledWith(
+          expect.stringContaining(MORPH_WARN),
+          expect.anything(),
+        );
+        // Morph targets Media (sized host), not the Item root.
+        expect(
+          screen.getByTestId('media').style.getPropertyValue('view-transition-name'),
+        ).toBe('lightbox-morph');
+        warn.mockRestore();
+      });
+
+      it('warns when Lightbox.Media collapses to 0×0 (no resolvable fit-box)', () => {
+        mockViewTransitionAPI();
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+        // Trigger has a box (so open proceeds); Media stays 0×0.
+        originalRect = Object.getOwnPropertyDescriptor(
+          HTMLElement.prototype,
+          'getBoundingClientRect',
+        );
+        Object.defineProperty(HTMLElement.prototype, 'getBoundingClientRect', {
+          value: function (this: HTMLElement) {
+            if (this.getAttribute('data-testid') === 'media') {
+              return {
+                width: 0,
+                height: 0,
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                x: 0,
+                y: 0,
+                toJSON() {},
+              };
+            }
+            return {
+              width: 80,
+              height: 80,
+              top: 0,
+              left: 0,
+              right: 80,
+              bottom: 80,
+              x: 0,
+              y: 0,
+              toJSON() {},
+            };
+          },
+          writable: true,
+          configurable: true,
+        });
+
+        render(
+          <LightboxRoot viewTransition awaitImageDecode={false}>
+            <LightboxTrigger index={0} data-testid="trigger-0">
+              Open
+            </LightboxTrigger>
+            <LightboxContent aria-label="collapsed media">
+              <LightboxItemGroup>
+                <LightboxItem index={0}>
+                  <LightboxMedia data-testid="media">
+                    <img src="a.jpg" alt="a" />
+                  </LightboxMedia>
+                </LightboxItem>
+              </LightboxItemGroup>
+            </LightboxContent>
+          </LightboxRoot>,
+        );
+        fireEvent.click(screen.getByTestId('trigger-0'));
+
+        expect(warn).toHaveBeenCalledWith(
+          expect.stringContaining('no resolvable size'),
+          screen.getByTestId('media'),
+        );
+        warn.mockRestore();
+      });
+
     });
 
     it('does not use VT when prefers-reduced-motion is set', () => {
@@ -2163,6 +2265,56 @@ describe('Lightbox', () => {
     it('renders zoom container with children', () => {
       render(<ZoomLightbox />);
       expect(screen.getByTestId('zoom-img')).toBeInTheDocument();
+    });
+
+    it('prefers Lightbox.Media box for pan content size over a smaller img', () => {
+      const ref = React.createRef<LightboxZoomRef>();
+      const origRect = HTMLElement.prototype.getBoundingClientRect;
+      HTMLElement.prototype.getBoundingClientRect = function () {
+        return {
+          width: 800,
+          height: 800,
+          top: 0,
+          left: 0,
+          right: 800,
+          bottom: 800,
+          x: 0,
+          y: 0,
+          toJSON() {},
+        } as DOMRect;
+      };
+
+      try {
+        render(
+          <LightboxRoot defaultOpen>
+            <LightboxContent aria-label="Zoom media size">
+              <LightboxItemGroup>
+                <LightboxItem index={0}>
+                  <LightboxZoom ref={ref} maxZoom={4}>
+                    <LightboxMedia data-testid="media">
+                      <img src="test.jpg" alt="test" />
+                    </LightboxMedia>
+                  </LightboxZoom>
+                </LightboxItem>
+              </LightboxItemGroup>
+            </LightboxContent>
+          </LightboxRoot>,
+        );
+
+        const media = screen.getByTestId('media');
+        const img = screen.getByAltText('test');
+        Object.defineProperty(media, 'offsetWidth', { configurable: true, value: 400 });
+        Object.defineProperty(media, 'offsetHeight', { configurable: true, value: 400 });
+        Object.defineProperty(img, 'offsetWidth', { configurable: true, value: 100 });
+        Object.defineProperty(img, 'offsetHeight', { configurable: true, value: 100 });
+
+        // maxPanOffset = max((content*zoom - container) / 2 / zoom, 0)
+        // Media 400 @ 4× → 100; bare img 100 @ 4× → 0. Preferring Media ⇒ non-zero.
+        act(() => ref.current!.zoomTo(4, { dx: 10_000, dy: 0 }));
+        expect(Math.abs(ref.current!.offsetX)).toBe(100);
+      } finally {
+        HTMLElement.prototype.getBoundingClientRect = origRect;
+      }
     });
 
     it('ZoomIn and ZoomOut buttons render', () => {
@@ -2785,6 +2937,40 @@ describe('Lightbox', () => {
         dispatchPointer(content, 'pointermove', { clientX: 200, clientY: 225 });
       });
 
+      expect(content).toHaveAttribute('data-pulling');
+    });
+
+    it('pull starts on Media / img inside Media, not on absolute chrome siblings', () => {
+      render(
+        <LightboxRoot defaultOpen>
+          <LightboxContent data-testid="content" aria-label="Pull media hit-test">
+            <LightboxItemGroup>
+              <LightboxItem index={0} className="relative">
+                <div data-testid="chrome" style={{ position: 'absolute', inset: 0 }}>
+                  chrome
+                </div>
+                <LightboxMedia data-testid="media">
+                  <img src="test.jpg" alt="test" />
+                </LightboxMedia>
+              </LightboxItem>
+            </LightboxItemGroup>
+          </LightboxContent>
+        </LightboxRoot>,
+      );
+      const content = screen.getByTestId('content');
+      const img = screen.getByAltText('test');
+      const chrome = screen.getByTestId('chrome');
+
+      act(() => {
+        dispatchPointer(chrome, 'pointerdown', { clientX: 200, clientY: 200 });
+        dispatchPointer(content, 'pointermove', { clientX: 200, clientY: 225 });
+      });
+      expect(content).not.toHaveAttribute('data-pulling');
+
+      act(() => {
+        dispatchPointer(img, 'pointerdown', { clientX: 200, clientY: 200 });
+        dispatchPointer(content, 'pointermove', { clientX: 200, clientY: 225 });
+      });
       expect(content).toHaveAttribute('data-pulling');
     });
 

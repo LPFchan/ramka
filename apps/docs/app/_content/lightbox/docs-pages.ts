@@ -47,6 +47,7 @@ export const lightboxApiHref = {
   close: `${api}#api-close`,
   itemGroup: `${api}#api-item-group`,
   item: `${api}#api-item`,
+  media: `${api}#api-media`,
   slides: `${api}#api-slides`,
   slide: `${api}#api-slide`,
   previous: `${api}#api-previous`,
@@ -62,6 +63,7 @@ export const lightboxApiHref = {
   types: `${api}#types`,
   useTriggerContext: `${api}#api-use-trigger-context`,
   useItemContext: `${api}#api-use-item-context`,
+  useMediaContext: `${api}#api-use-media-context`,
   createHandle: `${api}#api-create-handle`,
   zoomRef: `${api}#api-zoom-ref`,
 } as const;

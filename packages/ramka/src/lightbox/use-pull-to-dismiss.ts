@@ -230,10 +230,10 @@ function usePullToDismiss({
       if (!activeItem) return;
 
       // Only activate when touching the item's registered content element (the
-      // `<img>`/`<video>`/element the consumer marked via `imageRef` /
-      // `morphRef` — the same element that morphs), not chrome, backdrop,
-      // or the item's empty letterbox padding. When an item registered nothing,
-      // fall back to the whole item box so the gesture still works.
+      // `Lightbox.Media` host, or an `imageRef` / `morphRef` — the same element
+      // that morphs), not chrome, backdrop, or the item's empty letterbox
+      // padding. When an item registered nothing, fall back to the whole item
+      // box so the gesture still works.
       const contentEl = itemContentElementsRef?.current?.get(activeItem) ?? activeItem;
       if (!target || !contentEl.contains(target)) return;
 
