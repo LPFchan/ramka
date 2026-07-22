@@ -280,7 +280,7 @@ export default function PhotosAppPage() {
                           priority
                           unoptimized
                           draggable={false}
-                          className="h-full w-full select-none rounded-none object-contain md:rounded-lg"
+                          className="h-full w-full select-none rounded-none object-cover md:rounded-lg"
                         />
                       </div>
                     </Lightbox.Zoom>

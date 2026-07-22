@@ -361,7 +361,7 @@ export default function CrossfadePage() {
         <>
           <code className={code}>crossfade</code> decides whether the morph dissolves between trigger and item
           snapshots, or hard-cuts. Omit it when both show the same picture at the same intrinsic aspect ratio.
-          Trigger images should always use <code className={code}>object-fit: cover</code> (every example does).
+          Trigger and item images should always use <code className={code}>object-fit: cover</code> (every example does).
         </>
       }
     >
@@ -409,9 +409,9 @@ export default function CrossfadePage() {
           </h2>
           <p className="text-sm text-neutral-600 dark:text-neutral-400">
             Use this when trigger and item show the same picture with the same intrinsic aspect ratio.
-            Differently proportioned elements are OK — keep the trigger on{' '}
-            <code className={code}>object-fit: cover</code> so the crop fills its box; the item can use{' '}
-            <code className={code}>contain</code>. Below: square thumbs → landscape viewer, both from 3∶2 sources.
+            Differently proportioned elements are OK — both should use{' '}
+            <code className={code}>object-fit: cover</code> so each crop fills its box.
+            Below: square thumbs → landscape viewer, both from 3∶2 sources.
           </p>
           <SameImageDemo />
         </section>

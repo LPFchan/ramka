@@ -312,7 +312,7 @@ export default function RealEstateListingPage() {
                         src={photo.src}
                         alt={photo.alt}
                         loading="eager"
-                        className="h-full w-full rounded-lg object-contain"
+                        className="h-full w-full rounded-lg object-cover"
                       />
                     </div>
                   )}
