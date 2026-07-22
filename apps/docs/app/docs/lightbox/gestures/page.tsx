@@ -40,7 +40,7 @@ export default function LightboxGesturesPage() {
       >
         <p>
           Content enables pull-to-dismiss by default (<code className="text-xs">pullToClose</code>).
-          Drag down (touch) or wheel-dismiss (trackpad) scales/fades the surface and sets{' '}
+          Drag down (touch) or wheel-dismiss (trackpad) scales the surface and sets{' '}
           <code className="text-xs">data-pulling</code> / <code className="text-xs">data-pull-dismissing</code>{' '}
           plus <code className="text-xs">--lightbox-pull-progress</code> (0→1).
         </p>
@@ -58,7 +58,7 @@ export default function LightboxGesturesPage() {
           </li>
         </ul>
         <p>
-          Docs chrome applies the recipe below via <code className="text-xs">.lightbox-demo-content</code> /{' '}
+          Fade the scrim with progress (media stays opaque). Docs chrome applies the recipe below via{' '}
           <code className="text-xs">.lightbox-demo-backdrop</code> (sourced from{' '}
           <code className="text-xs">app/lightbox-demo/pull-progress.css</code>).
         </p>

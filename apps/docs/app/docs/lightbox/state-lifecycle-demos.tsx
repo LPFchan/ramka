@@ -142,6 +142,7 @@ export function LifecycleCallbacksDemo() {
   return (
     <div className="space-y-4">
       <Lightbox.Root
+        viewTransition
         onOpenChange={(open) => push('onOpenChange', String(open))}
         onOpenChangeComplete={(open) => push('onOpenChangeComplete', String(open))}
         onValueChange={(value, { source }) => push('onValueChange', `index=${value} source=${source}`)}
@@ -153,7 +154,7 @@ export function LifecycleCallbacksDemo() {
               index={i}
               className={`block overflow-hidden rounded-2xl ${triggerMorphHideClass} ${triggerFocusClass}`}
             >
-              <LightboxTriggerImage src={img.thumb} alt={img.alt} />
+              <LightboxTriggerImage src={img.src} alt={img.alt} />
             </Lightbox.Trigger>
           ))}
         </LightboxTriggerGrid>

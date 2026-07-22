@@ -69,7 +69,7 @@ export const lightboxExcerpts = {
   },
   "pull-progress-css": {
     title: "Pull progress CSS",
-    code: ".lightbox-demo-content[data-open] {\n  /* --lightbox-pull-progress: 0 → 1 while dragging */\n  opacity: calc(1 - var(--lightbox-pull-progress, 0) * 0.35);\n}\n\n.lightbox-demo-content[data-pulling] {\n  transition: none; /* follow the finger */\n}\n\n.lightbox-demo-backdrop[data-open] {\n  opacity: calc(1 - var(--lightbox-pull-progress, 0) * 0.6);\n}\n\n.lightbox-demo-backdrop[data-pulling] {\n  transition: none;\n}\n",
+    code: ".lightbox-demo-backdrop[data-open] {\n  /* --lightbox-pull-progress: 0 → 1 while dragging */\n  opacity: calc(1 - var(--lightbox-pull-progress, 0) * 0.6);\n}\n\n.lightbox-demo-backdrop[data-pulling] {\n  transition: none; /* follow the finger */\n}\n",
     source: "app/lightbox-demo/pull-progress.css",
   },
   "quick-start": {

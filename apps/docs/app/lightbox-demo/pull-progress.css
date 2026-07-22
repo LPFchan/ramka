@@ -1,24 +1,18 @@
 /**
- * Fade Content / Backdrop with pull-to-dismiss progress.
- * Applied by docs chrome via `.lightbox-demo-content` / `.lightbox-demo-backdrop`.
+ * Fade Backdrop with pull-to-dismiss progress.
+ * Applied by docs chrome via `.lightbox-demo-backdrop`.
+ * Content / media stay opaque (match Photos / Moodboard / Responsive gallery);
+ * chrome fades separately via Tailwind `data-pulling` selectors.
  *
  * @docsExcerpt pull-progress-css
  * @docsExcerptTitle Pull progress CSS
  */
 
-.lightbox-demo-content[data-open] {
-  /* --lightbox-pull-progress: 0 → 1 while dragging */
-  opacity: calc(1 - var(--lightbox-pull-progress, 0) * 0.35);
-}
-
-.lightbox-demo-content[data-pulling] {
-  transition: none; /* follow the finger */
-}
-
 .lightbox-demo-backdrop[data-open] {
+  /* --lightbox-pull-progress: 0 → 1 while dragging */
   opacity: calc(1 - var(--lightbox-pull-progress, 0) * 0.6);
 }
 
 .lightbox-demo-backdrop[data-pulling] {
-  transition: none;
+  transition: none; /* follow the finger */
 }

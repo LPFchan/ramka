@@ -90,12 +90,16 @@ function fitBoxStyle(ratio: number): React.CSSProperties {
   };
 }
 
-// Open/close opacity + pull-progress fade live in `app/lightbox-demo/pull-progress.css`
-// (`.lightbox-demo-*` classes). Excerpts for the Gestures docs are generated from that file.
+// Open/close opacity on Content; Backdrop also fades with pull progress via
+// `app/lightbox-demo/pull-progress.css` (`.lightbox-demo-backdrop`). Media stays
+// opaque during pull — only the scrim + chrome fade (Photos / Moodboard pattern).
 const backdropFade =
   'lightbox-demo-backdrop opacity-0 ease-out-expo duration-[340ms] transition-opacity starting:opacity-0';
 const contentFade =
-  'lightbox-demo-content opacity-0 ease-out-expo duration-[280ms] transition-opacity starting:opacity-0';
+  'opacity-0 ease-out-expo duration-[280ms] transition-opacity data-[open]:opacity-100 starting:opacity-0';
+/** Hide chrome while pulling / committing pull-to-dismiss. */
+const chromePullHide =
+  'transition-[opacity,filter] duration-200 [[data-pulling]_&]:pointer-events-none [[data-pulling]_&]:opacity-0 [[data-pulling]_&]:blur-[6px] [[data-pull-dismissing]_&]:pointer-events-none [[data-pull-dismissing]_&]:opacity-0 [[data-pull-dismissing]_&]:blur-[6px]';
 
 export function LightboxOverlay({ className }: { className?: string } = {}) {
   return <Lightbox.Backdrop className={`fixed inset-0 z-40 bg-black/85 ${backdropFade} ${className ?? ''}`} />;
@@ -131,7 +135,7 @@ export function LightboxFrame({
 
 export function LightboxCloseButton() {
   return (
-    <div className="absolute right-4 top-4 z-10">
+    <div className={`absolute right-4 top-4 z-10 ${chromePullHide}`}>
       <Lightbox.Close className={lightboxChromeButton} aria-label="Close">
         <X aria-hidden className="h-[18px] w-[18px]" strokeWidth={2.25} />
       </Lightbox.Close>
@@ -169,7 +173,7 @@ export function LightboxCaptionLine() {
 
 export function LightboxNavBar() {
   return (
-    <div className="flex items-center gap-3 px-4 py-3">
+    <div className={`flex items-center gap-3 px-4 py-3 ${chromePullHide}`}>
       <LightboxPrevButton />
       <LightboxCounterPill />
       <LightboxNextButton />
