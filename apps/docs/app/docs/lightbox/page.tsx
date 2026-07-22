@@ -20,7 +20,7 @@ const guideLinks: {
   },
   {
     title: 'Composition',
-    description: 'Slides + Zoom chrome (default), ItemGroup swap, preload, and itemCount.',
+    description: 'Slides + Zoom chrome, media fill / fit-box sizing, ItemGroup swap, and itemCount.',
     href: lightboxDocsPages.composition.href,
   },
   {

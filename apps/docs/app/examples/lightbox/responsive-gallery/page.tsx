@@ -323,7 +323,7 @@ function ImageGrid({ imgs }: { imgs: GalleryImage[] }) {
           className={`row-span-2 block overflow-hidden bg-transparent p-0 ${triggerMorphHideClass} ${triggerFocusClass} ${cornerClass(0, 3)}`}
         >
           {({ imageRef }) => (
-            <img ref={imageRef} {...imgDims(first.thumb)} src={first.thumb} alt={first.alt} className="block h-full w-full object-cover" />
+            <img ref={imageRef} {...imgDims(first.thumb)} src={first.thumb} alt={first.alt} className="block size-full object-cover" />
           )}
         </Lightbox.Trigger>
         {imgs.slice(1, 3).map((img, idx) => {
@@ -335,7 +335,7 @@ function ImageGrid({ imgs }: { imgs: GalleryImage[] }) {
               className={`block overflow-hidden bg-transparent p-0 ${triggerMorphHideClass} ${triggerFocusClass} ${cornerClass(i, 3)}`}
             >
               {({ imageRef }) => (
-                <img ref={imageRef} {...imgDims(img.thumb)} src={img.thumb} alt={img.alt} className="block h-full w-full object-cover" />
+                <img ref={imageRef} {...imgDims(img.thumb)} src={img.thumb} alt={img.alt} className="block size-full object-cover" />
               )}
             </Lightbox.Trigger>
           );
@@ -360,13 +360,13 @@ function ImageGrid({ imgs }: { imgs: GalleryImage[] }) {
               // The whole tile morphs (overlay included) by default, but the
               // placeholder is sourced only from `imageRef` — so the
               // "+N" overlay is excluded from the destination bridge.
-              <div className={`relative h-full w-full overflow-hidden ${cornerClass(i, 4)}`}>
+              <div className={`relative size-full overflow-hidden ${cornerClass(i, 4)}`}>
                 <img
                   ref={imageRef}
                   {...imgDims(img.thumb)}
                   src={img.thumb}
                   alt={img.alt}
-                  className="block h-full w-full object-cover"
+                  className="block size-full object-cover"
                 />
                 {showOverlay && (
                   <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/50">

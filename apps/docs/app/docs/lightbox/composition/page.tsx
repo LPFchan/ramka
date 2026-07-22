@@ -7,6 +7,7 @@ import { lightboxExcerpts } from '../../../_content/lightbox/excerpts/generated'
 
 const toc: DocsTocItem[] = [
   { id: 'slides', title: 'Slides + Zoom' },
+  { id: 'media-layout', title: 'Media layout' },
   { id: 'chrome', title: 'Chrome' },
   { id: 'item-group', title: 'ItemGroup (swap)' },
   { id: 'item-count', title: 'Dynamic itemCount' },
@@ -18,8 +19,8 @@ export default function LightboxCompositionPage() {
       title="Composition"
       description={
         <>
-          Default to Slides + Zoom (swipe carousel with pinch zoom), then layer chrome. ItemGroup is
-          the stacked-swap alternative. Part of{' '}
+          Default to Slides + Zoom (swipe carousel with pinch zoom), size media to fill Content, then
+          layer chrome. ItemGroup is the stacked-swap alternative. Part of{' '}
           <DocsLink href={lightboxDocsPages.overview.href}>Lightbox</DocsLink>.
         </>
       }
@@ -53,6 +54,71 @@ export default function LightboxCompositionPage() {
           code={lightboxExcerpts['slides-nesting'].code}
           title={lightboxExcerpts['slides-nesting'].title}
         />
+      </DocsSection>
+
+      <DocsSection id="media-layout" title="Media layout">
+        <p>
+          ramka is headless — nothing sizes Slide / Item / Zoom for you. For a fullscreen gallery, make
+          the media stack fill <DocsLink href={lightboxApiHref.content}>Content</DocsLink> so when Zoom
+          scales past 1× the image can cover the viewport and is not clipped by a shorter ancestor.
+        </p>
+        <ul className="list-disc space-y-2 pl-5">
+          <li>
+            <code className="text-xs">Content</code> — fullscreen surface (
+            <code className="text-xs">fixed inset-0</code> / full dialog)
+          </li>
+          <li>
+            <code className="text-xs">Slides</code> — <code className="text-xs">flex-1</code> (or equivalent
+            stretch)
+          </li>
+          <li>
+            <code className="text-xs">Slide</code> — <code className="text-xs">h-full</code>
+          </li>
+          <li>
+            <code className="text-xs">Item</code> — <code className="text-xs">size-full</code> (centered
+            flex is fine)
+          </li>
+          <li>
+            <code className="text-xs">Zoom</code> — <code className="text-xs">size-full</code> (the
+            zoom/pan surface)
+          </li>
+        </ul>
+        <p>
+          Keep Close, Counter, Caption, and thumbnails as <em>absolutely positioned siblings</em> of
+          Slides (see Chrome below) — not in-flow above or below Zoom. Resting insets belong on Zoom
+          padding / safe-area so zoomed media still paints edge-to-edge under chrome. Gesture details
+          live in <DocsLink href={lightboxDocsPages.gestures.href}>Gestures</DocsLink>.
+        </p>
+        <p>
+          Set HTML <code className="text-xs">width</code> and <code className="text-xs">height</code> on
+          the destination <code className="text-xs">&lt;img&gt;</code> (from known pixel dims or CMS
+          metadata) so the box and aspect ratio exist <em>before</em> pixels load. That avoids CLS,
+          keeps the morph target sized on slow networks, and prevents an unloaded{' '}
+          <code className="text-xs">size: auto</code> image from collapsing to 0×0 (which can skip or
+          weaken the open morph). When dimensions are unknown, see{' '}
+          <DocsLink href="/examples/lightbox/moodboard">Moodboard</DocsLink>.
+        </p>
+        <p>
+          To fill the maximum available space without distorting the source aspect ratio, put{' '}
+          <code className="text-xs">container-type: size</code> on Zoom and wrap the image in the largest
+          rectangle of aspect <code className="text-xs">ratio</code> that fits that container (
+          <code className="text-xs">min(100cqw − inset, 100cqh × ratio)</code> +{' '}
+          <code className="text-xs">aspect-ratio</code>). Set{' '}
+          <code className="text-xs">--lightbox-fit-inset-x</code> /{' '}
+          <code className="text-xs">--lightbox-fit-inset-y</code> on Zoom (the size container) to shrink
+          the resting fit box for overlapping chrome — they default to <code className="text-xs">0</code>{' '}
+          if omitted. Gallery chrome often uses Zoom padding for insets instead and leaves these vars at{' '}
+          <code className="text-xs">0</code>.
+        </p>
+        <CodeBlock
+          code={lightboxExcerpts['media-fit-box'].code}
+          title={lightboxExcerpts['media-fit-box'].title}
+        />
+        <p>
+          Live compositions:{' '}
+          <DocsLink href="/examples/lightbox/responsive-gallery">Responsive gallery</DocsLink>,{' '}
+          <DocsLink href="/examples/lightbox/photos-app">Photos app</DocsLink>.
+        </p>
       </DocsSection>
 
       <DocsSection id="chrome" title="Chrome">

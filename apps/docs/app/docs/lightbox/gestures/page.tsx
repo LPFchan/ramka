@@ -76,6 +76,14 @@ export default function LightboxGesturesPage() {
           <code className="text-xs">scrollToZoom</code>), and keyboard pan when focused.
         </p>
         <p>
+          Zoomed media can cover the full Content surface only if Slide → Item → Zoom fill that box —
+          see{' '}
+          <DocsLink href={`${lightboxDocsPages.composition.href}#media-layout`}>
+            Composition → Media layout
+          </DocsLink>
+          .
+        </p>
+        <p>
           <DocsLink href={lightboxApiHref.zoomIn}>ZoomIn</DocsLink> /{' '}
           <DocsLink href={lightboxApiHref.zoomOut}>ZoomOut</DocsLink> can sit in toolbar chrome outside
           Zoom — they target the <em>active</em> slide via Root’s active-zoom bridge. Content reflects{' '}

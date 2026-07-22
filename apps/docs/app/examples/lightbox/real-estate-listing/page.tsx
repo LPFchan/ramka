@@ -70,7 +70,7 @@ function HeroGrid() {
             {...imgDims(hero.thumb)}
             src={hero.thumb}
             alt={hero.alt}
-            className={`block h-full w-full object-cover ${heroCornerClass[0]}`}
+            className={`block size-full object-cover ${heroCornerClass[0]}`}
           />
         )}
       </Lightbox.Trigger>
@@ -86,7 +86,7 @@ function HeroGrid() {
               {...imgDims(photo.thumb)}
               src={photo.thumb}
               alt={photo.alt}
-              className={`block h-full w-full object-cover ${heroCornerClass[i + 1] ?? ''}`}
+              className={`block size-full object-cover ${heroCornerClass[i + 1] ?? ''}`}
             />
           )}
         </Lightbox.Trigger>

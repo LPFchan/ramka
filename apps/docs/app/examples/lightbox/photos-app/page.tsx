@@ -176,7 +176,7 @@ export default function PhotosAppPage() {
               >
                 {({ imageRef }) => (
                   <>
-                    <img ref={imageRef} {...imgDims(photo.thumb)} src={photo.thumb} alt={photo.alt} loading="lazy" className="block h-full w-full object-cover" />
+                    <img ref={imageRef} {...imgDims(photo.thumb)} src={photo.thumb} alt={photo.alt} loading="lazy" className="block size-full object-cover" />
                     {photo.favorite ? (
                       <Heart
                         aria-hidden
@@ -196,12 +196,12 @@ export default function PhotosAppPage() {
           renderItem={(photo, _i, { imageRef }) => (
             <Lightbox.Zoom
               maxZoom={6}
-              className="flex h-full w-full items-center justify-center [container-type:size] px-0 pt-[calc(env(safe-area-inset-top,0px)+3.5rem)] pb-[calc(env(safe-area-inset-bottom,0px)+3.5rem)] md:px-8 md:pt-[calc(env(safe-area-inset-top,0px)+3.5rem)] md:pb-[calc(env(safe-area-inset-bottom,0px)+7.5rem)]"
+              className="flex size-full items-center justify-center [container-type:size] px-0 pt-[calc(env(safe-area-inset-top,0px)+3.5rem)] pb-[calc(env(safe-area-inset-bottom,0px)+3.5rem)] md:px-8 md:pt-[calc(env(safe-area-inset-top,0px)+3.5rem)] md:pb-[calc(env(safe-area-inset-bottom,0px)+7.5rem)]"
             >
               {/* `imageRef` on next/image — placeholder composes with framework
                   image components while the consumer keeps sizing control. */}
               <div
-                className="relative shrink-0 [--lb-inset-h:0px] [--lb-inset-w:0px]"
+                className="relative shrink-0 [--lightbox-fit-inset-x:0px] [--lightbox-fit-inset-y:0px]"
                 style={fitBoxStyle(imgAspect(photo.src))}
               >
                 <Image
@@ -214,7 +214,7 @@ export default function PhotosAppPage() {
                   priority
                   unoptimized
                   draggable={false}
-                  className="h-full w-full select-none rounded-none object-cover md:rounded-lg"
+                  className="size-full select-none rounded-none object-cover md:rounded-lg"
                 />
               </div>
             </Lightbox.Zoom>
