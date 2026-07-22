@@ -96,3 +96,27 @@ export type { NavigationSource } from './lightbox-context';
 export type { LightboxZoomProps, LightboxZoomState, LightboxZoomRef } from './lightbox-zoom';
 export type { LightboxZoomInProps, LightboxZoomInState } from './lightbox-zoom-in';
 export type { LightboxZoomOutProps, LightboxZoomOutState } from './lightbox-zoom-out';
+
+export {
+  LightboxTriggerDataAttributes,
+  LightboxContentDataAttributes,
+  LightboxBackdropDataAttributes,
+  LightboxItemGroupDataAttributes,
+  LightboxItemDataAttributes,
+  LightboxSlidesDataAttributes,
+  LightboxSlideDataAttributes,
+  LightboxPreviousDataAttributes,
+  LightboxNextDataAttributes,
+  LightboxCaptionDataAttributes,
+  LightboxThumbnailGroupDataAttributes,
+  LightboxThumbnailDataAttributes,
+  LightboxZoomDataAttributes,
+  LightboxZoomInDataAttributes,
+  LightboxZoomOutDataAttributes,
+  LightboxDocumentDataAttributes,
+} from './lightbox-data-attributes';
+export {
+  LightboxContentCssVars,
+  LightboxBackdropCssVars,
+  LightboxDocumentCssVars,
+} from './lightbox-css-vars';

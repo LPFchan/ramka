@@ -4,6 +4,8 @@ import * as React from 'react';
 import { flushSync } from 'react-dom';
 
 import { VIEW_TRANSITION_NAME, findItemMorphTarget, findTriggerMorphTarget } from './lightbox-context';
+import { LightboxDocumentCssVars } from './lightbox-css-vars';
+import { LightboxDocumentDataAttributes } from './lightbox-data-attributes';
 
 // ---------------------------------------------------------------------------
 // View Transition helpers
@@ -358,9 +360,9 @@ function applyMorphState(
   phase: 'opening' | 'closing',
   opts: { useCrossfade: boolean; fromRadius: string | null; toRadius: string | null },
 ) {
-  docEl.setAttribute('data-lightbox-view-transition', phase);
+  docEl.setAttribute(LightboxDocumentDataAttributes.viewTransition, phase);
   if (!opts.useCrossfade) {
-    docEl.setAttribute('data-lightbox-no-crossfade', '');
+    docEl.setAttribute(LightboxDocumentDataAttributes.noCrossfade, '');
     // No-crossfade makes the item the single visible, animated layer in both
     // directions and never crossfades the trigger. But on OPEN we ALWAYS keep
     // the `old` (trigger) snapshot opaque underneath as a paint fallback —
@@ -382,14 +384,17 @@ function applyMorphState(
     // - Closing: `old` is the item (already on-screen and painted) and stays
     //   opaque; `new` is the trigger, hard-cut to 0 so a scrolled-away/unpainted
     //   trigger can't ghost over the item as it shrinks back.
-    docEl.style.setProperty('--lightbox-morph-old-opacity', '1');
-    docEl.style.setProperty('--lightbox-morph-new-opacity', phase === 'opening' ? '1' : '0');
+    docEl.style.setProperty(LightboxDocumentCssVars.morphOldOpacity, '1');
+    docEl.style.setProperty(
+      LightboxDocumentCssVars.morphNewOpacity,
+      phase === 'opening' ? '1' : '0',
+    );
   }
   if (opts.fromRadius) {
-    docEl.style.setProperty('--lightbox-morph-border-radius-from', opts.fromRadius);
+    docEl.style.setProperty(LightboxDocumentCssVars.morphBorderRadiusFrom, opts.fromRadius);
   }
   if (opts.toRadius) {
-    docEl.style.setProperty('--lightbox-morph-border-radius-to', opts.toRadius);
+    docEl.style.setProperty(LightboxDocumentCssVars.morphBorderRadiusTo, opts.toRadius);
   }
 }
 
@@ -418,12 +423,12 @@ function clearMorphName(el: HTMLElement) {
 
 /** Removes every document-level attribute/var set by {@link applyMorphState}. */
 function clearMorphState(docEl: HTMLElement) {
-  docEl.removeAttribute('data-lightbox-view-transition');
-  docEl.removeAttribute('data-lightbox-no-crossfade');
-  docEl.style.removeProperty('--lightbox-morph-old-opacity');
-  docEl.style.removeProperty('--lightbox-morph-new-opacity');
-  docEl.style.removeProperty('--lightbox-morph-border-radius-from');
-  docEl.style.removeProperty('--lightbox-morph-border-radius-to');
+  docEl.removeAttribute(LightboxDocumentDataAttributes.viewTransition);
+  docEl.removeAttribute(LightboxDocumentDataAttributes.noCrossfade);
+  docEl.style.removeProperty(LightboxDocumentCssVars.morphOldOpacity);
+  docEl.style.removeProperty(LightboxDocumentCssVars.morphNewOpacity);
+  docEl.style.removeProperty(LightboxDocumentCssVars.morphBorderRadiusFrom);
+  docEl.style.removeProperty(LightboxDocumentCssVars.morphBorderRadiusTo);
 }
 
 // ---------------------------------------------------------------------------

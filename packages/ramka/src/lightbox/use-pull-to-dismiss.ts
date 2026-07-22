@@ -9,6 +9,7 @@ import {
   shouldDismissPull,
   wheelAxis,
 } from './gesture-math';
+import { LightboxContentCssVars } from './lightbox-css-vars';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -29,8 +30,10 @@ const VELOCITY_SAMPLES = 5;
  * curve — consumers derive whatever styling they like (backdrop opacity,
  * blur, chrome fade, image scale) from this variable, e.g.
  * `opacity: calc(1 - var(--lightbox-pull-progress, 0) * 0.6)`.
+ *
+ * @see LightboxContentCssVars.pullProgress
  */
-const PULL_PROGRESS_VAR = '--lightbox-pull-progress';
+const PULL_PROGRESS_VAR = LightboxContentCssVars.pullProgress;
 
 // ---------------------------------------------------------------------------
 // Types
