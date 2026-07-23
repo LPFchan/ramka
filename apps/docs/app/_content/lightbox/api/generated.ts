@@ -135,7 +135,7 @@ export const generatedProps: Record<string, PropRow[]> = {
       name: "keepMounted",
       type: "boolean",
       default: "false",
-      description: "Keep Portal, Backdrop, and Content mounted while the lightbox is closed. Closed (\"parked\") nodes stay in the DOM but are inert and non-interactive (`visibility: hidden`, `pointer-events: none`) so they don't block the page.\n\nUseful for warm reopen of expensive destinations (e.g. map iframes) without remounting them on every open.",
+      description: "Keep Portal, Backdrop, and Content mounted while the lightbox is closed. Closed (\"parked\") nodes stay in the DOM but are inert and non-interactive (`visibility: hidden`, `pointer-events: none`) so they don't block the page.\n\nUseful for warm reopen of expensive destinations (e.g. map iframes) without remounting them on every open.\n\nWhen using `keepMounted`, style a stacking level on the Portal host yourself (e.g. `className=\"relative z-[1]\"`) — same as Base UI’s keep-mounted guidance.",
     },
     {
       name: "children",

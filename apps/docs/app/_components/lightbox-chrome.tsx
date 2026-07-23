@@ -129,11 +129,11 @@ export function LightboxGallery({
 
   return (
     <Lightbox.Portal>
-      <Lightbox.Backdrop className={`${backdropTone} fixed inset-0 z-40 ${backdropFade}`} />
+      <Lightbox.Backdrop className={`${backdropTone} fixed inset-0 ${backdropFade}`} />
       <Lightbox.Content
         aria-label={ariaLabel}
         pullToClose={pullToClose}
-        className={`fixed inset-0 z-50 flex flex-col overscroll-contain outline-none ${contentFade}`}
+        className={`fixed inset-0 flex flex-col overscroll-contain outline-none ${contentFade}`}
       >
         <Lightbox.Slides
           aria-label="Full-size images"
@@ -231,7 +231,7 @@ const chromePullHide =
 
 /** Styled Backdrop — place inside the same `Lightbox.Portal` as Content/Frame. */
 export function LightboxOverlay({ className }: { className?: string } = {}) {
-  return <Lightbox.Backdrop className={`fixed inset-0 z-40 bg-black/85 ${backdropFade} ${className ?? ''}`} />;
+  return <Lightbox.Backdrop className={`fixed inset-0 bg-black/85 ${backdropFade} ${className ?? ''}`} />;
 }
 
 /**
@@ -257,8 +257,8 @@ export function LightboxFrame({
       aria-label={ariaLabel}
       className={
         className
-          ? `fixed inset-0 z-50 overscroll-contain outline-none ${contentFade} ${className}`
-          : `fixed inset-0 z-50 flex flex-col items-center justify-between overscroll-contain outline-none ${contentFade}`
+          ? `fixed inset-0 overscroll-contain outline-none ${contentFade} ${className}`
+          : `fixed inset-0 flex flex-col items-center justify-between overscroll-contain outline-none ${contentFade}`
       }
     >
       {children}

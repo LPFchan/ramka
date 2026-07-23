@@ -9,7 +9,7 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import './globals.css';
 
-const inter = Inter({subsets:['latin'],variable:'--font-sans'});
+const inter = Inter({ subsets: ['latin'], variable: '--font-sans' });
 
 export const metadata: Metadata = {
   title: 'ramka',
@@ -27,10 +27,15 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       className={cn('scroll-pt-14 font-sans md:scroll-pt-0', inter.variable)}
       suppressHydrationWarning
     >
-      <body className="min-h-screen bg-background text-foreground antialiased">
+      {/*
+        Base UI portal stacking: `position: relative` on body (iOS 26+ absolute
+        backdrops) + `isolation: isolate` on the app root so portaled overlays
+        sit above page content without competing with in-app z-index values.
+      */}
+      <body className="relative min-h-screen bg-background text-foreground antialiased">
         <ThemeProvider>
           <TooltipProvider delay={150}>
-            <div className="flex">
+            <div className="isolate flex min-h-screen">
               <Sidebar />
               <div className="flex min-w-0 flex-1 flex-col">
                 <MobileNav />

@@ -115,13 +115,13 @@ export default function GoogleMapsExamplePage() {
       description={
         <>
           A map preview of Wrocław’s Rynek morphs into a fullscreen Google Map.{' '}
-          <code className="rounded bg-neutral-100 px-1 py-0.5 text-xs dark:bg-neutral-800">
-            Portal keepMounted
-          </code>{' '}
-          parks the destination iframe so reopen stays warm;{' '}
-          <code className="rounded bg-neutral-100 px-1 py-0.5 text-xs dark:bg-neutral-800">onBeforeOpen</code> waits for
-          the first <code className="rounded bg-neutral-100 px-1 py-0.5 text-xs dark:bg-neutral-800">load</code> (with a
-          timeout) before the View Transition — with{' '}
+          <code className="rounded bg-neutral-100 px-1 py-0.5 text-xs dark:bg-neutral-800">Portal keepMounted</code>{' '}
+          parks the destination iframe so reopen stays warm (with{' '}
+          <code className="rounded bg-neutral-100 px-1 py-0.5 text-xs dark:bg-neutral-800">z-[1]</code> on the portal
+          host); <code className="rounded bg-neutral-100 px-1 py-0.5 text-xs dark:bg-neutral-800">onBeforeOpen</code>{' '}
+          waits for the first{' '}
+          <code className="rounded bg-neutral-100 px-1 py-0.5 text-xs dark:bg-neutral-800">load</code> (with a timeout)
+          before the View Transition — with{' '}
           <code className="rounded bg-neutral-100 px-1 py-0.5 text-xs dark:bg-neutral-800">
             awaitImageDecode={'{false}'}
           </code>
@@ -195,12 +195,12 @@ export default function GoogleMapsExamplePage() {
           </Lightbox.Trigger>
         </div>
 
-        <Lightbox.Portal keepMounted>
+        <Lightbox.Portal keepMounted className="relative z-[1]">
           <LightboxOverlay />
           <Lightbox.Content
             aria-label={`Fullscreen map — ${WROCLAW.place}`}
             pullToClose={false}
-            className="fixed inset-0 z-50 overscroll-contain bg-neutral-950 outline-none opacity-0 ease-out-expo duration-[280ms] transition-opacity data-[open]:opacity-100 starting:opacity-0"
+            className="fixed inset-0 overscroll-contain bg-neutral-950 outline-none opacity-0 ease-out-expo duration-[280ms] transition-opacity data-[open]:opacity-100 starting:opacity-0"
           >
             <LightboxCloseButton />
             <Lightbox.Item index={0} className="absolute inset-0">

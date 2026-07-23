@@ -84,7 +84,7 @@ export const lightboxApiMeta: ApiPartMeta[] = [
     id: 'api-portal',
     name: 'Portal',
     description:
-      'Portals Backdrop and Content into a host element (default: document.body). Pass container / keepMounted here — Content and Backdrop render in-tree under the portal. keepMounted parks Backdrop+Content in the DOM while closed (inert, hidden) for warm reopen of expensive media.',
+      'Portals Backdrop and Content into a host element (default: document.body). Pass container / keepMounted here. keepMounted parks Backdrop+Content while closed (inert, hidden). When using keepMounted, style z-index on the Portal host yourself (Base UI). Prefer isolation: isolate on the app layout root.',
     extract: {
       kind: 'interface-props',
       typeName: 'LightboxPortalProps',

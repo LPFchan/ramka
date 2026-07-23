@@ -382,6 +382,7 @@ describe('Lightbox', () => {
       expect(backdrop).toHaveStyle({ visibility: 'hidden', pointerEvents: 'none' });
       expect(backdrop).toHaveAttribute('inert');
     });
+
   });
 
   // ---------------------------------------------------------------------------

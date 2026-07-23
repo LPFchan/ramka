@@ -37,6 +37,9 @@ interface LightboxPortalProps extends React.ComponentPropsWithRef<'div'> {
    *
    * Useful for warm reopen of expensive destinations (e.g. map iframes) without
    * remounting them on every open.
+   *
+   * When using `keepMounted`, style a stacking level on the Portal host yourself
+   * (e.g. `className="relative z-[1]"`) — same as Base UI’s keep-mounted guidance.
    * @default false
    */
   keepMounted?: boolean;
@@ -45,9 +48,7 @@ interface LightboxPortalProps extends React.ComponentPropsWithRef<'div'> {
 
 type ResolvedTarget = Element | DocumentFragment | 'inplace';
 
-function isRefObject(
-  value: PortalContainer | undefined,
-): value is React.RefObject<Element | DocumentFragment | null> {
+function isRefObject(value: PortalContainer | undefined): value is React.RefObject<Element | DocumentFragment | null> {
   return typeof value === 'object' && value !== null && 'current' in value;
 }
 
@@ -78,22 +79,19 @@ function resolvePortalTarget(container: PortalContainer | undefined): ResolvedTa
  * </Lightbox.Root>
  * ```
  *
- * The host is an unmarked `<div data-lightbox-portal="">` so stacking and
- * positioning stay on Backdrop/Content (or your own classes on the Portal).
+ * Stacking (Base UI pattern):
+ * 1. Put `isolation: isolate` on the app layout root.
+ * 2. With `keepMounted`, set `z-index` on the Portal host in your styles.
+ * Inside the portal, document order is enough (Backdrop before Content).
  */
 const LightboxPortal = React.forwardRef<HTMLDivElement, LightboxPortalProps>(
   function LightboxPortal(props, forwardedRef) {
     const { children, container, keepMounted = false, className, style, ...rest } = props;
     const { mounted } = useLightboxContext();
 
-    const [portalTarget, setPortalTarget] = React.useState<ResolvedTarget | null>(() =>
-      resolvePortalTarget(container),
-    );
+    const [portalTarget, setPortalTarget] = React.useState<ResolvedTarget | null>(() => resolvePortalTarget(container));
 
-    const contextValue = React.useMemo<LightboxPortalContextValue>(
-      () => ({ keepMounted }),
-      [keepMounted],
-    );
+    const contextValue = React.useMemo<LightboxPortalContextValue>(() => ({ keepMounted }), [keepMounted]);
 
     useLayoutEffect(() => {
       setPortalTarget(resolvePortalTarget(container));
@@ -105,13 +103,7 @@ const LightboxPortal = React.forwardRef<HTMLDivElement, LightboxPortalProps>(
 
     const host = (
       <LightboxPortalContext.Provider value={contextValue}>
-        <div
-          ref={forwardedRef}
-          data-lightbox-portal=""
-          className={className}
-          style={style}
-          {...rest}
-        >
+        <div ref={forwardedRef} data-lightbox-portal="" className={className} style={style} {...rest}>
           {children}
         </div>
       </LightboxPortalContext.Provider>
