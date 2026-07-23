@@ -121,6 +121,12 @@ const DEFAULT_KEYBOARD_PAN = 50;
 const DEFAULT_DOUBLE_CLICK_DELAY = 300;
 const DEFAULT_ANIMATION_DURATION = 300;
 const SNAP_OPTS = { duration: 180, easing: 'cubic-bezier(0.25, 1, 0.5, 1)' } as const;
+// Releasing a pinch past a zoom bound is a rubber-band release, not a plain
+// snap. Match native iOS (and this lightbox's own pull-to-dismiss release) with
+// a longer, gently overshooting spring so the scale settles back into range
+// instead of clipping abruptly. The `y > 1` control point produces the subtle
+// spring overshoot; the correction distance keeps it proportional and small.
+const ZOOM_SNAP_OPTS = { duration: 350, easing: 'cubic-bezier(0.2, 1.15, 0.4, 1)' } as const;
 const MOMENTUM_OPTS = { duration: 600, easing: 'cubic-bezier(0.33, 1, 0.68, 1)' } as const;
 
 // ---------------------------------------------------------------------------
@@ -421,7 +427,7 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
       // The gesture was released past a zoom bound — mirror iOS's light
       // rubber-band tick as the scale snaps back into range.
       triggerHaptic('snap');
-      captureStart(SNAP_OPTS);
+      captureStart(ZOOM_SNAP_OPTS);
       const snapped = clamp(currentZoom, minZoom, maxZoom);
       const offsets = clampOffsets(offsetXRef.current, offsetYRef.current, snapped);
       setZoom(snapped);
