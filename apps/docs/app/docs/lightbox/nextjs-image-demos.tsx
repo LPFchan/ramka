@@ -176,7 +176,6 @@ export function NextjsImagePlusNDemo() {
             alt: item.alt,
           }))}
           ariaLabel="Plus-N Next.js Image demo"
-          thumbnails="never"
           zoomControls={false}
           renderItem={(item, index) => {
             const photo = plusNAlbum[index]!.photo;
@@ -250,7 +249,6 @@ export function NextjsImageNonImageTriggerDemo() {
             caption: person.name,
           }))}
           ariaLabel="Non-image trigger Next.js Image demo"
-          thumbnails="never"
           zoomControls={false}
           renderItem={(item, index) => {
             const photo = team[index]!.photo;
