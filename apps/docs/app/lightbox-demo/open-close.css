@@ -9,7 +9,12 @@
 
 .lightbox-demo-backdrop {
   opacity: 0;
-  transition: opacity 340ms var(--ease-out-expo);
+  /* Open/close uses 340ms easeOutExpo (the fallbacks). During a pull-to-dismiss
+     snap-back the library publishes --lightbox-pull-snap-duration/-easing, so
+     the fade springs back in lockstep with the item — tweak the snap-back once
+     and both stay matched. */
+  transition: opacity var(--lightbox-pull-snap-duration, 340ms)
+    var(--lightbox-pull-snap-easing, var(--ease-out-expo));
 }
 
 /* First frame when `data-open` appears — then pull-progress.css owns open opacity. */

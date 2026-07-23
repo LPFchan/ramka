@@ -20,8 +20,15 @@ import {
   round,
   scaleZoom,
   shouldDismissPull,
+  springEasingLinear,
   wheelAxis,
 } from './gesture-math';
+
+/** Parse a `linear(a, b, c, ...)` easing string into its numeric stops. */
+function parseLinearStops(easing: string): number[] {
+  const inner = easing.replace(/^linear\(/, '').replace(/\)$/, '');
+  return inner.split(',').map((s) => Number(s.trim()));
+}
 
 // ---------------------------------------------------------------------------
 // Shared helpers
@@ -440,5 +447,59 @@ describe('computeMomentumTarget', () => {
     // vy = 1000 px/s, factor 0.3, zoom 1 => +300; plus current 20 => 320
     expect(target!.targetY).toBeCloseTo(320, 10);
     expect(target!.targetX).toBeCloseTo(10, 10);
+  });
+});
+
+describe('springEasingLinear', () => {
+  it('produces a valid linear() easing string', () => {
+    expect(springEasingLinear()).toMatch(/^linear\([-\d., ]+\)$/);
+  });
+
+  it('starts at 0 and lands exactly at rest (1)', () => {
+    const stops = parseLinearStops(springEasingLinear());
+    expect(stops[0]).toBe(0);
+    expect(stops[stops.length - 1]).toBe(1);
+  });
+
+  it('settles at rest with zero overshoot when released at rest (default critical damping)', () => {
+    const stops = parseLinearStops(springEasingLinear(0));
+    // Critically damped: approaches rest monotonically and never crosses it.
+    expect(Math.max(...stops)).toBe(1);
+    // Released at rest → no follow-through (never dips below the start).
+    expect(Math.min(...stops)).toBeGreaterThanOrEqual(0);
+  });
+
+  it('never overshoots past rest at the default damping, for any release velocity', () => {
+    // The hard guarantee the pull-to-dismiss snap-back relies on: no stop may
+    // exceed 1, so the transform can never spring past its resting bounds.
+    for (const v of [-2.5, -1, 0, 1.2, 2.5]) {
+      const stops = parseLinearStops(springEasingLinear(v));
+      expect(Math.max(...stops)).toBeLessThanOrEqual(1);
+      expect(stops[stops.length - 1]).toBe(1);
+    }
+  });
+
+  it('follows through (dips below 0) for a positive release velocity', () => {
+    const stops = parseLinearStops(springEasingLinear(1.2));
+    // Continues in the release direction before springing back — but still
+    // never past rest on the other side.
+    expect(Math.min(...stops)).toBeLessThan(0);
+    expect(Math.max(...stops)).toBeLessThanOrEqual(1);
+    expect(stops[stops.length - 1]).toBe(1);
+  });
+
+  it('does not follow through for a velocity toward rest', () => {
+    const stops = parseLinearStops(springEasingLinear(-1));
+    expect(Math.min(...stops)).toBeGreaterThanOrEqual(0);
+  });
+
+  it('clamps away overshoot even when an under-damped ratio is requested', () => {
+    // Even a deliberately bouncy ζ is capped at rest — belt-and-suspenders
+    // against overflow.
+    expect(Math.max(...parseLinearStops(springEasingLinear(0, 0.4)))).toBeLessThanOrEqual(1);
+  });
+
+  it('honors the requested sample count', () => {
+    expect(parseLinearStops(springEasingLinear(0, 1, 6, 24))).toHaveLength(24);
   });
 });

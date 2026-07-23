@@ -12,6 +12,21 @@ export enum LightboxContentCssVars {
    * @type number
    */
   pullProgress = '--lightbox-pull-progress',
+  /**
+   * Duration of the pull-to-dismiss snap-back, published only while the
+   * cancelled pull springs back to rest. Reference it in your transition so
+   * progress-derived visuals stay in lockstep with the item's spring, e.g.
+   * `transition: opacity var(--lightbox-pull-snap-duration, 300ms) var(--lightbox-pull-snap-easing, ease)`.
+   * @type string
+   */
+  pullSnapDuration = '--lightbox-pull-snap-duration',
+  /**
+   * Easing of the pull-to-dismiss snap-back (a velocity-aware spring, published
+   * only during the spring-back). Pair with `--lightbox-pull-snap-duration` so
+   * backdrop/chrome fades match the item's snap-back exactly.
+   * @type string
+   */
+  pullSnapEasing = '--lightbox-pull-snap-easing',
 }
 
 export enum LightboxBackdropCssVars {
@@ -20,6 +35,16 @@ export enum LightboxBackdropCssVars {
    * @type number
    */
   pullProgress = '--lightbox-pull-progress',
+  /**
+   * Same snap-back duration variable as Content during pull-to-dismiss.
+   * @type string
+   */
+  pullSnapDuration = '--lightbox-pull-snap-duration',
+  /**
+   * Same snap-back easing variable as Content during pull-to-dismiss.
+   * @type string
+   */
+  pullSnapEasing = '--lightbox-pull-snap-easing',
 }
 
 export enum LightboxDocumentCssVars {

@@ -48,13 +48,18 @@ const backdropStateAttributesMapping = {
  * 1:1 finger tracking) and derives opacity from the variable:
  *
  * ```css
- * transition: opacity 300ms;
  * opacity: calc(1 - var(--lightbox-pull-progress, 0) * 0.6);
+ * transition: opacity var(--lightbox-pull-snap-duration, 300ms)
+ *   var(--lightbox-pull-snap-easing, ease);
  * &[data-pulling] { transition: none; }
  * ```
  *
- * On release the gesture resets the variable to 0 and removes
- * `data-pulling`, so the consumer's own transition eases the backdrop back.
+ * On release the gesture resets the variable to 0 and removes `data-pulling`,
+ * so the consumer's transition eases the backdrop back. It also publishes the
+ * snap-back's `--lightbox-pull-snap-duration` / `--lightbox-pull-snap-easing`
+ * for that moment — referencing them (as above) makes the backdrop spring back
+ * on the exact same curve and duration as the item, automatically. Your own
+ * fallbacks (`300ms ease` here) still own the open/close fade.
  *
  * Clicking the backdrop closes the lightbox, matching native dialog
  * backdrop click behavior. Consumers can override by stopping

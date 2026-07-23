@@ -3,10 +3,12 @@
 import * as React from 'react';
 
 import {
+  clamp,
   computePullTransform,
   computePullVelocity,
   resolveDragAxis,
   shouldDismissPull,
+  springEasingLinear,
   wheelAxis,
 } from './gesture-math';
 import { LightboxContentCssVars } from './lightbox-css-vars';
@@ -18,8 +20,19 @@ import { LightboxContentCssVars } from './lightbox-css-vars';
 const DIRECTION_LOCK_DISTANCE = 6;
 const DISMISS_DISTANCE = 100;
 const DISMISS_VELOCITY = 400;
-const SNAP_DURATION = 350;
-const SNAP_EASING = 'cubic-bezier(0.2, 1.15, 0.4, 1)';
+const SNAP_DURATION = 270;
+// Critically damped (no overshoot). A higher `settle` front-loads the motion so
+// most of the distance is covered early and the spring arrives decisively,
+// trimming the soft asymptotic tail that reads as "lazy".
+const SNAP_DAMPING = 1;
+const SNAP_SETTLE = 7.5;
+// Fallback for engines without CSS `linear()` easing support (pre-2024 Safari).
+// A firm, no-overshoot decelerating ease matching the near-critically-damped
+// spring below (velocity follow-through is lost, but it won't look bouncy).
+const SNAP_EASING_FALLBACK = 'cubic-bezier(0.33, 1, 0.68, 1)';
+// Clamp the normalized release velocity fed into the spring so a tiny pull
+// released with a quick flick can't blow up the follow-through.
+const MAX_SNAP_VELOCITY = 2.5;
 const MIN_SCALE = 0.85;
 const VELOCITY_SAMPLES = 5;
 
@@ -34,6 +47,26 @@ const VELOCITY_SAMPLES = 5;
  * @see LightboxContentCssVars.pullProgress
  */
 const PULL_PROGRESS_VAR = LightboxContentCssVars.pullProgress;
+
+/**
+ * CSS custom properties publishing the snap-back's duration and easing while a
+ * cancelled pull springs back to rest. They make the item spring the single
+ * source of truth for the snap-back: consumers reference these in their
+ * transition so anything derived from {@link PULL_PROGRESS_VAR} (backdrop
+ * opacity, chrome, blur) eases back on the exact same curve and duration.
+ * Set on release, removed once at rest, so open/close fades keep their own
+ * timing via the consumer's `var(..., fallback)`.
+ */
+const PULL_SNAP_DURATION_VAR = LightboxContentCssVars.pullSnapDuration;
+const PULL_SNAP_EASING_VAR = LightboxContentCssVars.pullSnapEasing;
+
+// Feature-detect CSS `linear()` easing once. When unsupported (pre-2024 Safari)
+// both the WAAPI transform animation and the published CSS var use the static
+// fallback curve, so they can never disagree.
+const supportsLinearEasing =
+  typeof CSS !== 'undefined' && typeof CSS.supports === 'function'
+    ? CSS.supports('transition-timing-function', 'linear(0, 1)')
+    : false;
 
 // ---------------------------------------------------------------------------
 // Types
@@ -86,6 +119,9 @@ function usePullToDismiss({
   const isPullingRef = React.useRef(false);
   const animationRef = React.useRef<Animation | null>(null);
   const dragTargetRef = React.useRef<HTMLElement | null>(null);
+  // Last *displayed* (damped) vertical offset, used as the spring amplitude so
+  // the release velocity maps to a correctly-scaled follow-through.
+  const lastAppliedYRef = React.useRef(0);
 
   // Trackpad (wheel) pull-to-dismiss state. A two-finger swipe emits a stream
   // of `wheel` events with no explicit end, so gesture completion is inferred
@@ -123,6 +159,7 @@ function usePullToDismiss({
       );
 
       target.style.transform = `translate(${x}px, ${y}px) scale(${scale})`;
+      lastAppliedYRef.current = y;
 
       // Publish the raw progress and let consumers decide how it maps to
       // visuals. Set it on both the content and the (separately portaled)
@@ -141,30 +178,55 @@ function usePullToDismiss({
       dragTargetRef.current.style.transform = '';
       dragTargetRef.current = null;
     }
-    if (content) {
-      content.removeAttribute('data-pulling');
-      content.style.removeProperty(PULL_PROGRESS_VAR);
-    }
-    if (backdrop) {
-      backdrop.removeAttribute('data-pulling');
-      backdrop.style.removeProperty(PULL_PROGRESS_VAR);
+    lastAppliedYRef.current = 0;
+    for (const el of [content, backdrop]) {
+      if (!el) continue;
+      el.removeAttribute('data-pulling');
+      el.style.removeProperty(PULL_PROGRESS_VAR);
+      el.style.removeProperty(PULL_SNAP_DURATION_VAR);
+      el.style.removeProperty(PULL_SNAP_EASING_VAR);
     }
   }, [contentRef, backdropRef]);
 
-  const snapBack = React.useCallback(() => {
+  const snapBack = React.useCallback((velocity = 0) => {
     const target = dragTargetRef.current;
     const content = contentRef.current;
     const backdrop = backdropRef.current;
+    const releaseY = lastAppliedYRef.current;
 
-    // Hand backdrop/chrome styling back to the consumer immediately: drop
-    // the `data-pulling` flag (re-enabling any transition they suppressed
-    // while pulling) and reset progress to 0 so their own transition eases
-    // everything back to rest. The library only owns the item transform
-    // snap-back below.
-    content?.removeAttribute('data-pulling');
-    backdrop?.removeAttribute('data-pulling');
-    content?.style.setProperty(PULL_PROGRESS_VAR, '0');
-    backdrop?.style.setProperty(PULL_PROGRESS_VAR, '0');
+    // Feed the release velocity into a spring so the snap-back continues in the
+    // gesture's direction (follow-through) before settling, like native iOS —
+    // instead of reversing from a dead stop. Normalize the pointer velocity
+    // (px/s) against the animation window and the displayed pull amplitude:
+    // `d(fraction)/d(progress)|0 = velocity * durationSeconds / releaseY`.
+    // Positive means "still moving away from rest", which the spring carries on.
+    const normalizedVelocity =
+      Math.abs(releaseY) > 1
+        ? clamp((velocity * (SNAP_DURATION / 1000)) / releaseY, -MAX_SNAP_VELOCITY, MAX_SNAP_VELOCITY)
+        : 0;
+
+    // Single source of truth for the snap-back timing. The same duration+easing
+    // drives the item's WAAPI transform below AND is published as CSS vars so
+    // consumer visuals keyed to `--lightbox-pull-progress` (backdrop opacity,
+    // chrome, blur) spring back on the identical curve. The easing is a
+    // normalized (dimensionless) fraction, so it maps 1:1 onto opacity despite
+    // the different amplitude — follow-through and the no-overshoot guarantee
+    // included.
+    const snapEasing = supportsLinearEasing
+      ? springEasingLinear(normalizedVelocity, SNAP_DAMPING, SNAP_SETTLE)
+      : SNAP_EASING_FALLBACK;
+
+    // Hand backdrop/chrome styling back to the consumer: publish the snap
+    // timing, drop the `data-pulling` flag (re-enabling the transition they
+    // suppressed while pulling), and reset progress to 0 so that transition —
+    // now on the item's curve+duration — eases everything back to rest.
+    for (const el of [content, backdrop]) {
+      if (!el) continue;
+      el.style.setProperty(PULL_SNAP_DURATION_VAR, `${SNAP_DURATION}ms`);
+      el.style.setProperty(PULL_SNAP_EASING_VAR, snapEasing);
+      el.removeAttribute('data-pulling');
+      el.style.setProperty(PULL_PROGRESS_VAR, '0');
+    }
 
     if (!target) {
       dragTargetRef.current = null;
@@ -180,13 +242,18 @@ function usePullToDismiss({
     // already clean — no flash.
     target.style.transform = '';
 
-    const targetAnim = target.animate(
-      [
-        { transform: currentTransform },
-        { transform: 'translate(0, 0) scale(1)' },
-      ],
-      { duration: SNAP_DURATION, easing: SNAP_EASING },
-    );
+    const keyframes = [
+      { transform: currentTransform },
+      { transform: 'translate(0, 0) scale(1)' },
+    ];
+
+    let targetAnim: Animation;
+    try {
+      targetAnim = target.animate(keyframes, { duration: SNAP_DURATION, easing: snapEasing });
+    } catch {
+      // Easing rejected (e.g. `linear()` unsupported) — fall back to a static curve.
+      targetAnim = target.animate(keyframes, { duration: SNAP_DURATION, easing: SNAP_EASING_FALLBACK });
+    }
 
     animationRef.current = targetAnim;
 
@@ -194,10 +261,14 @@ function usePullToDismiss({
       animationRef.current = null;
       targetAnim.cancel();
       dragTargetRef.current = null;
-      // Fully at rest — drop the inline var so the consumer's fallback
-      // (typically `var(--lightbox-pull-progress, 0)`) takes over cleanly.
-      content?.style.removeProperty(PULL_PROGRESS_VAR);
-      backdrop?.style.removeProperty(PULL_PROGRESS_VAR);
+      // Fully at rest — drop the inline vars so the consumer's fallbacks
+      // (`var(--lightbox-pull-progress, 0)`, and their own open/close timing)
+      // take over cleanly.
+      for (const el of [content, backdrop]) {
+        el?.style.removeProperty(PULL_PROGRESS_VAR);
+        el?.style.removeProperty(PULL_SNAP_DURATION_VAR);
+        el?.style.removeProperty(PULL_SNAP_EASING_VAR);
+      }
     }).catch(() => {
       // Animation cancelled — cleanup already handled
     });
@@ -333,7 +404,7 @@ function usePullToDismiss({
         dragTargetRef.current = null;
         onClose();
       } else {
-        snapBack();
+        snapBack(velocity);
       }
     };
 

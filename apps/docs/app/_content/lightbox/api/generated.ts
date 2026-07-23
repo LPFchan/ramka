@@ -673,11 +673,27 @@ export const generatedCssVariables: Record<string, CssVarRow[]> = {
       name: "--lightbox-pull-progress",
       description: "0 at rest → 1 at the dismiss threshold. Drive backdrop/content opacity from this.",
     },
+    {
+      name: "--lightbox-pull-snap-duration",
+      description: "Duration of the pull-to-dismiss snap-back, published only while the cancelled pull springs back to rest. Reference it in your transition so progress-derived visuals stay in lockstep with the item's spring, e.g. `transition: opacity var(--lightbox-pull-snap-duration, 300ms) var(--lightbox-pull-snap-easing, ease)`.",
+    },
+    {
+      name: "--lightbox-pull-snap-easing",
+      description: "Easing of the pull-to-dismiss snap-back (a velocity-aware spring, published only during the spring-back). Pair with `--lightbox-pull-snap-duration` so backdrop/chrome fades match the item's snap-back exactly.",
+    },
   ],
   "api-backdrop": [
     {
       name: "--lightbox-pull-progress",
       description: "Same progress variable as Content during pull-to-dismiss.",
+    },
+    {
+      name: "--lightbox-pull-snap-duration",
+      description: "Same snap-back duration variable as Content during pull-to-dismiss.",
+    },
+    {
+      name: "--lightbox-pull-snap-easing",
+      description: "Same snap-back easing variable as Content during pull-to-dismiss.",
     },
   ],
   "api-close": [],

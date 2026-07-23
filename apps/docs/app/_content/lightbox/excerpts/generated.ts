@@ -94,7 +94,7 @@ export const lightboxExcerpts = {
   },
   "open-close-css": {
     title: "Open / close CSS",
-    code: ".lightbox-demo-backdrop {\n  opacity: 0;\n  transition: opacity 340ms var(--ease-out-expo);\n}\n\n/* First frame when `data-open` appears — then pull-progress.css owns open opacity. */\n@starting-style {\n  .lightbox-demo-backdrop[data-open] {\n    opacity: 0;\n  }\n}\n\n.lightbox-demo-content {\n  opacity: 0;\n  transition: opacity 280ms var(--ease-out-expo);\n}\n\n.lightbox-demo-content[data-open] {\n  opacity: 1;\n}\n\n@starting-style {\n  .lightbox-demo-content[data-open] {\n    opacity: 0;\n  }\n}\n",
+    code: ".lightbox-demo-backdrop {\n  opacity: 0;\n  /* Open/close uses 340ms easeOutExpo (the fallbacks). During a pull-to-dismiss\n     snap-back the library publishes --lightbox-pull-snap-duration/-easing, so\n     the fade springs back in lockstep with the item — tweak the snap-back once\n     and both stay matched. */\n  transition: opacity var(--lightbox-pull-snap-duration, 340ms)\n    var(--lightbox-pull-snap-easing, var(--ease-out-expo));\n}\n\n/* First frame when `data-open` appears — then pull-progress.css owns open opacity. */\n@starting-style {\n  .lightbox-demo-backdrop[data-open] {\n    opacity: 0;\n  }\n}\n\n.lightbox-demo-content {\n  opacity: 0;\n  transition: opacity 280ms var(--ease-out-expo);\n}\n\n.lightbox-demo-content[data-open] {\n  opacity: 1;\n}\n\n@starting-style {\n  .lightbox-demo-content[data-open] {\n    opacity: 0;\n  }\n}\n",
     source: "app/lightbox-demo/open-close.css",
   },
   "pull-progress-css": {

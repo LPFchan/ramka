@@ -56,6 +56,14 @@ export default function LightboxGesturesPage() {
           <code className="text-xs">app/lightbox-demo/open-close.css</code>). Pull then modulates the open scrim (media
           stays opaque) via <code className="text-xs">pull-progress.css</code>.
         </p>
+        <p>
+          When a pull is released short of the threshold, the surface springs back and the library publishes{' '}
+          <code className="text-xs">--lightbox-pull-snap-duration</code> /{' '}
+          <code className="text-xs">--lightbox-pull-snap-easing</code> for the duration of that spring. Reference them in
+          your <code className="text-xs">transition</code> (with your open/close values as the fallbacks, as below) and
+          anything keyed to <code className="text-xs">--lightbox-pull-progress</code> — backdrop opacity, chrome, blur —
+          eases back on the exact same curve and duration as the item, automatically.
+        </p>
         <CodeBlock
           code={lightboxExcerpts['open-close-css'].code}
           title={lightboxExcerpts['open-close-css'].title}
