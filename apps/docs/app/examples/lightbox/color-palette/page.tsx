@@ -45,7 +45,7 @@ export default function ColorPalettePage() {
         </>
       }
     >
-      <Lightbox.Root loop>
+      <Lightbox.Root loop awaitImageDecode={350}>
         <div className="mx-auto max-w-3xl">
           <div className="mb-6">
             <h2 className="text-2xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-50">Chromatic</h2>

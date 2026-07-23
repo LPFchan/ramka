@@ -114,7 +114,7 @@ export default function PhotosAppPage() {
           { type: 'onChange', behavior: 'instant' },
           { type: 'onOpenComplete', behavior: 'instant' },
         ]}
-        
+        awaitImageDecode={false}
       >
         {/* The sticky nav AND the grid share a single `view-transition-name` so
             the density crossfade captures them as ONE group. Naming only the

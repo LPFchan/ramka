@@ -61,11 +61,11 @@ export default function TextMessagePage() {
 
             <Lightbox.Trigger
               index={0}
-              crossfade="both"
+              crossfade="close"
               className={`relative block h-80 w-[260px] cursor-pointer rounded-2xl border-none bg-transparent p-0 ${triggerMorphHideClass} ${triggerFocusClass}`}
             >
-              {({ morphRef }) => (
-                <div ref={morphRef} className="absolute -inset-5">
+              {({ morphRef, imageRef }) => (
+                <div className="absolute -inset-5">
                   {messageImages.map((img, i) => {
                     const offset = stackOffsets[i] ?? { x: 0, y: 0 };
                     const rotation = stackRotations[i] ?? 0;
@@ -75,6 +75,14 @@ export default function TextMessagePage() {
                         {...imgDims(img.thumb)}
                         src={img.thumb}
                         alt={img.alt}
+                        ref={
+                          i === 0
+                            ? (node) => {
+                                morphRef(node);
+                                imageRef(node);
+                              }
+                            : undefined
+                        }
                         className="absolute block h-[280px] w-[200px] rounded-2xl object-cover shadow-[0_4px_20px_rgba(0,0,0,0.15)]"
                         style={{
                           left: '50%',
