@@ -194,6 +194,15 @@ function usePullToDismiss({
     const backdrop = backdropRef.current;
     const releaseY = lastAppliedYRef.current;
 
+    // Honor reduced-motion: snap straight to rest with no spring (mirrors the
+    // zoom animations, which already collapse to a 0ms transition). The var
+    // published below goes to 0ms too, so the backdrop/chrome fade is instant
+    // in lockstep.
+    const prefersReducedMotion =
+      typeof window !== 'undefined' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const duration = prefersReducedMotion ? 0 : SNAP_DURATION;
+
     // Feed the release velocity into a spring so the snap-back continues in the
     // gesture's direction (follow-through) before settling, like native iOS —
     // instead of reversing from a dead stop. Normalize the pointer velocity
@@ -201,8 +210,8 @@ function usePullToDismiss({
     // `d(fraction)/d(progress)|0 = velocity * durationSeconds / releaseY`.
     // Positive means "still moving away from rest", which the spring carries on.
     const normalizedVelocity =
-      Math.abs(releaseY) > 1
-        ? clamp((velocity * (SNAP_DURATION / 1000)) / releaseY, -MAX_SNAP_VELOCITY, MAX_SNAP_VELOCITY)
+      duration > 0 && Math.abs(releaseY) > 1
+        ? clamp((velocity * (duration / 1000)) / releaseY, -MAX_SNAP_VELOCITY, MAX_SNAP_VELOCITY)
         : 0;
 
     // Single source of truth for the snap-back timing. The same duration+easing
@@ -222,7 +231,7 @@ function usePullToDismiss({
     // now on the item's curve+duration — eases everything back to rest.
     for (const el of [content, backdrop]) {
       if (!el) continue;
-      el.style.setProperty(PULL_SNAP_DURATION_VAR, `${SNAP_DURATION}ms`);
+      el.style.setProperty(PULL_SNAP_DURATION_VAR, `${duration}ms`);
       el.style.setProperty(PULL_SNAP_EASING_VAR, snapEasing);
       el.removeAttribute('data-pulling');
       el.style.setProperty(PULL_PROGRESS_VAR, '0');
@@ -249,10 +258,10 @@ function usePullToDismiss({
 
     let targetAnim: Animation;
     try {
-      targetAnim = target.animate(keyframes, { duration: SNAP_DURATION, easing: snapEasing });
+      targetAnim = target.animate(keyframes, { duration, easing: snapEasing });
     } catch {
       // Easing rejected (e.g. `linear()` unsupported) — fall back to a static curve.
-      targetAnim = target.animate(keyframes, { duration: SNAP_DURATION, easing: SNAP_EASING_FALLBACK });
+      targetAnim = target.animate(keyframes, { duration, easing: SNAP_EASING_FALLBACK });
     }
 
     animationRef.current = targetAnim;

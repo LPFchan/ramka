@@ -60,7 +60,10 @@ function useZoomAnimation(
     try {
       const anim = el.animate([{ transform: from }, { transform: to }], {
         duration: reducedMotion ? 0 : (opts?.duration ?? duration),
-        easing: opts?.easing ?? 'ease-in-out',
+        // Decelerating (ease-out) rather than symmetric ease-in-out: a
+        // double-tap / button zoom should track the input immediately and
+        // settle, not ramp up slowly. iOS-style curve for a native feel.
+        easing: opts?.easing ?? 'cubic-bezier(0.32, 0.72, 0, 1)',
         fill: 'none',
       });
       runningAnimation.current = anim;

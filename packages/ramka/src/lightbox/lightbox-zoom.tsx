@@ -121,12 +121,13 @@ const DEFAULT_KEYBOARD_PAN = 50;
 const DEFAULT_DOUBLE_CLICK_DELAY = 300;
 const DEFAULT_ANIMATION_DURATION = 300;
 const SNAP_OPTS = { duration: 180, easing: 'cubic-bezier(0.25, 1, 0.5, 1)' } as const;
-// Releasing a pinch past a zoom bound is a rubber-band release, not a plain
-// snap. Match native iOS (and this lightbox's own pull-to-dismiss release) with
-// a longer, gently overshooting spring so the scale settles back into range
-// instead of clipping abruptly. The `y > 1` control point produces the subtle
-// spring overshoot; the correction distance keeps it proportional and small.
-const ZOOM_SNAP_OPTS = { duration: 350, easing: 'cubic-bezier(0.2, 1.15, 0.4, 1)' } as const;
+// Releasing a pinch past a zoom bound rubber-bands the scale back into range.
+// A firm, no-overshoot decelerate — matching the pull-to-dismiss snap-back's
+// serious, no-overflow feel. There is no release velocity to carry on a pinch,
+// so a strong ease-out is equivalent to a critically-damped spring here. An
+// overshoot would spring the scale *past* the min/max bound (a zoom overflow),
+// which is exactly what we avoid.
+const ZOOM_SNAP_OPTS = { duration: 260, easing: 'cubic-bezier(0.22, 1, 0.36, 1)' } as const;
 const MOMENTUM_OPTS = { duration: 600, easing: 'cubic-bezier(0.33, 1, 0.68, 1)' } as const;
 
 // ---------------------------------------------------------------------------
