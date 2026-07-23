@@ -42,6 +42,7 @@ const baseNavSections: NavSection[] = [
       lightboxDocsPages.nextjsImage,
       lightboxDocsPages.viewTransitions,
       lightboxDocsPages.gestures,
+      lightboxDocsPages.zoom,
       lightboxDocsPages.api,
     ],
   },

@@ -183,7 +183,7 @@ export default function LightboxApiPage() {
         <ApiPartSection key={part.id} part={part} />
       ))}
 
-      <DocsPager prev={lightboxDocsPages.gestures} />
+      <DocsPager prev={lightboxDocsPages.zoom} />
     </DocsShell>
   );
 }

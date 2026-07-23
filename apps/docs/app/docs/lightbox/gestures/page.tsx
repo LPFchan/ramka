@@ -149,7 +149,7 @@ export default function LightboxGesturesPage() {
         </div>
       </DocsSection>
 
-      <DocsPager prev={lightboxDocsPages.viewTransitions} next={lightboxDocsPages.api} />
+      <DocsPager prev={lightboxDocsPages.viewTransitions} next={lightboxDocsPages.zoom} />
     </DocsShell>
   );
 }

@@ -24,6 +24,10 @@ export const lightboxDocsPages = {
     href: '/docs/lightbox/gestures',
     title: 'Gestures',
   },
+  zoom: {
+    href: '/docs/lightbox/zoom',
+    title: 'Zoom & a11y',
+  },
   api: {
     href: '/docs/lightbox/api',
     title: 'API reference',
@@ -38,6 +42,7 @@ export const lightboxDocsPagerOrder = [
   lightboxDocsPages.nextjsImage,
   lightboxDocsPages.viewTransitions,
   lightboxDocsPages.gestures,
+  lightboxDocsPages.zoom,
   lightboxDocsPages.api,
 ] as const;
 
