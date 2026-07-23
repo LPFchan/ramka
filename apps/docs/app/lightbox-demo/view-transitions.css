@@ -36,7 +36,7 @@
      root snapshot. */
   :root[data-ramka-view-transition]::view-transition-old(root),
   :root[data-ramka-view-transition]::view-transition-new(root) {
-    animation-duration: 340ms;
+    animation-duration: var(--duration-open);
     animation-timing-function: var(--ease-out-expo);
   }
   /* @docs-excerpt-end */
@@ -57,7 +57,7 @@
     overflow: hidden;
     border-radius: var(--lightbox-morph-border-radius-from, 0px);
     animation-name: -ua-view-transition-group-anim-lightbox-morph, lightbox-morph-border-radius;
-    animation-duration: 340ms;
+    animation-duration: var(--duration-open);
     animation-timing-function: var(--ease-vt-morph);
     animation-fill-mode: both;
     z-index: 2;

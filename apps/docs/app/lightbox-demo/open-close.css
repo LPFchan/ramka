@@ -9,11 +9,11 @@
 
 .lightbox-demo-backdrop {
   opacity: 0;
-  /* Open/close uses 340ms easeOutExpo (the fallbacks). During a pull-to-dismiss
-     snap-back the library publishes --lightbox-pull-snap-duration/-easing, so
-     the fade springs back in lockstep with the item — tweak the snap-back once
-     and both stay matched. */
-  transition: opacity var(--lightbox-pull-snap-duration, 340ms)
+  /* Open/close uses --duration-open easeOutExpo (the fallbacks). During a
+     pull-to-dismiss snap-back the library publishes --lightbox-pull-snap-
+     duration/-easing, so the fade springs back in lockstep with the item —
+     tweak the snap-back once and both stay matched. */
+  transition: opacity var(--lightbox-pull-snap-duration, var(--duration-open))
     var(--lightbox-pull-snap-easing, var(--ease-out-expo));
 }
 
@@ -26,7 +26,9 @@
 
 .lightbox-demo-content {
   opacity: 0;
-  transition: opacity 280ms var(--ease-out-expo);
+  /* Shares --duration-open with the backdrop + morph so the surface, scrim and
+     image resolve together instead of the content settling ~60ms early. */
+  transition: opacity var(--duration-open) var(--ease-out-expo);
 }
 
 .lightbox-demo-content[data-open] {
