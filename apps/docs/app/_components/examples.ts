@@ -52,7 +52,7 @@ export const lightboxExamples: ExampleLink[] = [
     slug: '3d-models',
     title: '3D models',
     description:
-      'One lightbox with Lightbox.Slides over a Three.js product grid — swipe between models, shared orbit with each trigger.',
+      'Three.js product grid with Lightbox.Slides — onBeforeOpen preheats GLBs before the morph; shared orbit with each trigger.',
   },
 
 
@@ -61,6 +61,12 @@ export const lightboxExamples: ExampleLink[] = [
     slug: 'real-estate-listing',
     title: 'Real estate listing',
     description: 'Property page with hero grid + remaining photos; lightbox shows all photos in a swipeable Lightbox.Slides viewport.',
+  },
+  {
+    slug: 'google-maps',
+    title: 'Google Maps',
+    description:
+      'Map preview of Wrocław morphs into a fullscreen Google Map — onBeforeOpen waits for the iframe to load; pull-to-dismiss off so pan/zoom stay with the map.',
   },
 ];
 

@@ -73,7 +73,11 @@ export { LightboxZoom as Zoom } from './lightbox-zoom';
 export { LightboxZoomIn as ZoomIn } from './lightbox-zoom-in';
 export { LightboxZoomOut as ZoomOut } from './lightbox-zoom-out';
 
-export type { LightboxRootProps } from './lightbox-root';
+export type {
+  LightboxRootProps,
+  LightboxBeforeOpen,
+  LightboxBeforeOpenContext,
+} from './lightbox-root';
 export type {
   LightboxTriggerProps,
   LightboxTriggerState,

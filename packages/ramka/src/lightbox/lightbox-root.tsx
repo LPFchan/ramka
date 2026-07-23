@@ -130,11 +130,45 @@ interface LightboxRootProps {
    *   soon as the image decodes (or is served from cache), or when the
    *   timeout elapses — whichever comes first.
    *
-   * Only relevant when `viewTransition` is enabled.
+   * Runs after the lightbox is prepared (mounted hidden) and before
+   * `onBeforeOpen`. Only relevant when `viewTransition` is enabled.
    * @default true
    */
   awaitImageDecode?: boolean | number;
+  /**
+   * Called after the open morph has prepared the lightbox (mounted, still
+   * hidden) and finished any `awaitImageDecode` wait, and **before** the View
+   * Transition starts. Use this to await custom media readiness (iframe
+   * `load`, video `loadeddata`, WebGL, …).
+   *
+   * May return a Promise — the morph waits for it. Bound your own timeout
+   * inside the callback; there is no library-imposed cap. When a newer
+   * open/close supersedes this one, `ctx.signal` aborts.
+   *
+   * Only relevant when `viewTransition` is enabled. Skipped when unset.
+   *
+   * @example
+   * // Wait for a Maps iframe (and skip the image decode wait):
+   * <Lightbox.Root
+   *   awaitImageDecode={false}
+   *   onBeforeOpen={async ({ signal }) => {
+   *     await waitForIframe(mapRef.current, { signal, timeoutMs: 1500 });
+   *   }}
+   * />
+   */
+  onBeforeOpen?: LightboxBeforeOpen;
 }
+
+/** Context passed to {@link LightboxRootProps.onBeforeOpen}. */
+interface LightboxBeforeOpenContext {
+  /** Destination morph host (`Media` / `morphRef` / item), if any. */
+  destination: Element | null;
+  /** Aborts when a newer open/close wins. */
+  signal: AbortSignal;
+}
+
+/** Return a Promise to delay the open View Transition until media is ready. */
+type LightboxBeforeOpen = (ctx: LightboxBeforeOpenContext) => void | Promise<void>;
 
 /**
  * Waits for the currently-running animations on `el` to finish, then invokes
@@ -177,7 +211,16 @@ function LightboxRoot(props: LightboxRootProps) {
       scrollTriggerIntoView = null,
       morphTo = 'active',
       awaitImageDecode = true,
+      onBeforeOpen,
     } = props;
+
+    const onBeforeOpenRef = React.useRef(onBeforeOpen);
+    React.useEffect(() => {
+      onBeforeOpenRef.current = onBeforeOpen;
+    }, [onBeforeOpen]);
+
+    /** Aborts an in-flight `onBeforeOpen` when a newer open/close starts. */
+    const beforeOpenAbortRef = React.useRef<AbortController | null>(null);
 
     // Resolve the decode-wait budget: `false`/`0` disables the wait,
     // `true` uses the default cap, and a number sets an explicit cap (ms).
@@ -469,6 +512,13 @@ function LightboxRoot(props: LightboxRootProps) {
       onOpenChangeRef.current?.(true);
     }, [isControlledOpen, lockScroll]);
 
+    // Tear down a prepare that never revealed (superseded / onBeforeOpen error).
+    // We never fired onOpenChange(true), so this is mount-only cleanup.
+    const commitAbortPrepare = React.useCallback(() => {
+      setPreparing(false);
+      setMounted(false);
+    }, []);
+
     const commitClose = React.useCallback(() => {
       if (!isControlledOpen) {
         setUncontrolledOpen(false);
@@ -497,6 +547,8 @@ function LightboxRoot(props: LightboxRootProps) {
       morphTo,
       scrollTriggerIntoView,
       decodeMaxWait,
+      onBeforeOpenRef,
+      beforeOpenAbortRef,
       triggerElementsRef,
       triggerMorphElementsRef,
       activeItemElementRef,
@@ -507,6 +559,7 @@ function LightboxRoot(props: LightboxRootProps) {
       closeGenRef,
       commitPrepare,
       commitReveal,
+      commitAbortPrepare,
       commitClose,
       onOpenComplete: handleOpenComplete,
       onCloseComplete: handleCloseComplete,
@@ -515,6 +568,9 @@ function LightboxRoot(props: LightboxRootProps) {
     const setOpen = React.useCallback(
       (nextOpen: boolean) => {
         closeGenRef.current += 1;
+        // Cancel any in-flight onBeforeOpen from a previous open attempt.
+        beforeOpenAbortRef.current?.abort();
+        beforeOpenAbortRef.current = null;
         // Mark this transition as internal so the external-sync effect
         // below doesn't double-handle the mount lifecycle when the
         // controlled `open` prop subsequently updates via onOpenChange.
@@ -803,4 +859,4 @@ function LightboxRoot(props: LightboxRootProps) {
 LightboxRoot.displayName = 'LightboxRoot';
 
 export { LightboxRoot };
-export type { LightboxRootProps };
+export type { LightboxRootProps, LightboxBeforeOpen, LightboxBeforeOpenContext };

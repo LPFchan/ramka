@@ -97,6 +97,7 @@ export function LightboxGallery({
   maxZoom = 6,
   thumbnails = 'desktop',
   zoomControls = true,
+  pullToClose = true,
   renderItem,
 }: {
   items: LightboxGalleryItem[];
@@ -106,6 +107,8 @@ export function LightboxGallery({
   thumbnails?: 'desktop' | 'always' | 'never';
   /** Desktop ZoomIn/ZoomOut toolbar buttons (default true). Off for video etc. */
   zoomControls?: boolean;
+  /** Pass `false` when content owns vertical drag (maps, orbit, …). @default true */
+  pullToClose?: boolean;
   renderItem?: (
     item: LightboxGalleryItem,
     index: number,
@@ -126,6 +129,7 @@ export function LightboxGallery({
       />
       <Lightbox.Content
         aria-label={ariaLabel}
+        pullToClose={pullToClose}
         className={`fixed inset-0 z-50 flex flex-col overscroll-contain outline-none ${contentFade}`}
       >
         <Lightbox.Slides

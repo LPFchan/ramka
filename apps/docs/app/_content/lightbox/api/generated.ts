@@ -83,7 +83,12 @@ export const generatedProps: Record<string, PropRow[]> = {
       name: "awaitImageDecode",
       type: "boolean | number",
       default: "true",
-      description: "How long the open morph waits for the destination image to decode before starting, so the lightbox doesn't flash empty space while the full-size image is still loading.\n\n- `true` (default) — wait up to ~200ms, then start regardless.\n- `false` — don't wait; start the transition immediately. Useful when the trigger image doubles as a placeholder for the lightbox item so there is nothing to wait for.\n- `number` — wait up to this many milliseconds. The morph starts as soon as the image decodes (or is served from cache), or when the timeout elapses — whichever comes first.\n\nOnly relevant when `viewTransition` is enabled.",
+      description: "How long the open morph waits for the destination image to decode before starting, so the lightbox doesn't flash empty space while the full-size image is still loading.\n\n- `true` (default) — wait up to ~200ms, then start regardless.\n- `false` — don't wait; start the transition immediately. Useful when the trigger image doubles as a placeholder for the lightbox item so there is nothing to wait for.\n- `number` — wait up to this many milliseconds. The morph starts as soon as the image decodes (or is served from cache), or when the timeout elapses — whichever comes first.\n\nRuns after the lightbox is prepared (mounted hidden) and before `onBeforeOpen`. Only relevant when `viewTransition` is enabled.",
+    },
+    {
+      name: "onBeforeOpen",
+      type: "LightboxBeforeOpen",
+      description: "Called after the open morph has prepared the lightbox (mounted, still hidden) and finished any `awaitImageDecode` wait, and **before** the View Transition starts. Use this to await custom media readiness (iframe `load`, video `loadeddata`, WebGL, …).\n\nMay return a Promise — the morph waits for it. Bound your own timeout inside the callback; there is no library-imposed cap. When a newer open/close supersedes this one, `ctx.signal` aborts.\n\nOnly relevant when `viewTransition` is enabled. Skipped when unset.",
     },
   ],
   "api-trigger": [

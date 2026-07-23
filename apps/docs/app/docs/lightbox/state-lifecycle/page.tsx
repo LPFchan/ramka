@@ -14,6 +14,7 @@ const toc: DocsTocItem[] = [
   { id: 'controlled', title: 'Controlled state' },
   { id: 'imperative', title: 'Imperative API' },
   { id: 'lifecycle', title: 'Lifecycle callbacks' },
+  { id: 'before-open', title: 'onBeforeOpen' },
 ];
 
 export default function LightboxStateLifecyclePage() {
@@ -75,6 +76,26 @@ export default function LightboxStateLifecyclePage() {
         >
           <LifecycleCallbacksDemo />
         </DocsDemo>
+      </DocsSection>
+
+      <DocsSection id="before-open" title="onBeforeOpen">
+        <p>
+          When View Transitions are on, open is{' '}
+          <em>prepare → optional image decode → optional onBeforeOpen → morph</em>. Use{' '}
+          <DocsLink href={lightboxApiHref.root}>Root</DocsLink>
+          ’s <code className="text-xs">onBeforeOpen</code> to delay the morph until custom media is
+          ready (iframe <code className="text-xs">load</code>, video, WebGL, …). It runs after the
+          lightbox is mounted hidden — so destination nodes exist — and before{' '}
+          <code className="text-xs">startViewTransition</code>.
+        </p>
+        <p>
+          Keep <code className="text-xs">awaitImageDecode</code> for photos (default{' '}
+          <code className="text-xs">true</code>). For non-image destinations, pass{' '}
+          <code className="text-xs">awaitImageDecode={'{false}'}</code> and wait in{' '}
+          <code className="text-xs">onBeforeOpen</code>. Bound your own timeout;{' '}
+          <code className="text-xs">ctx.signal</code> aborts if a newer open/close wins. See{' '}
+          <DocsLink href="/examples/lightbox/google-maps">Google Maps</DocsLink>.
+        </p>
       </DocsSection>
 
       <DocsPager prev={lightboxDocsPages.overview} next={lightboxDocsPages.composition} />

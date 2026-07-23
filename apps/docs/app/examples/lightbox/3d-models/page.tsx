@@ -57,20 +57,68 @@ type Product = (typeof products)[number];
 
 const gltfCache = new Map<string, Promise<THREE.Group>>();
 
-function loadGltf(url: string): Promise<THREE.Group> {
+/** Underlying load promise (one scene per URL). Prefer {@link loadGltf} for mounts. */
+function getGltfPromise(url: string): Promise<THREE.Group> {
   let hit = gltfCache.get(url);
   if (!hit) {
     hit = new Promise((resolve, reject) => {
       new GLTFLoader().load(
         url,
-        (gltf) => resolve(gltf.scene.clone(true)),
+        (gltf) => resolve(gltf.scene),
         undefined,
         reject,
       );
     });
     gltfCache.set(url, hit);
   }
-  return hit.then((scene) => scene.clone(true));
+  return hit;
+}
+
+/** Clone a cached GLB for a canvas mount. */
+function loadGltf(url: string): Promise<THREE.Group> {
+  return getGltfPromise(url).then((scene) => scene.clone(true));
+}
+
+/** Populate the GLB cache without cloning — used by `onBeforeOpen` preheat. */
+function ensureGltfCached(url: string): Promise<void> {
+  return getGltfPromise(url).then(() => undefined);
+}
+
+function itemIndexFromDestination(destination: Element | null): number | null {
+  const host =
+    destination instanceof Element
+      ? destination.closest('[data-lightbox-item]')
+      : null;
+  if (!(host instanceof HTMLElement)) return null;
+  const raw = host.getAttribute('data-index');
+  if (raw == null) return null;
+  const index = Number(raw);
+  return Number.isFinite(index) ? index : null;
+}
+
+/**
+ * Wait until every URL is cached, or `signal` aborts / `timeoutMs` elapses.
+ * Always resolves (never rejects) so a slow CDN can’t block the morph forever.
+ */
+function preheatGltfs(
+  urls: string[],
+  { signal, timeoutMs }: { signal: AbortSignal; timeoutMs: number },
+): Promise<void> {
+  if (urls.length === 0 || signal.aborted) return Promise.resolve();
+
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      signal.removeEventListener('abort', finish);
+      resolve();
+    };
+    const timer = setTimeout(finish, timeoutMs);
+    signal.addEventListener('abort', finish, { once: true });
+    void Promise.all(urls.map((url) => ensureGltfCached(url))).then(finish, finish);
+  });
 }
 
 function fitCameraToObject(camera: THREE.PerspectiveCamera, object: THREE.Object3D) {
@@ -190,8 +238,6 @@ function useThreeCanvas(
   canvasRef: React.RefObject<HTMLCanvasElement | null>,
   product: Product,
   interactive: boolean,
-  /** Trigger: one-finger rotates. Lightbox: one-finger left for pull-to-dismiss. */
-  touchMode: 'trigger' | 'lightbox',
 ) {
   const controlsRef = React.useRef<OrbitControls | null>(null);
 
@@ -232,14 +278,11 @@ function useThreeCanvas(
     controls.enableDamping = true;
     controls.enablePan = false;
     controls.enableZoom = false;
-    if (touchMode === 'trigger') {
-      controls.touches.ONE = THREE.TOUCH.ROTATE;
-      controls.touches.TWO = THREE.TOUCH.ROTATE;
-    } else {
-      // One-finger → lightbox pull-to-dismiss; two-finger rotates.
-      controls.touches.ONE = THREE.TOUCH.PAN;
-      controls.touches.TWO = THREE.TOUCH.ROTATE;
-    }
+    // One-finger rotates in both trigger and lightbox. (Lightbox used to map
+    // ONE → PAN so pull-to-dismiss could win; with pullToClose={false} that
+    // left mobile with no rotate gesture — pan is also disabled above.)
+    controls.touches.ONE = THREE.TOUCH.ROTATE;
+    controls.touches.TWO = THREE.TOUCH.ROTATE;
     controls.enabled = interactive;
     controlsRef.current = controls;
 
@@ -340,7 +383,7 @@ function useThreeCanvas(
     };
     // `interactive` is applied in a separate effect so we don’t rebuild the scene.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- mount once per canvas/product
-  }, [canvasRef, product.id, product.src, touchMode]);
+  }, [canvasRef, product.id, product.src]);
 
   React.useLayoutEffect(() => {
     if (controlsRef.current) controlsRef.current.enabled = interactive;
@@ -349,7 +392,7 @@ function useThreeCanvas(
 
 function TriggerScene({ product }: { product: Product }) {
   const canvasRef = React.useRef<HTMLCanvasElement | null>(null);
-  useThreeCanvas(canvasRef, product, true, 'trigger');
+  useThreeCanvas(canvasRef, product, true);
   return (
     <canvas
       ref={canvasRef}
@@ -369,14 +412,8 @@ function LightboxScene({
 }) {
   const item = useLightboxItemContext();
   const canvasRef = React.useRef<HTMLCanvasElement | null>(null);
-  // Only the active slide accepts orbit input so swipe / pull-to-dismiss win
-  // on neighbors and the inactive canvases don’t fight the scroller.
-  useThreeCanvas(
-    canvasRef,
-    product,
-    lightboxReady && !!item?.active,
-    'lightbox',
-  );
+  // Only the active slide accepts orbit so inactive canvases don’t fight swipe.
+  useThreeCanvas(canvasRef, product, lightboxReady && !!item?.active);
   return (
     <canvas
       ref={canvasRef}
@@ -430,6 +467,18 @@ function StudioLightbox() {
   return (
     <Lightbox.Root
       loop
+      awaitImageDecode={false}
+      onBeforeOpen={({ destination, signal }) => {
+        // Destination Item is already mounted (prepare) — warm its GLB (and the
+        // rest of the studio) before the morph so the lightbox canvas isn’t empty.
+        const openingIndex = itemIndexFromDestination(destination) ?? 0;
+        const opening = products[openingIndex];
+        const urls = [
+          ...(opening ? [opening.src] : []),
+          ...products.map((p) => p.src).filter((src) => src !== opening?.src),
+        ];
+        return preheatGltfs(urls, { signal, timeoutMs: 2500 });
+      }}
       scrollTriggerIntoView={[
         { type: 'onChange', behavior: 'instant' },
         { type: 'onOpenComplete', behavior: 'instant' },
@@ -451,6 +500,7 @@ function StudioLightbox() {
         preload={0}
         thumbnails="never"
         zoomControls={false}
+        // pullToClose={false}
         renderItem={(_item, index) => {
           const product = products[index]!;
           return (
@@ -477,8 +527,8 @@ export default function ThreeDModelsPage() {
   return (
     <ExampleShell
       title="3D models"
-      docsHref="/docs/lightbox/composition#slides"
-      docsLabel="Composition · Slides"
+      docsHref="/docs/lightbox/state-lifecycle#before-open"
+      docsLabel="State & lifecycle · onBeforeOpen"
       description={
         <>
           One lightbox over the grid —{' '}
@@ -489,8 +539,15 @@ export default function ThreeDModelsPage() {
           <code className="rounded bg-neutral-100 px-1 py-0.5 text-xs dark:bg-neutral-800">
             Lightbox.Media
           </code>
-          . Rotate only (no zoom); each grid tile stays in sync with its slide.
-          Swipe between models; one-finger vertical drag dismisses.
+          . <code className="rounded bg-neutral-100 px-1 py-0.5 text-xs dark:bg-neutral-800">
+            onBeforeOpen
+          </code>{' '}
+          preheats GLBs into a shared cache before the morph (opening model first). Rotate only
+          (no zoom); orbit stays in sync with the grid tile. Swipe between models;{' '}
+          <code className="rounded bg-neutral-100 px-1 py-0.5 text-xs dark:bg-neutral-800">
+            pullToClose={'{false}'}
+          </code>{' '}
+          so vertical drag stays with orbit.
         </>
       }
     >

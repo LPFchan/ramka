@@ -1595,6 +1595,88 @@ describe('Lightbox', () => {
       });
     });
 
+    describe('onBeforeOpen', () => {
+      it('runs after prepare and delays the View Transition until the promise settles', async () => {
+        const { startViewTransition } = mockViewTransitionAPI();
+        let resolveReady!: () => void;
+        const ready = new Promise<void>((r) => {
+          resolveReady = r;
+        });
+        const onBeforeOpen = vi.fn(() => ready);
+
+        render(
+          <LightboxRoot viewTransition awaitImageDecode={false} onBeforeOpen={onBeforeOpen}>
+            <LightboxTrigger index={0} data-testid="trigger-0">
+              Open
+            </LightboxTrigger>
+            <LightboxContent data-testid="content" aria-label="before-open test">
+              <LightboxItemGroup>
+                <LightboxItem index={0} data-testid="item-0">
+                  item
+                </LightboxItem>
+              </LightboxItemGroup>
+            </LightboxContent>
+          </LightboxRoot>,
+        );
+
+        fireEvent.click(screen.getByTestId('trigger-0'));
+
+        // Prepared (item in DOM) but VT not started until onBeforeOpen resolves.
+        expect(onBeforeOpen).toHaveBeenCalledOnce();
+        expect(onBeforeOpen).toHaveBeenCalledWith(
+          expect.objectContaining({
+            destination: expect.any(Element),
+            signal: expect.any(AbortSignal),
+          }),
+        );
+        expect(startViewTransition).not.toHaveBeenCalled();
+        expect(screen.getByTestId('item-0')).not.toHaveAttribute('data-skip-fade');
+
+        await act(async () => {
+          resolveReady();
+          await ready;
+        });
+
+        expect(startViewTransition).toHaveBeenCalledOnce();
+        expect(screen.getByTestId('item-0')).toHaveAttribute('data-skip-fade');
+      });
+
+      it('aborts the signal when a close supersedes the pending open', async () => {
+        mockViewTransitionAPI();
+        let seenSignal: AbortSignal | undefined;
+        const onBeforeOpen = vi.fn(({ signal }: { signal: AbortSignal }) => {
+          seenSignal = signal;
+          return new Promise<void>(() => {});
+        });
+
+        render(
+          <LightboxRoot viewTransition awaitImageDecode={false} onBeforeOpen={onBeforeOpen}>
+            <LightboxTrigger index={0} data-testid="trigger-0">
+              Open
+            </LightboxTrigger>
+            <LightboxContent data-testid="content" aria-label="before-open abort test">
+              <LightboxItemGroup>
+                <LightboxItem index={0} data-testid="item-0">
+                  item
+                </LightboxItem>
+              </LightboxItemGroup>
+            </LightboxContent>
+            <LightboxClose data-testid="close">Close</LightboxClose>
+          </LightboxRoot>,
+        );
+
+        fireEvent.click(screen.getByTestId('trigger-0'));
+        expect(onBeforeOpen).toHaveBeenCalledOnce();
+        expect(seenSignal?.aborted).toBe(false);
+
+        await act(async () => {
+          fireEvent.click(screen.getByTestId('close'));
+        });
+
+        expect(seenSignal?.aborted).toBe(true);
+      });
+    });
+
     describe('morph fallback when destination target has no resolvable size', () => {
       let originalRect: PropertyDescriptor | undefined;
 

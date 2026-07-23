@@ -466,6 +466,16 @@ interface ViewTransitionMorphConfig {
   scrollTriggerIntoView: ScrollTriggerIntoView;
   /** Upper bound (ms) to await the destination image decode; 0 disables. */
   decodeMaxWait: number;
+  /**
+   * Optional consumer wait after prepare + decode, before the View Transition.
+   * See `Lightbox.Root` `onBeforeOpen`.
+   */
+  onBeforeOpenRef: React.RefObject<
+    | ((ctx: { destination: Element | null; signal: AbortSignal }) => void | Promise<void>)
+    | undefined
+  >;
+  /** Holds the AbortController for the in-flight `onBeforeOpen` (if any). */
+  beforeOpenAbortRef: React.MutableRefObject<AbortController | null>;
   triggerElementsRef: React.RefObject<Map<number, HTMLElement>>;
   /** Trigger element → its designated morph descendant (see findTriggerMorphTarget). */
   triggerMorphElementsRef: React.RefObject<WeakMap<HTMLElement, HTMLElement>>;
@@ -492,6 +502,11 @@ interface ViewTransitionMorphConfig {
    * Runs inside the transition callback; a cheap paint-only flip (no mount).
    */
   commitReveal: () => void;
+  /**
+   * flushSync body that tears down a prepare that never revealed (superseded
+   * open or `onBeforeOpen` failure).
+   */
+  commitAbortPrepare: () => void;
   /** flushSync body that flips React state to the closed/unmounted state. */
   commitClose: () => void;
   /** Fired once the open morph settles (and its generation is still current). */
@@ -527,6 +542,8 @@ function useViewTransitionMorph(config: ViewTransitionMorphConfig): ViewTransiti
   const open = React.useCallback(async () => {
     const {
       decodeMaxWait,
+      onBeforeOpenRef,
+      beforeOpenAbortRef,
       triggerElementsRef,
       triggerMorphElementsRef,
       activeItemElementRef,
@@ -536,10 +553,15 @@ function useViewTransitionMorph(config: ViewTransitionMorphConfig): ViewTransiti
       closeGenRef,
       commitPrepare,
       commitReveal,
+      commitAbortPrepare,
     } = configRef.current;
 
     const docEl = document.documentElement;
     const gen = closeGenRef.current;
+
+    // Fresh controller for this open attempt; Root aborts it when gen bumps.
+    const beforeOpenAbort = new AbortController();
+    beforeOpenAbortRef.current = beforeOpenAbort;
 
     const triggerIdx = openingTriggerIndexRef.current;
     // Prefer the exact origin element (click / handle.triggerId) over the
@@ -598,8 +620,48 @@ function useViewTransitionMorph(config: ViewTransitionMorphConfig): ViewTransiti
         await waitForImageDecode(pendingItemTarget, decodeMaxWait);
         // A newer open/close superseded this one during the await — bail before
         // touching any document-level morph state so we don't corrupt it.
-        if (configRef.current.closeGenRef.current !== gen) return;
+        if (configRef.current.closeGenRef.current !== gen) {
+          if (beforeOpenAbortRef.current === beforeOpenAbort) {
+            beforeOpenAbortRef.current = null;
+          }
+          return;
+        }
       }
+    }
+
+    // Consumer escape hatch: await custom readiness (iframe / video / GLTF)
+    // after prepare + optional decode, still BEFORE startViewTransition so the
+    // VT update callback stays synchronous (same flash-avoidance as decode).
+    const onBeforeOpen = onBeforeOpenRef.current;
+    if (onBeforeOpen) {
+      const pendingItemEl = activeItemElementRef.current;
+      const destination = pendingItemEl
+        ? findItemMorphTarget(pendingItemEl, itemMorphElementsRef.current)
+        : null;
+      try {
+        await onBeforeOpen({ destination, signal: beforeOpenAbort.signal });
+      } catch {
+        // Ignore abort / consumer errors — tear down prepare if this open is
+        // still current; a superseding open/close already owns the tree.
+        if (beforeOpenAbortRef.current === beforeOpenAbort) {
+          beforeOpenAbortRef.current = null;
+        }
+        if (configRef.current.closeGenRef.current === gen) {
+          flushSync(commitAbortPrepare);
+        }
+        return;
+      }
+      if (beforeOpenAbortRef.current === beforeOpenAbort) {
+        beforeOpenAbortRef.current = null;
+      }
+      if (configRef.current.closeGenRef.current !== gen) return;
+      // Aborted without throw (signal only) — same cleanup as supersede.
+      if (beforeOpenAbort.signal.aborted) {
+        flushSync(commitAbortPrepare);
+        return;
+      }
+    } else if (beforeOpenAbortRef.current === beforeOpenAbort) {
+      beforeOpenAbortRef.current = null;
     }
 
     // Read the destination item's border-radius here, after the mount. The
