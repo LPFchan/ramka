@@ -2,10 +2,14 @@
 
 import * as React from 'react';
 import { Lightbox } from 'ramka';
-import { Play, X } from 'lucide-react';
+import { Play } from 'lucide-react';
 
 import { ExampleShell } from '../../../_components/example-shell';
-import { lightboxChromeButton, morphHideClass, triggerFocusClass } from '../../../_components/lightbox-chrome';
+import {
+  LightboxGallery,
+  morphHideClass,
+  triggerFocusClass,
+} from '../../../_components/lightbox-chrome';
 
 /**
  * Blender Open Movies — real trailers/shorts with their official posters
@@ -13,7 +17,7 @@ import { lightboxChromeButton, morphHideClass, triggerFocusClass } from '../../.
  * Trailers are preferred where available so the demo stays snappy to load.
  *
  * Each film is its own `Lightbox.Root` (no shared gallery) so opening one is a
- * single poster → fullscreen video morph with no backdrop, caption, or counter.
+ * single poster → fullscreen video morph.
  */
 const films = [
   {
@@ -62,32 +66,21 @@ const films = [
   },
 ];
 
-const contentFade =
-  'opacity-0 ease-out-expo duration-[280ms] transition-opacity data-[open]:opacity-100 starting:opacity-0';
-
 function LightboxVideo({
   src,
   poster,
   readyToPlay,
-  morphRef,
+  width,
+  height,
 }: {
   src: string;
   poster: string;
   /** True only after `onOpenChangeComplete(true)` — keeps playback off during the open morph. */
   readyToPlay: boolean;
-  morphRef: (node: HTMLElement | null) => void;
+  width: number;
+  height: number;
 }) {
   const videoRef = React.useRef<HTMLVideoElement>(null);
-
-  // Combine the local ref (play/pause) with the item's `morphRef` so the
-  // <video> is the designated morph target.
-  const setVideoRef = React.useCallback(
-    (node: HTMLVideoElement | null) => {
-      videoRef.current = node;
-      morphRef(node);
-    },
-    [morphRef],
-  );
 
   // Autoplay only after the open transition finishes. While closed / mid-open /
   // closing, stay paused at 0 so the poster frame stays stable for the morph.
@@ -103,16 +96,25 @@ function LightboxVideo({
   }, [readyToPlay]);
 
   return (
-    <video
-      ref={setVideoRef}
-      src={src}
-      poster={poster}
-      controls
-      playsInline
-      muted
-      preload="metadata"
-      className="size-full bg-black object-contain"
-    />
+    <Lightbox.Zoom className="px-0 pt-[calc(env(safe-area-inset-top,0px)+3.5rem)] pb-[calc(env(safe-area-inset-bottom,0px)+3.5rem)] md:px-8">
+      {/* Media morphs + bridges the poster; video fills the sized host. */}
+      <Lightbox.Media
+        width={width}
+        height={height}
+        className="overflow-hidden rounded-xl"
+      >
+        <video
+          ref={videoRef}
+          src={src}
+          poster={poster}
+          controls
+          playsInline
+          muted
+          preload="metadata"
+          className="bg-black object-contain"
+        />
+      </Lightbox.Media>
+    </Lightbox.Zoom>
   );
 }
 
@@ -121,7 +123,6 @@ function FilmLightbox({ film }: { film: (typeof films)[number] }) {
 
   return (
     <Lightbox.Root
-      viewTransition
       onOpenChange={(open) => {
         if (!open) setReadyToPlay(false);
       }}
@@ -164,28 +165,29 @@ function FilmLightbox({ film }: { film: (typeof films)[number] }) {
         )}
       </Lightbox.Trigger>
 
-      {/* No backdrop — the fullscreen video is the entire surface. */}
-      <Lightbox.Content
-        aria-label={film.title}
-        className={`fixed inset-0 z-50 size-full overscroll-contain outline-none ${contentFade}`}
-      >
-        <Lightbox.Close className={`absolute right-4 top-4 z-10 ${lightboxChromeButton}`} aria-label="Close">
-          <X aria-hidden className="h-[18px] w-[18px]" strokeWidth={2.25} />
-        </Lightbox.Close>
-
-        <Lightbox.ItemGroup className="size-full">
-          <Lightbox.Item index={0} className="size-full">
-            {({ morphRef }) => (
-              <LightboxVideo
-                src={film.video}
-                poster={film.poster}
-                readyToPlay={readyToPlay}
-                morphRef={morphRef}
-              />
-            )}
-          </Lightbox.Item>
-        </Lightbox.ItemGroup>
-      </Lightbox.Content>
+      <LightboxGallery
+        items={[
+          {
+            id: film.id,
+            src: film.poster,
+            thumb: film.poster,
+            alt: film.title,
+            caption: film.title,
+          },
+        ]}
+        ariaLabel={film.title}
+        thumbnails="never"
+        zoomControls={false}
+        renderItem={() => (
+          <LightboxVideo
+            src={film.video}
+            poster={film.poster}
+            readyToPlay={readyToPlay}
+            width={film.posterWidth}
+            height={film.posterHeight}
+          />
+        )}
+      />
     </Lightbox.Root>
   );
 }
@@ -197,8 +199,10 @@ export default function FilmTrailersPage() {
       description={
         <>
           Each poster is its own{' '}
-          <code className="rounded bg-neutral-100 px-1 py-0.5 text-xs dark:bg-neutral-800">Lightbox.Root</code> — no
-          shared gallery, backdrop, caption, or counter.{' '}
+          <code className="rounded bg-neutral-100 px-1 py-0.5 text-xs dark:bg-neutral-800">Lightbox.Root</code> with a
+          single-item gallery and{' '}
+          <code className="rounded bg-neutral-100 px-1 py-0.5 text-xs dark:bg-neutral-800">renderItem</code> for the
+          video.{' '}
           <code className="rounded bg-neutral-100 px-1 py-0.5 text-xs dark:bg-neutral-800">crossfade=&quot;close&quot;</code>{' '}
           hard-cuts the open morph into the video and dissolves the live frame back into the poster on close. Video
           autoplays (muted) only after{' '}

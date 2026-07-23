@@ -48,12 +48,17 @@ interface LightboxZoomState extends Record<string, unknown> {
  * `data-zoom` while scaled past 1x and `data-dragging` while panning — so
  * consumers can style purely through CSS.
  *
+ * Structurally, Zoom is also a CSS size container (`container-type: size`) so
+ * nested `Lightbox.Media` fit-box units (`cqw` / `cqh`) resolve against the
+ * zoom surface. Cosmetics (padding, flex centering, colors) stay consumer-owned.
+ *
  * The zoom transform is applied to an internal wrapper element that is not
  * consumer-configurable; pass your (typically `<img>`) content as `children`.
  * `children` may also be a render function receiving the current zoom state.
  */
 interface LightboxZoomProps
   extends Omit<useRender.ComponentProps<'div', LightboxZoomState>, 'children' | 'ref'> {
+  /** Zoomable content, or a render function exposing zoom state. */
   children: React.ReactNode | ((state: LightboxZoomState) => React.ReactNode);
   /** Minimum zoom level. @default 1 */
   minZoom?: number;
@@ -72,7 +77,7 @@ interface LightboxZoomProps
   wheelSensitivity?: number;
   /** Keyboard pan distance in px per keypress. @default 50 */
   keyboardPanDistance?: number;
-  /** Max delay between clicks for double-click detection (ms). @default 400 */
+  /** Max delay between clicks for double-click detection (ms). @default 300 */
   doubleClickDelay?: number;
   /** Smooth zoom animation duration (ms). @default 300 */
   animationDuration?: number;
@@ -86,13 +91,21 @@ const stateAttributesMapping = {
 };
 
 interface LightboxZoomRef {
+  /** Current zoom level. */
   zoom: number;
+  /** Resolved maximum zoom. */
   maxZoom: number;
+  /** Current pan X. */
   offsetX: number;
+  /** Current pan Y. */
   offsetY: number;
+  /** Step zoom in by zoomStep. */
   zoomIn: () => void;
+  /** Step zoom out by zoomStep. */
   zoomOut: () => void;
+  /** Zoom to an absolute level, optionally recentering. */
   zoomTo: (target: number, options?: { rapid?: boolean; dx?: number; dy?: number }) => void;
+  /** Reset zoom and pan to the resting state. */
   reset: (rapid?: boolean) => void;
 }
 
@@ -192,6 +205,7 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
     }, [maxZoomProp, imageDimensions, containerSize, minZoom]);
 
     // ----- Observe images inside wrapper to get natural dimensions -----
+    // Prefer Media's laid-out box for pan; natural dims still come from <img>.
     React.useEffect(() => {
       const wrapper = wrapperRef.current;
       if (!wrapper || maxZoomProp !== undefined) return;
@@ -236,23 +250,30 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
     }, [zoom]);
 
     // ----- Offset clamping -----
+    const resolveContentSize = React.useCallback((containerRect: DOMRect) => {
+      const wrapper = wrapperRef.current;
+      if (wrapper) {
+        // Prefer Lightbox.Media (sized morph / content host) over a raw <img>.
+        // Documented shape: Zoom > Media > img|video (bare children still work).
+        const media = wrapper.querySelector('[data-lightbox-media]');
+        if (media instanceof HTMLElement && media.offsetWidth > 0) {
+          return { w: media.offsetWidth, h: media.offsetHeight };
+        }
+        const img = wrapper.querySelector('img');
+        if (img && img.offsetWidth > 0) {
+          return { w: img.offsetWidth, h: img.offsetHeight };
+        }
+      }
+      return { w: containerRect.width, h: containerRect.height };
+    }, []);
+
     const clampOffsets = React.useCallback(
       (newOffsetX: number, newOffsetY: number, newZoom: number) => {
         const el = containerRef.current;
         if (!el) return { x: 0, y: 0 };
 
         const containerRect = el.getBoundingClientRect();
-        const wrapper = wrapperRef.current;
-        let contentW = containerRect.width;
-        let contentH = containerRect.height;
-
-        if (wrapper) {
-          const img = wrapper.querySelector('img');
-          if (img && img.offsetWidth > 0) {
-            contentW = img.offsetWidth;
-            contentH = img.offsetHeight;
-          }
-        }
+        const { w: contentW, h: contentH } = resolveContentSize(containerRect);
 
         return clampOffset(
           newOffsetX,
@@ -264,7 +285,7 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
           newZoom,
         );
       },
-      [],
+      [resolveContentSize],
     );
 
     // ----- Core actions -----
@@ -313,19 +334,13 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
         const el = containerRef.current;
         if (!el) return { maxX: 0, maxY: 0 };
         const rect = el.getBoundingClientRect();
-        const wrapper = wrapperRef.current;
-        let cw = rect.width;
-        let ch = rect.height;
-        if (wrapper) {
-          const img = wrapper.querySelector('img');
-          if (img && img.offsetWidth > 0) { cw = img.offsetWidth; ch = img.offsetHeight; }
-        }
+        const { w: cw, h: ch } = resolveContentSize(rect);
         return {
           maxX: maxPanOffset(cw, rect.width, z),
           maxY: maxPanOffset(ch, rect.height, z),
         };
       },
-      [],
+      [resolveContentSize],
     );
 
     const changeOffsetsAction = React.useCallback(
@@ -578,6 +593,8 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
             position: 'relative',
             width: '100%',
             height: '100%',
+            // Size container for Media’s cqw/cqh fit-box (structural, not cosmetic).
+            containerType: 'size',
             touchAction: zoom > minZoom ? 'none' : 'pan-x pan-y',
             cursor: dragging ? 'grabbing' : zoom > 1 ? 'grab' : undefined,
             userSelect: 'none',

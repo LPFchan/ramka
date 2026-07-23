@@ -1,68 +1,9 @@
-/* ---------------------------------------------------------------------------
-   Lightbox demo styles
+/* View Transition pseudo-elements — live on the document, not in React.
+   Targeted with CSS only (cannot use Tailwind utilities).
+   Documented under View transitions → Styling. */
 
-   These styles power the lightbox examples in the docs. Ramka itself is a
-   headless library, so none of this ships with the package — it lives here in
-   the docs app to demonstrate one way of skinning/animating the primitives.
-   Imported by globals.css.
-   --------------------------------------------------------------------------- */
-
-/* ---------------------------------------------------------------------------
-   Lightbox motion tokens
-   --------------------------------------------------------------------------- */
-
-@theme {
-  /* Snappy decelerating curve — "easeOutExpo". Used for the backdrop,
-     content, and (in demos) morph-target opacity transitions, plus the
-     View Transition root cross-fade. */
-  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
-
-  /* iOS-style easing reserved for the View Transition morph group
-     (the bounding-box animation between trigger and lightbox item). */
-  --ease-vt-morph: cubic-bezier(0.32, 0.72, 0, 1);
-
-  /* Item navigation fade-in (data-active item picks this up via
-     `animate-lightbox-item-fade-in`). Skipped during VT — see below. */
-  --animate-lightbox-item-fade-in: lightbox-item-fade-in 250ms ease-out both;
-}
-
-@keyframes lightbox-item-fade-in {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-/* Apply the fade-in to the active item, but skip it when the library
-   has marked the item with `data-skip-fade` — that flag is set on the
-   destination item during a View Transition open, signalling that the
-   morph animation already handled the entrance and a follow-up fade
-   would just produce a flash of `opacity: 0` once the VT layer is
-   torn down. Mirrors frosted-ui's lightbox.css contract. */
-[data-lightbox-item][data-active]:not([data-skip-fade]) {
-  animation: var(--animate-lightbox-item-fade-in);
-}
-
-/* ...but NOT inside a Lightbox.Slides scroller. There, items sit side by
-   side and `data-active` moves as you scroll, so this stacked-navigation
-   entrance fade would replay (flash to opacity 0) on every swipe.
-   Lightbox.Slides is the only ancestor that sets `data-orientation`, so it's
-   a reliable, zero-config marker — consumers building a swipeable lightbox
-   don't have to remember to opt out. Higher specificity (0,4,0 > 0,3,0)
-   lets this win without `!important`. */
-[data-orientation] [data-lightbox-item][data-active] {
-  animation: none;
-}
-
-/* ---------------------------------------------------------------------------
-   View Transition pseudo-elements
-   These live on the document, not in the React tree, so they cannot be
-   targeted with Tailwind utilities. They mirror frosted-ui's morph timing
-   so the VT example feels identical to its design-system equivalent.
-   --------------------------------------------------------------------------- */
-
+/* @docs-excerpt-start vt-isolate-names */
+/* @docs-excerpt-title Isolate other view-transition names */
 /* Isolate the lightbox morph from the rest of the page. `startViewTransition`
    captures the WHOLE document, so any consumer element that carries its own
    `view-transition-name` (e.g. a photo grid) would otherwise be lifted into a
@@ -74,10 +15,11 @@
 :root[data-lightbox-view-transition] * {
   view-transition-name: none !important;
 }
-
-
+/* @docs-excerpt-end */
 
 @media (prefers-reduced-motion: no-preference) {
+  /* @docs-excerpt-start vt-root-snapshot */
+  /* @docs-excerpt-title Root snapshot timing */
   /* The root snapshot cross-fades between the old and new states, carrying the
      unavoidable page-behind transition (e.g. the trigger grid receding as the
      lightbox opens). It must stay a SINGLE root group: WebKit/Safari rasterizes
@@ -91,13 +33,16 @@
      (a single GPU-composited layer each) instead of being pinned opaque and
      crossfaded as full-viewport bitmaps. That plain-opacity path is measurably
      smoother on mobile Safari — do not route element fades back through the
-     root snapshot (the removed `.lightbox-chrome-fade` hook did exactly that). */
+     root snapshot. */
   :root[data-lightbox-view-transition]::view-transition-old(root),
   :root[data-lightbox-view-transition]::view-transition-new(root) {
     animation-duration: 340ms;
     animation-timing-function: var(--ease-out-expo);
   }
+  /* @docs-excerpt-end */
 
+  /* @docs-excerpt-start morph-border-radius */
+  /* @docs-excerpt-title Morph border-radius */
   /* Shape morph is CSS-only: JS writes --lightbox-morph-border-radius-from/to
      on :root; this group owns clipping for the whole transition. The `from`
      radius is the cascade base (not only a keyframe) so frame 0 can't flash
@@ -117,10 +62,13 @@
     animation-fill-mode: both;
     z-index: 2;
   }
+  /* @docs-excerpt-end */
 
+  /* @docs-excerpt-start vt-morph-snapshots */
+  /* @docs-excerpt-title Morph snapshot fit */
+  /* Same-image hard-cuts keep cover so crops stay correct. */
   ::view-transition-old(lightbox-morph),
   ::view-transition-new(lightbox-morph) {
-    /* Same-image hard-cuts keep cover so crops stay correct. */
     object-fit: cover;
     width: 100%;
     height: 100%;
@@ -134,7 +82,10 @@
   :root[data-lightbox-view-transition]:not([data-lightbox-no-crossfade])::view-transition-new(lightbox-morph) {
     object-fit: fill;
   }
+  /* @docs-excerpt-end */
 
+  /* @docs-excerpt-start no-crossfade-hard-cut */
+  /* @docs-excerpt-title Hard-cut (no crossfade) */
   :root[data-lightbox-no-crossfade]::view-transition-old(lightbox-morph),
   :root[data-lightbox-no-crossfade]::view-transition-new(lightbox-morph) {
     animation: none !important;
@@ -146,15 +97,5 @@
   :root[data-lightbox-no-crossfade]::view-transition-new(lightbox-morph) {
     opacity: var(--lightbox-morph-new-opacity, 0);
   }
-}
-
-/* Belt-and-suspenders: also suppress the item fade-in while VT is in
-   flight. The `:not([data-skip-fade])` rule above already excludes the
-   destination item, but `data-skip-fade` is applied *inside* the VT
-   callback (after a `flushSync(setMounted(true))` and an image-decode
-   await), so there is a brief window where data-active is set without
-   data-skip-fade. This rule covers that window without relying on
-   precise ordering. */
-:root[data-lightbox-view-transition] [data-lightbox-item][data-active] {
-  animation: none !important;
+  /* @docs-excerpt-end */
 }

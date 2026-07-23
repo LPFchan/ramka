@@ -15,10 +15,12 @@ import { LightboxItem } from './lightbox-item';
 import { LightboxItemGroup } from './lightbox-item-group';
 import { LightboxNext } from './lightbox-next';
 import { LightboxPrevious } from './lightbox-previous';
-import { LightboxRoot, type LightboxRootRef } from './lightbox-root';
+import { createHandle } from './lightbox-handle';
+import { LightboxRoot } from './lightbox-root';
 import { LightboxThumbnail } from './lightbox-thumbnail';
 import { LightboxThumbnailGroup } from './lightbox-thumbnail-group';
 import { LightboxTrigger } from './lightbox-trigger';
+import { LightboxMedia } from './lightbox-media';
 import { LightboxZoom, type LightboxZoomRef } from './lightbox-zoom';
 import { LightboxZoomIn } from './lightbox-zoom-in';
 import { LightboxZoomOut } from './lightbox-zoom-out';
@@ -934,30 +936,14 @@ describe('Lightbox', () => {
   });
 
   // ---------------------------------------------------------------------------
-  // 9. Imperative ref API
+  // 9. createHandle API
   // ---------------------------------------------------------------------------
 
-  describe('imperative ref API', () => {
-    it('ref.open() opens the lightbox', () => {
-      const ref = React.createRef<LightboxRootRef>();
+  describe('createHandle API', () => {
+    it('handle.open/close/goTo control a Root with handle prop', () => {
+      const handle = createHandle();
       render(
-        <LightboxRoot ref={ref}>
-          <LightboxContent data-testid="content" aria-label="Test">
-            <LightboxItemGroup>
-              <LightboxItem index={0}>Item 0</LightboxItem>
-            </LightboxItemGroup>
-          </LightboxContent>
-        </LightboxRoot>,
-      );
-      expect(screen.queryByTestId('content')).toBeNull();
-      act(() => ref.current!.open());
-      expect(screen.getByTestId('content')).toBeInTheDocument();
-    });
-
-    it('ref.open(index) opens at a specific index', () => {
-      const ref = React.createRef<LightboxRootRef>();
-      render(
-        <LightboxRoot ref={ref}>
+        <LightboxRoot handle={handle}>
           <LightboxContent data-testid="content" aria-label="Test">
             <LightboxItemGroup>
               <LightboxItem index={0} data-testid="item-0">Item 0</LightboxItem>
@@ -966,14 +952,20 @@ describe('Lightbox', () => {
           </LightboxContent>
         </LightboxRoot>,
       );
-      act(() => ref.current!.open(1));
+      expect(handle.isOpen).toBe(false);
+      act(() => handle.open(1));
+      expect(handle.isOpen).toBe(true);
       expect(screen.getByTestId('item-1')).toHaveAttribute('aria-hidden', 'false');
+      act(() => handle.goTo(0));
+      expect(screen.getByTestId('item-0')).toHaveAttribute('aria-hidden', 'false');
+      act(() => handle.close());
+      expect(handle.isOpen).toBe(false);
     });
 
-    it('ref.close() closes the lightbox', async () => {
-      const ref = React.createRef<LightboxRootRef>();
+    it('handle.open() opens the lightbox', () => {
+      const handle = createHandle();
       render(
-        <LightboxRoot ref={ref} defaultOpen>
+        <LightboxRoot handle={handle}>
           <LightboxContent data-testid="content" aria-label="Test">
             <LightboxItemGroup>
               <LightboxItem index={0}>Item 0</LightboxItem>
@@ -981,27 +973,84 @@ describe('Lightbox', () => {
           </LightboxContent>
         </LightboxRoot>,
       );
-      expect(screen.getByTestId('content')).toBeInTheDocument();
-      act(() => ref.current!.close());
-      await flushMicrotasks();
       expect(screen.queryByTestId('content')).toBeNull();
+      act(() => handle.open());
+      expect(screen.getByTestId('content')).toBeInTheDocument();
     });
 
-    it('ref.goTo(index) navigates to an index', () => {
-      const ref = React.createRef<LightboxRootRef>();
+    it('handle.open(index, { triggerId }) associates the opening trigger', () => {
+      const handle = createHandle();
+      const onValueChange = vi.fn();
       render(
-        <LightboxRoot ref={ref} defaultOpen>
+        <LightboxRoot handle={handle} onValueChange={onValueChange}>
+          <LightboxTrigger index={0} id="hero-a" data-testid="trigger-a">
+            A
+          </LightboxTrigger>
+          <LightboxTrigger index={0} id="hero-b" data-testid="trigger-b">
+            B
+          </LightboxTrigger>
           <LightboxContent data-testid="content" aria-label="Test">
             <LightboxItemGroup>
-              <LightboxItem index={0} data-testid="item-0">Item 0</LightboxItem>
-              <LightboxItem index={1} data-testid="item-1">Item 1</LightboxItem>
-              <LightboxItem index={2} data-testid="item-2">Item 2</LightboxItem>
+              <LightboxItem index={0}>Item 0</LightboxItem>
             </LightboxItemGroup>
           </LightboxContent>
         </LightboxRoot>,
       );
-      act(() => ref.current!.goTo(2));
-      expect(screen.getByTestId('item-2')).toHaveAttribute('aria-hidden', 'false');
+      act(() => handle.open(0, { triggerId: 'hero-b' }));
+      expect(screen.getByTestId('content')).toBeInTheDocument();
+      expect(onValueChange).toHaveBeenCalledWith(0, { source: 'imperative' });
+      expect(screen.getByTestId('trigger-b')).toHaveAttribute('data-active');
+    });
+
+    it('detached Trigger with handle opens the Root', () => {
+      const handle = createHandle();
+      function Demo() {
+        return (
+          <>
+            <LightboxTrigger handle={handle} id="detached" index={0} data-testid="detached-trigger">
+              Open
+            </LightboxTrigger>
+            <LightboxRoot handle={handle}>
+              <LightboxContent data-testid="content" aria-label="Test">
+                <LightboxItemGroup>
+                  <LightboxItem index={0}>Item 0</LightboxItem>
+                </LightboxItemGroup>
+              </LightboxContent>
+            </LightboxRoot>
+          </>
+        );
+      }
+      render(<Demo />);
+      expect(screen.queryByTestId('content')).toBeNull();
+      fireEvent.click(screen.getByTestId('detached-trigger'));
+      expect(screen.getByTestId('content')).toBeInTheDocument();
+      expect(screen.getByTestId('detached-trigger')).toHaveAttribute('data-open');
+      expect(screen.getByTestId('detached-trigger')).toHaveAttribute('data-active');
+    });
+
+    it('handle.open with triggerId associates a detached Trigger', () => {
+      const handle = createHandle();
+      function Demo() {
+        return (
+          <>
+            <LightboxTrigger handle={handle} id="tile-1" index={1} data-testid="tile-1">
+              Tile 1
+            </LightboxTrigger>
+            <LightboxRoot handle={handle}>
+              <LightboxContent data-testid="content" aria-label="Test">
+                <LightboxItemGroup>
+                  <LightboxItem index={0} data-testid="item-0">Item 0</LightboxItem>
+                  <LightboxItem index={1} data-testid="item-1">Item 1</LightboxItem>
+                </LightboxItemGroup>
+              </LightboxContent>
+            </LightboxRoot>
+          </>
+        );
+      }
+      render(<Demo />);
+      act(() => handle.open(undefined, { triggerId: 'tile-1' }));
+      expect(screen.getByTestId('item-1')).toHaveAttribute('aria-hidden', 'false');
+      expect(screen.getByTestId('tile-1')).toHaveAttribute('data-active');
     });
   });
 
@@ -1036,9 +1085,9 @@ describe('Lightbox', () => {
 
     it('onOpenChangeComplete does not fire if close is interrupted by reopen', async () => {
       const completeSpy = vi.fn();
-      const ref = React.createRef<LightboxRootRef>();
+      const handle = createHandle();
       render(
-        <LightboxRoot ref={ref} onOpenChangeComplete={completeSpy} defaultOpen>
+        <LightboxRoot handle={handle} onOpenChangeComplete={completeSpy} defaultOpen>
           <LightboxContent data-testid="content" aria-label="Test">
             <LightboxItemGroup>
               <LightboxItem index={0}>Item 0</LightboxItem>
@@ -1047,8 +1096,8 @@ describe('Lightbox', () => {
         </LightboxRoot>,
       );
 
-      act(() => ref.current!.close());
-      act(() => ref.current!.open());
+      act(() => handle.close());
+      act(() => handle.open());
 
       await act(() => new Promise((r) => setTimeout(r, 50)));
 
@@ -1085,7 +1134,9 @@ describe('Lightbox', () => {
     it('compound component outside context throws meaningful error', () => {
       expect(() => {
         render(<LightboxTrigger index={0}>orphan</LightboxTrigger>);
-      }).toThrow('Lightbox compound components must be used within a Lightbox.Root');
+      }).toThrow(
+        'Lightbox.Trigger must be used within a Lightbox.Root, or passed a handle from Lightbox.createHandle()',
+      );
     });
 
     it('multiple triggers for the same index work correctly', () => {
@@ -1106,9 +1157,9 @@ describe('Lightbox', () => {
     });
 
     it('rapid open/close does not leave stale state', async () => {
-      const ref = React.createRef<LightboxRootRef>();
+      const handle = createHandle();
       render(
-        <LightboxRoot ref={ref}>
+        <LightboxRoot handle={handle}>
           <LightboxContent data-testid="content" aria-label="Test">
             <LightboxItemGroup>
               <LightboxItem index={0}>Item 0</LightboxItem>
@@ -1117,10 +1168,10 @@ describe('Lightbox', () => {
         </LightboxRoot>,
       );
 
-      act(() => ref.current!.open());
-      act(() => ref.current!.close());
-      act(() => ref.current!.open());
-      act(() => ref.current!.close());
+      act(() => handle.open());
+      act(() => handle.close());
+      act(() => handle.open());
+      act(() => handle.close());
 
       await flushMicrotasks();
       expect(screen.queryByTestId('content')).toBeNull();
@@ -1544,6 +1595,88 @@ describe('Lightbox', () => {
       });
     });
 
+    describe('onBeforeOpen', () => {
+      it('runs after prepare and delays the View Transition until the promise settles', async () => {
+        const { startViewTransition } = mockViewTransitionAPI();
+        let resolveReady!: () => void;
+        const ready = new Promise<void>((r) => {
+          resolveReady = r;
+        });
+        const onBeforeOpen = vi.fn(() => ready);
+
+        render(
+          <LightboxRoot viewTransition awaitImageDecode={false} onBeforeOpen={onBeforeOpen}>
+            <LightboxTrigger index={0} data-testid="trigger-0">
+              Open
+            </LightboxTrigger>
+            <LightboxContent data-testid="content" aria-label="before-open test">
+              <LightboxItemGroup>
+                <LightboxItem index={0} data-testid="item-0">
+                  item
+                </LightboxItem>
+              </LightboxItemGroup>
+            </LightboxContent>
+          </LightboxRoot>,
+        );
+
+        fireEvent.click(screen.getByTestId('trigger-0'));
+
+        // Prepared (item in DOM) but VT not started until onBeforeOpen resolves.
+        expect(onBeforeOpen).toHaveBeenCalledOnce();
+        expect(onBeforeOpen).toHaveBeenCalledWith(
+          expect.objectContaining({
+            destination: expect.any(Element),
+            signal: expect.any(AbortSignal),
+          }),
+        );
+        expect(startViewTransition).not.toHaveBeenCalled();
+        expect(screen.getByTestId('item-0')).not.toHaveAttribute('data-skip-fade');
+
+        await act(async () => {
+          resolveReady();
+          await ready;
+        });
+
+        expect(startViewTransition).toHaveBeenCalledOnce();
+        expect(screen.getByTestId('item-0')).toHaveAttribute('data-skip-fade');
+      });
+
+      it('aborts the signal when a close supersedes the pending open', async () => {
+        mockViewTransitionAPI();
+        let seenSignal: AbortSignal | undefined;
+        const onBeforeOpen = vi.fn(({ signal }: { signal: AbortSignal }) => {
+          seenSignal = signal;
+          return new Promise<void>(() => {});
+        });
+
+        render(
+          <LightboxRoot viewTransition awaitImageDecode={false} onBeforeOpen={onBeforeOpen}>
+            <LightboxTrigger index={0} data-testid="trigger-0">
+              Open
+            </LightboxTrigger>
+            <LightboxContent data-testid="content" aria-label="before-open abort test">
+              <LightboxItemGroup>
+                <LightboxItem index={0} data-testid="item-0">
+                  item
+                </LightboxItem>
+              </LightboxItemGroup>
+            </LightboxContent>
+            <LightboxClose data-testid="close">Close</LightboxClose>
+          </LightboxRoot>,
+        );
+
+        fireEvent.click(screen.getByTestId('trigger-0'));
+        expect(onBeforeOpen).toHaveBeenCalledOnce();
+        expect(seenSignal?.aborted).toBe(false);
+
+        await act(async () => {
+          fireEvent.click(screen.getByTestId('close'));
+        });
+
+        expect(seenSignal?.aborted).toBe(true);
+      });
+    });
+
     describe('morph fallback when destination target has no resolvable size', () => {
       let originalRect: PropertyDescriptor | undefined;
 
@@ -1762,12 +1895,14 @@ describe('Lightbox', () => {
     describe('border-radius CSS vars', () => {
       let originalRect: PropertyDescriptor | undefined;
 
+      // `getBoundingClientRect` lives on Element.prototype. Without a non-zero
+      // box, resolveMorphBorderRadius returns "0px" (jsdom layout is always 0).
       function mockTargetBox() {
         originalRect = Object.getOwnPropertyDescriptor(
-          HTMLImageElement.prototype,
+          Element.prototype,
           'getBoundingClientRect',
         );
-        Object.defineProperty(HTMLImageElement.prototype, 'getBoundingClientRect', {
+        Object.defineProperty(Element.prototype, 'getBoundingClientRect', {
           value: () => ({
             width: 800,
             height: 600,
@@ -1786,7 +1921,7 @@ describe('Lightbox', () => {
 
       afterEach(() => {
         if (originalRect) {
-          Object.defineProperty(HTMLImageElement.prototype, 'getBoundingClientRect', originalRect);
+          Object.defineProperty(Element.prototype, 'getBoundingClientRect', originalRect);
         }
         originalRect = undefined;
       });
@@ -1927,6 +2062,107 @@ describe('Lightbox', () => {
         );
         warn.mockRestore();
       });
+
+      it('does NOT warn when Lightbox.Media wraps the destination image', () => {
+        mockViewTransitionAPI();
+        mockResolvableBox();
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+        render(
+          <LightboxRoot viewTransition awaitImageDecode={false}>
+            <LightboxTrigger index={0} data-testid="trigger-0">
+              Open
+            </LightboxTrigger>
+            <LightboxContent data-testid="content" aria-label="media wired">
+              <LightboxItemGroup>
+                <LightboxItem index={0} data-testid="item-0">
+                  <LightboxZoom>
+                    <LightboxMedia data-testid="media">
+                      <img src="a.jpg" alt="a" />
+                    </LightboxMedia>
+                  </LightboxZoom>
+                </LightboxItem>
+              </LightboxItemGroup>
+            </LightboxContent>
+          </LightboxRoot>,
+        );
+        fireEvent.click(screen.getByTestId('trigger-0'));
+
+        expect(warn).not.toHaveBeenCalledWith(
+          expect.stringContaining(MORPH_WARN),
+          expect.anything(),
+        );
+        // Morph targets Media (sized host), not the Item root.
+        expect(
+          screen.getByTestId('media').style.getPropertyValue('view-transition-name'),
+        ).toBe('lightbox-morph');
+        warn.mockRestore();
+      });
+
+      it('warns when Lightbox.Media collapses to 0×0 (no resolvable fit-box)', () => {
+        mockViewTransitionAPI();
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+        // Trigger has a box (so open proceeds); Media stays 0×0.
+        originalRect = Object.getOwnPropertyDescriptor(
+          HTMLElement.prototype,
+          'getBoundingClientRect',
+        );
+        Object.defineProperty(HTMLElement.prototype, 'getBoundingClientRect', {
+          value: function (this: HTMLElement) {
+            if (this.getAttribute('data-testid') === 'media') {
+              return {
+                width: 0,
+                height: 0,
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                x: 0,
+                y: 0,
+                toJSON() {},
+              };
+            }
+            return {
+              width: 80,
+              height: 80,
+              top: 0,
+              left: 0,
+              right: 80,
+              bottom: 80,
+              x: 0,
+              y: 0,
+              toJSON() {},
+            };
+          },
+          writable: true,
+          configurable: true,
+        });
+
+        render(
+          <LightboxRoot viewTransition awaitImageDecode={false}>
+            <LightboxTrigger index={0} data-testid="trigger-0">
+              Open
+            </LightboxTrigger>
+            <LightboxContent aria-label="collapsed media">
+              <LightboxItemGroup>
+                <LightboxItem index={0}>
+                  <LightboxMedia data-testid="media">
+                    <img src="a.jpg" alt="a" />
+                  </LightboxMedia>
+                </LightboxItem>
+              </LightboxItemGroup>
+            </LightboxContent>
+          </LightboxRoot>,
+        );
+        fireEvent.click(screen.getByTestId('trigger-0'));
+
+        expect(warn).toHaveBeenCalledWith(
+          expect.stringContaining('no resolvable size'),
+          screen.getByTestId('media'),
+        );
+        warn.mockRestore();
+      });
+
     });
 
     it('does not use VT when prefers-reduced-motion is set', () => {
@@ -2111,6 +2347,56 @@ describe('Lightbox', () => {
     it('renders zoom container with children', () => {
       render(<ZoomLightbox />);
       expect(screen.getByTestId('zoom-img')).toBeInTheDocument();
+    });
+
+    it('prefers Lightbox.Media box for pan content size over a smaller img', () => {
+      const ref = React.createRef<LightboxZoomRef>();
+      const origRect = HTMLElement.prototype.getBoundingClientRect;
+      HTMLElement.prototype.getBoundingClientRect = function () {
+        return {
+          width: 800,
+          height: 800,
+          top: 0,
+          left: 0,
+          right: 800,
+          bottom: 800,
+          x: 0,
+          y: 0,
+          toJSON() {},
+        } as DOMRect;
+      };
+
+      try {
+        render(
+          <LightboxRoot defaultOpen>
+            <LightboxContent aria-label="Zoom media size">
+              <LightboxItemGroup>
+                <LightboxItem index={0}>
+                  <LightboxZoom ref={ref} maxZoom={4}>
+                    <LightboxMedia data-testid="media">
+                      <img src="test.jpg" alt="test" />
+                    </LightboxMedia>
+                  </LightboxZoom>
+                </LightboxItem>
+              </LightboxItemGroup>
+            </LightboxContent>
+          </LightboxRoot>,
+        );
+
+        const media = screen.getByTestId('media');
+        const img = screen.getByAltText('test');
+        Object.defineProperty(media, 'offsetWidth', { configurable: true, value: 400 });
+        Object.defineProperty(media, 'offsetHeight', { configurable: true, value: 400 });
+        Object.defineProperty(img, 'offsetWidth', { configurable: true, value: 100 });
+        Object.defineProperty(img, 'offsetHeight', { configurable: true, value: 100 });
+
+        // maxPanOffset = max((content*zoom - container) / 2 / zoom, 0)
+        // Media 400 @ 4× → 100; bare img 100 @ 4× → 0. Preferring Media ⇒ non-zero.
+        act(() => ref.current!.zoomTo(4, { dx: 10_000, dy: 0 }));
+        expect(Math.abs(ref.current!.offsetX)).toBe(100);
+      } finally {
+        HTMLElement.prototype.getBoundingClientRect = origRect;
+      }
     });
 
     it('ZoomIn and ZoomOut buttons render', () => {
@@ -2433,6 +2719,7 @@ describe('Lightbox', () => {
       );
 
       const zoomContainer = screen.getByAltText('test').parentElement!.parentElement!;
+      expect(zoomContainer.style.containerType).toBe('size');
       expect(zoomContainer.style.touchAction).toBe('pan-x pan-y');
 
       act(() => ref.current!.zoomTo(2));
@@ -2733,6 +3020,40 @@ describe('Lightbox', () => {
         dispatchPointer(content, 'pointermove', { clientX: 200, clientY: 225 });
       });
 
+      expect(content).toHaveAttribute('data-pulling');
+    });
+
+    it('pull starts on Media / img inside Media, not on absolute chrome siblings', () => {
+      render(
+        <LightboxRoot defaultOpen>
+          <LightboxContent data-testid="content" aria-label="Pull media hit-test">
+            <LightboxItemGroup>
+              <LightboxItem index={0} className="relative">
+                <div data-testid="chrome" style={{ position: 'absolute', inset: 0 }}>
+                  chrome
+                </div>
+                <LightboxMedia data-testid="media">
+                  <img src="test.jpg" alt="test" />
+                </LightboxMedia>
+              </LightboxItem>
+            </LightboxItemGroup>
+          </LightboxContent>
+        </LightboxRoot>,
+      );
+      const content = screen.getByTestId('content');
+      const img = screen.getByAltText('test');
+      const chrome = screen.getByTestId('chrome');
+
+      act(() => {
+        dispatchPointer(chrome, 'pointerdown', { clientX: 200, clientY: 200 });
+        dispatchPointer(content, 'pointermove', { clientX: 200, clientY: 225 });
+      });
+      expect(content).not.toHaveAttribute('data-pulling');
+
+      act(() => {
+        dispatchPointer(img, 'pointerdown', { clientX: 200, clientY: 200 });
+        dispatchPointer(content, 'pointermove', { clientX: 200, clientY: 225 });
+      });
       expect(content).toHaveAttribute('data-pulling');
     });
 

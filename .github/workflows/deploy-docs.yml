@@ -36,9 +36,14 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build docs
-        run: pnpm --filter docs build
+        # Route handlers are incompatible with `output: 'export'`. Strip the
+        # demo-only delay proxy before the GitHub Pages static build.
+        run: |
+          rm -rf apps/docs/app/api
+          pnpm --filter docs build
         env:
           GITHUB_PAGES: 'true'
+          NEXT_PUBLIC_GITHUB_PAGES: 'true'
 
       - name: Disable Jekyll processing
         run: touch apps/docs/out/.nojekyll

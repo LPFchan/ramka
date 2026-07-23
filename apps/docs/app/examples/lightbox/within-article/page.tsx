@@ -6,33 +6,17 @@ import { Lightbox } from 'ramka';
 import { Separator } from '@/components/ui/separator';
 import { ExampleShell } from '../../../_components/example-shell';
 import {
-  LightboxCaptionLine,
-  LightboxCloseButton,
-  LightboxFrame,
-  LightboxFullImage,
-  LightboxNavBar,
-  LightboxOverlay,
-  StackedItemGroup,
-  stackedItemClass,
+  imgDims,
+  LightboxGallery,
   triggerFocusClass,
   triggerMorphHideClass,
 } from '../../../_components/lightbox-chrome';
-
-/**
- * Intrinsic pixel dimensions encoded in a picsum URL (`…/{width}/{height}`).
- * Spread onto `<img>` as `width`/`height` so the box (and aspect ratio) is
- * reserved before the pixels load — which keeps the morph target sized on slow
- * connections and prevents layout shift.
- */
-function imgDims(url: string) {
-  const m = url.match(/\/(\d+)\/(\d+)$/);
-  return m ? { width: Number(m[1]), height: Number(m[2]) } : undefined;
-}
 
 const articleImages = [
   {
     id: 'hero',
     src: 'https://picsum.photos/seed/art-hero/1400/700',
+    thumb: 'https://picsum.photos/seed/art-hero/800/400',
     inline: 'https://picsum.photos/seed/art-hero/800/400',
     alt: 'Aerial view of the Lofoten coastline',
     caption: 'The rugged coastline of Lofoten stretches into the Norwegian Sea',
@@ -40,6 +24,7 @@ const articleImages = [
   {
     id: 'village',
     src: 'https://picsum.photos/seed/art-village/1400/900',
+    thumb: 'https://picsum.photos/seed/art-village/800/500',
     inline: 'https://picsum.photos/seed/art-village/800/500',
     alt: 'Red fishing huts along the waterfront',
     caption: 'Traditional rorbuer (fishing cabins) in Hamnøy, dating back centuries',
@@ -47,6 +32,7 @@ const articleImages = [
   {
     id: 'mountain',
     src: 'https://picsum.photos/seed/art-mountain/1400/900',
+    thumb: 'https://picsum.photos/seed/art-mountain/800/500',
     inline: 'https://picsum.photos/seed/art-mountain/800/500',
     alt: 'Snow-capped peak reflected in still water',
     caption: 'Olstinden peak mirrored in Reinefjorden at dawn',
@@ -54,6 +40,7 @@ const articleImages = [
   {
     id: 'beach',
     src: 'https://picsum.photos/seed/art-beach/1400/700',
+    thumb: 'https://picsum.photos/seed/art-beach/800/400',
     inline: 'https://picsum.photos/seed/art-beach/800/400',
     alt: 'Turquoise water on a white sand beach',
     caption: 'Haukland Beach — often called the most beautiful beach above the Arctic Circle',
@@ -61,6 +48,7 @@ const articleImages = [
   {
     id: 'aurora',
     src: 'https://picsum.photos/seed/art-aurora/1400/900',
+    thumb: 'https://picsum.photos/seed/art-aurora/800/500',
     inline: 'https://picsum.photos/seed/art-aurora/800/500',
     alt: 'Green northern lights dancing over the sea',
     caption: 'Aurora borealis over Uttakleiv Beach, visible from September to March',
@@ -68,6 +56,7 @@ const articleImages = [
   {
     id: 'boats',
     src: 'https://picsum.photos/seed/art-boats/1400/700',
+    thumb: 'https://picsum.photos/seed/art-boats/800/400',
     inline: 'https://picsum.photos/seed/art-boats/800/400',
     alt: 'Fishing boats moored in a calm harbour',
     caption: "The harbour at Reine — the heart of Lofoten's fishing heritage",
@@ -126,7 +115,7 @@ export default function WithinArticlePage() {
         </>
       }
     >
-      <Lightbox.Root viewTransition scrollTriggerIntoView={{ type: 'onChange', behavior: 'smooth' }}>
+      <Lightbox.Root scrollTriggerIntoView={{ type: 'onChange', behavior: 'smooth' }}>
         <article className="mx-auto max-w-2xl leading-relaxed text-neutral-700 dark:text-neutral-300">
           <h1 className="text-3xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-50">
             Lofoten: Where the Mountains Meet the Sea
@@ -240,19 +229,7 @@ export default function WithinArticlePage() {
           </p>
         </article>
 
-        <LightboxOverlay />
-        <LightboxFrame ariaLabel="Article photos">
-          <LightboxCloseButton />
-          <StackedItemGroup>
-            {articleImages.map((img, i) => (
-              <Lightbox.Item key={img.id} index={i} caption={img.caption} className={stackedItemClass}>
-                <LightboxFullImage src={img.src} alt={img.alt} />
-              </Lightbox.Item>
-            ))}
-          </StackedItemGroup>
-          <LightboxNavBar />
-          <LightboxCaptionLine />
-        </LightboxFrame>
+        <LightboxGallery items={articleImages} ariaLabel="Article photos" />
       </Lightbox.Root>
     </ExampleShell>
   );

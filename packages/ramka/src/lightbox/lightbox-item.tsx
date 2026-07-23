@@ -24,15 +24,25 @@ interface LightboxItemContextValue {
    * Attach to the destination `<img>`. Exposed here (in addition to the render
    * function) so nested wrapper components — e.g. a shared `<FullImage>` — can
    * opt into the trigger-thumbnail canvas placeholder without the consumer
-   * threading a render prop through them.
+   * threading a render prop through them. Prefer wrapping media in
+   * `Lightbox.Media`, which wires this automatically.
    */
   imageRef: (node: HTMLImageElement | null) => void;
-  /** Attach to override what morphs (defaults to the image). */
+  /** Attach to override what morphs (defaults to Media, then the image). */
   morphRef: (node: HTMLElement | null) => void;
+  /**
+   * Called by `Lightbox.Media` to register the sized media host as the morph /
+   * placeholder target. Prefer Media over wiring `morphRef` manually.
+   */
+  registerMedia: (node: HTMLElement | null) => void;
 }
 
 const LightboxItemContext = React.createContext<LightboxItemContextValue | null>(null);
 
+/**
+ * Optional context from the enclosing Item. Returns
+ * `{ index, active, imageRef, morphRef, registerMedia }`, or `null` outside an Item.
+ */
 function useOptionalLightboxItemContext(): LightboxItemContextValue | null {
   return React.useContext(LightboxItemContext);
 }
@@ -118,12 +128,12 @@ interface CanvasPlaceholderArgs {
   fit: 'contain' | 'cover';
   borderRadius: string;
   objectPosition: string;
-  /** The consumer's explicit `morphRef`, if any. */
-  morphOverride: HTMLElement | null;
-  /** Called with the placeholder host when the morph must be retargeted to it. */
-  onRetarget: (host: HTMLElement) => void;
-  /** Called with the same host to undo {@link CanvasPlaceholderArgs.onRetarget}. */
-  onRetargetCleanup: (host: HTMLElement) => void;
+  /**
+   * Non-replaced host that already owns the morph (`Lightbox.Media` or an
+   * explicit Item `morphRef`). Required — we never insert into `img.parentElement`
+   * or retarget the morph to a mystery wrapper (that stretched under Zoom).
+   */
+  host: HTMLElement;
 }
 
 /**
@@ -140,7 +150,7 @@ interface CanvasPlaceholderArgs {
  * blank frame, no fallback to the opaque trigger snapshot, no late letterboxing.
  */
 function tryPaintCanvasPlaceholder(args: CanvasPlaceholderArgs): (() => void) | null {
-  const { img, source, fit, borderRadius, objectPosition, morphOverride } = args;
+  const { img, source, fit, borderRadius, objectPosition, host } = args;
   if (!source) return null;
 
   // A decoded source is required to draw synchronously (the trigger is on-screen
@@ -149,12 +159,8 @@ function tryPaintCanvasPlaceholder(args: CanvasPlaceholderArgs): (() => void) | 
   const natH = source.naturalHeight;
   if (!(source.complete && natW > 0 && natH > 0)) return null;
 
-  // The canvas lives in the image's host: the explicit `morphRef` (which
-  // is already the morph target) if present, else the image's parent (which we
-  // then retarget the morph to, since a replaced <img> can't contain a sibling).
-  const usingParentHost = !morphOverride || morphOverride === img;
-  const host = usingParentHost ? img.parentElement : morphOverride;
-  if (!host) return null;
+  // Replaced elements can't host a sibling canvas — host must be Media / morphRef.
+  if (host === img) return null;
 
   const boxW = img.clientWidth || host.clientWidth;
   const boxH = img.clientHeight || host.clientHeight;
@@ -214,8 +220,7 @@ function tryPaintCanvasPlaceholder(args: CanvasPlaceholderArgs): (() => void) | 
   host.style.overflow = 'hidden';
   host.style.borderRadius = borderRadius;
 
-  host.insertBefore(canvas, usingParentHost ? img : host.firstChild);
-  if (usingParentHost) args.onRetarget(host);
+  host.insertBefore(canvas, host.firstChild);
 
   return () => {
     canvas.remove();
@@ -223,7 +228,6 @@ function tryPaintCanvasPlaceholder(args: CanvasPlaceholderArgs): (() => void) | 
     host.style.overflow = savedOverflow;
     host.style.borderRadius = savedRadius;
     host.style.isolation = savedIsolation;
-    if (usingParentHost) args.onRetargetCleanup(host);
   };
 }
 
@@ -277,32 +281,18 @@ const LightboxItem = React.forwardRef<HTMLDivElement, LightboxItemProps>(
     const imageNodeRef = React.useRef<HTMLImageElement | null>(null);
     // The morph node the consumer designated via `morphRef`, if any.
     const morphNodeRef = React.useRef<HTMLElement | null>(null);
-    // While the canvas placeholder is bridging the open morph, the destination
-    // `<img>` can't host the placeholder (it's a replaced element with no room
-    // for a sibling that the VT would capture), so the placeholder effect points
-    // the morph at the image's *host* (its parent, which contains the canvas)
-    // and records it here. Takes precedence over `imageNodeRef` — but never over
-    // an explicit `morphRef` — so the canvas is captured in the "new"
-    // snapshot. Cleared (restoring the image as the target) once the bridge ends.
-    const placeholderMorphOverrideRef = React.useRef<HTMLElement | null>(null);
+    // Sized media host from `Lightbox.Media` (preferred morph + placeholder host).
+    const mediaNodeRef = React.useRef<HTMLElement | null>(null);
     const warnedRef = React.useRef(false);
 
-    // Register (or clear) this item's morph target in the element-keyed
-    // registry: the explicit `morphRef` override, else the `imageRef`
-    // image (the destination image is the natural target). Keyed by the item
-    // element. No-op until the item element is mounted — on first mount the
-    // child refs (`imageRef` / `morphRef`) fire before the item's own
-    // ref (refs resolve bottom-up), so `mergedRefCallback` re-runs this once the
-    // element exists; later toggles re-run it directly. When neither is set,
-    // nothing is registered and the resolver morphs into the item container
-    // itself (which `isMorphTargetSizeResolvable` then rejects, falling back to
-    // a plain crossfade) — attach `imageRef`/`morphRef` to morph the media.
+    // Register (or clear) this item's morph target: explicit `morphRef` →
+    // `Lightbox.Media` → `imageRef`. Keyed by the item element. Prefer Media so
+    // the open morph targets the sized media box (not Zoom's transform wrapper).
     const registerMorphElement = React.useCallback(() => {
       const container = internalRef.current;
       const registry = itemMorphElementsRef.current;
       if (!container || !registry) return;
-      const node =
-        morphNodeRef.current ?? placeholderMorphOverrideRef.current ?? imageNodeRef.current;
+      const node = morphNodeRef.current ?? mediaNodeRef.current ?? imageNodeRef.current;
       if (node) {
         registry.set(container, node);
       } else {
@@ -344,13 +334,21 @@ const LightboxItem = React.forwardRef<HTMLDivElement, LightboxItemProps>(
       [registerMorphElement],
     );
 
+    const registerMedia = React.useCallback(
+      (node: HTMLElement | null) => {
+        mediaNodeRef.current = node;
+        registerMorphElement();
+      },
+      [registerMorphElement],
+    );
+
     // Bridge the blank frame after the open morph: until the destination image
     // loads, paint the opening trigger's already-decoded thumbnail into a
     // `<canvas>` behind this image (falling back to a CSS background when a
     // canvas is unavailable), then remove it on load. Runs on mount inside the
     // `commitPrepare` flushSync — before the View Transition captures the "new"
     // snapshot — so the placeholder is part of the morph end state. Only touches
-    // the image when the consumer opted in via `imageRef`.
+    // the image when the consumer opted in via `imageRef` (or Media auto-wired it).
     React.useLayoutEffect(() => {
       const img = imageNodeRef.current;
       if (!img) return;
@@ -389,6 +387,11 @@ const LightboxItem = React.forwardRef<HTMLDivElement, LightboxItemProps>(
 
       const cs = getComputedStyle(img);
       const fit = cs.objectFit === 'contain' ? 'contain' : 'cover';
+      // Prefer Media's border-radius (the morph host) when present.
+      const hostForRadius = mediaNodeRef.current ?? morphNodeRef.current;
+      const borderRadius = hostForRadius
+        ? getComputedStyle(hostForRadius).borderRadius || cs.borderRadius
+        : cs.borderRadius;
 
       // Prefer a <canvas> underlay over a CSS background. WHY: during the open
       // morph WebKit routinely captures the destination's "new" view-transition
@@ -403,29 +406,22 @@ const LightboxItem = React.forwardRef<HTMLDivElement, LightboxItemProps>(
       // survives the handoff with no re-decode. We size the letterbox rect
       // ourselves from the trigger's intrinsic dimensions (`source.natural*`).
       //
-      // Because a canvas can't live inside a replaced <img>, it's inserted into
-      // the image's *host* (the designated `morphRef`, else the image's
-      // parent) and the morph is retargeted there so the canvas is captured in
-      // the "new" snapshot. Falls back to the CSS background when 2D canvas is
-      // unavailable (SSR/jsdom/old engines) so behavior degrades gracefully.
-      const canvasRestore = tryPaintCanvasPlaceholder({
-        img,
-        source,
-        fit,
-        borderRadius: cs.borderRadius,
-        objectPosition: cs.objectPosition,
-        morphOverride: morphNodeRef.current,
-        onRetarget: (host) => {
-          placeholderMorphOverrideRef.current = host;
-          registerMorphElement();
-        },
-        onRetargetCleanup: (host) => {
-          if (placeholderMorphOverrideRef.current === host) {
-            placeholderMorphOverrideRef.current = null;
-            registerMorphElement();
-          }
-        },
-      });
+      // Canvas host must be `Lightbox.Media` or an explicit non-img `morphRef`.
+      // We do not insert into `img.parentElement` / retarget the morph — that
+      // silently used Zoom's full-size transform wrapper. Without a host, fall
+      // back to the CSS background on the destination image.
+      const canvasHost = morphNodeRef.current ?? mediaNodeRef.current;
+      const canvasRestore =
+        canvasHost && canvasHost !== img
+          ? tryPaintCanvasPlaceholder({
+              img,
+              source,
+              fit,
+              borderRadius,
+              objectPosition: cs.objectPosition,
+              host: canvasHost,
+            })
+          : null;
 
       let restore: () => void;
       if (canvasRestore) {
@@ -566,8 +562,8 @@ const LightboxItem = React.forwardRef<HTMLDivElement, LightboxItemProps>(
     const state = React.useMemo<LightboxItemState>(() => ({ active: isActive, index }), [isActive, index]);
 
     const itemContextValue = React.useMemo<LightboxItemContextValue>(
-      () => ({ index, active: isActive, imageRef, morphRef }),
-      [index, isActive, imageRef, morphRef],
+      () => ({ index, active: isActive, imageRef, morphRef, registerMedia }),
+      [index, isActive, imageRef, morphRef, registerMedia],
     );
 
     // useRender is a hook — must always be called regardless of visibility

@@ -4,6 +4,8 @@ import * as React from 'react';
 import { flushSync } from 'react-dom';
 
 import { VIEW_TRANSITION_NAME, findItemMorphTarget, findTriggerMorphTarget } from './lightbox-context';
+import { LightboxDocumentCssVars } from './lightbox-css-vars';
+import { LightboxDocumentDataAttributes } from './lightbox-data-attributes';
 
 // ---------------------------------------------------------------------------
 // View Transition helpers
@@ -125,6 +127,8 @@ function isMorphTargetSizeResolvable(target: HTMLElement | null): boolean {
  */
 const warnedUnwiredItems =
   process.env.NODE_ENV !== 'production' ? new WeakSet<HTMLElement>() : null;
+const warnedCollapsedMedia =
+  process.env.NODE_ENV !== 'production' ? new WeakSet<HTMLElement>() : null;
 
 /**
  * Dev-only guardrail. Fires when an item is about to morph but resolved its own
@@ -142,11 +146,35 @@ function warnUnwiredItemMorph(itemEl: HTMLElement, target: HTMLElement) {
   // eslint-disable-next-line no-console
   console.warn(
     '[ramka] Lightbox.Item is morphing into its own element (the full ' +
-      '<Lightbox.Item> box, not its parent) because no morph target was ' +
-      'designated. Pass a render function to Lightbox.Item and attach ' +
-      '`imageRef` to the destination <img> (or `morphRef` to a custom ' +
-      'element) so the trigger morphs into the media instead.',
+      '<Lightbox.Item> box) because no morph target was designated. Wrap ' +
+      'the destination media in <Lightbox.Media> (recommended), or attach ' +
+      '`imageRef` / `morphRef` on Lightbox.Item so the trigger morphs into ' +
+      'the media instead.',
     itemEl,
+  );
+}
+
+/**
+ * Dev-only: Media (or a morph target under Media) collapsed to 0×0 — usually
+ * missing `width`/`height` / img dims, or Media not under a sized Zoom (or
+ * other size container) so the cqw/cqh fit-box cannot resolve.
+ */
+function warnCollapsedMediaMorph(target: HTMLElement | null) {
+  if (!warnedCollapsedMedia || !target) return;
+  const media =
+    target.hasAttribute('data-lightbox-media')
+      ? target
+      : (target.closest('[data-lightbox-media]') as HTMLElement | null);
+  if (!media || warnedCollapsedMedia.has(media)) return;
+  if (isMorphTargetSizeResolvable(target)) return;
+  warnedCollapsedMedia.add(media);
+  // eslint-disable-next-line no-console
+  console.warn(
+    '[ramka] Lightbox.Media morph target has no resolvable size (0×0). ' +
+      'Pass `width`/`height` on Media (or HTML width/height on the child <img>) ' +
+      'and nest Media under Lightbox.Zoom (a size container) so the fit-box can resolve. ' +
+      'Falling back to a root crossfade.',
+    media,
   );
 }
 
@@ -358,9 +386,9 @@ function applyMorphState(
   phase: 'opening' | 'closing',
   opts: { useCrossfade: boolean; fromRadius: string | null; toRadius: string | null },
 ) {
-  docEl.setAttribute('data-lightbox-view-transition', phase);
+  docEl.setAttribute(LightboxDocumentDataAttributes.viewTransition, phase);
   if (!opts.useCrossfade) {
-    docEl.setAttribute('data-lightbox-no-crossfade', '');
+    docEl.setAttribute(LightboxDocumentDataAttributes.noCrossfade, '');
     // No-crossfade makes the item the single visible, animated layer in both
     // directions and never crossfades the trigger. But on OPEN we ALWAYS keep
     // the `old` (trigger) snapshot opaque underneath as a paint fallback —
@@ -382,14 +410,17 @@ function applyMorphState(
     // - Closing: `old` is the item (already on-screen and painted) and stays
     //   opaque; `new` is the trigger, hard-cut to 0 so a scrolled-away/unpainted
     //   trigger can't ghost over the item as it shrinks back.
-    docEl.style.setProperty('--lightbox-morph-old-opacity', '1');
-    docEl.style.setProperty('--lightbox-morph-new-opacity', phase === 'opening' ? '1' : '0');
+    docEl.style.setProperty(LightboxDocumentCssVars.morphOldOpacity, '1');
+    docEl.style.setProperty(
+      LightboxDocumentCssVars.morphNewOpacity,
+      phase === 'opening' ? '1' : '0',
+    );
   }
   if (opts.fromRadius) {
-    docEl.style.setProperty('--lightbox-morph-border-radius-from', opts.fromRadius);
+    docEl.style.setProperty(LightboxDocumentCssVars.morphBorderRadiusFrom, opts.fromRadius);
   }
   if (opts.toRadius) {
-    docEl.style.setProperty('--lightbox-morph-border-radius-to', opts.toRadius);
+    docEl.style.setProperty(LightboxDocumentCssVars.morphBorderRadiusTo, opts.toRadius);
   }
 }
 
@@ -418,12 +449,12 @@ function clearMorphName(el: HTMLElement) {
 
 /** Removes every document-level attribute/var set by {@link applyMorphState}. */
 function clearMorphState(docEl: HTMLElement) {
-  docEl.removeAttribute('data-lightbox-view-transition');
-  docEl.removeAttribute('data-lightbox-no-crossfade');
-  docEl.style.removeProperty('--lightbox-morph-old-opacity');
-  docEl.style.removeProperty('--lightbox-morph-new-opacity');
-  docEl.style.removeProperty('--lightbox-morph-border-radius-from');
-  docEl.style.removeProperty('--lightbox-morph-border-radius-to');
+  docEl.removeAttribute(LightboxDocumentDataAttributes.viewTransition);
+  docEl.removeAttribute(LightboxDocumentDataAttributes.noCrossfade);
+  docEl.style.removeProperty(LightboxDocumentCssVars.morphOldOpacity);
+  docEl.style.removeProperty(LightboxDocumentCssVars.morphNewOpacity);
+  docEl.style.removeProperty(LightboxDocumentCssVars.morphBorderRadiusFrom);
+  docEl.style.removeProperty(LightboxDocumentCssVars.morphBorderRadiusTo);
 }
 
 // ---------------------------------------------------------------------------
@@ -435,6 +466,16 @@ interface ViewTransitionMorphConfig {
   scrollTriggerIntoView: ScrollTriggerIntoView;
   /** Upper bound (ms) to await the destination image decode; 0 disables. */
   decodeMaxWait: number;
+  /**
+   * Optional consumer wait after prepare + decode, before the View Transition.
+   * See `Lightbox.Root` `onBeforeOpen`.
+   */
+  onBeforeOpenRef: React.RefObject<
+    | ((ctx: { destination: Element | null; signal: AbortSignal }) => void | Promise<void>)
+    | undefined
+  >;
+  /** Holds the AbortController for the in-flight `onBeforeOpen` (if any). */
+  beforeOpenAbortRef: React.MutableRefObject<AbortController | null>;
   triggerElementsRef: React.RefObject<Map<number, HTMLElement>>;
   /** Trigger element → its designated morph descendant (see findTriggerMorphTarget). */
   triggerMorphElementsRef: React.RefObject<WeakMap<HTMLElement, HTMLElement>>;
@@ -442,6 +483,11 @@ interface ViewTransitionMorphConfig {
   /** Item element → its designated morph descendant (see findItemMorphTarget). */
   itemMorphElementsRef: React.RefObject<WeakMap<HTMLElement, HTMLElement>>;
   openingTriggerIndexRef: React.RefObject<number>;
+  /**
+   * Exact opening trigger (click or handle + triggerId). Preferred over the
+   * index map so morph is correct when several triggers share one index.
+   */
+  openingTriggerElementRef: React.RefObject<HTMLElement | null>;
   activeIndexRef: React.RefObject<number>;
   closeGenRef: React.MutableRefObject<number>;
   /**
@@ -456,6 +502,11 @@ interface ViewTransitionMorphConfig {
    * Runs inside the transition callback; a cheap paint-only flip (no mount).
    */
   commitReveal: () => void;
+  /**
+   * flushSync body that tears down a prepare that never revealed (superseded
+   * open or `onBeforeOpen` failure).
+   */
+  commitAbortPrepare: () => void;
   /** flushSync body that flips React state to the closed/unmounted state. */
   commitClose: () => void;
   /** Fired once the open morph settles (and its generation is still current). */
@@ -491,21 +542,32 @@ function useViewTransitionMorph(config: ViewTransitionMorphConfig): ViewTransiti
   const open = React.useCallback(async () => {
     const {
       decodeMaxWait,
+      onBeforeOpenRef,
+      beforeOpenAbortRef,
       triggerElementsRef,
       triggerMorphElementsRef,
       activeItemElementRef,
       itemMorphElementsRef,
       openingTriggerIndexRef,
+      openingTriggerElementRef,
       closeGenRef,
       commitPrepare,
       commitReveal,
+      commitAbortPrepare,
     } = configRef.current;
 
     const docEl = document.documentElement;
     const gen = closeGenRef.current;
 
+    // Fresh controller for this open attempt; Root aborts it when gen bumps.
+    const beforeOpenAbort = new AbortController();
+    beforeOpenAbortRef.current = beforeOpenAbort;
+
     const triggerIdx = openingTriggerIndexRef.current;
-    const triggerEl = triggerElementsRef.current.get(triggerIdx);
+    // Prefer the exact origin element (click / handle.triggerId) over the
+    // index map — last-registered wins in the map when indexes collide.
+    const triggerEl =
+      openingTriggerElementRef.current ?? triggerElementsRef.current.get(triggerIdx) ?? undefined;
     const triggerTarget = triggerEl
       ? findTriggerMorphTarget(triggerEl, triggerMorphElementsRef.current)
       : null;
@@ -558,8 +620,48 @@ function useViewTransitionMorph(config: ViewTransitionMorphConfig): ViewTransiti
         await waitForImageDecode(pendingItemTarget, decodeMaxWait);
         // A newer open/close superseded this one during the await — bail before
         // touching any document-level morph state so we don't corrupt it.
-        if (configRef.current.closeGenRef.current !== gen) return;
+        if (configRef.current.closeGenRef.current !== gen) {
+          if (beforeOpenAbortRef.current === beforeOpenAbort) {
+            beforeOpenAbortRef.current = null;
+          }
+          return;
+        }
       }
+    }
+
+    // Consumer escape hatch: await custom readiness (iframe / video / GLTF)
+    // after prepare + optional decode, still BEFORE startViewTransition so the
+    // VT update callback stays synchronous (same flash-avoidance as decode).
+    const onBeforeOpen = onBeforeOpenRef.current;
+    if (onBeforeOpen) {
+      const pendingItemEl = activeItemElementRef.current;
+      const destination = pendingItemEl
+        ? findItemMorphTarget(pendingItemEl, itemMorphElementsRef.current)
+        : null;
+      try {
+        await onBeforeOpen({ destination, signal: beforeOpenAbort.signal });
+      } catch {
+        // Ignore abort / consumer errors — tear down prepare if this open is
+        // still current; a superseding open/close already owns the tree.
+        if (beforeOpenAbortRef.current === beforeOpenAbort) {
+          beforeOpenAbortRef.current = null;
+        }
+        if (configRef.current.closeGenRef.current === gen) {
+          flushSync(commitAbortPrepare);
+        }
+        return;
+      }
+      if (beforeOpenAbortRef.current === beforeOpenAbort) {
+        beforeOpenAbortRef.current = null;
+      }
+      if (configRef.current.closeGenRef.current !== gen) return;
+      // Aborted without throw (signal only) — same cleanup as supersede.
+      if (beforeOpenAbort.signal.aborted) {
+        flushSync(commitAbortPrepare);
+        return;
+      }
+    } else if (beforeOpenAbortRef.current === beforeOpenAbort) {
+      beforeOpenAbortRef.current = null;
     }
 
     // Read the destination item's border-radius here, after the mount. The
@@ -584,6 +686,9 @@ function useViewTransitionMorph(config: ViewTransitionMorphConfig): ViewTransiti
     // to designate a morph target (imageRef / morphRef).
     if (canMorph && itemElPrep && itemTargetPrep === itemElPrep) {
       warnUnwiredItemMorph(itemElPrep, itemTargetPrep);
+    }
+    if (!canMorph) {
+      warnCollapsedMediaMorph(itemTargetPrep);
     }
 
     // Read the destination radius only when morphing (style/layout are already

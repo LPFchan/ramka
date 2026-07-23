@@ -1,0 +1,420 @@
+/**
+ * Hand-authored API chrome for the Lightbox docs page.
+ * Props, data attributes, and CSS variables are generated from package
+ * TypeScript — see `generated.ts` and `scripts/generate-lightbox-api.ts`.
+ */
+
+/** Path relative to packages/ramka/src/lightbox/. */
+export type EnumExtract = {
+  enumName: string;
+  file: string;
+};
+
+export type ExtractSpec =
+  | {
+      kind: 'interface-props';
+      /** Interface name in the package source (e.g. LightboxRootProps). */
+      typeName: string;
+      /** Path relative to packages/ramka/src/lightbox/. */
+      file: string;
+      /** Drop these own/inherited names (e.g. redeclared className). */
+      exclude?: string[];
+      /**
+       * Also document these properties from the resolved type even if they
+       * come from a heritage clause (e.g. Base UI `render`).
+       */
+      includeInherited?: string[];
+    }
+  | {
+      kind: 'interface-members';
+      typeName: string;
+      file: string;
+      exclude?: string[];
+    }
+  | {
+      kind: 'hook-return';
+      /** Source function name (may differ from the public export alias). */
+      functionName: string;
+      file: string;
+      /** Row name in the props table. @default '(return)' */
+      rowName?: string;
+    }
+  | { kind: 'none' };
+
+export type ApiPartMeta = {
+  id: string;
+  name: string;
+  description: string;
+  extract: ExtractSpec;
+  /** Base UI–style data-attribute enum with JSDoc (see lightbox-data-attributes.ts). */
+  attributesFrom?: EnumExtract;
+  /** Base UI–style CSS-variable enum with JSDoc + `@type` (see lightbox-css-vars.ts). */
+  cssVariablesFrom?: EnumExtract;
+};
+
+export const lightboxApiMeta: ApiPartMeta[] = [
+  {
+    id: 'api-root',
+    name: 'Root',
+    description:
+      'Groups all parts of the lightbox and owns open state, active index, view-transition morph, scroll locking, and the active-zoom bridge. Pass handle from Lightbox.createHandle() for imperative control and detached Triggers. Prefer onOpenChangeComplete for post-motion work; use scrollTriggerIntoView so close morphs land on-screen when the page scrolled while open.',
+    extract: {
+      kind: 'interface-props',
+      typeName: 'LightboxRootProps',
+      file: 'lightbox-root.tsx',
+    },
+  },
+  {
+    id: 'api-trigger',
+    name: 'Trigger',
+    description:
+      'Opens the lightbox at a given index and is the morph source (view transitions on by default). Pass handle + id to use outside Root or for handle.open(..., { triggerId }). Prefer render-prop children to attach imageRef / morphRef.',
+    extract: {
+      kind: 'interface-props',
+      typeName: 'LightboxTriggerProps',
+      file: 'lightbox-trigger.tsx',
+      includeInherited: ['render'],
+    },
+    attributesFrom: {
+      enumName: 'LightboxTriggerDataAttributes',
+      file: 'lightbox-data-attributes.ts',
+    },
+  },
+  {
+    id: 'api-content',
+    name: 'Content',
+    description:
+      'Portaled dialog surface (role="dialog", aria-modal). Owns focus trap, keyboard navigation (Escape, arrows, zoom shortcuts), and pull-to-dismiss. Keyboard pan vs navigate depends on whether the active Zoom is above 1×.',
+    extract: {
+      kind: 'interface-props',
+      typeName: 'LightboxContentProps',
+      file: 'lightbox-content.tsx',
+      exclude: ['className', 'style', 'ref'],
+    },
+    attributesFrom: {
+      enumName: 'LightboxContentDataAttributes',
+      file: 'lightbox-data-attributes.ts',
+    },
+    cssVariablesFrom: {
+      enumName: 'LightboxContentCssVars',
+      file: 'lightbox-css-vars.ts',
+    },
+  },
+  {
+    id: 'api-backdrop',
+    name: 'Backdrop',
+    description: 'Optional portaled scrim. Click closes the lightbox. Tracks pull-to-dismiss progress.',
+    extract: {
+      kind: 'interface-props',
+      typeName: 'LightboxBackdropProps',
+      file: 'lightbox-backdrop.tsx',
+      includeInherited: ['render'],
+    },
+    attributesFrom: {
+      enumName: 'LightboxBackdropDataAttributes',
+      file: 'lightbox-data-attributes.ts',
+    },
+    cssVariablesFrom: {
+      enumName: 'LightboxBackdropCssVars',
+      file: 'lightbox-css-vars.ts',
+    },
+  },
+  {
+    id: 'api-close',
+    name: 'Close',
+    description: 'Button that closes the lightbox. Defaults to aria-label="Close".',
+    extract: {
+      kind: 'interface-props',
+      typeName: 'LightboxCloseProps',
+      file: 'lightbox-close.tsx',
+      includeInherited: ['render'],
+    },
+  },
+  {
+    id: 'api-item',
+    name: 'Item',
+    description:
+      'A single lightbox item. Registers captions and morph/placeholder refs. Prefer nesting Lightbox.Media (sized morph + placeholder host) around the destination <img>/<video>; imageRef / morphRef remain escape hatches. Typically nested inside Slide (default) or ItemGroup (swap).',
+    extract: {
+      kind: 'interface-props',
+      typeName: 'LightboxItemProps',
+      file: 'lightbox-item.tsx',
+      includeInherited: ['render'],
+    },
+    attributesFrom: {
+      enumName: 'LightboxItemDataAttributes',
+      file: 'lightbox-data-attributes.ts',
+    },
+  },
+  {
+    id: 'api-media',
+    name: 'Media',
+    description:
+      'Sized destination media host — morph target and placeholder canvas container. Structural props: width/height (fit-box, same idea as Next.js Image); display:grid plus a scoped <style> so direct img/video fill the box (HTML dimension attrs cannot pin intrinsic size). Cosmetics (radius, colors, object-fit) stay consumer-owned. Prefer Zoom > Media > img|video (Zoom is a size container for Media’s cqw/cqh fit-box; use Zoom padding for resting chrome insets). Auto-discovers the primary <img> (or video poster) for decode / thumbnail bridging.',
+    extract: {
+      kind: 'interface-props',
+      typeName: 'LightboxMediaProps',
+      file: 'lightbox-media.tsx',
+      includeInherited: ['render'],
+    },
+    attributesFrom: {
+      enumName: 'LightboxMediaDataAttributes',
+      file: 'lightbox-data-attributes.ts',
+    },
+  },
+  {
+    id: 'api-slides',
+    name: 'Slides',
+    description:
+      'Default layout: horizontal snap carousel wired to the active index. Provides ItemGroup context; put Slide → Item → Zoom → Media inside. While the user is flinging, navigation is locked so pull-to-dismiss and zoom chrome do not fight the scroll.',
+    extract: {
+      kind: 'interface-props',
+      typeName: 'LightboxSlidesProps',
+      file: 'lightbox-slides.tsx',
+      includeInherited: ['render'],
+      exclude: ['className'],
+    },
+    attributesFrom: {
+      enumName: 'LightboxSlidesDataAttributes',
+      file: 'lightbox-data-attributes.ts',
+    },
+  },
+  {
+    id: 'api-slide',
+    name: 'Slide',
+    description:
+      'One snap-aligned slide box inside Slides. Place a Lightbox.Item (and typically Zoom → Media) inside.',
+    extract: { kind: 'none' },
+    attributesFrom: {
+      enumName: 'LightboxSlideDataAttributes',
+      file: 'lightbox-data-attributes.ts',
+    },
+  },
+  {
+    id: 'api-item-group',
+    name: 'ItemGroup',
+    description:
+      'Stacked swap alternative to Slides: mounts only the active item plus preload neighbors. Prefer Slides + Zoom for swipeable galleries.',
+    extract: {
+      kind: 'interface-props',
+      typeName: 'LightboxItemGroupProps',
+      file: 'lightbox-item-group.tsx',
+      includeInherited: ['render'],
+      exclude: ['className'],
+    },
+    attributesFrom: {
+      enumName: 'LightboxItemGroupDataAttributes',
+      file: 'lightbox-data-attributes.ts',
+    },
+  },
+  {
+    id: 'api-previous',
+    name: 'Previous',
+    description: 'Navigate to the previous item. Disabled at the start when loop is false.',
+    extract: {
+      kind: 'interface-props',
+      typeName: 'LightboxPreviousProps',
+      file: 'lightbox-previous.tsx',
+      includeInherited: ['render'],
+    },
+    attributesFrom: {
+      enumName: 'LightboxPreviousDataAttributes',
+      file: 'lightbox-data-attributes.ts',
+    },
+  },
+  {
+    id: 'api-next',
+    name: 'Next',
+    description: 'Navigate to the next item. Disabled at the end when loop is false.',
+    extract: {
+      kind: 'interface-props',
+      typeName: 'LightboxNextProps',
+      file: 'lightbox-next.tsx',
+      includeInherited: ['render'],
+    },
+    attributesFrom: {
+      enumName: 'LightboxNextDataAttributes',
+      file: 'lightbox-data-attributes.ts',
+    },
+  },
+  {
+    id: 'api-counter',
+    name: 'Counter',
+    description: 'Shows the active position (e.g. "1 / 12") with an aria-live region.',
+    extract: {
+      kind: 'interface-props',
+      typeName: 'LightboxCounterProps',
+      file: 'lightbox-counter.tsx',
+      includeInherited: ['render'],
+    },
+  },
+  {
+    id: 'api-caption',
+    name: 'Caption',
+    description: 'Renders the active item’s caption from the Item caption registry.',
+    extract: {
+      kind: 'interface-props',
+      typeName: 'LightboxCaptionProps',
+      file: 'lightbox-caption.tsx',
+      includeInherited: ['render'],
+    },
+    attributesFrom: {
+      enumName: 'LightboxCaptionDataAttributes',
+      file: 'lightbox-data-attributes.ts',
+    },
+  },
+  {
+    id: 'api-thumbnail-group',
+    name: 'ThumbnailGroup',
+    description: 'Accessible tablist of thumbnails with arrow / Home / End keyboard support.',
+    extract: {
+      kind: 'interface-props',
+      typeName: 'LightboxThumbnailGroupProps',
+      file: 'lightbox-thumbnail-group.tsx',
+      includeInherited: ['render'],
+    },
+    attributesFrom: {
+      enumName: 'LightboxThumbnailGroupDataAttributes',
+      file: 'lightbox-data-attributes.ts',
+    },
+  },
+  {
+    id: 'api-thumbnail',
+    name: 'Thumbnail',
+    description: 'A single thumbnail tab that activates the given index.',
+    extract: {
+      kind: 'interface-props',
+      typeName: 'LightboxThumbnailProps',
+      file: 'lightbox-thumbnail.tsx',
+      includeInherited: ['render'],
+    },
+    attributesFrom: {
+      enumName: 'LightboxThumbnailDataAttributes',
+      file: 'lightbox-data-attributes.ts',
+    },
+  },
+  {
+    id: 'api-zoom',
+    name: 'Zoom',
+    description:
+      'Pinch, wheel, double-tap, and keyboard zoom/pan surface. Structurally a CSS size container (`container-type: size`) so nested Media fit-box units resolve. Prefer Zoom > Media > img|video so pan/maxZoom use Media’s content box. Publishes to Root’s active-zoom bridge so ZoomIn/ZoomOut in toolbar chrome can target the active slide.',
+    extract: {
+      kind: 'interface-props',
+      typeName: 'LightboxZoomProps',
+      file: 'lightbox-zoom.tsx',
+      includeInherited: ['render'],
+    },
+    attributesFrom: {
+      enumName: 'LightboxZoomDataAttributes',
+      file: 'lightbox-data-attributes.ts',
+    },
+  },
+  {
+    id: 'api-zoom-in',
+    name: 'ZoomIn',
+    description:
+      'Increments zoom. Works inside Zoom, or as global chrome via the active-slide zoom bridge.',
+    extract: {
+      kind: 'interface-props',
+      typeName: 'LightboxZoomInProps',
+      file: 'lightbox-zoom-in.tsx',
+      includeInherited: ['render'],
+    },
+    attributesFrom: {
+      enumName: 'LightboxZoomInDataAttributes',
+      file: 'lightbox-data-attributes.ts',
+    },
+  },
+  {
+    id: 'api-zoom-out',
+    name: 'ZoomOut',
+    description:
+      'Decrements zoom. Works inside Zoom, or as global chrome via the active-slide zoom bridge.',
+    extract: {
+      kind: 'interface-props',
+      typeName: 'LightboxZoomOutProps',
+      file: 'lightbox-zoom-out.tsx',
+      includeInherited: ['render'],
+    },
+    attributesFrom: {
+      enumName: 'LightboxZoomOutDataAttributes',
+      file: 'lightbox-data-attributes.ts',
+    },
+  },
+];
+
+export const documentViewTransitionMeta: ApiPartMeta = {
+  id: 'api-view-transition-document',
+  name: 'Document (view transitions)',
+  description:
+    'While a view-transition morph runs, ramka sets attributes and CSS variables on <html> so you can style ::view-transition-* pseudo-elements. Cleared when the transition finishes.',
+  extract: { kind: 'none' },
+  attributesFrom: {
+    enumName: 'LightboxDocumentDataAttributes',
+    file: 'lightbox-data-attributes.ts',
+  },
+  cssVariablesFrom: {
+    enumName: 'LightboxDocumentCssVars',
+    file: 'lightbox-css-vars.ts',
+  },
+};
+
+export const hooksApiMeta: ApiPartMeta[] = [
+  {
+    id: 'api-use-trigger-context',
+    name: 'useLightboxTriggerContext',
+    description:
+      'Optional context from the enclosing Trigger. Use in nested wrappers (e.g. a shared <TriggerImage>) to attach imageRef / morphRef without threading the render prop.',
+    extract: {
+      kind: 'hook-return',
+      functionName: 'useOptionalLightboxTriggerContext',
+      file: 'lightbox-trigger.tsx',
+    },
+  },
+  {
+    id: 'api-use-item-context',
+    name: 'useLightboxItemContext',
+    description:
+      'Optional context from the enclosing Item. Use in nested wrappers to attach imageRef / morphRef or read active/index. Prefer Lightbox.Media for the common morph/placeholder host.',
+    extract: {
+      kind: 'hook-return',
+      functionName: 'useOptionalLightboxItemContext',
+      file: 'lightbox-item.tsx',
+    },
+  },
+  {
+    id: 'api-use-media-context',
+    name: 'useLightboxMediaContext',
+    description:
+      'Optional context from the enclosing Media. Exposes the Media host element for advanced wrappers.',
+    extract: {
+      kind: 'hook-return',
+      functionName: 'useOptionalLightboxMediaContext',
+      file: 'lightbox-media.tsx',
+    },
+  },
+];
+
+export const imperativeApiMeta: ApiPartMeta[] = [
+  {
+    id: 'api-create-handle',
+    name: 'LightboxHandle',
+    description:
+      'Imperative handle from Lightbox.createHandle(). Pass to Root (and optional detached Triggers).',
+    extract: {
+      kind: 'interface-members',
+      typeName: 'LightboxHandle',
+      file: 'lightbox-handle.ts',
+    },
+  },
+  {
+    id: 'api-zoom-ref',
+    name: 'LightboxZoomRef',
+    description: 'Imperative handle from ref on Zoom.',
+    extract: {
+      kind: 'interface-members',
+      typeName: 'LightboxZoomRef',
+      file: 'lightbox-zoom.tsx',
+    },
+  },
+];

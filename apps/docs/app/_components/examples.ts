@@ -29,42 +29,6 @@ export const lightboxExamples: ExampleLink[] = [
       'Masonry wall of images with unknown dimensions (no width/height, no reserved aspect ratio) — stresses the morph size-resolution fallback and trigger-thumbnail placeholder.',
   },
   {
-    slug: 'default',
-    title: 'Default',
-    description: 'A grid of triggers opens a fullscreen modal — uses Lightbox.Backdrop for the scrim.',
-  },
-  {
-    slug: 'controlled',
-    title: 'Controlled',
-    description: 'External state drives both the open prop and the active index.',
-  },
-  {
-    slug: 'imperative-api',
-    title: 'Imperative API',
-    description: 'Drive open / close / goTo via ref.current.* — no buttons needed.',
-  },
-  {
-    slug: 'lifecycle-callbacks',
-    title: 'Lifecycle callbacks',
-    description: 'See onOpenChange (fires immediately) and onOpenChangeComplete (after animations) in action.',
-  },
-  {
-    slug: 'lazy-loading',
-    title: 'Lazy loading',
-    description: 'Render heavy items only when active using Item render props and preload={0}.',
-  },
-  {
-    slug: 'morph-to-setting',
-    title: 'morphTo strategies',
-    description: 'Side-by-side comparison of morphTo="active" vs "origin" vs "closest".',
-  },
-  {
-    slug: 'crossfade',
-    title: 'Trigger crossfade',
-    description:
-      'When to omit crossfade vs "both" / "close" / "open" — same-image morphs, +N overlays, and poster→video.',
-  },
-  {
     slug: 'text-message',
     title: 'Text message',
     description: 'iMessage-style chat with a single morphTo="origin" trigger over a stack of attachments.',
@@ -85,9 +49,24 @@ export const lightboxExamples: ExampleLink[] = [
     description: 'Movie posters morph into a fullscreen <video> that auto-plays on becoming active.',
   },
   {
+    slug: '3d-models',
+    title: '3D models',
+    description:
+      'Three.js product grid with Lightbox.Slides — onBeforeOpen preheats GLBs before the morph; shared orbit with each trigger.',
+  },
+
+
+
+  {
     slug: 'real-estate-listing',
     title: 'Real estate listing',
     description: 'Property page with hero grid + remaining photos; lightbox shows all photos in a swipeable Lightbox.Slides viewport.',
+  },
+  {
+    slug: 'google-maps',
+    title: 'Google Maps',
+    description:
+      'Map preview of Wrocław morphs into a fullscreen Google Map — onBeforeOpen waits for the iframe to load; pull-to-dismiss off so pan/zoom stay with the map.',
   },
 ];
 

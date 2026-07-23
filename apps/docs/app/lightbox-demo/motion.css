@@ -1,0 +1,25 @@
+/* Lightbox motion tokens (docs demo skin — not shipped with ramka). */
+
+@theme {
+  /* Snappy decelerating curve — "easeOutExpo". Used for the backdrop,
+     content, and (in demos) morph-target opacity transitions, plus the
+     View Transition root cross-fade. */
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* iOS-style easing reserved for the View Transition morph group
+     (the bounding-box animation between trigger and lightbox item). */
+  --ease-vt-morph: cubic-bezier(0.32, 0.72, 0, 1);
+
+  /* Item navigation fade-in (data-active item picks this up via
+     `animate-lightbox-item-fade-in`). Skipped during VT — see item-fade.css. */
+  --animate-lightbox-item-fade-in: lightbox-item-fade-in 250ms ease-out both;
+}
+
+@keyframes lightbox-item-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}

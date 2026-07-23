@@ -1,7 +1,6 @@
 'use client';
 
 import { Lightbox } from 'ramka';
-import { X } from 'lucide-react';
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -9,62 +8,24 @@ import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { ExampleShell } from '../../../_components/example-shell';
 import {
-  LightboxFrame,
-  LightboxOverlay,
-  lightboxChromeButton,
+  imgDims,
+  LightboxGallery,
   triggerFocusClass,
   triggerMorphHideClass,
 } from '../../../_components/lightbox-chrome';
 
 const propertyPhotos = [
-  { id: 'prop-hero', src: 'https://picsum.photos/seed/prop-hero/1400/900', thumb: 'https://picsum.photos/seed/prop-hero/700/450', alt: 'Living room with floor-to-ceiling windows', label: 'Living Room' },
-  { id: 'prop-kitchen', src: 'https://picsum.photos/seed/prop-kitchen/1400/900', thumb: 'https://picsum.photos/seed/prop-kitchen/700/450', alt: 'Modern kitchen with marble island', label: 'Kitchen' },
-  { id: 'prop-bedroom', src: 'https://picsum.photos/seed/prop-bed/900/1400', thumb: 'https://picsum.photos/seed/prop-bed/450/700', alt: 'Primary bedroom with en-suite balcony', label: 'Primary Bedroom' },
-  { id: 'prop-bath', src: 'https://picsum.photos/seed/prop-bath/900/1400', thumb: 'https://picsum.photos/seed/prop-bath/450/700', alt: 'Spa-style bathroom with freestanding tub', label: 'Bathroom' },
-  { id: 'prop-terrace', src: 'https://picsum.photos/seed/prop-terrace/1400/900', thumb: 'https://picsum.photos/seed/prop-terrace/700/450', alt: 'Rooftop terrace with city views', label: 'Terrace' },
-  { id: 'prop-dining', src: 'https://picsum.photos/seed/prop-dining/1400/900', thumb: 'https://picsum.photos/seed/prop-dining/700/450', alt: 'Dining area with designer lighting', label: 'Dining' },
-  { id: 'prop-office', src: 'https://picsum.photos/seed/prop-office/900/1200', thumb: 'https://picsum.photos/seed/prop-office/450/600', alt: 'Home office with built-in shelving', label: 'Office' },
-  { id: 'prop-pool', src: 'https://picsum.photos/seed/prop-pool/1400/900', thumb: 'https://picsum.photos/seed/prop-pool/700/450', alt: 'Infinity pool overlooking the valley', label: 'Pool' },
-  { id: 'prop-garden', src: 'https://picsum.photos/seed/prop-garden/1400/900', thumb: 'https://picsum.photos/seed/prop-garden/700/450', alt: 'Landscaped garden with mature olive trees', label: 'Garden' },
-  { id: 'prop-exterior', src: 'https://picsum.photos/seed/prop-ext/900/1400', thumb: 'https://picsum.photos/seed/prop-ext/450/700', alt: 'Front elevation at dusk with warm lighting', label: 'Exterior' },
+  { id: 'prop-hero', src: 'https://picsum.photos/seed/prop-hero/1400/900', thumb: 'https://picsum.photos/seed/prop-hero/700/450', alt: 'Living room with floor-to-ceiling windows', label: 'Living Room', caption: 'Living Room — The Olive Grove Residence' },
+  { id: 'prop-kitchen', src: 'https://picsum.photos/seed/prop-kitchen/1400/900', thumb: 'https://picsum.photos/seed/prop-kitchen/700/450', alt: 'Modern kitchen with marble island', label: 'Kitchen', caption: 'Kitchen — The Olive Grove Residence' },
+  { id: 'prop-bedroom', src: 'https://picsum.photos/seed/prop-bed/900/1400', thumb: 'https://picsum.photos/seed/prop-bed/450/700', alt: 'Primary bedroom with en-suite balcony', label: 'Primary Bedroom', caption: 'Primary Bedroom — The Olive Grove Residence' },
+  { id: 'prop-bath', src: 'https://picsum.photos/seed/prop-bath/900/1400', thumb: 'https://picsum.photos/seed/prop-bath/450/700', alt: 'Spa-style bathroom with freestanding tub', label: 'Bathroom', caption: 'Bathroom — The Olive Grove Residence' },
+  { id: 'prop-terrace', src: 'https://picsum.photos/seed/prop-terrace/1400/900', thumb: 'https://picsum.photos/seed/prop-terrace/700/450', alt: 'Rooftop terrace with city views', label: 'Terrace', caption: 'Terrace — The Olive Grove Residence' },
+  { id: 'prop-dining', src: 'https://picsum.photos/seed/prop-dining/1400/900', thumb: 'https://picsum.photos/seed/prop-dining/700/450', alt: 'Dining area with designer lighting', label: 'Dining', caption: 'Dining — The Olive Grove Residence' },
+  { id: 'prop-office', src: 'https://picsum.photos/seed/prop-office/900/1200', thumb: 'https://picsum.photos/seed/prop-office/450/600', alt: 'Home office with built-in shelving', label: 'Office', caption: 'Office — The Olive Grove Residence' },
+  { id: 'prop-pool', src: 'https://picsum.photos/seed/prop-pool/1400/900', thumb: 'https://picsum.photos/seed/prop-pool/700/450', alt: 'Infinity pool overlooking the valley', label: 'Pool', caption: 'Pool — The Olive Grove Residence' },
+  { id: 'prop-garden', src: 'https://picsum.photos/seed/prop-garden/1400/900', thumb: 'https://picsum.photos/seed/prop-garden/700/450', alt: 'Landscaped garden with mature olive trees', label: 'Garden', caption: 'Garden — The Olive Grove Residence' },
+  { id: 'prop-exterior', src: 'https://picsum.photos/seed/prop-ext/900/1400', thumb: 'https://picsum.photos/seed/prop-ext/450/700', alt: 'Front elevation at dusk with warm lighting', label: 'Exterior', caption: 'Exterior — The Olive Grove Residence' },
 ];
-
-/**
- * Intrinsic pixel dimensions encoded in a picsum URL (`…/{width}/{height}`).
- * Spread onto `<img>` as `width`/`height` so the box (and aspect ratio) is
- * reserved before the pixels load — which keeps the morph target sized on slow
- * connections and prevents layout shift.
- */
-function imgDims(url: string) {
-  const m = url.match(/\/(\d+)\/(\d+)$/);
-  return m ? { width: Number(m[1]), height: Number(m[2]) } : undefined;
-}
-
-/** Intrinsic aspect ratio (w/h) from the URL, falling back to 16/9. */
-function imgAspect(url: string): number {
-  const d = imgDims(url);
-  return d ? d.width / d.height : 16 / 9;
-}
-
-/**
- * Wrapper style for the "largest rectangle of the given aspect ratio that fits
- * inside the container" trick. The parent must set `container-type: size` so
- * `cqw`/`cqh` resolve to its box. Width is the smaller of the full container
- * width and the width that would make the height equal the container height;
- * `aspect-ratio` then derives a height that never exceeds it.
- * `--lb-inset-w`/`--lb-inset-h` leave room for the chrome.
- *
- * This keeps the box correctly sized *before the image loads* — unlike
- * `size: auto`, which collapses an unloaded `<img>` to 0×0 and would skip the
- * open morph on a slow connection. Sizing is the consumer's responsibility —
- * the lightbox primitives stay headless.
- */
-function fitBoxStyle(ratio: number): React.CSSProperties {
-  return {
-    width: `min(calc(100cqw - var(--lb-inset-w, 0px)), calc((100cqh - var(--lb-inset-h, 0px)) * ${ratio}))`,
-    aspectRatio: `${ratio}`,
-  };
-}
 
 const amenities = [
   'Central Air Conditioning',
@@ -109,7 +70,7 @@ function HeroGrid() {
             {...imgDims(hero.thumb)}
             src={hero.thumb}
             alt={hero.alt}
-            className={`block h-full w-full object-cover ${heroCornerClass[0]}`}
+            className={`block size-full object-cover ${heroCornerClass[0]}`}
           />
         )}
       </Lightbox.Trigger>
@@ -125,7 +86,7 @@ function HeroGrid() {
               {...imgDims(photo.thumb)}
               src={photo.thumb}
               alt={photo.alt}
-              className={`block h-full w-full object-cover ${heroCornerClass[i + 1] ?? ''}`}
+              className={`block size-full object-cover ${heroCornerClass[i + 1] ?? ''}`}
             />
           )}
         </Lightbox.Trigger>
@@ -192,7 +153,6 @@ export default function RealEstateListingPage() {
       }
     >
       <Lightbox.Root
-        viewTransition
         loop
         scrollTriggerIntoView={{ type: 'onClose', behavior: 'instant' }}
       >
@@ -277,67 +237,7 @@ export default function RealEstateListingPage() {
           </div>
         </div>
 
-        <LightboxOverlay />
-        <LightboxFrame ariaLabel="Property photos" className="flex flex-col items-stretch">
-          <div className="absolute right-4 top-4 z-10">
-            <Lightbox.Close className={lightboxChromeButton} aria-label="Close">
-              <X aria-hidden className="h-[18px] w-[18px]" strokeWidth={2.25} />
-            </Lightbox.Close>
-          </div>
-          <div className="absolute left-4 top-4 z-10">
-            <Lightbox.Counter className="font-mono text-sm tabular-nums text-white/70" />
-          </div>
-
-          <Lightbox.Slides
-            aria-label="Property photos"
-            preload={2}
-            className="flex-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-          >
-            {propertyPhotos.map((photo, i) => (
-              <Lightbox.Slide key={photo.id} className="relative h-full">
-                <Lightbox.Item
-                  index={i}
-                  caption={`${photo.label} — The Olive Grove Residence`}
-                  className="flex h-full w-full items-center justify-center [container-type:size] [--lb-inset-h:4rem] [--lb-inset-w:2rem]"
-                >
-                  {({ imageRef }) => (
-                    // Consumer owns layout: reserve the largest correctly-shaped
-                    // box up front (see fitBoxStyle) so the morph target has a
-                    // real size before the image loads. `imageRef` bridges the
-                    // post-morph blank frame with the trigger thumbnail.
-                    <div className="relative shrink-0" style={fitBoxStyle(imgAspect(photo.src))}>
-                      <img
-                        ref={imageRef}
-                        {...imgDims(photo.src)}
-                        src={photo.src}
-                        alt={photo.alt}
-                        loading="eager"
-                        className="h-full w-full rounded-lg object-cover"
-                      />
-                    </div>
-                  )}
-                </Lightbox.Item>
-              </Lightbox.Slide>
-            ))}
-          </Lightbox.Slides>
-
-          <Lightbox.Caption className="block min-h-[1.5rem] px-6 pb-3 text-center text-sm text-white/80" />
-
-          <Lightbox.ThumbnailGroup
-            aria-label="Property photo thumbnails"
-            className="flex max-w-full justify-center gap-2 overflow-x-auto px-3 pb-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-          >
-            {propertyPhotos.map((photo, i) => (
-              <Lightbox.Thumbnail
-                key={photo.id}
-                index={i}
-                className="h-[38px] w-14 shrink-0 overflow-hidden rounded-sm border-2 border-transparent p-0 opacity-40 transition data-[active]:border-white data-[active]:opacity-100"
-              >
-                <img {...imgDims(photo.thumb)} src={photo.thumb} alt={photo.alt} className="h-full w-full object-cover" />
-              </Lightbox.Thumbnail>
-            ))}
-          </Lightbox.ThumbnailGroup>
-        </LightboxFrame>
+        <LightboxGallery items={propertyPhotos} ariaLabel="Property photos" thumbnails="always" />
       </Lightbox.Root>
     </ExampleShell>
   );

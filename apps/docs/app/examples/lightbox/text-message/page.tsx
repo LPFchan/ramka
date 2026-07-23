@@ -4,27 +4,11 @@ import { Lightbox } from 'ramka';
 
 import { ExampleShell } from '../../../_components/example-shell';
 import {
-  LightboxCloseButton,
-  LightboxFrame,
-  LightboxFullImage,
-  LightboxNavBar,
-  LightboxOverlay,
-  StackedItemGroup,
-  stackedItemClass,
+  imgDims,
+  LightboxGallery,
   triggerFocusClass,
   triggerMorphHideClass,
 } from '../../../_components/lightbox-chrome';
-
-/**
- * Intrinsic pixel dimensions encoded in a picsum URL (`…/{width}/{height}`).
- * Spread onto `<img>` as `width`/`height` so the box (and aspect ratio) is
- * reserved before the pixels load — which keeps the morph target sized on slow
- * connections and prevents layout shift.
- */
-function imgDims(url: string) {
-  const m = url.match(/\/(\d+)\/(\d+)$/);
-  return m ? { width: Number(m[1]), height: Number(m[2]) } : undefined;
-}
 
 const messageImages = [
   {
@@ -65,7 +49,7 @@ export default function TextMessagePage() {
       }
     >
       <div className="flex min-h-[80vh] items-end justify-end rounded-2xl bg-neutral-100 p-6 dark:bg-neutral-900">
-        <Lightbox.Root viewTransition morphTo="origin">
+        <Lightbox.Root morphTo="origin">
           <div className="flex max-w-[300px] flex-col items-end gap-3">
             <span className="text-[10px] font-medium uppercase tracking-[0.05em] text-neutral-500">
               Today at 11:11 AM
@@ -123,18 +107,7 @@ export default function TextMessagePage() {
             </div>
           </div>
 
-          <LightboxOverlay />
-          <LightboxFrame ariaLabel="Message attachments">
-            <LightboxCloseButton />
-            <StackedItemGroup>
-              {messageImages.map((img, i) => (
-                <Lightbox.Item key={img.src} index={i} className={stackedItemClass}>
-                  <LightboxFullImage src={img.src} alt={img.alt} />
-                </Lightbox.Item>
-              ))}
-            </StackedItemGroup>
-            <LightboxNavBar />
-          </LightboxFrame>
+          <LightboxGallery items={messageImages} ariaLabel="Message attachments" />
         </Lightbox.Root>
       </div>
     </ExampleShell>

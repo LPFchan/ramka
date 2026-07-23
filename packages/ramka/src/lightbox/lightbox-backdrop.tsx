@@ -15,6 +15,7 @@ interface LightboxBackdropProps extends useRender.ComponentProps<'div', Lightbox
    * Container element for the portal. Defaults to `document.body` so the
    * backdrop sits at the top of the document regardless of where it is
    * placed in JSX. Pass `null` to render in-place (no portal).
+   * @default document.body
    */
   container?: Element | DocumentFragment | null;
 }

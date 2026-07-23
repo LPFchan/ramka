@@ -9,6 +9,7 @@ import {
   shouldDismissPull,
   wheelAxis,
 } from './gesture-math';
+import { LightboxContentCssVars } from './lightbox-css-vars';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -29,8 +30,10 @@ const VELOCITY_SAMPLES = 5;
  * curve — consumers derive whatever styling they like (backdrop opacity,
  * blur, chrome fade, image scale) from this variable, e.g.
  * `opacity: calc(1 - var(--lightbox-pull-progress, 0) * 0.6)`.
+ *
+ * @see LightboxContentCssVars.pullProgress
  */
-const PULL_PROGRESS_VAR = '--lightbox-pull-progress';
+const PULL_PROGRESS_VAR = LightboxContentCssVars.pullProgress;
 
 // ---------------------------------------------------------------------------
 // Types
@@ -227,10 +230,10 @@ function usePullToDismiss({
       if (!activeItem) return;
 
       // Only activate when touching the item's registered content element (the
-      // `<img>`/`<video>`/element the consumer marked via `imageRef` /
-      // `morphRef` — the same element that morphs), not chrome, backdrop,
-      // or the item's empty letterbox padding. When an item registered nothing,
-      // fall back to the whole item box so the gesture still works.
+      // `Lightbox.Media` host, or an `imageRef` / `morphRef` — the same element
+      // that morphs), not chrome, backdrop, or the item's empty letterbox
+      // padding. When an item registered nothing, fall back to the whole item
+      // box so the gesture still works.
       const contentEl = itemContentElementsRef?.current?.get(activeItem) ?? activeItem;
       if (!target || !contentEl.contains(target)) return;
 

@@ -1,36 +1,36 @@
 'use client';
 
 import { Lightbox } from 'ramka';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 import { ExampleShell } from '../../../_components/example-shell';
 import {
-  LightboxCaptionLine,
-  LightboxCloseButton,
-  LightboxFrame,
-  LightboxFullImage,
-  LightboxOverlay,
-  lightboxChromeButton,
+  LightboxGallery,
   morphHideClass,
-  StackedItemGroup,
-  stackedItemClass,
   triggerFocusClass,
 } from '../../../_components/lightbox-chrome';
 
 const colorPalette = [
-  { id: 'cerulean', name: 'Cerulean', hex: '#2a7ab5', family: 'Blue', src: 'https://picsum.photos/seed/color-cerulean/1400/900', alt: 'Clear blue sky over a calm ocean' },
-  { id: 'ochre', name: 'Ochre', hex: '#c58b2c', family: 'Yellow', src: 'https://picsum.photos/seed/color-ochre/1400/900', alt: 'Golden wheat field at sunset' },
-  { id: 'vermillion', name: 'Vermillion', hex: '#c93c20', family: 'Red', src: 'https://picsum.photos/seed/color-vermillion/1400/900', alt: 'Red autumn leaves on dark branches' },
-  { id: 'sage', name: 'Sage', hex: '#7a9a6d', family: 'Green', src: 'https://picsum.photos/seed/color-sage/1400/900', alt: 'Morning mist in a dense forest' },
-  { id: 'slate', name: 'Slate', hex: '#5e6b7a', family: 'Gray', src: 'https://picsum.photos/seed/color-slate/1400/900', alt: 'Wet stone wall in the rain' },
-  { id: 'plum', name: 'Plum', hex: '#7b3f72', family: 'Purple', src: 'https://picsum.photos/seed/color-plum/1400/900', alt: 'Lavender field stretching to the horizon' },
-  { id: 'coral', name: 'Coral', hex: '#e07555', family: 'Orange', src: 'https://picsum.photos/seed/color-coral/1400/900', alt: 'Desert canyon glowing at golden hour' },
-  { id: 'midnight', name: 'Midnight', hex: '#1e2a3a', family: 'Navy', src: 'https://picsum.photos/seed/color-midnight/1400/900', alt: 'Starry night sky over silhouetted mountains' },
-  { id: 'blush', name: 'Blush', hex: '#d4918b', family: 'Pink', src: 'https://picsum.photos/seed/color-blush/1400/900', alt: 'Cherry blossoms against a soft pink sky' },
-  { id: 'sienna', name: 'Sienna', hex: '#8b5e3c', family: 'Brown', src: 'https://picsum.photos/seed/color-sienna/1400/900', alt: 'Rustic wooden dock on a still lake' },
-  { id: 'teal', name: 'Teal', hex: '#2a8a8a', family: 'Teal', src: 'https://picsum.photos/seed/color-teal/1400/900', alt: 'Tropical lagoon with turquoise water' },
-  { id: 'ivory', name: 'Ivory', hex: '#d6cdb7', family: 'Cream', src: 'https://picsum.photos/seed/color-ivory/1400/900', alt: 'Soft morning light on white sand dunes' },
+  { id: 'cerulean', name: 'Cerulean', hex: '#2a7ab5', family: 'Blue', src: 'https://picsum.photos/seed/color-cerulean/1400/900', thumb: 'https://picsum.photos/seed/color-cerulean/400/257', alt: 'Clear blue sky over a calm ocean' },
+  { id: 'ochre', name: 'Ochre', hex: '#c58b2c', family: 'Yellow', src: 'https://picsum.photos/seed/color-ochre/1400/900', thumb: 'https://picsum.photos/seed/color-ochre/400/257', alt: 'Golden wheat field at sunset' },
+  { id: 'vermillion', name: 'Vermillion', hex: '#c93c20', family: 'Red', src: 'https://picsum.photos/seed/color-vermillion/1400/900', thumb: 'https://picsum.photos/seed/color-vermillion/400/257', alt: 'Red autumn leaves on dark branches' },
+  { id: 'sage', name: 'Sage', hex: '#7a9a6d', family: 'Green', src: 'https://picsum.photos/seed/color-sage/1400/900', thumb: 'https://picsum.photos/seed/color-sage/400/257', alt: 'Morning mist in a dense forest' },
+  { id: 'slate', name: 'Slate', hex: '#5e6b7a', family: 'Gray', src: 'https://picsum.photos/seed/color-slate/1400/900', thumb: 'https://picsum.photos/seed/color-slate/400/257', alt: 'Wet stone wall in the rain' },
+  { id: 'plum', name: 'Plum', hex: '#7b3f72', family: 'Purple', src: 'https://picsum.photos/seed/color-plum/1400/900', thumb: 'https://picsum.photos/seed/color-plum/400/257', alt: 'Lavender field stretching to the horizon' },
+  { id: 'coral', name: 'Coral', hex: '#e07555', family: 'Orange', src: 'https://picsum.photos/seed/color-coral/1400/900', thumb: 'https://picsum.photos/seed/color-coral/400/257', alt: 'Desert canyon glowing at golden hour' },
+  { id: 'midnight', name: 'Midnight', hex: '#1e2a3a', family: 'Navy', src: 'https://picsum.photos/seed/color-midnight/1400/900', thumb: 'https://picsum.photos/seed/color-midnight/400/257', alt: 'Starry night sky over silhouetted mountains' },
+  { id: 'blush', name: 'Blush', hex: '#d4918b', family: 'Pink', src: 'https://picsum.photos/seed/color-blush/1400/900', thumb: 'https://picsum.photos/seed/color-blush/400/257', alt: 'Cherry blossoms against a soft pink sky' },
+  { id: 'sienna', name: 'Sienna', hex: '#8b5e3c', family: 'Brown', src: 'https://picsum.photos/seed/color-sienna/1400/900', thumb: 'https://picsum.photos/seed/color-sienna/400/257', alt: 'Rustic wooden dock on a still lake' },
+  { id: 'teal', name: 'Teal', hex: '#2a8a8a', family: 'Teal', src: 'https://picsum.photos/seed/color-teal/1400/900', thumb: 'https://picsum.photos/seed/color-teal/400/257', alt: 'Tropical lagoon with turquoise water' },
+  { id: 'ivory', name: 'Ivory', hex: '#d6cdb7', family: 'Cream', src: 'https://picsum.photos/seed/color-ivory/1400/900', thumb: 'https://picsum.photos/seed/color-ivory/400/257', alt: 'Soft morning light on white sand dunes' },
 ];
+
+const galleryItems = colorPalette.map((color) => ({
+  id: color.id,
+  src: color.src,
+  thumb: color.thumb,
+  alt: color.alt,
+  caption: `${color.name} — ${color.alt}`,
+}));
 
 export default function ColorPalettePage() {
   return (
@@ -41,12 +41,11 @@ export default function ColorPalettePage() {
           Triggers don&apos;t have to be images. Each swatch below is a plain coloured rectangle designated as the
           morph element via the trigger&apos;s{' '}
           <code className="rounded bg-neutral-100 px-1 py-0.5 text-xs dark:bg-neutral-800">morphRef</code>;
-          the View Transition cleanly morphs the solid block into a full photograph dominated by that hue. The counter
-          in the lightbox doubles as a contextual swatch + name.
+          the View Transition cleanly morphs the solid block into a full photograph dominated by that hue.
         </>
       }
     >
-      <Lightbox.Root viewTransition loop>
+      <Lightbox.Root loop>
         <div className="mx-auto max-w-3xl">
           <div className="mb-6">
             <h2 className="text-2xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-50">Chromatic</h2>
@@ -85,55 +84,7 @@ export default function ColorPalettePage() {
           </div>
         </div>
 
-        <LightboxOverlay />
-
-        <LightboxFrame ariaLabel="Color photographs">
-          <LightboxCloseButton />
-
-          <StackedItemGroup>
-            {colorPalette.map((color, i) => (
-              <Lightbox.Item
-                key={color.id}
-                index={i}
-                caption={`${color.name} — ${color.alt}`}
-                className={stackedItemClass}
-              >
-                <LightboxFullImage src={color.src} alt={color.alt} />
-              </Lightbox.Item>
-            ))}
-          </StackedItemGroup>
-
-          <div className="flex items-center gap-4 px-4 py-3">
-            <Lightbox.Previous className={lightboxChromeButton} aria-label="Previous">
-              <ChevronLeft aria-hidden className="h-5 w-5" strokeWidth={2.25} />
-            </Lightbox.Previous>
-
-            <Lightbox.Counter className="flex min-w-[180px] items-center justify-center gap-3">
-              {({ current, total }) => {
-                const color = colorPalette[current - 1];
-                return (
-                  <>
-                    <span
-                      aria-hidden
-                      className="h-4 w-4 shrink-0 rounded-full border-2 border-white/30"
-                      style={{ background: color?.hex }}
-                    />
-                    <span className="text-sm font-medium text-white">{color?.name}</span>
-                    <span className="font-mono text-sm tabular-nums text-white/50">
-                      {current} / {total}
-                    </span>
-                  </>
-                );
-              }}
-            </Lightbox.Counter>
-
-            <Lightbox.Next className={lightboxChromeButton} aria-label="Next">
-              <ChevronRight aria-hidden className="h-5 w-5" strokeWidth={2.25} />
-            </Lightbox.Next>
-          </div>
-
-          <LightboxCaptionLine />
-        </LightboxFrame>
+        <LightboxGallery items={galleryItems} ariaLabel="Color photographs" />
       </Lightbox.Root>
     </ExampleShell>
   );

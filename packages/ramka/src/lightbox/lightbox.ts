@@ -37,9 +37,10 @@
  *   Close           — Closes the lightbox
  *   ItemGroup       — Container for items, manages swap rendering + preload
  *   Item            — Individual media item with lazy-load support. Its render
- *                     function exposes `imageRef` (mark the destination image,
- *                     enabling the flash-free trigger-thumbnail placeholder) and
- *                     `morphRef` (override what morphs)
+ *                     function exposes `imageRef` / `morphRef` (escape hatches;
+ *                     prefer Media for the common case)
+ *   Media           — Sized destination media host (morph + placeholder canvas).
+ *                     Put fit-box sizing here; place <img>/<video> inside
  *   Previous/Next   — Navigation buttons (auto-disable at boundaries)
  *   Counter         — "1 / 12" display with aria-live
  *   Caption         — Per-item caption from Item's caption prop
@@ -49,6 +50,9 @@
  *   ZoomIn          — Button to zoom in (consumes ZoomContext)
  *   ZoomOut         — Button to zoom out (consumes ZoomContext)
  */
+export { createHandle } from './lightbox-handle';
+export type { LightboxHandle, LightboxHandleOpenOptions } from './lightbox-handle';
+
 export { LightboxRoot as Root } from './lightbox-root';
 export { LightboxTrigger as Trigger } from './lightbox-trigger';
 export { LightboxContent as Content } from './lightbox-content';
@@ -56,6 +60,7 @@ export { LightboxBackdrop as Backdrop } from './lightbox-backdrop';
 export { LightboxClose as Close } from './lightbox-close';
 export { LightboxItemGroup as ItemGroup } from './lightbox-item-group';
 export { LightboxItem as Item } from './lightbox-item';
+export { LightboxMedia as Media } from './lightbox-media';
 export { LightboxSlides as Slides } from './lightbox-slides';
 export { LightboxSlide as Slide } from './lightbox-slide';
 export { LightboxPrevious as Previous } from './lightbox-previous';
@@ -68,7 +73,11 @@ export { LightboxZoom as Zoom } from './lightbox-zoom';
 export { LightboxZoomIn as ZoomIn } from './lightbox-zoom-in';
 export { LightboxZoomOut as ZoomOut } from './lightbox-zoom-out';
 
-export type { LightboxRootProps, LightboxRootRef } from './lightbox-root';
+export type {
+  LightboxRootProps,
+  LightboxBeforeOpen,
+  LightboxBeforeOpenContext,
+} from './lightbox-root';
 export type {
   LightboxTriggerProps,
   LightboxTriggerState,
@@ -84,6 +93,11 @@ export type {
   LightboxItemState,
   LightboxItemRenderState,
 } from './lightbox-item';
+export type {
+  LightboxMediaProps,
+  LightboxMediaState,
+  LightboxMediaContextValue,
+} from './lightbox-media';
 export type { LightboxSlidesProps, LightboxSlidesState } from './lightbox-slides';
 export type { LightboxSlideProps } from './lightbox-slide';
 export type { LightboxPreviousProps, LightboxPreviousState } from './lightbox-previous';
@@ -96,3 +110,28 @@ export type { NavigationSource } from './lightbox-context';
 export type { LightboxZoomProps, LightboxZoomState, LightboxZoomRef } from './lightbox-zoom';
 export type { LightboxZoomInProps, LightboxZoomInState } from './lightbox-zoom-in';
 export type { LightboxZoomOutProps, LightboxZoomOutState } from './lightbox-zoom-out';
+
+export {
+  LightboxTriggerDataAttributes,
+  LightboxContentDataAttributes,
+  LightboxBackdropDataAttributes,
+  LightboxItemGroupDataAttributes,
+  LightboxItemDataAttributes,
+  LightboxMediaDataAttributes,
+  LightboxSlidesDataAttributes,
+  LightboxSlideDataAttributes,
+  LightboxPreviousDataAttributes,
+  LightboxNextDataAttributes,
+  LightboxCaptionDataAttributes,
+  LightboxThumbnailGroupDataAttributes,
+  LightboxThumbnailDataAttributes,
+  LightboxZoomDataAttributes,
+  LightboxZoomInDataAttributes,
+  LightboxZoomOutDataAttributes,
+  LightboxDocumentDataAttributes,
+} from './lightbox-data-attributes';
+export {
+  LightboxContentCssVars,
+  LightboxBackdropCssVars,
+  LightboxDocumentCssVars,
+} from './lightbox-css-vars';
