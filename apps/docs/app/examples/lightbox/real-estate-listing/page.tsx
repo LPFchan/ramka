@@ -237,7 +237,12 @@ export default function RealEstateListingPage() {
           </div>
         </div>
 
-        <LightboxGallery items={propertyPhotos} ariaLabel="Property photos" thumbnails="always" />
+        <LightboxGallery
+          items={propertyPhotos}
+          ariaLabel="Property photos"
+          thumbnails="always"
+          backdrop="solid"
+        />
       </Lightbox.Root>
     </ExampleShell>
   );

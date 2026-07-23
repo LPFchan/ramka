@@ -129,7 +129,7 @@ export default function MoodboardPage() {
           ))}
         </div>
 
-        <LightboxGallery items={images} ariaLabel="Moodboard photos" />
+        <LightboxGallery items={images} ariaLabel="Moodboard photos" backdrop="solid" />
       </Lightbox.Root>
     </ExampleShell>
   );

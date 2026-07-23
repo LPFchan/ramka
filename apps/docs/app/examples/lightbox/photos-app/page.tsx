@@ -191,6 +191,7 @@ export default function PhotosAppPage() {
         <LightboxGallery
           items={photos}
           ariaLabel="Library photos"
+          backdrop="solid"
           renderItem={(photo) => (
             <Lightbox.Zoom
               maxZoom={6}

@@ -98,6 +98,12 @@ export function LightboxGallery({
   thumbnails = 'desktop',
   zoomControls = true,
   pullToClose = true,
+  /**
+   * `scrim` — translucent white/black (default).
+   * `solid` — opaque `bg-white dark:bg-black` (prefer with instant
+   * `scrollTriggerIntoView` so page scroll under the viewer isn’t visible).
+   */
+  backdrop = 'scrim',
   renderItem,
 }: {
   items: LightboxGalleryItem[];
@@ -109,6 +115,7 @@ export function LightboxGallery({
   zoomControls?: boolean;
   /** Pass `false` when content owns vertical drag (maps, orbit, …). @default true */
   pullToClose?: boolean;
+  backdrop?: 'scrim' | 'solid';
   renderItem?: (
     item: LightboxGalleryItem,
     index: number,
@@ -122,10 +129,15 @@ export function LightboxGallery({
         ? 'pointer-events-auto flex max-w-full justify-center gap-2 overflow-x-auto px-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
         : 'pointer-events-auto hidden max-w-full justify-center gap-2 overflow-x-auto px-3 [scrollbar-width:none] md:flex [&::-webkit-scrollbar]:hidden';
 
+  const backdropTone =
+    backdrop === 'solid'
+      ? 'bg-white dark:bg-black'
+      : 'lightbox-demo-backdrop-light';
+
   return (
     <>
       <Lightbox.Backdrop
-        className={`lightbox-demo-backdrop-light fixed inset-0 z-40 ${backdropFade}`}
+        className={`${backdropTone} fixed inset-0 z-40 ${backdropFade}`}
       />
       <Lightbox.Content
         aria-label={ariaLabel}
