@@ -3,6 +3,7 @@
 import { mergeProps, useRender } from '@base-ui/react';
 import * as React from 'react';
 
+import { LightboxBackdropDataAttributes } from './lightbox-data-attributes';
 import { useLightboxContext } from './lightbox-context';
 import { useLightboxPortalContext } from './lightbox-portal';
 
@@ -12,8 +13,17 @@ interface LightboxBackdropState extends Record<string, unknown> {
 
 interface LightboxBackdropProps extends useRender.ComponentProps<'div', LightboxBackdropState> {}
 
+// Stable hooks (Base UI style) so the open/closed union doesn't widen to
+// `{ data-open?: undefined }` and break `StateAttributesMapping`.
+const BACKDROP_OPEN_HOOK: Record<string, string> = {
+  [LightboxBackdropDataAttributes.open]: '',
+};
+const BACKDROP_CLOSED_HOOK: Record<string, string> = {
+  [LightboxBackdropDataAttributes.closed]: '',
+};
+
 const backdropStateAttributesMapping = {
-  open: (value: unknown) => (value ? { 'data-open': '' } : null),
+  open: (value: unknown) => (value ? BACKDROP_OPEN_HOOK : BACKDROP_CLOSED_HOOK),
 };
 
 /**

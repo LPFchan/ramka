@@ -179,7 +179,7 @@ function tryPaintCanvasPlaceholder(args: CanvasPlaceholderArgs): (() => void) | 
   const dpr = Math.min(typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1, 3);
   canvas.width = Math.max(1, Math.round(boxW * dpr));
   canvas.height = Math.max(1, Math.round(boxH * dpr));
-  canvas.setAttribute('data-lightbox-placeholder', '');
+  canvas.setAttribute('data-ramka-placeholder', '');
   const cstyle = canvas.style;
   cstyle.position = 'absolute';
   cstyle.top = '0';
@@ -574,11 +574,11 @@ const LightboxItem = React.forwardRef<HTMLDivElement, LightboxItemProps>(
       stateAttributesMapping: itemStateAttributesMapping,
       props: mergeProps<'div'>(
         {
-          // `data-lightbox-item` is the stable selector that internal hooks
+          // `data-ramka-item` is the stable selector that internal hooks
           // (e.g. pull-to-dismiss) use to walk up from a pointer's target to
           // the owning item. It replaces what was a branded class name in
           // upstream so the primitives stay free of ship-as-is styles.
-          'data-lightbox-item': '',
+          'data-ramka-item': '',
           role: 'tabpanel',
           'aria-hidden': !isActive,
           inert: !isActive ? true : undefined,

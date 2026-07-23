@@ -129,11 +129,11 @@ export function LightboxGallery({
 
   return (
     <Lightbox.Portal>
-      <Lightbox.Backdrop className={`${backdropTone} fixed inset-0 ${backdropFade}`} />
+      <Lightbox.Backdrop className={`lightbox-demo-backdrop ${backdropTone} fixed inset-0`} />
       <Lightbox.Content
         aria-label={ariaLabel}
         pullToClose={pullToClose}
-        className={`fixed inset-0 flex flex-col overscroll-contain outline-none ${contentFade}`}
+        className="lightbox-demo-content fixed inset-0 flex flex-col overscroll-contain outline-none"
       >
         <Lightbox.Slides
           aria-label="Full-size images"
@@ -218,25 +218,21 @@ export function LightboxGallery({
   );
 }
 
-// Open/close opacity on Content; Backdrop also fades with pull progress via
-// `app/lightbox-demo/pull-progress.css` (`.lightbox-demo-backdrop`). Media stays
-// opaque during pull — only the scrim + chrome fade (Photos / Moodboard pattern).
-const backdropFade =
-  'lightbox-demo-backdrop opacity-0 ease-out-expo duration-[340ms] transition-opacity starting:opacity-0';
-const contentFade =
-  'opacity-0 ease-out-expo duration-[280ms] transition-opacity data-[open]:opacity-100 starting:opacity-0';
 /** Hide chrome while pulling / committing pull-to-dismiss. */
 const chromePullHide =
   'transition-[opacity,filter] duration-200 [[data-pulling]_&]:pointer-events-none [[data-pulling]_&]:opacity-0 [[data-pulling]_&]:blur-[6px] [[data-pull-dismissing]_&]:pointer-events-none [[data-pull-dismissing]_&]:opacity-0 [[data-pull-dismissing]_&]:blur-[6px]';
 
-/** Styled Backdrop — place inside the same `Lightbox.Portal` as Content/Frame. */
+/**
+ * Styled Backdrop — place inside the same `Lightbox.Portal` as Content/Frame.
+ * Open/close + pull opacity: `.lightbox-demo-backdrop` in `app/lightbox-demo/`.
+ */
 export function LightboxOverlay({ className }: { className?: string } = {}) {
-  return <Lightbox.Backdrop className={`fixed inset-0 bg-black/85 ${backdropFade} ${className ?? ''}`} />;
+  return <Lightbox.Backdrop className={`lightbox-demo-backdrop fixed inset-0 bg-black/85 ${className ?? ''}`} />;
 }
 
 /**
  * Styled Content shell. Place inside `Lightbox.Portal` (with Overlay/Backdrop as a
- * sibling when you want a scrim).
+ * sibling when you want a scrim). Open/close fade: `.lightbox-demo-content`.
  */
 export function LightboxFrame({
   children,
@@ -257,8 +253,8 @@ export function LightboxFrame({
       aria-label={ariaLabel}
       className={
         className
-          ? `fixed inset-0 overscroll-contain outline-none ${contentFade} ${className}`
-          : `fixed inset-0 flex flex-col items-center justify-between overscroll-contain outline-none ${contentFade}`
+          ? `lightbox-demo-content fixed inset-0 overscroll-contain outline-none ${className}`
+          : 'lightbox-demo-content fixed inset-0 flex flex-col items-center justify-between overscroll-contain outline-none'
       }
     >
       {children}
@@ -331,7 +327,7 @@ export function StackedItemGroup({ children, className, ...rest }: React.Compone
 
 /**
  * Per-item class for stacked layouts. The active-item fade-in is
- * applied via globals.css using `[data-lightbox-item][data-active]:not([data-skip-fade])`
+ * applied via globals.css using `[data-ramka-item][data-active]:not([data-skip-fade])`
  * rather than a Tailwind `data-[active]:` utility, so that the library's
  * `data-skip-fade` flag (set on the View Transition destination item
  * during open) suppresses the entrance fade — otherwise the fade would
@@ -348,7 +344,7 @@ export const stackedItemClass =
  * designated via `morphRef` should disappear (e.g. a swatch + label card).
  */
 export const triggerMorphHideClass =
-  'transition-opacity duration-[200ms] ease-out-expo data-[morph-target]:opacity-0 [:root[data-lightbox-view-transition]_&]:transition-none';
+  'transition-opacity duration-[200ms] ease-out-expo data-[morph-target]:opacity-0 [:root[data-ramka-view-transition]_&]:transition-none';
 
 /**
  * Consumer-side hide for the morph *child* only. Apply to the element that
@@ -356,7 +352,7 @@ export const triggerMorphHideClass =
  * labels, captions — stays visible while the lightbox is open.
  */
 export const morphHideClass =
-  'transition-opacity duration-[200ms] ease-out-expo in-data-morph-target:opacity-0 [:root[data-lightbox-view-transition]_&]:transition-none';
+  'transition-opacity duration-[200ms] ease-out-expo in-data-morph-target:opacity-0 [:root[data-ramka-view-transition]_&]:transition-none';
 
 /**
  * Keyboard focus ring for a `Lightbox.Trigger`. Purely a demo affordance — the

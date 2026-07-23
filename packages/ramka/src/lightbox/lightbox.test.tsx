@@ -265,10 +265,10 @@ describe('Lightbox', () => {
   // ---------------------------------------------------------------------------
 
   describe('Portal', () => {
-    it('mounts Content under a data-lightbox-portal host on document.body', () => {
+    it('mounts Content under a data-ramka-portal host on document.body', () => {
       render(<TestLightbox defaultOpen />);
       const dialog = screen.getByTestId('content');
-      const host = dialog.closest('[data-lightbox-portal]');
+      const host = dialog.closest('[data-ramka-portal]');
       expect(host).not.toBeNull();
       expect(host?.parentElement).toBe(document.body);
     });
@@ -288,7 +288,7 @@ describe('Lightbox', () => {
         </LightboxRoot>,
       );
       const dialog = screen.getByTestId('content');
-      const host = dialog.closest('[data-lightbox-portal]') as HTMLElement | null;
+      const host = dialog.closest('[data-ramka-portal]') as HTMLElement | null;
       expect(host).not.toBeNull();
       expect(container.querySelector('[data-testid="anchor"]')).toContainElement(host);
       expect(host?.parentElement).not.toBe(document.body);
@@ -310,7 +310,7 @@ describe('Lightbox', () => {
             </LightboxPortal>
           </LightboxRoot>,
         );
-        const host = screen.getByTestId('content').closest('[data-lightbox-portal]') as HTMLElement | null;
+        const host = screen.getByTestId('content').closest('[data-ramka-portal]') as HTMLElement | null;
         expect(custom).toContainElement(host);
       } finally {
         custom.remove();
@@ -333,6 +333,7 @@ describe('Lightbox', () => {
       const dialog = screen.getByTestId('content');
       expect(dialog).toBeInTheDocument();
       expect(dialog).not.toHaveAttribute('data-open');
+      expect(dialog).toHaveAttribute('data-closed');
       expect(dialog).toHaveStyle({ visibility: 'hidden', pointerEvents: 'none' });
       expect(dialog).toHaveAttribute('inert');
     });
@@ -351,6 +352,7 @@ describe('Lightbox', () => {
         </LightboxRoot>,
       );
       expect(screen.getByTestId('content')).toHaveAttribute('data-open');
+      expect(screen.getByTestId('content')).not.toHaveAttribute('data-closed');
       fireEvent.click(screen.getByTestId('close'));
       await flushMicrotasks();
       // Exit animation settle → mounted=false, but keepMounted parks the node.
@@ -360,6 +362,7 @@ describe('Lightbox', () => {
       const dialog = screen.getByTestId('content');
       expect(dialog).toBeInTheDocument();
       expect(dialog).not.toHaveAttribute('data-open');
+      expect(dialog).toHaveAttribute('data-closed');
       expect(dialog).toHaveStyle({ visibility: 'hidden', pointerEvents: 'none' });
       expect(dialog).toHaveAttribute('inert');
     });
@@ -379,8 +382,12 @@ describe('Lightbox', () => {
       );
       const backdrop = screen.getByTestId('backdrop');
       expect(backdrop).toBeInTheDocument();
+      expect(backdrop).not.toHaveAttribute('data-open');
+      expect(backdrop).toHaveAttribute('data-closed');
       expect(backdrop).toHaveStyle({ visibility: 'hidden', pointerEvents: 'none' });
       expect(backdrop).toHaveAttribute('inert');
+      expect(screen.getByTestId('content')).toHaveAttribute('data-closed');
+      expect(screen.getByTestId('content')).not.toHaveAttribute('data-open');
     });
 
   });
@@ -1066,12 +1073,14 @@ describe('Lightbox', () => {
   // ---------------------------------------------------------------------------
 
   describe('trigger state attributes', () => {
-    it('trigger gets data-open when lightbox is open', () => {
+    it('trigger gets data-popup-open when lightbox is open', () => {
       render(<TestLightbox />);
       const trigger = screen.getByTestId('trigger-0');
+      expect(trigger).not.toHaveAttribute('data-popup-open');
       expect(trigger).not.toHaveAttribute('data-open');
       fireEvent.click(trigger);
-      expect(screen.getByTestId('trigger-0')).toHaveAttribute('data-open');
+      expect(screen.getByTestId('trigger-0')).toHaveAttribute('data-popup-open');
+      expect(screen.getByTestId('trigger-0')).not.toHaveAttribute('data-open');
     });
 
     it('trigger gets data-active when it is the active trigger', () => {
@@ -1080,12 +1089,12 @@ describe('Lightbox', () => {
       expect(screen.getByTestId('trigger-1')).toHaveAttribute('data-active');
     });
 
-    it('data-open is removed when lightbox closes', () => {
+    it('data-popup-open is removed when lightbox closes', () => {
       render(<TestLightbox />);
       fireEvent.click(screen.getByTestId('trigger-0'));
-      expect(screen.getByTestId('trigger-0')).toHaveAttribute('data-open');
+      expect(screen.getByTestId('trigger-0')).toHaveAttribute('data-popup-open');
       fireEvent.click(screen.getByTestId('close'));
-      expect(screen.getByTestId('trigger-0')).not.toHaveAttribute('data-open');
+      expect(screen.getByTestId('trigger-0')).not.toHaveAttribute('data-popup-open');
     });
 
     it('only the matching trigger gets data-active', () => {
@@ -1198,7 +1207,8 @@ describe('Lightbox', () => {
       expect(screen.queryByTestId('content')).toBeNull();
       fireEvent.click(screen.getByTestId('detached-trigger'));
       expect(screen.getByTestId('content')).toBeInTheDocument();
-      expect(screen.getByTestId('detached-trigger')).toHaveAttribute('data-open');
+      expect(screen.getByTestId('detached-trigger')).toHaveAttribute('data-popup-open');
+      expect(screen.getByTestId('detached-trigger')).not.toHaveAttribute('data-open');
       expect(screen.getByTestId('detached-trigger')).toHaveAttribute('data-active');
     });
 
@@ -1444,8 +1454,8 @@ describe('Lightbox', () => {
 
     function cleanupViewTransitionAPI() {
       delete (document as unknown as Record<string, unknown>).startViewTransition;
-      document.documentElement.removeAttribute('data-lightbox-view-transition');
-      document.documentElement.removeAttribute('data-lightbox-no-crossfade');
+      document.documentElement.removeAttribute('data-ramka-view-transition');
+      document.documentElement.removeAttribute('data-ramka-no-crossfade');
       document.documentElement.style.removeProperty('--lightbox-morph-border-radius-from');
       document.documentElement.style.removeProperty('--lightbox-morph-border-radius-to');
       document.documentElement.style.removeProperty('--lightbox-morph-old-opacity');
@@ -1469,21 +1479,21 @@ describe('Lightbox', () => {
       expect(startViewTransition).toHaveBeenCalledOnce();
     });
 
-    it('sets data-lightbox-view-transition on <html> during open', () => {
+    it('sets data-ramka-view-transition on <html> during open', () => {
       mockViewTransitionAPI();
       render(<TestLightbox viewTransition />);
       fireEvent.click(screen.getByTestId('trigger-0'));
-      expect(document.documentElement).toHaveAttribute('data-lightbox-view-transition');
+      expect(document.documentElement).toHaveAttribute('data-ramka-view-transition');
     });
 
-    it('removes data-lightbox-view-transition after open transition finishes', async () => {
+    it('removes data-ramka-view-transition after open transition finishes', async () => {
       const { resolveFinished } = mockViewTransitionAPI();
       render(<TestLightbox viewTransition />);
       fireEvent.click(screen.getByTestId('trigger-0'));
-      expect(document.documentElement).toHaveAttribute('data-lightbox-view-transition');
+      expect(document.documentElement).toHaveAttribute('data-ramka-view-transition');
 
       await act(async () => resolveFinished());
-      expect(document.documentElement).not.toHaveAttribute('data-lightbox-view-transition');
+      expect(document.documentElement).not.toHaveAttribute('data-ramka-view-transition');
     });
 
     it('cleans up CSS custom properties after open transition finishes', async () => {
@@ -1519,7 +1529,7 @@ describe('Lightbox', () => {
       await act(async () => resolveFinished());
     });
 
-    it('removes data-lightbox-view-transition after close transition finishes', async () => {
+    it('removes data-ramka-view-transition after close transition finishes', async () => {
       let resolveOpen: () => void;
       let resolveClose: () => void;
 
@@ -1553,10 +1563,10 @@ describe('Lightbox', () => {
       await act(async () => resolveOpen!());
 
       fireEvent.click(screen.getByTestId('close'));
-      expect(document.documentElement).toHaveAttribute('data-lightbox-view-transition');
+      expect(document.documentElement).toHaveAttribute('data-ramka-view-transition');
 
       await act(async () => resolveClose!());
-      expect(document.documentElement).not.toHaveAttribute('data-lightbox-view-transition');
+      expect(document.documentElement).not.toHaveAttribute('data-ramka-view-transition');
     });
 
     it('keeps the page scroll locked until the VT close transition finishes', async () => {
@@ -1962,7 +1972,7 @@ describe('Lightbox', () => {
         // and the no-crossfade opt-out is applied (crossfade defaults to unset).
         const img = screen.getByTestId('item-0').querySelector('img')!;
         expect(img.style.getPropertyValue('view-transition-name')).toBe('lightbox-morph');
-        expect(document.documentElement).toHaveAttribute('data-lightbox-no-crossfade');
+        expect(document.documentElement).toHaveAttribute('data-ramka-no-crossfade');
       });
 
       it('falls back to a plain crossfade when the target box is 0×0 (unsized image that never loaded)', () => {
@@ -1975,9 +1985,9 @@ describe('Lightbox', () => {
         // 0×0 box) and no no-crossfade opt-out — a clean root crossfade instead.
         const img = screen.getByTestId('item-0').querySelector('img')!;
         expect(img.style.getPropertyValue('view-transition-name')).toBe('');
-        expect(document.documentElement).not.toHaveAttribute('data-lightbox-no-crossfade');
+        expect(document.documentElement).not.toHaveAttribute('data-ramka-no-crossfade');
         // Still a real View Transition, and the item is still marked ready.
-        expect(document.documentElement).toHaveAttribute('data-lightbox-view-transition');
+        expect(document.documentElement).toHaveAttribute('data-ramka-view-transition');
         expect(screen.getByTestId('item-0')).toHaveAttribute('data-skip-fade');
       });
     });
@@ -2046,7 +2056,7 @@ describe('Lightbox', () => {
         mockTargetBox();
         renderCrossfadeLightbox('close');
         fireEvent.click(screen.getByTestId('trigger-0'));
-        expect(document.documentElement).toHaveAttribute('data-lightbox-no-crossfade');
+        expect(document.documentElement).toHaveAttribute('data-ramka-no-crossfade');
       });
 
       it('crossfades open when crossfade="open"', () => {
@@ -2054,7 +2064,7 @@ describe('Lightbox', () => {
         mockTargetBox();
         renderCrossfadeLightbox('open');
         fireEvent.click(screen.getByTestId('trigger-0'));
-        expect(document.documentElement).not.toHaveAttribute('data-lightbox-no-crossfade');
+        expect(document.documentElement).not.toHaveAttribute('data-ramka-no-crossfade');
       });
 
       it('crossfades open when crossfade="both"', () => {
@@ -2062,7 +2072,7 @@ describe('Lightbox', () => {
         mockTargetBox();
         renderCrossfadeLightbox('both');
         fireEvent.click(screen.getByTestId('trigger-0'));
-        expect(document.documentElement).not.toHaveAttribute('data-lightbox-no-crossfade');
+        expect(document.documentElement).not.toHaveAttribute('data-ramka-no-crossfade');
       });
 
       function mockOpenThenCloseTransition() {
@@ -2103,12 +2113,12 @@ describe('Lightbox', () => {
         renderCrossfadeLightbox('close');
         fireEvent.click(screen.getByTestId('trigger-0'));
         // Open was hard-cut.
-        expect(document.documentElement).toHaveAttribute('data-lightbox-no-crossfade');
+        expect(document.documentElement).toHaveAttribute('data-ramka-no-crossfade');
         await act(async () => resolveOpen());
 
         fireEvent.click(screen.getByTestId('close'));
-        expect(document.documentElement).toHaveAttribute('data-lightbox-view-transition', 'closing');
-        expect(document.documentElement).not.toHaveAttribute('data-lightbox-no-crossfade');
+        expect(document.documentElement).toHaveAttribute('data-ramka-view-transition', 'closing');
+        expect(document.documentElement).not.toHaveAttribute('data-ramka-no-crossfade');
       });
 
       it('hard-cuts close when crossfade="open"', async () => {
@@ -2116,12 +2126,12 @@ describe('Lightbox', () => {
         mockTargetBox();
         renderCrossfadeLightbox('open');
         fireEvent.click(screen.getByTestId('trigger-0'));
-        expect(document.documentElement).not.toHaveAttribute('data-lightbox-no-crossfade');
+        expect(document.documentElement).not.toHaveAttribute('data-ramka-no-crossfade');
         await act(async () => resolveOpen());
 
         fireEvent.click(screen.getByTestId('close'));
-        expect(document.documentElement).toHaveAttribute('data-lightbox-view-transition', 'closing');
-        expect(document.documentElement).toHaveAttribute('data-lightbox-no-crossfade');
+        expect(document.documentElement).toHaveAttribute('data-ramka-view-transition', 'closing');
+        expect(document.documentElement).toHaveAttribute('data-ramka-no-crossfade');
       });
     });
 
@@ -3582,7 +3592,7 @@ describe('Lightbox', () => {
       render(<PullDismissLightbox />);
       const content = screen.getByTestId('content');
       const img = screen.getByAltText('test');
-      const item = img.closest('[data-lightbox-item]') as HTMLElement;
+      const item = img.closest('[data-ramka-item]') as HTMLElement;
 
       act(() => {
         dispatchPointer(img, 'pointerdown', { clientX: 200, clientY: 200 });
@@ -3646,7 +3656,7 @@ describe('Lightbox', () => {
       });
 
       expect(content).not.toHaveAttribute('data-pulling');
-      const item = img.closest('[data-lightbox-item]') as HTMLElement;
+      const item = img.closest('[data-ramka-item]') as HTMLElement;
       expect(item.style.transform).toBe('');
 
       content.removeAttribute('data-zooming');
@@ -3871,7 +3881,7 @@ describe('Lightbox', () => {
         HTMLElement.prototype.scrollIntoView = origScroll;
         HTMLElement.prototype.getBoundingClientRect = origRect;
         delete (document as unknown as Record<string, unknown>).startViewTransition;
-        document.documentElement.removeAttribute('data-lightbox-view-transition');
+        document.documentElement.removeAttribute('data-ramka-view-transition');
       }
     });
   });

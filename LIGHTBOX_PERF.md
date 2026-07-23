@@ -47,7 +47,7 @@ because it runs *inside React's `flushSync`* while the just-mounted DOM is dirty
 
 ## Hypotheses tested and **rejected**
 
-- **`:root[data-lightbox-view-transition] * { view-transition-name: none }` is
+- **`:root[data-ramka-view-transition] * { view-transition-name: none }` is
   the amplifier.** A/B (deleting the rule at runtime, `ab-record.mjs`) showed
   **no difference** (RecalcStyle 44 ms → 50 ms, i.e. noise). The universal
   selector is *not* the cost; recalc is just proportional to the ~140 mounted

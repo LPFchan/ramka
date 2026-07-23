@@ -222,11 +222,11 @@ function usePullToDismiss({
       // A Lightbox.Slides swipe/fling is in flight — don't start a pull.
       if (isScrollingRef?.current) return;
 
-      // Resolve the owning item from whatever was touched. `data-lightbox-item`
+      // Resolve the owning item from whatever was touched. `data-ramka-item`
       // is the item's structural identity (also used by the wheel path and the
       // morph registry), so this isn't a content-type guess.
       const target = event.target as HTMLElement | null;
-      const activeItem = target?.closest('[data-lightbox-item]') as HTMLElement | null;
+      const activeItem = target?.closest('[data-ramka-item]') as HTMLElement | null;
       if (!activeItem) return;
 
       // Only activate when touching the item's registered content element (the

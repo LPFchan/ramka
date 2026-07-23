@@ -72,7 +72,7 @@ function escapeCssIdent(value: string): string {
 function mediaChildFillCss(mediaId: string): string {
   const id = escapeCssIdent(mediaId);
   return (
-    `#${id} > img:not([data-lightbox-media-poster]),#${id} > video,#${id} > canvas{` +
+    `#${id} > img:not([data-ramka-media-poster]),#${id} > video,#${id} > canvas{` +
     `width:100%;height:100%;` +
     `}`
   );
@@ -184,7 +184,7 @@ const LightboxMedia = React.forwardRef<HTMLDivElement, LightboxMediaProps>(
         let managed = managedPosterRef.current;
         if (!managed) {
           managed = document.createElement('img');
-          managed.setAttribute('data-lightbox-media-poster', '');
+          managed.setAttribute('data-ramka-media-poster', '');
           managed.alt = '';
           managed.setAttribute('aria-hidden', 'true');
           const s = managed.style;
@@ -240,7 +240,7 @@ const LightboxMedia = React.forwardRef<HTMLDivElement, LightboxMediaProps>(
       const host = internalRef.current;
       if (!host) return;
       const update = () => {
-        setPlaceholder(!!host.querySelector('[data-lightbox-placeholder]'));
+        setPlaceholder(!!host.querySelector('[data-ramka-placeholder]'));
       };
       update();
       const mo = new MutationObserver(update);
@@ -278,7 +278,7 @@ const LightboxMedia = React.forwardRef<HTMLDivElement, LightboxMediaProps>(
       props: mergeProps<'div'>(
         {
           id: mediaId,
-          'data-lightbox-media': '',
+          'data-ramka-media': '',
           ...(hasFitBox && width && height
             ? { 'data-width': String(width), 'data-height': String(height) }
             : null),

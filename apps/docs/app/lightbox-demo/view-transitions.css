@@ -12,7 +12,7 @@
    those elements back into the root snapshot. The morph target re-declares its
    own name with inline `!important`, which outranks this author-`!important`
    rule (inline wins on specificity), so it stays the only captured group. */
-:root[data-lightbox-view-transition] * {
+:root[data-ramka-view-transition] * {
   view-transition-name: none !important;
 }
 /* @docs-excerpt-end */
@@ -34,8 +34,8 @@
      crossfaded as full-viewport bitmaps. That plain-opacity path is measurably
      smoother on mobile Safari — do not route element fades back through the
      root snapshot. */
-  :root[data-lightbox-view-transition]::view-transition-old(root),
-  :root[data-lightbox-view-transition]::view-transition-new(root) {
+  :root[data-ramka-view-transition]::view-transition-old(root),
+  :root[data-ramka-view-transition]::view-transition-new(root) {
     animation-duration: 340ms;
     animation-timing-function: var(--ease-out-expo);
   }
@@ -78,23 +78,23 @@
   /* Crossfade (dissimilar snapshots): fill the morph box so a circular trigger's
      baked alpha can't "balloon" under cover — the group's border-radius is the
      visible shape, interpolating via the from/to vars above. */
-  :root[data-lightbox-view-transition]:not([data-lightbox-no-crossfade])::view-transition-old(lightbox-morph),
-  :root[data-lightbox-view-transition]:not([data-lightbox-no-crossfade])::view-transition-new(lightbox-morph) {
+  :root[data-ramka-view-transition]:not([data-ramka-no-crossfade])::view-transition-old(lightbox-morph),
+  :root[data-ramka-view-transition]:not([data-ramka-no-crossfade])::view-transition-new(lightbox-morph) {
     object-fit: fill;
   }
   /* @docs-excerpt-end */
 
   /* @docs-excerpt-start no-crossfade-hard-cut */
   /* @docs-excerpt-title Hard-cut (no crossfade) */
-  :root[data-lightbox-no-crossfade]::view-transition-old(lightbox-morph),
-  :root[data-lightbox-no-crossfade]::view-transition-new(lightbox-morph) {
+  :root[data-ramka-no-crossfade]::view-transition-old(lightbox-morph),
+  :root[data-ramka-no-crossfade]::view-transition-new(lightbox-morph) {
     animation: none !important;
     mix-blend-mode: normal;
   }
-  :root[data-lightbox-no-crossfade]::view-transition-old(lightbox-morph) {
+  :root[data-ramka-no-crossfade]::view-transition-old(lightbox-morph) {
     opacity: var(--lightbox-morph-old-opacity, 1);
   }
-  :root[data-lightbox-no-crossfade]::view-transition-new(lightbox-morph) {
+  :root[data-ramka-no-crossfade]::view-transition-new(lightbox-morph) {
     opacity: var(--lightbox-morph-new-opacity, 0);
   }
   /* @docs-excerpt-end */

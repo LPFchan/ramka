@@ -3,13 +3,18 @@
  * JSDoc here is the source of truth for the docs site API tables
  * (`pnpm docs:api`). Prefer these constants over string literals when
  * reading/writing attributes in library code.
+ *
+ * Open/close state attrs follow Base UI Dialog conventions:
+ * - Trigger uses `data-popup-open` when the lightbox is open.
+ * - Content/Backdrop use mutually exclusive `data-open` / `data-closed`.
+ * Part identity markers use the `data-ramka-*` prefix.
  */
 
 export enum LightboxTriggerDataAttributes {
   /** Always present on the trigger element. */
-  trigger = 'data-lightbox-trigger',
-  /** Present while the lightbox is open. */
-  open = 'data-open',
+  trigger = 'data-ramka-trigger',
+  /** Present when the corresponding lightbox is open. */
+  open = 'data-popup-open',
   /** Present when this trigger’s index is the active item. */
   active = 'data-active',
   /** Present when this trigger (or its morphRef) is the current morph source/target. */
@@ -21,6 +26,8 @@ export enum LightboxTriggerDataAttributes {
 export enum LightboxContentDataAttributes {
   /** Present while the lightbox is open. */
   open = 'data-open',
+  /** Present while the lightbox is closed (still rendered). */
+  closed = 'data-closed',
   /** Present while a pull-to-dismiss drag is in progress. */
   pulling = 'data-pulling',
   /** Present while the dismiss animation runs after crossing the threshold. */
@@ -34,6 +41,8 @@ export enum LightboxContentDataAttributes {
 export enum LightboxBackdropDataAttributes {
   /** Present while the lightbox is open. */
   open = 'data-open',
+  /** Present while the lightbox is closed (still rendered). */
+  closed = 'data-closed',
   /** Present while pull-to-dismiss is active (mirrors Content). */
   pulling = 'data-pulling',
 }
@@ -47,7 +56,7 @@ export enum LightboxItemGroupDataAttributes {
 
 export enum LightboxItemDataAttributes {
   /** Always present on the item element. */
-  item = 'data-lightbox-item',
+  item = 'data-ramka-item',
   /** Present when this item is the active index. */
   active = 'data-active',
   /** The item index as a string. */
@@ -70,7 +79,7 @@ export enum LightboxSlidesDataAttributes {
 
 export enum LightboxSlideDataAttributes {
   /** Always present on the slide element. */
-  slide = 'data-lightbox-slide',
+  slide = 'data-ramka-slide',
 }
 
 export enum LightboxPreviousDataAttributes {
@@ -102,7 +111,7 @@ export enum LightboxThumbnailDataAttributes {
 
 export enum LightboxMediaDataAttributes {
   /** Always present on the media host. */
-  media = 'data-lightbox-media',
+  media = 'data-ramka-media',
   /** Present while the open-morph placeholder canvas is bridging. */
   placeholder = 'data-placeholder',
   /** Present when a structural fit-box width is resolved (prop or img dims). */
@@ -130,7 +139,7 @@ export enum LightboxZoomOutDataAttributes {
 
 export enum LightboxDocumentDataAttributes {
   /** Present during a morph. Value is `opening` or `closing`. */
-  viewTransition = 'data-lightbox-view-transition',
+  viewTransition = 'data-ramka-view-transition',
   /** Present for hard-cut morphs (no trigger↔item snapshot crossfade). */
-  noCrossfade = 'data-lightbox-no-crossfade',
+  noCrossfade = 'data-ramka-no-crossfade',
 }

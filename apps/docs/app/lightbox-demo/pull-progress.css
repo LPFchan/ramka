@@ -1,8 +1,7 @@
 /**
- * Fade Backdrop with pull-to-dismiss progress.
- * Applied by docs chrome via `.lightbox-demo-backdrop`.
- * Content / media stay opaque (match Photos / Moodboard / Responsive gallery);
- * chrome fades separately via Tailwind `data-pulling` selectors.
+ * Fade Backdrop with pull-to-dismiss progress (open/close base fade lives in
+ * open-close.css). Content / media stay opaque; chrome fades separately via
+ * Tailwind `data-pulling` selectors in lightbox-chrome.
  *
  * @docsExcerpt pull-progress-css
  * @docsExcerptTitle Pull progress CSS

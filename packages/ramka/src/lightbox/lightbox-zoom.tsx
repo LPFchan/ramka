@@ -255,7 +255,7 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
       if (wrapper) {
         // Prefer Lightbox.Media (sized morph / content host) over a raw <img>.
         // Documented shape: Zoom > Media > img|video (bare children still work).
-        const media = wrapper.querySelector('[data-lightbox-media]');
+        const media = wrapper.querySelector('[data-ramka-media]');
         if (media instanceof HTMLElement && media.offsetWidth > 0) {
           return { w: media.offsetWidth, h: media.offsetHeight };
         }

@@ -200,7 +200,7 @@ export default function GoogleMapsExamplePage() {
           <Lightbox.Content
             aria-label={`Fullscreen map — ${WROCLAW.place}`}
             pullToClose={false}
-            className="fixed inset-0 overscroll-contain bg-neutral-950 outline-none opacity-0 ease-out-expo duration-[280ms] transition-opacity data-[open]:opacity-100 starting:opacity-0"
+            className="lightbox-demo-content fixed inset-0 overscroll-contain bg-neutral-950 outline-none"
           >
             <LightboxCloseButton />
             <Lightbox.Item index={0} className="absolute inset-0">

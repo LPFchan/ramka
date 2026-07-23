@@ -3,6 +3,7 @@
 import { mergeProps } from '@base-ui/react';
 import * as React from 'react';
 
+import { LightboxContentDataAttributes } from './lightbox-data-attributes';
 import { useLightboxContext } from './lightbox-context';
 import { useLightboxPortalContext } from './lightbox-portal';
 import { useLightboxZoomPublish } from './lightbox-zoom-context';
@@ -221,7 +222,7 @@ const LightboxContent = React.forwardRef<HTMLDivElement, LightboxContentProps>(
       backdropRef: backdropElementRef,
       // The active slide element, tracked in context (Item sets it on activate).
       // The wheel/trackpad pull path reads it directly instead of re-querying
-      // the DOM for `[data-lightbox-item][data-active]`.
+      // the DOM for `[data-ramka-item][data-active]`.
       activeItemRef: activeItemElementRef,
       // The touch gate starts a pull only inside an item's registered content
       // element (imageRef / morphRef) — the same element that morphs —
@@ -417,7 +418,9 @@ const LightboxContent = React.forwardRef<HTMLDivElement, LightboxContentProps>(
           ...(preparing || parked ? { visibility: 'hidden' as const } : null),
           ...(parked ? { pointerEvents: 'none' as const } : null),
         },
-        'data-open': open || undefined,
+        ...(open
+          ? { [LightboxContentDataAttributes.open]: '' }
+          : { [LightboxContentDataAttributes.closed]: '' }),
         onKeyDown: handleKeyDown,
         onClick: handleClick,
         tabIndex: parked ? undefined : -1,

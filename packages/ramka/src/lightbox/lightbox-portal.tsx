@@ -103,7 +103,7 @@ const LightboxPortal = React.forwardRef<HTMLDivElement, LightboxPortalProps>(
 
     const host = (
       <LightboxPortalContext.Provider value={contextValue}>
-        <div ref={forwardedRef} data-lightbox-portal="" className={className} style={style} {...rest}>
+        <div ref={forwardedRef} data-ramka-portal="" className={className} style={style} {...rest}>
           {children}
         </div>
       </LightboxPortalContext.Provider>

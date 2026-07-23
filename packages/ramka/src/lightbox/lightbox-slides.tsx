@@ -94,7 +94,7 @@ interface Geometry {
  */
 const SCROLL_IDLE_MS = 140;
 
-const SLIDE_SELECTOR = '[data-lightbox-slide]';
+const SLIDE_SELECTOR = '[data-ramka-slide]';
 
 /**
  * Measure the (uniform) slide geometry from offset values. `offsetLeft` is a

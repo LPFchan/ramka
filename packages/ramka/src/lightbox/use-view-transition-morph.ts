@@ -162,9 +162,9 @@ function warnUnwiredItemMorph(itemEl: HTMLElement, target: HTMLElement) {
 function warnCollapsedMediaMorph(target: HTMLElement | null) {
   if (!warnedCollapsedMedia || !target) return;
   const media =
-    target.hasAttribute('data-lightbox-media')
+    target.hasAttribute('data-ramka-media')
       ? target
-      : (target.closest('[data-lightbox-media]') as HTMLElement | null);
+      : (target.closest('[data-ramka-media]') as HTMLElement | null);
   if (!media || warnedCollapsedMedia.has(media)) return;
   if (isMorphTargetSizeResolvable(target)) return;
   warnedCollapsedMedia.add(media);

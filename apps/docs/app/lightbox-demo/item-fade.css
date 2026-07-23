@@ -6,7 +6,7 @@
    morph animation already handled the entrance and a follow-up fade
    would just produce a flash of `opacity: 0` once the VT layer is
    torn down. Mirrors frosted-ui's lightbox.css contract. */
-[data-lightbox-item][data-active]:not([data-skip-fade]) {
+[data-ramka-item][data-active]:not([data-skip-fade]) {
   animation: var(--animate-lightbox-item-fade-in);
 }
 
@@ -17,7 +17,7 @@
    a reliable, zero-config marker — consumers building a swipeable lightbox
    don't have to remember to opt out. Higher specificity (0,4,0 > 0,3,0)
    lets this win without `!important`. */
-[data-orientation] [data-lightbox-item][data-active] {
+[data-orientation] [data-ramka-item][data-active] {
   animation: none;
 }
 
@@ -28,6 +28,6 @@
    await), so there is a brief window where data-active is set without
    data-skip-fade. This rule covers that window without relying on
    precise ordering. */
-:root[data-lightbox-view-transition] [data-lightbox-item][data-active] {
+:root[data-ramka-view-transition] [data-ramka-item][data-active] {
   animation: none !important;
 }

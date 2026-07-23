@@ -20,8 +20,7 @@ export default function LightboxGesturesPage() {
       description={
         <>
           Pull-to-dismiss, zoom/pan, and keyboard ownership. Part of{' '}
-          <DocsLink href={lightboxDocsPages.overview.href}>Lightbox</DocsLink>. For a full product
-          composition see{' '}
+          <DocsLink href={lightboxDocsPages.overview.href}>Lightbox</DocsLink>. For a full product composition see{' '}
           <DocsLink href="/examples/lightbox/responsive-gallery">Responsive gallery</DocsLink>.
         </>
       }
@@ -30,41 +29,38 @@ export default function LightboxGesturesPage() {
       <DocsSection
         id="pull"
         title={
-          <PropSectionTitle
-            partHref={lightboxApiHref.content}
-            part="Content"
-            prop="pullToClose"
-            sectionId="pull"
-          />
+          <PropSectionTitle partHref={lightboxApiHref.content} part="Content" prop="pullToClose" sectionId="pull" />
         }
       >
         <p>
-          Content enables pull-to-dismiss by default (<code className="text-xs">pullToClose</code>).
-          Drag down (touch) or wheel-dismiss (trackpad) scales the surface and sets{' '}
-          <code className="text-xs">data-pulling</code> / <code className="text-xs">data-pull-dismissing</code>{' '}
-          plus <code className="text-xs">--lightbox-pull-progress</code> (0→1).
+          Content enables pull-to-dismiss by default (<code className="text-xs">pullToClose</code>). Drag down (touch)
+          or wheel-dismiss (trackpad) scales the surface and sets <code className="text-xs">data-pulling</code> /{' '}
+          <code className="text-xs">data-pull-dismissing</code> plus{' '}
+          <code className="text-xs">--lightbox-pull-progress</code> (0→1).
         </p>
         <ul className="list-disc space-y-2 pl-5">
           <li>
-            Hit target prefers the active item’s <code className="text-xs">Lightbox.Media</code> host
-            (or <code className="text-xs">imageRef</code> / <code className="text-xs">morphRef</code>) so
-            chrome does not steal the gesture.
+            Hit target prefers the active item’s <code className="text-xs">Lightbox.Media</code> host (or{' '}
+            <code className="text-xs">imageRef</code> / <code className="text-xs">morphRef</code>) so chrome does not
+            steal the gesture.
           </li>
+          <li>Disabled while zoomed above 1× or while Slides reports an in-progress scroll (navigation lock).</li>
           <li>
-            Disabled while zoomed above 1× or while Slides reports an in-progress scroll (navigation
-            lock).
-          </li>
-          <li>
-            Backdrop is optional — when used, nest it inside{' '}
-            <DocsLink href={lightboxApiHref.portal}>Portal</DocsLink> beside Content. Pull still works
-            if you omit Backdrop.
+            Backdrop is optional — when used, nest it inside <DocsLink href={lightboxApiHref.portal}>Portal</DocsLink>{' '}
+            beside Content. Pull still works if you omit Backdrop.
           </li>
         </ul>
         <p>
-          Fade the scrim with progress (media stays opaque). Docs chrome applies the recipe below via{' '}
-          <code className="text-xs">.lightbox-demo-backdrop</code> (sourced from{' '}
-          <code className="text-xs">app/lightbox-demo/pull-progress.css</code>).
+          Open/close fades live on <code className="text-xs">.lightbox-demo-backdrop</code> /{' '}
+          <code className="text-xs">.lightbox-demo-content</code> (
+          <code className="text-xs">app/lightbox-demo/open-close.css</code>). Pull then modulates the open scrim (media
+          stays opaque) via <code className="text-xs">pull-progress.css</code>.
         </p>
+        <CodeBlock
+          code={lightboxExcerpts['open-close-css'].code}
+          title={lightboxExcerpts['open-close-css'].title}
+          lang="css"
+        />
         <CodeBlock
           code={lightboxExcerpts['pull-progress-css'].code}
           title={lightboxExcerpts['pull-progress-css'].title}
@@ -74,53 +70,41 @@ export default function LightboxGesturesPage() {
 
       <DocsSection id="zoom" title="Zoom">
         <p>
-          Wrap media in <DocsLink href={lightboxApiHref.zoom}>Zoom</DocsLink> (inside Item, typically
-          inside Slide). Prefer <DocsLink href={lightboxApiHref.media}>Media</DocsLink> inside Zoom so
-          pan / maxZoom use the sized content box. Supports pinch, pan, double-tap, ctrl/meta+wheel
-          (or <code className="text-xs">scrollToZoom</code>), and keyboard pan when focused.
+          Wrap media in <DocsLink href={lightboxApiHref.zoom}>Zoom</DocsLink> (inside Item, typically inside Slide).
+          Prefer <DocsLink href={lightboxApiHref.media}>Media</DocsLink> inside Zoom so pan / maxZoom use the sized
+          content box. Supports pinch, pan, double-tap, ctrl/meta+wheel (or{' '}
+          <code className="text-xs">scrollToZoom</code>), and keyboard pan when focused.
         </p>
         <p>
-          Zoomed media can cover the full Content surface only if Slide → Item → Zoom → Media fill that
-          box — see{' '}
-          <DocsLink href={`${lightboxDocsPages.composition.href}#media-layout`}>
-            Composition → Media layout
-          </DocsLink>
-          .
+          Zoomed media can cover the full Content surface only if Slide → Item → Zoom → Media fill that box — see{' '}
+          <DocsLink href={`${lightboxDocsPages.composition.href}#media-layout`}>Composition → Media layout</DocsLink>.
         </p>
         <p>
           <DocsLink href={lightboxApiHref.zoomIn}>ZoomIn</DocsLink> /{' '}
-          <DocsLink href={lightboxApiHref.zoomOut}>ZoomOut</DocsLink> can sit in toolbar chrome outside
-          Zoom — they target the <em>active</em> slide via Root’s active-zoom bridge. Content reflects{' '}
-          <code className="text-xs">data-zooming</code> / <code className="text-xs">data-zoomed</code> for
-          styling.
+          <DocsLink href={lightboxApiHref.zoomOut}>ZoomOut</DocsLink> can sit in toolbar chrome outside Zoom — they
+          target the <em>active</em> slide via Root’s active-zoom bridge. Content reflects{' '}
+          <code className="text-xs">data-zooming</code> / <code className="text-xs">data-zoomed</code> for styling.
         </p>
-        <CodeBlock
-          code={lightboxExcerpts['zoom-bridge'].code}
-          title={lightboxExcerpts['zoom-bridge'].title}
-        />
+        <CodeBlock code={lightboxExcerpts['zoom-bridge'].code} title={lightboxExcerpts['zoom-bridge'].title} />
       </DocsSection>
 
       <DocsSection id="keyboard" title="Keyboard & focus">
         <p>
-          <DocsLink href={lightboxApiHref.content}>Content</DocsLink> is the keyboard authority while
-          open:
+          <DocsLink href={lightboxApiHref.content}>Content</DocsLink> is the keyboard authority while open:
         </p>
         <ul className="list-disc space-y-2 pl-5">
           <li>
             <code className="text-xs">Escape</code> — close
           </li>
-          <li>
-            Arrow keys — pan when zoomed, otherwise previous/next
-          </li>
+          <li>Arrow keys — pan when zoomed, otherwise previous/next</li>
           <li>
             <code className="text-xs">+</code> / <code className="text-xs">-</code> /{' '}
             <code className="text-xs">⌘/Ctrl+0</code> — zoom in / out / reset (active Zoom)
           </li>
         </ul>
         <p>
-          Focus is trapped in the dialog; closing restores focus to the opening Trigger. Native page
-          pinch-zoom is blocked while Content is mounted so it does not fight{' '}
-          <code className="text-xs">Lightbox.Zoom</code>.
+          Focus is trapped in the dialog; closing restores focus to the opening Trigger. Native page pinch-zoom is
+          blocked while Content is mounted so it does not fight <code className="text-xs">Lightbox.Zoom</code>.
         </p>
       </DocsSection>
 

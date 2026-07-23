@@ -111,7 +111,7 @@ export const generatedProps: Record<string, PropRow[]> = {
     {
       name: "crossfade",
       type: "'open' | 'close' | 'both'",
-      description: "Crossfade between trigger and item snapshots during the view-transition morph. Omit (default) for a hard-cut morph — ideal when trigger and item show the same image at different crops/sizes. Use a direction when they differ visually:\n\n- `'both'` — crossfade on open and close (e.g. a stack → single photo)\n- `'open'` — crossfade only when opening\n- `'close'` — crossfade only when closing (e.g. poster → live video)\n\nSets `data-crossfade` / `data-lightbox-no-crossfade` for CSS.",
+      description: "Crossfade between trigger and item snapshots during the view-transition morph. Omit (default) for a hard-cut morph — ideal when trigger and item show the same image at different crops/sizes. Use a direction when they differ visually:\n\n- `'both'` — crossfade on open and close (e.g. a stack → single photo)\n- `'open'` — crossfade only when opening\n- `'close'` — crossfade only when closing (e.g. poster → live video)\n\nSets `data-crossfade` / `data-ramka-no-crossfade` for CSS.",
     },
     {
       name: "children",
@@ -462,12 +462,12 @@ export const generatedAttributes: Record<string, AttrRow[]> = {
   "api-root": [],
   "api-trigger": [
     {
-      name: "data-lightbox-trigger",
+      name: "data-ramka-trigger",
       description: "Always present on the trigger element.",
     },
     {
-      name: "data-open",
-      description: "Present while the lightbox is open.",
+      name: "data-popup-open",
+      description: "Present when the corresponding lightbox is open.",
     },
     {
       name: "data-active",
@@ -487,6 +487,10 @@ export const generatedAttributes: Record<string, AttrRow[]> = {
     {
       name: "data-open",
       description: "Present while the lightbox is open.",
+    },
+    {
+      name: "data-closed",
+      description: "Present while the lightbox is closed (still rendered).",
     },
     {
       name: "data-pulling",
@@ -511,6 +515,10 @@ export const generatedAttributes: Record<string, AttrRow[]> = {
       description: "Present while the lightbox is open.",
     },
     {
+      name: "data-closed",
+      description: "Present while the lightbox is closed (still rendered).",
+    },
+    {
       name: "data-pulling",
       description: "Present while pull-to-dismiss is active (mirrors Content).",
     },
@@ -518,7 +526,7 @@ export const generatedAttributes: Record<string, AttrRow[]> = {
   "api-close": [],
   "api-item": [
     {
-      name: "data-lightbox-item",
+      name: "data-ramka-item",
       description: "Always present on the item element.",
     },
     {
@@ -536,7 +544,7 @@ export const generatedAttributes: Record<string, AttrRow[]> = {
   ],
   "api-media": [
     {
-      name: "data-lightbox-media",
+      name: "data-ramka-media",
       description: "Always present on the media host.",
     },
     {
@@ -568,7 +576,7 @@ export const generatedAttributes: Record<string, AttrRow[]> = {
   ],
   "api-slide": [
     {
-      name: "data-lightbox-slide",
+      name: "data-ramka-slide",
       description: "Always present on the slide element.",
     },
   ],
@@ -641,11 +649,11 @@ export const generatedAttributes: Record<string, AttrRow[]> = {
   ],
   "api-view-transition-document": [
     {
-      name: "data-lightbox-view-transition",
+      name: "data-ramka-view-transition",
       description: "Present during a morph. Value is `opening` or `closing`.",
     },
     {
-      name: "data-lightbox-no-crossfade",
+      name: "data-ramka-no-crossfade",
       description: "Present for hard-cut morphs (no trigger↔item snapshot crossfade).",
     },
   ],

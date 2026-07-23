@@ -8,7 +8,7 @@ import * as React from 'react';
  *
  * It is the scroll child that the native snap engine positions, so it carries
  * the snap contract (`flex: 0 0 100%`, `scroll-snap-align: center`,
- * `scroll-snap-stop: always`) and the `data-lightbox-slide` marker that
+ * `scroll-snap-stop: always`) and the `data-ramka-slide` marker that
  * `Lightbox.Slides` measures for its offset-based geometry.
  *
  * Put a `Lightbox.Item` *inside* the slide (not the slide itself): pull-to-dismiss
@@ -41,7 +41,7 @@ const LightboxSlide = React.forwardRef<HTMLDivElement, LightboxSlideProps>(
       ref: forwardedRef,
       props: mergeProps<'div'>(
         {
-          'data-lightbox-slide': '',
+          'data-ramka-slide': '',
           style: {
             // One viewport per slide; the browser snaps its center. `min-width`
             // is belt-and-suspenders so the box can't be squeezed by flex even

@@ -59,7 +59,7 @@ function setupGeometry(viewport: HTMLElement, count: number) {
       scrollLeft = v;
     },
   });
-  const slides = viewport.querySelectorAll<HTMLElement>('[data-lightbox-slide]');
+  const slides = viewport.querySelectorAll<HTMLElement>('[data-ramka-slide]');
   slides.forEach((slide, i) => {
     Object.defineProperty(slide, 'offsetLeft', { configurable: true, get: () => i * WIDTH });
     Object.defineProperty(slide, 'offsetWidth', { configurable: true, get: () => WIDTH });
@@ -206,7 +206,7 @@ describe('Lightbox.Slides', () => {
     expect(viewport).toHaveAttribute('data-orientation', 'horizontal');
 
     const slide = screen.getByTestId('slide-0');
-    expect(slide).toHaveAttribute('data-lightbox-slide');
+    expect(slide).toHaveAttribute('data-ramka-slide');
     expect(slide.style.scrollSnapAlign).toBe('center');
     expect(slide.style.scrollSnapStop).toBe('always');
   });

@@ -4,6 +4,7 @@ import { mergeProps, useRender } from '@base-ui/react';
 import * as React from 'react';
 
 import { LightboxContext } from './lightbox-context';
+import { LightboxTriggerDataAttributes } from './lightbox-data-attributes';
 import {
   getLightboxHandleSnapshot,
   getLightboxHandleVersion,
@@ -90,7 +91,7 @@ interface LightboxTriggerProps
    * - `'open'` — crossfade only when opening
    * - `'close'` — crossfade only when closing (e.g. poster → live video)
    *
-   * Sets `data-crossfade` / `data-lightbox-no-crossfade` for CSS.
+   * Sets `data-crossfade` / `data-ramka-no-crossfade` for CSS.
    */
   crossfade?: LightboxCrossfade;
   /**
@@ -104,9 +105,10 @@ interface LightboxTriggerProps
 }
 
 const triggerStateAttributesMapping = {
-  open: (value: unknown) => (value ? { 'data-open': '' } : null),
-  active: (value: unknown) => (value ? { 'data-active': '' } : null),
-  morphTarget: (value: unknown) => (value ? { 'data-morph-target': '' } : null),
+  open: (value: unknown) => (value ? { [LightboxTriggerDataAttributes.open]: '' } : null),
+  active: (value: unknown) => (value ? { [LightboxTriggerDataAttributes.active]: '' } : null),
+  morphTarget: (value: unknown) =>
+    value ? { [LightboxTriggerDataAttributes.morphTarget]: '' } : null,
 };
 
 const noopSubscribe = () => () => {};
@@ -396,10 +398,10 @@ const LightboxTrigger = React.forwardRef<HTMLButtonElement, LightboxTriggerProps
           onClick: handleClick,
           // Stable styling hook — consumer CSS can target every trigger
           // (e.g. for a default focus outline) without relying on
-          // state-only attributes like `data-open` or `data-active`.
-          // Mirrors the `data-lightbox-item` hook on Lightbox.Item.
-          'data-lightbox-trigger': '',
-          ...(crossfade ? { 'data-crossfade': crossfade } : undefined),
+          // state-only attributes like `data-popup-open` or `data-active`.
+          // Mirrors the `data-ramka-item` hook on Lightbox.Item.
+          [LightboxTriggerDataAttributes.trigger]: '',
+          ...(crossfade ? { [LightboxTriggerDataAttributes.crossfade]: crossfade } : undefined),
         } as React.ComponentPropsWithRef<'button'>,
         elementProps as React.ComponentPropsWithRef<'button'>,
         { children: resolvedChildren } as React.ComponentPropsWithRef<'button'>,

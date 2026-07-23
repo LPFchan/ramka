@@ -124,7 +124,7 @@ function mockViewTransitionAPI() {
 
 function cleanupViewTransitionAPI() {
   delete (document as unknown as Record<string, unknown>).startViewTransition;
-  document.documentElement.removeAttribute('data-lightbox-view-transition');
+  document.documentElement.removeAttribute('data-ramka-view-transition');
 }
 
 afterEach(() => {
@@ -134,7 +134,7 @@ afterEach(() => {
 });
 
 function itemImg(): HTMLImageElement {
-  const el = document.querySelector<HTMLImageElement>('[data-lightbox-item] img');
+  const el = document.querySelector<HTMLImageElement>('[data-ramka-item] img');
   if (!el) throw new Error('item image not found');
   return el;
 }
@@ -363,8 +363,8 @@ describe('render-fn placeholder wiring (Trigger imageRef -> Item imageRef)', () 
 
     // Both sides are registry-based now — neither pollutes consumer DOM with a
     // marker attribute.
-    expect(document.querySelector('[data-testid="trigger-morph"]')).not.toHaveAttribute('data-lightbox-morph');
-    expect(document.querySelector('[data-testid="item-morph"]')).not.toHaveAttribute('data-lightbox-morph');
+    expect(document.querySelector('[data-testid="trigger-morph"]')).not.toHaveAttribute('data-ramka-morph');
+    expect(document.querySelector('[data-testid="item-morph"]')).not.toHaveAttribute('data-ramka-morph');
   });
 
   it('warns in dev when a Trigger has no imageRef and the item image is unloaded', () => {
@@ -486,7 +486,7 @@ describe('Lightbox.Media (morph + placeholder host)', () => {
     clickTrigger('trigger');
 
     const media = document.querySelector('[data-testid="media"]')!;
-    const canvas = media.querySelector('[data-lightbox-placeholder]');
+    const canvas = media.querySelector('[data-ramka-placeholder]');
     expect(canvas).toBeTruthy();
     // Canvas must not live on Zoom's transform wrapper (Media's parent under Zoom).
     expect(canvas!.parentElement).toBe(media);
@@ -523,7 +523,7 @@ describe('Lightbox.Media (morph + placeholder host)', () => {
 
     clickTrigger('trigger');
     // No canvas mounted into a mystery parent — only CSS background on the img.
-    expect(document.querySelector('[data-lightbox-placeholder]')).toBeNull();
+    expect(document.querySelector('[data-ramka-placeholder]')).toBeNull();
     expect(document.querySelector('[data-testid="diy-host"]')!.children).toHaveLength(1);
     expect(itemImg().style.backgroundImage).toContain('/thumb.jpg');
   });
@@ -599,7 +599,7 @@ describe('Lightbox.Media (morph + placeholder host)', () => {
 
     // One author rule stretches every direct media child (img / video / canvas).
     expect(css).toBe(
-      `#${id} > img:not([data-lightbox-media-poster]),#${id} > video,#${id} > canvas{width:100%;height:100%;}`,
+      `#${id} > img:not([data-ramka-media-poster]),#${id} > video,#${id} > canvas{width:100%;height:100%;}`,
     );
 
     // Child is a direct Media descendant so the `#id > ${tag}` rule applies.
@@ -653,7 +653,7 @@ describe('Lightbox.Media (morph + placeholder host)', () => {
 
     clickTrigger('trigger');
 
-    const poster = document.querySelector('[data-lightbox-media-poster]') as HTMLImageElement | null;
+    const poster = document.querySelector('[data-ramka-media-poster]') as HTMLImageElement | null;
     expect(poster).toBeTruthy();
     expect(poster!.getAttribute('src')).toBe('/poster.jpg');
     expect(poster!.style.backgroundImage).toContain('/thumb.jpg');

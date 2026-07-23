@@ -222,7 +222,7 @@ function findItemMorphTarget(
  * morphing it reproduces exactly what the user sees.
  *
  * Unlike the item, the trigger deliberately does NOT hunt for an inner `<img>`.
- * Resolution is registry-based rather than a DOM `[data-lightbox-morph]` scan:
+ * Resolution is registry-based rather than a DOM `[data-ramka-morph]` scan:
  * the lookup is O(1), order-independent, and correct even when several triggers
  * share an index (the registry is keyed by element, not index).
  */

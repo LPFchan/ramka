@@ -1,0 +1,35 @@
+/**
+ * Open/close opacity for demo Backdrop + Content.
+ * Attach `.lightbox-demo-backdrop` / `.lightbox-demo-content` in chrome.
+ * Backdrop open opacity is then modulated by pull — see pull-progress.css.
+ *
+ * @docsExcerpt open-close-css
+ * @docsExcerptTitle Open / close CSS
+ */
+
+.lightbox-demo-backdrop {
+  opacity: 0;
+  transition: opacity 340ms var(--ease-out-expo);
+}
+
+/* First frame when `data-open` appears — then pull-progress.css owns open opacity. */
+@starting-style {
+  .lightbox-demo-backdrop[data-open] {
+    opacity: 0;
+  }
+}
+
+.lightbox-demo-content {
+  opacity: 0;
+  transition: opacity 280ms var(--ease-out-expo);
+}
+
+.lightbox-demo-content[data-open] {
+  opacity: 1;
+}
+
+@starting-style {
+  .lightbox-demo-content[data-open] {
+    opacity: 0;
+  }
+}

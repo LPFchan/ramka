@@ -87,7 +87,7 @@ export default function LightboxViewTransitionsPage() {
           <li>
             <strong className="font-medium text-neutral-800 dark:text-neutral-200">Omit (default)</strong>{' '}
             — hard-cut. Best when trigger and item show the <em>same</em> picture (different crop/size
-            is fine). Sets <code className="text-xs">data-lightbox-no-crossfade</code> on{' '}
+            is fine). Sets <code className="text-xs">data-ramka-no-crossfade</code> on{' '}
             <code className="text-xs">&lt;html&gt;</code> during the transition.
           </li>
           <li>
@@ -214,11 +214,11 @@ export default function LightboxViewTransitionsPage() {
         </p>
         <ul className="list-disc space-y-2 pl-5">
           <li>
-            <code className="text-xs">data-lightbox-view-transition</code> —{' '}
+            <code className="text-xs">data-ramka-view-transition</code> —{' '}
             <code className="text-xs">opening</code> | <code className="text-xs">closing</code>
           </li>
           <li>
-            <code className="text-xs">data-lightbox-no-crossfade</code> — hard-cut path (default when Trigger
+            <code className="text-xs">data-ramka-no-crossfade</code> — hard-cut path (default when Trigger
             omits <code className="text-xs">crossfade</code>)
           </li>
           <li>
@@ -247,7 +247,7 @@ export default function LightboxViewTransitionsPage() {
           <code className="text-xs">startViewTransition</code> snapshots the whole document. If a page
           element already has a <code className="text-xs">view-transition-name</code> (e.g. a photo grid),
           it becomes a separate VT group and can paint <em>over</em> the lightbox. While{' '}
-          <code className="text-xs">data-lightbox-view-transition</code> is set, clear every name; the morph
+          <code className="text-xs">data-ramka-view-transition</code> is set, clear every name; the morph
           target re-applies its name inline with <code className="text-xs">!important</code> so it stays
           the only captured group.
         </p>
@@ -291,7 +291,7 @@ export default function LightboxViewTransitionsPage() {
         <p>
           Default snapshots use <code className="text-xs">object-fit: cover</code> and{' '}
           <code className="text-xs">mix-blend-mode: plus-lighter</code> so same-image hard-cuts keep crops
-          coherent. When dissolving (no <code className="text-xs">data-lightbox-no-crossfade</code>), switch
+          coherent. When dissolving (no <code className="text-xs">data-ramka-no-crossfade</code>), switch
           to <code className="text-xs">fill</code> so circular triggers don’t “balloon” under cover — the
           group’s border-radius is the visible shape.
         </p>
@@ -306,7 +306,7 @@ export default function LightboxViewTransitionsPage() {
         </h3>
         <p>
           When Trigger omits <code className="text-xs">crossfade</code>, ramka sets{' '}
-          <code className="text-xs">data-lightbox-no-crossfade</code>. Kill the UA dissolve, drop{' '}
+          <code className="text-xs">data-ramka-no-crossfade</code>. Kill the UA dissolve, drop{' '}
           <code className="text-xs">plus-lighter</code>, and drive opacity from{' '}
           <code className="text-xs">--lightbox-morph-old/new-opacity</code>.
         </p>
