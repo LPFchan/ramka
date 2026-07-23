@@ -405,7 +405,7 @@ const LightboxContent = React.forwardRef<HTMLDivElement, LightboxContentProps>(
           // Prevent accidental text selection when performing touch gestures.
           // Library consumers will have to explicitly mark selectable elements in their implementations.
           userSelect: 'none',
-          webkitUserSelect: 'none',
+          WebkitUserSelect: 'none',
           ...style,
           ...(preparing ? { visibility: 'hidden' as const } : null),
         },

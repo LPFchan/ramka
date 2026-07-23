@@ -17,38 +17,33 @@ import {
 const assetBase =
   'https://cdn.jsdelivr.net/gh/KhronosGroup/glTF-Sample-Assets@main/Models';
 
+/** Shared square frame for every trigger + Media so tiles match in the grid. */
+const FRAME_SIZE = 1024;
+
 /** Grid + lightbox both mount a Three.js canvas inside the morph host / Media. */
 const products = [
   {
     id: 'shoe',
     name: 'Materials Variants Shoe',
     material: 'Leather · multi-variant',
-    width: 1958,
-    height: 808,
     src: `${assetBase}/MaterialsVariantsShoe/glTF-Binary/MaterialsVariantsShoe.glb`,
   },
   {
     id: 'chair',
     name: 'Damask Chair',
     material: 'Purple & gold fabric',
-    width: 1280,
-    height: 970,
     src: `${assetBase}/ChairDamaskPurplegold/glTF-Binary/ChairDamaskPurplegold.glb`,
   },
   {
     id: 'bottle',
     name: 'Water Bottle',
     material: 'Brushed metal',
-    width: 512,
-    height: 512,
     src: `${assetBase}/WaterBottle/glTF-Binary/WaterBottle.glb`,
   },
   {
     id: 'helmet',
     name: 'Damaged Helmet',
     material: 'Sci-fi prop',
-    width: 512,
-    height: 512,
     src: `${assetBase}/DamagedHelmet/glTF-Binary/DamagedHelmet.glb`,
   },
 ] as const;
@@ -121,20 +116,42 @@ function preheatGltfs(
   });
 }
 
-function fitCameraToObject(camera: THREE.PerspectiveCamera, object: THREE.Object3D) {
-  const box = new THREE.Box3().setFromObject(object);
-  const size = box.getSize(new THREE.Vector3());
+/**
+ * Center the model and scale so its longest axis is 1. Returns a wrapper at the
+ * origin so every asset frames at the same camera distance.
+ */
+function normalizeModel(model: THREE.Object3D): THREE.Group {
+  const wrapped = new THREE.Group();
+  wrapped.add(model);
+  model.updateWorldMatrix(true, true);
+
+  const box = new THREE.Box3().setFromObject(model);
   const center = box.getCenter(new THREE.Vector3());
-  const maxSize = Math.max(size.x, size.y, size.z) || 1;
-  const fitHeightDistance = maxSize / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2));
-  const fitWidthDistance = fitHeightDistance / camera.aspect;
-  const distance = 1.35 * Math.max(fitHeightDistance, fitWidthDistance);
+  const size = box.getSize(new THREE.Vector3());
+  const maxDim = Math.max(size.x, size.y, size.z) || 1;
+
+  model.position.sub(center);
+  wrapped.scale.setScalar(1 / maxDim);
+  wrapped.updateMatrixWorld(true);
+  return wrapped;
+}
+
+/** Fixed framing for {@link normalizeModel} unit-sized roots (target at origin). */
+function fitCameraToUnitObject(
+  camera: THREE.PerspectiveCamera,
+  controls: OrbitControls,
+) {
+  const maxSize = 1;
+  const fitHeightDistance =
+    maxSize / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2));
+  const fitWidthDistance = fitHeightDistance / Math.max(camera.aspect, 0.001);
+  const distance = 1.45 * Math.max(fitHeightDistance, fitWidthDistance);
   camera.near = distance / 100;
   camera.far = distance * 100;
-  camera.position.set(center.x + distance * 0.35, center.y + distance * 0.2, center.z + distance);
-  camera.lookAt(center);
+  controls.target.set(0, 0, 0);
+  camera.position.set(distance * 0.35, distance * 0.2, distance);
+  camera.lookAt(controls.target);
   camera.updateProjectionMatrix();
-  return center;
 }
 
 /**
@@ -230,20 +247,35 @@ function applyOrbitPose(
   controls.update();
 }
 
+/** Slow showcase spin — OrbitControls units (~0.5 ≈ 7.5°/s at 60fps). */
+const TRIGGER_AUTO_ROTATE_SPEED = 0.75;
+
 /**
- * Bind Three.js to an existing `<canvas>` (direct Media / trigger child).
+ * Mount a disposable `<canvas>` inside `host` and bind Three.js to it.
+ * Canvas is created/destroyed in the effect so `forceContextLoss` never
+ * poisons a React-owned element (Strict Mode remount / reopen).
  * Orbit only (no zoom). Pose is synced across trigger + lightbox for `productId`.
  */
 function useThreeCanvas(
-  canvasRef: React.RefObject<HTMLCanvasElement | null>,
+  hostRef: React.RefObject<HTMLElement | null>,
   product: Product,
   interactive: boolean,
+  /** Idle spin for grid tiles; pause while lightbox is open so it doesn’t fight orbit. */
+  autoRotate = false,
 ) {
   const controlsRef = React.useRef<OrbitControls | null>(null);
+  const autoRotateRef = React.useRef(autoRotate);
+  autoRotateRef.current = autoRotate;
 
   React.useLayoutEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
+    const host = hostRef.current;
+    if (!host) return;
+
+    // Own the canvas node — after forceContextLoss a canvas cannot host WebGL again.
+    const canvas = document.createElement('canvas');
+    canvas.className = 'absolute inset-0 block size-full bg-transparent';
+    canvas.style.touchAction = 'none';
+    host.appendChild(canvas);
 
     const sourceId = Symbol(product.id);
     const store = getOrbitStore(product.id);
@@ -283,6 +315,8 @@ function useThreeCanvas(
     // left mobile with no rotate gesture — pan is also disabled above.)
     controls.touches.ONE = THREE.TOUCH.ROTATE;
     controls.touches.TWO = THREE.TOUCH.ROTATE;
+    controls.autoRotate = autoRotateRef.current;
+    controls.autoRotateSpeed = TRIGGER_AUTO_ROTATE_SPEED;
     controls.enabled = interactive;
     controlsRef.current = controls;
 
@@ -302,6 +336,16 @@ function useThreeCanvas(
 
     controls.addEventListener('change', publishPose);
 
+    // Pause idle spin while the user drags; resume on release if still enabled.
+    const onOrbitStart = () => {
+      controls.autoRotate = false;
+    };
+    const onOrbitEnd = () => {
+      controls.autoRotate = autoRotateRef.current;
+    };
+    controls.addEventListener('start', onOrbitStart);
+    controls.addEventListener('end', onOrbitEnd);
+
     const unsub = store.subscribe((pose, source) => {
       if (!ready || source === sourceId || disposed) return;
       applyingShared = true;
@@ -310,10 +354,8 @@ function useThreeCanvas(
     });
 
     const setSize = () => {
-      const parent = canvas.parentElement;
-      if (!parent) return;
-      const width = parent.clientWidth;
-      const height = parent.clientHeight;
+      const width = host.clientWidth;
+      const height = host.clientHeight;
       if (width < 1 || height < 1) return;
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
       renderer.setPixelRatio(dpr);
@@ -333,19 +375,20 @@ function useThreeCanvas(
     frame = requestAnimationFrame(render);
 
     const ro = new ResizeObserver(setSize);
-    if (canvas.parentElement) ro.observe(canvas.parentElement);
+    ro.observe(host);
 
     void loadGltf(product.src)
       .then((model) => {
         if (disposed) return;
-        scene.add(model);
+        const framed = normalizeModel(model);
+        scene.add(framed);
 
         // Capture before fit — `controls.update()` emits `change` and would
         // otherwise publish the default framing over the user’s rotation.
         const savedPose = store.pose;
 
         applyingShared = true;
-        controls.target.copy(fitCameraToObject(camera, model));
+        fitCameraToUnitObject(camera, controls);
         controls.update();
         if (savedPose) {
           applyOrbitPose(camera, controls, savedPose);
@@ -365,6 +408,8 @@ function useThreeCanvas(
       ro.disconnect();
       unsub();
       controls.removeEventListener('change', publishPose);
+      controls.removeEventListener('start', onOrbitStart);
+      controls.removeEventListener('end', onOrbitEnd);
       // Handoff angles + remaining inertia so the trigger keeps coasting after close.
       if (ready && !applyingShared) {
         store.set(readOrbitPose(controls, true), sourceId);
@@ -372,34 +417,40 @@ function useThreeCanvas(
       controlsRef.current = null;
       controls.dispose();
       env.dispose();
+      // Cloned GLBs share geometry/materials with the cache — do not dispose them
+      // here or sibling canvases (and later remounts) will render broken meshes.
+      scene.clear();
+      // `dispose()` alone does not free the browser WebGL context; without
+      // `forceContextLoss`, open/close cycles hit the ~8–16 context cap.
       renderer.dispose();
-      scene.traverse((obj) => {
-        const mesh = obj as THREE.Mesh;
-        if (mesh.geometry) mesh.geometry.dispose();
-        const material = mesh.material;
-        if (!material) return;
-        for (const mat of Array.isArray(material) ? material : [material]) mat.dispose();
-      });
+      renderer.forceContextLoss();
+      canvas.remove();
     };
-    // `interactive` is applied in a separate effect so we don’t rebuild the scene.
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount once per canvas/product
-  }, [canvasRef, product.id, product.src]);
+    // `interactive` / `autoRotate` applied in separate effects so we don’t rebuild.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount once per host/product
+  }, [hostRef, product.id, product.src]);
 
   React.useLayoutEffect(() => {
     if (controlsRef.current) controlsRef.current.enabled = interactive;
   }, [interactive]);
+
+  React.useLayoutEffect(() => {
+    const controls = controlsRef.current;
+    if (!controls) return;
+    controls.autoRotate = autoRotate;
+  }, [autoRotate]);
 }
 
-function TriggerScene({ product }: { product: Product }) {
-  const canvasRef = React.useRef<HTMLCanvasElement | null>(null);
-  useThreeCanvas(canvasRef, product, true);
-  return (
-    <canvas
-      ref={canvasRef}
-      className="absolute inset-0 block size-full bg-transparent"
-      style={{ touchAction: 'none' }}
-    />
-  );
+function TriggerScene({
+  product,
+  autoRotate,
+}: {
+  product: Product;
+  autoRotate: boolean;
+}) {
+  const hostRef = React.useRef<HTMLDivElement | null>(null);
+  useThreeCanvas(hostRef, product, true, autoRotate);
+  return <div ref={hostRef} className="absolute inset-0 size-full" />;
 }
 
 function LightboxScene({
@@ -411,35 +462,38 @@ function LightboxScene({
   lightboxReady: boolean;
 }) {
   const item = useLightboxItemContext();
-  const canvasRef = React.useRef<HTMLCanvasElement | null>(null);
-  // Only the active slide accepts orbit so inactive canvases don’t fight swipe.
-  useThreeCanvas(canvasRef, product, lightboxReady && !!item?.active);
-  return (
-    <canvas
-      ref={canvasRef}
-      className="block bg-transparent"
-      style={{ touchAction: 'none' }}
-    />
-  );
+  const hostRef = React.useRef<HTMLDivElement | null>(null);
+  const active = lightboxReady && !!item?.active;
+  // Orbit + idle spin only on the active slide after open settles (avoids
+  // fighting the morph / swipe). Drag still pauses spin via OrbitControls.
+  useThreeCanvas(hostRef, product, active, active);
+  return <div ref={hostRef} className="relative size-full min-h-0" />;
 }
 
-function ProductTrigger({ product, index }: { product: Product; index: number }) {
+function ProductTrigger({
+  product,
+  index,
+  autoRotate,
+}: {
+  product: Product;
+  index: number;
+  autoRotate: boolean;
+}) {
   return (
     <Lightbox.Trigger
       index={index}
-      className={`group block w-full cursor-pointer rounded-xl border-none bg-transparent p-0 text-left ${triggerFocusClass}`}
+      className={`group block w-full cursor-pointer rounded-xl border-none bg-transparent p-0 text-center ${triggerFocusClass}`}
       crossfade="both"
     >
       {({ morphRef }) => (
         <>
           <div
             ref={morphRef}
-            className={`relative overflow-hidden rounded-xl bg-transparent ${morphHideClass}`}
-            style={{ aspectRatio: `${product.width} / ${product.height}` }}
+            className={`relative aspect-square w-full overflow-hidden rounded-xl bg-transparent ${morphHideClass}`}
           >
-            <TriggerScene product={product} />
+            <TriggerScene product={product} autoRotate={autoRotate} />
           </div>
-          <div className="px-0.5 pt-2.5">
+          <div className="px-0.5 pt-2.5 text-center">
             <div className="text-sm font-medium leading-snug">{product.name}</div>
             <div className="text-xs text-muted-foreground">{product.material}</div>
           </div>
@@ -451,6 +505,7 @@ function ProductTrigger({ product, index }: { product: Product; index: number })
 
 function StudioLightbox() {
   const [lightboxReady, setLightboxReady] = React.useState(false);
+  const [open, setOpen] = React.useState(false);
 
   const items = React.useMemo(
     () =>
@@ -468,6 +523,7 @@ function StudioLightbox() {
     <Lightbox.Root
       loop
       awaitImageDecode={false}
+      onOpenChange={setOpen}
       onBeforeOpen={({ destination, signal }) => {
         // Destination Item is already mounted (prepare) — warm its GLB (and the
         // rest of the studio) before the morph so the lightbox canvas isn’t empty.
@@ -483,14 +539,20 @@ function StudioLightbox() {
         { type: 'onChange', behavior: 'instant' },
         { type: 'onOpenComplete', behavior: 'instant' },
       ]}
-      onOpenChangeComplete={(open) => {
+      onOpenChangeComplete={(nextOpen) => {
         // Enable orbit only after open settles (avoid fighting the morph).
-        setLightboxReady(open);
+        setLightboxReady(nextOpen);
       }}
     >
       <div className="grid grid-cols-2 gap-5">
         {products.map((product, index) => (
-          <ProductTrigger key={product.id} product={product} index={index} />
+          <ProductTrigger
+            key={product.id}
+            product={product}
+            index={index}
+            // Pause grid spin while open so triggers don’t spam orbit sync.
+            autoRotate={!open}
+          />
         ))}
       </div>
 
@@ -509,8 +571,8 @@ function StudioLightbox() {
               className="px-0 flex items-center justify-center size-full pt-[calc(env(safe-area-inset-top,0px)+3.5rem)] pb-[calc(env(safe-area-inset-bottom,0px)+3.5rem)] md:px-8"
             >
               <Lightbox.Media
-                width={product.width}
-                height={product.height}
+                width={FRAME_SIZE}
+                height={FRAME_SIZE}
                 className="overflow-hidden rounded-xl bg-transparent"
               >
                 <LightboxScene product={product} lightboxReady={lightboxReady} />
