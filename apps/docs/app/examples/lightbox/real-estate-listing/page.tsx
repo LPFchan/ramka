@@ -240,7 +240,6 @@ export default function RealEstateListingPage() {
         <LightboxGallery
           items={propertyPhotos}
           ariaLabel="Property photos"
-          thumbnails="always"
           backdrop="solid"
         />
       </Lightbox.Root>
