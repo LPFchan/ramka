@@ -796,6 +796,52 @@ describe('Lightbox', () => {
   // 3b. Focus & inert (a slide must never strand keyboard focus)
   // ---------------------------------------------------------------------------
 
+  describe('return focus visibility on close', () => {
+    it('requests a visible focus ring on the trigger after a keyboard (Escape) close', async () => {
+      render(<TestLightbox itemCount={3} />);
+      const trigger = screen.getByTestId('trigger-0');
+      const focusSpy = vi.spyOn(trigger, 'focus');
+
+      fireEvent.click(trigger); // open via pointer
+      await flushMicrotasks();
+
+      fireEvent.keyDown(screen.getByTestId('content'), { key: 'Escape' });
+
+      await act(async () => {
+        await new Promise((r) => requestAnimationFrame(() => r(null)));
+      });
+
+      expect(focusSpy).toHaveBeenCalled();
+      expect(focusSpy.mock.calls.at(-1)?.[0]).toMatchObject({
+        preventScroll: true,
+        focusVisible: true,
+      });
+    });
+
+    it('suppresses the focus ring on the trigger after a pointer (background) close', async () => {
+      render(<TestLightbox itemCount={3} />);
+      const trigger = screen.getByTestId('trigger-0');
+      const focusSpy = vi.spyOn(trigger, 'focus');
+
+      fireEvent.click(trigger); // open
+      await flushMicrotasks();
+
+      // Click the dialog background itself (target === currentTarget) → pointer close.
+      const content = screen.getByTestId('content');
+      fireEvent.click(content);
+
+      await act(async () => {
+        await new Promise((r) => requestAnimationFrame(() => r(null)));
+      });
+
+      expect(focusSpy).toHaveBeenCalled();
+      expect(focusSpy.mock.calls.at(-1)?.[0]).toMatchObject({
+        preventScroll: true,
+        focusVisible: false,
+      });
+    });
+  });
+
   describe('focus containment', () => {
     it('slides expose no focusable region, so inert can never strand focus', () => {
       render(

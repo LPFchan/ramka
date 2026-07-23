@@ -6,6 +6,7 @@ import {
   LightboxContext,
   isLowEndDevice,
   supportsViewTransitions,
+  type LightboxCloseOptions,
   type LightboxContextValue,
   type NavigationSource,
 } from './lightbox-context';
@@ -369,6 +370,28 @@ function LightboxRoot(props: LightboxRootProps) {
     const [preparing, setPreparing] = React.useState(false);
     const closeGenRef = React.useRef(0);
 
+    // Focus-visibility hint for the trigger that regains focus on close, set by
+    // the current close's `setOpen(false, { focusVisible })` and consumed once by
+    // `focusReturnTarget`. `undefined` = defer to the browser heuristic. See
+    // LightboxCloseOptions; mirrors Base UI's close-modality-driven return focus.
+    const closeFocusVisibleRef = React.useRef<boolean | undefined>(undefined);
+    // Restore focus to the close target, honoring the pending focus-visible hint
+    // (keyboard close → ring; pointer/touch close → no ring). Resets the hint so
+    // it never leaks into a later close. `focusVisible` is a standard focus()
+    // option not yet in TS's FocusOptions; browsers without support ignore it.
+    const focusReturnTarget = React.useCallback((el: HTMLElement | null | undefined) => {
+      if (!el) {
+        closeFocusVisibleRef.current = undefined;
+        return;
+      }
+      const options: FocusOptions & { focusVisible?: boolean } = { preventScroll: true };
+      if (closeFocusVisibleRef.current !== undefined) {
+        options.focusVisible = closeFocusVisibleRef.current;
+      }
+      closeFocusVisibleRef.current = undefined;
+      el.focus(options);
+    }, []);
+
     // Open-transition lifecycle, observed by `Lightbox.Item` so it can hold its
     // morph placeholder until the open morph is fully done (see the placeholder
     // effect in lightbox-item). `openTransitionPendingRef` is true from the
@@ -556,10 +579,10 @@ function LightboxRoot(props: LightboxRootProps) {
         // Release the page scroll lock only now — after the close transition has
         // finished — so the page can't scroll behind an in-flight VT close.
         unlockScroll();
-        triggerEl?.focus({ preventScroll: true });
+        focusReturnTarget(triggerEl);
         onOpenChangeCompleteRef.current?.(false);
       },
-      [unlockScroll],
+      [unlockScroll, focusReturnTarget],
     );
 
     const morph = useViewTransitionMorph({
@@ -585,8 +608,12 @@ function LightboxRoot(props: LightboxRootProps) {
     });
 
     const setOpen = React.useCallback(
-      (nextOpen: boolean) => {
+      (nextOpen: boolean, options?: LightboxCloseOptions) => {
         closeGenRef.current += 1;
+        // Record how this close was initiated so return focus can decide whether
+        // to show the trigger's focus ring. Only meaningful for closes; opening
+        // clears any stale hint from a prior close.
+        closeFocusVisibleRef.current = nextOpen ? undefined : options?.focusVisible;
         // Cancel any in-flight onBeforeOpen from a previous open attempt.
         beforeOpenAbortRef.current?.abort();
         beforeOpenAbortRef.current = null;
@@ -667,13 +694,13 @@ function LightboxRoot(props: LightboxRootProps) {
               setMounted(false);
               // Release the scroll lock only after the exit animation settles.
               unlockScroll();
-              requestAnimationFrame(() => focusTarget?.focus({ preventScroll: true }));
+              requestAnimationFrame(() => focusReturnTarget(focusTarget));
               onOpenChangeCompleteRef.current?.(false);
             });
           }
         }
       },
-      [isControlledOpen, viewTransition, scrollTriggerIntoView, morphTo, morph, commitOpen, unlockScroll, settleOpenTransition],
+      [isControlledOpen, viewTransition, scrollTriggerIntoView, morphTo, morph, commitOpen, unlockScroll, settleOpenTransition, focusReturnTarget],
     );
 
     // Sync `mounted` to externally-driven changes of a controlled

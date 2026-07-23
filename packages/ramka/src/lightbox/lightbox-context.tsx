@@ -4,9 +4,27 @@ import * as React from 'react';
 
 type NavigationSource = 'trigger' | 'keyboard' | 'thumbnail' | 'button' | 'scroll' | 'imperative';
 
+/** Options for a close (`setOpen(false, …)`) that tune return-focus behavior. */
+interface LightboxCloseOptions {
+  /**
+   * Controls whether the trigger that regains focus on close shows a focus
+   * ring (`:focus-visible`), via the `focusVisible` option of `HTMLElement.focus()`:
+   *   - `true` — the close was keyboard-driven (e.g. Escape), so keyboard users
+   *     should see where focus landed.
+   *   - `false` — the close was pointer/touch-driven (backdrop tap, pull-to-
+   *     dismiss), so no ring should appear even though focus moves
+   *     programmatically. This defeats Chromium's heuristic of preserving the
+   *     dialog's focus-visible state onto the return target.
+   *   - omitted — leave it to the browser's own heuristic (used for
+   *     programmatic/controlled closes with no interaction modality).
+   * Mirrors Base UI's FloatingFocusManager return-focus handling.
+   */
+  focusVisible?: boolean;
+}
+
 interface LightboxContextValue {
   open: boolean;
-  setOpen: (open: boolean) => void;
+  setOpen: (open: boolean, options?: LightboxCloseOptions) => void;
   /** Whether the portal should be in the DOM (stays true during exit animations). */
   mounted: boolean;
   /**
@@ -266,4 +284,4 @@ export {
   findItemMorphTarget,
   findTriggerMorphTarget,
 };
-export type { LightboxContextValue, NavigationSource };
+export type { LightboxContextValue, NavigationSource, LightboxCloseOptions };

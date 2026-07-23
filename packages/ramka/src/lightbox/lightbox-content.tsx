@@ -234,7 +234,10 @@ const LightboxContent = React.forwardRef<HTMLDivElement, LightboxContentProps>(
     // The active slide's live zoom level comes from the Root-owned bridge; the
     // callback identity is stable (reads a ref) so the pull effect never churns.
     const getZoom = React.useCallback(() => activeZoomRef.current?.getZoom() ?? 1, [activeZoomRef]);
-    const stableSetOpen = React.useCallback(() => setOpen(false), [setOpen]);
+    // Pull-to-dismiss is a touch gesture — restore focus to the trigger without
+    // a focus ring (the user never used the keyboard). This is the mobile case
+    // where a programmatic focus would otherwise inherit `:focus-visible`.
+    const stableSetOpen = React.useCallback(() => setOpen(false, { focusVisible: false }), [setOpen]);
 
     usePullToDismiss({
       contentRef,
@@ -286,7 +289,8 @@ const LightboxContent = React.forwardRef<HTMLDivElement, LightboxContentProps>(
         // dialog, so with multiple lightboxes open only the active one closes.
         if (event.key === 'Escape') {
           event.preventDefault();
-          setOpen(false);
+          // Keyboard-driven close → restore a visible focus ring on the trigger.
+          setOpen(false, { focusVisible: true });
           return;
         }
 
@@ -374,10 +378,11 @@ const LightboxContent = React.forwardRef<HTMLDivElement, LightboxContentProps>(
     // primitive, which also closes on click.
     const handleClick = React.useCallback(
       (event: React.MouseEvent) => {
-        if (!mounted) return;
-        if (event.target === event.currentTarget) {
-          setOpen(false);
-        }
+      if (!mounted) return;
+      if (event.target === event.currentTarget) {
+        // Background (scrim) click is a pointer interaction → no focus ring.
+        setOpen(false, { focusVisible: false });
+      }
       },
       [mounted, setOpen],
     );

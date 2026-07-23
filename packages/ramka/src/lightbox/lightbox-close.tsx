@@ -17,9 +17,15 @@ const LightboxClose = React.forwardRef<HTMLButtonElement, LightboxCloseProps>(
     const { render, ...elementProps } = props;
     const { setOpen } = useLightboxContext();
 
-    const handleClick = React.useCallback(() => {
-      setOpen(false);
-    }, [setOpen]);
+    const handleClick = React.useCallback(
+      (event: React.MouseEvent) => {
+        // Keyboard activation of a <button> (Enter/Space) dispatches a click with
+        // `detail === 0`; a real pointer click has `detail >= 1`. Show the focus
+        // ring on the returned trigger only for keyboard activation.
+        setOpen(false, { focusVisible: event.detail === 0 });
+      },
+      [setOpen],
+    );
 
     const state = React.useMemo<LightboxCloseState>(() => ({}), []);
 

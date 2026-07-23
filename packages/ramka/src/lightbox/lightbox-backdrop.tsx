@@ -91,7 +91,9 @@ const LightboxBackdrop = React.forwardRef<HTMLDivElement, LightboxBackdropProps>
 
     const handleClick = React.useCallback(() => {
       if (!mounted) return;
-      setOpen(false);
+      // Backdrop click is a pointer interaction → don't force a focus ring on
+      // the trigger that regains focus.
+      setOpen(false, { focusVisible: false });
     }, [mounted, setOpen]);
 
     const state = React.useMemo<LightboxBackdropState>(() => ({ open }), [open]);
