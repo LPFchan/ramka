@@ -116,11 +116,7 @@ export function LightboxGallery({
   /** Pass `false` when content owns vertical drag (maps, orbit, …). @default true */
   pullToClose?: boolean;
   backdrop?: 'scrim' | 'solid';
-  renderItem?: (
-    item: LightboxGalleryItem,
-    index: number,
-    ctx: GalleryItemRenderCtx,
-  ) => React.ReactNode;
+  renderItem?: (item: LightboxGalleryItem, index: number, ctx: GalleryItemRenderCtx) => React.ReactNode;
 }) {
   const thumbClass =
     thumbnails === 'never'
@@ -129,16 +125,11 @@ export function LightboxGallery({
         ? 'pointer-events-auto flex max-w-full justify-center gap-2 overflow-x-auto px-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
         : 'pointer-events-auto hidden max-w-full justify-center gap-2 overflow-x-auto px-3 [scrollbar-width:none] md:flex [&::-webkit-scrollbar]:hidden';
 
-  const backdropTone =
-    backdrop === 'solid'
-      ? 'bg-white dark:bg-black'
-      : 'lightbox-demo-backdrop-light';
+  const backdropTone = backdrop === 'solid' ? 'bg-white dark:bg-black' : 'lightbox-demo-backdrop-light';
 
   return (
-    <>
-      <Lightbox.Backdrop
-        className={`${backdropTone} fixed inset-0 z-40 ${backdropFade}`}
-      />
+    <Lightbox.Portal>
+      <Lightbox.Backdrop className={`${backdropTone} fixed inset-0 z-40 ${backdropFade}`} />
       <Lightbox.Content
         aria-label={ariaLabel}
         pullToClose={pullToClose}
@@ -151,11 +142,7 @@ export function LightboxGallery({
         >
           {items.map((item, i) => (
             <Lightbox.Slide key={item.id ?? i} className="relative h-full">
-              <Lightbox.Item
-                index={i}
-                caption={item.caption ?? item.alt}
-                className="relative size-full"
-              >
+              <Lightbox.Item index={i} caption={item.caption ?? item.alt} className="relative size-full">
                 {({ imageRef, morphRef }) =>
                   renderItem ? (
                     renderItem(item, i, { imageRef, morphRef })
@@ -165,10 +152,7 @@ export function LightboxGallery({
                       className="px-0 pt-[calc(env(safe-area-inset-top,0px)+3.5rem)] pb-[calc(env(safe-area-inset-bottom,0px)+3.5rem)] md:px-8 md:pt-[calc(env(safe-area-inset-top,0px)+3.5rem)] md:pb-[calc(env(safe-area-inset-bottom,0px)+7.5rem)]"
                     >
                       {/* Radius/overflow are cosmetic on Media; width/height are structural. */}
-                      <Lightbox.Media
-                        {...imgDims(item.src)}
-                        className="overflow-hidden rounded-none md:rounded-lg"
-                      >
+                      <Lightbox.Media {...imgDims(item.src)} className="overflow-hidden rounded-none md:rounded-lg">
                         <img
                           {...imgDims(item.src)}
                           src={item.src}
@@ -223,19 +207,14 @@ export function LightboxGallery({
                   index={i}
                   className="h-14 w-14 shrink-0 overflow-hidden rounded-md border-2 border-transparent p-0 opacity-50 transition data-[active]:border-black data-[active]:opacity-100 dark:data-[active]:border-white"
                 >
-                  <img
-                    {...imgDims(item.thumb)}
-                    src={item.thumb}
-                    alt={item.alt}
-                    className="size-full object-cover"
-                  />
+                  <img {...imgDims(item.thumb)} src={item.thumb} alt={item.alt} className="size-full object-cover" />
                 </Lightbox.Thumbnail>
               ))}
             </Lightbox.ThumbnailGroup>
           ) : null}
         </div>
       </Lightbox.Content>
-    </>
+    </Lightbox.Portal>
   );
 }
 
@@ -250,10 +229,15 @@ const contentFade =
 const chromePullHide =
   'transition-[opacity,filter] duration-200 [[data-pulling]_&]:pointer-events-none [[data-pulling]_&]:opacity-0 [[data-pulling]_&]:blur-[6px] [[data-pull-dismissing]_&]:pointer-events-none [[data-pull-dismissing]_&]:opacity-0 [[data-pull-dismissing]_&]:blur-[6px]';
 
+/** Styled Backdrop — place inside the same `Lightbox.Portal` as Content/Frame. */
 export function LightboxOverlay({ className }: { className?: string } = {}) {
   return <Lightbox.Backdrop className={`fixed inset-0 z-40 bg-black/85 ${backdropFade} ${className ?? ''}`} />;
 }
 
+/**
+ * Styled Content shell. Place inside `Lightbox.Portal` (with Overlay/Backdrop as a
+ * sibling when you want a scrim).
+ */
 export function LightboxFrame({
   children,
   ariaLabel,
@@ -309,9 +293,7 @@ export function LightboxNextButton() {
 }
 
 export function LightboxCounterPill() {
-  return (
-    <Lightbox.Counter className="min-w-[3.5rem] text-center font-mono text-sm tabular-nums text-white/70" />
-  );
+  return <Lightbox.Counter className="min-w-[3.5rem] text-center font-mono text-sm tabular-nums text-white/70" />;
 }
 
 export function LightboxCaptionLine() {
@@ -336,11 +318,7 @@ export function LightboxNavBar() {
  * fade-in keyframe is loaded from globals.css and is suppressed while
  * a view transition is in flight.
  */
-export function StackedItemGroup({
-  children,
-  className,
-  ...rest
-}: React.ComponentProps<typeof Lightbox.ItemGroup>) {
+export function StackedItemGroup({ children, className, ...rest }: React.ComponentProps<typeof Lightbox.ItemGroup>) {
   return (
     <Lightbox.ItemGroup
       {...rest}
@@ -394,15 +372,7 @@ export function LightboxTriggerGrid({ children }: { children: React.ReactNode })
   return <div className="grid max-w-md grid-cols-3 gap-3">{children}</div>;
 }
 
-export function LightboxTriggerImage({
-  src,
-  alt,
-  className,
-}: {
-  src: string;
-  alt: string;
-  className?: string;
-}) {
+export function LightboxTriggerImage({ src, alt, className }: { src: string; alt: string; className?: string }) {
   // Grab `imageRef` from the enclosing Lightbox.Trigger so this thumbnail
   // becomes the flash-free placeholder source for the item it opens — no render
   // prop threading required.
@@ -413,10 +383,7 @@ export function LightboxTriggerImage({
       {...imgDims(src)}
       src={src}
       alt={alt}
-      className={
-        className ?? 'block h-28 w-full rounded-2xl object-cover'
-      }
+      className={className ?? 'block h-28 w-full rounded-2xl object-cover'}
     />
   );
 }
-

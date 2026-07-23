@@ -47,6 +47,7 @@ const api = lightboxDocsPages.api.href;
 export const lightboxApiHref = {
   root: `${api}#api-root`,
   trigger: `${api}#api-trigger`,
+  portal: `${api}#api-portal`,
   content: `${api}#api-content`,
   backdrop: `${api}#api-backdrop`,
   close: `${api}#api-close`,

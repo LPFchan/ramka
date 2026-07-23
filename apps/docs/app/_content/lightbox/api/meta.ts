@@ -81,10 +81,22 @@ export const lightboxApiMeta: ApiPartMeta[] = [
     },
   },
   {
+    id: 'api-portal',
+    name: 'Portal',
+    description:
+      'Portals Backdrop and Content into a host element (default: document.body). Pass container / keepMounted here — Content and Backdrop render in-tree under the portal. keepMounted parks Backdrop+Content in the DOM while closed (inert, hidden) for warm reopen of expensive media.',
+    extract: {
+      kind: 'interface-props',
+      typeName: 'LightboxPortalProps',
+      file: 'lightbox-portal.tsx',
+      exclude: ['className', 'style', 'ref'],
+    },
+  },
+  {
     id: 'api-content',
     name: 'Content',
     description:
-      'Portaled dialog surface (role="dialog", aria-modal). Owns focus trap, keyboard navigation (Escape, arrows, zoom shortcuts), and pull-to-dismiss. Keyboard pan vs navigate depends on whether the active Zoom is above 1×.',
+      'Dialog surface (role="dialog", aria-modal). Place inside Lightbox.Portal. Owns focus trap, keyboard navigation (Escape, arrows, zoom shortcuts), and pull-to-dismiss. Keyboard pan vs navigate depends on whether the active Zoom is above 1×.',
     extract: {
       kind: 'interface-props',
       typeName: 'LightboxContentProps',
@@ -103,7 +115,8 @@ export const lightboxApiMeta: ApiPartMeta[] = [
   {
     id: 'api-backdrop',
     name: 'Backdrop',
-    description: 'Optional portaled scrim. Click closes the lightbox. Tracks pull-to-dismiss progress.',
+    description:
+      'Optional scrim (place inside Lightbox.Portal, typically beside Content). Click closes the lightbox. Tracks pull-to-dismiss progress.',
     extract: {
       kind: 'interface-props',
       typeName: 'LightboxBackdropProps',
@@ -182,8 +195,7 @@ export const lightboxApiMeta: ApiPartMeta[] = [
   {
     id: 'api-slide',
     name: 'Slide',
-    description:
-      'One snap-aligned slide box inside Slides. Place a Lightbox.Item (and typically Zoom → Media) inside.',
+    description: 'One snap-aligned slide box inside Slides. Place a Lightbox.Item (and typically Zoom → Media) inside.',
     extract: { kind: 'none' },
     attributesFrom: {
       enumName: 'LightboxSlideDataAttributes',
@@ -312,8 +324,7 @@ export const lightboxApiMeta: ApiPartMeta[] = [
   {
     id: 'api-zoom-in',
     name: 'ZoomIn',
-    description:
-      'Increments zoom. Works inside Zoom, or as global chrome via the active-slide zoom bridge.',
+    description: 'Increments zoom. Works inside Zoom, or as global chrome via the active-slide zoom bridge.',
     extract: {
       kind: 'interface-props',
       typeName: 'LightboxZoomInProps',
@@ -328,8 +339,7 @@ export const lightboxApiMeta: ApiPartMeta[] = [
   {
     id: 'api-zoom-out',
     name: 'ZoomOut',
-    description:
-      'Decrements zoom. Works inside Zoom, or as global chrome via the active-slide zoom bridge.',
+    description: 'Decrements zoom. Works inside Zoom, or as global chrome via the active-slide zoom bridge.',
     extract: {
       kind: 'interface-props',
       typeName: 'LightboxZoomOutProps',
@@ -385,8 +395,7 @@ export const hooksApiMeta: ApiPartMeta[] = [
   {
     id: 'api-use-media-context',
     name: 'useLightboxMediaContext',
-    description:
-      'Optional context from the enclosing Media. Exposes the Media host element for advanced wrappers.',
+    description: 'Optional context from the enclosing Media. Exposes the Media host element for advanced wrappers.',
     extract: {
       kind: 'hook-return',
       functionName: 'useOptionalLightboxMediaContext',
@@ -399,8 +408,7 @@ export const imperativeApiMeta: ApiPartMeta[] = [
   {
     id: 'api-create-handle',
     name: 'LightboxHandle',
-    description:
-      'Imperative handle from Lightbox.createHandle(). Pass to Root (and optional detached Triggers).',
+    description: 'Imperative handle from Lightbox.createHandle(). Pass to Root (and optional detached Triggers).',
     extract: {
       kind: 'interface-members',
       typeName: 'LightboxHandle',

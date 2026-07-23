@@ -2,23 +2,15 @@
 
 import { mergeProps, useRender } from '@base-ui/react';
 import * as React from 'react';
-import * as ReactDOM from 'react-dom';
 
 import { useLightboxContext } from './lightbox-context';
+import { useLightboxPortalContext } from './lightbox-portal';
 
 interface LightboxBackdropState extends Record<string, unknown> {
   open: boolean;
 }
 
-interface LightboxBackdropProps extends useRender.ComponentProps<'div', LightboxBackdropState> {
-  /**
-   * Container element for the portal. Defaults to `document.body` so the
-   * backdrop sits at the top of the document regardless of where it is
-   * placed in JSX. Pass `null` to render in-place (no portal).
-   * @default document.body
-   */
-  container?: Element | DocumentFragment | null;
-}
+interface LightboxBackdropProps extends useRender.ComponentProps<'div', LightboxBackdropState> {}
 
 const backdropStateAttributesMapping = {
   open: (value: unknown) => (value ? { 'data-open': '' } : null),
@@ -29,6 +21,8 @@ const backdropStateAttributesMapping = {
  * native `<dialog>::backdrop` pseudo-element, but rendered as an explicit
  * primitive so consumers can style it freely (size, color, blur, opacity
  * transitions).
+ *
+ * Place inside `Lightbox.Portal` (typically as a sibling of `Lightbox.Content`).
  *
  * Registers itself in `Lightbox.Root`'s `backdropElementRef` so the
  * pull-to-dismiss gesture (implemented in `LightboxContent`) can drive it
@@ -56,12 +50,10 @@ const backdropStateAttributesMapping = {
  * backdrop click behavior. Consumers can override by stopping
  * propagation on a wrapped element, or by overriding `onClick`.
  *
- * The primitive is only mounted while the lightbox is mounted (open or
- * mid-close-animation) — same lifecycle as `Lightbox.Content`. This is
- * important even though closed backdrops are typically invisible
- * (opacity 0): a fixed-position, full-viewport element still receives
- * pointer events while opacity is 0, so leaving it in the tree would
- * swallow clicks on triggers underneath.
+ * By default the primitive mounts only while the lightbox is mounted (open
+ * or mid-close-animation) — same lifecycle as `Lightbox.Content`. With
+ * `Lightbox.Portal keepMounted`, it stays in the DOM while closed but is
+ * inert / non-interactive so it cannot swallow clicks on the page.
  *
  * Rendering this primitive is optional — `Lightbox.Content` already
  * closes on background click of itself, so a separate backdrop is only
@@ -69,8 +61,11 @@ const backdropStateAttributesMapping = {
  */
 const LightboxBackdrop = React.forwardRef<HTMLDivElement, LightboxBackdropProps>(
   function LightboxBackdrop(props, forwardedRef) {
-    const { render, container, ...elementProps } = props;
+    const { render, ...elementProps } = props;
     const { open, mounted, preparing, setOpen, backdropElementRef } = useLightboxContext();
+    const { keepMounted } = useLightboxPortalContext();
+    const present = mounted || keepMounted;
+    const parked = keepMounted && !mounted;
 
     const mergedRefCallback = React.useCallback(
       (node: HTMLDivElement | null) => {
@@ -85,8 +80,9 @@ const LightboxBackdrop = React.forwardRef<HTMLDivElement, LightboxBackdropProps>
     );
 
     const handleClick = React.useCallback(() => {
+      if (!mounted) return;
       setOpen(false);
-    }, [setOpen]);
+    }, [mounted, setOpen]);
 
     const state = React.useMemo<LightboxBackdropState>(() => ({ open }), [open]);
 
@@ -98,25 +94,24 @@ const LightboxBackdrop = React.forwardRef<HTMLDivElement, LightboxBackdropProps>
       props: mergeProps<'div'>(
         {
           'aria-hidden': true,
+          inert: parked || undefined,
           onClick: handleClick,
-          // Hidden during the VT pre-mount phase so a dark scrim isn't painted
-          // into the transition's old snapshot. Consumers don't set
-          // `visibility`, so this transient flag survives the style merge.
-          ...(preparing ? { style: { visibility: 'hidden' as const } } : null),
+          // Hidden during VT pre-mount and while parked with keepMounted so a
+          // fixed full-viewport scrim never paints or intercepts input when
+          // the lightbox is closed.
+          style: {
+            ...(preparing || parked ? { visibility: 'hidden' as const } : null),
+            ...(parked ? { pointerEvents: 'none' as const } : null),
+          },
         } as React.ComponentPropsWithRef<'div'>,
         elementProps as React.ComponentPropsWithRef<'div'>,
       ),
       defaultTagName: 'div',
     });
 
-    if (!mounted) return null;
+    if (!present) return null;
 
-    // `container === null` opts out of portaling — render in place.
-    if (container === null) return rendered;
-
-    const portalTarget = container ?? (typeof document !== 'undefined' ? document.body : null);
-
-    return portalTarget ? ReactDOM.createPortal(rendered, portalTarget) : rendered;
+    return rendered;
   },
 );
 

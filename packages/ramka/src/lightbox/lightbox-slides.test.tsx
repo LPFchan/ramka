@@ -3,6 +3,7 @@ import * as React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 import { LightboxContent } from './lightbox-content';
+import { LightboxPortal } from './lightbox-portal';
 import { LightboxItem } from './lightbox-item';
 import { LightboxRoot } from './lightbox-root';
 import { LightboxSlide } from './lightbox-slide';
@@ -163,25 +164,27 @@ function SlidesLightbox({
         </LightboxTrigger>
       ))}
 
-      <LightboxContent data-testid="content" aria-label="Slides lightbox">
-        <LightboxSlides data-testid="slides" preload={itemCount}>
-          {Array.from({ length: itemCount }, (_, i) => (
-            <LightboxSlide key={`s-${i}`} data-testid={`slide-${i}`}>
-              <LightboxItem index={i} data-testid={`item-${i}`}>
-                Item {i}
-              </LightboxItem>
-            </LightboxSlide>
-          ))}
-        </LightboxSlides>
+      <LightboxPortal>
+        <LightboxContent data-testid="content" aria-label="Slides lightbox">
+          <LightboxSlides data-testid="slides" preload={itemCount}>
+            {Array.from({ length: itemCount }, (_, i) => (
+              <LightboxSlide key={`s-${i}`} data-testid={`slide-${i}`}>
+                <LightboxItem index={i} data-testid={`item-${i}`}>
+                  Item {i}
+                </LightboxItem>
+              </LightboxSlide>
+            ))}
+          </LightboxSlides>
 
-        <LightboxThumbnailGroup data-testid="thumb-group">
-          {Array.from({ length: itemCount }, (_, i) => (
-            <LightboxThumbnail key={`th-${i}`} index={i} data-testid={`thumb-${i}`}>
-              Thumb {i}
-            </LightboxThumbnail>
-          ))}
-        </LightboxThumbnailGroup>
-      </LightboxContent>
+          <LightboxThumbnailGroup data-testid="thumb-group">
+            {Array.from({ length: itemCount }, (_, i) => (
+              <LightboxThumbnail key={`th-${i}`} index={i} data-testid={`thumb-${i}`}>
+                Thumb {i}
+              </LightboxThumbnail>
+            ))}
+          </LightboxThumbnailGroup>
+        </LightboxContent>
+      </LightboxPortal>
     </LightboxRoot>
   );
 }
@@ -502,24 +505,26 @@ describe('Lightbox.Slides', () => {
               Trigger {i}
             </LightboxTrigger>
           ))}
-          <LightboxContent data-testid="content" aria-label="Gesture lightbox">
-            {withButtons ? <LightboxZoomIn data-testid="zoom-in">+</LightboxZoomIn> : null}
-            <LightboxSlides data-testid="slides" preload={itemCount}>
-              {Array.from({ length: itemCount }, (_, i) => (
-                <LightboxSlide key={`s-${i}`} data-testid={`slide-${i}`}>
-                  <LightboxItem index={i} data-testid={`item-${i}`}>
-                    {withZoom ? (
-                      <LightboxZoom ref={i === observedIndex ? zoomRef : undefined} maxZoom={4}>
+          <LightboxPortal>
+            <LightboxContent data-testid="content" aria-label="Gesture lightbox">
+              {withButtons ? <LightboxZoomIn data-testid="zoom-in">+</LightboxZoomIn> : null}
+              <LightboxSlides data-testid="slides" preload={itemCount}>
+                {Array.from({ length: itemCount }, (_, i) => (
+                  <LightboxSlide key={`s-${i}`} data-testid={`slide-${i}`}>
+                    <LightboxItem index={i} data-testid={`item-${i}`}>
+                      {withZoom ? (
+                        <LightboxZoom ref={i === observedIndex ? zoomRef : undefined} maxZoom={4}>
+                          <img src={`p${i}.jpg`} alt={`photo ${i}`} data-testid={`img-${i}`} />
+                        </LightboxZoom>
+                      ) : (
                         <img src={`p${i}.jpg`} alt={`photo ${i}`} data-testid={`img-${i}`} />
-                      </LightboxZoom>
-                    ) : (
-                      <img src={`p${i}.jpg`} alt={`photo ${i}`} data-testid={`img-${i}`} />
-                    )}
-                  </LightboxItem>
-                </LightboxSlide>
-              ))}
-            </LightboxSlides>
-          </LightboxContent>
+                      )}
+                    </LightboxItem>
+                  </LightboxSlide>
+                ))}
+              </LightboxSlides>
+            </LightboxContent>
+          </LightboxPortal>
         </LightboxRoot>
       );
     }

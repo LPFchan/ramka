@@ -25,25 +25,28 @@ export function NextjsImageDoExcerpt() {
         )}
       </Lightbox.Trigger>
 
-      <Lightbox.Content>
-        <Lightbox.Slides>
-          <Lightbox.Slide>
-            <Lightbox.Item index={0}>
-              <Lightbox.Zoom>
-                <Lightbox.Media width={photo.width} height={photo.height}>
-                  <Image
-                    src={photo}
-                    alt="Photo"
-                    sizes="100vw"
-                    priority
-                    // No placeholder — Ramka owns the open bridge.
-                  />
-                </Lightbox.Media>
-              </Lightbox.Zoom>
-            </Lightbox.Item>
-          </Lightbox.Slide>
-        </Lightbox.Slides>
-      </Lightbox.Content>
+      <Lightbox.Portal>
+        <Lightbox.Backdrop />
+        <Lightbox.Content>
+          <Lightbox.Slides>
+            <Lightbox.Slide>
+              <Lightbox.Item index={0}>
+                <Lightbox.Zoom>
+                  <Lightbox.Media width={photo.width} height={photo.height}>
+                    <Image
+                      src={photo}
+                      alt="Photo"
+                      sizes="100vw"
+                      priority
+                      // No placeholder — Ramka owns the open bridge.
+                    />
+                  </Lightbox.Media>
+                </Lightbox.Zoom>
+              </Lightbox.Item>
+            </Lightbox.Slide>
+          </Lightbox.Slides>
+        </Lightbox.Content>
+      </Lightbox.Portal>
     </Lightbox.Root>
   );
 }

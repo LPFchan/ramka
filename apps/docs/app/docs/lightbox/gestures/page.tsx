@@ -55,7 +55,9 @@ export default function LightboxGesturesPage() {
             lock).
           </li>
           <li>
-            Backdrop is optional — pull still works; style Content alone if you omit Backdrop.
+            Backdrop is optional — when used, nest it inside{' '}
+            <DocsLink href={lightboxApiHref.portal}>Portal</DocsLink> beside Content. Pull still works
+            if you omit Backdrop.
           </li>
         </ul>
         <p>

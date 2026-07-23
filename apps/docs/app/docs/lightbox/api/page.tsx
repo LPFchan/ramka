@@ -42,6 +42,14 @@ const byConcern: { label: string; links: { href: string; title: string }[] }[] =
     ],
   },
   {
+    label: 'Shell',
+    links: [
+      { href: lightboxApiHref.portal, title: 'Portal' },
+      { href: lightboxApiHref.backdrop, title: 'Backdrop' },
+      { href: lightboxApiHref.content, title: 'Content' },
+    ],
+  },
+  {
     label: 'Gestures',
     links: [
       { href: lightboxApiHref.content, title: 'Content' },
@@ -60,7 +68,6 @@ const byConcern: { label: string; links: { href: string; title: string }[] }[] =
       { href: lightboxApiHref.caption, title: 'Caption' },
       { href: lightboxApiHref.thumbnailGroup, title: 'ThumbnailGroup' },
       { href: lightboxApiHref.thumbnail, title: 'Thumbnail' },
-      { href: lightboxApiHref.backdrop, title: 'Backdrop' },
     ],
   },
 ];

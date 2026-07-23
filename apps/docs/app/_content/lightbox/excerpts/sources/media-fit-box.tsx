@@ -16,20 +16,23 @@ declare const height: number;
 export function MediaFitBoxExcerpt() {
   return (
     <Lightbox.Root>
-      <Lightbox.Content className="fixed inset-0 flex flex-col">
-        <Lightbox.Slides className="flex-1">
-          <Lightbox.Slide className="h-full">
-            <Lightbox.Item index={0} className="size-full">
-              {/* Zoom fills + size-contains; pad Zoom for chrome insets. */}
-              <Lightbox.Zoom className="p-8">
-                <Lightbox.Media width={width} height={height}>
-                  <img width={width} height={height} src={src} alt={alt} />
-                </Lightbox.Media>
-              </Lightbox.Zoom>
-            </Lightbox.Item>
-          </Lightbox.Slide>
-        </Lightbox.Slides>
-      </Lightbox.Content>
+      <Lightbox.Portal>
+        <Lightbox.Backdrop />
+        <Lightbox.Content className="fixed inset-0 flex flex-col">
+          <Lightbox.Slides className="flex-1">
+            <Lightbox.Slide className="h-full">
+              <Lightbox.Item index={0} className="size-full">
+                {/* Zoom fills + size-contains; pad Zoom for chrome insets. */}
+                <Lightbox.Zoom className="p-8">
+                  <Lightbox.Media width={width} height={height}>
+                    <img width={width} height={height} src={src} alt={alt} />
+                  </Lightbox.Media>
+                </Lightbox.Zoom>
+              </Lightbox.Item>
+            </Lightbox.Slide>
+          </Lightbox.Slides>
+        </Lightbox.Content>
+      </Lightbox.Portal>
     </Lightbox.Root>
   );
 }

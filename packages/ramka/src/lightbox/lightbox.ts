@@ -23,15 +23,19 @@
  *   (data-active, data-direction, data-disabled, data-open, etc.)
  *   so transitions are fully controlled by the consumer's CSS.
  *
+ * - **Portal owns mounting**: `Lightbox.Portal` portals Backdrop + Content
+ *   (Base UI Dialog style). Pass `container` / `keepMounted` on Portal only.
+ *
  * - **Backdrop is a separate primitive**: Unlike many lightbox libs that
  *   bundle a styled scrim into the dialog, `Lightbox.Backdrop` is an
- *   opt-in unstyled element you place anywhere inside `Lightbox.Content`.
- *   This keeps the primitives free of ship-as-is styles while still
- *   exposing the element the pull-to-dismiss gesture animates.
+ *   opt-in unstyled element you place beside `Lightbox.Content` inside
+ *   `Lightbox.Portal`. This keeps the primitives free of ship-as-is styles
+ *   while still exposing the element the pull-to-dismiss gesture animates.
  *
  * Sub-components:
  *   Root            — State provider (open, activeIndex, controlled/uncontrolled)
  *   Trigger         — Opens lightbox at a specific item index
+ *   Portal          — Portals Backdrop + Content (container / keepMounted)
  *   Content         — Modal overlay (div-based) + keyboard navigation
  *   Backdrop        — Optional visible scrim, closes on click, animated by pull-to-dismiss
  *   Close           — Closes the lightbox
@@ -55,6 +59,7 @@ export type { LightboxHandle, LightboxHandleOpenOptions } from './lightbox-handl
 
 export { LightboxRoot as Root } from './lightbox-root';
 export { LightboxTrigger as Trigger } from './lightbox-trigger';
+export { LightboxPortal as Portal } from './lightbox-portal';
 export { LightboxContent as Content } from './lightbox-content';
 export { LightboxBackdrop as Backdrop } from './lightbox-backdrop';
 export { LightboxClose as Close } from './lightbox-close';
@@ -73,31 +78,20 @@ export { LightboxZoom as Zoom } from './lightbox-zoom';
 export { LightboxZoomIn as ZoomIn } from './lightbox-zoom-in';
 export { LightboxZoomOut as ZoomOut } from './lightbox-zoom-out';
 
-export type {
-  LightboxRootProps,
-  LightboxBeforeOpen,
-  LightboxBeforeOpenContext,
-} from './lightbox-root';
+export type { LightboxRootProps, LightboxBeforeOpen, LightboxBeforeOpenContext } from './lightbox-root';
 export type {
   LightboxTriggerProps,
   LightboxTriggerState,
   LightboxTriggerRenderState,
   LightboxCrossfade,
 } from './lightbox-trigger';
+export type { LightboxPortalProps } from './lightbox-portal';
 export type { LightboxContentProps } from './lightbox-content';
 export type { LightboxBackdropProps, LightboxBackdropState } from './lightbox-backdrop';
 export type { LightboxCloseProps, LightboxCloseState } from './lightbox-close';
 export type { LightboxItemGroupProps, LightboxItemGroupState } from './lightbox-item-group';
-export type {
-  LightboxItemProps,
-  LightboxItemState,
-  LightboxItemRenderState,
-} from './lightbox-item';
-export type {
-  LightboxMediaProps,
-  LightboxMediaState,
-  LightboxMediaContextValue,
-} from './lightbox-media';
+export type { LightboxItemProps, LightboxItemState, LightboxItemRenderState } from './lightbox-item';
+export type { LightboxMediaProps, LightboxMediaState, LightboxMediaContextValue } from './lightbox-media';
 export type { LightboxSlidesProps, LightboxSlidesState } from './lightbox-slides';
 export type { LightboxSlideProps } from './lightbox-slide';
 export type { LightboxPreviousProps, LightboxPreviousState } from './lightbox-previous';
@@ -130,8 +124,4 @@ export {
   LightboxZoomOutDataAttributes,
   LightboxDocumentDataAttributes,
 } from './lightbox-data-attributes';
-export {
-  LightboxContentCssVars,
-  LightboxBackdropCssVars,
-  LightboxDocumentCssVars,
-} from './lightbox-css-vars';
+export { LightboxContentCssVars, LightboxBackdropCssVars, LightboxDocumentCssVars } from './lightbox-css-vars';

@@ -17,28 +17,30 @@ export function QuickStartExcerpt() {
         </Lightbox.Trigger>
       ))}
 
-      <Lightbox.Backdrop />
-      <Lightbox.Content>
-        <Lightbox.Slides>
-          {items.map((item, i) => (
-            <Lightbox.Slide key={item.id}>
-              <Lightbox.Item index={i} caption={item.caption ?? item.alt}>
-                <Lightbox.Zoom>
-                  <Lightbox.Media>
-                    <img src={item.src} alt={item.alt} />
-                  </Lightbox.Media>
-                </Lightbox.Zoom>
-              </Lightbox.Item>
-            </Lightbox.Slide>
-          ))}
-        </Lightbox.Slides>
+      <Lightbox.Portal>
+        <Lightbox.Backdrop />
+        <Lightbox.Content>
+          <Lightbox.Slides>
+            {items.map((item, i) => (
+              <Lightbox.Slide key={item.id}>
+                <Lightbox.Item index={i} caption={item.caption ?? item.alt}>
+                  <Lightbox.Zoom>
+                    <Lightbox.Media>
+                      <img src={item.src} alt={item.alt} />
+                    </Lightbox.Media>
+                  </Lightbox.Zoom>
+                </Lightbox.Item>
+              </Lightbox.Slide>
+            ))}
+          </Lightbox.Slides>
 
-        <Lightbox.Counter />
-        <Lightbox.ZoomOut />
-        <Lightbox.ZoomIn />
-        <Lightbox.Close />
-        <Lightbox.Caption />
-      </Lightbox.Content>
+          <Lightbox.Counter />
+          <Lightbox.ZoomOut />
+          <Lightbox.ZoomIn />
+          <Lightbox.Close />
+          <Lightbox.Caption />
+        </Lightbox.Content>
+      </Lightbox.Portal>
     </Lightbox.Root>
   );
 }

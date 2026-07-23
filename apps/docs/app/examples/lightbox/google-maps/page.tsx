@@ -31,12 +31,24 @@ function googleMapsEmbedUrl(zoom: number) {
   return `https://www.google.com/maps?q=${q}&z=${zoom}&hl=en&output=embed`;
 }
 
-/** Resolve on iframe `load`, abort, or timeout — whichever comes first. */
+/**
+ * Resolve when the iframe has loaded (or already did — keepMounted reopen),
+ * aborts, or hits `timeoutMs`. Cross-origin embeds don't expose
+ * `contentDocument`, so readiness is tracked via `onLoad` → `readyRef`.
+ */
 function waitForIframeLoad(
   iframe: HTMLIFrameElement | null,
-  { signal, timeoutMs }: { signal: AbortSignal; timeoutMs: number },
+  {
+    signal,
+    timeoutMs,
+    readyRef,
+  }: {
+    signal: AbortSignal;
+    timeoutMs: number;
+    readyRef: React.MutableRefObject<boolean>;
+  },
 ): Promise<void> {
-  if (!iframe || signal.aborted) return Promise.resolve();
+  if (!iframe || signal.aborted || readyRef.current) return Promise.resolve();
 
   return new Promise((resolve) => {
     let settled = false;
@@ -44,12 +56,16 @@ function waitForIframeLoad(
       if (settled) return;
       settled = true;
       clearTimeout(timer);
-      iframe.removeEventListener('load', finish);
+      iframe.removeEventListener('load', onLoad);
       signal.removeEventListener('abort', finish);
       resolve();
     };
+    const onLoad = () => {
+      readyRef.current = true;
+      finish();
+    };
     const timer = setTimeout(finish, timeoutMs);
-    iframe.addEventListener('load', finish, { once: true });
+    iframe.addEventListener('load', onLoad, { once: true });
     signal.addEventListener('abort', finish, { once: true });
   });
 }
@@ -60,24 +76,27 @@ function MapFrame({
   interactive,
   className,
   iframeRef,
+  onLoad,
 }: {
   zoom: number;
   title: string;
   interactive: boolean;
   className?: string;
   iframeRef?: React.Ref<HTMLIFrameElement>;
+  onLoad?: () => void;
 }) {
   return (
     <iframe
       ref={iframeRef}
       title={title}
       src={googleMapsEmbedUrl(zoom)}
-      // Destination iframe must not be lazy — prepare mounts it hidden and
+      // Destination iframe must not be lazy — keepMounted parks it hidden and
       // `onBeforeOpen` waits for `load`; lazy would stall until reveal/timeout.
       loading={interactive ? 'eager' : 'lazy'}
       referrerPolicy="no-referrer-when-downgrade"
       allowFullScreen
       className={className}
+      onLoad={onLoad}
       // Preview must not steal clicks from the Trigger; fullscreen needs gestures.
       style={interactive ? undefined : { pointerEvents: 'none' }}
     />
@@ -86,6 +105,7 @@ function MapFrame({
 
 export default function GoogleMapsExamplePage() {
   const mapIframeRef = React.useRef<HTMLIFrameElement>(null);
+  const mapIframeReadyRef = React.useRef(false);
 
   return (
     <ExampleShell
@@ -96,14 +116,17 @@ export default function GoogleMapsExamplePage() {
         <>
           A map preview of Wrocław’s Rynek morphs into a fullscreen Google Map.{' '}
           <code className="rounded bg-neutral-100 px-1 py-0.5 text-xs dark:bg-neutral-800">
-            onBeforeOpen
+            Portal keepMounted
           </code>{' '}
-          waits for the destination iframe to load (with a timeout) before the View Transition
-          starts — with{' '}
+          parks the destination iframe so reopen stays warm;{' '}
+          <code className="rounded bg-neutral-100 px-1 py-0.5 text-xs dark:bg-neutral-800">onBeforeOpen</code> waits for
+          the first <code className="rounded bg-neutral-100 px-1 py-0.5 text-xs dark:bg-neutral-800">load</code> (with a
+          timeout) before the View Transition — with{' '}
           <code className="rounded bg-neutral-100 px-1 py-0.5 text-xs dark:bg-neutral-800">
             awaitImageDecode={'{false}'}
           </code>
-          . <code className="rounded bg-neutral-100 px-1 py-0.5 text-xs dark:bg-neutral-800">
+          .{' '}
+          <code className="rounded bg-neutral-100 px-1 py-0.5 text-xs dark:bg-neutral-800">
             pullToClose={'{false}'}
           </code>{' '}
           keeps pan/zoom on the map;{' '}
@@ -118,14 +141,16 @@ export default function GoogleMapsExamplePage() {
         morphTo="origin"
         awaitImageDecode={false}
         onBeforeOpen={({ signal }) =>
-          waitForIframeLoad(mapIframeRef.current, { signal, timeoutMs: 2000 })
+          waitForIframeLoad(mapIframeRef.current, {
+            signal,
+            timeoutMs: 2000,
+            readyRef: mapIframeReadyRef,
+          })
         }
       >
         <div className="mx-auto max-w-lg">
           <div className="mb-5">
-            <h2 className="text-xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-50">
-              Visit us
-            </h2>
+            <h2 className="text-xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-50">Visit us</h2>
             <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
               Open the map to explore Wrocław in fullscreen.
             </p>
@@ -160,15 +185,9 @@ export default function GoogleMapsExamplePage() {
                     <MapPin aria-hidden className="size-4" strokeWidth={2.25} />
                   </div>
                   <div className="min-w-0">
-                    <div className="text-sm font-semibold text-neutral-900 dark:text-neutral-50">
-                      {WROCLAW.name}
-                    </div>
-                    <div className="text-xs text-neutral-500 dark:text-neutral-400">
-                      {WROCLAW.place}
-                    </div>
-                    <div className="mt-0.5 text-xs text-neutral-400 dark:text-neutral-500">
-                      {WROCLAW.region}
-                    </div>
+                    <div className="text-sm font-semibold text-neutral-900 dark:text-neutral-50">{WROCLAW.name}</div>
+                    <div className="text-xs text-neutral-500 dark:text-neutral-400">{WROCLAW.place}</div>
+                    <div className="mt-0.5 text-xs text-neutral-400 dark:text-neutral-500">{WROCLAW.region}</div>
                   </div>
                 </div>
               </>
@@ -176,33 +195,32 @@ export default function GoogleMapsExamplePage() {
           </Lightbox.Trigger>
         </div>
 
-        <LightboxOverlay />
-        <Lightbox.Content
-          aria-label={`Fullscreen map — ${WROCLAW.place}`}
-          pullToClose={false}
-          className="fixed inset-0 z-50 overscroll-contain bg-neutral-950 outline-none opacity-0 ease-out-expo duration-[280ms] transition-opacity data-[open]:opacity-100 starting:opacity-0"
-        >
-          <LightboxCloseButton />
-          <Lightbox.Item index={0} className="absolute inset-0">
-            {({ morphRef }) => (
-              <div ref={morphRef} className="absolute inset-0 overflow-hidden">
-                <MapFrame
-                  iframeRef={mapIframeRef}
-                  zoom={WROCLAW.fullscreenZoom}
-                  title={`Interactive map — ${WROCLAW.place}`}
-                  interactive
-                  className="absolute inset-0 size-full border-0"
-                />
-              </div>
-            )}
-          </Lightbox.Item>
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/50 to-transparent px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-16">
-            <div className="mx-auto max-w-lg text-center">
-              <div className="text-sm font-medium text-white">{WROCLAW.place}</div>
-              <div className="text-xs text-white/70">{WROCLAW.region}</div>
-            </div>
-          </div>
-        </Lightbox.Content>
+        <Lightbox.Portal keepMounted>
+          <LightboxOverlay />
+          <Lightbox.Content
+            aria-label={`Fullscreen map — ${WROCLAW.place}`}
+            pullToClose={false}
+            className="fixed inset-0 z-50 overscroll-contain bg-neutral-950 outline-none opacity-0 ease-out-expo duration-[280ms] transition-opacity data-[open]:opacity-100 starting:opacity-0"
+          >
+            <LightboxCloseButton />
+            <Lightbox.Item index={0} className="absolute inset-0">
+              {({ morphRef }) => (
+                <div ref={morphRef} className="absolute inset-0 overflow-hidden">
+                  <MapFrame
+                    iframeRef={mapIframeRef}
+                    zoom={WROCLAW.fullscreenZoom}
+                    title={`Interactive map — ${WROCLAW.place}`}
+                    interactive
+                    className="absolute inset-0 size-full border-0"
+                    onLoad={() => {
+                      mapIframeReadyRef.current = true;
+                    }}
+                  />
+                </div>
+              )}
+            </Lightbox.Item>
+          </Lightbox.Content>
+        </Lightbox.Portal>
       </Lightbox.Root>
     </ExampleShell>
   );

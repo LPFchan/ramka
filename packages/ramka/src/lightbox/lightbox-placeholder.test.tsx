@@ -3,6 +3,7 @@ import * as React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 import { LightboxContent } from './lightbox-content';
+import { LightboxPortal } from './lightbox-portal';
 import { LightboxItem } from './lightbox-item';
 import { LightboxItemGroup } from './lightbox-item-group';
 import { LightboxMedia } from './lightbox-media';
@@ -153,15 +154,15 @@ describe('render-fn placeholder wiring (Trigger imageRef -> Item imageRef)', () 
         <LightboxTrigger index={0} data-testid="trigger">
           {({ imageRef }) => <img ref={imageRef} src="/thumb.jpg" alt="thumb" />}
         </LightboxTrigger>
-        <LightboxContent aria-label="viewer">
-          <LightboxItemGroup>
-            <LightboxItem index={0}>
-              {({ imageRef }) => (
-                <img ref={imageRef} src="/full.jpg" alt="full" className="object-contain" />
-              )}
-            </LightboxItem>
-          </LightboxItemGroup>
-        </LightboxContent>
+        <LightboxPortal>
+          <LightboxContent aria-label="viewer">
+            <LightboxItemGroup>
+              <LightboxItem index={0}>
+                {({ imageRef }) => <img ref={imageRef} src="/full.jpg" alt="full" className="object-contain" />}
+              </LightboxItem>
+            </LightboxItemGroup>
+          </LightboxContent>
+        </LightboxPortal>
       </LightboxRoot>,
     );
 
@@ -180,13 +181,15 @@ describe('render-fn placeholder wiring (Trigger imageRef -> Item imageRef)', () 
         <LightboxTrigger index={0} data-testid="trigger">
           {({ imageRef }) => <img ref={imageRef} src="/thumb.jpg" alt="thumb" />}
         </LightboxTrigger>
-        <LightboxContent aria-label="viewer">
-          <LightboxItemGroup>
-            <LightboxItem index={0}>
-              {({ imageRef }) => <img ref={imageRef} src="/full.jpg" alt="full" />}
-            </LightboxItem>
-          </LightboxItemGroup>
-        </LightboxContent>
+        <LightboxPortal>
+          <LightboxContent aria-label="viewer">
+            <LightboxItemGroup>
+              <LightboxItem index={0}>
+                {({ imageRef }) => <img ref={imageRef} src="/full.jpg" alt="full" />}
+              </LightboxItem>
+            </LightboxItemGroup>
+          </LightboxContent>
+        </LightboxPortal>
       </LightboxRoot>,
     );
 
@@ -218,13 +221,15 @@ describe('render-fn placeholder wiring (Trigger imageRef -> Item imageRef)', () 
         <LightboxTrigger index={0} data-testid="trigger">
           {({ imageRef }) => <img ref={imageRef} src="/thumb.jpg" alt="thumb" />}
         </LightboxTrigger>
-        <LightboxContent aria-label="viewer">
-          <LightboxItemGroup>
-            <LightboxItem index={0}>
-              {({ imageRef }) => <img ref={imageRef} src="/full.jpg" alt="full" />}
-            </LightboxItem>
-          </LightboxItemGroup>
-        </LightboxContent>
+        <LightboxPortal>
+          <LightboxContent aria-label="viewer">
+            <LightboxItemGroup>
+              <LightboxItem index={0}>
+                {({ imageRef }) => <img ref={imageRef} src="/full.jpg" alt="full" />}
+              </LightboxItem>
+            </LightboxItemGroup>
+          </LightboxContent>
+        </LightboxPortal>
       </LightboxRoot>,
     );
 
@@ -256,13 +261,15 @@ describe('render-fn placeholder wiring (Trigger imageRef -> Item imageRef)', () 
         <LightboxTrigger index={0} data-testid="trigger">
           {({ imageRef }) => <img ref={imageRef} src="/thumb.jpg" alt="thumb" />}
         </LightboxTrigger>
-        <LightboxContent aria-label="viewer">
-          <LightboxItemGroup>
-            <LightboxItem index={0}>
-              {({ imageRef }) => <img ref={imageRef} src="/full.jpg" alt="full" />}
-            </LightboxItem>
-          </LightboxItemGroup>
-        </LightboxContent>
+        <LightboxPortal>
+          <LightboxContent aria-label="viewer">
+            <LightboxItemGroup>
+              <LightboxItem index={0}>
+                {({ imageRef }) => <img ref={imageRef} src="/full.jpg" alt="full" />}
+              </LightboxItem>
+            </LightboxItemGroup>
+          </LightboxContent>
+        </LightboxPortal>
       </LightboxRoot>,
     );
 
@@ -281,13 +288,15 @@ describe('render-fn placeholder wiring (Trigger imageRef -> Item imageRef)', () 
             </div>
           )}
         </LightboxTrigger>
-        <LightboxContent aria-label="viewer">
-          <LightboxItemGroup>
-            <LightboxItem index={0}>
-              {({ imageRef }) => <img ref={imageRef} src="/full.jpg" alt="full" />}
-            </LightboxItem>
-          </LightboxItemGroup>
-        </LightboxContent>
+        <LightboxPortal>
+          <LightboxContent aria-label="viewer">
+            <LightboxItemGroup>
+              <LightboxItem index={0}>
+                {({ imageRef }) => <img ref={imageRef} src="/full.jpg" alt="full" />}
+              </LightboxItem>
+            </LightboxItemGroup>
+          </LightboxContent>
+        </LightboxPortal>
       </LightboxRoot>,
     );
 
@@ -304,13 +313,15 @@ describe('render-fn placeholder wiring (Trigger imageRef -> Item imageRef)', () 
         <LightboxTrigger index={0} data-testid="trigger-b">
           {({ imageRef }) => <img ref={imageRef} src="/b.jpg" alt="b" />}
         </LightboxTrigger>
-        <LightboxContent aria-label="viewer">
-          <LightboxItemGroup>
-            <LightboxItem index={0}>
-              {({ imageRef }) => <img ref={imageRef} src="/full.jpg" alt="full" />}
-            </LightboxItem>
-          </LightboxItemGroup>
-        </LightboxContent>
+        <LightboxPortal>
+          <LightboxContent aria-label="viewer">
+            <LightboxItemGroup>
+              <LightboxItem index={0}>
+                {({ imageRef }) => <img ref={imageRef} src="/full.jpg" alt="full" />}
+              </LightboxItem>
+            </LightboxItemGroup>
+          </LightboxContent>
+        </LightboxPortal>
       </LightboxRoot>,
     );
 
@@ -332,17 +343,19 @@ describe('render-fn placeholder wiring (Trigger imageRef -> Item imageRef)', () 
             </div>
           )}
         </LightboxTrigger>
-        <LightboxContent aria-label="viewer">
-          <LightboxItemGroup>
-            <LightboxItem index={0}>
-              {({ imageRef, morphRef }) => (
-                <div ref={morphRef} data-testid="item-morph">
-                  <img ref={imageRef} src="/full.jpg" alt="full" />
-                </div>
-              )}
-            </LightboxItem>
-          </LightboxItemGroup>
-        </LightboxContent>
+        <LightboxPortal>
+          <LightboxContent aria-label="viewer">
+            <LightboxItemGroup>
+              <LightboxItem index={0}>
+                {({ imageRef, morphRef }) => (
+                  <div ref={morphRef} data-testid="item-morph">
+                    <img ref={imageRef} src="/full.jpg" alt="full" />
+                  </div>
+                )}
+              </LightboxItem>
+            </LightboxItemGroup>
+          </LightboxContent>
+        </LightboxPortal>
       </LightboxRoot>,
     );
 
@@ -350,12 +363,8 @@ describe('render-fn placeholder wiring (Trigger imageRef -> Item imageRef)', () 
 
     // Both sides are registry-based now — neither pollutes consumer DOM with a
     // marker attribute.
-    expect(document.querySelector('[data-testid="trigger-morph"]')).not.toHaveAttribute(
-      'data-lightbox-morph',
-    );
-    expect(document.querySelector('[data-testid="item-morph"]')).not.toHaveAttribute(
-      'data-lightbox-morph',
-    );
+    expect(document.querySelector('[data-testid="trigger-morph"]')).not.toHaveAttribute('data-lightbox-morph');
+    expect(document.querySelector('[data-testid="item-morph"]')).not.toHaveAttribute('data-lightbox-morph');
   });
 
   it('warns in dev when a Trigger has no imageRef and the item image is unloaded', () => {
@@ -367,13 +376,15 @@ describe('render-fn placeholder wiring (Trigger imageRef -> Item imageRef)', () 
         <LightboxTrigger index={0} data-testid="trigger">
           <img src="/thumb.jpg" alt="thumb" />
         </LightboxTrigger>
-        <LightboxContent aria-label="viewer">
-          <LightboxItemGroup>
-            <LightboxItem index={0}>
-              {({ imageRef }) => <img ref={imageRef} src="/full.jpg" alt="full" />}
-            </LightboxItem>
-          </LightboxItemGroup>
-        </LightboxContent>
+        <LightboxPortal>
+          <LightboxContent aria-label="viewer">
+            <LightboxItemGroup>
+              <LightboxItem index={0}>
+                {({ imageRef }) => <img ref={imageRef} src="/full.jpg" alt="full" />}
+              </LightboxItem>
+            </LightboxItemGroup>
+          </LightboxContent>
+        </LightboxPortal>
       </LightboxRoot>,
     );
 
@@ -407,17 +418,19 @@ describe('Lightbox.Media (morph + placeholder host)', () => {
         <LightboxTrigger index={0} data-testid="trigger">
           {({ imageRef }) => <img ref={imageRef} src="/thumb.jpg" alt="thumb" />}
         </LightboxTrigger>
-        <LightboxContent aria-label="viewer">
-          <LightboxItemGroup>
-            <LightboxItem index={0}>
-              <LightboxZoom>
-                <LightboxMedia data-testid="media" style={{ width: 400, height: 300 }}>
-                  <img src="/full.jpg" alt="full" />
-                </LightboxMedia>
-              </LightboxZoom>
-            </LightboxItem>
-          </LightboxItemGroup>
-        </LightboxContent>
+        <LightboxPortal>
+          <LightboxContent aria-label="viewer">
+            <LightboxItemGroup>
+              <LightboxItem index={0}>
+                <LightboxZoom>
+                  <LightboxMedia data-testid="media" style={{ width: 400, height: 300 }}>
+                    <img src="/full.jpg" alt="full" />
+                  </LightboxMedia>
+                </LightboxZoom>
+              </LightboxItem>
+            </LightboxItemGroup>
+          </LightboxContent>
+        </LightboxPortal>
       </LightboxRoot>,
     );
 
@@ -445,23 +458,27 @@ describe('Lightbox.Media (morph + placeholder host)', () => {
         <LightboxTrigger index={0} data-testid="trigger">
           {({ imageRef }) => <img ref={imageRef} src="/thumb.jpg" alt="thumb" />}
         </LightboxTrigger>
-        <LightboxContent aria-label="viewer">
-          <LightboxItemGroup>
-            <LightboxItem index={0}>
-              <LightboxZoom data-testid="zoom">
-                <LightboxMedia data-testid="media">
-                  <img src="/full.jpg" alt="full" />
-                </LightboxMedia>
-              </LightboxZoom>
-            </LightboxItem>
-          </LightboxItemGroup>
-        </LightboxContent>
+        <LightboxPortal>
+          <LightboxContent aria-label="viewer">
+            <LightboxItemGroup>
+              <LightboxItem index={0}>
+                <LightboxZoom data-testid="zoom">
+                  <LightboxMedia data-testid="media">
+                    <img src="/full.jpg" alt="full" />
+                  </LightboxMedia>
+                </LightboxZoom>
+              </LightboxItem>
+            </LightboxItemGroup>
+          </LightboxContent>
+        </LightboxPortal>
       </LightboxRoot>,
     );
 
-    const triggerImg = document.querySelector(
-      '[data-testid="trigger"] img',
-    ) as HTMLImageElement & { __complete?: boolean; __naturalWidth?: number; __naturalHeight?: number };
+    const triggerImg = document.querySelector('[data-testid="trigger"] img') as HTMLImageElement & {
+      __complete?: boolean;
+      __naturalWidth?: number;
+      __naturalHeight?: number;
+    };
     triggerImg.__complete = true;
     triggerImg.__naturalWidth = 200;
     triggerImg.__naturalHeight = 200;
@@ -488,17 +505,19 @@ describe('Lightbox.Media (morph + placeholder host)', () => {
         <LightboxTrigger index={0} data-testid="trigger">
           {({ imageRef }) => <img ref={imageRef} src="/thumb.jpg" alt="thumb" />}
         </LightboxTrigger>
-        <LightboxContent aria-label="viewer">
-          <LightboxItemGroup>
-            <LightboxItem index={0}>
-              {({ imageRef }) => (
-                <div data-testid="diy-host">
-                  <img ref={imageRef} src="/full.jpg" alt="full" />
-                </div>
-              )}
-            </LightboxItem>
-          </LightboxItemGroup>
-        </LightboxContent>
+        <LightboxPortal>
+          <LightboxContent aria-label="viewer">
+            <LightboxItemGroup>
+              <LightboxItem index={0}>
+                {({ imageRef }) => (
+                  <div data-testid="diy-host">
+                    <img ref={imageRef} src="/full.jpg" alt="full" />
+                  </div>
+                )}
+              </LightboxItem>
+            </LightboxItemGroup>
+          </LightboxContent>
+        </LightboxPortal>
       </LightboxRoot>,
     );
 
@@ -512,17 +531,19 @@ describe('Lightbox.Media (morph + placeholder host)', () => {
   it('width/height apply a structural fit-box', () => {
     render(
       <LightboxRoot defaultOpen>
-        <LightboxContent aria-label="viewer">
-          <LightboxItemGroup>
-            <LightboxItem index={0}>
-              <LightboxZoom>
-                <LightboxMedia data-testid="media" width={1600} height={900}>
-                  <img width={1600} height={900} src="/full.jpg" alt="full" />
-                </LightboxMedia>
-              </LightboxZoom>
-            </LightboxItem>
-          </LightboxItemGroup>
-        </LightboxContent>
+        <LightboxPortal>
+          <LightboxContent aria-label="viewer">
+            <LightboxItemGroup>
+              <LightboxItem index={0}>
+                <LightboxZoom>
+                  <LightboxMedia data-testid="media" width={1600} height={900}>
+                    <img width={1600} height={900} src="/full.jpg" alt="full" />
+                  </LightboxMedia>
+                </LightboxZoom>
+              </LightboxItem>
+            </LightboxItemGroup>
+          </LightboxContent>
+        </LightboxPortal>
       </LightboxRoot>,
     );
 
@@ -548,11 +569,10 @@ describe('Lightbox.Media (morph + placeholder host)', () => {
       name: 'canvas',
       child: <canvas width={800} height={600} />,
     },
-  ] as const)(
-    'scoped style stretches a direct $name child to fill the Media host',
-    ({ name, child }) => {
-      render(
-        <LightboxRoot defaultOpen>
+  ] as const)('scoped style stretches a direct $name child to fill the Media host', ({ name, child }) => {
+    render(
+      <LightboxRoot defaultOpen>
+        <LightboxPortal>
           <LightboxContent aria-label="viewer">
             <LightboxItemGroup>
               <LightboxItem index={0}>
@@ -564,42 +584,44 @@ describe('Lightbox.Media (morph + placeholder host)', () => {
               </LightboxItem>
             </LightboxItemGroup>
           </LightboxContent>
-        </LightboxRoot>,
-      );
+        </LightboxPortal>
+      </LightboxRoot>,
+    );
 
-      const media = document.querySelector('[data-testid="media"]') as HTMLElement;
-      expect(media.style.display).toBe('grid');
-      expect(media.id).toBeTruthy();
+    const media = document.querySelector('[data-testid="media"]') as HTMLElement;
+    expect(media.style.display).toBe('grid');
+    expect(media.id).toBeTruthy();
 
-      const fillStyle = media.querySelector('style');
-      expect(fillStyle).toBeTruthy();
-      const css = fillStyle!.textContent ?? '';
-      const id = CSS.escape(media.id);
+    const fillStyle = media.querySelector('style');
+    expect(fillStyle).toBeTruthy();
+    const css = fillStyle!.textContent ?? '';
+    const id = CSS.escape(media.id);
 
-      // One author rule stretches every direct media child (img / video / canvas).
-      expect(css).toBe(
-        `#${id} > img:not([data-lightbox-media-poster]),#${id} > video,#${id} > canvas{width:100%;height:100%;}`,
-      );
+    // One author rule stretches every direct media child (img / video / canvas).
+    expect(css).toBe(
+      `#${id} > img:not([data-lightbox-media-poster]),#${id} > video,#${id} > canvas{width:100%;height:100%;}`,
+    );
 
-      // Child is a direct Media descendant so the `#id > ${tag}` rule applies.
-      const el = media.querySelector(`:scope > ${name}`);
-      expect(el).toBeTruthy();
-      expect(el!.parentElement).toBe(media);
-    },
-  );
+    // Child is a direct Media descendant so the `#id > ${tag}` rule applies.
+    const el = media.querySelector(`:scope > ${name}`);
+    expect(el).toBeTruthy();
+    expect(el!.parentElement).toBe(media);
+  });
 
   it('derives fit-box from child img width/height when Media props are omitted', () => {
     render(
       <LightboxRoot defaultOpen>
-        <LightboxContent aria-label="viewer">
-          <LightboxItemGroup>
-            <LightboxItem index={0}>
-              <LightboxMedia data-testid="media">
-                <img width={800} height={400} src="/full.jpg" alt="full" />
-              </LightboxMedia>
-            </LightboxItem>
-          </LightboxItemGroup>
-        </LightboxContent>
+        <LightboxPortal>
+          <LightboxContent aria-label="viewer">
+            <LightboxItemGroup>
+              <LightboxItem index={0}>
+                <LightboxMedia data-testid="media">
+                  <img width={800} height={400} src="/full.jpg" alt="full" />
+                </LightboxMedia>
+              </LightboxItem>
+            </LightboxItemGroup>
+          </LightboxContent>
+        </LightboxPortal>
       </LightboxRoot>,
     );
 
@@ -615,23 +637,23 @@ describe('Lightbox.Media (morph + placeholder host)', () => {
         <LightboxTrigger index={0} data-testid="trigger">
           {({ imageRef }) => <img ref={imageRef} src="/thumb.jpg" alt="thumb" />}
         </LightboxTrigger>
-        <LightboxContent aria-label="viewer">
-          <LightboxItemGroup>
-            <LightboxItem index={0}>
-              <LightboxMedia data-testid="media">
-                <video src="/clip.mp4" poster="/poster.jpg" />
-              </LightboxMedia>
-            </LightboxItem>
-          </LightboxItemGroup>
-        </LightboxContent>
+        <LightboxPortal>
+          <LightboxContent aria-label="viewer">
+            <LightboxItemGroup>
+              <LightboxItem index={0}>
+                <LightboxMedia data-testid="media">
+                  <video src="/clip.mp4" poster="/poster.jpg" />
+                </LightboxMedia>
+              </LightboxItem>
+            </LightboxItemGroup>
+          </LightboxContent>
+        </LightboxPortal>
       </LightboxRoot>,
     );
 
     clickTrigger('trigger');
 
-    const poster = document.querySelector(
-      '[data-lightbox-media-poster]',
-    ) as HTMLImageElement | null;
+    const poster = document.querySelector('[data-lightbox-media-poster]') as HTMLImageElement | null;
     expect(poster).toBeTruthy();
     expect(poster!.getAttribute('src')).toBe('/poster.jpg');
     expect(poster!.style.backgroundImage).toContain('/thumb.jpg');

@@ -2,9 +2,9 @@
 
 import { mergeProps } from '@base-ui/react';
 import * as React from 'react';
-import * as ReactDOM from 'react-dom';
 
 import { useLightboxContext } from './lightbox-context';
+import { useLightboxPortalContext } from './lightbox-portal';
 import { useLightboxZoomPublish } from './lightbox-zoom-context';
 import { usePullToDismiss } from './use-pull-to-dismiss';
 
@@ -43,8 +43,6 @@ interface LightboxContentProps extends React.ComponentPropsWithRef<'div'> {
   className?: string;
   /** Dialog contents (close, slides/items, chrome). */
   children?: React.ReactNode;
-  /** Portal container for the dialog. @default document.body */
-  container?: Element | DocumentFragment | null;
   /**
    * Enable pull-to-close on touch. Publishes `data-pulling`,
    * `data-pull-dismissing`, and `--lightbox-pull-progress` while active.
@@ -55,7 +53,7 @@ interface LightboxContentProps extends React.ComponentPropsWithRef<'div'> {
 
 const LightboxContent = React.forwardRef<HTMLDivElement, LightboxContentProps>(
   function LightboxContent(props, forwardedRef) {
-    const { className, children, container, pullToClose = true, style, ...rest } = props;
+    const { className, children, pullToClose = true, style, ...rest } = props;
 
     const {
       open,
@@ -72,6 +70,10 @@ const LightboxContent = React.forwardRef<HTMLDivElement, LightboxContentProps>(
       itemMorphElementsRef,
       navigationLockedRef,
     } = useLightboxContext();
+    const { keepMounted } = useLightboxPortalContext();
+    // Present while open/animating, or parked closed when Portal.keepMounted.
+    const present = mounted || keepMounted;
+    const parked = keepMounted && !mounted;
     // The active slide's zoom is exposed via the Root-owned bridge (not the
     // per-slide ZoomContext, which is a descendant and unreadable here).
     const { activeZoomRef } = useLightboxZoomPublish();
@@ -248,6 +250,9 @@ const LightboxContent = React.forwardRef<HTMLDivElement, LightboxContentProps>(
     //     keeps thumbnails in sync).
     const handleKeyDown = React.useCallback(
       (event: React.KeyboardEvent) => {
+        // Parked keepMounted content stays in the DOM but must not handle keys.
+        if (!mounted) return;
+
         // A descendant (e.g. a Lightbox.Slides viewport or the thumbnail
         // group) already handled this key and called preventDefault. Defer so
         // navigation has a single authority and we don't double-handle it.
@@ -337,7 +342,7 @@ const LightboxContent = React.forwardRef<HTMLDivElement, LightboxContentProps>(
           setActiveIndex(nextIndex, 'keyboard');
         }
       },
-      [activeIndex, itemCount, loop, setActiveIndex, setOpen, activeZoomRef],
+      [mounted, activeIndex, itemCount, loop, setActiveIndex, setOpen, activeZoomRef],
     );
 
     // Click on the content container itself (not children) closes the
@@ -346,11 +351,12 @@ const LightboxContent = React.forwardRef<HTMLDivElement, LightboxContentProps>(
     // primitive, which also closes on click.
     const handleClick = React.useCallback(
       (event: React.MouseEvent) => {
+        if (!mounted) return;
         if (event.target === event.currentTarget) {
           setOpen(false);
         }
       },
-      [setOpen],
+      [mounted, setOpen],
     );
 
     // Focus guard handlers — redirect Tab past the edges back into the content.
@@ -372,19 +378,21 @@ const LightboxContent = React.forwardRef<HTMLDivElement, LightboxContentProps>(
       target.focus();
     }, []);
 
-    if (!mounted) return null;
-
-    const portalTarget = container ?? (typeof document !== 'undefined' ? document.body : null);
+    if (!present) return null;
 
     // Merge internal dialog props with consumer-provided props. `mergeProps`
     // composes event handlers (consumer `onKeyDown`/`onClick` run alongside the
     // internal keyboard-nav and backdrop-close handlers rather than replacing
     // them) and merges `style`/`className`, matching the convention used by
     // every other primitive. Consumer props win for plain scalar attributes.
+    // Render inside `Lightbox.Portal` — Content itself does not portal.
     const dialogProps = mergeProps<'div'>(
       {
         role: 'dialog',
-        'aria-modal': 'true',
+        'aria-modal': parked ? undefined : 'true',
+        'aria-hidden': parked ? true : undefined,
+        // Parked keepMounted content must not steal clicks/focus from the page.
+        inert: parked || undefined,
         className,
         // Establish a scroll-containment boundary. `overflow: hidden` makes
         // the content a scroll container that is permanently at its scroll
@@ -395,10 +403,9 @@ const LightboxContent = React.forwardRef<HTMLDivElement, LightboxContentProps>(
         // chaining out to the page, including after the lightbox closes.
         // Consumers can still override via the `style` prop.
         //
-        // While `preparing` (VT pre-mount), force `visibility: hidden` so the
-        // freshly-mounted viewer lays out and decodes images without painting
-        // into the transition's old snapshot. Placed after `...style` so it
-        // wins for the (transient) hidden phase regardless of consumer styles.
+        // While `preparing` (VT pre-mount) or parked closed with keepMounted,
+        // force `visibility: hidden` (+ pointer-events none when parked) so
+        // the node can stay mounted without painting or intercepting input.
         style: {
           overflow: 'hidden',
           overscrollBehavior: 'contain',
@@ -407,39 +414,42 @@ const LightboxContent = React.forwardRef<HTMLDivElement, LightboxContentProps>(
           userSelect: 'none',
           WebkitUserSelect: 'none',
           ...style,
-          ...(preparing ? { visibility: 'hidden' as const } : null),
+          ...(preparing || parked ? { visibility: 'hidden' as const } : null),
+          ...(parked ? { pointerEvents: 'none' as const } : null),
         },
         'data-open': open || undefined,
         onKeyDown: handleKeyDown,
         onClick: handleClick,
-        tabIndex: -1,
+        tabIndex: parked ? undefined : -1,
       } as React.ComponentPropsWithRef<'div'>,
       rest as React.ComponentPropsWithRef<'div'>,
     );
 
-    const content = (
+    return (
       <>
-        <span
-          tabIndex={0}
-          aria-hidden="true"
-          data-focus-guard=""
-          style={focusGuardStyle}
-          onFocus={handleBeforeGuardFocus}
-        />
+        {!parked ? (
+          <span
+            tabIndex={0}
+            aria-hidden="true"
+            data-focus-guard=""
+            style={focusGuardStyle}
+            onFocus={handleBeforeGuardFocus}
+          />
+        ) : null}
         <div ref={mergedRef} {...dialogProps}>
           {children}
         </div>
-        <span
-          tabIndex={0}
-          aria-hidden="true"
-          data-focus-guard=""
-          style={focusGuardStyle}
-          onFocus={handleAfterGuardFocus}
-        />
+        {!parked ? (
+          <span
+            tabIndex={0}
+            aria-hidden="true"
+            data-focus-guard=""
+            style={focusGuardStyle}
+            onFocus={handleAfterGuardFocus}
+          />
+        ) : null}
       </>
     );
-
-    return portalTarget ? ReactDOM.createPortal(content, portalTarget) : content;
   },
 );
 

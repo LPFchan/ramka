@@ -124,17 +124,30 @@ export const generatedProps: Record<string, PropRow[]> = {
       description: "Allows you to replace the component's HTML element with a different tag, or compose it with another component.\n\nAccepts a `ReactElement` or a function that returns the element to render.",
     },
   ],
+  "api-portal": [
+    {
+      name: "container",
+      type: "PortalContainer",
+      default: "document.body",
+      description: "Where to mount the portal host. Defaults to `document.body`. Pass `null` to render the host in place (no portal). A ref is resolved on each layout pass until it has a node.",
+    },
+    {
+      name: "keepMounted",
+      type: "boolean",
+      default: "false",
+      description: "Keep Portal, Backdrop, and Content mounted while the lightbox is closed. Closed (\"parked\") nodes stay in the DOM but are inert and non-interactive (`visibility: hidden`, `pointer-events: none`) so they don't block the page.\n\nUseful for warm reopen of expensive destinations (e.g. map iframes) without remounting them on every open.",
+    },
+    {
+      name: "children",
+      type: "ReactNode",
+      description: "—",
+    },
+  ],
   "api-content": [
     {
       name: "children",
       type: "ReactNode",
       description: "Dialog contents (close, slides/items, chrome).",
-    },
-    {
-      name: "container",
-      type: "Element | DocumentFragment | null",
-      default: "document.body",
-      description: "Portal container for the dialog.",
     },
     {
       name: "pullToClose",
@@ -144,12 +157,6 @@ export const generatedProps: Record<string, PropRow[]> = {
     },
   ],
   "api-backdrop": [
-    {
-      name: "container",
-      type: "Element | DocumentFragment | null",
-      default: "document.body",
-      description: "Container element for the portal. Defaults to `document.body` so the backdrop sits at the top of the document regardless of where it is placed in JSX. Pass `null` to render in-place (no portal).",
-    },
     {
       name: "render",
       type: "ReactElement | ComponentRenderFn",
@@ -475,6 +482,7 @@ export const generatedAttributes: Record<string, AttrRow[]> = {
       description: "Reflects the crossfade prop: `open` | `close` | `both`.",
     },
   ],
+  "api-portal": [],
   "api-content": [
     {
       name: "data-open",
@@ -651,6 +659,7 @@ export const generatedAttributes: Record<string, AttrRow[]> = {
 export const generatedCssVariables: Record<string, CssVarRow[]> = {
   "api-root": [],
   "api-trigger": [],
+  "api-portal": [],
   "api-content": [
     {
       name: "--lightbox-pull-progress",

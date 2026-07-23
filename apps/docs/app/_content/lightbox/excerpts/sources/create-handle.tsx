@@ -24,23 +24,25 @@ export function CreateHandleExcerpt() {
       ))}
 
       <Lightbox.Root handle={lightbox}>
-        <Lightbox.Backdrop />
-        <Lightbox.Content>
-          <Lightbox.Slides>
-            {images.map((img, i) => (
-              <Lightbox.Slide key={img.id}>
-                <Lightbox.Item index={i}>
-                  <Lightbox.Zoom>
-                    <Lightbox.Media>
-                      <img src={img.src} alt={img.alt} />
-                    </Lightbox.Media>
-                  </Lightbox.Zoom>
-                </Lightbox.Item>
-              </Lightbox.Slide>
-            ))}
-          </Lightbox.Slides>
-          <Lightbox.Close />
-        </Lightbox.Content>
+        <Lightbox.Portal>
+          <Lightbox.Backdrop />
+          <Lightbox.Content>
+            <Lightbox.Slides>
+              {images.map((img, i) => (
+                <Lightbox.Slide key={img.id}>
+                  <Lightbox.Item index={i}>
+                    <Lightbox.Zoom>
+                      <Lightbox.Media>
+                        <img src={img.src} alt={img.alt} />
+                      </Lightbox.Media>
+                    </Lightbox.Zoom>
+                  </Lightbox.Item>
+                </Lightbox.Slide>
+              ))}
+            </Lightbox.Slides>
+            <Lightbox.Close />
+          </Lightbox.Content>
+        </Lightbox.Portal>
       </Lightbox.Root>
     </>
   );

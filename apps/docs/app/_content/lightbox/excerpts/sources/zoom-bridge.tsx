@@ -12,23 +12,26 @@ declare const alt: string;
 export function ZoomBridgeExcerpt() {
   return (
     <Lightbox.Root>
-      <Lightbox.Content>
-        {/* Toolbar chrome — targets the active slide's Zoom */}
-        <Lightbox.ZoomOut />
-        <Lightbox.ZoomIn />
+      <Lightbox.Portal>
+        <Lightbox.Backdrop />
+        <Lightbox.Content>
+          {/* Toolbar chrome — targets the active slide's Zoom */}
+          <Lightbox.ZoomOut />
+          <Lightbox.ZoomIn />
 
-        <Lightbox.Slides>
-          <Lightbox.Slide>
-            <Lightbox.Item index={0}>
-              <Lightbox.Zoom>
-                <Lightbox.Media>
-                  <img src={src} alt={alt} />
-                </Lightbox.Media>
-              </Lightbox.Zoom>
-            </Lightbox.Item>
-          </Lightbox.Slide>
-        </Lightbox.Slides>
-      </Lightbox.Content>
+          <Lightbox.Slides>
+            <Lightbox.Slide>
+              <Lightbox.Item index={0}>
+                <Lightbox.Zoom>
+                  <Lightbox.Media>
+                    <img src={src} alt={alt} />
+                  </Lightbox.Media>
+                </Lightbox.Zoom>
+              </Lightbox.Item>
+            </Lightbox.Slide>
+          </Lightbox.Slides>
+        </Lightbox.Content>
+      </Lightbox.Portal>
     </Lightbox.Root>
   );
 }
