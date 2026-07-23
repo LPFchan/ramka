@@ -70,6 +70,7 @@ const LightboxContent = React.forwardRef<HTMLDivElement, LightboxContentProps>(
       activeItemElementRef,
       itemMorphElementsRef,
       navigationLockedRef,
+      baseId,
     } = useLightboxContext();
     const { keepMounted } = useLightboxPortalContext();
     // Present while open/animating, or parked closed when Portal.keepMounted.
@@ -115,6 +116,27 @@ const LightboxContent = React.forwardRef<HTMLDivElement, LightboxContentProps>(
         contentRef.current?.focus({ preventScroll: true });
       }
     }, [mounted, preparing]);
+
+    // Dev-only: a modal dialog must have an accessible name (WAI-ARIA APG
+    // Dialog pattern requires `aria-label` or `aria-labelledby`). The library
+    // stays unopinionated about the wording, but a nameless dialog is a real
+    // WCAG failure for screen reader users, so nudge consumers in development.
+    React.useEffect(() => {
+      if (process.env.NODE_ENV === 'production') return;
+      if (!mounted || parked) return;
+      const el = contentRef.current;
+      if (!el) return;
+      const hasName =
+        !!el.getAttribute('aria-label')?.trim() || !!el.getAttribute('aria-labelledby')?.trim();
+      if (!hasName) {
+        // eslint-disable-next-line no-console
+        console.warn(
+          '[ramka] Lightbox.Content (role="dialog") has no accessible name. ' +
+            'Pass `aria-label` (e.g. aria-label="Image viewer") or `aria-labelledby` ' +
+            'so screen readers announce the dialog. See the WAI-ARIA APG dialog pattern.',
+        );
+      }
+    }, [mounted, parked]);
 
     // Focus containment (canonical modal focus trap, completing the Tab guards
     // below). Slides are non-focusable, so normal usage never strands focus.
@@ -390,6 +412,10 @@ const LightboxContent = React.forwardRef<HTMLDivElement, LightboxContentProps>(
     const dialogProps = mergeProps<'div'>(
       {
         role: 'dialog',
+        // Stable id so `Lightbox.Trigger` can point `aria-controls` at this
+        // dialog (Base UI Dialog pattern). Consumer-provided `id` wins via
+        // mergeProps; the Trigger derives the same default from `baseId`.
+        id: `${baseId}-content`,
         'aria-modal': parked ? undefined : 'true',
         'aria-hidden': parked ? true : undefined,
         // Parked keepMounted content must not steal clicks/focus from the page.

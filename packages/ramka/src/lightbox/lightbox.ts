@@ -15,9 +15,19 @@
  * - **Multiple triggers**: Each Trigger accepts an `index` prop, so a grid
  *   of thumbnails can each open the lightbox at the corresponding item.
  *
- * - **No ARIA assumptions**: The consumer provides aria-label, captions,
- *   and alt text in their language. The primitive handles structural ARIA
- *   (dialog role, live regions, tablist pattern for thumbnails).
+ * - **Structural ARIA, consumer-owned wording**: The consumer provides the
+ *   dialog's accessible name (`aria-label`/`aria-labelledby` on Content — the
+ *   library warns in development if it's missing), the carousel label, alt
+ *   text, and captions in their language. The primitives own the structural
+ *   ARIA per the WAI-ARIA APG:
+ *     - Content → `role="dialog"` + `aria-modal`, focus trap, Escape.
+ *     - Slides/ItemGroup → carousel container (`role="group"` +
+ *       `aria-roledescription="carousel"`).
+ *     - Item → a `tabpanel` associated with its Thumbnail `tab` when a
+ *       `Lightbox.ThumbnailGroup` (tablist) is present, otherwise a standalone
+ *       carousel slide (`role="group"` + `aria-roledescription="slide"` with an
+ *       `N of total` name). Never an orphaned `tabpanel`.
+ *     - Counter/Caption → polite live regions.
  *
  * - **CSS-driven transitions**: State is exposed via data attributes
  *   (data-active, data-direction, data-disabled, data-open, etc.)

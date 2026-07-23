@@ -84,6 +84,10 @@ const LightboxItemGroup = React.forwardRef<HTMLDivElement, LightboxItemGroupProp
           props: mergeProps<'div'>(
             {
               role: 'group',
+              // APG Carousel pattern: this is the carousel container. Provide a
+              // label via `aria-label` / `aria-labelledby` (omit the word
+              // "carousel" — the roledescription supplies it).
+              'aria-roledescription': 'carousel',
             } as React.ComponentPropsWithRef<'div'>,
             elementProps as React.ComponentPropsWithRef<'div'>,
           ),

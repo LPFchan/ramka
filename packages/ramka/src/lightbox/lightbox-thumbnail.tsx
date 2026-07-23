@@ -28,9 +28,13 @@ const thumbnailStateAttributesMapping = {
 const LightboxThumbnail = React.forwardRef<HTMLButtonElement, LightboxThumbnailProps>(
   function LightboxThumbnail(props, forwardedRef) {
     const { render, index, ...elementProps } = props;
-    const { activeIndex, setActiveIndex } = useLightboxContext();
+    const { activeIndex, setActiveIndex, baseId } = useLightboxContext();
 
     const isActive = index === activeIndex;
+    // Matching ids for the WAI-ARIA Tabs association: this tab controls its
+    // item's `tabpanel`, and that panel is labelled by this tab.
+    const tabId = `${baseId}-tab-${index}`;
+    const panelId = `${baseId}-panel-${index}`;
 
     const handleClick = React.useCallback(() => {
       setActiveIndex(index, 'thumbnail');
@@ -47,7 +51,9 @@ const LightboxThumbnail = React.forwardRef<HTMLButtonElement, LightboxThumbnailP
         {
           type: 'button',
           role: 'tab',
+          id: tabId,
           'aria-selected': isActive,
+          'aria-controls': panelId,
           tabIndex: isActive ? 0 : -1,
           onClick: handleClick,
         } as React.ComponentPropsWithRef<'button'>,

@@ -335,6 +335,11 @@ const LightboxSlides = React.forwardRef<HTMLDivElement, LightboxSlidesProps>(
           props: mergeProps<'div'>(
             {
               role: 'group',
+              // APG Carousel pattern: the container that wraps the slides is a
+              // carousel. Give it a label via `aria-label` / `aria-labelledby`
+              // (the word "carousel" is supplied by the roledescription, so the
+              // label itself should omit it).
+              'aria-roledescription': 'carousel',
               'data-orientation': 'horizontal',
               // The scroller assumptions, baked in. Consumers can still layer
               // gap/padding/scrollbar-hiding via className/style; the offset-based

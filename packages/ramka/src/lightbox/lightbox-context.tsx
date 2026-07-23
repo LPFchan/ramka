@@ -52,6 +52,30 @@ interface LightboxContextValue {
   itemCount: number;
   registerItem: (index: number) => () => void;
   loop: boolean;
+  /**
+   * Stable id prefix for the whole lightbox instance (from `React.useId()` in
+   * Root). `Lightbox.Item` and `Lightbox.Thumbnail` derive matching element ids
+   * from it (`${baseId}-panel-${index}` / `${baseId}-tab-${index}`) so the
+   * tab↔tabpanel `aria-controls` / `aria-labelledby` association required by the
+   * WAI-ARIA Tabs pattern is wired without threading ids through the consumer.
+   */
+  baseId: string;
+  /**
+   * Whether a `Lightbox.ThumbnailGroup` (a `tablist`) is currently mounted.
+   * When true, `Lightbox.Item`s expose `role="tabpanel"` and associate with
+   * their controlling thumbnail tab (the APG "tabbed carousel" variant). When
+   * false, there are no tabs to own the panels, so items instead expose the
+   * standalone carousel-slide semantics (`role="group"` +
+   * `aria-roledescription="slide"` + an `N of total` label) — never an orphaned
+   * `tabpanel`, which is invalid ARIA without an associated `tab`.
+   */
+  hasTablist: boolean;
+  /**
+   * Registers a mounted `Lightbox.ThumbnailGroup` so items can switch to
+   * tabpanel semantics. Returns an unregister fn; `hasTablist` flips back to
+   * false once the last tablist unmounts.
+   */
+  registerTablist: () => () => void;
   captionsRef: React.RefObject<Map<number, React.ReactNode>>;
   registerCaption: (index: number, caption: React.ReactNode) => () => void;
   /**

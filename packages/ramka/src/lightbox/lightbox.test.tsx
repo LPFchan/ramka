@@ -191,6 +191,33 @@ describe('Lightbox', () => {
       expect(trigger).toHaveAttribute('type', 'button');
     });
 
+    it('Trigger advertises the dialog it opens (aria-haspopup, aria-expanded closed)', () => {
+      render(<TestLightbox />);
+      const trigger = screen.getByTestId('trigger-0');
+      expect(trigger).toHaveAttribute('aria-haspopup', 'dialog');
+      // Closed: not expanded, and no dangling aria-controls (dialog unmounted).
+      expect(trigger).toHaveAttribute('aria-expanded', 'false');
+      expect(trigger).not.toHaveAttribute('aria-controls');
+    });
+
+    it('clicking a Trigger marks only that trigger expanded and wires aria-controls to the dialog', () => {
+      render(<TestLightbox itemCount={3} />);
+      fireEvent.click(screen.getByTestId('trigger-1'));
+
+      const opener = screen.getByTestId('trigger-1');
+      const other = screen.getByTestId('trigger-0');
+      const dialog = screen.getByTestId('content');
+
+      // Only the trigger that opened the lightbox reports expanded.
+      expect(opener).toHaveAttribute('aria-expanded', 'true');
+      expect(other).toHaveAttribute('aria-expanded', 'false');
+
+      // aria-controls points at the actual dialog element.
+      const controls = opener.getAttribute('aria-controls');
+      expect(controls).toBeTruthy();
+      expect(dialog).toHaveAttribute('id', controls);
+    });
+
     it('renders Content as a div with role="dialog" when open', () => {
       render(<TestLightbox defaultOpen />);
       const dialog = screen.getByTestId('content');
@@ -207,14 +234,37 @@ describe('Lightbox', () => {
       expect(screen.queryByTestId('content')).toBeNull();
     });
 
-    it('renders ItemGroup with role="group"', () => {
+    it('renders ItemGroup with role="group" and aria-roledescription="carousel"', () => {
       render(<TestLightbox defaultOpen />);
-      expect(screen.getByTestId('item-group')).toHaveAttribute('role', 'group');
+      const group = screen.getByTestId('item-group');
+      expect(group).toHaveAttribute('role', 'group');
+      expect(group).toHaveAttribute('aria-roledescription', 'carousel');
     });
 
-    it('renders Item with role="tabpanel"', () => {
-      render(<TestLightbox defaultOpen />);
-      expect(screen.getByTestId('item-0')).toHaveAttribute('role', 'tabpanel');
+    it('renders Item as a carousel slide (role="group") with an "N of total" name when no tablist is present', () => {
+      render(<TestLightbox defaultOpen itemCount={3} />);
+      const item = screen.getByTestId('item-0');
+      expect(item).toHaveAttribute('role', 'group');
+      expect(item).toHaveAttribute('aria-roledescription', 'slide');
+      expect(item).toHaveAttribute('aria-label', '1 of 3');
+      // A tabpanel with no owning tab would be invalid ARIA.
+      expect(item).not.toHaveAttribute('role', 'tabpanel');
+    });
+
+    it('renders Item as a tabpanel wired to its thumbnail tab when a ThumbnailGroup is present', () => {
+      render(<TestLightbox defaultOpen withThumbnails itemCount={3} />);
+      const item = screen.getByTestId('item-0');
+      expect(item).toHaveAttribute('role', 'tabpanel');
+
+      const panelId = item.getAttribute('id');
+      const labelledBy = item.getAttribute('aria-labelledby');
+      expect(panelId).toBeTruthy();
+      expect(labelledBy).toBeTruthy();
+
+      const thumb = screen.getByTestId('thumb-0');
+      // The tab labels the panel, and the panel is controlled by the tab.
+      expect(thumb).toHaveAttribute('id', labelledBy);
+      expect(thumb).toHaveAttribute('aria-controls', panelId);
     });
 
     it('active item has aria-hidden="false", inactive has aria-hidden="true"', () => {

@@ -352,6 +352,25 @@ const LightboxTrigger = React.forwardRef<HTMLButtonElement, LightboxTriggerProps
 
     const active = open && activeIndex === index;
 
+    // Disclosure semantics matching Base UI's Dialog.Trigger: the button
+    // advertises that it opens a dialog, exposes whether *this* trigger's
+    // dialog is currently open, and points at the dialog it controls.
+    //
+    //  - `aria-haspopup="dialog"` — always (every trigger opens the lightbox).
+    //  - `aria-expanded` — true only on the trigger that actually opened the
+    //    lightbox (Base UI's `isOpenedByThisTrigger`), so a gallery of triggers
+    //    doesn't announce every thumbnail as "expanded" while the viewer is up.
+    //    Element identity (not index) is used so triggers sharing an index stay
+    //    correct. Detached triggers can't track the origin, so they fall back to
+    //    the shared open state.
+    //  - `aria-controls` — the dialog's id, set only while open (the referenced
+    //    element is only in the DOM then). Omitted for detached triggers, which
+    //    can't resolve the Root's dialog id.
+    const contentId = rootContext ? `${rootContext.baseId}-content` : undefined;
+    const openedByThisTrigger = rootContext
+      ? open && openingTriggerElementRef?.current === internalRef.current
+      : open;
+
     const morphTarget = React.useMemo(() => {
       if (!open) return false;
       if (!triggerElementsRef || !openingTriggerIndexRef) {
@@ -395,6 +414,9 @@ const LightboxTrigger = React.forwardRef<HTMLButtonElement, LightboxTriggerProps
         {
           type: 'button',
           id: idProp,
+          'aria-haspopup': 'dialog',
+          'aria-expanded': openedByThisTrigger,
+          ...(open && contentId ? { 'aria-controls': contentId } : null),
           onClick: handleClick,
           // Stable styling hook — consumer CSS can target every trigger
           // (e.g. for a default focus outline) without relying on

@@ -24,9 +24,14 @@ const thumbnailGroupStateAttributesMapping = {
 const LightboxThumbnailGroup = React.forwardRef<HTMLDivElement, LightboxThumbnailGroupProps>(
   function LightboxThumbnailGroup(props, forwardedRef) {
     const { render, ...elementProps } = props;
-    const { activeIndex, setActiveIndex, navigationLockedRef, itemCount, loop } = useLightboxContext();
+    const { activeIndex, setActiveIndex, navigationLockedRef, itemCount, loop, registerTablist } =
+      useLightboxContext();
 
     const [focusWithin, setFocusWithin] = React.useState(false);
+
+    // Announce this tablist so `Lightbox.Item`s adopt `tabpanel` semantics and
+    // associate with their controlling tab (the APG "tabbed carousel" variant).
+    React.useEffect(() => registerTablist(), [registerTablist]);
 
     const handleKeyDown = React.useCallback(
       (event: React.KeyboardEvent<HTMLDivElement>) => {

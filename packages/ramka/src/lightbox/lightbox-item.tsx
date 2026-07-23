@@ -264,6 +264,8 @@ const LightboxItem = React.forwardRef<HTMLDivElement, LightboxItemProps>(
       triggerElementsRef,
       openTransitionPendingRef,
       subscribeOpenComplete,
+      baseId,
+      hasTablist,
     } = useLightboxContext();
     const groupContext = useLightboxItemGroupContext();
 
@@ -561,6 +563,28 @@ const LightboxItem = React.forwardRef<HTMLDivElement, LightboxItemProps>(
 
     const state = React.useMemo<LightboxItemState>(() => ({ active: isActive, index }), [isActive, index]);
 
+    // ARIA semantics (WAI-ARIA APG). Two valid shapes depending on whether a
+    // thumbnail `tablist` is present to own the panels:
+    //
+    //  - Tabbed carousel (thumbnails present): each item is a `tabpanel`
+    //    labelled by its controlling `tab` (`aria-labelledby`). The matching
+    //    `tab` sets `aria-controls` back to this panel's id.
+    //  - Standalone carousel (no thumbnails): a `tabpanel` with no owning `tab`
+    //    is invalid ARIA, so the item becomes a carousel slide instead —
+    //    `role="group"` + `aria-roledescription="slide"` with an `N of total`
+    //    accessible name (group elements can't use aria-posinset/setsize, so the
+    //    APG carousel pattern folds the position into the label).
+    const total = groupContext.itemCount;
+    const panelId = `${baseId}-panel-${index}`;
+    const tabId = `${baseId}-tab-${index}`;
+    const semanticProps: Record<string, string> = hasTablist
+      ? { role: 'tabpanel', 'aria-labelledby': tabId }
+      : {
+          role: 'group',
+          'aria-roledescription': 'slide',
+          'aria-label': total > 0 ? `${index + 1} of ${total}` : `${index + 1}`,
+        };
+
     const itemContextValue = React.useMemo<LightboxItemContextValue>(
       () => ({ index, active: isActive, imageRef, morphRef, registerMedia }),
       [index, isActive, imageRef, morphRef, registerMedia],
@@ -579,7 +603,11 @@ const LightboxItem = React.forwardRef<HTMLDivElement, LightboxItemProps>(
           // the owning item. It replaces what was a branded class name in
           // upstream so the primitives stay free of ship-as-is styles.
           'data-ramka-item': '',
-          role: 'tabpanel',
+          id: panelId,
+          ...semanticProps,
+          // Inactive slides/panels are kept out of the a11y tree (and out of
+          // the tab order) so a screen reader never reads an off-screen slide,
+          // and the active one is exposed. `inert` also blocks pointer/focus.
           'aria-hidden': !isActive,
           inert: !isActive ? true : undefined,
         } as React.ComponentPropsWithRef<'div'>,

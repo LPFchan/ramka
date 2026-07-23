@@ -313,6 +313,25 @@ function LightboxRoot(props: LightboxRootProps) {
       };
     }, []);
 
+    // Stable id prefix for this lightbox instance. Used to mint matching
+    // `tab` / `tabpanel` ids in Thumbnail / Item so their `aria-controls` /
+    // `aria-labelledby` association is wired automatically (see context).
+    const baseId = React.useId();
+
+    // Tablist presence — drives whether items are `tabpanel`s (a thumbnail
+    // tablist owns them) or standalone carousel slides. Ref-counted so several
+    // (or zero) ThumbnailGroups resolve correctly.
+    const tablistCountRef = React.useRef(0);
+    const [hasTablist, setHasTablist] = React.useState(false);
+    const registerTablist = React.useCallback(() => {
+      tablistCountRef.current += 1;
+      setHasTablist(true);
+      return () => {
+        tablistCountRef.current = Math.max(0, tablistCountRef.current - 1);
+        if (tablistCountRef.current === 0) setHasTablist(false);
+      };
+    }, []);
+
     // Caption registry — ref-based to avoid creating new Map objects and
     // triggering re-renders on every item mount. LightboxCaption subscribes
     // via useSyncExternalStore, so it reads the ref reactively (updating on
@@ -827,6 +846,9 @@ function LightboxRoot(props: LightboxRootProps) {
         itemCount,
         registerItem,
         loop,
+        baseId,
+        hasTablist,
+        registerTablist,
         captionsRef,
         registerCaption,
         subscribeCaptions,
@@ -844,7 +866,7 @@ function LightboxRoot(props: LightboxRootProps) {
         dialogElementRef,
         backdropElementRef,
       }),
-      [open, setOpen, mounted, preparing, subscribeOpenComplete, activeIndex, setActiveIndex, itemCount, registerItem, loop, registerCaption, subscribeCaptions, viewTransition, morphTo],
+      [open, setOpen, mounted, preparing, subscribeOpenComplete, activeIndex, setActiveIndex, itemCount, registerItem, loop, baseId, hasTablist, registerTablist, registerCaption, subscribeCaptions, viewTransition, morphTo],
     );
 
     return (
