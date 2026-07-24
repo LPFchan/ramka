@@ -215,9 +215,29 @@ export function LightboxGallery({
   );
 }
 
-/** True when slides can drive the filmstrip via a named scroll timeline. */
-function supportsFilmstripScrollLink(): boolean {
+/** True when CSS scroll-driven animations can own the filmstrip link. */
+function supportsCssFilmstripScrollLink(): boolean {
   return typeof CSS !== 'undefined' && CSS.supports('animation-timeline', 'scroll()');
+}
+
+/** One-shot diagnostics — remove once filmstrip paths are confirmed. */
+function logFilmstripTimelineSupport(path: 'css-timeline' | 'js-sync') {
+  if (typeof window === 'undefined') return;
+  const w = window as Window & { __ramkaFilmstripTimelineLogged?: boolean };
+  if (w.__ramkaFilmstripTimelineLogged) return;
+  w.__ramkaFilmstripTimelineLogged = true;
+
+  const css = typeof CSS !== 'undefined' ? CSS : null;
+  console.log('[ramka filmstrip] animation-timeline support', {
+    path,
+    isFirefox: typeof navigator !== 'undefined' && /Firefox\//.test(navigator.userAgent),
+    'CSS.supports(animation-timeline, scroll())': css?.supports('animation-timeline', 'scroll()') ?? null,
+    'CSS.supports(animation-timeline: scroll())': css?.supports('animation-timeline: scroll()') ?? null,
+    'CSS.supports(scroll-timeline-name: --x)': css?.supports('scroll-timeline-name', '--x') ?? null,
+    'CSS.supports(timeline-scope: --x)': css?.supports('timeline-scope', '--x') ?? null,
+    hasScrollTimeline: 'ScrollTimeline' in window,
+    userAgent: navigator.userAgent,
+  });
 }
 
 function filmstripThumbStepPx(strip: HTMLElement): number {
@@ -236,13 +256,27 @@ function readTranslateX(el: HTMLElement): number {
   return new DOMMatrix(t).m41;
 }
 
+/** Same geometry as Lightbox.Slides — scrollLeft that centers slide 0 + stride. */
+function measureSlidesGeometry(slides: HTMLElement): { base: number; step: number; count: number } {
+  const slideEls = slides.querySelectorAll<HTMLElement>('[data-ramka-slide]');
+  const count = slideEls.length;
+  const clientWidth = slides.clientWidth || 1;
+  if (count === 0) return { base: 0, step: clientWidth, count: 0 };
+  const first = slideEls[0]!;
+  const width = first.offsetWidth || clientWidth;
+  const base = first.offsetLeft + width / 2 - clientWidth / 2;
+  const step = count > 1 ? slideEls[1]!.offsetLeft - first.offsetLeft : clientWidth;
+  return { base, step: step > 0 ? step : clientWidth, count };
+}
+
 /**
  * Demo-only filmstrip (not part of ramka):
- * - Enhanced: track `translateX` is scroll-timeline-linked to Lightbox.Slides
- *   (Slides is the only scroller; strip is display-only + tap targets).
+ * - Chromium/WebKit: track `translateX` via CSS scroll-timeline on Slides.
+ * - No CSS SDA (Firefox today): same non-scrolling midline layout, transform
+ *   synced from Slides scroll in JS. Never use overflow-x fallback when JS sync
+ *   is available — that made the strip itself scrollable on Firefox.
  * - Thumb click → `setActiveIndex('thumbnail')` + WAAPI strip scrub + slides
  *   crossfade via element-scoped VT when available (Safari: hard-cut slides).
- * - Fallback: overflow strip + scrollIntoView on `data-active`.
  */
 function GalleryThumbnailStrip({
   items,
@@ -254,12 +288,17 @@ function GalleryThumbnailStrip({
   const viewportRef = React.useRef<HTMLDivElement>(null);
   const groupRef = React.useRef<HTMLDivElement>(null);
   const scrubAnimRef = React.useRef<Animation | null>(null);
+  const syncFromScrollRef = React.useRef<(() => void) | null>(null);
   /** Bumps when a scrub starts/ends so deferred bridge clears can't clobber a newer scrub. */
   const scrubEpochRef = React.useRef(0);
   const { activeIndex, setActiveIndex, navigationLockedRef } = useLightboxContext();
   const activeIndexRef = React.useRef(activeIndex);
   activeIndexRef.current = activeIndex;
-  const linked = supportsFilmstripScrollLink();
+  const cssTimeline = supportsCssFilmstripScrollLink();
+  // Always a linked (non-scrolling) strip — CSS timeline or JS sync.
+  const linked = true;
+  const jsLinked = !cssTimeline;
+  logFilmstripTimelineSupport(jsLinked ? 'js-sync' : 'css-timeline');
 
   const getSlides = React.useCallback((): HTMLElement | null => {
     const viewport = viewportRef.current;
@@ -272,15 +311,75 @@ function GalleryThumbnailStrip({
   }, []);
 
   /**
-   * Hand the track back to CSS scroll-timeline. Safari paints keyframe 0
-   * (`translateX(0)`) for a frame if we clear WAAPI + `animation: none` in the
-   * same turn — bridge the final translateX until the timeline has reattached.
+   * JS sync path: drive track translate from Slides scroll using lightbox
+   * base/step (progress 0→1 over the index range). Skipped while WAAPI scrub
+   * owns the transform.
+   */
+  React.useLayoutEffect(() => {
+    if (!jsLinked) return;
+    const track = groupRef.current;
+    const strip = viewportRef.current;
+    const slides = getSlides();
+    if (!track || !strip || !slides) return;
+
+    let base = 0;
+    let step = 1;
+    let count = 1;
+
+    const measure = () => {
+      const g = measureSlidesGeometry(slides);
+      base = g.base;
+      step = g.step;
+      count = g.count;
+    };
+
+    const sync = () => {
+      if (scrubAnimRef.current) return;
+      const travel = Math.max(0, count - 1) * filmstripThumbStepPx(strip);
+      const logicalMax = Math.max(0, count - 1) * step;
+      const t =
+        logicalMax <= 0
+          ? 0
+          : Math.min(1, Math.max(0, (slides.scrollLeft - base) / logicalMax));
+      track.style.transform = `translate3d(${-t * travel}px, 0, 0)`;
+    };
+
+    syncFromScrollRef.current = sync;
+    measure();
+    sync();
+
+    const onScroll = () => sync();
+    slides.addEventListener('scroll', onScroll, { passive: true });
+    const ro = new ResizeObserver(() => {
+      measure();
+      sync();
+    });
+    ro.observe(slides);
+
+    return () => {
+      syncFromScrollRef.current = null;
+      slides.removeEventListener('scroll', onScroll);
+      ro.disconnect();
+      track.style.removeProperty('transform');
+    };
+  }, [jsLinked, getSlides, items.length]);
+
+  /**
+   * Hand the track back after WAAPI scrub.
+   * - CSS timeline path: bridge transform until the timeline reattaches (Safari).
+   * - JS sync path: drop WAAPI and re-sync from scroll.
    */
   const endTrackScrub = React.useCallback(() => {
     const track = groupRef.current;
     const anim = scrubAnimRef.current;
     scrubAnimRef.current = null;
     if (!track) return;
+
+    if (jsLinked) {
+      anim?.cancel();
+      syncFromScrollRef.current?.();
+      return;
+    }
 
     const bridgeX = readTranslateX(track);
     try {
@@ -291,7 +390,7 @@ function GalleryThumbnailStrip({
     anim?.cancel();
 
     const epoch = scrubEpochRef.current;
-    track.style.transform = `translateX(${bridgeX}px)`;
+    track.style.transform = `translate3d(${bridgeX}px, 0, 0)`;
     track.style.removeProperty('animation');
 
     requestAnimationFrame(() => {
@@ -301,7 +400,7 @@ function GalleryThumbnailStrip({
         track.style.removeProperty('transform');
       });
     });
-  }, []);
+  }, [jsLinked]);
 
   React.useEffect(() => {
     return () => {
@@ -321,6 +420,10 @@ function GalleryThumbnailStrip({
    * Same as `Lightbox.Thumbnail` → `setActiveIndex`, plus docs-only motion:
    * slides crossfade (VT) and filmstrip WAAPI scrub. Mid-fling taps respect
    * the library nav lock.
+   *
+   * Safari drops the first frames if `animation: none` runs before a hold
+   * transform (timeline keyframe 0 flashes). Order: sample → pin transform →
+   * kill CSS animation → paused WAAPI at fromX → commit slides → play.
    */
   const goToIndex = React.useCallback(
     (index: number) => {
@@ -340,44 +443,14 @@ function GalleryThumbnailStrip({
         typeof matchMedia === 'function' &&
         matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-      const startFilmstripScrub = () => {
-        if (!linked || reduceMotion || !strip || !track || typeof track.animate !== 'function') {
-          endTrackScrub();
-          return;
-        }
+      if (reduceMotion) {
+        commit();
+        return;
+      }
 
-        const step = filmstripThumbStepPx(strip);
-        const fromX = readTranslateX(track);
-        const toX = -index * step;
+      let scrub: Animation | null = null;
 
-        if (Math.abs(fromX - toX) < 0.5) {
-          endTrackScrub();
-          return;
-        }
-
-        const anim = track.animate(
-          [{ transform: `translateX(${fromX}px)` }, { transform: `translateX(${toX}px)` }],
-          {
-            duration: 450,
-            easing: 'cubic-bezier(0.22, 1, 0.36, 1)',
-            fill: 'forwards',
-          },
-        );
-        scrubAnimRef.current = anim;
-        void anim.finished.then(
-          () => {
-            if (scrubAnimRef.current !== anim) return;
-            endTrackScrub();
-          },
-          () => {
-            /* cancelled by a newer scrub — next goToIndex owns styles */
-          },
-        );
-      };
-
-      /** Hold strip position before slides jump so timeline doesn't hard-cut. */
-      const prepareFilmstripHold = () => {
-        if (!linked || reduceMotion || !strip || !track) return;
+      if (linked && strip && track && typeof track.animate === 'function') {
         scrubEpochRef.current += 1; // invalidate any pending release bridge clear
         const prev = scrubAnimRef.current;
         if (prev) {
@@ -389,17 +462,43 @@ function GalleryThumbnailStrip({
           prev.cancel();
           scrubAnimRef.current = null;
         }
+
+        // Sample while CSS timeline / JS sync still owns the transform.
         const fromX = readTranslateX(track);
-        track.style.setProperty('animation', 'none');
-        track.style.transform = `translateX(${fromX}px)`;
-      };
+        const toX = -index * filmstripThumbStepPx(strip);
 
-      if (reduceMotion) {
-        commit();
-        return;
+        // Pin hold. CSS path: then `animation: none` (Safari flashes keyframe 0
+        // if those are reversed). JS path: no CSS animation to disable.
+        track.style.transform = `translate3d(${fromX}px, 0, 0)`;
+        if (!jsLinked) track.style.setProperty('animation', 'none');
+
+        if (Math.abs(fromX - toX) >= 0.5) {
+          // WAAPI owns the hold before slides jump (paused on the first keyframe).
+          scrub = track.animate(
+            [
+              { transform: `translate3d(${fromX}px, 0, 0)` },
+              { transform: `translate3d(${toX}px, 0, 0)` },
+            ],
+            {
+              duration: 450,
+              easing: 'cubic-bezier(0.22, 1, 0.36, 1)',
+              fill: 'forwards',
+            },
+          );
+          scrub.pause();
+          scrub.currentTime = 0;
+          scrubAnimRef.current = scrub;
+          void scrub.finished.then(
+            () => {
+              if (scrubAnimRef.current !== scrub) return;
+              endTrackScrub();
+            },
+            () => {
+              /* cancelled by a newer scrub — next goToIndex owns styles */
+            },
+          );
+        }
       }
-
-      prepareFilmstripHold();
 
       // Slides crossfade only via *element-scoped* VT. Document VT (Safari's
       // path today) snapshots the whole page — hiding root to keep the strip
@@ -407,39 +506,15 @@ function GalleryThumbnailStrip({
       type VTHost = { startViewTransition: (cb: () => void) => unknown };
       if (slides && typeof (slides as HTMLElement & VTHost).startViewTransition === 'function') {
         (slides as HTMLElement & VTHost).startViewTransition(commit);
-        startFilmstripScrub();
-        return;
+      } else {
+        commit();
       }
 
-      commit();
-      startFilmstripScrub();
+      if (scrub) scrub.play();
+      else if (linked && track) endTrackScrub();
     },
-    [linked, navigationLockedRef, setActiveIndex, endTrackScrub, getSlides],
+    [linked, jsLinked, navigationLockedRef, setActiveIndex, endTrackScrub, getSlides],
   );
-
-  // Fallback only: center the active thumb when the stage index changes.
-  React.useLayoutEffect(() => {
-    if (linked) return;
-    const root = groupRef.current;
-    if (!root) return;
-    root
-      .querySelector<HTMLElement>('[role="tab"][data-active]')
-      ?.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'auto' });
-  }, [linked]);
-
-  React.useEffect(() => {
-    if (linked) return;
-    const root = groupRef.current;
-    if (!root) return;
-    const scrollActiveIntoView = () => {
-      root
-        .querySelector<HTMLElement>('[role="tab"][data-active]')
-        ?.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
-    };
-    const mo = new MutationObserver(scrollActiveIntoView);
-    mo.observe(root, { attributes: true, attributeFilter: ['data-active'], subtree: true });
-    return () => mo.disconnect();
-  }, [linked]);
 
   // Capture-phase: same navigation as Thumbnail, plus linked WAAPI scrub.
   React.useEffect(() => {
@@ -458,8 +533,32 @@ function GalleryThumbnailStrip({
     return () => group.removeEventListener('click', onClickCapture, true);
   }, [goToIndex, items.length]);
 
+  // Linked strip must not be a scroller (Firefox was getting overflow-x: auto from
+  // the @supports-not fallback). Kill wheel/trackpad on the clip just in case.
+  React.useEffect(() => {
+    if (!linked) return;
+    const clip = viewportRef.current?.querySelector('.lightbox-demo-filmstrip-clip');
+    if (!clip) return;
+    const prevent = (e: Event) => e.preventDefault();
+    clip.addEventListener('wheel', prevent, { passive: false });
+    clip.addEventListener('touchmove', prevent, { passive: false });
+    return () => {
+      clip.removeEventListener('wheel', prevent);
+      clip.removeEventListener('touchmove', prevent);
+    };
+  }, [linked]);
+
   return (
-    <div ref={viewportRef} className={className}>
+    <div
+      ref={viewportRef}
+      className={[
+        className,
+        linked ? 'lightbox-demo-filmstrip--linked' : '',
+        jsLinked ? 'lightbox-demo-filmstrip--js-link' : '',
+      ]
+        .filter(Boolean)
+        .join(' ')}
+    >
       {/* Clip/scroll the track; frame stays a sibling so outline-offset isn't clipped. */}
       <div className="lightbox-demo-filmstrip-clip">
         <Lightbox.ThumbnailGroup

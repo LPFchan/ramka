@@ -1,10 +1,12 @@
 /**
- * Docs-only: link the filmstrip track to Lightbox.Slides via a named scroll
- * timeline. Slides is the sole scroll authority; the strip is a transformed
- * mirror + tap targets (not a second overflow scroller).
+ * Docs-only: link the filmstrip track to Lightbox.Slides.
  *
- * Requires: `timeline-scope` on `.lightbox-demo-content`, `scroll-timeline-*`
- * on `.lightbox-demo-slides`, and `--thumb-count` on the track.
+ * Layout (clip / midline / frame) is driven by `.lightbox-demo-filmstrip--linked`
+ * from JS — not by `@supports (animation-timeline)`, which disagrees with
+ * `CSS.supports()` on Firefox and was leaving the strip as `overflow-x: auto`.
+ *
+ * Chromium/WebKit: CSS scroll-timeline on the track.
+ * No CSS SDA (Firefox): `.lightbox-demo-filmstrip--js-link` + JS transform sync.
  *
  * Selection chrome is a stationary center frame (sibling of the clip), so
  * outline-offset is never clipped by the track's overflow.
@@ -48,6 +50,25 @@
   outline-color: #fff;
 }
 
+/* ── Linked strip (CSS timeline or JS sync): never a scrollport ─────────── */
+
+.lightbox-demo-filmstrip--linked .lightbox-demo-filmstrip-clip {
+  /* `hidden` is still a scrollport — focusing a thumb scrolls it and twitches
+     the track. `clip` paints the same but is not a scroll container. */
+  overflow: hidden;
+  overflow: clip;
+  overscroll-behavior: none;
+  touch-action: none;
+  /* Definite inline size for track padding (`50cqw`). */
+  container-type: inline-size;
+}
+
+.lightbox-demo-filmstrip--linked .lightbox-demo-filmstrip-track {
+  padding-inline: calc(50cqw - var(--thumb-half));
+}
+
+/* ── Chromium / WebKit: CSS scroll-timeline ──────────────────────────────── */
+
 @supports (animation-timeline: scroll()) {
   .lightbox-demo-content {
     timeline-scope: --ramka-slides;
@@ -58,17 +79,8 @@
     scroll-timeline-axis: x;
   }
 
-  .lightbox-demo-filmstrip-clip {
-    /* `hidden` is still a scrollport — focusing a thumb (pointerdown) scrolls
-       this clip to reveal it, which twitches the scroll-timeline track even
-       when mid-fling nav is dropped. `clip` paints the same but is not a
-       scroll container, so focus can't nudge it. */
-    overflow: clip;
-  }
-
-  .lightbox-demo-filmstrip-track {
-    /* Midline room for first/last thumb without being a scroller. */
-    padding-inline: calc(50% - var(--thumb-half));
+  .lightbox-demo-filmstrip--linked:not(.lightbox-demo-filmstrip--js-link)
+    .lightbox-demo-filmstrip-track {
     animation-name: lightbox-demo-filmstrip-link;
     animation-duration: auto;
     animation-timing-function: linear;
@@ -83,22 +95,6 @@
     to {
       transform: translateX(calc(-1 * (var(--thumb-count) - 1) * var(--thumb-step)));
     }
-  }
-}
-
-@supports not (animation-timeline: scroll()) {
-  .lightbox-demo-filmstrip-clip {
-    overflow-x: auto;
-    scrollbar-width: none;
-  }
-
-  .lightbox-demo-filmstrip-clip::-webkit-scrollbar {
-    display: none;
-  }
-
-  /* Edge-aware strip; JS scrollIntoView centers the active thumb. */
-  .lightbox-demo-filmstrip-track {
-    padding-inline: 0.25rem;
   }
 }
 
