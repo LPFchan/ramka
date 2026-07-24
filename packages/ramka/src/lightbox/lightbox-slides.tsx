@@ -5,7 +5,12 @@ import * as React from 'react';
 
 import { useLightboxContext } from './lightbox-context';
 import { LightboxItemGroupContext, type LightboxItemGroupContextValue } from './lightbox-item-group';
-import { measureSlidesGeometry, SLIDE_SELECTOR } from './lightbox-slides-geometry';
+import {
+  measureSlidesGeometry,
+  slideIndexFromScrollLeft,
+  slideScrollLeftForIndex,
+  SLIDE_SELECTOR,
+} from './lightbox-slides-geometry';
 
 /**
  * `Lightbox.Slides` — a dedicated, lightbox-only horizontal snap scroller.
@@ -15,21 +20,17 @@ import { measureSlidesGeometry, SLIDE_SELECTOR } from './lightbox-slides-geometr
  * A lightbox carousel is a *very* constrained scroller, and leaning into those
  * constraints is what makes state-sync bulletproof:
  *
- * - **One axis** (horizontal), **one slide per page** (each slide is exactly one
- *   viewport wide), **center snap**, **mandatory snap**, **`scroll-snap-stop:
- *   always`** (a fling advances at most one slide, iOS-Photos style).
+ * - **One axis** (horizontal), **center snap**, **mandatory snap**,
+ *   **`scroll-snap-stop: always`** (a fling advances at most one slide,
+ *   iOS-Photos style). Slides are usually one viewport wide; they may also be
+ *   content-sized (snug around media) as long as snap offsets are measurable.
  *
- * Because every slide is the same width, the CSS Overflow §3.1.8 "active scroll
- * marker" algorithm — per-item `getBoundingClientRect` + unreachable-position
- * redistribution — collapses to O(1) arithmetic on **offset geometry**:
+ * Index sync uses **offset geometry** (`offsetLeft` / `offsetWidth`) — reliable
+ * inside a `<dialog>`/portal on mobile Safari, unlike `getBoundingClientRect`:
  *
- *   step  = offsetLeft(slide₁) − offsetLeft(slide₀)      // uniform stride
- *   base  = offsetLeft(slide₀) + width/2 − clientWidth/2 // scrollLeft that centers slide 0
- *   index = clamp(round((scrollLeft − base) / step), 0, n−1)
- *
- * `offsetLeft`/`offsetWidth` are layout values, so unlike `getBoundingClientRect`
- * they are reliable inside a `<dialog>`/portal on mobile Safari (a long-standing
- * source of "lands on the wrong slide" bugs).
+ *   offsets[i] = offsetLeft(slideᵢ) + widthᵢ/2 − clientWidth/2
+ *   index      = nearest offsets[i] to scrollLeft
+ *   (uniform full-bleed tracks still use the O(1) round((scrollLeft−base)/step) path)
  *
  * ## Eventual-scroll-position authority (the reliability core)
  *
@@ -155,9 +156,7 @@ const LightboxSlides = React.forwardRef<HTMLDivElement, LightboxSlidesProps>(
     );
 
     const indexFromScroll = React.useCallback((viewport: HTMLElement): number => {
-      const { base, step, count } = geometryRef.current;
-      if (count === 0) return 0;
-      return clamp(Math.round((viewport.scrollLeft - base) / step), 0, count - 1);
+      return slideIndexFromScrollLeft(viewport.scrollLeft, geometryRef.current);
     }, []);
 
     // Force WebKit to re-rasterize a slide's tile (a synchronous visibility
@@ -184,9 +183,12 @@ const LightboxSlides = React.forwardRef<HTMLDivElement, LightboxSlidesProps>(
       (index: number) => {
         const viewport = viewportRef.current;
         if (!viewport) return;
-        const { base, step } = geometryRef.current;
         const max = viewport.scrollWidth - viewport.clientWidth;
-        const target = clamp(base + index * step, 0, max > 0 ? max : 0);
+        const target = clamp(
+          slideScrollLeftForIndex(index, geometryRef.current),
+          0,
+          max > 0 ? max : 0,
+        );
         if (Math.abs(viewport.scrollLeft - target) < 1) return;
 
         programmaticRef.current = true;
@@ -245,7 +247,9 @@ const LightboxSlides = React.forwardRef<HTMLDivElement, LightboxSlidesProps>(
           prev &&
           next.base === prev.base &&
           next.step === prev.step &&
-          next.count === prev.count
+          next.count === prev.count &&
+          next.offsets.length === prev.offsets.length &&
+          next.offsets.every((offset, i) => offset === prev.offsets[i])
         ) {
           return;
         }

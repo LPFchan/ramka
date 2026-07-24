@@ -108,9 +108,26 @@ function getScrollTimelineConstructor(): ScrollTimelineConstructor | null {
 /** Docs-local copy of ramka `slidesScrollProgress` (JS fallback). */
 function demoSlidesScrollProgress(
   viewport: HTMLElement,
-  geometry: { base: number; step: number; count: number },
+  geometry: { offsets?: number[]; base: number; step: number; count: number },
 ): number {
-  const { base, step, count } = geometry;
+  const { offsets, base, step, count } = geometry;
+  if (count <= 1) return 0;
+  if (offsets && offsets.length === count) {
+    const scroll = viewport.scrollLeft;
+    const first = offsets[0]!;
+    const last = offsets[count - 1]!;
+    if (scroll <= first) return 0;
+    if (scroll >= last) return 1;
+    for (let i = 0; i < count - 1; i++) {
+      const a = offsets[i]!;
+      const b = offsets[i + 1]!;
+      if (scroll <= b) {
+        const t = (scroll - a) / (b - a || 1);
+        return (i + t) / (count - 1);
+      }
+    }
+    return 1;
+  }
   const logicalMax = Math.max(0, count - 1) * step;
   if (logicalMax <= 0) return 0;
   return Math.min(1, Math.max(0, (viewport.scrollLeft - base) / logicalMax));
@@ -220,11 +237,22 @@ function GalleryFilmstrip({
       const slides = slidesViewportRef.current;
       const ScrollTimeline = getScrollTimelineConstructor();
       const aspects = itemAspectsRef.current;
+      const geometry = slidesGeometryRef.current;
+      // Equal-offset aspect keyframes assume index-linear progress; skip
+      // ScrollTimeline on variable-width (snug) tracks and use JS sync.
+      const uniform =
+        !geometry.offsets ||
+        geometry.offsets.length !== geometry.count ||
+        geometry.count < 2 ||
+        geometry.offsets.every(
+          (offset, i) => Math.abs(offset - (geometry.base + i * geometry.step)) < 1,
+        );
       if (
         !morph ||
         !slides ||
         aspects.length === 0 ||
         !ScrollTimeline ||
+        !uniform ||
         typeof KeyframeEffect === 'undefined' ||
         typeof Animation === 'undefined'
       ) {
@@ -462,6 +490,15 @@ export function LightboxGallery({
    * `scrollTriggerIntoView` so page scroll under the viewer isn’t visible).
    */
   backdrop = 'scrim',
+  /**
+   * `bleed` — each slide spans the viewport (default Photos-style track).
+   * `snug` — snap boxes are inscribed to the media aspect (card-sized, with a
+   * gap). Item/Zoom still fill the Slides viewport so Zoom’s overflow clip
+   * doesn’t trap pinch-zoom inside the card. Resting chrome insets belong on
+   * Zoom (same as bleed) — never on Slides — so zoomed media can paint under
+   * the chrome instead of being clipped by Slides’ padding + overflow-y.
+   */
+  slidesLayout = 'bleed',
   renderItem,
 }: {
   items: LightboxGalleryItem[];
@@ -474,6 +511,7 @@ export function LightboxGallery({
   /** Pass `false` when content owns vertical drag (maps, orbit, …). @default true */
   pullToClose?: boolean;
   backdrop?: 'scrim' | 'solid';
+  slidesLayout?: 'bleed' | 'snug';
   renderItem?: (item: LightboxGalleryItem, index: number, ctx: GalleryItemRenderCtx) => React.ReactNode;
 }) {
   // Viewport visibility only — linked layout/sync live in Lightbox.Filmstrip.
@@ -485,6 +523,15 @@ export function LightboxGallery({
         : 'pointer-events-auto hidden md:block lightbox-demo-filmstrip';
 
   const backdropTone = backdrop === 'solid' ? 'bg-white dark:bg-black' : 'lightbox-demo-backdrop-light';
+  const snug = slidesLayout === 'snug';
+
+  // Must match Zoom padding below — used so snug snap boxes hug the resting Media
+  // fit-box (Zoom’s content box), not the full Slides viewport.
+  const snugInsetX = '2.5rem'; // px-5 (md:px-8 is slightly roomier; close enough for snap)
+  const snugInsetY =
+    'calc(3.5rem + 7.5rem + env(safe-area-inset-top, 0px) + env(safe-area-inset-bottom, 0px))';
+  const snugZoomPad =
+    'px-5 pt-[calc(env(safe-area-inset-top,0px)+3.5rem)] pb-[calc(env(safe-area-inset-bottom,0px)+7.5rem)] md:px-8';
 
   return (
     <Lightbox.Portal>
@@ -497,36 +544,102 @@ export function LightboxGallery({
         <Lightbox.Slides
           aria-label="Full-size images"
           preload={preload}
-          className="lightbox-demo-slides flex-1 gap-5 [&::-webkit-scrollbar]:hidden md:gap-0"
+          className={
+            snug
+              ? // End spacers + card gap live in `lightbox-demo/snug-slides.css`
+                // (::before/::after at 50%, sibling margin — not flex `gap`).
+                'lightbox-demo-slides lightbox-demo-slides-snug flex-1 items-center [&::-webkit-scrollbar]:hidden'
+              : 'lightbox-demo-slides flex-1 gap-5 [&::-webkit-scrollbar]:hidden md:gap-0'
+          }
+          style={snug ? { containerType: 'size' } : undefined}
         >
-          {items.map((item, i) => (
-            <Lightbox.Slide key={item.id ?? i} className="relative h-full">
-              <Lightbox.Item index={i} caption={item.caption ?? item.alt} className="relative size-full">
-                {({ imageRef, morphRef }) =>
-                  renderItem ? (
-                    renderItem(item, i, { imageRef, morphRef })
-                  ) : (
-                    <Lightbox.Zoom
-                      maxZoom={maxZoom}
-                      className="px-0 pt-[calc(env(safe-area-inset-top,0px)+3.5rem)] pb-[calc(env(safe-area-inset-bottom,0px)+3.5rem)] md:px-8 md:pt-[calc(env(safe-area-inset-top,0px)+3.5rem)] md:pb-[calc(env(safe-area-inset-bottom,0px)+7.5rem)]"
-                    >
-                      {/* Radius/overflow are cosmetic on Media; width/height are structural. */}
-                      <Lightbox.Media {...imgDims(item.src)} className="overflow-hidden rounded-none md:rounded-lg">
-                        <img
-                          {...imgDims(item.src)}
-                          src={item.src}
-                          alt={item.alt}
-                          loading="eager"
-                          draggable={false}
-                          className="select-none"
-                        />
-                      </Lightbox.Media>
-                    </Lightbox.Zoom>
-                  )
+          {items.map((item, i) => {
+            const dims = imgDims(item.src);
+            const ratio = dims ? dims.width / dims.height : 16 / 9;
+            return (
+              <Lightbox.Slide
+                key={item.id ?? i}
+                className={
+                  snug
+                    ? // Opacity / z-index for zoom + pull-progress live in
+                      // `lightbox-demo/pull-progress.css` (`.lightbox-demo-slide-snug`).
+                      'lightbox-demo-slide-snug relative z-0 overflow-visible'
+                    : 'relative h-full'
                 }
-              </Lightbox.Item>
-            </Lightbox.Slide>
-          ))}
+                style={
+                  snug
+                    ? {
+                        // Snap box ≈ resting Media (inscribed in Zoom’s padded content box).
+                        // overflow:visible so the viewport-sized Item/Zoom isn’t clipped.
+                        flex: '0 0 auto',
+                        minWidth: 0,
+                        width: `min(calc(100cqw - ${snugInsetX}), calc((100cqh - ${snugInsetY}) * ${ratio}))`,
+                        height: `min(calc(100cqh - ${snugInsetY}), calc((100cqw - ${snugInsetX}) / ${ratio}))`,
+                        alignSelf: 'center',
+                        overflow: 'visible',
+                      }
+                    : undefined
+                }
+              >
+                <Lightbox.Item
+                  index={i}
+                  caption={item.caption ?? item.alt}
+                  className={snug ? 'relative' : 'relative size-full'}
+                  style={
+                    snug
+                      ? {
+                          // Zoom clips to its own box (`overflow: hidden`). Size that box
+                          // to the full Slides viewport (not the snug snap box) so zoom/pan
+                          // can cover the stage — same as bleed. Center with left/top only;
+                          // pull-to-dismiss owns `transform` on the item.
+                          position: 'absolute',
+                          width: '100cqw',
+                          height: '100cqh',
+                          left: 'calc(50% - 50cqw)',
+                          top: 'calc(50% - 50cqh)',
+                        }
+                      : undefined
+                  }
+                >
+                  {({ imageRef, morphRef }) =>
+                    renderItem ? (
+                      renderItem(item, i, { imageRef, morphRef })
+                    ) : (
+                      <Lightbox.Zoom
+                        maxZoom={maxZoom}
+                        className={
+                          snug
+                            ? // Resting insets on Zoom (not Slides): scaled media can paint
+                              // into the padding under chrome, matching other demos.
+                              snugZoomPad
+                            : 'px-0 pt-[calc(env(safe-area-inset-top,0px)+3.5rem)] pb-[calc(env(safe-area-inset-bottom,0px)+3.5rem)] md:px-8 md:pt-[calc(env(safe-area-inset-top,0px)+3.5rem)] md:pb-[calc(env(safe-area-inset-bottom,0px)+7.5rem)]'
+                        }
+                      >
+                        {/* Radius/overflow are cosmetic on Media; width/height are structural. */}
+                        <Lightbox.Media
+                          {...imgDims(item.src)}
+                          className={
+                            snug
+                              ? 'overflow-hidden rounded-xl'
+                              : 'overflow-hidden rounded-none md:rounded-lg'
+                          }
+                        >
+                          <img
+                            {...imgDims(item.src)}
+                            src={item.src}
+                            alt={item.alt}
+                            loading="eager"
+                            draggable={false}
+                            className="select-none"
+                          />
+                        </Lightbox.Media>
+                      </Lightbox.Zoom>
+                    )
+                  }
+                </Lightbox.Item>
+              </Lightbox.Slide>
+            );
+          })}
         </Lightbox.Slides>
 
         <div

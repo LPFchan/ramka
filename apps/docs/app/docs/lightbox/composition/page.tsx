@@ -95,8 +95,10 @@ export default function LightboxCompositionPage() {
           <code className="text-xs">&lt;img&gt;</code> (from known pixel dims or CMS metadata) so the box and aspect
           ratio exist <em>before</em> pixels load. That avoids CLS, keeps the morph target sized on slow networks, and
           prevents an unloaded <code className="text-xs">size: auto</code> image from collapsing to 0×0 (which can skip
-          or weaken the open morph). When dimensions are unknown, see{' '}
-          <DocsLink href="/examples/lightbox/moodboard">Moodboard</DocsLink>.
+          or weaken the open morph).           When dimensions are unknown, see{' '}
+          <DocsLink href="/examples/lightbox/moodboard">Moodboard</DocsLink>. For the same grid with
+          slides sized to the media aspect (not full-bleed), see{' '}
+          <DocsLink href="/examples/lightbox/moodboard-snug">Moodboard (snug slides)</DocsLink>.
         </p>
         <p>
           To fill the maximum available space without distorting the source aspect ratio, nest Media under{' '}

@@ -186,8 +186,8 @@ interface LightboxContextValue {
    */
   slidesViewportRef: React.MutableRefObject<HTMLElement | null>;
   /**
-   * Latest Slides offset geometry (`base` / `step` / `count`), owned and
-   * updated by `Lightbox.Slides`. Filmstrip reads this instead of re-querying
+   * Latest Slides offset geometry (`offsets` / `base` / `step` / `count`), owned
+   * and updated by `Lightbox.Slides`. Filmstrip reads this instead of re-querying
    * the slide DOM.
    */
   slidesGeometryRef: React.MutableRefObject<SlidesGeometry>;

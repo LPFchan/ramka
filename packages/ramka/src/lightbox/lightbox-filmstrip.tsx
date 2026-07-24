@@ -7,7 +7,7 @@ import { useLightboxContext } from './lightbox-context';
 import { LightboxFilmstripCssVars } from './lightbox-css-vars';
 import { LightboxFilmstripDataAttributes } from './lightbox-data-attributes';
 import { LightboxFilmstripContext } from './lightbox-filmstrip-context';
-import { slidesScrollProgress } from './lightbox-slides-geometry';
+import { slidesGeometryIsUniform, slidesScrollProgress } from './lightbox-slides-geometry';
 
 interface LightboxFilmstripState extends Record<string, unknown> {
   /** True while a pointer thumb-select WAAPI scrub is in flight. */
@@ -238,7 +238,10 @@ const LightboxFilmstrip = React.forwardRef<HTMLDivElement, LightboxFilmstripProp
       const track = trackRef.current;
       const slides = slidesViewportRef.current;
       const ScrollTimeline = getScrollTimelineConstructor();
-      if (!track || !slides || !ScrollTimeline) {
+      const geometry = slidesGeometryRef.current;
+      // ScrollTimeline progress is linear in scroll distance; variable-width
+      // (snug) tracks need index-linear JS sync via slidesScrollProgress.
+      if (!track || !slides || !ScrollTimeline || !slidesGeometryIsUniform(geometry)) {
         usesScrollTimelineRef.current = false;
         return false;
       }
@@ -251,7 +254,6 @@ const LightboxFilmstrip = React.forwardRef<HTMLDivElement, LightboxFilmstripProp
       track.style.removeProperty('transform');
       track.style.removeProperty('animation');
 
-      const geometry = slidesGeometryRef.current;
       const travel = Math.max(0, geometry.count - 1) * thumbStepRef.current;
       const timeline = new ScrollTimeline({ source: slides, axis: 'x' });
       const effect = new KeyframeEffect(

@@ -1,0 +1,26 @@
+/**
+ * Snug (variable-width) slides track.
+ *
+ * Center snap needs scroll range on both ends. Left overflow cannot create a
+ * negative scrollLeft, so the track is padded with half-scrollport flex
+ * spacers via ::before / ::after — the standard CSS pattern for this.
+ *
+ * Card spacing uses adjacent-sibling margin (not `gap`) so the end spacers
+ * stay a clean `50%` no matter how wide you make the gap.
+ */
+
+.lightbox-demo-slides-snug {
+  --lightbox-snug-gap: 1.25rem;
+  gap: 0;
+}
+
+.lightbox-demo-slides-snug::before,
+.lightbox-demo-slides-snug::after {
+  content: '';
+  flex: 0 0 50%;
+  pointer-events: none;
+}
+
+.lightbox-demo-slides-snug > .lightbox-demo-slide-snug + .lightbox-demo-slide-snug {
+  margin-inline-start: var(--lightbox-snug-gap);
+}

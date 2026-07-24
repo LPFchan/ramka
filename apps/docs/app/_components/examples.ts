@@ -29,6 +29,12 @@ export const lightboxExamples: ExampleLink[] = [
       'Masonry wall of images with unknown dimensions (no width/height, no reserved aspect ratio) — stresses the morph size-resolution fallback and trigger-thumbnail placeholder.',
   },
   {
+    slug: 'moodboard-snug',
+    title: 'Moodboard (snug slides)',
+    description:
+      'Same masonry as Moodboard, but lightbox slides hug each image’s aspect (card-sized snap boxes with a gap) instead of spanning the full viewport.',
+  },
+  {
     slug: 'text-message',
     title: 'Text message',
     description: 'iMessage-style chat with a single morphTo="origin" trigger over a stack of attachments.',

@@ -1,6 +1,6 @@
 /**
- * Fade Backdrop with pull-to-dismiss progress (open/close base fade lives in
- * open-close.css). Content / media stay opaque; chrome fades separately via
+ * Fade Backdrop (and snug sibling slides) with pull-to-dismiss progress
+ * (open/close base fade lives in open-close.css). Chrome fades separately via
  * Tailwind `data-pulling` selectors in lightbox-chrome.
  *
  * @docsExcerpt pull-progress-css
@@ -14,6 +14,40 @@
 
 .lightbox-demo-backdrop[data-pulling] {
   transition: none; /* follow the finger */
+}
+
+/*
+ * Snug gallery slides — inactive cards ease with zoom + pull progress.
+ * `--lightbox-pull-progress` inherits from Content. While `data-pulling`,
+ * transition is off so opacity tracks the finger; on release the library
+ * publishes snap duration/easing so the fade springs back with the item.
+ */
+.lightbox-demo-slide-snug {
+  transition: opacity var(--lightbox-pull-snap-duration, 500ms)
+    var(--lightbox-pull-snap-easing, var(--ease-out-expo));
+}
+
+.lightbox-demo-content[data-pulling] .lightbox-demo-slide-snug {
+  transition: none;
+}
+
+/* Active card stays solid (pull transform is the dismiss cue). */
+.lightbox-demo-slide-snug:has([data-active]) {
+  opacity: 1;
+}
+
+/* Inactive: dim hard with pull; when zoomed, rest at 0.6 then nearly vanish. */
+.lightbox-demo-content:not([data-zoomed]) .lightbox-demo-slide-snug:not(:has([data-active])) {
+  opacity: calc(1 - var(--lightbox-pull-progress, 0) * 0.85);
+}
+
+.lightbox-demo-content[data-zoomed] .lightbox-demo-slide-snug:not(:has([data-active])) {
+  opacity: calc(0.6 * (1 - var(--lightbox-pull-progress, 0) * 0.85));
+  pointer-events: none;
+}
+
+.lightbox-demo-content[data-zoomed] .lightbox-demo-slide-snug:has([data-active]) {
+  z-index: 20;
 }
 
 /* Light scrim used by LightboxGallery (responsive-gallery chrome). */

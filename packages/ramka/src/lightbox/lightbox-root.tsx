@@ -497,7 +497,12 @@ function LightboxRoot(props: LightboxRootProps) {
     const dialogElementRef = React.useRef<HTMLElement | null>(null);
     const backdropElementRef = React.useRef<HTMLElement | null>(null);
     const slidesViewportRef = React.useRef<HTMLElement | null>(null);
-    const slidesGeometryRef = React.useRef({ base: 0, step: 1, count: 0 as number });
+    const slidesGeometryRef = React.useRef({
+      offsets: [] as number[],
+      base: 0,
+      step: 1,
+      count: 0 as number,
+    });
     const slidesViewportListenersRef = React.useRef(new Set<() => void>());
     const subscribeSlidesViewport = React.useCallback((listener: () => void) => {
       slidesViewportListenersRef.current.add(listener);
