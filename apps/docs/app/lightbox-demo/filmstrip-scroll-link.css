@@ -1,14 +1,13 @@
 /**
  * Docs-only: link the filmstrip track to Lightbox.Slides.
  *
- * Layout (clip / midline / frame) is shared by `--linked` and `--fallback`
+ * Layout (clip / midline / frame) is driven by `.lightbox-demo-filmstrip--linked`
  * from JS — not by `@supports (animation-timeline)`, which disagrees with
  * `CSS.supports()` on Firefox.
  *
  * Drivers:
- * - Chromium/WebKit: CSS scroll-timeline on the track (`--linked`)
- * - No CSS SDA: JS transform sync (`--js-link`)
- * - Discrete fallback: `translateX` from `--active-index` (`--fallback`)
+ * - Chromium/WebKit: CSS scroll-timeline on the track
+ * - No CSS SDA: `.lightbox-demo-filmstrip--js-link` + JS transform sync
  *
  * Selection chrome is a stationary center frame (sibling of the clip), so
  * outline-offset is never clipped by the track's overflow.
@@ -52,10 +51,9 @@
   outline-color: #fff;
 }
 
-/* ── Shared midline layout (linked or discrete fallback): never a scrollport ─ */
+/* ── Linked strip (CSS timeline or JS sync): never a scrollport ─────────── */
 
-:is(.lightbox-demo-filmstrip--linked, .lightbox-demo-filmstrip--fallback)
-  .lightbox-demo-filmstrip-clip {
+.lightbox-demo-filmstrip--linked .lightbox-demo-filmstrip-clip {
   /* `hidden` is still a scrollport — focusing a thumb scrolls it and twitches
      the track. `clip` paints the same but is not a scroll container. */
   overflow: hidden;
@@ -66,22 +64,8 @@
   container-type: inline-size;
 }
 
-:is(.lightbox-demo-filmstrip--linked, .lightbox-demo-filmstrip--fallback)
-  .lightbox-demo-filmstrip-track {
+.lightbox-demo-filmstrip--linked .lightbox-demo-filmstrip-track {
   padding-inline: calc(50cqw - var(--thumb-half));
-}
-
-/* ── Discrete fallback: index → translateX (no scrollport / scrollIntoView) ─ */
-
-.lightbox-demo-filmstrip--fallback .lightbox-demo-filmstrip-track {
-  transform: translateX(calc(-1 * var(--active-index, 0) * var(--thumb-step)));
-  transition: transform 450ms cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .lightbox-demo-filmstrip--fallback .lightbox-demo-filmstrip-track {
-    transition: none;
-  }
 }
 
 /* ── Chromium / WebKit: CSS scroll-timeline ──────────────────────────────── */

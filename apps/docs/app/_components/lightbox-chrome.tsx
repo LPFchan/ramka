@@ -216,8 +216,8 @@ export function LightboxGallery({
 }
 
 /**
- * TEMP — force discrete `--active-index` fallback on every browser so we can
- * design that path. Set false to restore CSS timeline / JS sync routing.
+ * TEMP — force the non-CSS (JS scroll→transform sync) path on every browser.
+ * Set false to restore CSS timeline when supported.
  */
 const FORCE_FILMSTRIP_OVERFLOW_FALLBACK = true;
 
@@ -227,7 +227,7 @@ function supportsCssFilmstripScrollLink(): boolean {
 }
 
 /** One-shot diagnostics — remove once filmstrip paths are confirmed. */
-function logFilmstripTimelineSupport(path: 'css-timeline' | 'js-sync' | 'overflow-fallback') {
+function logFilmstripTimelineSupport(path: 'css-timeline' | 'js-sync') {
   if (typeof window === 'undefined') return;
   const w = window as Window & { __ramkaFilmstripTimelineLogged?: boolean };
   if (w.__ramkaFilmstripTimelineLogged) return;
@@ -236,7 +236,7 @@ function logFilmstripTimelineSupport(path: 'css-timeline' | 'js-sync' | 'overflo
   const css = typeof CSS !== 'undefined' ? CSS : null;
   console.log('[ramka filmstrip] animation-timeline support', {
     path,
-    forceOverflowFallback: FORCE_FILMSTRIP_OVERFLOW_FALLBACK,
+    forceJsSync: FORCE_FILMSTRIP_OVERFLOW_FALLBACK,
     isFirefox: typeof navigator !== 'undefined' && /Firefox\//.test(navigator.userAgent),
     'CSS.supports(animation-timeline, scroll())': css?.supports('animation-timeline', 'scroll()') ?? null,
     'CSS.supports(animation-timeline: scroll())': css?.supports('animation-timeline: scroll()') ?? null,
@@ -279,14 +279,13 @@ function measureSlidesGeometry(slides: HTMLElement): { base: number; step: numbe
 /**
  * Demo-only filmstrip (not part of ramka):
  * - Chromium/WebKit: track `translateX` via CSS scroll-timeline on Slides.
- * - No CSS SDA (Firefox today): same non-scrolling midline layout, transform
- *   synced from Slides scroll in JS.
- * - Fallback: same midline layout, `translateX` from `--active-index`.
- * - Thumb click → `setActiveIndex('thumbnail')` + (linked) WAAPI scrub + slides
+ * - No CSS SDA (Firefox / forced): same non-scrolling midline layout, transform
+ *   synced continuously from Slides scroll in JS (swipe-smooth; keyboard jumps
+ *   with the stage).
+ * - Thumb click → `setActiveIndex('thumbnail')` + WAAPI scrub + slides
  *   crossfade via element-scoped VT when available (Safari: hard-cut slides).
  *
- * `FORCE_FILMSTRIP_OVERFLOW_FALLBACK` currently forces the discrete fallback
- * path everywhere.
+ * `FORCE_FILMSTRIP_OVERFLOW_FALLBACK` currently forces the JS-sync path everywhere.
  */
 function GalleryThumbnailStrip({
   items,
@@ -304,13 +303,12 @@ function GalleryThumbnailStrip({
   const { activeIndex, setActiveIndex, navigationLockedRef } = useLightboxContext();
   const activeIndexRef = React.useRef(activeIndex);
   activeIndexRef.current = activeIndex;
-  const fallback = FORCE_FILMSTRIP_OVERFLOW_FALLBACK;
-  const cssTimeline = !fallback && supportsCssFilmstripScrollLink();
-  const linked = !fallback;
-  const jsLinked = linked && !cssTimeline;
-  logFilmstripTimelineSupport(
-    fallback ? 'overflow-fallback' : jsLinked ? 'js-sync' : 'css-timeline',
-  );
+  const cssTimeline =
+    !FORCE_FILMSTRIP_OVERFLOW_FALLBACK && supportsCssFilmstripScrollLink();
+  // Always a linked (non-scrolling) strip — CSS timeline or JS scroll sync.
+  const linked = true;
+  const jsLinked = !cssTimeline;
+  logFilmstripTimelineSupport(jsLinked ? 'js-sync' : 'css-timeline');
 
   const getSlides = React.useCallback((): HTMLElement | null => {
     const viewport = viewportRef.current;
@@ -479,8 +477,8 @@ function GalleryThumbnailStrip({
         const fromX = readTranslateX(track);
         const toX = -index * filmstripThumbStepPx(strip);
 
-        // Pin hold. CSS path: then `animation: none` (Safari flashes keyframe 0
-        // if those are reversed). JS path: no CSS animation to disable.
+        // Pin hold. CSS timeline path: then `animation: none` (Safari flashes
+        // keyframe 0 if those are reversed). JS path: no CSS animation.
         track.style.transform = `translate3d(${fromX}px, 0, 0)`;
         if (!jsLinked) track.style.setProperty('animation', 'none');
 
@@ -545,10 +543,8 @@ function GalleryThumbnailStrip({
     return () => group.removeEventListener('click', onClickCapture, true);
   }, [goToIndex, items.length]);
 
-  // Linked paths: belt-and-suspenders against accidental scrollport input.
-  // Fallback uses `overflow: clip` + CSS transform — no scrollport to defend.
+  // Linked strip is never a scrollport — kill wheel/trackpad just in case.
   React.useEffect(() => {
-    if (!linked) return;
     const clip = viewportRef.current?.querySelector('.lightbox-demo-filmstrip-clip');
     if (!clip) return;
     const prevent = (e: Event) => e.preventDefault();
@@ -558,16 +554,15 @@ function GalleryThumbnailStrip({
       clip.removeEventListener('wheel', prevent);
       clip.removeEventListener('touchmove', prevent);
     };
-  }, [linked]);
+  }, []);
 
   return (
     <div
       ref={viewportRef}
       className={[
         className,
-        linked ? 'lightbox-demo-filmstrip--linked' : '',
+        'lightbox-demo-filmstrip--linked',
         jsLinked ? 'lightbox-demo-filmstrip--js-link' : '',
-        fallback ? 'lightbox-demo-filmstrip--fallback' : '',
       ]
         .filter(Boolean)
         .join(' ')}
@@ -581,7 +576,6 @@ function GalleryThumbnailStrip({
           style={
             {
               ['--thumb-count' as string]: String(Math.max(items.length, 1)),
-              ['--active-index' as string]: String(activeIndex),
             } as React.CSSProperties
           }
         >
