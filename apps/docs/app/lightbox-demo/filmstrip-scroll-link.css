@@ -105,7 +105,7 @@
 }
 
 /**
- * Far thumb jump: the track gets `view-transition-name: ramka-demo-filmstrip-track`
+ * Thumb jump: the track gets `view-transition-name: ramka-demo-filmstrip-track`
  * for the duration of `startViewTransition`. Old/new transforms differ by the
  * scroll-timeline translateX → UA interpolates as a horizontal scrub.
  * The selection frame is named separately so it stays pinned while the track moves.
