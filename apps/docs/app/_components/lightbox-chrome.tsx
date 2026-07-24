@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { flushSync } from 'react-dom';
-import { Lightbox, useLightboxTriggerContext } from 'ramka';
+import { Lightbox, useLightboxContext, useLightboxTriggerContext } from 'ramka';
 import { ChevronLeft, ChevronRight, X, ZoomIn, ZoomOut } from 'lucide-react';
 
 /**
@@ -90,6 +90,358 @@ type GalleryItemRenderCtx = {
   morphRef: (node: HTMLElement | null) => void;
 };
 
+/** Match `Lightbox.Filmstrip` scrub defaults (track + indicator width scrub). */
+const FILMSTRIP_SCRUB_MS = 450;
+const FILMSTRIP_SCRUB_EASE = 'cubic-bezier(0.22, 1, 0.36, 1)';
+
+type ScrollTimelineConstructor = new (options?: {
+  source?: Element | Document | null;
+  axis?: 'block' | 'inline' | 'x' | 'y';
+}) => AnimationTimeline;
+
+function getScrollTimelineConstructor(): ScrollTimelineConstructor | null {
+  if (typeof window === 'undefined') return null;
+  const ctor = (window as Window & { ScrollTimeline?: ScrollTimelineConstructor }).ScrollTimeline;
+  return typeof ctor === 'function' ? ctor : null;
+}
+
+/** Docs-local copy of ramka `slidesScrollProgress` (JS fallback). */
+function demoSlidesScrollProgress(
+  viewport: HTMLElement,
+  geometry: { base: number; step: number; count: number },
+): number {
+  const { base, step, count } = geometry;
+  const logicalMax = Math.max(0, count - 1) * step;
+  if (logicalMax <= 0) return 0;
+  return Math.min(1, Math.max(0, (viewport.scrollLeft - base) / logicalMax));
+}
+
+function lerp(a: number, b: number, t: number): number {
+  return a + (b - a) * t;
+}
+
+/** Equal-offset width keyframes for ScrollTimeline 0→1 (height × photo aspect). */
+function morphWidthKeyframes(aspects: number[], heightPx: number): Keyframe[] {
+  const max = Math.max(0, aspects.length - 1);
+  const h = Math.max(1, heightPx);
+  return aspects.map((aspect, i) => ({
+    offset: max === 0 ? 0 : i / max,
+    width: `${h * aspect}px`,
+  }));
+}
+
+/**
+ * Docs filmstrip: viewport-aspect thumbs + selection frame.
+ * Morph `width` is the single size owner — ScrollTimeline on swipe, pause +
+ * DocumentTimeline scrub on thumb click (same handoff as the track).
+ */
+function GalleryFilmstrip({
+  items,
+  className,
+}: {
+  items: LightboxGalleryItem[];
+  className: string;
+}) {
+  const { activeIndex, slidesViewportRef, slidesGeometryRef, subscribeSlidesViewport } =
+    useLightboxContext();
+  const filmstripRef = React.useRef<HTMLDivElement | null>(null);
+  const morphRef = React.useRef<HTMLSpanElement | null>(null);
+  const activeIndexRef = React.useRef(activeIndex);
+  activeIndexRef.current = activeIndex;
+
+  const itemAspects = React.useMemo(
+    () => items.map((item) => imgAspect(item.src)),
+    [items],
+  );
+  const itemAspectsRef = React.useRef(itemAspects);
+  itemAspectsRef.current = itemAspects;
+
+  const [viewportAspect, setViewportAspect] = React.useState(16 / 9);
+  const aspectLinkRef = React.useRef<Animation | null>(null);
+  const aspectScrubRef = React.useRef<Animation | null>(null);
+  const usesScrollTimelineRef = React.useRef(false);
+  const aspectHoldRef = React.useRef(false);
+  const startAspectLinkRef = React.useRef<() => boolean>(() => false);
+
+  React.useEffect(() => {
+    const update = () => {
+      const w = window.innerWidth;
+      const h = Math.max(1, window.innerHeight);
+      setViewportAspect(w / h);
+    };
+    update();
+    window.addEventListener('resize', update);
+    return () => window.removeEventListener('resize', update);
+  }, []);
+
+  React.useLayoutEffect(() => {
+    let detach: (() => void) | undefined;
+    let raf = 0;
+    let ro: ResizeObserver | undefined;
+
+    const writeMorphWidth = (widthPx: number) => {
+      morphRef.current?.style.setProperty('width', `${widthPx}px`);
+    };
+
+    const syncFromScroll = () => {
+      if (aspectHoldRef.current || aspectScrubRef.current) return;
+      const morph = morphRef.current;
+      const slides = slidesViewportRef.current;
+      const aspects = itemAspectsRef.current;
+      if (!morph || !slides || aspects.length === 0) return;
+      const heightPx = morph.getBoundingClientRect().height || 56;
+      const geometry = slidesGeometryRef.current;
+      const progress = demoSlidesScrollProgress(slides, geometry);
+      const max = Math.max(0, geometry.count - 1);
+      if (max <= 0) {
+        writeMorphWidth(heightPx * (aspects[0] ?? 16 / 9));
+        return;
+      }
+      const f = progress * max;
+      const i0 = Math.min(max, Math.floor(f));
+      const i1 = Math.min(max, i0 + 1);
+      const aspect = lerp(aspects[i0] ?? 16 / 9, aspects[i1] ?? aspects[i0] ?? 16 / 9, f - i0);
+      writeMorphWidth(heightPx * aspect);
+    };
+
+    const scheduleSync = () => {
+      if (raf !== 0) return;
+      raf = requestAnimationFrame(() => {
+        raf = 0;
+        syncFromScroll();
+      });
+    };
+
+    const startAspectLink = () => {
+      // Hold blocks rebuild at the jumped scroll offset during thumb scrub.
+      if (aspectHoldRef.current) return usesScrollTimelineRef.current;
+
+      const morph = morphRef.current;
+      const slides = slidesViewportRef.current;
+      const ScrollTimeline = getScrollTimelineConstructor();
+      const aspects = itemAspectsRef.current;
+      if (
+        !morph ||
+        !slides ||
+        aspects.length === 0 ||
+        !ScrollTimeline ||
+        typeof KeyframeEffect === 'undefined' ||
+        typeof Animation === 'undefined'
+      ) {
+        usesScrollTimelineRef.current = false;
+        return false;
+      }
+
+      const keepPaused = aspectLinkRef.current?.playState === 'paused';
+      aspectLinkRef.current?.cancel();
+      aspectLinkRef.current = null;
+      morph.style.removeProperty('width');
+
+      const heightPx = morph.getBoundingClientRect().height || 56;
+      const timeline = new ScrollTimeline({ source: slides, axis: 'x' });
+      const effect = new KeyframeEffect(morph, morphWidthKeyframes(aspects, heightPx), {
+        fill: 'both',
+        easing: 'linear',
+      });
+      const link = new Animation(effect, timeline);
+      link.play();
+      if (keepPaused) link.pause();
+      aspectLinkRef.current = link;
+      usesScrollTimelineRef.current = true;
+      return true;
+    };
+    startAspectLinkRef.current = startAspectLink;
+
+    const attach = () => {
+      if (aspectHoldRef.current) return;
+
+      detach?.();
+      detach = undefined;
+      ro?.disconnect();
+      ro = undefined;
+
+      const slides = slidesViewportRef.current;
+      const morph = morphRef.current;
+      if (!slides || !morph) return;
+
+      if (startAspectLink()) {
+        ro = new ResizeObserver(() => {
+          if (!aspectHoldRef.current && !aspectScrubRef.current) startAspectLink();
+        });
+        ro.observe(morph);
+        detach = () => {
+          ro?.disconnect();
+          ro = undefined;
+          aspectLinkRef.current?.cancel();
+          aspectLinkRef.current = null;
+          usesScrollTimelineRef.current = false;
+          morph.style.removeProperty('width');
+        };
+        return;
+      }
+
+      syncFromScroll();
+      slides.addEventListener('scroll', scheduleSync, { passive: true });
+      detach = () => slides.removeEventListener('scroll', scheduleSync);
+    };
+
+    attach();
+    const unsubscribe = subscribeSlidesViewport(attach);
+    return () => {
+      unsubscribe();
+      detach?.();
+      ro?.disconnect();
+      aspectScrubRef.current?.cancel();
+      aspectScrubRef.current = null;
+      aspectLinkRef.current?.cancel();
+      aspectLinkRef.current = null;
+      usesScrollTimelineRef.current = false;
+      aspectHoldRef.current = false;
+      morphRef.current?.style.removeProperty('width');
+      if (raf !== 0) cancelAnimationFrame(raf);
+    };
+  }, [slidesViewportRef, slidesGeometryRef, subscribeSlidesViewport, itemAspects]);
+
+  /**
+   * VT on Slides + WAAPI width scrub on the morph node.
+   *
+   * Width cannot share a paused ScrollTimeline with a DocumentTimeline scrub the
+   * way transform can — on scroll jump the paused link still retargets width.
+   * So: pin inline width → cancel scroll link → arm scrub → commit → play →
+   * rebuild scroll link on finish.
+   */
+  const wrapThumbSelectCommit = React.useCallback(
+    (commit: () => void, slides: HTMLElement | null, index: number) => {
+      const reduceMotion =
+        typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+      const morph = morphRef.current;
+      const aspects = itemAspectsRef.current;
+      const link = aspectLinkRef.current;
+
+      const heightPx = morph?.getBoundingClientRect().height || 56;
+      const fromWidth = morph
+        ? Number.parseFloat(getComputedStyle(morph).width) || morph.getBoundingClientRect().width
+        : 0;
+      const toWidth = heightPx * (aspects[index] ?? aspects[activeIndexRef.current] ?? 16 / 9);
+
+      aspectHoldRef.current = true;
+
+      const releaseToScrollLink = () => {
+        aspectScrubRef.current = null;
+        morph?.style.removeProperty('width');
+        aspectHoldRef.current = false;
+        if (!startAspectLinkRef.current()) {
+          if (morph) morph.style.width = `${toWidth}px`;
+        }
+      };
+
+      const canScrub =
+        !reduceMotion &&
+        morph != null &&
+        typeof morph.animate === 'function' &&
+        Number.isFinite(index) &&
+        fromWidth > 0 &&
+        Math.abs(fromWidth - toWidth) > 0.5;
+
+      let scrub: Animation | undefined;
+
+      if (canScrub && morph) {
+        // Pin layout, then drop the scroll-driven width effect so the jump
+        // cannot retarget size under the scrub.
+        morph.style.width = `${fromWidth}px`;
+        link?.cancel();
+        aspectLinkRef.current = null;
+
+        aspectScrubRef.current?.cancel();
+        const scrubAnim = morph.animate(
+          [{ width: `${fromWidth}px` }, { width: `${toWidth}px` }],
+          {
+            duration: FILMSTRIP_SCRUB_MS,
+            easing: FILMSTRIP_SCRUB_EASE,
+            fill: 'forwards',
+          },
+        );
+        scrubAnim.pause();
+        scrubAnim.currentTime = 0;
+        aspectScrubRef.current = scrubAnim;
+        scrub = scrubAnim;
+        void scrubAnim.finished.then(
+          () => {
+            if (aspectScrubRef.current !== scrubAnim) return;
+            try {
+              scrubAnim.commitStyles();
+            } catch {
+              /* commitStyles can throw if the effect was already cleared */
+            }
+            scrubAnim.cancel();
+            releaseToScrollLink();
+          },
+          () => {
+            if (aspectScrubRef.current !== scrubAnim) return;
+            releaseToScrollLink();
+          },
+        );
+      }
+
+      type VTHost = { startViewTransition: (cb: () => void) => unknown };
+      if (
+        !reduceMotion &&
+        slides &&
+        typeof (slides as HTMLElement & VTHost).startViewTransition === 'function'
+      ) {
+        (slides as HTMLElement & VTHost).startViewTransition(() => {
+          flushSync(commit);
+        });
+      } else {
+        flushSync(commit);
+      }
+
+      if (scrub) {
+        scrub.play();
+      } else {
+        // No width delta (or reduced motion): follow the jumped scroll link.
+        aspectHoldRef.current = false;
+        const liveLink = aspectLinkRef.current;
+        if (liveLink && usesScrollTimelineRef.current) {
+          liveLink.play();
+        } else if (!startAspectLinkRef.current() && morph) {
+          morph.style.width = `${toWidth}px`;
+        }
+      }
+    },
+    [],
+  );
+
+  return (
+    <Lightbox.Filmstrip
+      ref={filmstripRef}
+      className={className}
+      scrubDuration={FILMSTRIP_SCRUB_MS}
+      scrubEasing={FILMSTRIP_SCRUB_EASE}
+      wrapSelectCommit={wrapThumbSelectCommit}
+      style={
+        {
+          ['--lightbox-demo-thumb-aspect' as string]: String(viewportAspect),
+        } as React.CSSProperties
+      }
+    >
+      <div className="lightbox-demo-filmstrip-aspect-host">
+        <Lightbox.FilmstripTrack aria-label="Photo thumbnails">
+          {items.map((item, i) => (
+            <Lightbox.Thumbnail key={item.id ?? i} index={i}>
+              {/* No HTML width/height — shell size is CSS; img letterboxes inside. */}
+              <img src={item.thumb} alt={item.alt} draggable={false} />
+            </Lightbox.Thumbnail>
+          ))}
+        </Lightbox.FilmstripTrack>
+        <Lightbox.FilmstripIndicator className="lightbox-demo-filmstrip-frame">
+          <span ref={morphRef} className="lightbox-demo-filmstrip-frame-morph" aria-hidden />
+        </Lightbox.FilmstripIndicator>
+      </div>
+    </Lightbox.Filmstrip>
+  );
+}
+
 /**
  * Default product chrome for docs/examples — responsive-gallery viewer:
  * light pull-fade Backdrop, Slides + Zoom, Counter (top-left), Close/ZoomIn/
@@ -133,42 +485,6 @@ export function LightboxGallery({
         : 'pointer-events-auto hidden md:block lightbox-demo-filmstrip';
 
   const backdropTone = backdrop === 'solid' ? 'bg-white dark:bg-black' : 'lightbox-demo-backdrop-light';
-
-  // Mini-stage thumbs: match the window aspect so the strip looks like the slides.
-  const [viewportAspect, setViewportAspect] = React.useState(16 / 9);
-  React.useEffect(() => {
-    const update = () => {
-      const w = window.innerWidth;
-      const h = Math.max(1, window.innerHeight);
-      setViewportAspect(w / h);
-    };
-    update();
-    window.addEventListener('resize', update);
-    return () => window.removeEventListener('resize', update);
-  }, []);
-
-  /**
-   * Docs-only: element-scoped VT crossfade on Slides when a thumb is clicked.
-   * Document VT (Safari today) snapshots the whole page and flashes the lightbox
-   * if we hide root to keep the strip live — so we only use slides-scoped VT.
-   * Styled by `.lightbox-demo-slides::view-transition-*` in filmstrip-scroll-link.css.
-   */
-  const wrapThumbSelectCommit = React.useCallback((commit: () => void, slides: HTMLElement | null) => {
-    const reduceMotion =
-      typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
-    type VTHost = { startViewTransition: (cb: () => void) => unknown };
-    if (
-      !reduceMotion &&
-      slides &&
-      typeof (slides as HTMLElement & VTHost).startViewTransition === 'function'
-    ) {
-      (slides as HTMLElement & VTHost).startViewTransition(() => {
-        flushSync(commit);
-      });
-      return;
-    }
-    commit();
-  }, []);
 
   return (
     <Lightbox.Portal>
@@ -243,25 +559,7 @@ export function LightboxGallery({
           <Lightbox.Caption className="pointer-events-auto block min-h-[1.25rem] max-w-full truncate px-6 text-center text-sm text-black/70 dark:text-white/80" />
 
           {thumbnails !== 'never' ? (
-            <Lightbox.Filmstrip
-              className={thumbClass}
-              wrapSelectCommit={wrapThumbSelectCommit}
-              style={
-                {
-                  ['--lightbox-demo-thumb-aspect' as string]: String(viewportAspect),
-                } as React.CSSProperties
-              }
-            >
-              <Lightbox.FilmstripTrack aria-label="Photo thumbnails">
-                {items.map((item, i) => (
-                  <Lightbox.Thumbnail key={item.id ?? i} index={i}>
-                    {/* No HTML width/height — shell size is CSS; img letterboxes inside. */}
-                    <img src={item.thumb} alt={item.alt} draggable={false} />
-                  </Lightbox.Thumbnail>
-                ))}
-              </Lightbox.FilmstripTrack>
-              <Lightbox.FilmstripIndicator className="lightbox-demo-filmstrip-frame" />
-            </Lightbox.Filmstrip>
+            <GalleryFilmstrip items={items} className={thumbClass} />
           ) : null}
         </div>
       </Lightbox.Content>

@@ -309,7 +309,7 @@ export const lightboxApiMeta: ApiPartMeta[] = [
     id: 'api-filmstrip',
     name: 'Filmstrip',
     description:
-      'Scroll-linked filmstrip root. Always centers the active thumbnail on the midline (Photos-style): owns overflow clip, measured midline track padding, and Slides→track sync via native ScrollTimeline + WAAPI (JS scroll→transform fallback when ScrollTimeline is unavailable). Compose with FilmstripTrack + Thumbnails (+ optional FilmstripIndicator). Pointer selects go through filmstrip context (optional DocumentTimeline WAAPI scrub via scrubOnSelect; optional wrapSelectCommit for e.g. element-scoped Slides view transitions); keyboard stays instant with the stage. Flex/gap/thumb size remain consumer CSS.',
+      'Scroll-linked filmstrip root. Always centers the active thumbnail on the midline (Photos-style): owns overflow clip, measured midline track padding, and Slides→track sync via native ScrollTimeline + WAAPI (JS scroll→transform fallback when ScrollTimeline is unavailable). Compose with FilmstripTrack + Thumbnails (+ optional FilmstripIndicator). Pointer selects go through filmstrip context (optional DocumentTimeline WAAPI scrub via scrubOnSelect; optional wrapSelectCommit(commit, slides, index) for e.g. element-scoped Slides view transitions / arming consumer WAAPI before the scroll jump); keyboard stays instant with the stage. Flex/gap/thumb size remain consumer CSS.',
     extract: {
       kind: 'interface-props',
       typeName: 'LightboxFilmstripProps',

@@ -409,7 +409,7 @@ describe('Lightbox.Filmstrip', () => {
     endScroll(slides);
 
     fireEvent.click(screen.getByTestId('thumb-2'));
-    expect(wrapSelectCommit).toHaveBeenCalled();
+    expect(wrapSelectCommit).toHaveBeenCalledWith(expect.any(Function), expect.any(HTMLElement), 2);
     expect(screen.getByTestId('thumb-2')).toHaveAttribute('data-active');
   });
 

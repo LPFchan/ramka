@@ -311,8 +311,8 @@ export const generatedProps: Record<string, PropRow[]> = {
     },
     {
       name: "wrapSelectCommit",
-      type: "(commit: () => void, slides: HTMLElement | null) => void",
-      description: "Optional wrapper around the active-index commit (e.g. docs chrome can run an element-scoped `slides.startViewTransition`). Scrub still runs outside this callback. Defaults to invoking `commit` immediately.",
+      type: "(commit: () => void, slides: HTMLElement | null, index: number) => void",
+      description: "Optional wrapper around the active-index commit (e.g. docs chrome can run an element-scoped `slides.startViewTransition`). Receives the target index so consumers can arm WAAPI before commit jumps Slides scroll. Track scrub still runs outside this callback. Defaults to invoking `commit` immediately.",
     },
     {
       name: "render",

@@ -27,10 +27,12 @@ interface LightboxFilmstripProps extends useRender.ComponentProps<'div', Lightbo
   scrubEasing?: string;
   /**
    * Optional wrapper around the active-index commit (e.g. docs chrome can run
-   * an element-scoped `slides.startViewTransition`). Scrub still runs outside
-   * this callback. Defaults to invoking `commit` immediately.
+   * an element-scoped `slides.startViewTransition`). Receives the target
+   * `index` so consumers can arm WAAPI (same as the track scrub) *before*
+   * `commit` jumps Slides scroll. Track scrub still runs outside this
+   * callback. Defaults to invoking `commit` immediately.
    */
-  wrapSelectCommit?: (commit: () => void, slides: HTMLElement | null) => void;
+  wrapSelectCommit?: (commit: () => void, slides: HTMLElement | null, index: number) => void;
 }
 
 const filmstripStateAttributesMapping = {
@@ -401,7 +403,7 @@ const LightboxFilmstrip = React.forwardRef<HTMLDivElement, LightboxFilmstripProp
         };
 
         if (wrapSelectCommit) {
-          wrapSelectCommit(commit, slides);
+          wrapSelectCommit(commit, slides, index);
         } else {
           commit();
         }
