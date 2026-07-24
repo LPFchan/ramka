@@ -220,12 +220,38 @@ function supportsFilmstripScrollLink(): boolean {
   return typeof CSS !== 'undefined' && CSS.supports('animation-timeline', 'scroll()');
 }
 
+function filmstripThumbStepPx(strip: HTMLElement): number {
+  const step = getComputedStyle(strip).getPropertyValue('--thumb-step').trim() || '4rem';
+  if (step.endsWith('rem')) {
+    const rem = Number.parseFloat(step);
+    const rootPx = Number.parseFloat(getComputedStyle(document.documentElement).fontSize);
+    return rem * rootPx;
+  }
+  return Number.parseFloat(step) || 64;
+}
+
+function readTranslateX(el: HTMLElement): number {
+  const t = getComputedStyle(el).transform;
+  if (!t || t === 'none') return 0;
+  return new DOMMatrix(t).m41;
+}
+
+/**
+ * Drop WAAPI + inline overrides so the CSS scroll-timeline owns `transform`
+ * again. `fill: forwards` keeps applying until the Animation is cancelled.
+ */
+function releaseFilmstripTrack(track: HTMLElement, anim?: Animation | null) {
+  anim?.cancel();
+  track.style.removeProperty('animation');
+  track.style.removeProperty('transform');
+}
+
 /**
  * Demo-only filmstrip (not part of ramka):
  * - Enhanced: track `translateX` is scroll-timeline-linked to Lightbox.Slides
  *   (Slides is the only scroller; strip is display-only + tap targets).
- * - Thumb click → `setActiveIndex('thumbnail')` (nav-lock + Slides scrollToIndex).
- *   Docs-only VT names on the track/frame so the strip scrubs during the jump.
+ * - Thumb click → `setActiveIndex('thumbnail')` + WAAPI scrub on the track
+ *   (no document VT — strip stays clickable for rapid +1 taps).
  * - Fallback: overflow strip + scrollIntoView on `data-active`.
  */
 function GalleryThumbnailStrip({
@@ -237,59 +263,95 @@ function GalleryThumbnailStrip({
 }) {
   const viewportRef = React.useRef<HTMLDivElement>(null);
   const groupRef = React.useRef<HTMLDivElement>(null);
+  const scrubAnimRef = React.useRef<Animation | null>(null);
   const { activeIndex, setActiveIndex, navigationLockedRef } = useLightboxContext();
+  const activeIndexRef = React.useRef(activeIndex);
+  activeIndexRef.current = activeIndex;
   const linked = supportsFilmstripScrollLink();
 
+  const endTrackScrub = React.useCallback(() => {
+    const track = groupRef.current;
+    const anim = scrubAnimRef.current;
+    scrubAnimRef.current = null;
+    if (track) releaseFilmstripTrack(track, anim);
+  }, []);
+
+  React.useEffect(() => {
+    return () => endTrackScrub();
+  }, [endTrackScrub]);
+
   /**
-   * Same as `Lightbox.Thumbnail` → `setActiveIndex`, wrapped in a docs-only
-   * view transition so the scroll-timeline filmstrip interpolates. Mid-fling
-   * taps are dropped by the library nav lock — no scroll math here.
+   * Same as `Lightbox.Thumbnail` → `setActiveIndex`. When scroll-linked, briefly
+   * detaches the track from the timeline and WAAPI-scrubs `translateX` so rapid
+   * taps stay interactive (document VT would cover the strip for the duration).
    */
   const goToIndex = React.useCallback(
     (index: number) => {
-      if (index === activeIndex || navigationLockedRef.current) return;
+      if (index === activeIndexRef.current || navigationLockedRef.current) return;
 
-      const apply = () => {
+      const commit = () => {
         flushSync(() => {
           setActiveIndex(index, 'thumbnail');
         });
+        activeIndexRef.current = index;
       };
 
+      const strip = viewportRef.current;
+      const track = groupRef.current;
       const reduceMotion =
         typeof matchMedia === 'function' &&
         matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-      if (
-        !reduceMotion &&
-        typeof document !== 'undefined' &&
-        'startViewTransition' in document
-      ) {
-        const strip = viewportRef.current;
-        const track = strip?.querySelector<HTMLElement>('.lightbox-demo-filmstrip-track') ?? null;
-        const frame = strip?.querySelector<HTMLElement>('.lightbox-demo-filmstrip-frame') ?? null;
-        try {
-          if (track) track.style.viewTransitionName = 'ramka-demo-filmstrip-track';
-          if (frame) frame.style.viewTransitionName = 'ramka-demo-filmstrip-frame';
-          const vt = (
-            document as Document & {
-              startViewTransition: (cb: () => void) => { finished: Promise<void> };
-            }
-          ).startViewTransition(apply);
-          const clearNames = () => {
-            if (track) track.style.viewTransitionName = '';
-            if (frame) frame.style.viewTransitionName = '';
-          };
-          void Promise.resolve(vt.finished).then(clearNames, clearNames);
-          return;
-        } catch {
-          if (track) track.style.viewTransitionName = '';
-          if (frame) frame.style.viewTransitionName = '';
-        }
+      if (!linked || reduceMotion || !strip || !track || typeof track.animate !== 'function') {
+        commit();
+        return;
       }
 
-      apply();
+      const prev = scrubAnimRef.current;
+      if (prev) {
+        try {
+          prev.commitStyles();
+        } catch {
+          /* commitStyles unsupported / nothing to commit */
+        }
+        prev.cancel();
+        scrubAnimRef.current = null;
+      }
+
+      const step = filmstripThumbStepPx(strip);
+      const fromX = readTranslateX(track);
+      const toX = -index * step;
+
+      // Hold the visual position while Slides jumps underneath.
+      track.style.setProperty('animation', 'none');
+      track.style.transform = `translateX(${fromX}px)`;
+      commit();
+
+      if (Math.abs(fromX - toX) < 0.5) {
+        endTrackScrub();
+        return;
+      }
+
+      const anim = track.animate(
+        [{ transform: `translateX(${fromX}px)` }, { transform: `translateX(${toX}px)` }],
+        {
+          duration: 450,
+          easing: 'cubic-bezier(0.22, 1, 0.36, 1)',
+          fill: 'forwards',
+        },
+      );
+      scrubAnimRef.current = anim;
+      void anim.finished.then(
+        () => {
+          if (scrubAnimRef.current !== anim) return;
+          endTrackScrub();
+        },
+        () => {
+          /* cancelled by a newer scrub — next goToIndex owns styles */
+        },
+      );
     },
-    [activeIndex, navigationLockedRef, setActiveIndex],
+    [linked, navigationLockedRef, setActiveIndex, endTrackScrub],
   );
 
   // Fallback only: center the active thumb when the stage index changes.
@@ -316,7 +378,7 @@ function GalleryThumbnailStrip({
     return () => mo.disconnect();
   }, [linked]);
 
-  // Capture-phase: run the same navigation Thumbnail would, inside our VT wrap.
+  // Capture-phase: same navigation as Thumbnail, plus linked WAAPI scrub.
   React.useEffect(() => {
     const group = groupRef.current;
     if (!group) return;

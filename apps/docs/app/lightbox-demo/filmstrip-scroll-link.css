@@ -101,32 +101,3 @@
     padding-inline: 0.25rem;
   }
 }
-
-/**
- * Thumb jump: the track gets `view-transition-name: ramka-demo-filmstrip-track`
- * for the duration of `startViewTransition`. Old/new transforms differ by the
- * scroll-timeline translateX → UA interpolates as a horizontal scrub.
- * The selection frame is named separately so it stays pinned while the track moves.
- */
-::view-transition-group(ramka-demo-filmstrip-track) {
-  animation-duration: 0.45s;
-  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-::view-transition-group(ramka-demo-filmstrip-frame) {
-  animation-duration: 0.45s;
-}
-
-/* Prefer the transform morph; keep strip pair from muddy plus-lighter blending. */
-::view-transition-old(ramka-demo-filmstrip-track),
-::view-transition-new(ramka-demo-filmstrip-track) {
-  mix-blend-mode: normal;
-  height: 100%;
-  overflow: clip;
-}
-
-::view-transition-old(ramka-demo-filmstrip-frame),
-::view-transition-new(ramka-demo-filmstrip-frame) {
-  mix-blend-mode: normal;
-  height: 100%;
-}
