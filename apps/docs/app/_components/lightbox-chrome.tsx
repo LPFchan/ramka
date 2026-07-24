@@ -1,7 +1,8 @@
 'use client';
 
 import * as React from 'react';
-import { Lightbox, useLightboxTriggerContext } from 'ramka';
+import { flushSync } from 'react-dom';
+import { Lightbox, useLightboxContext, useLightboxTriggerContext } from 'ramka';
 import { ChevronLeft, ChevronRight, X, ZoomIn, ZoomOut } from 'lucide-react';
 
 /**
@@ -223,8 +224,8 @@ function supportsFilmstripScrollLink(): boolean {
  * Demo-only filmstrip (not part of ramka):
  * - Enhanced: track `translateX` is scroll-timeline-linked to Lightbox.Slides
  *   (Slides is the only scroller; strip is display-only + tap targets).
- * - Thumb click jumps via `scrollLeft` + VT — but never while a slides fling is
- *   in flight (programmatic `scrollLeft` cannot cancel compositor momentum).
+ * - Thumb click → `setActiveIndex('thumbnail')` (nav-lock + Slides scrollToIndex).
+ *   Docs-only VT names on the track/frame so the strip scrubs during the jump.
  * - Fallback: overflow strip + scrollIntoView on `data-active`.
  */
 function GalleryThumbnailStrip({
@@ -236,101 +237,22 @@ function GalleryThumbnailStrip({
 }) {
   const viewportRef = React.useRef<HTMLDivElement>(null);
   const groupRef = React.useRef<HTMLDivElement>(null);
-  const itemCountRef = React.useRef(items.length);
-  itemCountRef.current = items.length;
-  /**
-   * True while Lightbox.Slides has a user swipe/fling in flight. Matches the
-   * library's navigation lock: writing `scrollLeft` over a compositor fling
-   * does not abort it (Chromium), so stage + scroll-timeline strip hitch.
-   */
-  const slidesBusyRef = React.useRef(false);
+  const { activeIndex, setActiveIndex, navigationLockedRef } = useLightboxContext();
   const linked = supportsFilmstripScrollLink();
 
-  const getSlides = React.useCallback((): HTMLElement | null => {
-    const viewport = viewportRef.current;
-    if (!viewport) return null;
-    return (
-      viewport.closest('.lightbox-demo-content')?.querySelector<HTMLElement>('.lightbox-demo-slides') ??
-      viewport.closest('[role="dialog"]')?.querySelector<HTMLElement>('[aria-roledescription="carousel"]') ??
-      null
-    );
-  }, []);
-
-  // Mirror Slides' busy window so thumb taps refuse to fight a fling.
-  React.useEffect(() => {
-    if (!linked) return;
-    let slides: HTMLElement | null = null;
-    let idleTimer = 0;
-
-    const settle = () => {
-      window.clearTimeout(idleTimer);
-      idleTimer = 0;
-      slidesBusyRef.current = false;
-    };
-
-    const onScroll = () => {
-      slidesBusyRef.current = true;
-      window.clearTimeout(idleTimer);
-      idleTimer = window.setTimeout(settle, 140);
-    };
-
-    const bind = (el: HTMLElement) => {
-      slides = el;
-      el.addEventListener('scroll', onScroll, { passive: true });
-      el.addEventListener('scrollend', settle);
-    };
-
-    const unbind = () => {
-      if (!slides) return;
-      slides.removeEventListener('scroll', onScroll);
-      slides.removeEventListener('scrollend', settle);
-      slides = null;
-    };
-
-    const el = getSlides();
-    if (el) bind(el);
-    // Slides can mount a tick after the strip (portal/open). Retry once.
-    const retry =
-      el == null
-        ? window.requestAnimationFrame(() => {
-            const again = getSlides();
-            if (again) bind(again);
-          })
-        : 0;
-
-    return () => {
-      if (retry !== 0) cancelAnimationFrame(retry);
-      window.clearTimeout(idleTimer);
-      unbind();
-      slidesBusyRef.current = false;
-    };
-  }, [linked, getSlides]);
-
   /**
-   * Thumb tap → stage jump via `startViewTransition`: root crossfade on the
-   * photo + named filmstrip track so scroll-timeline translateX interpolates
-   * like a scrub (any distance). Hard-cut without VT / reduced motion.
+   * Same as `Lightbox.Thumbnail` → `setActiveIndex`, wrapped in a docs-only
+   * view transition so the scroll-timeline filmstrip interpolates. Mid-fling
+   * taps are dropped by the library nav lock — no scroll math here.
    */
-  const jumpToIndex = React.useCallback(
+  const goToIndex = React.useCallback(
     (index: number) => {
-      // Same rule as library thumbnail nav: never write over a fling.
-      if (slidesBusyRef.current) return;
-
-      const s = getSlides();
-      const count = itemCountRef.current;
-      if (!s || index < 0 || index >= count) return;
-      const slide = s.querySelectorAll<HTMLElement>('[data-ramka-slide]')[index];
-      if (!slide) return;
-
-      const width = slide.offsetWidth || s.clientWidth || 1;
-      const target = Math.min(
-        Math.max(slide.offsetLeft + width / 2 - s.clientWidth / 2, 0),
-        Math.max(s.scrollWidth - s.clientWidth, 0),
-      );
-      if (Math.abs(s.scrollLeft - target) < 1) return;
+      if (index === activeIndex || navigationLockedRef.current) return;
 
       const apply = () => {
-        s.scrollLeft = target;
+        flushSync(() => {
+          setActiveIndex(index, 'thumbnail');
+        });
       };
 
       const reduceMotion =
@@ -342,13 +264,10 @@ function GalleryThumbnailStrip({
         typeof document !== 'undefined' &&
         'startViewTransition' in document
       ) {
-        const strip =
-          viewportRef.current ??
-          s.closest('.lightbox-demo-content')?.querySelector<HTMLElement>('.lightbox-demo-filmstrip');
+        const strip = viewportRef.current;
         const track = strip?.querySelector<HTMLElement>('.lightbox-demo-filmstrip-track') ?? null;
         const frame = strip?.querySelector<HTMLElement>('.lightbox-demo-filmstrip-frame') ?? null;
         try {
-          // Name before capture so old + new snapshots share the pair.
           if (track) track.style.viewTransitionName = 'ramka-demo-filmstrip-track';
           if (frame) frame.style.viewTransitionName = 'ramka-demo-filmstrip-frame';
           const vt = (
@@ -370,7 +289,7 @@ function GalleryThumbnailStrip({
 
       apply();
     },
-    [getSlides],
+    [activeIndex, navigationLockedRef, setActiveIndex],
   );
 
   // Fallback only: center the active thumb when the stage index changes.
@@ -397,8 +316,7 @@ function GalleryThumbnailStrip({
     return () => mo.disconnect();
   }, [linked]);
 
-  // Capture-phase click: jump via scrollLeft (dropped while slides are busy —
-  // same as library thumbnail nav over a fling).
+  // Capture-phase: run the same navigation Thumbnail would, inside our VT wrap.
   React.useEffect(() => {
     const group = groupRef.current;
     if (!group) return;
@@ -409,11 +327,11 @@ function GalleryThumbnailStrip({
       if (!Number.isFinite(index)) return;
       e.preventDefault();
       e.stopImmediatePropagation();
-      jumpToIndex(index);
+      goToIndex(index);
     };
     group.addEventListener('click', onClickCapture, true);
     return () => group.removeEventListener('click', onClickCapture, true);
-  }, [jumpToIndex, items.length]);
+  }, [goToIndex, items.length]);
 
   return (
     <div ref={viewportRef} className={className}>
