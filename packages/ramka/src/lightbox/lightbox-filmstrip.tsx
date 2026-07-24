@@ -4,6 +4,7 @@ import { mergeProps, useRender } from '@base-ui/react';
 import * as React from 'react';
 
 import { useLightboxContext } from './lightbox-context';
+import { LightboxFilmstripCssVars } from './lightbox-css-vars';
 import { LightboxFilmstripDataAttributes } from './lightbox-data-attributes';
 import { LightboxFilmstripContext } from './lightbox-filmstrip-context';
 import { slidesScrollProgress } from './lightbox-slides-geometry';
@@ -17,7 +18,7 @@ interface LightboxFilmstripProps extends useRender.ComponentProps<'div', Lightbo
   /**
    * When true (default), pointer selection on a thumbnail WAAPI-scrubs the
    * track to the target index. Keyboard / button navigation stays instant
-   * (follows the Slides jump).
+   * (follows the Slides jump via the scroll link).
    */
   scrubOnSelect?: boolean;
   /** WAAPI scrub duration in ms. @default 450 */
@@ -41,12 +42,40 @@ function measureThumbStepPx(track: HTMLElement): number {
   return step > 0 ? step : width;
 }
 
+interface ScrollTimelineOptions {
+  source?: Element | Document | null;
+  axis?: 'block' | 'inline' | 'x' | 'y';
+}
+
+type ScrollTimelineConstructor = new (options?: ScrollTimelineOptions) => AnimationTimeline;
+
+function getScrollTimelineConstructor(): ScrollTimelineConstructor | null {
+  if (typeof window === 'undefined') return null;
+  const ctor = (window as Window & { ScrollTimeline?: ScrollTimelineConstructor }).ScrollTimeline;
+  return typeof ctor === 'function' ? ctor : null;
+}
+
+/** Current computed translateX (ScrollTimeline / WAAPI / inline sync). */
+function readComputedTranslateX(el: HTMLElement): number {
+  const raw = getComputedStyle(el).transform;
+  if (!raw || raw === 'none') return 0;
+  try {
+    return new DOMMatrixReadOnly(raw).m41;
+  } catch {
+    const m = /matrix(?:3d)?\(([^)]+)\)/.exec(raw);
+    if (!m) return 0;
+    const parts = m[1]!.split(',').map((v) => Number(v.trim()));
+    return parts.length === 6 ? parts[4]! : parts.length === 16 ? parts[12]! : 0;
+  }
+}
+
 /**
  * Headless scroll-linked filmstrip.
  *
  * Always centers the active thumbnail under the filmstrip midline (Photos-style).
- * The library owns midline track padding, overflow clipping, and Slides→transform
- * sync. Consumers style flex/gap, thumb size, and optional Indicator paint.
+ * Owns midline padding, overflow clip, and Slides→track sync via native
+ * `ScrollTimeline` + WAAPI (JS scroll→transform fallback when unavailable).
+ * Consumers style flex/gap, thumb size, and optional Indicator paint.
  */
 const LightboxFilmstrip = React.forwardRef<HTMLDivElement, LightboxFilmstripProps>(
   function LightboxFilmstrip(props, forwardedRef) {
@@ -73,9 +102,11 @@ const LightboxFilmstrip = React.forwardRef<HTMLDivElement, LightboxFilmstripProp
     const rootRef = React.useRef<HTMLElement | null>(null);
     const trackRef = React.useRef<HTMLElement | null>(null);
     const thumbStepRef = React.useRef(0);
-    const translateXRef = React.useRef(0);
+    const linkAnimRef = React.useRef<Animation | null>(null);
     const scrubAnimRef = React.useRef<Animation | null>(null);
     const rafRef = React.useRef(0);
+    const syncFromScrollRef = React.useRef<(() => void) | null>(null);
+    const usesScrollTimelineRef = React.useRef(false);
     const activeIndexRef = React.useRef(activeIndex);
     activeIndexRef.current = activeIndex;
 
@@ -110,7 +141,11 @@ const LightboxFilmstrip = React.forwardRef<HTMLDivElement, LightboxFilmstripProp
         const pad = Math.max(0, (root.clientWidth - thumbWidth) / 2);
         track.style.paddingInline = `${pad}px`;
       }
-    }, []);
+
+      const geometry = slidesGeometryRef.current;
+      const travel = Math.max(0, geometry.count - 1) * thumbStepRef.current;
+      track.style.setProperty(LightboxFilmstripCssVars.travel, `${-travel}px`);
+    }, [slidesGeometryRef]);
 
     const syncNow = React.useCallback(() => {
       if (scrubAnimRef.current) return;
@@ -121,9 +156,7 @@ const LightboxFilmstrip = React.forwardRef<HTMLDivElement, LightboxFilmstripProp
       const geometry = slidesGeometryRef.current;
       const t = slidesScrollProgress(slides, geometry);
       const travel = Math.max(0, geometry.count - 1) * thumbStepRef.current;
-      const x = -t * travel;
-      translateXRef.current = x;
-      track.style.transform = `translate3d(${x}px, 0, 0)`;
+      track.style.transform = `translate3d(${-t * travel}px, 0, 0)`;
     }, [slidesViewportRef, slidesGeometryRef]);
 
     const scheduleSync = React.useCallback(() => {
@@ -134,8 +167,50 @@ const LightboxFilmstrip = React.forwardRef<HTMLDivElement, LightboxFilmstripProp
       });
     }, [syncNow]);
 
+    /**
+     * Native Slides→track link via ScrollTimeline. Kept alive across thumb
+     * scrubs — pause/play only — so Safari never flashes keyframe 0 from
+     * cancel/recreate.
+     */
+    const startLinkAnimation = React.useCallback(() => {
+      const track = trackRef.current;
+      const slides = slidesViewportRef.current;
+      const ScrollTimeline = getScrollTimelineConstructor();
+      if (!track || !slides || !ScrollTimeline) {
+        usesScrollTimelineRef.current = false;
+        return false;
+      }
+
+      const keepPaused =
+        scrubAnimRef.current != null || linkAnimRef.current?.playState === 'paused';
+
+      linkAnimRef.current?.cancel();
+      linkAnimRef.current = null;
+      track.style.removeProperty('transform');
+      track.style.removeProperty('animation');
+
+      const geometry = slidesGeometryRef.current;
+      const travel = Math.max(0, geometry.count - 1) * thumbStepRef.current;
+      const timeline = new ScrollTimeline({ source: slides, axis: 'x' });
+      const effect = new KeyframeEffect(
+        track,
+        [
+          { transform: 'translate3d(0px, 0, 0)' },
+          { transform: `translate3d(${-travel}px, 0, 0)` },
+        ],
+        { fill: 'both', easing: 'linear' },
+      );
+      const link = new Animation(effect, timeline);
+      link.play();
+      if (keepPaused) link.pause();
+      linkAnimRef.current = link;
+      usesScrollTimelineRef.current = true;
+      return true;
+    }, [slidesViewportRef, slidesGeometryRef]);
+
     React.useLayoutEffect(() => {
       let detach: (() => void) | undefined;
+      syncFromScrollRef.current = syncNow;
 
       const attach = () => {
         detach?.();
@@ -144,21 +219,36 @@ const LightboxFilmstrip = React.forwardRef<HTMLDivElement, LightboxFilmstripProp
         const track = trackRef.current;
         const slides = slidesViewportRef.current;
         const root = rootRef.current;
-        if (!track || !slides) return;
+        if (!track || !slides || !root) return;
 
         measureThumbs();
-        syncNow();
 
+        if (startLinkAnimation()) {
+          const ro = new ResizeObserver(() => {
+            measureThumbs();
+            if (!scrubAnimRef.current) startLinkAnimation();
+          });
+          ro.observe(track);
+          ro.observe(root);
+          detach = () => {
+            ro.disconnect();
+            linkAnimRef.current?.cancel();
+            linkAnimRef.current = null;
+            usesScrollTimelineRef.current = false;
+          };
+          return;
+        }
+
+        // Fallback: continuous JS mirror of Slides scroll.
+        syncNow();
         const onScroll = () => scheduleSync();
         slides.addEventListener('scroll', onScroll, { passive: true });
-
         const ro = new ResizeObserver(() => {
           measureThumbs();
           syncNow();
         });
         ro.observe(track);
-        if (root) ro.observe(root);
-
+        ro.observe(root);
         detach = () => {
           slides.removeEventListener('scroll', onScroll);
           ro.disconnect();
@@ -171,6 +261,12 @@ const LightboxFilmstrip = React.forwardRef<HTMLDivElement, LightboxFilmstripProp
       return () => {
         unsubscribe();
         detach?.();
+        syncFromScrollRef.current = null;
+        scrubAnimRef.current?.cancel();
+        scrubAnimRef.current = null;
+        linkAnimRef.current?.cancel();
+        linkAnimRef.current = null;
+        usesScrollTimelineRef.current = false;
         if (rafRef.current !== 0) {
           cancelAnimationFrame(rafRef.current);
           rafRef.current = 0;
@@ -178,36 +274,33 @@ const LightboxFilmstrip = React.forwardRef<HTMLDivElement, LightboxFilmstripProp
         const track = trackRef.current;
         if (track) {
           track.style.removeProperty('transform');
+          track.style.removeProperty('animation');
           track.style.removeProperty('padding-inline');
+          track.style.removeProperty(LightboxFilmstripCssVars.travel);
         }
       };
     }, [
       subscribeSlidesViewport,
       slidesViewportRef,
       measureThumbs,
+      startLinkAnimation,
       syncNow,
       scheduleSync,
       itemCount,
       trackVersion,
     ]);
 
-    React.useEffect(() => {
-      return () => {
-        scrubAnimRef.current?.cancel();
-        scrubAnimRef.current = null;
-      };
-    }, []);
-
     const selectIndex = React.useCallback(
       (index: number) => {
         if (index === activeIndexRef.current || navigationLockedRef.current) return;
 
         const track = trackRef.current;
+        const link = linkAnimRef.current;
         const reduceMotion =
           typeof matchMedia === 'function' &&
           matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-        const fromX = translateXRef.current;
+        const fromX = track ? readComputedTranslateX(track) : 0;
         const toX = -index * thumbStepRef.current;
         const canScrub =
           scrubOnSelect &&
@@ -218,6 +311,8 @@ const LightboxFilmstrip = React.forwardRef<HTMLDivElement, LightboxFilmstripProp
 
         if (canScrub && track) {
           scrubAnimRef.current?.cancel();
+          // Freeze the scroll link in place; do not cancel it (Safari flash).
+          link?.pause();
           setScrubbing(true);
           const scrub = track.animate(
             [
@@ -231,18 +326,33 @@ const LightboxFilmstrip = React.forwardRef<HTMLDivElement, LightboxFilmstripProp
             },
           );
           scrubAnimRef.current = scrub;
-          translateXRef.current = toX;
           void scrub.finished.then(
             () => {
               if (scrubAnimRef.current !== scrub) return;
               scrubAnimRef.current = null;
+              try {
+                scrub.commitStyles();
+              } catch {
+                /* commitStyles can throw if the effect was already cleared */
+              }
               scrub.cancel();
+              track.style.removeProperty('transform');
+              if (usesScrollTimelineRef.current) {
+                link?.play();
+              } else {
+                syncFromScrollRef.current?.();
+              }
               setScrubbing(false);
-              syncNow();
             },
             () => {
               if (scrubAnimRef.current === scrub) {
                 scrubAnimRef.current = null;
+                track.style.removeProperty('transform');
+                if (usesScrollTimelineRef.current) {
+                  link?.play();
+                } else {
+                  syncFromScrollRef.current?.();
+                }
                 setScrubbing(false);
               }
             },
@@ -258,7 +368,6 @@ const LightboxFilmstrip = React.forwardRef<HTMLDivElement, LightboxFilmstripProp
         scrubEasing,
         setActiveIndex,
         navigationLockedRef,
-        syncNow,
       ],
     );
 

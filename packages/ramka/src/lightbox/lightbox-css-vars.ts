@@ -69,3 +69,12 @@ export enum LightboxDocumentCssVars {
    */
   morphNewOpacity = '--lightbox-morph-new-opacity',
 }
+
+export enum LightboxFilmstripCssVars {
+  /**
+   * End `translateX` travel for the scroll link (typically a negative px length
+   * spanning `(itemCount - 1) * thumbStep`). Set on the FilmstripTrack.
+   * @type string
+   */
+  travel = '--lightbox-filmstrip-travel',
+}

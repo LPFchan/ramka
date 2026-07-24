@@ -12,9 +12,9 @@ interface LightboxFilmstripTrackProps extends LightboxThumbnailGroupProps {}
 /**
  * Linked tablist track for `Lightbox.Filmstrip`.
  *
- * A `ThumbnailGroup` that registers as the transform target. The parent
- * Filmstrip writes midline `padding-inline` and the scroll-linked `transform`.
- * Flex, gap, and thumb sizing stay consumer CSS.
+ * A `ThumbnailGroup` that registers as the ScrollTimeline transform target.
+ * The parent Filmstrip writes midline `padding-inline`, travel CSS var, and the
+ * link animation. Flex, gap, and thumb sizing stay consumer CSS.
  */
 const LightboxFilmstripTrack = React.forwardRef<HTMLDivElement, LightboxFilmstripTrackProps>(
   function LightboxFilmstripTrack(props, forwardedRef) {

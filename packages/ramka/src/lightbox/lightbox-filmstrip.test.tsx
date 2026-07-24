@@ -23,6 +23,21 @@ const roInstances = new Set<{ cb: ResizeObserverCallback }>();
 
 let rafSeq = 0;
 const rafCallbacks = new Map<number, FrameRequestCallback>();
+let scrollTimelineEnabled = false;
+
+type LinkCall = {
+  target: Element;
+  keyframes: Keyframe[];
+  timeline: { source: Element; axis?: string };
+  anim: {
+    play: ReturnType<typeof vi.fn>;
+    pause: ReturnType<typeof vi.fn>;
+    cancel: ReturnType<typeof vi.fn>;
+    playState: string;
+  };
+};
+
+const linkCalls: LinkCall[] = [];
 
 function flushRaf() {
   const callbacks = [...rafCallbacks.entries()];
@@ -96,6 +111,59 @@ function readTranslateX(el: HTMLElement): number {
   return m ? Number(m[1]) : 0;
 }
 
+class MockScrollTimeline {
+  source: Element;
+  axis?: string;
+  constructor(options: { source: Element; axis?: string }) {
+    this.source = options.source;
+    this.axis = options.axis;
+  }
+}
+
+class MockKeyframeEffect {
+  target: Element;
+  keyframes: Keyframe[];
+  options: KeyframeEffectOptions;
+  constructor(
+    target: Element,
+    keyframes: Keyframe[] | PropertyIndexedKeyframes | null,
+    options?: number | KeyframeEffectOptions,
+  ) {
+    this.target = target;
+    this.keyframes = Array.isArray(keyframes) ? keyframes : [];
+    this.options = typeof options === 'number' ? { duration: options } : (options ?? {});
+  }
+}
+
+class MockAnimation {
+  effect: MockKeyframeEffect | null;
+  timeline: MockScrollTimeline | null;
+  playState = 'idle';
+  play = vi.fn(() => {
+    this.playState = 'running';
+  });
+  pause = vi.fn(() => {
+    this.playState = 'paused';
+  });
+  cancel = vi.fn(() => {
+    this.playState = 'idle';
+  });
+  commitStyles = vi.fn();
+  finished = Promise.resolve(this as unknown as Animation);
+  constructor(effect: MockKeyframeEffect | null, timeline: MockScrollTimeline | null = null) {
+    this.effect = effect;
+    this.timeline = timeline;
+    if (effect && timeline) {
+      linkCalls.push({
+        target: effect.target,
+        keyframes: effect.keyframes,
+        timeline,
+        anim: this,
+      });
+    }
+  }
+}
+
 function Gallery({
   count = 5,
   scrubOnSelect,
@@ -135,6 +203,8 @@ beforeEach(() => {
   roInstances.clear();
   rafCallbacks.clear();
   rafSeq = 0;
+  linkCalls.length = 0;
+  scrollTimelineEnabled = false;
 
   vi.stubGlobal(
     'ResizeObserver',
@@ -164,14 +234,21 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  Reflect.deleteProperty(HTMLElement.prototype, 'animate');
 });
+
+function enableScrollTimeline() {
+  scrollTimelineEnabled = true;
+  vi.stubGlobal('ScrollTimeline', MockScrollTimeline);
+  vi.stubGlobal('KeyframeEffect', MockKeyframeEffect);
+  vi.stubGlobal('Animation', MockAnimation);
+}
 
 describe('Lightbox.Filmstrip', () => {
   it('publishes identity data attrs and registers a tablist', () => {
     render(<Gallery />);
     const slides = screen.getByTestId('slides');
     setupSlidesGeometry(slides, 5);
-    act(() => flushRaf());
 
     const track = screen.getByTestId('filmstrip-track');
     setupThumbGeometry(track, 5);
@@ -182,42 +259,66 @@ describe('Lightbox.Filmstrip', () => {
     expect(screen.getByTestId('filmstrip-indicator')).toHaveAttribute(
       'data-ramka-filmstrip-indicator',
     );
-    // Items become tabpanels when a tablist is present.
     expect(screen.getByText('item 0').closest('[role="tabpanel"]')).toBeTruthy();
   });
 
-  it('mirrors Slides scrollLeft onto the track transform and applies midline padding', () => {
+  it('JS fallback mirrors Slides scrollLeft onto the track transform', () => {
+    expect(scrollTimelineEnabled).toBe(false);
+
     render(<Gallery count={5} />);
     const slides = screen.getByTestId('slides');
     setupSlidesGeometry(slides, 5);
-    act(() => flushRaf());
 
     const root = screen.getByTestId('filmstrip');
     const track = screen.getByTestId('filmstrip-track');
     setupFilmstripRoot(root);
     setupThumbGeometry(track, 5);
-    act(() => flushRaf());
 
-    expect(track.style.paddingInline).toBe(`${(FILMSTRIP_WIDTH - THUMB) / 2}px`);
     expect(readTranslateX(track)).toBe(0);
 
     swipeTo(slides, 2);
-    // progress 2/4 → travel = 4 * THUMB_STEP → -2 * THUMB_STEP
     expect(readTranslateX(track)).toBeCloseTo(-2 * THUMB_STEP, 5);
 
     swipeTo(slides, 4);
     expect(readTranslateX(track)).toBeCloseTo(-4 * THUMB_STEP, 5);
   });
 
-  it('thumb click updates active index and runs WAAPI scrub when available', () => {
-    const finished = Promise.resolve();
-    const animate = vi.fn(() => {
+  it('links the track to Slides via ScrollTimeline when available', () => {
+    enableScrollTimeline();
+
+    render(<Gallery count={5} />);
+    const slides = screen.getByTestId('slides');
+    setupSlidesGeometry(slides, 5);
+
+    const root = screen.getByTestId('filmstrip');
+    const track = screen.getByTestId('filmstrip-track');
+    setupFilmstripRoot(root);
+    setupThumbGeometry(track, 5);
+
+    const link = linkCalls.at(-1);
+    expect(link).toBeTruthy();
+    expect(link!.target).toBe(track);
+    expect(link!.timeline.source).toBe(slides);
+    expect(link!.timeline.axis).toBe('x');
+    expect(link!.anim.play).toHaveBeenCalled();
+
+    const travel = 4 * THUMB_STEP;
+    expect(link!.keyframes[0]).toMatchObject({ transform: 'translate3d(0px, 0, 0)' });
+    expect(link!.keyframes[1]).toMatchObject({
+      transform: `translate3d(${-travel}px, 0, 0)`,
+    });
+  });
+
+  it('thumb click pauses the ScrollTimeline link during scrub', async () => {
+    enableScrollTimeline();
+
+    const elementAnimate = vi.fn(() => {
       const anim = {
         pause: vi.fn(),
         play: vi.fn(),
         cancel: vi.fn(),
         commitStyles: vi.fn(),
-        finished,
+        finished: Promise.resolve(),
         currentTime: 0,
       };
       return anim as unknown as Animation;
@@ -225,44 +326,53 @@ describe('Lightbox.Filmstrip', () => {
     Object.defineProperty(HTMLElement.prototype, 'animate', {
       configurable: true,
       writable: true,
-      value: animate,
+      value: elementAnimate,
     });
 
     render(<Gallery count={5} />);
     const slides = screen.getByTestId('slides');
     setupSlidesGeometry(slides, 5);
-    act(() => flushRaf());
     const track = screen.getByTestId('filmstrip-track');
     setupThumbGeometry(track, 5);
-    act(() => flushRaf());
     endScroll(slides);
 
-    fireEvent.click(screen.getByTestId('thumb-3'));
+    const link = linkCalls.at(-1);
+    expect(link).toBeTruthy();
+
+    vi.spyOn(window, 'getComputedStyle').mockReturnValue({
+      transform: 'none',
+    } as CSSStyleDeclaration);
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('thumb-3'));
+      await Promise.resolve();
+    });
 
     expect(screen.getByTestId('thumb-3')).toHaveAttribute('data-active');
-    expect(animate).toHaveBeenCalled();
+    expect(link!.anim.pause).toHaveBeenCalled();
+    expect(elementAnimate).toHaveBeenCalled();
+    expect(link!.anim.play).toHaveBeenCalled();
   });
 
-  it('drops thumb navigation while a user scroll/fling is locked', () => {
+  it('drops thumb navigation while a user scroll/fling is locked', async () => {
     render(<Gallery count={5} />);
     const slides = screen.getByTestId('slides');
     setupSlidesGeometry(slides, 5);
-    act(() => flushRaf());
     const track = screen.getByTestId('filmstrip-track');
     setupThumbGeometry(track, 5);
-    act(() => flushRaf());
 
-    // Start a fling — locks discrete nav.
     swipeTo(slides, 1);
     expect(screen.getByTestId('thumb-1')).toHaveAttribute('data-active');
 
     fireEvent.click(screen.getByTestId('thumb-4'));
-    // Still on the swipe-derived index — click dropped.
     expect(screen.getByTestId('thumb-1')).toHaveAttribute('data-active');
     expect(screen.getByTestId('thumb-4')).not.toHaveAttribute('data-active');
 
     endScroll(slides);
-    fireEvent.click(screen.getByTestId('thumb-4'));
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('thumb-4'));
+      await Promise.resolve();
+    });
     expect(screen.getByTestId('thumb-4')).toHaveAttribute('data-active');
   });
 });

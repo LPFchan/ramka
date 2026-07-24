@@ -1,8 +1,9 @@
 /**
  * Docs-only filmstrip cosmetics.
  *
- * Library Filmstrip owns midline padding, overflow clip, and scroll sync.
- * Consumers style flex/gap, thumb size, and indicator paint.
+ * Library Filmstrip owns midline padding, overflow clip, and the ScrollTimeline
+ * → track transform link. Consumers style flex/gap, thumb size, and indicator
+ * paint.
  */
 
 .lightbox-demo-filmstrip {

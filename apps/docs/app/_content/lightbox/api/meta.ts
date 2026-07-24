@@ -309,7 +309,7 @@ export const lightboxApiMeta: ApiPartMeta[] = [
     id: 'api-filmstrip',
     name: 'Filmstrip',
     description:
-      'Scroll-linked filmstrip root. Always centers the active thumbnail on the midline (Photos-style): owns overflow clip, measured midline track padding, and Slides→FilmstripTrack transform sync. Compose with FilmstripTrack + Thumbnails (+ optional FilmstripIndicator). Pointer selects go through filmstrip context (optional WAAPI scrub via scrubOnSelect); keyboard stays instant with the stage. Flex/gap/thumb size remain consumer CSS.',
+      'Scroll-linked filmstrip root. Always centers the active thumbnail on the midline (Photos-style): owns overflow clip, measured midline track padding, and Slides→track sync via native ScrollTimeline + WAAPI (JS scroll→transform fallback when ScrollTimeline is unavailable). Compose with FilmstripTrack + Thumbnails (+ optional FilmstripIndicator). Pointer selects go through filmstrip context (optional DocumentTimeline WAAPI scrub via scrubOnSelect); keyboard stays instant with the stage. Flex/gap/thumb size remain consumer CSS.',
     extract: {
       kind: 'interface-props',
       typeName: 'LightboxFilmstripProps',
@@ -320,12 +320,16 @@ export const lightboxApiMeta: ApiPartMeta[] = [
       enumName: 'LightboxFilmstripDataAttributes',
       file: 'lightbox-data-attributes.ts',
     },
+    cssVariablesFrom: {
+      enumName: 'LightboxFilmstripCssVars',
+      file: 'lightbox-css-vars.ts',
+    },
   },
   {
     id: 'api-filmstrip-track',
     name: 'FilmstripTrack',
     description:
-      'Linked tablist track for Filmstrip. A ThumbnailGroup that registers as the transform target (same keyboard / ARIA). Parent Filmstrip writes midline padding and transform; flex, gap, and thumb sizing are consumer CSS.',
+      'Linked tablist track for Filmstrip. A ThumbnailGroup that registers as the ScrollTimeline transform target (same keyboard / ARIA). Parent Filmstrip writes midline padding + travel CSS var and owns the link animation; flex, gap, and thumb sizing are consumer CSS.',
     extract: {
       kind: 'interface-props',
       typeName: 'LightboxFilmstripTrackProps',
@@ -337,7 +341,7 @@ export const lightboxApiMeta: ApiPartMeta[] = [
     id: 'api-filmstrip-indicator',
     name: 'FilmstripIndicator',
     description:
-      'Optional stationary center selection chrome for Filmstrip. Structurally centered; paint size/outline in consumer CSS. Active thumbs stay under this midline via Filmstrip padding + transform sync.',
+      'Optional stationary center selection chrome for Filmstrip. Structurally centered; paint size/outline in consumer CSS. Active thumbs stay under this midline via Filmstrip padding + ScrollTimeline transform.',
     extract: {
       kind: 'interface-props',
       typeName: 'LightboxFilmstripIndicatorProps',

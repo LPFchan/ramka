@@ -295,7 +295,7 @@ export const generatedProps: Record<string, PropRow[]> = {
     {
       name: "scrubOnSelect",
       type: "boolean",
-      description: "When true (default), pointer selection on a thumbnail WAAPI-scrubs the track to the target index. Keyboard / button navigation stays instant (follows the Slides jump).",
+      description: "When true (default), pointer selection on a thumbnail WAAPI-scrubs the track to the target index. Keyboard / button navigation stays instant (follows the Slides jump via the scroll link).",
     },
     {
       name: "scrubDuration",
@@ -766,7 +766,12 @@ export const generatedCssVariables: Record<string, CssVarRow[]> = {
   "api-caption": [],
   "api-thumbnail-group": [],
   "api-thumbnail": [],
-  "api-filmstrip": [],
+  "api-filmstrip": [
+    {
+      name: "--lightbox-filmstrip-travel",
+      description: "End `translateX` travel for the scroll link (typically a negative px length spanning `(itemCount - 1) * thumbStep`). Set on the FilmstripTrack.",
+    },
+  ],
   "api-filmstrip-track": [],
   "api-filmstrip-indicator": [],
   "api-zoom": [],

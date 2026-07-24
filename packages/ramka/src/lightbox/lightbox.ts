@@ -60,7 +60,7 @@
  *   Caption         — Per-item caption from Item's caption prop
  *   ThumbnailGroup  — Tablist container for thumbnails
  *   Thumbnail       — Tab button navigating to a specific item
- *   Filmstrip       — Centered scroll-linked filmstrip (pad + transform sync)
+ *   Filmstrip       — Centered scroll-linked filmstrip (pad + ScrollTimeline)
  *   FilmstripTrack  — Linked tablist track (ThumbnailGroup + transform target)
  *   FilmstripIndicator — Optional midline selection chrome slot
  *   Zoom            — Zoom/pan wrapper for item content (pinch, scroll, keyboard)
@@ -151,4 +151,5 @@ export {
   LightboxContentCssVars,
   LightboxBackdropCssVars,
   LightboxDocumentCssVars,
+  LightboxFilmstripCssVars,
 } from './lightbox-css-vars';
