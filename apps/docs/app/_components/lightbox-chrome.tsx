@@ -252,7 +252,12 @@ function GalleryThumbnailStrip({
     );
   }, []);
 
-  /** Thumb tap → instant jump. Never touches snap — Slides owns that. */
+  const smoothJumpRestoreRef = React.useRef<(() => void) | null>(null);
+
+  /**
+   * Thumb tap → smooth stage scroll. Snap/`scroll-behavior` are only overridden
+   * for this jump (not during strip drag); always restored on scrollend.
+   */
   const jumpToIndex = React.useCallback(
     (index: number) => {
       const s = getSlides();
@@ -262,10 +267,33 @@ function GalleryThumbnailStrip({
       if (!slide) return;
 
       const width = slide.offsetWidth || s.clientWidth || 1;
-      s.scrollLeft = Math.min(
+      const target = Math.min(
         Math.max(slide.offsetLeft + width / 2 - s.clientWidth / 2, 0),
         Math.max(s.scrollWidth - s.clientWidth, 0),
       );
+      if (Math.abs(s.scrollLeft - target) < 1) return;
+
+      // Cancel a previous in-flight jump's restore so we don't leave snap off.
+      smoothJumpRestoreRef.current?.();
+
+      // Slides bake `scroll-behavior: auto` + `scroll-snap-stop: always` — both
+      // must yield for a multi-slide smooth scroll, then snap comes back.
+      const savedSnap = s.style.scrollSnapType;
+      const savedBehavior = s.style.scrollBehavior;
+      s.style.scrollSnapType = 'none';
+      s.style.scrollBehavior = 'smooth';
+      s.scrollTo({ left: target, behavior: 'smooth' });
+
+      const restore = () => {
+        s.style.scrollSnapType = savedSnap || 'x mandatory';
+        s.style.scrollBehavior = savedBehavior || 'auto';
+        s.removeEventListener('scrollend', restore);
+        window.clearTimeout(fallback);
+        if (smoothJumpRestoreRef.current === restore) smoothJumpRestoreRef.current = null;
+      };
+      const fallback = window.setTimeout(restore, 1000);
+      smoothJumpRestoreRef.current = restore;
+      s.addEventListener('scrollend', restore);
     },
     [getSlides],
   );
