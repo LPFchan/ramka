@@ -795,37 +795,44 @@ function useViewTransitionMorph(config: ViewTransitionMorphConfig): ViewTransiti
     const triggerTarget = triggerEl
       ? findTriggerMorphTarget(triggerEl, triggerMorphElementsRef.current)
       : null;
-    const useCrossfade = shouldUseCrossfade(triggerEl?.dataset.crossfade, 'closing');
+    // Mirror open: a morph needs both ends. Naming only the item (no trigger)
+    // lifts it out of the root snapshot so chrome fades while the photo sticks,
+    // then pops — e.g. controlled open with no Trigger. Fall back to a plain
+    // root crossfade instead.
+    const canMorph = !!triggerTarget && !!itemTarget;
+    const useCrossfade = canMorph
+      ? shouldUseCrossfade(triggerEl?.dataset.crossfade, 'closing')
+      : true;
 
     // Batch all reads before any writes to avoid forced reflow. Resolve to
     // interpolatable px so `rounded-full` / % don't break the group animation.
-    const fromRadius = itemTarget ? resolveMorphBorderRadius(itemTarget) : null;
-    const toRadius = triggerTarget ? resolveMorphBorderRadius(triggerTarget) : null;
+    const fromRadius = canMorph ? resolveMorphBorderRadius(itemTarget!) : null;
+    const toRadius = canMorph ? resolveMorphBorderRadius(triggerTarget!) : null;
 
     // Writes — radii go to CSS vars; the VT group interpolates them (no live
     // border-radius mutation).
     applyMorphState(docEl, 'closing', { useCrossfade, fromRadius, toRadius });
-    if (itemTarget) {
-      setMorphName(itemTarget);
+    if (canMorph) {
+      setMorphName(itemTarget!);
     }
 
     const transition = startViewTransition(() => {
-      if (itemTarget) {
-        clearMorphName(itemTarget);
+      if (canMorph) {
+        clearMorphName(itemTarget!);
       }
       flushSync(commitClose);
       const closeBehavior = resolveScrollBehavior(scrollTriggerIntoView, 'onClose');
       if (closeBehavior) {
         scrollTriggerEl(triggerEl, closeBehavior);
       }
-      if (triggerTarget) {
-        setMorphName(triggerTarget);
+      if (canMorph) {
+        setMorphName(triggerTarget!);
       }
     });
 
     transition.finished.finally(() => {
-      if (triggerTarget) {
-        clearMorphName(triggerTarget);
+      if (canMorph) {
+        clearMorphName(triggerTarget!);
       }
       clearMorphState(docEl);
       if (configRef.current.closeGenRef.current === gen) {

@@ -1625,6 +1625,47 @@ describe('Lightbox', () => {
       await act(async () => resolveFinished());
     });
 
+    it('close without a trigger falls back to root crossfade (no item morph name)', () => {
+      // Controlled/defaultOpen with no Trigger: naming the item alone would lift
+      // it out of the root snapshot so chrome fades while the photo sticks.
+      let namedDuringCapture = 'unset';
+      const startViewTransition = vi.fn((callback: () => void | Promise<void>) => {
+        const img = screen.getByTestId('item-0').querySelector('img');
+        namedDuringCapture = img?.style.getPropertyValue('view-transition-name') ?? '';
+        const result = callback();
+        if (result && typeof (result as Promise<void>).then === 'function') {
+          (result as Promise<void>).catch(vi.fn());
+        }
+        return { finished: Promise.resolve() };
+      });
+      Object.defineProperty(document, 'startViewTransition', {
+        value: startViewTransition,
+        writable: true,
+        configurable: true,
+      });
+
+      render(
+        <LightboxRoot viewTransition defaultOpen awaitImageDecode={false}>
+          <LightboxPortal>
+            <LightboxContent data-testid="content" aria-label="no-trigger close">
+              <LightboxClose data-testid="close">Close</LightboxClose>
+              <LightboxItemGroup>
+                <LightboxItem index={0} data-testid="item-0">
+                  {({ imageRef }) => <img ref={imageRef} src="a.jpg" alt="a" />}
+                </LightboxItem>
+              </LightboxItemGroup>
+            </LightboxContent>
+          </LightboxPortal>
+        </LightboxRoot>,
+      );
+
+      fireEvent.click(screen.getByTestId('close'));
+      expect(startViewTransition).toHaveBeenCalledOnce();
+      expect(namedDuringCapture).toBe('');
+      expect(document.documentElement).toHaveAttribute('data-ramka-view-transition', 'closing');
+      expect(document.documentElement).not.toHaveAttribute('data-ramka-no-crossfade');
+    });
+
     it('removes data-ramka-view-transition after close transition finishes', async () => {
       let resolveOpen: () => void;
       let resolveClose: () => void;
