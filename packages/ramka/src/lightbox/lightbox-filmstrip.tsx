@@ -25,6 +25,12 @@ interface LightboxFilmstripProps extends useRender.ComponentProps<'div', Lightbo
   scrubDuration?: number;
   /** WAAPI scrub easing. @default 'cubic-bezier(0.22, 1, 0.36, 1)' */
   scrubEasing?: string;
+  /**
+   * Optional wrapper around the active-index commit (e.g. docs chrome can run
+   * an element-scoped `slides.startViewTransition`). Scrub still runs outside
+   * this callback. Defaults to invoking `commit` immediately.
+   */
+  wrapSelectCommit?: (commit: () => void, slides: HTMLElement | null) => void;
 }
 
 const filmstripStateAttributesMapping = {
@@ -85,6 +91,7 @@ const LightboxFilmstrip = React.forwardRef<HTMLDivElement, LightboxFilmstripProp
       scrubOnSelect = true,
       scrubDuration = 450,
       scrubEasing = 'cubic-bezier(0.22, 1, 0.36, 1)',
+      wrapSelectCommit,
       style,
       ...elementProps
     } = props;
@@ -296,6 +303,7 @@ const LightboxFilmstrip = React.forwardRef<HTMLDivElement, LightboxFilmstripProp
 
         const track = trackRef.current;
         const link = linkAnimRef.current;
+        const slides = slidesViewportRef.current;
         const reduceMotion =
           typeof matchMedia === 'function' &&
           matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -309,12 +317,14 @@ const LightboxFilmstrip = React.forwardRef<HTMLDivElement, LightboxFilmstripProp
           typeof track.animate === 'function' &&
           Math.abs(fromX - toX) >= 0.5;
 
+        let scrub: Animation | undefined;
+
         if (canScrub && track) {
           scrubAnimRef.current?.cancel();
           // Freeze the scroll link in place; do not cancel it (Safari flash).
           link?.pause();
           setScrubbing(true);
-          const scrub = track.animate(
+          const scrubAnim = track.animate(
             [
               { transform: `translate3d(${fromX}px, 0, 0)` },
               { transform: `translate3d(${toX}px, 0, 0)` },
@@ -325,17 +335,22 @@ const LightboxFilmstrip = React.forwardRef<HTMLDivElement, LightboxFilmstripProp
               fill: 'forwards',
             },
           );
-          scrubAnimRef.current = scrub;
-          void scrub.finished.then(
+          // Hold on the first frame until the index commit starts (so a
+          // wrapSelectCommit view transition can capture a stable "old" slide).
+          scrubAnim.pause();
+          scrubAnim.currentTime = 0;
+          scrubAnimRef.current = scrubAnim;
+          scrub = scrubAnim;
+          void scrubAnim.finished.then(
             () => {
-              if (scrubAnimRef.current !== scrub) return;
+              if (scrubAnimRef.current !== scrubAnim) return;
               scrubAnimRef.current = null;
               try {
-                scrub.commitStyles();
+                scrubAnim.commitStyles();
               } catch {
                 /* commitStyles can throw if the effect was already cleared */
               }
-              scrub.cancel();
+              scrubAnim.cancel();
               track.style.removeProperty('transform');
               if (usesScrollTimelineRef.current) {
                 link?.play();
@@ -345,7 +360,7 @@ const LightboxFilmstrip = React.forwardRef<HTMLDivElement, LightboxFilmstripProp
               setScrubbing(false);
             },
             () => {
-              if (scrubAnimRef.current === scrub) {
+              if (scrubAnimRef.current === scrubAnim) {
                 scrubAnimRef.current = null;
                 track.style.removeProperty('transform');
                 if (usesScrollTimelineRef.current) {
@@ -359,15 +374,27 @@ const LightboxFilmstrip = React.forwardRef<HTMLDivElement, LightboxFilmstripProp
           );
         }
 
-        activeIndexRef.current = index;
-        setActiveIndex(index, 'thumbnail');
+        const commit = () => {
+          activeIndexRef.current = index;
+          setActiveIndex(index, 'thumbnail');
+        };
+
+        if (wrapSelectCommit) {
+          wrapSelectCommit(commit, slides);
+        } else {
+          commit();
+        }
+
+        scrub?.play();
       },
       [
         scrubOnSelect,
         scrubDuration,
         scrubEasing,
+        wrapSelectCommit,
         setActiveIndex,
         navigationLockedRef,
+        slidesViewportRef,
       ],
     );
 

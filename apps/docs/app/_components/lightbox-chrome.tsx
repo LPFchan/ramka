@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { flushSync } from 'react-dom';
 import { Lightbox, useLightboxTriggerContext } from 'ramka';
 import { ChevronLeft, ChevronRight, X, ZoomIn, ZoomOut } from 'lucide-react';
 
@@ -133,6 +134,29 @@ export function LightboxGallery({
 
   const backdropTone = backdrop === 'solid' ? 'bg-white dark:bg-black' : 'lightbox-demo-backdrop-light';
 
+  /**
+   * Docs-only: element-scoped VT crossfade on Slides when a thumb is clicked.
+   * Document VT (Safari today) snapshots the whole page and flashes the lightbox
+   * if we hide root to keep the strip live — so we only use slides-scoped VT.
+   * Styled by `.lightbox-demo-slides::view-transition-*` in filmstrip-scroll-link.css.
+   */
+  const wrapThumbSelectCommit = React.useCallback((commit: () => void, slides: HTMLElement | null) => {
+    const reduceMotion =
+      typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+    type VTHost = { startViewTransition: (cb: () => void) => unknown };
+    if (
+      !reduceMotion &&
+      slides &&
+      typeof (slides as HTMLElement & VTHost).startViewTransition === 'function'
+    ) {
+      (slides as HTMLElement & VTHost).startViewTransition(() => {
+        flushSync(commit);
+      });
+      return;
+    }
+    commit();
+  }, []);
+
   return (
     <Lightbox.Portal>
       <Lightbox.Backdrop className={`lightbox-demo-backdrop ${backdropTone} fixed inset-0`} />
@@ -206,7 +230,7 @@ export function LightboxGallery({
           <Lightbox.Caption className="pointer-events-auto block min-h-[1.25rem] max-w-full truncate px-6 text-center text-sm text-black/70 dark:text-white/80" />
 
           {thumbnails !== 'never' ? (
-            <Lightbox.Filmstrip className={thumbClass}>
+            <Lightbox.Filmstrip className={thumbClass} wrapSelectCommit={wrapThumbSelectCommit}>
               <Lightbox.FilmstripTrack aria-label="Photo thumbnails">
                 {items.map((item, i) => (
                   <Lightbox.Thumbnail

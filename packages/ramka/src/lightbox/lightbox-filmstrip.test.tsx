@@ -312,10 +312,12 @@ describe('Lightbox.Filmstrip', () => {
   it('thumb click pauses the ScrollTimeline link during scrub', async () => {
     enableScrollTimeline();
 
+    const scrubPause = vi.fn();
+    const scrubPlay = vi.fn();
     const elementAnimate = vi.fn(() => {
       const anim = {
-        pause: vi.fn(),
-        play: vi.fn(),
+        pause: scrubPause,
+        play: scrubPlay,
         cancel: vi.fn(),
         commitStyles: vi.fn(),
         finished: Promise.resolve(),
@@ -351,7 +353,51 @@ describe('Lightbox.Filmstrip', () => {
     expect(screen.getByTestId('thumb-3')).toHaveAttribute('data-active');
     expect(link!.anim.pause).toHaveBeenCalled();
     expect(elementAnimate).toHaveBeenCalled();
+    expect(scrubPause).toHaveBeenCalled();
+    expect(scrubPlay).toHaveBeenCalled();
     expect(link!.anim.play).toHaveBeenCalled();
+  });
+
+  it('wrapSelectCommit can wrap the active-index commit', async () => {
+    const wrapSelectCommit = vi.fn((commit: () => void) => {
+      commit();
+    });
+
+    render(
+      <LightboxRoot defaultOpen>
+        <LightboxTrigger index={0}>open</LightboxTrigger>
+        <LightboxPortal>
+          <LightboxContent aria-label="wrap test">
+            <LightboxSlides data-testid="slides" aria-label="Slides">
+              {Array.from({ length: 3 }, (_, i) => (
+                <LightboxSlide key={i}>
+                  <LightboxItem index={i}>item {i}</LightboxItem>
+                </LightboxSlide>
+              ))}
+            </LightboxSlides>
+            <LightboxFilmstrip data-testid="filmstrip" wrapSelectCommit={wrapSelectCommit}>
+              <LightboxFilmstripTrack data-testid="filmstrip-track" aria-label="Thumbs">
+                {Array.from({ length: 3 }, (_, i) => (
+                  <LightboxThumbnail key={i} index={i} data-testid={`thumb-${i}`}>
+                    t{i}
+                  </LightboxThumbnail>
+                ))}
+              </LightboxFilmstripTrack>
+            </LightboxFilmstrip>
+          </LightboxContent>
+        </LightboxPortal>
+      </LightboxRoot>,
+    );
+
+    const slides = screen.getByTestId('slides');
+    setupSlidesGeometry(slides, 3);
+    const track = screen.getByTestId('filmstrip-track');
+    setupThumbGeometry(track, 3);
+    endScroll(slides);
+
+    fireEvent.click(screen.getByTestId('thumb-2'));
+    expect(wrapSelectCommit).toHaveBeenCalled();
+    expect(screen.getByTestId('thumb-2')).toHaveAttribute('data-active');
   });
 
   it('drops thumb navigation while a user scroll/fling is locked', async () => {

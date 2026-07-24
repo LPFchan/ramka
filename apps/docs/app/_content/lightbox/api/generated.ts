@@ -310,6 +310,11 @@ export const generatedProps: Record<string, PropRow[]> = {
       description: "WAAPI scrub easing.",
     },
     {
+      name: "wrapSelectCommit",
+      type: "(commit: () => void, slides: HTMLElement | null) => void",
+      description: "Optional wrapper around the active-index commit (e.g. docs chrome can run an element-scoped `slides.startViewTransition`). Scrub still runs outside this callback. Defaults to invoking `commit` immediately.",
+    },
+    {
       name: "render",
       type: "ReactElement | ComponentRenderFn",
       description: "Allows you to replace the component's HTML element with a different tag, or compose it with another component.\n\nAccepts a `ReactElement` or a function that returns the element to render.",
