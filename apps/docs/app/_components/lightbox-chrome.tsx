@@ -237,21 +237,11 @@ function readTranslateX(el: HTMLElement): number {
 }
 
 /**
- * Drop WAAPI + inline overrides so the CSS scroll-timeline owns `transform`
- * again. `fill: forwards` keeps applying until the Animation is cancelled.
- */
-function releaseFilmstripTrack(track: HTMLElement, anim?: Animation | null) {
-  anim?.cancel();
-  track.style.removeProperty('animation');
-  track.style.removeProperty('transform');
-}
-
-/**
  * Demo-only filmstrip (not part of ramka):
  * - Enhanced: track `translateX` is scroll-timeline-linked to Lightbox.Slides
  *   (Slides is the only scroller; strip is display-only + tap targets).
- * - Thumb click → `setActiveIndex('thumbnail')` + WAAPI scrub on the track
- *   (no document VT — strip stays clickable for rapid +1 taps).
+ * - Thumb click → `setActiveIndex('thumbnail')` + WAAPI strip scrub + slides
+ *   crossfade via element-scoped VT when available (Safari: hard-cut slides).
  * - Fallback: overflow strip + scrollIntoView on `data-active`.
  */
 function GalleryThumbnailStrip({
@@ -264,26 +254,73 @@ function GalleryThumbnailStrip({
   const viewportRef = React.useRef<HTMLDivElement>(null);
   const groupRef = React.useRef<HTMLDivElement>(null);
   const scrubAnimRef = React.useRef<Animation | null>(null);
+  /** Bumps when a scrub starts/ends so deferred bridge clears can't clobber a newer scrub. */
+  const scrubEpochRef = React.useRef(0);
   const { activeIndex, setActiveIndex, navigationLockedRef } = useLightboxContext();
   const activeIndexRef = React.useRef(activeIndex);
   activeIndexRef.current = activeIndex;
   const linked = supportsFilmstripScrollLink();
 
+  const getSlides = React.useCallback((): HTMLElement | null => {
+    const viewport = viewportRef.current;
+    if (!viewport) return null;
+    return (
+      viewport.closest('.lightbox-demo-content')?.querySelector<HTMLElement>('.lightbox-demo-slides') ??
+      viewport.closest('[role="dialog"]')?.querySelector<HTMLElement>('[aria-roledescription="carousel"]') ??
+      null
+    );
+  }, []);
+
+  /**
+   * Hand the track back to CSS scroll-timeline. Safari paints keyframe 0
+   * (`translateX(0)`) for a frame if we clear WAAPI + `animation: none` in the
+   * same turn — bridge the final translateX until the timeline has reattached.
+   */
   const endTrackScrub = React.useCallback(() => {
     const track = groupRef.current;
     const anim = scrubAnimRef.current;
     scrubAnimRef.current = null;
-    if (track) releaseFilmstripTrack(track, anim);
+    if (!track) return;
+
+    const bridgeX = readTranslateX(track);
+    try {
+      anim?.commitStyles();
+    } catch {
+      /* commitStyles unsupported */
+    }
+    anim?.cancel();
+
+    const epoch = scrubEpochRef.current;
+    track.style.transform = `translateX(${bridgeX}px)`;
+    track.style.removeProperty('animation');
+
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        if (epoch !== scrubEpochRef.current) return;
+        if (scrubAnimRef.current) return;
+        track.style.removeProperty('transform');
+      });
+    });
   }, []);
 
   React.useEffect(() => {
-    return () => endTrackScrub();
-  }, [endTrackScrub]);
+    return () => {
+      scrubEpochRef.current += 1;
+      const track = groupRef.current;
+      const anim = scrubAnimRef.current;
+      scrubAnimRef.current = null;
+      anim?.cancel();
+      if (track) {
+        track.style.removeProperty('animation');
+        track.style.removeProperty('transform');
+      }
+    };
+  }, []);
 
   /**
-   * Same as `Lightbox.Thumbnail` → `setActiveIndex`. When scroll-linked, briefly
-   * detaches the track from the timeline and WAAPI-scrubs `translateX` so rapid
-   * taps stay interactive (document VT would cover the strip for the duration).
+   * Same as `Lightbox.Thumbnail` → `setActiveIndex`, plus docs-only motion:
+   * slides crossfade (VT) and filmstrip WAAPI scrub. Mid-fling taps respect
+   * the library nav lock.
    */
   const goToIndex = React.useCallback(
     (index: number) => {
@@ -298,60 +335,86 @@ function GalleryThumbnailStrip({
 
       const strip = viewportRef.current;
       const track = groupRef.current;
+      const slides = getSlides();
       const reduceMotion =
         typeof matchMedia === 'function' &&
         matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-      if (!linked || reduceMotion || !strip || !track || typeof track.animate !== 'function') {
+      const startFilmstripScrub = () => {
+        if (!linked || reduceMotion || !strip || !track || typeof track.animate !== 'function') {
+          endTrackScrub();
+          return;
+        }
+
+        const step = filmstripThumbStepPx(strip);
+        const fromX = readTranslateX(track);
+        const toX = -index * step;
+
+        if (Math.abs(fromX - toX) < 0.5) {
+          endTrackScrub();
+          return;
+        }
+
+        const anim = track.animate(
+          [{ transform: `translateX(${fromX}px)` }, { transform: `translateX(${toX}px)` }],
+          {
+            duration: 450,
+            easing: 'cubic-bezier(0.22, 1, 0.36, 1)',
+            fill: 'forwards',
+          },
+        );
+        scrubAnimRef.current = anim;
+        void anim.finished.then(
+          () => {
+            if (scrubAnimRef.current !== anim) return;
+            endTrackScrub();
+          },
+          () => {
+            /* cancelled by a newer scrub — next goToIndex owns styles */
+          },
+        );
+      };
+
+      /** Hold strip position before slides jump so timeline doesn't hard-cut. */
+      const prepareFilmstripHold = () => {
+        if (!linked || reduceMotion || !strip || !track) return;
+        scrubEpochRef.current += 1; // invalidate any pending release bridge clear
+        const prev = scrubAnimRef.current;
+        if (prev) {
+          try {
+            prev.commitStyles();
+          } catch {
+            /* */
+          }
+          prev.cancel();
+          scrubAnimRef.current = null;
+        }
+        const fromX = readTranslateX(track);
+        track.style.setProperty('animation', 'none');
+        track.style.transform = `translateX(${fromX}px)`;
+      };
+
+      if (reduceMotion) {
         commit();
         return;
       }
 
-      const prev = scrubAnimRef.current;
-      if (prev) {
-        try {
-          prev.commitStyles();
-        } catch {
-          /* commitStyles unsupported / nothing to commit */
-        }
-        prev.cancel();
-        scrubAnimRef.current = null;
-      }
+      prepareFilmstripHold();
 
-      const step = filmstripThumbStepPx(strip);
-      const fromX = readTranslateX(track);
-      const toX = -index * step;
-
-      // Hold the visual position while Slides jumps underneath.
-      track.style.setProperty('animation', 'none');
-      track.style.transform = `translateX(${fromX}px)`;
-      commit();
-
-      if (Math.abs(fromX - toX) < 0.5) {
-        endTrackScrub();
+      // Slides crossfade only via *element-scoped* VT. Document VT (Safari's
+      // path today) snapshots the whole page — hiding root to keep the strip
+      // live flashes the lightbox. No scoped API → hard-cut slides + WAAPI strip.
+      type VTHost = { startViewTransition: (cb: () => void) => unknown };
+      if (slides && typeof (slides as HTMLElement & VTHost).startViewTransition === 'function') {
+        (slides as HTMLElement & VTHost).startViewTransition(commit);
+        startFilmstripScrub();
         return;
       }
 
-      const anim = track.animate(
-        [{ transform: `translateX(${fromX}px)` }, { transform: `translateX(${toX}px)` }],
-        {
-          duration: 450,
-          easing: 'cubic-bezier(0.22, 1, 0.36, 1)',
-          fill: 'forwards',
-        },
-      );
-      scrubAnimRef.current = anim;
-      void anim.finished.then(
-        () => {
-          if (scrubAnimRef.current !== anim) return;
-          endTrackScrub();
-        },
-        () => {
-          /* cancelled by a newer scrub — next goToIndex owns styles */
-        },
-      );
+      commit();
+      startFilmstripScrub();
     },
-    [linked, navigationLockedRef, setActiveIndex, endTrackScrub],
+    [linked, navigationLockedRef, setActiveIndex, endTrackScrub, getSlides],
   );
 
   // Fallback only: center the active thumb when the stage index changes.

@@ -101,3 +101,21 @@
     padding-inline: 0.25rem;
   }
 }
+
+/**
+ * Thumb-jump slides crossfade — element-scoped VT only
+ * (`slides.startViewTransition`). Document VT is intentionally not used here:
+ * Safari has document VT but not scoped VT, and a document transition that
+ * hides the root snapshot to keep the filmstrip live flashes the lightbox.
+ */
+.lightbox-demo-slides::view-transition-group(root) {
+  animation-duration: 0.4s;
+  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.lightbox-demo-slides::view-transition-old(root),
+.lightbox-demo-slides::view-transition-new(root) {
+  mix-blend-mode: normal;
+  height: 100%;
+  overflow: clip;
+}
