@@ -255,15 +255,20 @@ function GalleryThumbnailStrip({
   const smoothJumpRestoreRef = React.useRef<(() => void) | null>(null);
 
   /**
-   * Thumb tap → smooth stage scroll. Snap/`scroll-behavior` are only overridden
-   * for this jump (not during strip drag); always restored on scrollend.
+   * Thumb tap → stage jump.
+   * - Nearby (≤3): short smooth scroll.
+   * - Farther: `scrollLeft` inside `startViewTransition`. The filmstrip track
+   *   gets a temporary `view-transition-name` so its scroll-timeline translateX
+   *   interpolates as a horizontal scrub; the selection frame is named too so
+   *   it stays pinned. Falls back to a hard cut without VT / reduced motion.
    */
   const jumpToIndex = React.useCallback(
     (index: number) => {
       const s = getSlides();
       const count = itemCountRef.current;
       if (!s || index < 0 || index >= count) return;
-      const slide = s.querySelectorAll<HTMLElement>('[data-ramka-slide]')[index];
+      const slideEls = s.querySelectorAll<HTMLElement>('[data-ramka-slide]');
+      const slide = slideEls[index];
       if (!slide) return;
 
       const width = slide.offsetWidth || s.clientWidth || 1;
@@ -273,8 +278,68 @@ function GalleryThumbnailStrip({
       );
       if (Math.abs(s.scrollLeft - target) < 1) return;
 
-      // Cancel a previous in-flight jump's restore so we don't leave snap off.
+      // Derive current index the same way Slides does (offset geometry).
+      let current = 0;
+      if (slideEls.length > 1) {
+        const first = slideEls[0]!;
+        const w0 = first.offsetWidth || s.clientWidth || 1;
+        const base = first.offsetLeft + w0 / 2 - s.clientWidth / 2;
+        const step = slideEls[1]!.offsetLeft - first.offsetLeft;
+        if (step > 0) {
+          current = Math.min(
+            Math.max(Math.round((s.scrollLeft - base) / step), 0),
+            count - 1,
+          );
+        }
+      }
+
+      const NEAR_JUMP_MAX = 3;
+      const reduceMotion =
+        typeof matchMedia === 'function' &&
+        matchMedia('(prefers-reduced-motion: reduce)').matches;
+      const smooth =
+        !reduceMotion && Math.abs(index - current) <= NEAR_JUMP_MAX;
+
+      // Cancel a previous in-flight smooth jump's restore.
       smoothJumpRestoreRef.current?.();
+
+      if (!smooth) {
+        const apply = () => {
+          s.scrollLeft = target;
+        };
+        if (
+          !reduceMotion &&
+          typeof document !== 'undefined' &&
+          'startViewTransition' in document
+        ) {
+          const strip =
+            viewportRef.current ??
+            s.closest('.lightbox-demo-content')?.querySelector<HTMLElement>('.lightbox-demo-filmstrip');
+          const track = strip?.querySelector<HTMLElement>('.lightbox-demo-filmstrip-track') ?? null;
+          const frame = strip?.querySelector<HTMLElement>('.lightbox-demo-filmstrip-frame') ?? null;
+          try {
+            // Name before capture so old + new snapshots share the pair.
+            if (track) track.style.viewTransitionName = 'ramka-demo-filmstrip-track';
+            if (frame) frame.style.viewTransitionName = 'ramka-demo-filmstrip-frame';
+            const vt = (
+              document as Document & {
+                startViewTransition: (cb: () => void) => { finished: Promise<void> };
+              }
+            ).startViewTransition(apply);
+            const clearNames = () => {
+              if (track) track.style.viewTransitionName = '';
+              if (frame) frame.style.viewTransitionName = '';
+            };
+            void Promise.resolve(vt.finished).then(clearNames, clearNames);
+            return;
+          } catch {
+            if (track) track.style.viewTransitionName = '';
+            if (frame) frame.style.viewTransitionName = '';
+          }
+        }
+        apply();
+        return;
+      }
 
       // Slides bake `scroll-behavior: auto` + `scroll-snap-stop: always` — both
       // must yield for a multi-slide smooth scroll, then snap comes back.
@@ -291,7 +356,7 @@ function GalleryThumbnailStrip({
         window.clearTimeout(fallback);
         if (smoothJumpRestoreRef.current === restore) smoothJumpRestoreRef.current = null;
       };
-      const fallback = window.setTimeout(restore, 1000);
+      const fallback = window.setTimeout(restore, 600);
       smoothJumpRestoreRef.current = restore;
       s.addEventListener('scrollend', restore);
     },
