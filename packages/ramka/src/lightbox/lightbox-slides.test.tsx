@@ -333,6 +333,28 @@ describe('Lightbox.Slides', () => {
     expect(viewport.scrollLeft).toBe(2 * WIDTH);
   });
 
+  it('keeps accepting thumbnail jumps during rapid programmatic navigation (scrub)', () => {
+    // Filmstrip scrub fires many marker changes while snap restore still emits
+    // scroll events. Those must not take the user-fling lock, or later thumbs
+    // are dropped and the active state lags behind the strip.
+    render(<SlidesLightbox />);
+    const viewport = screen.getByTestId('slides');
+    setupGeometry(viewport, 8);
+
+    for (const i of [1, 2, 3, 4, 5]) {
+      act(() => {
+        fireEvent.click(screen.getByTestId(`thumb-${i}`));
+      });
+      act(() => {
+        flushRaf();
+        fireEvent.scroll(viewport);
+        flushRaf();
+      });
+      expect(activeThumb()).toBe(i);
+      expect(viewport.scrollLeft).toBe(i * WIDTH);
+    }
+  });
+
   it('does not re-scroll when the active index change originates from a swipe', () => {
     render(<SlidesLightbox />);
     const viewport = screen.getByTestId('slides');

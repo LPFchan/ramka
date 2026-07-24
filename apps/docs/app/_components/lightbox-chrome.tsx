@@ -124,11 +124,11 @@ export function LightboxGallery({
   renderItem?: (item: LightboxGalleryItem, index: number, ctx: GalleryItemRenderCtx) => React.ReactNode;
 }) {
   // Always-center filmstrip via container queries: strip is `@container`, so
-  // first/last can use `calc(50cqw - halfThumbWidth)`. Thumb width is known in
-  // CSS because height is fixed (`3.5rem`) and each item sets `--thumb-ratio`
-  // from the source aspect. `self-stretch` beats parent `items-center`.
+  // first/last can use `calc(50cqw - halfThumbWidth)`. Thumbs are fixed
+  // `3.5rem` squares → half = `1.75rem`. `self-stretch` beats parent `items-center`.
   const thumbStripLayout =
     '@container w-full self-stretch gap-2 overflow-x-auto p-1 ' +
+    'snap-x snap-mandatory ' +
     '[scrollbar-width:none] [&::-webkit-scrollbar]:hidden';
 
   const thumbClass =
@@ -222,9 +222,10 @@ export function LightboxGallery({
 }
 
 /**
- * Demo-only filmstrip: native overflow + scroll the active thumb into view when
- * `data-active` moves (swipe / prev-next / thumb click). Not part of ramka —
- * consumers own this; the library stays unstyled and scroll-native.
+ * Demo-only filmstrip (not part of ramka):
+ * - Centers the active thumb when the stage index changes (swipe / click).
+ * - iOS Photos–style scrub: dragging/scrolling the strip updates the active
+ *   item from whichever thumb sits under the midline.
  */
 function GalleryThumbnailStrip({
   items,
@@ -234,49 +235,143 @@ function GalleryThumbnailStrip({
   className: string;
 }) {
   const groupRef = React.useRef<HTMLDivElement>(null);
+  /** True while we drive `scrollIntoView` — ignore those scroll events for scrub. */
+  const programmaticScrollRef = React.useRef(false);
+  /** True while the user is scrolling the strip — don't yank scroll back to center. */
+  const scrubbingRef = React.useRef(false);
+
+  const scrollActiveIntoView = React.useCallback((behavior: ScrollBehavior) => {
+    const root = groupRef.current;
+    if (!root || scrubbingRef.current) return;
+    const active = root.querySelector<HTMLElement>('[role="tab"][data-active]');
+    if (!active) return;
+
+    programmaticScrollRef.current = true;
+    active.scrollIntoView({ inline: 'center', block: 'nearest', behavior });
+
+    const clear = () => {
+      programmaticScrollRef.current = false;
+    };
+    root.addEventListener('scrollend', clear, { once: true });
+    // Keep the flag through the jump; `0` races ahead of the scroll event and
+    // would let scrub treat our own centering as a user drag.
+    window.setTimeout(clear, behavior === 'smooth' ? 450 : 80);
+  }, []);
 
   // Jump before paint on open so the strip isn't seen scrolling to the opener.
   React.useLayoutEffect(() => {
-    const root = groupRef.current;
-    if (!root) return;
-    root
-      .querySelector<HTMLElement>('[role="tab"][data-active]')
-      ?.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'auto' });
-  }, []);
+    scrollActiveIntoView('auto');
+  }, [scrollActiveIntoView]);
 
   React.useEffect(() => {
     const root = groupRef.current;
     if (!root) return;
 
-    const scrollActiveIntoView = () => {
-      const active = root.querySelector<HTMLElement>('[role="tab"][data-active]');
-      // Subsequent index changes (swipe / thumb click) ease to center.
-      active?.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
+    const mo = new MutationObserver(() => {
+      if (scrubbingRef.current) return;
+      scrollActiveIntoView('smooth');
+    });
+    mo.observe(root, { attributes: true, attributeFilter: ['data-active'], subtree: true });
+
+    let raf = 0;
+    let scrubEndTimer = 0;
+    let pointerDown = false;
+    /** Last index activated from scrub — skip redundant React updates. */
+    let lastScrubIndex = -1;
+
+    const endScrubSoon = () => {
+      window.clearTimeout(scrubEndTimer);
+      if (pointerDown) return;
+      scrubEndTimer = window.setTimeout(() => {
+        scrubbingRef.current = false;
+        lastScrubIndex = -1;
+      }, 120);
     };
 
-    const mo = new MutationObserver(scrollActiveIntoView);
-    mo.observe(root, { attributes: true, attributeFilter: ['data-active'], subtree: true });
-    return () => mo.disconnect();
-  }, []);
+    const activateCenteredThumb = () => {
+      const rootRect = root.getBoundingClientRect();
+      const midX = rootRect.left + rootRect.width / 2;
+      let best: HTMLElement | null = null;
+      let bestDist = Infinity;
+      // Live collection; avoid intermediate arrays while the finger is moving.
+      const tabs = root.querySelectorAll<HTMLElement>('[role="tab"]');
+      for (let i = 0; i < tabs.length; i++) {
+        const tab = tabs[i]!;
+        const r = tab.getBoundingClientRect();
+        const dist = Math.abs(r.left + r.width / 2 - midX);
+        if (dist < bestDist) {
+          bestDist = dist;
+          best = tab;
+        }
+      }
+      if (!best) return;
+      const index = Number(best.dataset.index);
+      if (!Number.isFinite(index) || index === lastScrubIndex) return;
+      if (best.hasAttribute('data-active')) {
+        lastScrubIndex = index;
+        return;
+      }
+      lastScrubIndex = index;
+      // Synthetic click (not HTMLElement.click()) so we don't focus the tab —
+      // focusing would scrollIntoView and fight the user's scrub drag.
+      best.dispatchEvent(
+        new MouseEvent('click', { bubbles: true, cancelable: true, view: window }),
+      );
+    };
+
+    const onScroll = () => {
+      if (programmaticScrollRef.current) return;
+      scrubbingRef.current = true;
+      endScrubSoon();
+      if (raf !== 0) return;
+      raf = requestAnimationFrame(() => {
+        raf = 0;
+        activateCenteredThumb();
+      });
+    };
+
+    // Track press so a mid-scrub pause doesn't re-enable auto-center until the
+    // finger lifts. Don't mark scrubbing on pointerdown alone — a plain thumb
+    // tap must still allow the MutationObserver to center the active item.
+    const onPointerDown = () => {
+      pointerDown = true;
+    };
+    const onPointerUp = () => {
+      pointerDown = false;
+      endScrubSoon();
+    };
+
+    root.addEventListener('scroll', onScroll, { passive: true });
+    root.addEventListener('pointerdown', onPointerDown);
+    root.addEventListener('pointerup', onPointerUp);
+    root.addEventListener('pointercancel', onPointerUp);
+    return () => {
+      mo.disconnect();
+      cancelAnimationFrame(raf);
+      window.clearTimeout(scrubEndTimer);
+      root.removeEventListener('scroll', onScroll);
+      root.removeEventListener('pointerdown', onPointerDown);
+      root.removeEventListener('pointerup', onPointerUp);
+      root.removeEventListener('pointercancel', onPointerUp);
+    };
+  }, [scrollActiveIntoView]);
 
   return (
     <Lightbox.ThumbnailGroup ref={groupRef} aria-label="Photo thumbnails" className={className}>
-      {items.map((item, i) => {
-        const ratio = imgAspect(item.src);
-        return (
+      {items.map((item, i) => (
         <Lightbox.Thumbnail
           key={item.id ?? i}
           index={i}
-          // Full strip height; width = ratio × 3.5rem. `--thumb-ratio` feeds the
-          // first/last center margin calc below.
-          style={{ aspectRatio: String(ratio), ['--thumb-ratio' as string]: String(ratio) }}
-          // No overflow-hidden — it clips outline-offset.
-          // first/last inset: half container − half thumb (container query units).
+          // Uniform squares (same as pre–variable-aspect strip). Crop via object-cover.
+          // No overflow-hidden on the button — it clips outline-offset.
+          // first/last inset: half container − half thumb (`1.75rem`).
           className={
-            'h-14 w-auto shrink-0 rounded-md p-0 opacity-50 outline-2 outline-offset-2 outline-transparent ' +
-            'transition-[opacity,outline-color] data-[active]:opacity-100 data-[active]:outline-black dark:data-[active]:outline-white ' +
-            'first:ml-[calc(50cqw-0.5*var(--thumb-ratio)*3.5rem)] ' +
-            'last:mr-[calc(50cqw-0.5*var(--thumb-ratio)*3.5rem)]'
+            // No opacity/outline transition — scrub updates many times/sec and
+            // animating the active chrome makes the marker feel lagged.
+            // `snap-center` + strip `snap-mandatory` parks each thumb on the midline.
+            'size-14 shrink-0 snap-center rounded-md p-0 opacity-50 outline-2 outline-offset-2 outline-transparent ' +
+            'data-[active]:opacity-100 data-[active]:outline-black dark:data-[active]:outline-white ' +
+            'first:ml-[calc(50cqw-1.75rem)] last:mr-[calc(50cqw-1.75rem)]'
           }
         >
           <img
@@ -286,8 +381,7 @@ function GalleryThumbnailStrip({
             className="pointer-events-none size-full rounded-[inherit] object-cover"
           />
         </Lightbox.Thumbnail>
-        );
-      })}
+      ))}
     </Lightbox.ThumbnailGroup>
   );
 }

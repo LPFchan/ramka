@@ -3929,11 +3929,21 @@ describe('Lightbox', () => {
         });
         expect(scrollIntoView).not.toHaveBeenCalled();
 
-        // Navigating to another item while open SHOULD scroll its trigger in.
-        act(() => {
-          fireEvent.click(screen.getByTestId('next'));
-        });
-        expect(scrollIntoView).toHaveBeenCalled();
+        // Navigating to another item while open SHOULD scroll its trigger in
+        // (idle-debounced so swipe/scrub doesn't thrash the page under the modal).
+        vi.useFakeTimers();
+        try {
+          act(() => {
+            fireEvent.click(screen.getByTestId('next'));
+          });
+          expect(scrollIntoView).not.toHaveBeenCalled();
+          act(() => {
+            vi.advanceTimersByTime(120);
+          });
+          expect(scrollIntoView).toHaveBeenCalled();
+        } finally {
+          vi.useRealTimers();
+        }
       } finally {
         HTMLElement.prototype.scrollIntoView = origScroll;
         HTMLElement.prototype.getBoundingClientRect = origRect;

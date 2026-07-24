@@ -94,6 +94,13 @@ interface Geometry {
  */
 const SCROLL_IDLE_MS = 140;
 
+/**
+ * Safari half-decoded-tile fix is only needed after a jump *settles*. During
+ * rapid marker changes (filmstrip scrub, key repeat) a synchronous visibility
+ * toggle per jump forces layout every frame — debounce to the last index.
+ */
+const REPAINT_IDLE_MS = 120;
+
 const SLIDE_SELECTOR = '[data-ramka-slide]';
 
 /**
@@ -131,11 +138,16 @@ const LightboxSlides = React.forwardRef<HTMLDivElement, LightboxSlidesProps>(
 
     const viewportRef = React.useRef<HTMLDivElement | null>(null);
     const geometryRef = React.useRef<Geometry>({ base: 0, step: 1, count: 0 });
-    // True while our own programmatic jump is settling; its scroll event lands on
-    // `jumpTargetRef` and must not be mistaken for a user scroll (which locks
-    // navigation). See the scroll handler.
+    // True while our own programmatic jump is settling (including the follow-up
+    // frame that restores scroll-snap). Scroll events in this window must not
+    // lock navigation — snap restore often emits a second scroll after the
+    // exact `scrollLeft` set, and mistaking that for a user fling drops the
+    // next thumbnail/keyboard update (filmstrip scrub feels lagged).
     const programmaticRef = React.useRef(false);
     const jumpTargetRef = React.useRef(0);
+    /** Bumps on every `scrollToIndex` so superseded rAF tails no-op. */
+    const jumpGenRef = React.useRef(0);
+    const repaintTimerRef = React.useRef(0);
     // setTimeout id for the scroll-idle fallback that clears the lock in browsers
     // without (or that miss) `scrollend`.
     const idleTimerRef = React.useRef(0);
@@ -176,8 +188,8 @@ const LightboxSlides = React.forwardRef<HTMLDivElement, LightboxSlidesProps>(
     // at rest — a user scroll locks discrete navigation upstream (see
     // `navigationLockedRef`), so there is never a fling to fight here. Snap is
     // momentarily disabled so `scroll-snap-stop: always` can't intercept the
-    // exact set; the follow-up frame restores it, re-asserts the offset, and
-    // repaints (fixing Safari's half-decoded tile after a long jump).
+    // exact set; the follow-up frame restores it and re-asserts the offset.
+    // Safari tile repaint runs only after jumps go idle (see `REPAINT_IDLE_MS`).
     const scrollToIndex = React.useCallback(
       (index: number) => {
         const viewport = viewportRef.current;
@@ -189,16 +201,31 @@ const LightboxSlides = React.forwardRef<HTMLDivElement, LightboxSlidesProps>(
 
         programmaticRef.current = true;
         jumpTargetRef.current = target;
+        const gen = (jumpGenRef.current += 1);
 
         const savedSnap = viewport.style.scrollSnapType;
         viewport.style.scrollSnapType = 'none';
         viewport.scrollLeft = target;
         requestAnimationFrame(() => {
           const vp = viewportRef.current;
-          if (!vp) return;
+          if (!vp || gen !== jumpGenRef.current) return;
           vp.style.scrollSnapType = savedSnap;
-          if (Math.abs(vp.scrollLeft - target) >= 1) vp.scrollLeft = target;
-          repaintSlide(index);
+          if (Math.abs(vp.scrollLeft - target) >= 1) {
+            // Keep the programmatic window open through the restore write so its
+            // scroll event can't take the user-fling lock.
+            programmaticRef.current = true;
+            jumpTargetRef.current = target;
+            vp.scrollLeft = target;
+          }
+          requestAnimationFrame(() => {
+            if (gen !== jumpGenRef.current) return;
+            programmaticRef.current = false;
+            window.clearTimeout(repaintTimerRef.current);
+            repaintTimerRef.current = window.setTimeout(() => {
+              if (gen !== jumpGenRef.current) return;
+              repaintSlide(index);
+            }, REPAINT_IDLE_MS);
+          });
         });
       },
       [repaintSlide],
@@ -276,15 +303,21 @@ const LightboxSlides = React.forwardRef<HTMLDivElement, LightboxSlidesProps>(
       let frame = 0;
       const process = () => {
         frame = 0;
-        // Our own jump landing on its exact target: not a user scroll, so it must
-        // not lock navigation. Clear the programmatic flag and bail.
-        if (programmaticRef.current && Math.abs(viewport.scrollLeft - jumpTargetRef.current) < 1) {
-          programmaticRef.current = false;
+        // Entire programmatic jump window (exact set + snap restore): ignore.
+        // Clearing happens in `scrollToIndex`'s rAF tail — do not clear here on
+        // "near target", or the restore frame's scroll is misclassified as a fling.
+        if (programmaticRef.current) return;
+        // Late echo after the programmatic flag cleared (snap restore / subpixel
+        // re-set): still parked on the jump target with no lock yet. A real user
+        // swipe changes `scrollLeft` before this handler runs, so it won't match.
+        if (
+          !navigationLockedRef.current &&
+          Math.abs(viewport.scrollLeft - jumpTargetRef.current) < 1
+        ) {
           return;
         }
         // Genuine user scroll/fling: lock discrete nav, keep the marker following
         // the swipe, and (re)arm the idle-settle fallback.
-        programmaticRef.current = false;
         navigationLockedRef.current = true;
         armIdleFallback();
         const derived = indexFromScroll(viewport);
@@ -299,6 +332,7 @@ const LightboxSlides = React.forwardRef<HTMLDivElement, LightboxSlidesProps>(
       return () => {
         if (frame !== 0) cancelAnimationFrame(frame);
         window.clearTimeout(idleTimerRef.current);
+        window.clearTimeout(repaintTimerRef.current);
         idleTimerRef.current = 0;
         viewport.removeEventListener('scroll', onScroll);
         viewport.removeEventListener('scrollend', settle);

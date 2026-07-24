@@ -290,15 +290,27 @@ function LightboxRoot(props: LightboxRootProps) {
     // between two consecutive open states (also skipping no-op re-renders where
     // the index is unchanged). The close path scrolls the origin trigger into
     // view on its own, so opening never needs to.
+    //
+    // Idle-debounce: swipe / filmstrip scrub can change the index many times per
+    // second. Scrolling the page under the modal on every tick janks the viewer;
+    // only the resting index matters for the close morph.
     const scrollSyncRef = React.useRef({ open, activeIndex });
+    const scrollSyncTimerRef = React.useRef(0);
     React.useEffect(() => {
       const prev = scrollSyncRef.current;
       scrollSyncRef.current = { open, activeIndex };
       const behavior = resolveScrollBehavior(scrollTriggerIntoView, 'onChange');
       if (!behavior || !open) return;
       if (!prev.open || prev.activeIndex === activeIndex) return;
-      const el = triggerElementsRef.current.get(activeIndex);
-      scrollTriggerEl(el, behavior);
+
+      window.clearTimeout(scrollSyncTimerRef.current);
+      const index = activeIndex;
+      scrollSyncTimerRef.current = window.setTimeout(() => {
+        if (!scrollSyncRef.current.open || scrollSyncRef.current.activeIndex !== index) return;
+        scrollTriggerEl(triggerElementsRef.current.get(index), behavior);
+      }, 120);
+
+      return () => window.clearTimeout(scrollSyncTimerRef.current);
     }, [scrollTriggerIntoView, open, activeIndex]);
 
     // Item registry — tracks mounted items so count can grow and shrink
