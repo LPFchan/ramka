@@ -134,6 +134,19 @@ export function LightboxGallery({
 
   const backdropTone = backdrop === 'solid' ? 'bg-white dark:bg-black' : 'lightbox-demo-backdrop-light';
 
+  // Mini-stage thumbs: match the window aspect so the strip looks like the slides.
+  const [viewportAspect, setViewportAspect] = React.useState(16 / 9);
+  React.useEffect(() => {
+    const update = () => {
+      const w = window.innerWidth;
+      const h = Math.max(1, window.innerHeight);
+      setViewportAspect(w / h);
+    };
+    update();
+    window.addEventListener('resize', update);
+    return () => window.removeEventListener('resize', update);
+  }, []);
+
   /**
    * Docs-only: element-scoped VT crossfade on Slides when a thumb is clicked.
    * Document VT (Safari today) snapshots the whole page and flashes the lightbox
@@ -230,20 +243,20 @@ export function LightboxGallery({
           <Lightbox.Caption className="pointer-events-auto block min-h-[1.25rem] max-w-full truncate px-6 text-center text-sm text-black/70 dark:text-white/80" />
 
           {thumbnails !== 'never' ? (
-            <Lightbox.Filmstrip className={thumbClass} wrapSelectCommit={wrapThumbSelectCommit}>
+            <Lightbox.Filmstrip
+              className={thumbClass}
+              wrapSelectCommit={wrapThumbSelectCommit}
+              style={
+                {
+                  ['--lightbox-demo-thumb-aspect' as string]: String(viewportAspect),
+                } as React.CSSProperties
+              }
+            >
               <Lightbox.FilmstripTrack aria-label="Photo thumbnails">
                 {items.map((item, i) => (
-                  <Lightbox.Thumbnail
-                    key={item.id ?? i}
-                    index={i}
-                    className="size-14 shrink-0 rounded-md p-0"
-                  >
-                    <img
-                      {...imgDims(item.thumb)}
-                      src={item.thumb}
-                      alt={item.alt}
-                      className="pointer-events-none size-full rounded-[inherit] object-cover"
-                    />
+                  <Lightbox.Thumbnail key={item.id ?? i} index={i}>
+                    {/* No HTML width/height — shell size is CSS; img letterboxes inside. */}
+                    <img src={item.thumb} alt={item.alt} draggable={false} />
                   </Lightbox.Thumbnail>
                 ))}
               </Lightbox.FilmstripTrack>

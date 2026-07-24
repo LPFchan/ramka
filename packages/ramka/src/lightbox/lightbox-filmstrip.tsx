@@ -37,15 +37,33 @@ const filmstripStateAttributesMapping = {
   scrubbing: (value: unknown) => (value ? { 'data-scrubbing': '' } : null),
 };
 
-/** Stride between consecutive thumbs (offsetLeft delta, or first thumb width). */
+/** Flex column-gap on the track (px). `offsetLeft` deltas omit this in some engines. */
+function measureTrackGapPx(track: HTMLElement): number {
+  const raw = getComputedStyle(track).columnGap || getComputedStyle(track).gap;
+  if (!raw || raw === 'normal') return 0;
+  const gap = Number.parseFloat(raw);
+  return Number.isFinite(gap) ? gap : 0;
+}
+
+/**
+ * Stride between consecutive thumbs (width + gap).
+ * Prefer getBoundingClientRect — `offsetLeft` can ignore flex `gap`, which
+ * shifts the midline by one gap per index (indicator no longer sits on the thumb).
+ */
 function measureThumbStepPx(track: HTMLElement): number {
   const tabs = track.querySelectorAll<HTMLElement>('[role="tab"]');
   if (tabs.length === 0) return 0;
   const first = tabs[0]!;
-  const width = first.offsetWidth || 0;
+  const width = first.getBoundingClientRect().width || first.offsetWidth || 0;
   if (tabs.length < 2) return width;
-  const step = tabs[1]!.offsetLeft - first.offsetLeft;
-  return step > 0 ? step : width;
+
+  const rectStep = tabs[1]!.getBoundingClientRect().left - first.getBoundingClientRect().left;
+  if (rectStep > 0) return rectStep;
+
+  const offsetStep = tabs[1]!.offsetLeft - first.offsetLeft;
+  // Some engines report offsetLeft deltas as width only (gap omitted).
+  if (offsetStep > width + 0.5) return offsetStep;
+  return width + measureTrackGapPx(track);
 }
 
 interface ScrollTimelineOptions {
@@ -143,7 +161,10 @@ const LightboxFilmstrip = React.forwardRef<HTMLDivElement, LightboxFilmstripProp
       thumbStepRef.current = measureThumbStepPx(track);
 
       const firstThumb = track.querySelector<HTMLElement>('[role="tab"]');
-      const thumbWidth = firstThumb?.offsetWidth ?? 0;
+      const thumbWidth =
+        firstThumb != null
+          ? firstThumb.getBoundingClientRect().width || firstThumb.offsetWidth || 0
+          : 0;
       if (root && thumbWidth > 0) {
         const pad = Math.max(0, (root.clientWidth - thumbWidth) / 2);
         track.style.paddingInline = `${pad}px`;

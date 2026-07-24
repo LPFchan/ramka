@@ -81,6 +81,19 @@ function setupThumbGeometry(track: HTMLElement, count: number) {
       get: () => i * THUMB_STEP,
     });
     Object.defineProperty(tab, 'offsetWidth', { configurable: true, get: () => THUMB });
+    // Prefer getBoundingClientRect in Filmstrip — include flex gap in the stride.
+    tab.getBoundingClientRect = () =>
+      ({
+        x: i * THUMB_STEP,
+        y: 0,
+        top: 0,
+        left: i * THUMB_STEP,
+        right: i * THUMB_STEP + THUMB,
+        bottom: THUMB,
+        width: THUMB,
+        height: THUMB,
+        toJSON: () => ({}),
+      }) as DOMRect;
   });
   expect(tabs.length).toBe(count);
   flushResizeObservers();
