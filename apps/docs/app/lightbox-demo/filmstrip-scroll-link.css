@@ -1,7 +1,7 @@
 /**
  * Docs-only: link the filmstrip track to Lightbox.Slides via a named scroll
  * timeline. Slides is the sole scroll authority; the strip is a transformed
- * scrubber (not a second overflow scroller).
+ * mirror + tap targets (not a second overflow scroller).
  *
  * Requires: `timeline-scope` on `.lightbox-demo-content`, `scroll-timeline-*`
  * on `.lightbox-demo-slides`, and `--thumb-count` on the track.
@@ -58,14 +58,12 @@
     scroll-timeline-axis: x;
   }
 
-  .lightbox-demo-filmstrip {
-    /* Strip drag owns horizontal motion; don't let the browser pan/scroll-chain. */
-    touch-action: none;
-    user-select: none;
-  }
-
   .lightbox-demo-filmstrip-clip {
-    overflow: hidden;
+    /* `hidden` is still a scrollport — focusing a thumb (pointerdown) scrolls
+       this clip to reveal it, which twitches the scroll-timeline track even
+       when mid-fling nav is dropped. `clip` paints the same but is not a
+       scroll container, so focus can't nudge it. */
+    overflow: clip;
   }
 
   .lightbox-demo-filmstrip-track {

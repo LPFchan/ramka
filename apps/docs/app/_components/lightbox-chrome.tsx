@@ -221,10 +221,10 @@ function supportsFilmstripScrollLink(): boolean {
 
 /**
  * Demo-only filmstrip (not part of ramka):
- * - Enhanced: track `translateX` is scroll-timeline-linked to Lightbox.Slides;
- *   drag writes `slides.scrollLeft` (Slides is the only scroller).
- * - Thumb click always jumps the stage via `scrollLeft` (not Thumbnail→setActiveIndex,
- *   which is dropped while navigation is locked).
+ * - Enhanced: track `translateX` is scroll-timeline-linked to Lightbox.Slides
+ *   (Slides is the only scroller; strip is display-only + tap targets).
+ * - Thumb click jumps via `scrollLeft` + VT — but never while a slides fling is
+ *   in flight (programmatic `scrollLeft` cannot cancel compositor momentum).
  * - Fallback: overflow strip + scrollIntoView on `data-active`.
  */
 function GalleryThumbnailStrip({
@@ -238,8 +238,12 @@ function GalleryThumbnailStrip({
   const groupRef = React.useRef<HTMLDivElement>(null);
   const itemCountRef = React.useRef(items.length);
   itemCountRef.current = items.length;
-  /** True while a strip drag is actively scrubbing the stage (not a tap). */
-  const scrubbingRef = React.useRef(false);
+  /**
+   * True while Lightbox.Slides has a user swipe/fling in flight. Matches the
+   * library's navigation lock: writing `scrollLeft` over a compositor fling
+   * does not abort it (Chromium), so stage + scroll-timeline strip hitch.
+   */
+  const slidesBusyRef = React.useRef(false);
   const linked = supportsFilmstripScrollLink();
 
   const getSlides = React.useCallback((): HTMLElement | null => {
@@ -252,6 +256,56 @@ function GalleryThumbnailStrip({
     );
   }, []);
 
+  // Mirror Slides' busy window so thumb taps refuse to fight a fling.
+  React.useEffect(() => {
+    if (!linked) return;
+    let slides: HTMLElement | null = null;
+    let idleTimer = 0;
+
+    const settle = () => {
+      window.clearTimeout(idleTimer);
+      idleTimer = 0;
+      slidesBusyRef.current = false;
+    };
+
+    const onScroll = () => {
+      slidesBusyRef.current = true;
+      window.clearTimeout(idleTimer);
+      idleTimer = window.setTimeout(settle, 140);
+    };
+
+    const bind = (el: HTMLElement) => {
+      slides = el;
+      el.addEventListener('scroll', onScroll, { passive: true });
+      el.addEventListener('scrollend', settle);
+    };
+
+    const unbind = () => {
+      if (!slides) return;
+      slides.removeEventListener('scroll', onScroll);
+      slides.removeEventListener('scrollend', settle);
+      slides = null;
+    };
+
+    const el = getSlides();
+    if (el) bind(el);
+    // Slides can mount a tick after the strip (portal/open). Retry once.
+    const retry =
+      el == null
+        ? window.requestAnimationFrame(() => {
+            const again = getSlides();
+            if (again) bind(again);
+          })
+        : 0;
+
+    return () => {
+      if (retry !== 0) cancelAnimationFrame(retry);
+      window.clearTimeout(idleTimer);
+      unbind();
+      slidesBusyRef.current = false;
+    };
+  }, [linked, getSlides]);
+
   /**
    * Thumb tap → stage jump via `startViewTransition`: root crossfade on the
    * photo + named filmstrip track so scroll-timeline translateX interpolates
@@ -259,6 +313,9 @@ function GalleryThumbnailStrip({
    */
   const jumpToIndex = React.useCallback(
     (index: number) => {
+      // Same rule as library thumbnail nav: never write over a fling.
+      if (slidesBusyRef.current) return;
+
       const s = getSlides();
       const count = itemCountRef.current;
       if (!s || index < 0 || index >= count) return;
@@ -340,96 +397,12 @@ function GalleryThumbnailStrip({
     return () => mo.disconnect();
   }, [linked]);
 
-  // Enhanced: pointer-drag scrub writes scrollLeft only. Never mutate Slides
-  // snap/behavior — the scroller is the source of truth and keeps `x mandatory`.
-  React.useEffect(() => {
-    if (!linked) return;
-    const viewport = viewportRef.current;
-    if (!viewport) return;
-
-    const thumbStepPx = () => {
-      const style = getComputedStyle(viewport);
-      const step = style.getPropertyValue('--thumb-step').trim() || '4rem';
-      if (step.endsWith('rem')) {
-        const rem = Number.parseFloat(step);
-        const rootPx = Number.parseFloat(getComputedStyle(document.documentElement).fontSize);
-        return rem * rootPx;
-      }
-      return Number.parseFloat(step) || 64;
-    };
-
-    const SCRUB_THRESHOLD_PX = 12;
-    let pointerId: number | null = null;
-    let lastX = 0;
-    let startX = 0;
-    let didScrub = false;
-
-    const onPointerDown = (e: PointerEvent) => {
-      if (e.button !== 0) return;
-      if (!getSlides()) return;
-      pointerId = e.pointerId;
-      lastX = e.clientX;
-      startX = e.clientX;
-      didScrub = false;
-      scrubbingRef.current = false;
-    };
-
-    const onPointerMove = (e: PointerEvent) => {
-      if (pointerId !== e.pointerId) return;
-      const s = getSlides();
-      if (!s) return;
-      if (!didScrub && Math.abs(e.clientX - startX) < SCRUB_THRESHOLD_PX) return;
-      if (!didScrub) {
-        didScrub = true;
-        scrubbingRef.current = true;
-        try {
-          viewport.setPointerCapture(e.pointerId);
-        } catch {
-          /* already released / unsupported */
-        }
-      }
-      const dx = e.clientX - lastX;
-      if (dx === 0) return;
-      lastX = e.clientX;
-      const trackTravel = Math.max(0, itemCountRef.current - 1) * thumbStepPx();
-      const max = s.scrollWidth - s.clientWidth;
-      if (trackTravel <= 0 || max <= 0) return;
-      s.scrollLeft -= (dx * max) / trackTravel;
-    };
-
-    const endDrag = (e: PointerEvent) => {
-      if (pointerId !== e.pointerId) return;
-      pointerId = null;
-      // Let native scroll-snap settle; do not touch scrollSnapType.
-      if (didScrub) {
-        window.setTimeout(() => {
-          scrubbingRef.current = false;
-        }, 0);
-      } else {
-        scrubbingRef.current = false;
-      }
-    };
-
-    viewport.addEventListener('pointerdown', onPointerDown);
-    viewport.addEventListener('pointermove', onPointerMove);
-    viewport.addEventListener('pointerup', endDrag);
-    viewport.addEventListener('pointercancel', endDrag);
-    return () => {
-      viewport.removeEventListener('pointerdown', onPointerDown);
-      viewport.removeEventListener('pointermove', onPointerMove);
-      viewport.removeEventListener('pointerup', endDrag);
-      viewport.removeEventListener('pointercancel', endDrag);
-      scrubbingRef.current = false;
-    };
-  }, [linked, getSlides]);
-
-  // Capture-phase click: jump via scrollLeft (works even when nav-lock drops
-  // Thumbnail → setActiveIndex).
+  // Capture-phase click: jump via scrollLeft (dropped while slides are busy —
+  // same as library thumbnail nav over a fling).
   React.useEffect(() => {
     const group = groupRef.current;
     if (!group) return;
     const onClickCapture = (e: MouseEvent) => {
-      if (scrubbingRef.current) return;
       const tab = (e.target as Element | null)?.closest?.('[role="tab"]');
       if (!tab || !group.contains(tab)) return;
       const index = Number(tab.getAttribute('data-index'));
