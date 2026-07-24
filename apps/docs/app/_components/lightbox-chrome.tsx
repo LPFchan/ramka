@@ -215,13 +215,19 @@ export function LightboxGallery({
   );
 }
 
+/**
+ * TEMP — force discrete `--active-index` fallback on every browser so we can
+ * design that path. Set false to restore CSS timeline / JS sync routing.
+ */
+const FORCE_FILMSTRIP_OVERFLOW_FALLBACK = true;
+
 /** True when CSS scroll-driven animations can own the filmstrip link. */
 function supportsCssFilmstripScrollLink(): boolean {
   return typeof CSS !== 'undefined' && CSS.supports('animation-timeline', 'scroll()');
 }
 
 /** One-shot diagnostics — remove once filmstrip paths are confirmed. */
-function logFilmstripTimelineSupport(path: 'css-timeline' | 'js-sync') {
+function logFilmstripTimelineSupport(path: 'css-timeline' | 'js-sync' | 'overflow-fallback') {
   if (typeof window === 'undefined') return;
   const w = window as Window & { __ramkaFilmstripTimelineLogged?: boolean };
   if (w.__ramkaFilmstripTimelineLogged) return;
@@ -230,6 +236,7 @@ function logFilmstripTimelineSupport(path: 'css-timeline' | 'js-sync') {
   const css = typeof CSS !== 'undefined' ? CSS : null;
   console.log('[ramka filmstrip] animation-timeline support', {
     path,
+    forceOverflowFallback: FORCE_FILMSTRIP_OVERFLOW_FALLBACK,
     isFirefox: typeof navigator !== 'undefined' && /Firefox\//.test(navigator.userAgent),
     'CSS.supports(animation-timeline, scroll())': css?.supports('animation-timeline', 'scroll()') ?? null,
     'CSS.supports(animation-timeline: scroll())': css?.supports('animation-timeline: scroll()') ?? null,
@@ -273,10 +280,13 @@ function measureSlidesGeometry(slides: HTMLElement): { base: number; step: numbe
  * Demo-only filmstrip (not part of ramka):
  * - Chromium/WebKit: track `translateX` via CSS scroll-timeline on Slides.
  * - No CSS SDA (Firefox today): same non-scrolling midline layout, transform
- *   synced from Slides scroll in JS. Never use overflow-x fallback when JS sync
- *   is available — that made the strip itself scrollable on Firefox.
- * - Thumb click → `setActiveIndex('thumbnail')` + WAAPI strip scrub + slides
+ *   synced from Slides scroll in JS.
+ * - Fallback: same midline layout, `translateX` from `--active-index`.
+ * - Thumb click → `setActiveIndex('thumbnail')` + (linked) WAAPI scrub + slides
  *   crossfade via element-scoped VT when available (Safari: hard-cut slides).
+ *
+ * `FORCE_FILMSTRIP_OVERFLOW_FALLBACK` currently forces the discrete fallback
+ * path everywhere.
  */
 function GalleryThumbnailStrip({
   items,
@@ -294,11 +304,13 @@ function GalleryThumbnailStrip({
   const { activeIndex, setActiveIndex, navigationLockedRef } = useLightboxContext();
   const activeIndexRef = React.useRef(activeIndex);
   activeIndexRef.current = activeIndex;
-  const cssTimeline = supportsCssFilmstripScrollLink();
-  // Always a linked (non-scrolling) strip — CSS timeline or JS sync.
-  const linked = true;
-  const jsLinked = !cssTimeline;
-  logFilmstripTimelineSupport(jsLinked ? 'js-sync' : 'css-timeline');
+  const fallback = FORCE_FILMSTRIP_OVERFLOW_FALLBACK;
+  const cssTimeline = !fallback && supportsCssFilmstripScrollLink();
+  const linked = !fallback;
+  const jsLinked = linked && !cssTimeline;
+  logFilmstripTimelineSupport(
+    fallback ? 'overflow-fallback' : jsLinked ? 'js-sync' : 'css-timeline',
+  );
 
   const getSlides = React.useCallback((): HTMLElement | null => {
     const viewport = viewportRef.current;
@@ -533,8 +545,8 @@ function GalleryThumbnailStrip({
     return () => group.removeEventListener('click', onClickCapture, true);
   }, [goToIndex, items.length]);
 
-  // Linked strip must not be a scroller (Firefox was getting overflow-x: auto from
-  // the @supports-not fallback). Kill wheel/trackpad on the clip just in case.
+  // Linked paths: belt-and-suspenders against accidental scrollport input.
+  // Fallback uses `overflow: clip` + CSS transform — no scrollport to defend.
   React.useEffect(() => {
     if (!linked) return;
     const clip = viewportRef.current?.querySelector('.lightbox-demo-filmstrip-clip');
@@ -555,11 +567,12 @@ function GalleryThumbnailStrip({
         className,
         linked ? 'lightbox-demo-filmstrip--linked' : '',
         jsLinked ? 'lightbox-demo-filmstrip--js-link' : '',
+        fallback ? 'lightbox-demo-filmstrip--fallback' : '',
       ]
         .filter(Boolean)
         .join(' ')}
     >
-      {/* Clip/scroll the track; frame stays a sibling so outline-offset isn't clipped. */}
+      {/* Clip the track; frame stays a sibling so outline-offset isn't clipped. */}
       <div className="lightbox-demo-filmstrip-clip">
         <Lightbox.ThumbnailGroup
           ref={groupRef}
@@ -568,6 +581,7 @@ function GalleryThumbnailStrip({
           style={
             {
               ['--thumb-count' as string]: String(Math.max(items.length, 1)),
+              ['--active-index' as string]: String(activeIndex),
             } as React.CSSProperties
           }
         >
