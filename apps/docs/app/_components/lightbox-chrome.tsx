@@ -123,14 +123,20 @@ export function LightboxGallery({
   backdrop?: 'scrim' | 'solid';
   renderItem?: (item: LightboxGalleryItem, index: number, ctx: GalleryItemRenderCtx) => React.ReactNode;
 }) {
+  // Always-center filmstrip via container queries: strip is `@container`, so
+  // first/last can use `calc(50cqw - halfThumbWidth)`. Thumb width is known in
+  // CSS because height is fixed (`3.5rem`) and each item sets `--thumb-ratio`
+  // from the source aspect. `self-stretch` beats parent `items-center`.
+  const thumbStripLayout =
+    '@container w-full self-stretch gap-2 overflow-x-auto p-1 ' +
+    '[scrollbar-width:none] [&::-webkit-scrollbar]:hidden';
+
   const thumbClass =
     thumbnails === 'never'
       ? 'hidden'
       : thumbnails === 'always'
-        ? // `justify-safe-center`: center when the strip fits; start-align when it
-          // overflows so native horizontal scroll can reach every thumb.
-          'pointer-events-auto flex max-w-full justify-safe-center gap-2 overflow-x-auto p-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
-        : 'pointer-events-auto hidden max-w-full justify-safe-center gap-2 overflow-x-auto p-1 [scrollbar-width:none] md:flex [&::-webkit-scrollbar]:hidden';
+        ? `pointer-events-auto flex ${thumbStripLayout}`
+        : `pointer-events-auto hidden md:flex ${thumbStripLayout}`;
 
   const backdropTone = backdrop === 'solid' ? 'bg-white dark:bg-black' : 'lightbox-demo-backdrop-light';
 
@@ -255,14 +261,23 @@ function GalleryThumbnailStrip({
 
   return (
     <Lightbox.ThumbnailGroup ref={groupRef} aria-label="Photo thumbnails" className={className}>
-      {items.map((item, i) => (
+      {items.map((item, i) => {
+        const ratio = imgAspect(item.src);
+        return (
         <Lightbox.Thumbnail
           key={item.id ?? i}
           index={i}
-          // Full strip height; width follows the original source aspect (not a square crop).
-          style={{ aspectRatio: String(imgAspect(item.src)) }}
-          // No overflow-hidden here — it clips `outline` / `outline-offset`.
-          className="h-14 w-auto shrink-0 rounded-md p-0 opacity-50 outline-2 outline-offset-2 outline-transparent transition-[opacity,outline-color] data-[active]:opacity-100 data-[active]:outline-black dark:data-[active]:outline-white"
+          // Full strip height; width = ratio × 3.5rem. `--thumb-ratio` feeds the
+          // first/last center margin calc below.
+          style={{ aspectRatio: String(ratio), ['--thumb-ratio' as string]: String(ratio) }}
+          // No overflow-hidden — it clips outline-offset.
+          // first/last inset: half container − half thumb (container query units).
+          className={
+            'h-14 w-auto shrink-0 rounded-md p-0 opacity-50 outline-2 outline-offset-2 outline-transparent ' +
+            'transition-[opacity,outline-color] data-[active]:opacity-100 data-[active]:outline-black dark:data-[active]:outline-white ' +
+            'first:ml-[calc(50cqw-0.5*var(--thumb-ratio)*3.5rem)] ' +
+            'last:mr-[calc(50cqw-0.5*var(--thumb-ratio)*3.5rem)]'
+          }
         >
           <img
             {...imgDims(item.thumb)}
@@ -271,7 +286,8 @@ function GalleryThumbnailStrip({
             className="pointer-events-none size-full rounded-[inherit] object-cover"
           />
         </Lightbox.Thumbnail>
-      ))}
+        );
+      })}
     </Lightbox.ThumbnailGroup>
   );
 }
