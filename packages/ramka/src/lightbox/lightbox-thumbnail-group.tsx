@@ -4,6 +4,7 @@ import { mergeProps, useRender } from '@base-ui/react';
 import * as React from 'react';
 
 import { useLightboxContext } from './lightbox-context';
+import { LightboxThumbnailGroupContext } from './lightbox-thumbnail-group-context';
 
 interface LightboxThumbnailGroupState extends Record<string, unknown> {
   focusWithin: boolean;
@@ -28,6 +29,20 @@ const LightboxThumbnailGroup = React.forwardRef<HTMLDivElement, LightboxThumbnai
       useLightboxContext();
 
     const [focusWithin, setFocusWithin] = React.useState(false);
+    const thumbsRef = React.useRef(new Map<number, HTMLElement>());
+
+    const registerThumb = React.useCallback((index: number, node: HTMLElement | null) => {
+      const map = thumbsRef.current;
+      if (node) map.set(index, node);
+      else map.delete(index);
+    }, []);
+
+    const getThumb = React.useCallback((index: number) => thumbsRef.current.get(index) ?? null, []);
+
+    const groupContext = React.useMemo(
+      () => ({ registerThumb, getThumb }),
+      [registerThumb, getThumb],
+    );
 
     // Announce this tablist so `Lightbox.Item`s adopt `tabpanel` semantics and
     // associate with their controlling tab (the APG "tabbed carousel" variant).
@@ -70,40 +85,41 @@ const LightboxThumbnailGroup = React.forwardRef<HTMLDivElement, LightboxThumbnai
         // Navigate relative to the *active* index (the source of truth), not the
         // currently-focused tab. A swipe moves `activeIndex` without moving focus,
         // so roving off `document.activeElement` would compute from a stale tab.
+        // Instant (no filmstrip scrub) — pointer selection owns scrub motion.
         if (nextIndex === activeIndex) return;
         setActiveIndex(nextIndex, 'thumbnail');
 
-        // Keep roving focus on the newly-active tab.
-        const tab = event.currentTarget.querySelector<HTMLElement>(
-          `[role="tab"][data-index="${nextIndex}"]`,
-        );
-        tab?.focus();
+        getThumb(nextIndex)?.focus();
       },
-      [activeIndex, itemCount, loop, navigationLockedRef, setActiveIndex],
+      [activeIndex, itemCount, loop, navigationLockedRef, setActiveIndex, getThumb],
     );
 
     const state = React.useMemo<LightboxThumbnailGroupState>(() => ({ focusWithin }), [focusWithin]);
 
-    return useRender({
-      render,
-      ref: forwardedRef,
-      state,
-      stateAttributesMapping: thumbnailGroupStateAttributesMapping,
-      props: mergeProps<'div'>(
-        {
-          role: 'tablist',
-          onKeyDown: handleKeyDown,
-          onFocus: () => setFocusWithin(true),
-          onBlur: (e: React.FocusEvent<HTMLDivElement>) => {
-            if (!e.currentTarget.contains(e.relatedTarget)) {
-              setFocusWithin(false);
-            }
-          },
-        } as React.ComponentPropsWithRef<'div'>,
-        elementProps as React.ComponentPropsWithRef<'div'>,
-      ),
-      defaultTagName: 'div',
-    });
+    return (
+      <LightboxThumbnailGroupContext.Provider value={groupContext}>
+        {useRender({
+          render,
+          ref: forwardedRef,
+          state,
+          stateAttributesMapping: thumbnailGroupStateAttributesMapping,
+          props: mergeProps<'div'>(
+            {
+              role: 'tablist',
+              onKeyDown: handleKeyDown,
+              onFocus: () => setFocusWithin(true),
+              onBlur: (e: React.FocusEvent<HTMLDivElement>) => {
+                if (!e.currentTarget.contains(e.relatedTarget)) {
+                  setFocusWithin(false);
+                }
+              },
+            } as React.ComponentPropsWithRef<'div'>,
+            elementProps as React.ComponentPropsWithRef<'div'>,
+          ),
+          defaultTagName: 'div',
+        })}
+      </LightboxThumbnailGroupContext.Provider>
+    );
   },
 );
 

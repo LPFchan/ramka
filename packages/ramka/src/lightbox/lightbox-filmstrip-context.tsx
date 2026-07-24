@@ -5,9 +5,12 @@ import * as React from 'react';
 interface LightboxFilmstripContextValue {
   /** Register the transform target (tablist track element). */
   registerTrack: (node: HTMLElement | null) => void;
+  /** Register a thumbnail element for midline / travel measurement. */
+  registerThumb: (index: number, node: HTMLElement | null) => void;
   /**
-   * Pointer/keyboard selection from a Thumbnail inside this Filmstrip.
+   * Pointer selection from a Thumbnail inside this Filmstrip.
    * Owns optional scrub motion; always respects `navigationLockedRef`.
+   * Keyboard navigation stays instant via ThumbnailGroup → setActiveIndex.
    */
   selectIndex: (index: number) => void;
 }

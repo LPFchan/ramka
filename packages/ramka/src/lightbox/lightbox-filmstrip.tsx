@@ -51,21 +51,30 @@ function measureTrackGapPx(track: HTMLElement): number {
  * Stride between consecutive thumbs (width + gap).
  * Prefer getBoundingClientRect — `offsetLeft` can ignore flex `gap`, which
  * shifts the midline by one gap per index (indicator no longer sits on the thumb).
+ *
+ * `thumbs` come from the React registry (Thumbnail callback refs), ordered by index.
  */
-function measureThumbStepPx(track: HTMLElement): number {
-  const tabs = track.querySelectorAll<HTMLElement>('[role="tab"]');
-  if (tabs.length === 0) return 0;
-  const first = tabs[0]!;
+function measureThumbStepPx(track: HTMLElement, thumbs: HTMLElement[]): number {
+  if (thumbs.length === 0) return 0;
+  const first = thumbs[0]!;
   const width = first.getBoundingClientRect().width || first.offsetWidth || 0;
-  if (tabs.length < 2) return width;
+  if (thumbs.length < 2) return width;
 
-  const rectStep = tabs[1]!.getBoundingClientRect().left - first.getBoundingClientRect().left;
+  const second = thumbs[1]!;
+  const rectStep = second.getBoundingClientRect().left - first.getBoundingClientRect().left;
   if (rectStep > 0) return rectStep;
 
-  const offsetStep = tabs[1]!.offsetLeft - first.offsetLeft;
+  const offsetStep = second.offsetLeft - first.offsetLeft;
   // Some engines report offsetLeft deltas as width only (gap omitted).
   if (offsetStep > width + 0.5) return offsetStep;
   return width + measureTrackGapPx(track);
+}
+
+/** Registered thumbs sorted by index (stable midline / travel measurement). */
+function orderedThumbs(map: Map<number, HTMLElement>): HTMLElement[] {
+  return [...map.entries()]
+    .sort((a, b) => a[0] - b[0])
+    .map(([, node]) => node);
 }
 
 interface ScrollTimelineOptions {
@@ -128,6 +137,7 @@ const LightboxFilmstrip = React.forwardRef<HTMLDivElement, LightboxFilmstripProp
 
     const rootRef = React.useRef<HTMLElement | null>(null);
     const trackRef = React.useRef<HTMLElement | null>(null);
+    const thumbsRef = React.useRef(new Map<number, HTMLElement>());
     const thumbStepRef = React.useRef(0);
     const linkAnimRef = React.useRef<Animation | null>(null);
     const scrubAnimRef = React.useRef<Animation | null>(null);
@@ -138,12 +148,33 @@ const LightboxFilmstrip = React.forwardRef<HTMLDivElement, LightboxFilmstripProp
     activeIndexRef.current = activeIndex;
 
     const [trackVersion, setTrackVersion] = React.useState(0);
+    const [thumbVersion, setThumbVersion] = React.useState(0);
     const [scrubbing, setScrubbing] = React.useState(false);
 
     const registerTrack = React.useCallback((node: HTMLElement | null) => {
       if (trackRef.current === node) return;
       trackRef.current = node;
       setTrackVersion((v) => v + 1);
+    }, []);
+
+    const thumbBumpRafRef = React.useRef(0);
+    const registerThumb = React.useCallback((index: number, node: HTMLElement | null) => {
+      const map = thumbsRef.current;
+      const prev = map.get(index);
+      if (node) {
+        if (prev === node) return;
+        map.set(index, node);
+      } else if (prev) {
+        map.delete(index);
+      } else {
+        return;
+      }
+      // Coalesce mount/unmount storms into one remeasure.
+      if (thumbBumpRafRef.current !== 0) return;
+      thumbBumpRafRef.current = requestAnimationFrame(() => {
+        thumbBumpRafRef.current = 0;
+        setThumbVersion((v) => v + 1);
+      });
     }, []);
 
     const assignRootRef = React.useCallback(
@@ -160,9 +191,10 @@ const LightboxFilmstrip = React.forwardRef<HTMLDivElement, LightboxFilmstripProp
       const root = rootRef.current;
       if (!track) return;
 
-      thumbStepRef.current = measureThumbStepPx(track);
+      const thumbs = orderedThumbs(thumbsRef.current);
+      thumbStepRef.current = measureThumbStepPx(track, thumbs);
 
-      const firstThumb = track.querySelector<HTMLElement>('[role="tab"]');
+      const firstThumb = thumbs[0];
       const thumbWidth =
         firstThumb != null
           ? firstThumb.getBoundingClientRect().width || firstThumb.offsetWidth || 0
@@ -297,6 +329,10 @@ const LightboxFilmstrip = React.forwardRef<HTMLDivElement, LightboxFilmstripProp
         linkAnimRef.current?.cancel();
         linkAnimRef.current = null;
         usesScrollTimelineRef.current = false;
+        if (thumbBumpRafRef.current !== 0) {
+          cancelAnimationFrame(thumbBumpRafRef.current);
+          thumbBumpRafRef.current = 0;
+        }
         if (rafRef.current !== 0) {
           cancelAnimationFrame(rafRef.current);
           rafRef.current = 0;
@@ -318,6 +354,7 @@ const LightboxFilmstrip = React.forwardRef<HTMLDivElement, LightboxFilmstripProp
       scheduleSync,
       itemCount,
       trackVersion,
+      thumbVersion,
     ]);
 
     const selectIndex = React.useCallback(
@@ -422,8 +459,8 @@ const LightboxFilmstrip = React.forwardRef<HTMLDivElement, LightboxFilmstripProp
     );
 
     const filmstripContext = React.useMemo(
-      () => ({ registerTrack, selectIndex }),
-      [registerTrack, selectIndex],
+      () => ({ registerTrack, registerThumb, selectIndex }),
+      [registerTrack, registerThumb, selectIndex],
     );
 
     const state = React.useMemo<LightboxFilmstripState>(() => ({ scrubbing }), [scrubbing]);
