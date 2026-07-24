@@ -2,6 +2,8 @@
 
 import * as React from 'react';
 
+import type { SlidesGeometry } from './lightbox-slides-geometry';
+
 type NavigationSource = 'trigger' | 'keyboard' | 'thumbnail' | 'button' | 'scroll' | 'imperative';
 
 /** Options for a close (`setOpen(false, …)`) that tune return-focus behavior. */
@@ -175,6 +177,28 @@ interface LightboxContextValue {
    * needing a direct ref. Stays `null` when no Backdrop is rendered.
    */
   backdropElementRef: React.MutableRefObject<HTMLElement | null>;
+
+  /**
+   * The currently-mounted `Lightbox.Slides` viewport element (if any).
+   * Populated by Slides' ref callback so scroll-linked chrome
+   * (`Lightbox.Filmstrip`) can mirror scroll without DOM sniffing.
+   * Stays `null` when no Slides scroller is rendered.
+   */
+  slidesViewportRef: React.MutableRefObject<HTMLElement | null>;
+  /**
+   * Latest Slides offset geometry (`base` / `step` / `count`), owned and
+   * updated by `Lightbox.Slides`. Filmstrip reads this instead of re-querying
+   * the slide DOM.
+   */
+  slidesGeometryRef: React.MutableRefObject<SlidesGeometry>;
+  /**
+   * Subscribe to Slides viewport attach/detach / geometry publish. Returns an
+   * unsubscribe function. Used by Filmstrip to (re)wire scroll mirroring
+   * without polling.
+   */
+  subscribeSlidesViewport: (listener: () => void) => () => void;
+  /** Notify `subscribeSlidesViewport` listeners (called by Slides). */
+  notifySlidesViewport: () => void;
 }
 
 const LightboxContext = React.createContext<LightboxContextValue | undefined>(undefined);

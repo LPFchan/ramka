@@ -1,8 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { flushSync } from 'react-dom';
-import { Lightbox, useLightboxContext, useLightboxTriggerContext } from 'ramka';
+import { Lightbox, useLightboxTriggerContext } from 'ramka';
 import { ChevronLeft, ChevronRight, X, ZoomIn, ZoomOut } from 'lucide-react';
 
 /**
@@ -124,7 +123,7 @@ export function LightboxGallery({
   backdrop?: 'scrim' | 'solid';
   renderItem?: (item: LightboxGalleryItem, index: number, ctx: GalleryItemRenderCtx) => React.ReactNode;
 }) {
-  // Viewport visibility only — layout/scroll-link live in filmstrip-scroll-link.css.
+  // Viewport visibility only — linked layout/sync live in Lightbox.Filmstrip.
   const thumbClass =
     thumbnails === 'never'
       ? 'hidden'
@@ -207,7 +206,25 @@ export function LightboxGallery({
           <Lightbox.Caption className="pointer-events-auto block min-h-[1.25rem] max-w-full truncate px-6 text-center text-sm text-black/70 dark:text-white/80" />
 
           {thumbnails !== 'never' ? (
-            <GalleryThumbnailStrip items={items} className={thumbClass} />
+            <Lightbox.Filmstrip className={thumbClass}>
+              <Lightbox.FilmstripTrack aria-label="Photo thumbnails">
+                {items.map((item, i) => (
+                  <Lightbox.Thumbnail
+                    key={item.id ?? i}
+                    index={i}
+                    className="size-14 shrink-0 rounded-md p-0"
+                  >
+                    <img
+                      {...imgDims(item.thumb)}
+                      src={item.thumb}
+                      alt={item.alt}
+                      className="pointer-events-none size-full rounded-[inherit] object-cover"
+                    />
+                  </Lightbox.Thumbnail>
+                ))}
+              </Lightbox.FilmstripTrack>
+              <Lightbox.FilmstripIndicator className="lightbox-demo-filmstrip-frame" />
+            </Lightbox.Filmstrip>
           ) : null}
         </div>
       </Lightbox.Content>
@@ -215,391 +232,6 @@ export function LightboxGallery({
   );
 }
 
-/**
- * TEMP — force the non-CSS (JS scroll→transform sync) path on every browser.
- * Set false to restore CSS timeline when supported.
- */
-const FORCE_FILMSTRIP_OVERFLOW_FALLBACK = false;
-
-/** True when CSS scroll-driven animations can own the filmstrip link. */
-function supportsCssFilmstripScrollLink(): boolean {
-  return typeof CSS !== 'undefined' && CSS.supports('animation-timeline', 'scroll()');
-}
-
-/** One-shot diagnostics — remove once filmstrip paths are confirmed. */
-function logFilmstripTimelineSupport(path: 'css-timeline' | 'js-sync') {
-  if (typeof window === 'undefined') return;
-  const w = window as Window & { __ramkaFilmstripTimelineLogged?: boolean };
-  if (w.__ramkaFilmstripTimelineLogged) return;
-  w.__ramkaFilmstripTimelineLogged = true;
-
-  const css = typeof CSS !== 'undefined' ? CSS : null;
-  console.log('[ramka filmstrip] animation-timeline support', {
-    path,
-    forceJsSync: FORCE_FILMSTRIP_OVERFLOW_FALLBACK,
-    isFirefox: typeof navigator !== 'undefined' && /Firefox\//.test(navigator.userAgent),
-    'CSS.supports(animation-timeline, scroll())': css?.supports('animation-timeline', 'scroll()') ?? null,
-    'CSS.supports(animation-timeline: scroll())': css?.supports('animation-timeline: scroll()') ?? null,
-    'CSS.supports(scroll-timeline-name: --x)': css?.supports('scroll-timeline-name', '--x') ?? null,
-    'CSS.supports(timeline-scope: --x)': css?.supports('timeline-scope', '--x') ?? null,
-    hasScrollTimeline: 'ScrollTimeline' in window,
-    userAgent: navigator.userAgent,
-  });
-}
-
-function filmstripThumbStepPx(strip: HTMLElement): number {
-  const step = getComputedStyle(strip).getPropertyValue('--thumb-step').trim() || '4rem';
-  if (step.endsWith('rem')) {
-    const rem = Number.parseFloat(step);
-    const rootPx = Number.parseFloat(getComputedStyle(document.documentElement).fontSize);
-    return rem * rootPx;
-  }
-  return Number.parseFloat(step) || 64;
-}
-
-function readTranslateX(el: HTMLElement): number {
-  const t = getComputedStyle(el).transform;
-  if (!t || t === 'none') return 0;
-  return new DOMMatrix(t).m41;
-}
-
-/** Same geometry as Lightbox.Slides — scrollLeft that centers slide 0 + stride. */
-function measureSlidesGeometry(slides: HTMLElement): { base: number; step: number; count: number } {
-  const slideEls = slides.querySelectorAll<HTMLElement>('[data-ramka-slide]');
-  const count = slideEls.length;
-  const clientWidth = slides.clientWidth || 1;
-  if (count === 0) return { base: 0, step: clientWidth, count: 0 };
-  const first = slideEls[0]!;
-  const width = first.offsetWidth || clientWidth;
-  const base = first.offsetLeft + width / 2 - clientWidth / 2;
-  const step = count > 1 ? slideEls[1]!.offsetLeft - first.offsetLeft : clientWidth;
-  return { base, step: step > 0 ? step : clientWidth, count };
-}
-
-/**
- * Demo-only filmstrip (not part of ramka):
- * - Chromium/WebKit: track `translateX` via CSS scroll-timeline on Slides.
- * - No CSS SDA (Firefox / forced): same non-scrolling midline layout, transform
- *   synced continuously from Slides scroll in JS (swipe-smooth; keyboard jumps
- *   with the stage).
- * - Thumb click → `setActiveIndex('thumbnail')` + WAAPI scrub + slides
- *   crossfade via element-scoped VT when available (Safari: hard-cut slides).
- *
- * `FORCE_FILMSTRIP_OVERFLOW_FALLBACK` currently forces the JS-sync path everywhere.
- */
-function GalleryThumbnailStrip({
-  items,
-  className,
-}: {
-  items: LightboxGalleryItem[];
-  className: string;
-}) {
-  const viewportRef = React.useRef<HTMLDivElement>(null);
-  const groupRef = React.useRef<HTMLDivElement>(null);
-  const scrubAnimRef = React.useRef<Animation | null>(null);
-  const syncFromScrollRef = React.useRef<(() => void) | null>(null);
-  /** Bumps when a scrub starts/ends so deferred bridge clears can't clobber a newer scrub. */
-  const scrubEpochRef = React.useRef(0);
-  const { activeIndex, setActiveIndex, navigationLockedRef } = useLightboxContext();
-  const activeIndexRef = React.useRef(activeIndex);
-  activeIndexRef.current = activeIndex;
-  const cssTimeline =
-    !FORCE_FILMSTRIP_OVERFLOW_FALLBACK && supportsCssFilmstripScrollLink();
-  // Always a linked (non-scrolling) strip — CSS timeline or JS scroll sync.
-  const linked = true;
-  const jsLinked = !cssTimeline;
-  logFilmstripTimelineSupport(jsLinked ? 'js-sync' : 'css-timeline');
-
-  const getSlides = React.useCallback((): HTMLElement | null => {
-    const viewport = viewportRef.current;
-    if (!viewport) return null;
-    return (
-      viewport.closest('.lightbox-demo-content')?.querySelector<HTMLElement>('.lightbox-demo-slides') ??
-      viewport.closest('[role="dialog"]')?.querySelector<HTMLElement>('[aria-roledescription="carousel"]') ??
-      null
-    );
-  }, []);
-
-  /**
-   * JS sync path: drive track translate from Slides scroll using lightbox
-   * base/step (progress 0→1 over the index range). Skipped while WAAPI scrub
-   * owns the transform.
-   */
-  React.useLayoutEffect(() => {
-    if (!jsLinked) return;
-    const track = groupRef.current;
-    const strip = viewportRef.current;
-    const slides = getSlides();
-    if (!track || !strip || !slides) return;
-
-    let base = 0;
-    let step = 1;
-    let count = 1;
-
-    const measure = () => {
-      const g = measureSlidesGeometry(slides);
-      base = g.base;
-      step = g.step;
-      count = g.count;
-    };
-
-    const sync = () => {
-      if (scrubAnimRef.current) return;
-      const travel = Math.max(0, count - 1) * filmstripThumbStepPx(strip);
-      const logicalMax = Math.max(0, count - 1) * step;
-      const t =
-        logicalMax <= 0
-          ? 0
-          : Math.min(1, Math.max(0, (slides.scrollLeft - base) / logicalMax));
-      track.style.transform = `translate3d(${-t * travel}px, 0, 0)`;
-    };
-
-    syncFromScrollRef.current = sync;
-    measure();
-    sync();
-
-    const onScroll = () => sync();
-    slides.addEventListener('scroll', onScroll, { passive: true });
-    const ro = new ResizeObserver(() => {
-      measure();
-      sync();
-    });
-    ro.observe(slides);
-
-    return () => {
-      syncFromScrollRef.current = null;
-      slides.removeEventListener('scroll', onScroll);
-      ro.disconnect();
-      track.style.removeProperty('transform');
-    };
-  }, [jsLinked, getSlides, items.length]);
-
-  /**
-   * Hand the track back after WAAPI scrub.
-   * - CSS timeline path: bridge transform until the timeline reattaches (Safari).
-   * - JS sync path: drop WAAPI and re-sync from scroll.
-   */
-  const endTrackScrub = React.useCallback(() => {
-    const track = groupRef.current;
-    const anim = scrubAnimRef.current;
-    scrubAnimRef.current = null;
-    if (!track) return;
-
-    if (jsLinked) {
-      anim?.cancel();
-      syncFromScrollRef.current?.();
-      return;
-    }
-
-    const bridgeX = readTranslateX(track);
-    try {
-      anim?.commitStyles();
-    } catch {
-      /* commitStyles unsupported */
-    }
-    anim?.cancel();
-
-    const epoch = scrubEpochRef.current;
-    track.style.transform = `translate3d(${bridgeX}px, 0, 0)`;
-    track.style.removeProperty('animation');
-
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        if (epoch !== scrubEpochRef.current) return;
-        if (scrubAnimRef.current) return;
-        track.style.removeProperty('transform');
-      });
-    });
-  }, [jsLinked]);
-
-  React.useEffect(() => {
-    return () => {
-      scrubEpochRef.current += 1;
-      const track = groupRef.current;
-      const anim = scrubAnimRef.current;
-      scrubAnimRef.current = null;
-      anim?.cancel();
-      if (track) {
-        track.style.removeProperty('animation');
-        track.style.removeProperty('transform');
-      }
-    };
-  }, []);
-
-  /**
-   * Same as `Lightbox.Thumbnail` → `setActiveIndex`, plus docs-only motion:
-   * slides crossfade (VT) and filmstrip WAAPI scrub. Mid-fling taps respect
-   * the library nav lock.
-   *
-   * Safari drops the first frames if `animation: none` runs before a hold
-   * transform (timeline keyframe 0 flashes). Order: sample → pin transform →
-   * kill CSS animation → paused WAAPI at fromX → commit slides → play.
-   */
-  const goToIndex = React.useCallback(
-    (index: number) => {
-      if (index === activeIndexRef.current || navigationLockedRef.current) return;
-
-      const commit = () => {
-        flushSync(() => {
-          setActiveIndex(index, 'thumbnail');
-        });
-        activeIndexRef.current = index;
-      };
-
-      const strip = viewportRef.current;
-      const track = groupRef.current;
-      const slides = getSlides();
-      const reduceMotion =
-        typeof matchMedia === 'function' &&
-        matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-      if (reduceMotion) {
-        commit();
-        return;
-      }
-
-      let scrub: Animation | null = null;
-
-      if (linked && strip && track && typeof track.animate === 'function') {
-        scrubEpochRef.current += 1; // invalidate any pending release bridge clear
-        const prev = scrubAnimRef.current;
-        if (prev) {
-          try {
-            prev.commitStyles();
-          } catch {
-            /* */
-          }
-          prev.cancel();
-          scrubAnimRef.current = null;
-        }
-
-        // Sample while CSS timeline / JS sync still owns the transform.
-        const fromX = readTranslateX(track);
-        const toX = -index * filmstripThumbStepPx(strip);
-
-        // Pin hold. CSS timeline path: then `animation: none` (Safari flashes
-        // keyframe 0 if those are reversed). JS path: no CSS animation.
-        track.style.transform = `translate3d(${fromX}px, 0, 0)`;
-        if (!jsLinked) track.style.setProperty('animation', 'none');
-
-        if (Math.abs(fromX - toX) >= 0.5) {
-          // WAAPI owns the hold before slides jump (paused on the first keyframe).
-          scrub = track.animate(
-            [
-              { transform: `translate3d(${fromX}px, 0, 0)` },
-              { transform: `translate3d(${toX}px, 0, 0)` },
-            ],
-            {
-              duration: 450,
-              easing: 'cubic-bezier(0.22, 1, 0.36, 1)',
-              fill: 'forwards',
-            },
-          );
-          scrub.pause();
-          scrub.currentTime = 0;
-          scrubAnimRef.current = scrub;
-          void scrub.finished.then(
-            () => {
-              if (scrubAnimRef.current !== scrub) return;
-              endTrackScrub();
-            },
-            () => {
-              /* cancelled by a newer scrub — next goToIndex owns styles */
-            },
-          );
-        }
-      }
-
-      // Slides crossfade only via *element-scoped* VT. Document VT (Safari's
-      // path today) snapshots the whole page — hiding root to keep the strip
-      // live flashes the lightbox. No scoped API → hard-cut slides + WAAPI strip.
-      type VTHost = { startViewTransition: (cb: () => void) => unknown };
-      if (slides && typeof (slides as HTMLElement & VTHost).startViewTransition === 'function') {
-        (slides as HTMLElement & VTHost).startViewTransition(commit);
-      } else {
-        commit();
-      }
-
-      if (scrub) scrub.play();
-      else if (linked && track) endTrackScrub();
-    },
-    [linked, jsLinked, navigationLockedRef, setActiveIndex, endTrackScrub, getSlides],
-  );
-
-  // Capture-phase: same navigation as Thumbnail, plus linked WAAPI scrub.
-  React.useEffect(() => {
-    const group = groupRef.current;
-    if (!group) return;
-    const onClickCapture = (e: MouseEvent) => {
-      const tab = (e.target as Element | null)?.closest?.('[role="tab"]');
-      if (!tab || !group.contains(tab)) return;
-      const index = Number(tab.getAttribute('data-index'));
-      if (!Number.isFinite(index)) return;
-      e.preventDefault();
-      e.stopImmediatePropagation();
-      goToIndex(index);
-    };
-    group.addEventListener('click', onClickCapture, true);
-    return () => group.removeEventListener('click', onClickCapture, true);
-  }, [goToIndex, items.length]);
-
-  // Linked strip is never a scrollport — kill wheel/trackpad just in case.
-  React.useEffect(() => {
-    const clip = viewportRef.current?.querySelector('.lightbox-demo-filmstrip-clip');
-    if (!clip) return;
-    const prevent = (e: Event) => e.preventDefault();
-    clip.addEventListener('wheel', prevent, { passive: false });
-    clip.addEventListener('touchmove', prevent, { passive: false });
-    return () => {
-      clip.removeEventListener('wheel', prevent);
-      clip.removeEventListener('touchmove', prevent);
-    };
-  }, []);
-
-  return (
-    <div
-      ref={viewportRef}
-      className={[
-        className,
-        'lightbox-demo-filmstrip--linked',
-        jsLinked ? 'lightbox-demo-filmstrip--js-link' : '',
-      ]
-        .filter(Boolean)
-        .join(' ')}
-    >
-      {/* Clip the track; frame stays a sibling so outline-offset isn't clipped. */}
-      <div className="lightbox-demo-filmstrip-clip">
-        <Lightbox.ThumbnailGroup
-          ref={groupRef}
-          aria-label="Photo thumbnails"
-          className="lightbox-demo-filmstrip-track"
-          style={
-            {
-              ['--thumb-count' as string]: String(Math.max(items.length, 1)),
-            } as React.CSSProperties
-          }
-        >
-          {items.map((item, i) => (
-            <Lightbox.Thumbnail
-              key={item.id ?? i}
-              index={i}
-              // Selection chrome is the stationary center frame only.
-              className="size-14 shrink-0 rounded-md p-0"
-            >
-              <img
-                {...imgDims(item.thumb)}
-                src={item.thumb}
-                alt={item.alt}
-                className="pointer-events-none size-full rounded-[inherit] object-cover"
-              />
-            </Lightbox.Thumbnail>
-          ))}
-        </Lightbox.ThumbnailGroup>
-      </div>
-      <span aria-hidden className="lightbox-demo-filmstrip-frame" />
-    </div>
-  );
-}
 
 /** Hide chrome while pulling / committing pull-to-dismiss. */
 const chromePullHide =

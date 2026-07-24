@@ -291,6 +291,44 @@ export const generatedProps: Record<string, PropRow[]> = {
       description: "Allows you to replace the component's HTML element with a different tag, or compose it with another component.\n\nAccepts a `ReactElement` or a function that returns the element to render.",
     },
   ],
+  "api-filmstrip": [
+    {
+      name: "scrubOnSelect",
+      type: "boolean",
+      description: "When true (default), pointer selection on a thumbnail WAAPI-scrubs the track to the target index. Keyboard / button navigation stays instant (follows the Slides jump).",
+    },
+    {
+      name: "scrubDuration",
+      type: "number",
+      default: "450",
+      description: "WAAPI scrub duration in ms.",
+    },
+    {
+      name: "scrubEasing",
+      type: "string",
+      default: "'cubic-bezier(0.22, 1, 0.36, 1)'",
+      description: "WAAPI scrub easing.",
+    },
+    {
+      name: "render",
+      type: "ReactElement | ComponentRenderFn",
+      description: "Allows you to replace the component's HTML element with a different tag, or compose it with another component.\n\nAccepts a `ReactElement` or a function that returns the element to render.",
+    },
+  ],
+  "api-filmstrip-track": [
+    {
+      name: "render",
+      type: "ReactElement | ComponentRenderFn",
+      description: "Allows you to replace the component's HTML element with a different tag, or compose it with another component.\n\nAccepts a `ReactElement` or a function that returns the element to render.",
+    },
+  ],
+  "api-filmstrip-indicator": [
+    {
+      name: "render",
+      type: "ReactElement | ComponentRenderFn",
+      description: "Allows you to replace the component's HTML element with a different tag, or compose it with another component.\n\nAccepts a `ReactElement` or a function that returns the element to render.",
+    },
+  ],
   "api-zoom": [
     {
       name: "children",
@@ -625,6 +663,26 @@ export const generatedAttributes: Record<string, AttrRow[]> = {
       description: "The thumbnail index as a string.",
     },
   ],
+  "api-filmstrip": [
+    {
+      name: "data-ramka-filmstrip",
+      description: "Always present on the filmstrip root.",
+    },
+    {
+      name: "data-ramka-filmstrip-track",
+      description: "Always present on the scroll-linked tablist track.",
+    },
+    {
+      name: "data-ramka-filmstrip-indicator",
+      description: "Always present on the stationary center indicator.",
+    },
+    {
+      name: "data-scrubbing",
+      description: "Present while a pointer thumb-select scrub animation is in flight.",
+    },
+  ],
+  "api-filmstrip-track": [],
+  "api-filmstrip-indicator": [],
   "api-zoom": [
     {
       name: "data-zoom",
@@ -708,6 +766,9 @@ export const generatedCssVariables: Record<string, CssVarRow[]> = {
   "api-caption": [],
   "api-thumbnail-group": [],
   "api-thumbnail": [],
+  "api-filmstrip": [],
+  "api-filmstrip-track": [],
+  "api-filmstrip-indicator": [],
   "api-zoom": [],
   "api-zoom-in": [],
   "api-zoom-out": [],

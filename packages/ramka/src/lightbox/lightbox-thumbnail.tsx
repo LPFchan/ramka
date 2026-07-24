@@ -4,6 +4,7 @@ import { mergeProps, useRender } from '@base-ui/react';
 import * as React from 'react';
 
 import { useLightboxContext } from './lightbox-context';
+import { useLightboxFilmstripContextOptional } from './lightbox-filmstrip-context';
 
 interface LightboxThumbnailState extends Record<string, unknown> {
   active: boolean;
@@ -24,11 +25,15 @@ const thumbnailStateAttributesMapping = {
  * A thumbnail button that navigates to a specific item in the lightbox.
  * Uses role="tab" within a ThumbnailGroup (role="tablist"),
  * with roving tabindex for keyboard navigation.
+ *
+ * Inside `Lightbox.Filmstrip`, selection goes through the filmstrip so pointer
+ * taps can scrub the linked track; outside it, calls `setActiveIndex` directly.
  */
 const LightboxThumbnail = React.forwardRef<HTMLButtonElement, LightboxThumbnailProps>(
   function LightboxThumbnail(props, forwardedRef) {
     const { render, index, ...elementProps } = props;
     const { activeIndex, setActiveIndex, baseId } = useLightboxContext();
+    const filmstrip = useLightboxFilmstripContextOptional();
 
     const isActive = index === activeIndex;
     // Matching ids for the WAI-ARIA Tabs association: this tab controls its
@@ -37,8 +42,12 @@ const LightboxThumbnail = React.forwardRef<HTMLButtonElement, LightboxThumbnailP
     const panelId = `${baseId}-panel-${index}`;
 
     const handleClick = React.useCallback(() => {
+      if (filmstrip) {
+        filmstrip.selectIndex(index);
+        return;
+      }
       setActiveIndex(index, 'thumbnail');
-    }, [index, setActiveIndex]);
+    }, [index, setActiveIndex, filmstrip]);
 
     const state = React.useMemo<LightboxThumbnailState>(() => ({ active: isActive, index }), [isActive, index]);
 

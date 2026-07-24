@@ -109,6 +109,17 @@ export enum LightboxThumbnailDataAttributes {
   index = 'data-index',
 }
 
+export enum LightboxFilmstripDataAttributes {
+  /** Always present on the filmstrip root. */
+  root = 'data-ramka-filmstrip',
+  /** Always present on the scroll-linked tablist track. */
+  track = 'data-ramka-filmstrip-track',
+  /** Always present on the stationary center indicator. */
+  indicator = 'data-ramka-filmstrip-indicator',
+  /** Present while a pointer thumb-select scrub animation is in flight. */
+  scrubbing = 'data-scrubbing',
+}
+
 export enum LightboxMediaDataAttributes {
   /** Always present on the media host. */
   media = 'data-ramka-media',

@@ -496,6 +496,18 @@ function LightboxRoot(props: LightboxRootProps) {
     >(new Map());
     const dialogElementRef = React.useRef<HTMLElement | null>(null);
     const backdropElementRef = React.useRef<HTMLElement | null>(null);
+    const slidesViewportRef = React.useRef<HTMLElement | null>(null);
+    const slidesGeometryRef = React.useRef({ base: 0, step: 1, count: 0 as number });
+    const slidesViewportListenersRef = React.useRef(new Set<() => void>());
+    const subscribeSlidesViewport = React.useCallback((listener: () => void) => {
+      slidesViewportListenersRef.current.add(listener);
+      return () => {
+        slidesViewportListenersRef.current.delete(listener);
+      };
+    }, []);
+    const notifySlidesViewport = React.useCallback(() => {
+      slidesViewportListenersRef.current.forEach((listener) => listener());
+    }, []);
     const activeIndexRef = React.useRef(activeIndex);
     activeIndexRef.current = activeIndex;
     const openRef = React.useRef(open);
@@ -904,8 +916,32 @@ function LightboxRoot(props: LightboxRootProps) {
         triggerIdsRef,
         dialogElementRef,
         backdropElementRef,
+        slidesViewportRef,
+        slidesGeometryRef,
+        subscribeSlidesViewport,
+        notifySlidesViewport,
       }),
-      [open, setOpen, mounted, preparing, subscribeOpenComplete, activeIndex, setActiveIndex, itemCount, registerItem, loop, baseId, hasTablist, registerTablist, registerCaption, subscribeCaptions, viewTransition, morphTo],
+      [
+        open,
+        setOpen,
+        mounted,
+        preparing,
+        subscribeOpenComplete,
+        activeIndex,
+        setActiveIndex,
+        itemCount,
+        registerItem,
+        loop,
+        baseId,
+        hasTablist,
+        registerTablist,
+        registerCaption,
+        subscribeCaptions,
+        viewTransition,
+        morphTo,
+        subscribeSlidesViewport,
+        notifySlidesViewport,
+      ],
     );
 
     return (

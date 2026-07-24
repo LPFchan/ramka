@@ -1,109 +1,37 @@
 /**
- * Docs-only: link the filmstrip track to Lightbox.Slides.
+ * Docs-only filmstrip cosmetics.
  *
- * Layout (clip / midline / frame) is driven by `.lightbox-demo-filmstrip--linked`
- * from JS — not by `@supports (animation-timeline)`, which disagrees with
- * `CSS.supports()` on Firefox.
- *
- * Drivers:
- * - Chromium/WebKit: CSS scroll-timeline on the track
- * - No CSS SDA: `.lightbox-demo-filmstrip--js-link` + JS transform sync
- *
- * Selection chrome is a stationary center frame (sibling of the clip), so
- * outline-offset is never clipped by the track's overflow.
+ * Library Filmstrip owns midline padding, overflow clip, and scroll sync.
+ * Consumers style flex/gap, thumb size, and indicator paint.
  */
 
 .lightbox-demo-filmstrip {
-  --thumb-step: 4rem; /* size-14 (3.5rem) + gap-2 (0.5rem) */
-  --thumb-half: 1.75rem;
-  position: relative;
-  width: 100%;
   align-self: stretch;
   padding-block: 0.25rem;
 }
 
-.lightbox-demo-filmstrip-clip {
-  width: 100%;
-}
-
-.lightbox-demo-filmstrip-track {
+.lightbox-demo-filmstrip [data-ramka-filmstrip-track] {
   display: flex;
   width: max-content;
   gap: 0.5rem;
 }
 
-/* Stationary selection frame — centered over the midline thumb. */
+/* Stationary selection frame — paint only; position comes from the primitive. */
 .lightbox-demo-filmstrip-frame {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  z-index: 1;
   width: 3.5rem;
   height: 3.5rem;
-  border-radius: 0.375rem; /* match thumb `rounded-md` */
+  border-radius: 0.375rem;
   outline: 2px solid #000;
   outline-offset: 2px;
-  pointer-events: none;
-  transform: translate(-50%, -50%);
 }
 
 :is(.dark, [data-theme='dark']) .lightbox-demo-filmstrip-frame {
   outline-color: #fff;
 }
 
-/* ── Linked strip (CSS timeline or JS sync): never a scrollport ─────────── */
-
-.lightbox-demo-filmstrip--linked .lightbox-demo-filmstrip-clip {
-  /* `hidden` is still a scrollport — focusing a thumb scrolls it and twitches
-     the track. `clip` paints the same but is not a scroll container. */
-  overflow: hidden;
-  overflow: clip;
-  overscroll-behavior: none;
-  touch-action: none;
-  /* Definite inline size for track padding (`50cqw`). */
-  container-type: inline-size;
-}
-
-.lightbox-demo-filmstrip--linked .lightbox-demo-filmstrip-track {
-  padding-inline: calc(50cqw - var(--thumb-half));
-}
-
-/* ── Chromium / WebKit: CSS scroll-timeline ──────────────────────────────── */
-
-@supports (animation-timeline: scroll()) {
-  .lightbox-demo-content {
-    timeline-scope: --ramka-slides;
-  }
-
-  .lightbox-demo-slides {
-    scroll-timeline-name: --ramka-slides;
-    scroll-timeline-axis: x;
-  }
-
-  .lightbox-demo-filmstrip--linked:not(.lightbox-demo-filmstrip--js-link)
-    .lightbox-demo-filmstrip-track {
-    animation-name: lightbox-demo-filmstrip-link;
-    animation-duration: auto;
-    animation-timing-function: linear;
-    animation-fill-mode: both;
-    animation-timeline: --ramka-slides;
-  }
-
-  @keyframes lightbox-demo-filmstrip-link {
-    from {
-      transform: translateX(0);
-    }
-    to {
-      transform: translateX(calc(-1 * (var(--thumb-count) - 1) * var(--thumb-step)));
-    }
-  }
-}
-
 /**
- * Thumb-jump slides crossfade — element-scoped VT only
- * (`slides.startViewTransition`). Document VT is intentionally not used here:
- * Safari has document VT but not scoped VT, and a document transition that
- * hides the root snapshot to keep the filmstrip live flashes the lightbox.
+ * Thumb-jump slides crossfade — element-scoped VT only (docs experiment).
+ * Library Filmstrip does not start view transitions.
  */
 .lightbox-demo-slides::view-transition-group(root) {
   animation-duration: 0.4s;

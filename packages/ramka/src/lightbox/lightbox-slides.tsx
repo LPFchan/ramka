@@ -5,6 +5,7 @@ import * as React from 'react';
 
 import { useLightboxContext } from './lightbox-context';
 import { LightboxItemGroupContext, type LightboxItemGroupContextValue } from './lightbox-item-group';
+import { measureSlidesGeometry, SLIDE_SELECTOR } from './lightbox-slides-geometry';
 
 /**
  * `Lightbox.Slides` — a dedicated, lightbox-only horizontal snap scroller.
@@ -78,15 +79,6 @@ interface LightboxSlidesProps extends useRender.ComponentProps<'div', LightboxSl
   preload?: number;
 }
 
-interface Geometry {
-  /** `scrollLeft` that centers slide 0. */
-  base: number;
-  /** Uniform stride between consecutive slides' snap positions. */
-  step: number;
-  /** Number of slide boxes measured. */
-  count: number;
-}
-
 /**
  * Quiet gap (ms without a scroll event) after which we treat a user scroll as
  * finished, for browsers without `scrollend` (the primary signal) or that drop
@@ -101,27 +93,6 @@ const SCROLL_IDLE_MS = 140;
  */
 const REPAINT_IDLE_MS = 120;
 
-const SLIDE_SELECTOR = '[data-ramka-slide]';
-
-/**
- * Measure the (uniform) slide geometry from offset values. `offsetLeft` is a
- * layout property → reliable inside a `<dialog>`/portal where mobile Safari's
- * `getBoundingClientRect` is not.
- */
-function measureGeometry(viewport: HTMLElement): Geometry {
-  const slides = viewport.querySelectorAll<HTMLElement>(SLIDE_SELECTOR);
-  const count = slides.length;
-  const clientWidth = viewport.clientWidth || 1;
-  if (count === 0) return { base: 0, step: clientWidth, count: 0 };
-
-  const first = slides[0]!;
-  const width = first.offsetWidth || clientWidth;
-  // scrollLeft that centers slide 0 (0 for full-width slides).
-  const base = first.offsetLeft + width / 2 - clientWidth / 2;
-  const step = count > 1 ? slides[1]!.offsetLeft - first.offsetLeft : clientWidth;
-  return { base, step: step > 0 ? step : clientWidth, count };
-}
-
 function clamp(value: number, min: number, max: number): number {
   return value < min ? min : value > max ? max : value;
 }
@@ -134,10 +105,20 @@ const slidesStateAttributesMapping = {
 const LightboxSlides = React.forwardRef<HTMLDivElement, LightboxSlidesProps>(
   function LightboxSlides(props, forwardedRef) {
     const { render, preload = 1, style, ...elementProps } = props;
-    const { activeIndex, setActiveIndex, navigationLockedRef, loop, itemCount } = useLightboxContext();
+    const {
+      activeIndex,
+      setActiveIndex,
+      navigationLockedRef,
+      loop,
+      itemCount,
+      slidesViewportRef,
+      slidesGeometryRef,
+      notifySlidesViewport,
+    } = useLightboxContext();
 
     const viewportRef = React.useRef<HTMLDivElement | null>(null);
-    const geometryRef = React.useRef<Geometry>({ base: 0, step: 1, count: 0 });
+    // Local mirror of context `slidesGeometryRef` for hot scroll paths.
+    const geometryRef = slidesGeometryRef;
     // True while our own programmatic jump is settling (including the follow-up
     // frame that restores scroll-snap). Scroll events in this window must not
     // lock navigation — snap restore often emits a second scroll after the
@@ -157,11 +138,20 @@ const LightboxSlides = React.forwardRef<HTMLDivElement, LightboxSlidesProps>(
 
     const mergedRef = React.useCallback(
       (node: HTMLDivElement | null) => {
+        const prev = viewportRef.current;
         viewportRef.current = node;
+        // Publish for scroll-linked chrome (Filmstrip). Clear only if we still own
+        // the slot — another Slides mount could have replaced us.
+        if (node) {
+          slidesViewportRef.current = node;
+        } else if (slidesViewportRef.current === prev) {
+          slidesViewportRef.current = null;
+        }
+        notifySlidesViewport();
         if (typeof forwardedRef === 'function') forwardedRef(node);
         else if (forwardedRef) forwardedRef.current = node;
       },
-      [forwardedRef],
+      [forwardedRef, slidesViewportRef, notifySlidesViewport],
     );
 
     const indexFromScroll = React.useCallback((viewport: HTMLElement): number => {
@@ -237,7 +227,8 @@ const LightboxSlides = React.forwardRef<HTMLDivElement, LightboxSlidesProps>(
     React.useLayoutEffect(() => {
       const viewport = viewportRef.current;
       if (!viewport) return;
-      geometryRef.current = measureGeometry(viewport);
+      geometryRef.current = measureSlidesGeometry(viewport);
+      notifySlidesViewport();
 
       // ResizeObserver fires an initial callback on `observe()` with the current
       // size. In a real browser we already measured the same values in the
@@ -248,7 +239,7 @@ const LightboxSlides = React.forwardRef<HTMLDivElement, LightboxSlidesProps>(
       // callback is skipped. See LIGHTBOX_PERF.md.
       const observer = new ResizeObserver(() => {
         const prev = geometryRef.current;
-        const next = measureGeometry(viewport);
+        const next = measureSlidesGeometry(viewport);
         geometryRef.current = next;
         if (
           prev &&
@@ -258,11 +249,12 @@ const LightboxSlides = React.forwardRef<HTMLDivElement, LightboxSlidesProps>(
         ) {
           return;
         }
+        notifySlidesViewport();
         scrollToIndex(activeIndexRef.current);
       });
       observer.observe(viewport);
       return () => observer.disconnect();
-    }, [itemCount, scrollToIndex]);
+    }, [itemCount, scrollToIndex, notifySlidesViewport]);
 
     // Drive scroll position from the active index. Skip when the viewport is
     // already showing it (our own swipe-derived updates, which must not
