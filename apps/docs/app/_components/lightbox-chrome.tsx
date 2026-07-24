@@ -223,6 +223,8 @@ function supportsFilmstripScrollLink(): boolean {
  * Demo-only filmstrip (not part of ramka):
  * - Enhanced: track `translateX` is scroll-timeline-linked to Lightbox.Slides;
  *   drag writes `slides.scrollLeft` (Slides is the only scroller).
+ * - Thumb click always jumps the stage via `scrollLeft` (not Thumbnail→setActiveIndex,
+ *   which is dropped while navigation is locked).
  * - Fallback: overflow strip + scrollIntoView on `data-active`.
  */
 function GalleryThumbnailStrip({
@@ -234,7 +236,39 @@ function GalleryThumbnailStrip({
 }) {
   const viewportRef = React.useRef<HTMLDivElement>(null);
   const groupRef = React.useRef<HTMLDivElement>(null);
+  const itemCountRef = React.useRef(items.length);
+  itemCountRef.current = items.length;
+  /** True while a strip drag is actively scrubbing the stage (not a tap). */
+  const scrubbingRef = React.useRef(false);
   const linked = supportsFilmstripScrollLink();
+
+  const getSlides = React.useCallback((): HTMLElement | null => {
+    const viewport = viewportRef.current;
+    if (!viewport) return null;
+    return (
+      viewport.closest('.lightbox-demo-content')?.querySelector<HTMLElement>('.lightbox-demo-slides') ??
+      viewport.closest('[role="dialog"]')?.querySelector<HTMLElement>('[aria-roledescription="carousel"]') ??
+      null
+    );
+  }, []);
+
+  /** Thumb tap → instant jump. Never touches snap — Slides owns that. */
+  const jumpToIndex = React.useCallback(
+    (index: number) => {
+      const s = getSlides();
+      const count = itemCountRef.current;
+      if (!s || index < 0 || index >= count) return;
+      const slide = s.querySelectorAll<HTMLElement>('[data-ramka-slide]')[index];
+      if (!slide) return;
+
+      const width = slide.offsetWidth || s.clientWidth || 1;
+      s.scrollLeft = Math.min(
+        Math.max(slide.offsetLeft + width / 2 - s.clientWidth / 2, 0),
+        Math.max(s.scrollWidth - s.clientWidth, 0),
+      );
+    },
+    [getSlides],
+  );
 
   // Fallback only: center the active thumb when the stage index changes.
   React.useLayoutEffect(() => {
@@ -260,24 +294,12 @@ function GalleryThumbnailStrip({
     return () => mo.disconnect();
   }, [linked]);
 
-  // Enhanced: strip drag → slides.scrollLeft; strip tap → jump slides by index.
-  // Taps must not rely on Thumbnail `onClick`: pointer scrub + navigationLocked
-  // both break that path. Writing `scrollLeft` updates the marker via `scroll`.
+  // Enhanced: pointer-drag scrub writes scrollLeft only. Never mutate Slides
+  // snap/behavior — the scroller is the source of truth and keeps `x mandatory`.
   React.useEffect(() => {
     if (!linked) return;
     const viewport = viewportRef.current;
     if (!viewport) return;
-
-    let slides: HTMLElement | null = null;
-    const getSlides = () => {
-      if (!slides?.isConnected) {
-        slides =
-          viewport.closest('[role="dialog"]')?.querySelector<HTMLElement>(
-            '[aria-roledescription="carousel"]',
-          ) ?? null;
-      }
-      return slides;
-    };
 
     const thumbStepPx = () => {
       const style = getComputedStyle(viewport);
@@ -290,43 +312,11 @@ function GalleryThumbnailStrip({
       return Number.parseFloat(step) || 64;
     };
 
-    /** Same offset geometry Lightbox.Slides uses for programmatic jumps. */
-    const scrollLeftForIndex = (s: HTMLElement, index: number) => {
-      const slideEls = s.querySelectorAll<HTMLElement>('[data-ramka-slide]');
-      const count = slideEls.length;
-      if (count === 0) return 0;
-      const first = slideEls[0]!;
-      const width = first.offsetWidth || s.clientWidth || 1;
-      const base = first.offsetLeft + width / 2 - s.clientWidth / 2;
-      const step = count > 1 ? slideEls[1]!.offsetLeft - first.offsetLeft : s.clientWidth;
-      const max = s.scrollWidth - s.clientWidth;
-      const target = base + index * (step > 0 ? step : s.clientWidth);
-      return Math.min(Math.max(target, 0), max > 0 ? max : 0);
-    };
-
-    const jumpToIndex = (index: number) => {
-      const s = getSlides();
-      if (!s || index < 0 || index >= items.length) return;
-      const target = scrollLeftForIndex(s, index);
-      const saved = s.style.scrollSnapType;
-      s.style.scrollSnapType = 'none';
-      s.scrollLeft = target;
-      requestAnimationFrame(() => {
-        s.style.scrollSnapType = saved || 'x mandatory';
-        if (Math.abs(s.scrollLeft - target) >= 1) s.scrollLeft = target;
-      });
-    };
-
     const SCRUB_THRESHOLD_PX = 12;
     let pointerId: number | null = null;
     let lastX = 0;
     let startX = 0;
     let didScrub = false;
-    let savedSnap = '';
-    let snapDisabled = false;
-    let downTab: HTMLElement | null = null;
-    /** Suppress the synthetic click that follows a scrub gesture. */
-    let suppressClick = false;
 
     const onPointerDown = (e: PointerEvent) => {
       if (e.button !== 0) return;
@@ -335,9 +325,7 @@ function GalleryThumbnailStrip({
       lastX = e.clientX;
       startX = e.clientX;
       didScrub = false;
-      snapDisabled = false;
-      suppressClick = false;
-      downTab = (e.target as Element | null)?.closest?.('[role="tab"]') ?? null;
+      scrubbingRef.current = false;
     };
 
     const onPointerMove = (e: PointerEvent) => {
@@ -347,10 +335,7 @@ function GalleryThumbnailStrip({
       if (!didScrub && Math.abs(e.clientX - startX) < SCRUB_THRESHOLD_PX) return;
       if (!didScrub) {
         didScrub = true;
-        downTab = null;
-        savedSnap = s.style.scrollSnapType;
-        s.style.scrollSnapType = 'none';
-        snapDisabled = true;
+        scrubbingRef.current = true;
         try {
           viewport.setPointerCapture(e.pointerId);
         } catch {
@@ -360,93 +345,89 @@ function GalleryThumbnailStrip({
       const dx = e.clientX - lastX;
       if (dx === 0) return;
       lastX = e.clientX;
-      const trackTravel = Math.max(0, items.length - 1) * thumbStepPx();
+      const trackTravel = Math.max(0, itemCountRef.current - 1) * thumbStepPx();
       const max = s.scrollWidth - s.clientWidth;
       if (trackTravel <= 0 || max <= 0) return;
-      // Drag strip right → earlier slides (lower scrollLeft), matching timeline pan.
       s.scrollLeft -= (dx * max) / trackTravel;
     };
 
     const endDrag = (e: PointerEvent) => {
       if (pointerId !== e.pointerId) return;
       pointerId = null;
-      const s = getSlides();
-
+      // Let native scroll-snap settle; do not touch scrollSnapType.
       if (didScrub) {
-        suppressClick = true;
-        if (s && snapDisabled) {
-          s.style.scrollSnapType = savedSnap || 'x mandatory';
-          const max = s.scrollWidth - s.clientWidth;
-          if (max > 0 && items.length > 1) {
-            const step = max / (items.length - 1);
-            s.scrollLeft = Math.round(s.scrollLeft / step) * step;
-          }
-        }
-      } else if (downTab) {
-        // Tap: drive the stage directly (avoids Thumbnail click + nav-lock drops).
-        const index = Number(downTab.dataset.index);
-        if (Number.isFinite(index)) jumpToIndex(index);
+        window.setTimeout(() => {
+          scrubbingRef.current = false;
+        }, 0);
+      } else {
+        scrubbingRef.current = false;
       }
-
-      downTab = null;
-      savedSnap = '';
-      snapDisabled = false;
-    };
-
-    const onClickCapture = (e: MouseEvent) => {
-      if (!suppressClick) return;
-      e.preventDefault();
-      e.stopPropagation();
-      suppressClick = false;
     };
 
     viewport.addEventListener('pointerdown', onPointerDown);
     viewport.addEventListener('pointermove', onPointerMove);
     viewport.addEventListener('pointerup', endDrag);
     viewport.addEventListener('pointercancel', endDrag);
-    viewport.addEventListener('click', onClickCapture, true);
     return () => {
       viewport.removeEventListener('pointerdown', onPointerDown);
       viewport.removeEventListener('pointermove', onPointerMove);
       viewport.removeEventListener('pointerup', endDrag);
       viewport.removeEventListener('pointercancel', endDrag);
-      viewport.removeEventListener('click', onClickCapture, true);
-      const s = getSlides();
-      if (s && snapDisabled) s.style.scrollSnapType = savedSnap || 'x mandatory';
+      scrubbingRef.current = false;
     };
-  }, [linked, items.length]);
+  }, [linked, getSlides]);
+
+  // Capture-phase click: jump via scrollLeft (works even when nav-lock drops
+  // Thumbnail → setActiveIndex).
+  React.useEffect(() => {
+    const group = groupRef.current;
+    if (!group) return;
+    const onClickCapture = (e: MouseEvent) => {
+      if (scrubbingRef.current) return;
+      const tab = (e.target as Element | null)?.closest?.('[role="tab"]');
+      if (!tab || !group.contains(tab)) return;
+      const index = Number(tab.getAttribute('data-index'));
+      if (!Number.isFinite(index)) return;
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      jumpToIndex(index);
+    };
+    group.addEventListener('click', onClickCapture, true);
+    return () => group.removeEventListener('click', onClickCapture, true);
+  }, [jumpToIndex, items.length]);
 
   return (
     <div ref={viewportRef} className={className}>
-      <Lightbox.ThumbnailGroup
-        ref={groupRef}
-        aria-label="Photo thumbnails"
-        className="lightbox-demo-filmstrip-track"
-        style={
-          {
-            ['--thumb-count' as string]: String(Math.max(items.length, 1)),
-          } as React.CSSProperties
-        }
-      >
-        {items.map((item, i) => (
-          <Lightbox.Thumbnail
-            key={item.id ?? i}
-            index={i}
-            // Uniform squares; crop via object-cover. No overflow-hidden — clips outline.
-            className={
-              'size-14 shrink-0 rounded-md p-0 opacity-50 outline-2 outline-offset-2 outline-transparent ' +
-              'data-[active]:opacity-100 data-[active]:outline-black dark:data-[active]:outline-white'
-            }
-          >
-            <img
-              {...imgDims(item.thumb)}
-              src={item.thumb}
-              alt={item.alt}
-              className="pointer-events-none size-full rounded-[inherit] object-cover"
-            />
-          </Lightbox.Thumbnail>
-        ))}
-      </Lightbox.ThumbnailGroup>
+      {/* Clip/scroll the track; frame stays a sibling so outline-offset isn't clipped. */}
+      <div className="lightbox-demo-filmstrip-clip">
+        <Lightbox.ThumbnailGroup
+          ref={groupRef}
+          aria-label="Photo thumbnails"
+          className="lightbox-demo-filmstrip-track"
+          style={
+            {
+              ['--thumb-count' as string]: String(Math.max(items.length, 1)),
+            } as React.CSSProperties
+          }
+        >
+          {items.map((item, i) => (
+            <Lightbox.Thumbnail
+              key={item.id ?? i}
+              index={i}
+              // Selection chrome is the stationary center frame only.
+              className="size-14 shrink-0 rounded-md p-0"
+            >
+              <img
+                {...imgDims(item.thumb)}
+                src={item.thumb}
+                alt={item.alt}
+                className="pointer-events-none size-full rounded-[inherit] object-cover"
+              />
+            </Lightbox.Thumbnail>
+          ))}
+        </Lightbox.ThumbnailGroup>
+      </div>
+      <span aria-hidden className="lightbox-demo-filmstrip-frame" />
     </div>
   );
 }

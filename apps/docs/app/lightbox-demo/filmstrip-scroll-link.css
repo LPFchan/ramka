@@ -5,20 +5,47 @@
  *
  * Requires: `timeline-scope` on `.lightbox-demo-content`, `scroll-timeline-*`
  * on `.lightbox-demo-slides`, and `--thumb-count` on the track.
+ *
+ * Selection chrome is a stationary center frame (sibling of the clip), so
+ * outline-offset is never clipped by the track's overflow.
  */
 
 .lightbox-demo-filmstrip {
   --thumb-step: 4rem; /* size-14 (3.5rem) + gap-2 (0.5rem) */
   --thumb-half: 1.75rem;
+  position: relative;
   width: 100%;
   align-self: stretch;
   padding-block: 0.25rem;
+}
+
+.lightbox-demo-filmstrip-clip {
+  width: 100%;
 }
 
 .lightbox-demo-filmstrip-track {
   display: flex;
   width: max-content;
   gap: 0.5rem;
+}
+
+/* Stationary selection frame — centered over the midline thumb. */
+.lightbox-demo-filmstrip-frame {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 1;
+  width: 3.5rem;
+  height: 3.5rem;
+  border-radius: 0.375rem; /* match thumb `rounded-md` */
+  outline: 2px solid #000;
+  outline-offset: 2px;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+}
+
+:is(.dark, [data-theme='dark']) .lightbox-demo-filmstrip-frame {
+  outline-color: #fff;
 }
 
 @supports (animation-timeline: scroll()) {
@@ -32,10 +59,13 @@
   }
 
   .lightbox-demo-filmstrip {
-    overflow: hidden;
     /* Strip drag owns horizontal motion; don't let the browser pan/scroll-chain. */
     touch-action: none;
     user-select: none;
+  }
+
+  .lightbox-demo-filmstrip-clip {
+    overflow: hidden;
   }
 
   .lightbox-demo-filmstrip-track {
@@ -59,12 +89,12 @@
 }
 
 @supports not (animation-timeline: scroll()) {
-  .lightbox-demo-filmstrip {
+  .lightbox-demo-filmstrip-clip {
     overflow-x: auto;
     scrollbar-width: none;
   }
 
-  .lightbox-demo-filmstrip::-webkit-scrollbar {
+  .lightbox-demo-filmstrip-clip::-webkit-scrollbar {
     display: none;
   }
 
