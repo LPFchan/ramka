@@ -219,7 +219,7 @@ export function LightboxGallery({
  * TEMP — force the non-CSS (JS scroll→transform sync) path on every browser.
  * Set false to restore CSS timeline when supported.
  */
-const FORCE_FILMSTRIP_OVERFLOW_FALLBACK = true;
+const FORCE_FILMSTRIP_OVERFLOW_FALLBACK = false;
 
 /** True when CSS scroll-driven animations can own the filmstrip link. */
 function supportsCssFilmstripScrollLink(): boolean {
