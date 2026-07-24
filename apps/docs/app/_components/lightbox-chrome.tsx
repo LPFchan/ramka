@@ -127,8 +127,10 @@ export function LightboxGallery({
     thumbnails === 'never'
       ? 'hidden'
       : thumbnails === 'always'
-        ? 'pointer-events-auto flex max-w-full justify-center gap-2 overflow-x-auto px-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
-        : 'pointer-events-auto hidden max-w-full justify-center gap-2 overflow-x-auto px-3 [scrollbar-width:none] md:flex [&::-webkit-scrollbar]:hidden';
+        ? // `justify-safe-center`: center when the strip fits; start-align when it
+          // overflows so native horizontal scroll can reach every thumb.
+          'pointer-events-auto flex max-w-full justify-safe-center gap-2 overflow-x-auto p-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
+        : 'pointer-events-auto hidden max-w-full justify-safe-center gap-2 overflow-x-auto p-1 [scrollbar-width:none] md:flex [&::-webkit-scrollbar]:hidden';
 
   const backdropTone = backdrop === 'solid' ? 'bg-white dark:bg-black' : 'lightbox-demo-backdrop-light';
 
@@ -205,21 +207,72 @@ export function LightboxGallery({
           <Lightbox.Caption className="pointer-events-auto block min-h-[1.25rem] max-w-full truncate px-6 text-center text-sm text-black/70 dark:text-white/80" />
 
           {thumbnails !== 'never' ? (
-            <Lightbox.ThumbnailGroup aria-label="Photo thumbnails" className={thumbClass}>
-              {items.map((item, i) => (
-                <Lightbox.Thumbnail
-                  key={item.id ?? i}
-                  index={i}
-                  className="h-14 w-14 shrink-0 overflow-hidden rounded-md border-2 border-transparent p-0 opacity-50 transition data-[active]:border-black data-[active]:opacity-100 dark:data-[active]:border-white"
-                >
-                  <img {...imgDims(item.thumb)} src={item.thumb} alt={item.alt} className="size-full object-cover" />
-                </Lightbox.Thumbnail>
-              ))}
-            </Lightbox.ThumbnailGroup>
+            <GalleryThumbnailStrip items={items} className={thumbClass} />
           ) : null}
         </div>
       </Lightbox.Content>
     </Lightbox.Portal>
+  );
+}
+
+/**
+ * Demo-only filmstrip: native overflow + scroll the active thumb into view when
+ * `data-active` moves (swipe / prev-next / thumb click). Not part of ramka —
+ * consumers own this; the library stays unstyled and scroll-native.
+ */
+function GalleryThumbnailStrip({
+  items,
+  className,
+}: {
+  items: LightboxGalleryItem[];
+  className: string;
+}) {
+  const groupRef = React.useRef<HTMLDivElement>(null);
+
+  // Jump before paint on open so the strip isn't seen scrolling to the opener.
+  React.useLayoutEffect(() => {
+    const root = groupRef.current;
+    if (!root) return;
+    root
+      .querySelector<HTMLElement>('[role="tab"][data-active]')
+      ?.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'auto' });
+  }, []);
+
+  React.useEffect(() => {
+    const root = groupRef.current;
+    if (!root) return;
+
+    const scrollActiveIntoView = () => {
+      const active = root.querySelector<HTMLElement>('[role="tab"][data-active]');
+      // Subsequent index changes (swipe / thumb click) ease to center.
+      active?.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
+    };
+
+    const mo = new MutationObserver(scrollActiveIntoView);
+    mo.observe(root, { attributes: true, attributeFilter: ['data-active'], subtree: true });
+    return () => mo.disconnect();
+  }, []);
+
+  return (
+    <Lightbox.ThumbnailGroup ref={groupRef} aria-label="Photo thumbnails" className={className}>
+      {items.map((item, i) => (
+        <Lightbox.Thumbnail
+          key={item.id ?? i}
+          index={i}
+          // Full strip height; width follows the original source aspect (not a square crop).
+          style={{ aspectRatio: String(imgAspect(item.src)) }}
+          // No overflow-hidden here — it clips `outline` / `outline-offset`.
+          className="h-14 w-auto shrink-0 rounded-md p-0 opacity-50 outline-2 outline-offset-2 outline-transparent transition-[opacity,outline-color] data-[active]:opacity-100 data-[active]:outline-black dark:data-[active]:outline-white"
+        >
+          <img
+            {...imgDims(item.thumb)}
+            src={item.thumb}
+            alt={item.alt}
+            className="pointer-events-none size-full rounded-[inherit] object-cover"
+          />
+        </Lightbox.Thumbnail>
+      ))}
+    </Lightbox.ThumbnailGroup>
   );
 }
 
