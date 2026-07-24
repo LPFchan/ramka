@@ -123,20 +123,13 @@ export function LightboxGallery({
   backdrop?: 'scrim' | 'solid';
   renderItem?: (item: LightboxGalleryItem, index: number, ctx: GalleryItemRenderCtx) => React.ReactNode;
 }) {
-  // Always-center filmstrip via container queries: strip is `@container`, so
-  // first/last can use `calc(50cqw - halfThumbWidth)`. Thumbs are fixed
-  // `3.5rem` squares → half = `1.75rem`. `self-stretch` beats parent `items-center`.
-  const thumbStripLayout =
-    '@container w-full self-stretch gap-2 overflow-x-auto p-1 ' +
-    'snap-x snap-mandatory ' +
-    '[scrollbar-width:none] [&::-webkit-scrollbar]:hidden';
-
+  // Viewport visibility only — layout/scroll-link live in filmstrip-scroll-link.css.
   const thumbClass =
     thumbnails === 'never'
       ? 'hidden'
       : thumbnails === 'always'
-        ? `pointer-events-auto flex ${thumbStripLayout}`
-        : `pointer-events-auto hidden md:flex ${thumbStripLayout}`;
+        ? 'pointer-events-auto lightbox-demo-filmstrip'
+        : 'pointer-events-auto hidden md:block lightbox-demo-filmstrip';
 
   const backdropTone = backdrop === 'solid' ? 'bg-white dark:bg-black' : 'lightbox-demo-backdrop-light';
 
@@ -151,7 +144,7 @@ export function LightboxGallery({
         <Lightbox.Slides
           aria-label="Full-size images"
           preload={preload}
-          className="flex-1 gap-5 [&::-webkit-scrollbar]:hidden md:gap-0"
+          className="lightbox-demo-slides flex-1 gap-5 [&::-webkit-scrollbar]:hidden md:gap-0"
         >
           {items.map((item, i) => (
             <Lightbox.Slide key={item.id ?? i} className="relative h-full">
@@ -221,11 +214,16 @@ export function LightboxGallery({
   );
 }
 
+/** True when slides can drive the filmstrip via a named scroll timeline. */
+function supportsFilmstripScrollLink(): boolean {
+  return typeof CSS !== 'undefined' && CSS.supports('animation-timeline', 'scroll()');
+}
+
 /**
  * Demo-only filmstrip (not part of ramka):
- * - Centers the active thumb when the stage index changes (swipe / click).
- * - iOS Photos–style scrub: dragging/scrolling the strip updates the active
- *   item from whichever thumb sits under the midline.
+ * - Enhanced: track `translateX` is scroll-timeline-linked to Lightbox.Slides;
+ *   drag writes `slides.scrollLeft` (Slides is the only scroller).
+ * - Fallback: overflow strip + scrollIntoView on `data-active`.
  */
 function GalleryThumbnailStrip({
   items,
@@ -234,155 +232,222 @@ function GalleryThumbnailStrip({
   items: LightboxGalleryItem[];
   className: string;
 }) {
+  const viewportRef = React.useRef<HTMLDivElement>(null);
   const groupRef = React.useRef<HTMLDivElement>(null);
-  /** True while we drive `scrollIntoView` — ignore those scroll events for scrub. */
-  const programmaticScrollRef = React.useRef(false);
-  /** True while the user is scrolling the strip — don't yank scroll back to center. */
-  const scrubbingRef = React.useRef(false);
+  const linked = supportsFilmstripScrollLink();
 
-  const scrollActiveIntoView = React.useCallback((behavior: ScrollBehavior) => {
-    const root = groupRef.current;
-    if (!root || scrubbingRef.current) return;
-    const active = root.querySelector<HTMLElement>('[role="tab"][data-active]');
-    if (!active) return;
-
-    programmaticScrollRef.current = true;
-    active.scrollIntoView({ inline: 'center', block: 'nearest', behavior });
-
-    const clear = () => {
-      programmaticScrollRef.current = false;
-    };
-    root.addEventListener('scrollend', clear, { once: true });
-    // Keep the flag through the jump; `0` races ahead of the scroll event and
-    // would let scrub treat our own centering as a user drag.
-    window.setTimeout(clear, behavior === 'smooth' ? 450 : 80);
-  }, []);
-
-  // Jump before paint on open so the strip isn't seen scrolling to the opener.
+  // Fallback only: center the active thumb when the stage index changes.
   React.useLayoutEffect(() => {
-    scrollActiveIntoView('auto');
-  }, [scrollActiveIntoView]);
-
-  React.useEffect(() => {
+    if (linked) return;
     const root = groupRef.current;
     if (!root) return;
+    root
+      .querySelector<HTMLElement>('[role="tab"][data-active]')
+      ?.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'auto' });
+  }, [linked]);
 
-    const mo = new MutationObserver(() => {
-      if (scrubbingRef.current) return;
-      scrollActiveIntoView('smooth');
-    });
+  React.useEffect(() => {
+    if (linked) return;
+    const root = groupRef.current;
+    if (!root) return;
+    const scrollActiveIntoView = () => {
+      root
+        .querySelector<HTMLElement>('[role="tab"][data-active]')
+        ?.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
+    };
+    const mo = new MutationObserver(scrollActiveIntoView);
     mo.observe(root, { attributes: true, attributeFilter: ['data-active'], subtree: true });
+    return () => mo.disconnect();
+  }, [linked]);
 
-    let raf = 0;
-    let scrubEndTimer = 0;
-    let pointerDown = false;
-    /** Last index activated from scrub — skip redundant React updates. */
-    let lastScrubIndex = -1;
+  // Enhanced: strip drag → slides.scrollLeft; strip tap → jump slides by index.
+  // Taps must not rely on Thumbnail `onClick`: pointer scrub + navigationLocked
+  // both break that path. Writing `scrollLeft` updates the marker via `scroll`.
+  React.useEffect(() => {
+    if (!linked) return;
+    const viewport = viewportRef.current;
+    if (!viewport) return;
 
-    const endScrubSoon = () => {
-      window.clearTimeout(scrubEndTimer);
-      if (pointerDown) return;
-      scrubEndTimer = window.setTimeout(() => {
-        scrubbingRef.current = false;
-        lastScrubIndex = -1;
-      }, 120);
+    let slides: HTMLElement | null = null;
+    const getSlides = () => {
+      if (!slides?.isConnected) {
+        slides =
+          viewport.closest('[role="dialog"]')?.querySelector<HTMLElement>(
+            '[aria-roledescription="carousel"]',
+          ) ?? null;
+      }
+      return slides;
     };
 
-    const activateCenteredThumb = () => {
-      const rootRect = root.getBoundingClientRect();
-      const midX = rootRect.left + rootRect.width / 2;
-      let best: HTMLElement | null = null;
-      let bestDist = Infinity;
-      // Live collection; avoid intermediate arrays while the finger is moving.
-      const tabs = root.querySelectorAll<HTMLElement>('[role="tab"]');
-      for (let i = 0; i < tabs.length; i++) {
-        const tab = tabs[i]!;
-        const r = tab.getBoundingClientRect();
-        const dist = Math.abs(r.left + r.width / 2 - midX);
-        if (dist < bestDist) {
-          bestDist = dist;
-          best = tab;
-        }
+    const thumbStepPx = () => {
+      const style = getComputedStyle(viewport);
+      const step = style.getPropertyValue('--thumb-step').trim() || '4rem';
+      if (step.endsWith('rem')) {
+        const rem = Number.parseFloat(step);
+        const rootPx = Number.parseFloat(getComputedStyle(document.documentElement).fontSize);
+        return rem * rootPx;
       }
-      if (!best) return;
-      const index = Number(best.dataset.index);
-      if (!Number.isFinite(index) || index === lastScrubIndex) return;
-      if (best.hasAttribute('data-active')) {
-        lastScrubIndex = index;
-        return;
-      }
-      lastScrubIndex = index;
-      // Synthetic click (not HTMLElement.click()) so we don't focus the tab —
-      // focusing would scrollIntoView and fight the user's scrub drag.
-      best.dispatchEvent(
-        new MouseEvent('click', { bubbles: true, cancelable: true, view: window }),
-      );
+      return Number.parseFloat(step) || 64;
     };
 
-    const onScroll = () => {
-      if (programmaticScrollRef.current) return;
-      scrubbingRef.current = true;
-      endScrubSoon();
-      if (raf !== 0) return;
-      raf = requestAnimationFrame(() => {
-        raf = 0;
-        activateCenteredThumb();
+    /** Same offset geometry Lightbox.Slides uses for programmatic jumps. */
+    const scrollLeftForIndex = (s: HTMLElement, index: number) => {
+      const slideEls = s.querySelectorAll<HTMLElement>('[data-ramka-slide]');
+      const count = slideEls.length;
+      if (count === 0) return 0;
+      const first = slideEls[0]!;
+      const width = first.offsetWidth || s.clientWidth || 1;
+      const base = first.offsetLeft + width / 2 - s.clientWidth / 2;
+      const step = count > 1 ? slideEls[1]!.offsetLeft - first.offsetLeft : s.clientWidth;
+      const max = s.scrollWidth - s.clientWidth;
+      const target = base + index * (step > 0 ? step : s.clientWidth);
+      return Math.min(Math.max(target, 0), max > 0 ? max : 0);
+    };
+
+    const jumpToIndex = (index: number) => {
+      const s = getSlides();
+      if (!s || index < 0 || index >= items.length) return;
+      const target = scrollLeftForIndex(s, index);
+      const saved = s.style.scrollSnapType;
+      s.style.scrollSnapType = 'none';
+      s.scrollLeft = target;
+      requestAnimationFrame(() => {
+        s.style.scrollSnapType = saved || 'x mandatory';
+        if (Math.abs(s.scrollLeft - target) >= 1) s.scrollLeft = target;
       });
     };
 
-    // Track press so a mid-scrub pause doesn't re-enable auto-center until the
-    // finger lifts. Don't mark scrubbing on pointerdown alone — a plain thumb
-    // tap must still allow the MutationObserver to center the active item.
-    const onPointerDown = () => {
-      pointerDown = true;
-    };
-    const onPointerUp = () => {
-      pointerDown = false;
-      endScrubSoon();
+    const SCRUB_THRESHOLD_PX = 12;
+    let pointerId: number | null = null;
+    let lastX = 0;
+    let startX = 0;
+    let didScrub = false;
+    let savedSnap = '';
+    let snapDisabled = false;
+    let downTab: HTMLElement | null = null;
+    /** Suppress the synthetic click that follows a scrub gesture. */
+    let suppressClick = false;
+
+    const onPointerDown = (e: PointerEvent) => {
+      if (e.button !== 0) return;
+      if (!getSlides()) return;
+      pointerId = e.pointerId;
+      lastX = e.clientX;
+      startX = e.clientX;
+      didScrub = false;
+      snapDisabled = false;
+      suppressClick = false;
+      downTab = (e.target as Element | null)?.closest?.('[role="tab"]') ?? null;
     };
 
-    root.addEventListener('scroll', onScroll, { passive: true });
-    root.addEventListener('pointerdown', onPointerDown);
-    root.addEventListener('pointerup', onPointerUp);
-    root.addEventListener('pointercancel', onPointerUp);
-    return () => {
-      mo.disconnect();
-      cancelAnimationFrame(raf);
-      window.clearTimeout(scrubEndTimer);
-      root.removeEventListener('scroll', onScroll);
-      root.removeEventListener('pointerdown', onPointerDown);
-      root.removeEventListener('pointerup', onPointerUp);
-      root.removeEventListener('pointercancel', onPointerUp);
+    const onPointerMove = (e: PointerEvent) => {
+      if (pointerId !== e.pointerId) return;
+      const s = getSlides();
+      if (!s) return;
+      if (!didScrub && Math.abs(e.clientX - startX) < SCRUB_THRESHOLD_PX) return;
+      if (!didScrub) {
+        didScrub = true;
+        downTab = null;
+        savedSnap = s.style.scrollSnapType;
+        s.style.scrollSnapType = 'none';
+        snapDisabled = true;
+        try {
+          viewport.setPointerCapture(e.pointerId);
+        } catch {
+          /* already released / unsupported */
+        }
+      }
+      const dx = e.clientX - lastX;
+      if (dx === 0) return;
+      lastX = e.clientX;
+      const trackTravel = Math.max(0, items.length - 1) * thumbStepPx();
+      const max = s.scrollWidth - s.clientWidth;
+      if (trackTravel <= 0 || max <= 0) return;
+      // Drag strip right → earlier slides (lower scrollLeft), matching timeline pan.
+      s.scrollLeft -= (dx * max) / trackTravel;
     };
-  }, [scrollActiveIntoView]);
+
+    const endDrag = (e: PointerEvent) => {
+      if (pointerId !== e.pointerId) return;
+      pointerId = null;
+      const s = getSlides();
+
+      if (didScrub) {
+        suppressClick = true;
+        if (s && snapDisabled) {
+          s.style.scrollSnapType = savedSnap || 'x mandatory';
+          const max = s.scrollWidth - s.clientWidth;
+          if (max > 0 && items.length > 1) {
+            const step = max / (items.length - 1);
+            s.scrollLeft = Math.round(s.scrollLeft / step) * step;
+          }
+        }
+      } else if (downTab) {
+        // Tap: drive the stage directly (avoids Thumbnail click + nav-lock drops).
+        const index = Number(downTab.dataset.index);
+        if (Number.isFinite(index)) jumpToIndex(index);
+      }
+
+      downTab = null;
+      savedSnap = '';
+      snapDisabled = false;
+    };
+
+    const onClickCapture = (e: MouseEvent) => {
+      if (!suppressClick) return;
+      e.preventDefault();
+      e.stopPropagation();
+      suppressClick = false;
+    };
+
+    viewport.addEventListener('pointerdown', onPointerDown);
+    viewport.addEventListener('pointermove', onPointerMove);
+    viewport.addEventListener('pointerup', endDrag);
+    viewport.addEventListener('pointercancel', endDrag);
+    viewport.addEventListener('click', onClickCapture, true);
+    return () => {
+      viewport.removeEventListener('pointerdown', onPointerDown);
+      viewport.removeEventListener('pointermove', onPointerMove);
+      viewport.removeEventListener('pointerup', endDrag);
+      viewport.removeEventListener('pointercancel', endDrag);
+      viewport.removeEventListener('click', onClickCapture, true);
+      const s = getSlides();
+      if (s && snapDisabled) s.style.scrollSnapType = savedSnap || 'x mandatory';
+    };
+  }, [linked, items.length]);
 
   return (
-    <Lightbox.ThumbnailGroup ref={groupRef} aria-label="Photo thumbnails" className={className}>
-      {items.map((item, i) => (
-        <Lightbox.Thumbnail
-          key={item.id ?? i}
-          index={i}
-          // Uniform squares (same as pre–variable-aspect strip). Crop via object-cover.
-          // No overflow-hidden on the button — it clips outline-offset.
-          // first/last inset: half container − half thumb (`1.75rem`).
-          className={
-            // No opacity/outline transition — scrub updates many times/sec and
-            // animating the active chrome makes the marker feel lagged.
-            // `snap-center` + strip `snap-mandatory` parks each thumb on the midline.
-            'size-14 shrink-0 snap-center rounded-md p-0 opacity-50 outline-2 outline-offset-2 outline-transparent ' +
-            'data-[active]:opacity-100 data-[active]:outline-black dark:data-[active]:outline-white ' +
-            'first:ml-[calc(50cqw-1.75rem)] last:mr-[calc(50cqw-1.75rem)]'
-          }
-        >
-          <img
-            {...imgDims(item.thumb)}
-            src={item.thumb}
-            alt={item.alt}
-            className="pointer-events-none size-full rounded-[inherit] object-cover"
-          />
-        </Lightbox.Thumbnail>
-      ))}
-    </Lightbox.ThumbnailGroup>
+    <div ref={viewportRef} className={className}>
+      <Lightbox.ThumbnailGroup
+        ref={groupRef}
+        aria-label="Photo thumbnails"
+        className="lightbox-demo-filmstrip-track"
+        style={
+          {
+            ['--thumb-count' as string]: String(Math.max(items.length, 1)),
+          } as React.CSSProperties
+        }
+      >
+        {items.map((item, i) => (
+          <Lightbox.Thumbnail
+            key={item.id ?? i}
+            index={i}
+            // Uniform squares; crop via object-cover. No overflow-hidden — clips outline.
+            className={
+              'size-14 shrink-0 rounded-md p-0 opacity-50 outline-2 outline-offset-2 outline-transparent ' +
+              'data-[active]:opacity-100 data-[active]:outline-black dark:data-[active]:outline-white'
+            }
+          >
+            <img
+              {...imgDims(item.thumb)}
+              src={item.thumb}
+              alt={item.alt}
+              className="pointer-events-none size-full rounded-[inherit] object-cover"
+            />
+          </Lightbox.Thumbnail>
+        ))}
+      </Lightbox.ThumbnailGroup>
+    </div>
   );
 }
 

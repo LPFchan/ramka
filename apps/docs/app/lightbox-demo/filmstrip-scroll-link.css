@@ -1,0 +1,75 @@
+/**
+ * Docs-only: link the filmstrip track to Lightbox.Slides via a named scroll
+ * timeline. Slides is the sole scroll authority; the strip is a transformed
+ * scrubber (not a second overflow scroller).
+ *
+ * Requires: `timeline-scope` on `.lightbox-demo-content`, `scroll-timeline-*`
+ * on `.lightbox-demo-slides`, and `--thumb-count` on the track.
+ */
+
+.lightbox-demo-filmstrip {
+  --thumb-step: 4rem; /* size-14 (3.5rem) + gap-2 (0.5rem) */
+  --thumb-half: 1.75rem;
+  width: 100%;
+  align-self: stretch;
+  padding-block: 0.25rem;
+}
+
+.lightbox-demo-filmstrip-track {
+  display: flex;
+  width: max-content;
+  gap: 0.5rem;
+}
+
+@supports (animation-timeline: scroll()) {
+  .lightbox-demo-content {
+    timeline-scope: --ramka-slides;
+  }
+
+  .lightbox-demo-slides {
+    scroll-timeline-name: --ramka-slides;
+    scroll-timeline-axis: x;
+  }
+
+  .lightbox-demo-filmstrip {
+    overflow: hidden;
+    /* Strip drag owns horizontal motion; don't let the browser pan/scroll-chain. */
+    touch-action: none;
+    user-select: none;
+  }
+
+  .lightbox-demo-filmstrip-track {
+    /* Midline room for first/last thumb without being a scroller. */
+    padding-inline: calc(50% - var(--thumb-half));
+    animation-name: lightbox-demo-filmstrip-link;
+    animation-duration: auto;
+    animation-timing-function: linear;
+    animation-fill-mode: both;
+    animation-timeline: --ramka-slides;
+  }
+
+  @keyframes lightbox-demo-filmstrip-link {
+    from {
+      transform: translateX(0);
+    }
+    to {
+      transform: translateX(calc(-1 * (var(--thumb-count) - 1) * var(--thumb-step)));
+    }
+  }
+}
+
+@supports not (animation-timeline: scroll()) {
+  .lightbox-demo-filmstrip {
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .lightbox-demo-filmstrip::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Edge-aware strip; JS scrollIntoView centers the active thumb. */
+  .lightbox-demo-filmstrip-track {
+    padding-inline: 0.25rem;
+  }
+}
