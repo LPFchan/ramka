@@ -14,6 +14,7 @@ import {
   round,
 } from './gesture-math';
 import { triggerHaptic } from './haptics';
+import { LightboxContentCssVars } from './lightbox-css-vars';
 import { useLightboxContext } from './lightbox-context';
 import { useOptionalLightboxItemContext } from './lightbox-item';
 import {
@@ -128,6 +129,26 @@ const SNAP_OPTS = { duration: 180, easing: 'cubic-bezier(0.25, 1, 0.5, 1)' } as 
 // overshoot would spring the scale *past* the min/max bound (a zoom overflow),
 // which is exactly what we avoid.
 const ZOOM_SNAP_OPTS = { duration: 260, easing: 'cubic-bezier(0.22, 1, 0.36, 1)' } as const;
+
+/** Uniform scale from a computed `transform` (WAAPI mid-flight or resting). */
+function uniformScaleFromTransform(transform: string): number | null {
+  if (!transform || transform === 'none') return null;
+  try {
+    const m = new DOMMatrixReadOnly(transform);
+    return Math.hypot(m.a, m.b);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Map a live zoom scale to 0→1 progress for `--lightbox-zoom-progress`.
+ * Hits 1 after +1× above `minZoom` (e.g. at 2× when min is 1).
+ */
+function zoomProgressFromScale(scale: number, minZoom: number, maxZoom: number): number {
+  const range = Math.max(0.01, Math.min(maxZoom, minZoom + 1) - minZoom);
+  return Math.min(1, Math.max(0, (scale - minZoom) / range));
+}
 const MOMENTUM_OPTS = { duration: 600, easing: 'cubic-bezier(0.33, 1, 0.68, 1)' } as const;
 
 // ---------------------------------------------------------------------------
@@ -304,25 +325,53 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
       animationDuration,
     );
 
-    // ----- Sync data-zoomed attribute on Content element -----
-    // Only the active slide writes this attribute, so it has a single writer
-    // and never fights with preloaded (inactive) siblings.
+    // ----- Sync data-zoomed + --lightbox-zoom-progress on Content -----
+    // Only the active slide writes these, so they have a single writer and
+    // never fight with preloaded (inactive) siblings.
     //
-    // React `zoom` commits immediately on double-tap reset, but the visual
-    // transform still animates for `animationDuration`. Keep `data-zoomed`
-    // set while that WAAPI transition is in flight so chrome that hides on
-    // `[data-zoomed]` (close button, captions) doesn't flash back early.
-    // Addition is eager; removal waits until `isAnimating` is false.
+    // Continuous gestures (pinch/scroll) update React `zoom` every frame — publish
+    // from that. Discrete zooms (double-tap) commit `zoom` immediately while WAAPI
+    // animates the transform, so while `isAnimating` we sample the live scale from
+    // the wrapper each frame and publish that — sibling filter/blur stays locked
+    // to what the user sees. Progress hits 1 after +1× above minZoom.
     React.useEffect(() => {
       if (!isActive) return;
       const el = dialogElementRef.current;
       if (!el) return;
-      if (zoom > minZoom) {
-        el.setAttribute('data-zoomed', '');
-      } else if (!isAnimating) {
-        el.removeAttribute('data-zoomed');
+      const progressVar = LightboxContentCssVars.zoomProgress;
+
+      const publish = (scale: number) => {
+        const progress = zoomProgressFromScale(scale, minZoom, maxZoom);
+        if (progress > 0) {
+          el.setAttribute('data-zoomed', '');
+          el.style.setProperty(progressVar, String(progress));
+        } else if (isAnimating) {
+          // Zoom-out WAAPI still running — keep `data-zoomed` for chrome, progress at 0.
+          el.setAttribute('data-zoomed', '');
+          el.style.setProperty(progressVar, '0');
+        } else {
+          el.removeAttribute('data-zoomed');
+          el.style.removeProperty(progressVar);
+        }
+      };
+
+      if (!isAnimating) {
+        publish(zoom);
+        return;
       }
-    }, [isActive, zoom, minZoom, isAnimating, dialogElementRef]);
+
+      let raf = 0;
+      const tick = () => {
+        const wrapper = wrapperRef.current;
+        const live = wrapper
+          ? uniformScaleFromTransform(getComputedStyle(wrapper).transform)
+          : null;
+        publish(live ?? zoom);
+        raf = requestAnimationFrame(tick);
+      };
+      raf = requestAnimationFrame(tick);
+      return () => cancelAnimationFrame(raf);
+    }, [isActive, zoom, minZoom, maxZoom, isAnimating, dialogElementRef]);
 
     const offsetXRef = React.useRef(offsetX);
     offsetXRef.current = offsetX;

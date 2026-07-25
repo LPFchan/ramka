@@ -312,7 +312,7 @@ export const generatedProps: Record<string, PropRow[]> = {
     {
       name: "wrapSelectCommit",
       type: "(commit: () => void, slides: HTMLElement | null, index: number) => void",
-      description: "Optional wrapper around the active-index commit (e.g. docs chrome can run an element-scoped `slides.startViewTransition`). Receives the target index so consumers can arm WAAPI before commit jumps Slides scroll. Track scrub still runs outside this callback. Defaults to invoking `commit` immediately.",
+      description: "Optional wrapper around the active-index commit (e.g. docs chrome can run an element-scoped `slides.startViewTransition`). Receives the target `index` so consumers can arm WAAPI (same as the track scrub) *before* `commit` jumps Slides scroll. Track scrub still runs outside this callback. Defaults to invoking `commit` immediately.",
     },
     {
       name: "render",
@@ -743,6 +743,10 @@ export const generatedCssVariables: Record<string, CssVarRow[]> = {
     {
       name: "--lightbox-pull-snap-easing",
       description: "Easing of the pull-to-dismiss snap-back (a velocity-aware spring, published only during the spring-back). Pair with `--lightbox-pull-snap-duration` so backdrop/chrome fades match the item's snap-back exactly.",
+    },
+    {
+      name: "--lightbox-zoom-progress",
+      description: "0 at 1× → 1 once zoom has risen by 1× above min (e.g. 2× when min is 1). Written by the active `Lightbox.Zoom` from the *visual* scale (live WAAPI transform while a discrete zoom animates; React zoom otherwise). Cleared when zoom returns to rest. Drive sibling dim/blur from this, e.g. `filter: opacity(calc(1 - var(--lightbox-zoom-progress, 0))) blur(calc(var(--lightbox-zoom-progress, 0) * 6px))`.",
     },
   ],
   "api-backdrop": [

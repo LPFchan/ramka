@@ -2946,6 +2946,37 @@ describe('Lightbox', () => {
       expect(contentEl).toHaveAttribute('data-zoomed');
     });
 
+    it('publishes --lightbox-zoom-progress on Content while zoomed', () => {
+      const ref = React.createRef<LightboxZoomRef>();
+      render(
+        <LightboxRoot defaultOpen>
+          <LightboxPortal>
+            <LightboxContent data-testid="content" aria-label="Zoom progress var test">
+              <LightboxItemGroup>
+                <LightboxItem index={0}>
+                  <LightboxZoom ref={ref} maxZoom={4}>
+                    <img src="test.jpg" alt="test" />
+                  </LightboxZoom>
+                </LightboxItem>
+              </LightboxItemGroup>
+            </LightboxContent>
+          </LightboxPortal>
+        </LightboxRoot>,
+      );
+      const contentEl = screen.getByTestId('content');
+      expect(contentEl.style.getPropertyValue('--lightbox-zoom-progress')).toBe('');
+
+      // Progress hits 1 at +1× above min (2× here).
+      act(() => ref.current!.zoomTo(2, { rapid: true }));
+      expect(Number(contentEl.style.getPropertyValue('--lightbox-zoom-progress'))).toBeCloseTo(1);
+
+      act(() => ref.current!.zoomTo(1.5, { rapid: true }));
+      expect(Number(contentEl.style.getPropertyValue('--lightbox-zoom-progress'))).toBeCloseTo(0.5);
+
+      act(() => ref.current!.reset(true));
+      expect(contentEl.style.getPropertyValue('--lightbox-zoom-progress')).toBe('');
+    });
+
     it('data-zoomed attribute is removed when zoom resets to 1x (rapid)', () => {
       const ref = React.createRef<LightboxZoomRef>();
       render(
