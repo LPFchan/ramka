@@ -476,7 +476,10 @@ function useZoomGestures(
   // zoom through the active-zoom bridge (reset/panBy/zoomIn/zoomOut).
   // -------------------------------------------------------------------
 
-  // Pointer + keyboard listeners (always passive-compatible, stable effect)
+  // Pointer listeners stay on the Zoom surface (pan / pinch / double-tap need
+  // a media hit target). Wheel + Safari GestureEvent attach to Content when
+  // available so zoom keeps working with the cursor in chrome padding — the
+  // painted overflow zone outside Zoom’s box.
   React.useEffect(() => {
     if (disabled) return;
     const el = containerRef.current;
@@ -497,39 +500,36 @@ function useZoomGestures(
 
   // Wheel listener — registered separately so we can toggle passive flag.
   //
-  // Safari quirk: a non-passive wheel listener on an ancestor kills
-  // compositor-thread momentum scrolling in descendant scroll containers
-  // (e.g. Lightbox.Slides). Chrome/Firefox don't have this issue so
-  // non-passive is always safe there.
+  // Safari quirk: a non-passive wheel listener on an *ancestor* of a scroll
+  // container (Content → Slides) kills compositor-thread momentum scrolling.
+  // So on Safari we only go non-passive when zoomed (slides aren’t scrollable
+  // anyway) or scrollToZoom is on. Chrome/Firefox are fine either way.
   //
-  // On Safari, trackpad pinch-to-zoom is handled via GestureEvent (below),
-  // NOT via ctrlKey+wheel, so the wheel handler only needs non-passive
-  // when zoomed in (for pan preventDefault) or scrollToZoom is on.
+  // Prefer Content as the target so ctrl/trackpad zoom still receives events
+  // when the cursor sits in Slide chrome padding outside the Zoom box.
   const needsNonPassiveWheel = hasSafariGesturesRef.current
     ? currentZoom > 1 || config.scrollToZoom
     : true;
 
   React.useEffect(() => {
     if (disabled) return;
-    const el = containerRef.current;
+    // Prefer Content so zoom keeps receiving events in chrome padding outside Zoom.
+    const el = contentElementRef?.current ?? containerRef.current;
     if (!el) return;
 
-    el.addEventListener('wheel', handleWheel, { passive: !needsNonPassiveWheel });
+    // Capture so chrome siblings (filmstrip, buttons) can’t swallow the event
+    // before it bubbles — while zoomed those are usually inert/hidden anyway.
+    el.addEventListener('wheel', handleWheel, { passive: !needsNonPassiveWheel, capture: true });
 
     return () => {
-      el.removeEventListener('wheel', handleWheel);
+      el.removeEventListener('wheel', handleWheel, { capture: true } as EventListenerOptions);
     };
-  }, [disabled, containerRef, handleWheel, needsNonPassiveWheel]);
+  }, [disabled, contentElementRef, containerRef, handleWheel, needsNonPassiveWheel]);
 
-  // Safari trackpad pinch-to-zoom via GestureEvent.
-  //
-  // Safari fires gesturestart/gesturechange/gestureend for trackpad pinch
-  // gestures, with a `scale` property for the cumulative pinch factor.
-  // This is more reliable than ctrlKey+wheel on Safari and doesn't require
-  // a non-passive wheel listener (which would break momentum scrolling).
+  // Safari trackpad pinch-to-zoom via GestureEvent on Content (full-bleed).
   React.useEffect(() => {
     if (disabled || !hasSafariGesturesRef.current) return;
-    const el = containerRef.current;
+    const el = (contentElementRef ?? containerRef).current;
     if (!el) return;
 
     let initialZoom = 1;
@@ -572,7 +572,7 @@ function useZoomGestures(
       el.removeEventListener('gesturechange', onGestureChange);
       el.removeEventListener('gestureend', onGestureEnd);
     };
-  }, [disabled, containerRef, translateCoordinates, isScrollingRef]);
+  }, [disabled, containerRef, contentElementRef, translateCoordinates, isScrollingRef]);
 
   // Cleanup when disabled changes or component unmounts
   React.useEffect(() => {

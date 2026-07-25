@@ -298,6 +298,42 @@ export function focalOffset(currentOffset: number, focal: number, fromZoom: numb
   return currentOffset + focal * (1 / toZoom - 1 / fromZoom);
 }
 
+/**
+ * Project a focal zoom step onto the feasible pan set at the target zoom.
+ *
+ * Always honors `targetZoom` (caller clamps/elastic-bounds it). Offset is the
+ * unconstrained focal result clamped into `range*` — the nearest feasible pan
+ * at that zoom. When the cursor sits past a cover edge, the image may slip off
+ * the focal point, but scale never stalls at the boundary.
+ */
+export function projectFocalZoom(
+  currentZoom: number,
+  currentOffsetX: number,
+  currentOffsetY: number,
+  targetZoom: number,
+  focalX: number,
+  focalY: number,
+  rangeX: { min: number; max: number },
+  rangeY: { min: number; max: number },
+): { zoom: number; offsetX: number; offsetY: number } {
+  if (!(targetZoom > 0) || !(currentZoom > 0)) {
+    return { zoom: currentZoom, offsetX: currentOffsetX, offsetY: currentOffsetY };
+  }
+  return {
+    zoom: targetZoom,
+    offsetX: clamp(
+      focalOffset(currentOffsetX, focalX, currentZoom, targetZoom),
+      rangeX.min,
+      rangeX.max,
+    ),
+    offsetY: clamp(
+      focalOffset(currentOffsetY, focalY, currentZoom, targetZoom),
+      rangeY.min,
+      rangeY.max,
+    ),
+  };
+}
+
 /** Pinch target zoom from the initial pinch (zoom + finger distance) and the current finger distance. */
 export function pinchZoom(initialZoom: number, initialDistance: number, currentDistance: number): number {
   return (initialZoom / initialDistance) * currentDistance;

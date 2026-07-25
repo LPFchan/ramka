@@ -8,8 +8,8 @@ import {
   clampOffsetToViewport,
   computeMaxZoom,
   elasticClamp,
-  focalOffset,
   panOffsetRange,
+  projectFocalZoom,
   round,
 } from './gesture-math';
 import { triggerHaptic } from './haptics';
@@ -377,7 +377,11 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
 
       const publish = (scale: number) => {
         const progress = zoomProgressFromScale(scale, minZoom, maxZoom);
-        if (progress > 0) {
+        // Discrete zoomTo commits React `zoom` before WAAPI moves the wrapper.
+        // Treat committed zoom as zoomed too so `data-zoomed` doesn’t clear on
+        // the first animated frames of a zoom-in (live scale still ≈ minZoom).
+        const committedProgress = zoomProgressFromScale(zoom, minZoom, maxZoom);
+        if (progress > 0 || committedProgress > 0) {
           holdZoomedChromeRef.current = true;
           el.setAttribute('data-zoomed', '');
           el.style.setProperty(progressVar, String(progress));
@@ -396,6 +400,11 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
         publish(zoom);
         return;
       }
+
+      // Publish committed zoom immediately — RAF sampling of the live WAAPI
+      // transform starts on the next frame, which is too late for sync callers
+      // (and would leave `data-zoomed` unset for a frame on zoom-in).
+      publish(zoom);
 
       let raf = 0;
       const tick = () => {
@@ -462,20 +471,34 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
         if (!rapid) captureStart();
 
         const currentZoom = zoomRef.current;
-        let nextX = offsetXRef.current;
-        let nextY = offsetYRef.current;
         if (dx !== undefined && dy !== undefined) {
-          nextX = focalOffset(nextX, dx, currentZoom, nextZoom);
-          nextY = focalOffset(nextY, dy, currentZoom, nextZoom);
+          // Project onto the feasible pan set at nextZoom so scale always
+          // advances even when the cursor sits past a cover edge.
+          const geo = measurePanGeometry(nextZoom);
+          if (geo) {
+            const projected = projectFocalZoom(
+              currentZoom,
+              offsetXRef.current,
+              offsetYRef.current,
+              nextZoom,
+              dx,
+              dy,
+              geo.x,
+              geo.y,
+            );
+            setOffsetX(projected.offsetX);
+            setOffsetY(projected.offsetY);
+            setZoom(projected.zoom);
+            return;
+          }
         }
 
-        // Stage-centered cover clamp — collapses to 0 as content refits.
-        const offsets = clampOffsets(nextX, nextY, nextZoom);
+        const offsets = clampOffsets(offsetXRef.current, offsetYRef.current, nextZoom);
         setOffsetX(offsets.x);
         setOffsetY(offsets.y);
         setZoom(nextZoom);
       },
-      [minZoom, maxZoom, clampOffsets, captureStart],
+      [minZoom, maxZoom, clampOffsets, captureStart, measurePanGeometry],
     );
 
     const zoomInAction = React.useCallback(() => {
@@ -574,7 +597,18 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
       [zoomInAction, zoomOutAction, changeZoomAction, changeOffsetsAction, snapToBoundsAction, snapOffsetsToBoundsAction, momentumPanAction],
     );
 
-    useZoomGestures(containerRef, wrapperRef, gestureConfig, gestureActions, false, dialogElementRef, zoom, navigationLockedRef);
+    // Only the active slide owns Content-level wheel/gesture listeners so
+    // preloaded siblings don’t all fight over the same dialog host.
+    useZoomGestures(
+      containerRef,
+      wrapperRef,
+      gestureConfig,
+      gestureActions,
+      !isActive,
+      dialogElementRef,
+      zoom,
+      navigationLockedRef,
+    );
 
     // ----- Imperative ref -----
     React.useImperativeHandle(

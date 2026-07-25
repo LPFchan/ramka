@@ -18,6 +18,7 @@ import {
   maxPanOffset,
   panOffsetRange,
   pinchZoom,
+  projectFocalZoom,
   resolveDragAxis,
   round,
   scaleZoom,
@@ -410,6 +411,23 @@ describe('focalOffset', () => {
   it('shifts the offset back when zooming out', () => {
     // from 2x to 1x with focal 100 => 0 + 100 * (1/1 - 1/2) = 50
     expect(focalOffset(0, 100, 2, 1)).toBeCloseTo(50, 10);
+  });
+});
+
+describe('projectFocalZoom', () => {
+  it('keeps the unconstrained focal offset when it lies inside the range', () => {
+    const next = projectFocalZoom(2, 0, 0, 1.5, 80, 0, { min: -100, max: 100 }, { min: -100, max: 100 });
+    expect(next.zoom).toBe(1.5);
+    expect(next.offsetX).toBeCloseTo(focalOffset(0, 80, 2, 1.5), 10);
+    expect(next.offsetY).toBe(0);
+  });
+
+  it('clamps pan but still applies the target zoom when focal is past an edge', () => {
+    // Zooming out with a large +focal wants a large +offset; range caps it.
+    const next = projectFocalZoom(3, 40, 0, 1.2, 200, 0, { min: -20, max: 20 }, { min: 0, max: 0 });
+    expect(next.zoom).toBe(1.2);
+    expect(next.offsetX).toBe(20);
+    expect(focalOffset(40, 200, 3, 1.2)).toBeGreaterThan(20);
   });
 });
 
