@@ -5,12 +5,11 @@ import * as React from 'react';
 
 import {
   clamp,
-  clampOffset,
+  clampOffsetToViewport,
   computeMaxZoom,
   elasticClamp,
-  elasticClampSymmetric,
   focalOffset,
-  maxPanOffset,
+  panOffsetRange,
   round,
 } from './gesture-math';
 import { triggerHaptic } from './haptics';
@@ -300,36 +299,47 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
     }, []);
 
     /**
-     * Pan viewport = lightbox Content (dialog), not the Zoom element.
-     * Snug slides are narrower than the dialog; clamping against Zoom would
-     * allow pan whenever media overflows the column even though it still fits
-     * on screen. Bleed Zoom ≈ dialog, so behavior is unchanged there.
+     * Pan viewport = Content (dialog). Stage = Zoom (transform origin).
+     * Uneven Slide padding makes those centers differ — true cover against the
+     * dialog is required so every edge is reachable. `panOffsetRange` keeps the
+     * fit→overflow crossing continuous via a home offset lerp toward δ.
      */
-    const resolvePanViewportRect = React.useCallback((): DOMRect | null => {
-      const dialog = dialogElementRef.current;
-      if (dialog) return dialog.getBoundingClientRect();
-      return containerRef.current?.getBoundingClientRect() ?? null;
-    }, [dialogElementRef]);
+    const measurePanGeometry = React.useCallback(
+      (z: number) => {
+        const stage = containerRef.current?.getBoundingClientRect() ?? null;
+        if (!stage) return null;
+        const viewport = dialogElementRef.current?.getBoundingClientRect() ?? stage;
+        const { w: contentW, h: contentH } = resolveContentSize(stage);
+        const cx = stage.left + stage.width / 2;
+        const cy = stage.top + stage.height / 2;
+        return {
+          viewport,
+          stage,
+          contentW,
+          contentH,
+          x: panOffsetRange(contentW, z, viewport.left, viewport.right, cx, minZoom),
+          y: panOffsetRange(contentH, z, viewport.top, viewport.bottom, cy, minZoom),
+        };
+      },
+      [resolveContentSize, dialogElementRef, minZoom],
+    );
 
     const clampOffsets = React.useCallback(
       (newOffsetX: number, newOffsetY: number, newZoom: number) => {
-        const panRect = resolvePanViewportRect();
-        if (!panRect) return { x: 0, y: 0 };
-
-        const zoomRect = containerRef.current?.getBoundingClientRect() ?? panRect;
-        const { w: contentW, h: contentH } = resolveContentSize(zoomRect);
-
-        return clampOffset(
+        const geo = measurePanGeometry(newZoom);
+        if (!geo) return { x: 0, y: 0 };
+        return clampOffsetToViewport(
           newOffsetX,
           newOffsetY,
-          contentW,
-          contentH,
-          panRect.width,
-          panRect.height,
+          geo.contentW,
+          geo.contentH,
           newZoom,
+          geo.viewport,
+          geo.stage,
+          minZoom,
         );
       },
-      [resolveContentSize, resolvePanViewportRect],
+      [measurePanGeometry, minZoom],
     );
 
     // ----- Core actions -----
@@ -412,45 +422,39 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
     const rawOffsetY = React.useRef(0);
     const isElasticDrag = React.useRef(false);
 
-    const getMaxOffsets = React.useCallback(
-      (z: number) => {
-        const panRect = resolvePanViewportRect();
-        if (!panRect) return { maxX: 0, maxY: 0 };
-        const zoomRect = containerRef.current?.getBoundingClientRect() ?? panRect;
-        const { w: cw, h: ch } = resolveContentSize(zoomRect);
-        return {
-          maxX: maxPanOffset(cw, panRect.width, z),
-          maxY: maxPanOffset(ch, panRect.height, z),
-        };
-      },
-      [resolveContentSize, resolvePanViewportRect],
-    );
-
     const changeOffsetsAction = React.useCallback(
       (dx: number, dy: number, overscroll?: boolean) => {
+        const z = zoomRef.current;
+        const geo = measurePanGeometry(z);
+        if (!geo) return;
+        const { x, y } = geo;
+        // Still fits the screen — no dragging (keeps letterbox stable).
+        if (!x.overflows && !y.overflows) return;
+
         if (overscroll) {
           if (!isElasticDrag.current) {
             isElasticDrag.current = true;
             rawOffsetX.current = offsetXRef.current;
             rawOffsetY.current = offsetYRef.current;
           }
-          rawOffsetX.current -= dx;
-          rawOffsetY.current -= dy;
-          const { maxX, maxY } = getMaxOffsets(zoomRef.current);
-          setOffsetX(elasticClampSymmetric(rawOffsetX.current, maxX));
-          setOffsetY(elasticClampSymmetric(rawOffsetY.current, maxY));
+          if (x.overflows) rawOffsetX.current -= dx;
+          if (y.overflows) rawOffsetY.current -= dy;
+          setOffsetX(x.overflows ? elasticClamp(rawOffsetX.current, x.min, x.max) : offsetXRef.current);
+          setOffsetY(y.overflows ? elasticClamp(rawOffsetY.current, y.min, y.max) : offsetYRef.current);
         } else {
-          const clamped = clampOffsets(offsetXRef.current - dx, offsetYRef.current - dy, zoomRef.current);
-          setOffsetX(clamped.x);
-          setOffsetY(clamped.y);
+          const nextX = x.overflows ? offsetXRef.current - dx : offsetXRef.current;
+          const nextY = y.overflows ? offsetYRef.current - dy : offsetYRef.current;
+          const clamped = clampOffsets(nextX, nextY, z);
+          setOffsetX(x.overflows ? clamped.x : offsetXRef.current);
+          setOffsetY(y.overflows ? clamped.y : offsetYRef.current);
         }
       },
-      [clampOffsets, getMaxOffsets],
+      [clampOffsets, measurePanGeometry],
     );
 
     const changeZoomAction = React.useCallback(
       (target: number, rapid: boolean, dx?: number, dy?: number, overscroll?: boolean) => {
-        const clamped = round(
+        const nextZoom = round(
           overscroll ? elasticClamp(target, minZoom, maxZoom) : clamp(target, minZoom, maxZoom),
           5,
         );
@@ -458,22 +462,18 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
         if (!rapid) captureStart();
 
         const currentZoom = zoomRef.current;
-        const currentOffX = offsetXRef.current;
-        const currentOffY = offsetYRef.current;
-
+        let nextX = offsetXRef.current;
+        let nextY = offsetYRef.current;
         if (dx !== undefined && dy !== undefined) {
-          const newOffX = focalOffset(currentOffX, dx, currentZoom, clamped);
-          const newOffY = focalOffset(currentOffY, dy, currentZoom, clamped);
-          const offsets = clampOffsets(newOffX, newOffY, clamped);
-          setOffsetX(offsets.x);
-          setOffsetY(offsets.y);
-        } else {
-          const offsets = clampOffsets(currentOffX, currentOffY, clamped);
-          setOffsetX(offsets.x);
-          setOffsetY(offsets.y);
+          nextX = focalOffset(nextX, dx, currentZoom, nextZoom);
+          nextY = focalOffset(nextY, dy, currentZoom, nextZoom);
         }
 
-        setZoom(clamped);
+        // Stage-centered cover clamp — collapses to 0 as content refits.
+        const offsets = clampOffsets(nextX, nextY, nextZoom);
+        setOffsetX(offsets.x);
+        setOffsetY(offsets.y);
+        setZoom(nextZoom);
       },
       [minZoom, maxZoom, clampOffsets, captureStart],
     );
@@ -524,13 +524,17 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
     const momentumPanAction = React.useCallback(
       (targetX: number, targetY: number) => {
         isElasticDrag.current = false;
+        const geo = measurePanGeometry(zoomRef.current);
+        if (!geo || (!geo.x.overflows && !geo.y.overflows)) return;
         const clamped = clampOffsets(targetX, targetY, zoomRef.current);
-        if (clamped.x === offsetXRef.current && clamped.y === offsetYRef.current) return;
+        const nextX = geo.x.overflows ? clamped.x : offsetXRef.current;
+        const nextY = geo.y.overflows ? clamped.y : offsetYRef.current;
+        if (nextX === offsetXRef.current && nextY === offsetYRef.current) return;
         captureStart(MOMENTUM_OPTS);
-        setOffsetX(clamped.x);
-        setOffsetY(clamped.y);
+        setOffsetX(nextX);
+        setOffsetY(nextY);
       },
-      [clampOffsets, captureStart],
+      [clampOffsets, captureStart, measurePanGeometry],
     );
 
     // ----- Gesture hook -----

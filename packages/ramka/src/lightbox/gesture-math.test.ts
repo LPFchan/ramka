@@ -5,6 +5,7 @@ import {
   ELASTIC_FACTOR,
   clamp,
   clampOffset,
+  clampOffsetToViewport,
   computeMaxZoom,
   computeMomentumTarget,
   computePullTransform,
@@ -15,6 +16,7 @@ import {
   elasticClampSymmetric,
   focalOffset,
   maxPanOffset,
+  panOffsetRange,
   pinchZoom,
   resolveDragAxis,
   round,
@@ -271,6 +273,65 @@ describe('maxPanOffset', () => {
   it('grows as the content is zoomed past the container', () => {
     // (200 * 2 - 200) / 2 / 2 = 50
     expect(maxPanOffset(200, 200, 2)).toBe(50);
+  });
+});
+
+describe('panOffsetRange', () => {
+  it('matches ±maxPanOffset when the stage is centered in the viewport', () => {
+    const max = maxPanOffset(200, 200, 2);
+    const range = panOffsetRange(200, 2, 0, 200, 100);
+    expect(range.overflows).toBe(true);
+    expect(range.min).toBeCloseTo(-max);
+    expect(range.max).toBeCloseTo(max);
+  });
+
+  it('locks to 0 at minZoom when scaled content still fits the viewport', () => {
+    expect(panOffsetRange(100, 1, 0, 200, 100)).toEqual({ min: 0, max: 0, overflows: false });
+  });
+
+  it('extends pan toward the side with less chrome so edges stay reachable', () => {
+    // Extra bottom padding → stage center above mid → need more +offset to reach top.
+    const asymmetric = panOffsetRange(300, 2, 0, 400, 180);
+    const symmetric = panOffsetRange(300, 2, 0, 400, 200);
+    expect(asymmetric.overflows).toBe(true);
+    expect(asymmetric.max).toBeGreaterThan(symmetric.max);
+    expect(asymmetric.min).toBeGreaterThan(symmetric.min);
+  });
+
+  it('lerps home toward δ while fitting so the overflow crossing stays continuous', () => {
+    // Viewport 0..400, stage center 180 → δ at zoomFit.
+    const content = 200;
+    const zoomFit = 400 / content; // 2
+    const deltaAtFit = (200 - 180) / zoomFit; // 10
+    const mid = panOffsetRange(content, 1.5, 0, 400, 180, 1);
+    expect(mid.overflows).toBe(false);
+    expect(mid.min).toBeCloseTo(mid.max);
+    expect(mid.min).toBeCloseTo(((1.5 - 1) / (zoomFit - 1)) * deltaAtFit);
+
+    const atFit = panOffsetRange(content, zoomFit, 0, 400, 180, 1);
+    // Exactly at fit threshold: treated as fitting (≤), home → δ.
+    expect(atFit.overflows).toBe(false);
+    expect(atFit.min).toBeCloseTo(deltaAtFit);
+
+    // Must clear the 0.5px fit epsilon: content*z > viewport + 0.5.
+    const overZoom = (400 + 0.5) / content + 0.01;
+    const justOver = panOffsetRange(content, overZoom, 0, 400, 180, 1);
+    const delta = (200 - 180) / overZoom;
+    expect(justOver.overflows).toBe(true);
+    // Cover singularity is the midpoint; range is still tiny just above fit.
+    expect((justOver.min + justOver.max) / 2).toBeCloseTo(delta);
+    expect(justOver.min).toBeLessThanOrEqual(delta + 1e-9);
+    expect(justOver.max).toBeGreaterThanOrEqual(delta - 1e-9);
+  });
+});
+
+describe('clampOffsetToViewport', () => {
+  it('matches clampOffset when stage and viewport share a center', () => {
+    const box = { left: 0, top: 0, right: 200, bottom: 200, width: 200, height: 200 };
+    const a = clampOffset(1000, -1000, 200, 200, 200, 200, 2);
+    const b = clampOffsetToViewport(1000, -1000, 200, 200, 2, box, box);
+    expect(b.x).toBe(a.x);
+    expect(b.y).toBe(a.y);
   });
 });
 
