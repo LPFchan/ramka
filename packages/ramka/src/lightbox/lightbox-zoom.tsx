@@ -350,8 +350,17 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
     // animates the transform, so while `isAnimating` we sample the live scale from
     // the wrapper each frame and publish that — sibling filter/blur stays locked
     // to what the user sees. Progress hits 1 after +1× above minZoom.
+    //
+    // `holdZoomedChromeRef`: once progress has been > 0, keep `data-zoomed` through
+    // the rest of a zoom-out WAAPI so chrome doesn’t flash early. Do *not* set it
+    // for every animation — under-min / pan snap-back also animate and must leave
+    // chrome visible.
+    const holdZoomedChromeRef = React.useRef(false);
     React.useEffect(() => {
-      if (!isActive) return;
+      if (!isActive) {
+        holdZoomedChromeRef.current = false;
+        return;
+      }
       const el = dialogElementRef.current;
       if (!el) return;
       const progressVar = LightboxContentCssVars.zoomProgress;
@@ -359,13 +368,15 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
       const publish = (scale: number) => {
         const progress = zoomProgressFromScale(scale, minZoom, maxZoom);
         if (progress > 0) {
+          holdZoomedChromeRef.current = true;
           el.setAttribute('data-zoomed', '');
           el.style.setProperty(progressVar, String(progress));
-        } else if (isAnimating) {
-          // Zoom-out WAAPI still running — keep `data-zoomed` for chrome, progress at 0.
+        } else if (isAnimating && holdZoomedChromeRef.current) {
+          // Finishing a real zoom-out — keep chrome hidden until settle.
           el.setAttribute('data-zoomed', '');
           el.style.setProperty(progressVar, '0');
         } else {
+          holdZoomedChromeRef.current = false;
           el.removeAttribute('data-zoomed');
           el.style.removeProperty(progressVar);
         }

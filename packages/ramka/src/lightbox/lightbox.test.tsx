@@ -3690,6 +3690,102 @@ describe('Lightbox', () => {
       expect(ref.current!.zoom).toBeGreaterThan(1);
     });
 
+    it('data-zoomed stays off during under-min snap-back (chrome must not hide)', () => {
+      // Regression: snap-back WAAPI from elastic under-zoom set `data-zoomed`
+      // via the “keep while isAnimating” path, which hid chrome even though
+      // the user never zoomed in.
+      type AnimStub = {
+        finished: Promise<void>;
+        cancel: ReturnType<typeof vi.fn>;
+        play: ReturnType<typeof vi.fn>;
+        pause: ReturnType<typeof vi.fn>;
+        onfinish: ((this: Animation, ev: AnimationPlaybackEvent) => void) | null;
+        oncancel: ((this: Animation, ev: AnimationPlaybackEvent) => void) | null;
+      };
+      let latest: AnimStub | undefined;
+      const animateImpl = vi.fn(() => {
+        const stub: AnimStub = {
+          finished: Promise.resolve(),
+          cancel: vi.fn(),
+          play: vi.fn(),
+          pause: vi.fn(),
+          onfinish: null,
+          oncancel: null,
+        };
+        latest = stub;
+        return stub as unknown as Animation;
+      });
+      const hadAnimate = 'animate' in Element.prototype;
+      const previousAnimate = Element.prototype.animate;
+      Element.prototype.animate = animateImpl as unknown as typeof Element.prototype.animate;
+
+      const ref = React.createRef<LightboxZoomRef>();
+      render(<PullDismissLightbox withZoom zoomRef={ref} />);
+      const content = screen.getByTestId('content');
+      const img = screen.getByAltText('test');
+
+      act(() => {
+        dispatchPointer(img, 'pointerdown', {
+          clientX: 150,
+          clientY: 200,
+          pointerId: 1,
+          pointerType: 'touch',
+          isPrimary: true,
+        });
+        dispatchPointer(img, 'pointerdown', {
+          clientX: 250,
+          clientY: 200,
+          pointerId: 2,
+          pointerType: 'touch',
+          isPrimary: false,
+        });
+        dispatchPointer(img, 'pointermove', {
+          clientX: 190,
+          clientY: 200,
+          pointerId: 1,
+          pointerType: 'touch',
+        });
+        dispatchPointer(img, 'pointermove', {
+          clientX: 210,
+          clientY: 200,
+          pointerId: 2,
+          pointerType: 'touch',
+        });
+      });
+      expect(ref.current!.zoom).toBeLessThan(1);
+      expect(content).not.toHaveAttribute('data-zoomed');
+
+      act(() => {
+        dispatchPointer(img, 'pointerup', {
+          clientX: 190,
+          clientY: 200,
+          pointerId: 1,
+          pointerType: 'touch',
+        });
+        dispatchPointer(img, 'pointerup', {
+          clientX: 210,
+          clientY: 200,
+          pointerId: 2,
+          pointerType: 'touch',
+        });
+      });
+
+      expect(ref.current!.zoom).toBe(1);
+      expect(content).not.toHaveAttribute('data-zoomed');
+      if (latest) {
+        act(() => {
+          latest?.onfinish?.call(latest as unknown as Animation, {} as AnimationPlaybackEvent);
+        });
+      }
+      expect(content).not.toHaveAttribute('data-zoomed');
+
+      if (hadAnimate) {
+        Element.prototype.animate = previousAnimate;
+      } else {
+        delete (Element.prototype as { animate?: typeof Element.prototype.animate }).animate;
+      }
+    });
+
     it('clears data-zooming after a double-tap reset so the next pull-to-dismiss works', () => {
       // Regression: the deferred double-tap committed on pointerup but only
       // flagged `data-zooming` (setZooming(true)) without scheduling its
