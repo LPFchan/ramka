@@ -83,7 +83,29 @@ export type LightboxGalleryItem = {
   thumb: string;
   alt: string;
   caption?: string;
+  /**
+   * Optional intrinsic pixel size. Used for snug slide sizing + filmstrip
+   * aspect when `src` is not a `…/{w}/{h}` URL (video posters, 3D screenshots).
+   */
+  width?: number;
+  height?: number;
 };
+
+/** Aspect from explicit dims, else picsum-style URL dims, else 16/9. */
+export function galleryItemAspect(item: LightboxGalleryItem): number {
+  if (item.width && item.height && item.width > 0 && item.height > 0) {
+    return item.width / item.height;
+  }
+  return imgAspect(item.src);
+}
+
+/** Resolved pixel dims for Media / snug geometry. */
+export function galleryItemDims(item: LightboxGalleryItem): { width: number; height: number } | undefined {
+  if (item.width && item.height && item.width > 0 && item.height > 0) {
+    return { width: item.width, height: item.height };
+  }
+  return imgDims(item.src);
+}
 
 type GalleryItemRenderCtx = {
   imageRef: (node: HTMLImageElement | null) => void;
@@ -166,10 +188,7 @@ function GalleryFilmstrip({
   const activeIndexRef = React.useRef(activeIndex);
   activeIndexRef.current = activeIndex;
 
-  const itemAspects = React.useMemo(
-    () => items.map((item) => imgAspect(item.src)),
-    [items],
-  );
+  const itemAspects = React.useMemo(() => items.map((item) => galleryItemAspect(item)), [items]);
   const itemAspectsRef = React.useRef(itemAspects);
   itemAspectsRef.current = itemAspects;
 
@@ -554,7 +573,7 @@ export function LightboxGallery({
           style={snug ? { containerType: 'size' } : undefined}
         >
           {items.map((item, i) => {
-            const dims = imgDims(item.src);
+            const dims = galleryItemDims(item);
             const ratio = dims ? dims.width / dims.height : 16 / 9;
             return (
               <Lightbox.Slide
@@ -617,7 +636,7 @@ export function LightboxGallery({
                       >
                         {/* Radius/overflow are cosmetic on Media; width/height are structural. */}
                         <Lightbox.Media
-                          {...imgDims(item.src)}
+                          {...(galleryItemDims(item) ?? {})}
                           className={
                             snug
                               ? 'overflow-hidden rounded-xl'
@@ -625,7 +644,7 @@ export function LightboxGallery({
                           }
                         >
                           <img
-                            {...imgDims(item.src)}
+                            {...(galleryItemDims(item) ?? {})}
                             src={item.src}
                             alt={item.alt}
                             loading="eager"

@@ -32,7 +32,7 @@ export const lightboxExamples: ExampleLink[] = [
     slug: 'moodboard-snug',
     title: 'Moodboard (snug slides)',
     description:
-      'Same masonry as Moodboard, but lightbox slides hug each image’s aspect (card-sized snap boxes with a gap) instead of spanning the full viewport.',
+      'Snug masonry moodboard with mixed media — photos, two colorful vertical clips, and three orbitable 3D models — where each snap box hugs the item’s aspect instead of spanning the full viewport.',
   },
   {
     slug: 'text-message',
