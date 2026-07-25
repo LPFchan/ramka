@@ -193,10 +193,7 @@ export default function PhotosAppPage() {
           ariaLabel="Library photos"
           backdrop="solid"
           renderItem={(photo) => (
-            <Lightbox.Zoom
-              maxZoom={6}
-              className="px-0 pt-[calc(env(safe-area-inset-top,0px)+3.5rem)] pb-[calc(env(safe-area-inset-bottom,0px)+3.5rem)] md:px-8 md:pt-[calc(env(safe-area-inset-top,0px)+3.5rem)] md:pb-[calc(env(safe-area-inset-bottom,0px)+7.5rem)]"
-            >
+            <Lightbox.Zoom maxZoom={6}>
               <Lightbox.Media
                 width={imgDims(photo.src)?.width ?? 1600}
                 height={imgDims(photo.src)?.height ?? 1200}

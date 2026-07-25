@@ -1,0 +1,47 @@
+/**
+ * Chrome inset tokens on Content — one source of truth for Slide padding and
+ * snug slide width. Not library API; set/consume in docs chrome only.
+ */
+
+.lightbox-demo-content {
+  --lightbox-inset-top: calc(3.5rem + env(safe-area-inset-top, 0px));
+  /* Mobile: no filmstrip → shorter bottom. md+ matches filmstrip row. */
+  --lightbox-inset-bottom: calc(3.5rem + env(safe-area-inset-bottom, 0px));
+  --lightbox-inset-inline: 0px;
+}
+
+@media (min-width: 768px) {
+  .lightbox-demo-content {
+    --lightbox-inset-bottom: calc(7.5rem + env(safe-area-inset-bottom, 0px));
+    --lightbox-inset-inline: 2rem;
+  }
+}
+
+/*
+ * Snug uses the same bottom insets as bleed (filmstrip desktop-only). Inline
+ * token is a scrollport gutter for the md+ width formula — not per-slide padding.
+ */
+.lightbox-demo-content-snug {
+  --lightbox-inset-inline: 0px;
+}
+
+@media (min-width: 768px) {
+  .lightbox-demo-content-snug {
+    --lightbox-inset-inline: 2rem;
+  }
+}
+
+/*
+ * Resting chrome letterbox on Slide (not Zoom). Item/Zoom fill the content box;
+ * zoomed media can still paint into this padding under chrome.
+ */
+.lightbox-demo-slide-pad {
+  padding-top: var(--lightbox-inset-top);
+  padding-bottom: var(--lightbox-inset-bottom);
+  padding-inline: var(--lightbox-inset-inline);
+}
+
+/* Snug: no horizontal pad on each card — gutter is the width formula only. */
+.lightbox-demo-content-snug .lightbox-demo-slide-pad {
+  padding-inline: 0;
+}

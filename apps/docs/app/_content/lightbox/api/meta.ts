@@ -163,7 +163,7 @@ export const lightboxApiMeta: ApiPartMeta[] = [
     id: 'api-media',
     name: 'Media',
     description:
-      'Sized destination media host — morph target and placeholder canvas container. Structural props: width/height (fit-box, same idea as Next.js Image); display:grid plus a scoped <style> so direct img/video fill the box (HTML dimension attrs cannot pin intrinsic size). Cosmetics (radius, colors, object-fit) stay consumer-owned. Prefer Zoom > Media > img|video (Zoom is a size container for Media’s cqw/cqh fit-box; use Zoom padding for resting chrome insets). Auto-discovers the primary <img> (or video poster) for decode / thumbnail bridging.',
+      'Sized destination media host — morph target and placeholder canvas container. Structural props: width/height (fit-box, same idea as Next.js Image); display:grid plus a scoped <style> so direct img/video fill the box (HTML dimension attrs cannot pin intrinsic size). Cosmetics (radius, colors, object-fit) stay consumer-owned. Prefer Zoom > Media > img|video (Zoom is a size container for Media’s cqw/cqh fit-box; put resting chrome insets on Slide padding). Auto-discovers the primary <img> (or video poster) for decode / thumbnail bridging.',
     extract: {
       kind: 'interface-props',
       typeName: 'LightboxMediaProps',
@@ -195,7 +195,8 @@ export const lightboxApiMeta: ApiPartMeta[] = [
   {
     id: 'api-slide',
     name: 'Slide',
-    description: 'One snap-aligned slide box inside Slides. Place a Lightbox.Item (and typically Zoom → Media) inside.',
+    description:
+      'One snap-aligned slide box inside Slides. Place a Lightbox.Item (and typically Zoom → Media) inside. Prefer putting resting chrome / safe-area insets as padding on Slide (not Zoom) so Item/Zoom fill the content box and zoomed media can paint into the pad under chrome.',
     extract: { kind: 'none' },
     attributesFrom: {
       enumName: 'LightboxSlideDataAttributes',
@@ -353,7 +354,7 @@ export const lightboxApiMeta: ApiPartMeta[] = [
     id: 'api-zoom',
     name: 'Zoom',
     description:
-      'Pinch, wheel, double-tap, and keyboard zoom/pan surface. Structurally a CSS size container (`container-type: size`) so nested Media fit-box units resolve. Prefer Zoom > Media > img|video so pan/maxZoom use Media’s content box. Publishes to Root’s active-zoom bridge so ZoomIn/ZoomOut in toolbar chrome can target the active slide.',
+      'Pinch, wheel, double-tap, and keyboard zoom/pan surface. Fills its host and is a CSS size container (`container-type: size`) for nested Media fit-box units. Does not set overflow (clipping belongs on Content / chrome so zoomed media can escape the resting box). Prefer Zoom > Media > img|video so pan/maxZoom use Media’s content box. Publishes to Root’s active-zoom bridge so ZoomIn/ZoomOut in toolbar chrome can target the active slide.',
     extract: {
       kind: 'interface-props',
       typeName: 'LightboxZoomProps',

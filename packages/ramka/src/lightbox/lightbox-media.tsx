@@ -51,6 +51,9 @@ function dimsFromImg(img: HTMLImageElement): { width: number; height: number } |
 function fitBoxStyle(width: number, height: number): React.CSSProperties {
   const ratio = width / height;
   return {
+    // Explicit size (not max-* alone): a non-replaced grid with width/height auto
+    // won’t grow to fill Zoom — only the old cqw/cqh formula letterboxes correctly.
+    // Resolves against Zoom’s size container (padding box).
     width: `min(100cqw, calc(100cqh * ${ratio}))`,
     aspectRatio: `${width} / ${height}`,
   };
@@ -81,7 +84,7 @@ function mediaChildFillCss(mediaId: string): string {
 /**
  * Sized destination media host. Morph target + placeholder canvas container by
  * contract — place an `<img>`, `<video>`, or `<canvas>` inside (not chrome). Prefer
- * nesting under `Lightbox.Zoom` (Zoom is a size container for `cqw` / `cqh`):
+ * nesting under `Lightbox.Zoom` (a size container for `cqw` / `cqh`):
  *
  * ```tsx
  * <Lightbox.Zoom>
@@ -94,8 +97,8 @@ function mediaChildFillCss(mediaId: string): string {
  * `width` / `height` are **structural** (correct morph box). Media is a CSS grid
  * and renders a scoped `<style>` so direct `<img>` / `<video>` / `<canvas>` children
  * fill the fit-box (HTML dimension attrs cannot pin intrinsic size). No consumer
- * `size-full` required. Use Zoom padding for resting chrome insets. Radius,
- * colors, and `object-fit` remain consumer-owned.
+ * `size-full` required. Prefer Slide padding for resting chrome insets (not
+ * Zoom). Radius, colors, and `object-fit` remain consumer-owned.
  *
  * Discovers the primary `<img>` (direct child preferred) and wires Item's
  * `imageRef` for decode / thumbnail placeholder paint.

@@ -70,14 +70,14 @@ export default function LightboxCompositionPage() {
             <code className="text-xs">Slides</code> — <code className="text-xs">flex-1</code> (or equivalent stretch)
           </li>
           <li>
-            <code className="text-xs">Slide</code> — <code className="text-xs">h-full</code>
+            <code className="text-xs">Slide</code> — <code className="text-xs">h-full</code>; put chrome / safe-area
+            insets here as padding (not on Zoom)
           </li>
           <li>
-            <code className="text-xs">Item</code> — <code className="text-xs">size-full</code>
+            <code className="text-xs">Item</code> — already fills the Slide (<code className="text-xs">width/height: 100%</code>)
           </li>
           <li>
-            <code className="text-xs">Zoom</code> — already fills + centers (structural); add padding for chrome /
-            safe-area insets
+            <code className="text-xs">Zoom</code> — already fills + centers (structural)
           </li>
           <li>
             <code className="text-xs">Media</code> — sized fit-box (morph + placeholder host);{' '}
@@ -86,8 +86,8 @@ export default function LightboxCompositionPage() {
         </ul>
         <p>
           Keep Close, Counter, Caption, and thumbnails as <em>absolutely positioned siblings</em> of Slides (see Chrome
-          below) — not in-flow above or below Zoom. Resting insets belong on Zoom padding / safe-area so zoomed media
-          still paints edge-to-edge under chrome. Gesture details live in{' '}
+          below) — not in-flow above or below Zoom. Resting insets belong on Slide padding / safe-area so zoomed media
+          can still paint into that padding under chrome. Gesture details live in{' '}
           <DocsLink href={lightboxDocsPages.gestures.href}>Gestures</DocsLink>.
         </p>
         <p>
@@ -96,8 +96,8 @@ export default function LightboxCompositionPage() {
           ratio exist <em>before</em> pixels load. That avoids CLS, keeps the morph target sized on slow networks, and
           prevents an unloaded <code className="text-xs">size: auto</code> image from collapsing to 0×0 (which can skip
           or weaken the open morph).           When dimensions are unknown, see{' '}
-          <DocsLink href="/examples/lightbox/moodboard">Moodboard</DocsLink>. For the same grid with
-          slides sized to the media aspect (not full-bleed), see{' '}
+          <DocsLink href="/examples/lightbox/moodboard">Moodboard</DocsLink>. For the mixed-media
+          masonry with sibling dim-on-zoom, see{' '}
           <DocsLink href="/examples/lightbox/moodboard-snug">Moodboard (snug slides)</DocsLink>.
         </p>
         <p>
@@ -111,8 +111,8 @@ export default function LightboxCompositionPage() {
           <code className="text-xs">height</code> on the child image and omit the Media props — Media derives the box.
           When the box matches the source aspect, child <code className="text-xs">object-fit</code> is a no-op and
           Media’s grid stretch fills the box (no <code className="text-xs">size-full</code> needed on a direct media
-          child). Put border-radius on Media (morph target). Leave chrome outside Media. Resting insets belong on Zoom
-          padding / safe-area so zoomed media still paints edge-to-edge under chrome.
+          child). Put border-radius on Media (morph target). Leave chrome outside Media. Resting insets belong on Slide
+          padding / safe-area so zoomed media can paint into that padding under chrome.
         </p>
         <CodeBlock code={lightboxExcerpts['media-fit-box'].code} title={lightboxExcerpts['media-fit-box'].title} />
         <p>

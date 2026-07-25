@@ -511,11 +511,11 @@ export function LightboxGallery({
   backdrop = 'scrim',
   /**
    * `bleed` — each slide spans the viewport (default Photos-style track).
-   * `snug` — snap boxes are inscribed to the media aspect (card-sized, with a
-   * gap). Item/Zoom still fill the Slides viewport so Zoom’s overflow clip
-   * doesn’t trap pinch-zoom inside the card. Resting chrome insets belong on
-   * Zoom (same as bleed) — never on Slides — so zoomed media can paint under
-   * the chrome instead of being clipped by Slides’ padding + overflow-y.
+   * `snug` — same full-height Slide → Item → Zoom stack as bleed. On `md+`,
+   * Slide width shrinks to the media column (variable-width track + gap); on
+   * mobile, slides are full scrollport width like bleed. Vertical chrome insets
+   * are Slide padding; desktop horizontal inset is a width cap (not
+   * padding-inline). See `lightbox-demo/chrome-insets.css` + `snug-slides.css`.
    */
   slidesLayout = 'bleed',
   renderItem,
@@ -544,33 +544,23 @@ export function LightboxGallery({
   const backdropTone = backdrop === 'solid' ? 'bg-white dark:bg-black' : 'lightbox-demo-backdrop-light';
   const snug = slidesLayout === 'snug';
 
-  // Must match Zoom padding below — used so snug snap boxes hug the resting Media
-  // fit-box (Zoom’s content box), not the full Slides viewport.
-  const snugInsetX = '2.5rem'; // px-5 (md:px-8 is slightly roomier; close enough for snap)
-  const snugInsetY =
-    'calc(3.5rem + 7.5rem + env(safe-area-inset-top, 0px) + env(safe-area-inset-bottom, 0px))';
-  const snugZoomPad =
-    'px-5 pt-[calc(env(safe-area-inset-top,0px)+3.5rem)] pb-[calc(env(safe-area-inset-bottom,0px)+7.5rem)] md:px-8';
-
   return (
     <Lightbox.Portal>
       <Lightbox.Backdrop className={`lightbox-demo-backdrop ${backdropTone} fixed inset-0`} />
       <Lightbox.Content
         aria-label={ariaLabel}
         pullToClose={pullToClose}
-        className="lightbox-demo-content fixed inset-0 flex flex-col overscroll-contain outline-none"
+        className={`lightbox-demo-content fixed inset-0 flex flex-col overscroll-contain outline-none${snug ? ' lightbox-demo-content-snug' : ''}`}
       >
         <Lightbox.Slides
           aria-label="Full-size images"
           preload={preload}
           className={
             snug
-              ? // End spacers + card gap live in `lightbox-demo/snug-slides.css`
-                // (::before/::after at 50%, sibling margin — not flex `gap`).
-                'lightbox-demo-slides lightbox-demo-slides-snug flex-1 items-center [&::-webkit-scrollbar]:hidden'
+              ? // End spacers + card gap: `lightbox-demo/snug-slides.css`.
+                'lightbox-demo-slides lightbox-demo-slides-snug flex-1 [&::-webkit-scrollbar]:hidden'
               : 'lightbox-demo-slides flex-1 gap-5 [&::-webkit-scrollbar]:hidden md:gap-0'
           }
-          style={snug ? { containerType: 'size' } : undefined}
         >
           {items.map((item, i) => {
             const dims = galleryItemDims(item);
@@ -580,68 +570,32 @@ export function LightboxGallery({
                 key={item.id ?? i}
                 className={
                   snug
-                    ? // Opacity / z-index for zoom + pull-progress live in
-                      // `lightbox-demo/pull-progress.css` (`.lightbox-demo-slide-snug`).
-                      'lightbox-demo-slide-snug relative z-0 overflow-visible'
-                    : 'relative h-full'
+                    ? // Width + sibling dim: `snug-slides.css` / `pull-progress.css`.
+                      'lightbox-demo-slide-snug lightbox-demo-slide-pad z-0 h-full'
+                    : 'lightbox-demo-slide-pad h-full'
                 }
                 style={
                   snug
                     ? {
-                        // Snap box ≈ resting Media (inscribed in Zoom’s padded content box).
-                        // overflow:visible so the viewport-sized Item/Zoom isn’t clipped.
+                        // Override Slide’s baked `flex: 0 0 100%` for md+ card width.
+                        // Mobile forces full width in `snug-slides.css`.
                         flex: '0 0 auto',
                         minWidth: 0,
-                        width: `min(calc(100cqw - ${snugInsetX}), calc((100cqh - ${snugInsetY}) * ${ratio}))`,
-                        height: `min(calc(100cqh - ${snugInsetY}), calc((100cqw - ${snugInsetX}) / ${ratio}))`,
-                        alignSelf: 'center',
-                        overflow: 'visible',
+                        width: `min(calc(100cqw - 2 * var(--lightbox-inset-inline)), calc((100cqh - var(--lightbox-inset-top) - var(--lightbox-inset-bottom)) * ${ratio}))`,
                       }
                     : undefined
                 }
               >
-                <Lightbox.Item
-                  index={i}
-                  caption={item.caption ?? item.alt}
-                  className={snug ? 'relative' : 'relative size-full'}
-                  style={
-                    snug
-                      ? {
-                          // Zoom clips to its own box (`overflow: hidden`). Size that box
-                          // to the full Slides viewport (not the snug snap box) so zoom/pan
-                          // can cover the stage — same as bleed. Center with left/top only;
-                          // pull-to-dismiss owns `transform` on the item.
-                          position: 'absolute',
-                          width: '100cqw',
-                          height: '100cqh',
-                          left: 'calc(50% - 50cqw)',
-                          top: 'calc(50% - 50cqh)',
-                        }
-                      : undefined
-                  }
-                >
+                <Lightbox.Item index={i} caption={item.caption ?? item.alt}>
                   {({ imageRef, morphRef }) =>
                     renderItem ? (
                       renderItem(item, i, { imageRef, morphRef })
                     ) : (
-                      <Lightbox.Zoom
-                        maxZoom={maxZoom}
-                        className={
-                          snug
-                            ? // Resting insets on Zoom (not Slides): scaled media can paint
-                              // into the padding under chrome, matching other demos.
-                              snugZoomPad
-                            : 'px-0 pt-[calc(env(safe-area-inset-top,0px)+3.5rem)] pb-[calc(env(safe-area-inset-bottom,0px)+3.5rem)] md:px-8 md:pt-[calc(env(safe-area-inset-top,0px)+3.5rem)] md:pb-[calc(env(safe-area-inset-bottom,0px)+7.5rem)]'
-                        }
-                      >
+                      <Lightbox.Zoom maxZoom={maxZoom}>
                         {/* Radius/overflow are cosmetic on Media; width/height are structural. */}
                         <Lightbox.Media
                           {...(galleryItemDims(item) ?? {})}
-                          className={
-                            snug
-                              ? 'overflow-hidden rounded-xl'
-                              : 'overflow-hidden rounded-none md:rounded-lg'
-                          }
+                          className="overflow-hidden rounded-none md:rounded-lg"
                         >
                           <img
                             {...(galleryItemDims(item) ?? {})}

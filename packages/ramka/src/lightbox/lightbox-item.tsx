@@ -250,7 +250,7 @@ function tryPaintCanvasPlaceholder(args: CanvasPlaceholderArgs): (() => void) | 
  */
 const LightboxItem = React.forwardRef<HTMLDivElement, LightboxItemProps>(
   function LightboxItem(props, forwardedRef) {
-    const { render, index, caption, children, ...elementProps } = props;
+    const { render, index, caption, children, style, ...elementProps } = props;
 
     const {
       registerCaption,
@@ -610,6 +610,12 @@ const LightboxItem = React.forwardRef<HTMLDivElement, LightboxItemProps>(
           // and the active one is exposed. `inert` also blocks pointer/focus.
           'aria-hidden': !isActive,
           inert: !isActive ? true : undefined,
+          style: {
+            // Fill the Slide (or stacked host) so Zoom’s 100% has a definite box.
+            width: '100%',
+            height: '100%',
+            ...style,
+          },
         } as React.ComponentPropsWithRef<'div'>,
         elementProps as React.ComponentPropsWithRef<'div'>,
         { children: resolvedChildren } as React.ComponentPropsWithRef<'div'>,

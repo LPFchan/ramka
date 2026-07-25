@@ -44,14 +44,18 @@ interface LightboxZoomState extends Record<string, unknown> {
 /**
  * `Lightbox.Zoom` is a headless zoom/pan surface. Like the other primitives it
  * follows the `render` + `data-*` model: it renders a single element (a `div`
- * by default, override via `render`) that clips its content and captures
- * pointer/wheel/gesture input. State is exposed as attributes on that element —
- * `data-zoom` while scaled past 1x and `data-dragging` while panning — so
- * consumers can style purely through CSS.
+ * by default, override via `render`) that captures pointer/wheel/gesture input.
+ * State is exposed as attributes on that element — `data-zoom` while scaled
+ * past 1x and `data-dragging` while panning — so consumers can style purely
+ * through CSS.
  *
- * Structurally, Zoom is also a CSS size container (`container-type: size`) so
- * nested `Lightbox.Media` fit-box units (`cqw` / `cqh`) resolve against the
- * zoom surface. Cosmetics (padding, flex centering, colors) stay consumer-owned.
+ * Structurally, Zoom fills its host (`width`/`height: 100%`, `position: relative`)
+ * and is a CSS size container so nested `Lightbox.Media` fit-box units
+ * (`cqw` / `cqh`) resolve against Zoom’s padding box. It does **not** set
+ * `overflow` — clipping belongs on Content / consumer chrome so zoomed media
+ * can paint outside the resting box. Prefer chrome / safe-area insets as
+ * padding on `Lightbox.Slide` (not Zoom) so this surface fills the content box.
+ * Other cosmetics (colors) stay consumer-owned.
  *
  * The zoom transform is applied to an internal wrapper element that is not
  * consumer-configurable; pass your (typically `<img>`) content as `children`.
@@ -278,7 +282,7 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
     }, [zoom]);
 
     // ----- Offset clamping -----
-    const resolveContentSize = React.useCallback((containerRect: DOMRect) => {
+    const resolveContentSize = React.useCallback((fallbackRect: DOMRect) => {
       const wrapper = wrapperRef.current;
       if (wrapper) {
         // Prefer Lightbox.Media (sized morph / content host) over a raw <img>.
@@ -292,28 +296,40 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
           return { w: img.offsetWidth, h: img.offsetHeight };
         }
       }
-      return { w: containerRect.width, h: containerRect.height };
+      return { w: fallbackRect.width, h: fallbackRect.height };
     }, []);
+
+    /**
+     * Pan viewport = lightbox Content (dialog), not the Zoom element.
+     * Snug slides are narrower than the dialog; clamping against Zoom would
+     * allow pan whenever media overflows the column even though it still fits
+     * on screen. Bleed Zoom ≈ dialog, so behavior is unchanged there.
+     */
+    const resolvePanViewportRect = React.useCallback((): DOMRect | null => {
+      const dialog = dialogElementRef.current;
+      if (dialog) return dialog.getBoundingClientRect();
+      return containerRef.current?.getBoundingClientRect() ?? null;
+    }, [dialogElementRef]);
 
     const clampOffsets = React.useCallback(
       (newOffsetX: number, newOffsetY: number, newZoom: number) => {
-        const el = containerRef.current;
-        if (!el) return { x: 0, y: 0 };
+        const panRect = resolvePanViewportRect();
+        if (!panRect) return { x: 0, y: 0 };
 
-        const containerRect = el.getBoundingClientRect();
-        const { w: contentW, h: contentH } = resolveContentSize(containerRect);
+        const zoomRect = containerRef.current?.getBoundingClientRect() ?? panRect;
+        const { w: contentW, h: contentH } = resolveContentSize(zoomRect);
 
         return clampOffset(
           newOffsetX,
           newOffsetY,
           contentW,
           contentH,
-          containerRect.width,
-          containerRect.height,
+          panRect.width,
+          panRect.height,
           newZoom,
         );
       },
-      [resolveContentSize],
+      [resolveContentSize, resolvePanViewportRect],
     );
 
     // ----- Core actions -----
@@ -387,16 +403,16 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
 
     const getMaxOffsets = React.useCallback(
       (z: number) => {
-        const el = containerRef.current;
-        if (!el) return { maxX: 0, maxY: 0 };
-        const rect = el.getBoundingClientRect();
-        const { w: cw, h: ch } = resolveContentSize(rect);
+        const panRect = resolvePanViewportRect();
+        if (!panRect) return { maxX: 0, maxY: 0 };
+        const zoomRect = containerRef.current?.getBoundingClientRect() ?? panRect;
+        const { w: cw, h: ch } = resolveContentSize(zoomRect);
         return {
-          maxX: maxPanOffset(cw, rect.width, z),
-          maxY: maxPanOffset(ch, rect.height, z),
+          maxX: maxPanOffset(cw, panRect.width, z),
+          maxY: maxPanOffset(ch, panRect.height, z),
         };
       },
-      [resolveContentSize],
+      [resolveContentSize, resolvePanViewportRect],
     );
 
     const changeOffsetsAction = React.useCallback(
@@ -645,7 +661,6 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
       props: mergeProps<'div'>(
         {
           style: {
-            overflow: 'hidden',
             position: 'relative',
             width: '100%',
             height: '100%',

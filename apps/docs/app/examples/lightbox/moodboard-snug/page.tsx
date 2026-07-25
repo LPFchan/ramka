@@ -21,17 +21,12 @@ import {
 } from './three-model';
 
 /**
- * Moodboard masonry with snug slides — same as the photos-only snug demo, but
- * two tiles are vertical colorful clips (muted autoplay in grid + lightbox) and
- * three are Khronos GLBs (Three.js canvases).
+ * Mixed-media moodboard with snug lightbox: full-width slides on mobile;
+ * aspect-sized snap cards + desktop filmstrip on md+; sibling dim/zoom CSS.
  */
 
 const THUMB_WIDTH = 400;
 const FULL_SCALE = 2;
-
-/** Match LightboxGallery snug Zoom padding so custom `renderItem`s align. */
-const snugZoomPad =
-  'px-5 pt-[calc(env(safe-area-inset-top,0px)+3.5rem)] pb-[calc(env(safe-area-inset-bottom,0px)+7.5rem)] md:px-8';
 
 function thumbUrl(seed: string, w: number, h: number) {
   const scale = THUMB_WIDTH / w;
@@ -304,8 +299,8 @@ function LightboxVideo({
   }, []);
 
   return (
-    <Lightbox.Zoom className={snugZoomPad}>
-      <Lightbox.Media width={width} height={height} className="overflow-hidden rounded-xl">
+    <Lightbox.Zoom>
+      <Lightbox.Media width={width} height={height} className="overflow-hidden rounded-none md:rounded-lg">
         <AutoplayMuteVideo
           src={src}
           poster={poster}
@@ -355,7 +350,7 @@ export default function MoodboardSnugPage() {
   return (
     <ExampleShell
       title="Moodboard (snug slides)"
-      description="Masonry wall with mixed media — photos, two muted autoplaying vertical clips, and three orbitable Khronos GLBs — in a snug lightbox track. Snap boxes hug each item’s aspect; 3D tiles wait for a painted WebGL frame via onBeforeOpen, then enable Trackball orbit after the morph settles (pull-to-dismiss stays on for trackpad scroll)."
+      description="Masonry wall with mixed media — photos, two muted autoplaying vertical clips, and three orbitable Khronos GLBs. Lightbox is snug on desktop (aspect-sized snap cards + gap, desktop filmstrip) and full-width on mobile; sibling dim/blur while zoomed. 3D tiles wait for a painted WebGL frame via onBeforeOpen, then enable Trackball orbit after the morph settles."
     >
       <Lightbox.Root
         loop
@@ -485,11 +480,11 @@ export default function MoodboardSnugPage() {
             if (tile.kind === 'model') {
               const active = open && activeIndex === i;
               return (
-                <Lightbox.Zoom maxZoom={6} className={snugZoomPad}>
+                <Lightbox.Zoom maxZoom={6}>
                   <Lightbox.Media
                     width={FRAME_SIZE}
                     height={FRAME_SIZE}
-                    className="overflow-hidden rounded-xl bg-transparent"
+                    className="overflow-hidden rounded-none bg-transparent md:rounded-lg"
                   >
                     <LightboxScene
                       product={tile.product}
@@ -503,11 +498,11 @@ export default function MoodboardSnugPage() {
               );
             }
             return (
-              <Lightbox.Zoom maxZoom={6} className={snugZoomPad}>
+              <Lightbox.Zoom maxZoom={6}>
                 <Lightbox.Media
                   width={tile.w}
                   height={tile.h}
-                  className="overflow-hidden rounded-xl"
+                  className="overflow-hidden rounded-none md:rounded-lg"
                 >
                   <img
                     width={tile.w}

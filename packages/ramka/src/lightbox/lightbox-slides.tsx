@@ -386,6 +386,9 @@ const LightboxSlides = React.forwardRef<HTMLDivElement, LightboxSlidesProps>(
                 scrollBehavior: 'auto',
                 scrollbarWidth: 'none',
                 ...style,
+                // Size container so snug stage/snap CSS can use cqw/cqh against
+                // this scrollport (consumer styles; not a new prop).
+                containerType: 'size',
               },
             } as React.ComponentPropsWithRef<'div'>,
             elementProps as React.ComponentPropsWithRef<'div'>,

@@ -1,26 +1,32 @@
 /**
- * Snug (variable-width) slides track.
+ * Snug slides track + responsive slide width.
  *
- * Center snap needs scroll range on both ends. Left overflow cannot create a
- * negative scrollLeft, so the track is padded with half-scrollport flex
- * spacers via ::before / ::after — the standard CSS pattern for this.
+ * Mobile (< md): full scrollport width like bleed (overrides chrome inline
+ * width). End spacers off. Filmstrip hidden — same bottom inset as other demos.
  *
- * Card spacing uses adjacent-sibling margin (not `gap`) so the end spacers
- * stay a clean `50%` no matter how wide you make the gap.
+ * Desktop (md+): aspect width from chrome inline style; half-scrollport
+ * ::before/::after for center snap; flex gap between cards.
  */
 
 .lightbox-demo-slides-snug {
   --lightbox-snug-gap: 1.25rem;
-  gap: 0;
+  gap: var(--lightbox-snug-gap);
 }
 
-.lightbox-demo-slides-snug::before,
-.lightbox-demo-slides-snug::after {
-  content: '';
-  flex: 0 0 50%;
-  pointer-events: none;
+@media (max-width: 767px) {
+  /* Beat Slide’s / chrome’s inline flex + width so snaps are full-bleed. */
+  .lightbox-demo-content-snug .lightbox-demo-slide-snug {
+    flex: 0 0 100% !important;
+    min-width: 100% !important;
+    width: 100% !important;
+  }
 }
 
-.lightbox-demo-slides-snug > .lightbox-demo-slide-snug + .lightbox-demo-slide-snug {
-  margin-inline-start: var(--lightbox-snug-gap);
+@media (min-width: 768px) {
+  .lightbox-demo-slides-snug::before,
+  .lightbox-demo-slides-snug::after {
+    content: '';
+    flex: 0 0 50%;
+    pointer-events: none;
+  }
 }
