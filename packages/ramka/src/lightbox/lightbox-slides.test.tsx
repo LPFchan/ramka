@@ -500,11 +500,24 @@ describe('Lightbox.Slides', () => {
     function dispatchPointer(
       el: Element,
       type: string,
-      init: { pointerId?: number; clientX?: number; clientY?: number } = {},
+      init: {
+        pointerId?: number;
+        pointerType?: string;
+        clientX?: number;
+        clientY?: number;
+        isPrimary?: boolean;
+      } = {},
     ) {
-      el.dispatchEvent(
-        new PointerEvent(type, { bubbles: true, cancelable: true, pointerId: 1, pointerType: 'touch', ...init }),
-      );
+      const { isPrimary = init.pointerId === 1 || init.pointerId == null, ...rest } = init;
+      const event = new PointerEvent(type, {
+        bubbles: true,
+        cancelable: true,
+        pointerId: 1,
+        pointerType: 'touch',
+        ...rest,
+      });
+      Object.defineProperty(event, 'isPrimary', { configurable: true, value: isPrimary });
+      el.dispatchEvent(event);
     }
 
     function GestureLightbox({
@@ -595,6 +608,85 @@ describe('Lightbox.Slides', () => {
       endScroll(viewport);
       act(() => {
         fireEvent.wheel(img, { deltaY: -100, ctrlKey: true });
+      });
+      expect(zoomRef.current!.zoom).toBeGreaterThan(1);
+    });
+
+    it('locks from a single-finger touch slide before scroll events (iOS Safari)', () => {
+      // Mobile Safari often compositor-scrolls without pointermove on Zoom.
+      // Capture-phase touchmove on Slides must flip the lock so a second finger
+      // can't arm pinch before the first `scroll` event.
+      const zoomRef = React.createRef<LightboxZoomRef>();
+      render(<GestureLightbox withZoom zoomRef={zoomRef} observedIndex={0} />);
+      const viewport = screen.getByTestId('slides');
+      setupGeometry(viewport, 8);
+      const img = screen.getByTestId('img-0');
+
+      act(() => {
+        viewport.dispatchEvent(
+          new TouchEvent('touchstart', {
+            bubbles: true,
+            cancelable: true,
+            touches: [{ clientX: 100, clientY: 200 } as Touch],
+          }),
+        );
+        viewport.dispatchEvent(
+          new TouchEvent('touchmove', {
+            bubbles: true,
+            cancelable: true,
+            touches: [{ clientX: 140, clientY: 200 } as Touch],
+          }),
+        );
+      });
+
+      // Second finger + pinch spread — lock is already held from touchmove.
+      act(() => {
+        dispatchPointer(img, 'pointerdown', { pointerId: 1, clientX: 100, clientY: 200, isPrimary: true });
+        dispatchPointer(img, 'pointerdown', { pointerId: 2, clientX: 150, clientY: 200, isPrimary: false });
+        dispatchPointer(img, 'pointermove', { pointerId: 1, clientX: 70, clientY: 200, isPrimary: true });
+        dispatchPointer(img, 'pointermove', { pointerId: 2, clientX: 220, clientY: 200, isPrimary: false });
+      });
+      expect(zoomRef.current?.zoom).toBe(1);
+    });
+
+    it('ignores a second-finger pinch that lands while a one-finger swipe is in flight', () => {
+      const zoomRef = React.createRef<LightboxZoomRef>();
+      render(<GestureLightbox withZoom zoomRef={zoomRef} observedIndex={0} />);
+      const viewport = screen.getByTestId('slides');
+      setupGeometry(viewport, 8);
+      const img = screen.getByTestId('img-0');
+
+      // Finger 1 starts a swipe (moves past the tap threshold at 1×).
+      act(() => {
+        dispatchPointer(img, 'pointerdown', { pointerId: 1, clientX: 100, clientY: 200, isPrimary: true });
+        dispatchPointer(img, 'pointermove', { pointerId: 1, clientX: 140, clientY: 200, isPrimary: true });
+      });
+
+      // Scroll lock without changing the active slide (keep this Zoom active).
+      act(() => {
+        fireEvent.scroll(viewport);
+      });
+
+      // Finger 2 lands and spreads — must NOT arm a pinch mid-scroll.
+      act(() => {
+        dispatchPointer(img, 'pointerdown', { pointerId: 2, clientX: 180, clientY: 220, isPrimary: false });
+        dispatchPointer(img, 'pointermove', { pointerId: 1, clientX: 90, clientY: 200, isPrimary: true });
+        dispatchPointer(img, 'pointermove', { pointerId: 2, clientX: 220, clientY: 240, isPrimary: false });
+      });
+      expect(zoomRef.current?.zoom).toBe(1);
+
+      endScroll(viewport);
+      act(() => {
+        dispatchPointer(img, 'pointerup', { pointerId: 1, clientX: 90, clientY: 200, isPrimary: true });
+        dispatchPointer(img, 'pointerup', { pointerId: 2, clientX: 220, clientY: 240, isPrimary: false });
+      });
+
+      // After settle, a real two-finger pinch zooms.
+      act(() => {
+        dispatchPointer(img, 'pointerdown', { pointerId: 1, clientX: 100, clientY: 200, isPrimary: true });
+        dispatchPointer(img, 'pointerdown', { pointerId: 2, clientX: 140, clientY: 200, isPrimary: false });
+        dispatchPointer(img, 'pointermove', { pointerId: 1, clientX: 80, clientY: 200, isPrimary: true });
+        dispatchPointer(img, 'pointermove', { pointerId: 2, clientX: 200, clientY: 200, isPrimary: false });
       });
       expect(zoomRef.current!.zoom).toBeGreaterThan(1);
     });

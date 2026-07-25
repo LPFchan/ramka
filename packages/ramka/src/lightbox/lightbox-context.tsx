@@ -64,7 +64,8 @@ interface LightboxContextValue {
    *   - `setActiveIndex` drops discrete navigation (`keyboard`/`thumbnail`/
    *     `button`) so the marker can't diverge from the real scroll position.
    *   - pull-to-dismiss won't start (a swipe can't become a dismiss mid-scroll).
-   *   - zoom/pan gestures won't start (a swipe can't be hijacked into a zoom).
+   *   - zoom/pan gestures won't start or continue (a swipe can't be hijacked
+   *     into a pinch — including a second finger landing mid-scroll).
    * Stays `false` when no scroller writes it (non-`Slides` lightboxes), so their
    * navigation and gestures are never gated.
    */

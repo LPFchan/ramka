@@ -11,6 +11,7 @@ import {
   slideScrollLeftForIndex,
   SLIDE_SELECTOR,
 } from './lightbox-slides-geometry';
+import { useLightboxZoomPublish } from './lightbox-zoom-context';
 
 /**
  * `Lightbox.Slides` — a dedicated, lightbox-only horizontal snap scroller.
@@ -116,6 +117,7 @@ const LightboxSlides = React.forwardRef<HTMLDivElement, LightboxSlidesProps>(
       slidesGeometryRef,
       notifySlidesViewport,
     } = useLightboxContext();
+    const { activeZoomRef } = useLightboxZoomPublish();
 
     const viewportRef = React.useRef<HTMLDivElement | null>(null);
     // Local mirror of context `slidesGeometryRef` for hot scroll paths.
@@ -295,6 +297,11 @@ const LightboxSlides = React.forwardRef<HTMLDivElement, LightboxSlidesProps>(
         // quiet gap as the scroll having ended.
         idleTimerRef.current = window.setTimeout(settle, SCROLL_IDLE_MS);
       };
+      const lockUserScroll = () => {
+        if (programmaticRef.current) return;
+        navigationLockedRef.current = true;
+        armIdleFallback();
+      };
 
       let frame = 0;
       const process = () => {
@@ -314,17 +321,67 @@ const LightboxSlides = React.forwardRef<HTMLDivElement, LightboxSlidesProps>(
         }
         // Genuine user scroll/fling: lock discrete nav, keep the marker following
         // the swipe, and (re)arm the idle-settle fallback.
-        navigationLockedRef.current = true;
-        armIdleFallback();
+        lockUserScroll();
         const derived = indexFromScroll(viewport);
         if (derived !== activeIndexRef.current) setActiveIndex(derived, 'scroll');
       };
       const onScroll = () => {
+        // Lock synchronously — don't wait for the rAF `process` tick. A second
+        // finger can land in the same frame as the first scroll event; delaying
+        // the lock lets zoom arm a pinch mid-swipe.
+        if (!programmaticRef.current) {
+          navigationLockedRef.current = true;
+        }
         if (frame === 0) frame = requestAnimationFrame(process);
+      };
+
+      // iOS Safari often starts compositor scrolling without delivering
+      // `pointermove` to Zoom — so a second finger can arm a pinch before the
+      // first `scroll` event flips the lock. Capture-phase touch listeners lock
+      // at 1× as soon as a single finger slides (or a second finger lands after
+      // that). When already zoomed, don't lock from touch alone — that would
+      // abort one-finger pan / intentional pinch via `isScrollingRef`.
+      const TOUCH_LOCK_PX = 10;
+      let touchStartX = 0;
+      let touchStartY = 0;
+      let sawSingleFinger = false;
+      let singleFingerSlid = false;
+      const isAtRestZoom = () => (activeZoomRef.current?.getZoom() ?? 1) <= 1 + 1e-6;
+
+      const onTouchStart = (event: TouchEvent) => {
+        if (event.touches.length === 1) {
+          sawSingleFinger = true;
+          singleFingerSlid = false;
+          touchStartX = event.touches[0]!.clientX;
+          touchStartY = event.touches[0]!.clientY;
+          return;
+        }
+        if (event.touches.length > 1 && sawSingleFinger && singleFingerSlid && isAtRestZoom()) {
+          lockUserScroll();
+        }
+      };
+      const onTouchMove = (event: TouchEvent) => {
+        if (event.touches.length !== 1 || !sawSingleFinger || singleFingerSlid) return;
+        const touch = event.touches[0]!;
+        if (Math.hypot(touch.clientX - touchStartX, touch.clientY - touchStartY) < TOUCH_LOCK_PX) {
+          return;
+        }
+        singleFingerSlid = true;
+        if (isAtRestZoom()) lockUserScroll();
+      };
+      const onTouchEnd = (event: TouchEvent) => {
+        if (event.touches.length > 0) return;
+        sawSingleFinger = false;
+        singleFingerSlid = false;
+        // Keep the lock through momentum — `scrollend` / idle fallback clears it.
       };
 
       viewport.addEventListener('scroll', onScroll, { passive: true });
       viewport.addEventListener('scrollend', settle);
+      viewport.addEventListener('touchstart', onTouchStart, { passive: true, capture: true });
+      viewport.addEventListener('touchmove', onTouchMove, { passive: true, capture: true });
+      viewport.addEventListener('touchend', onTouchEnd, { passive: true, capture: true });
+      viewport.addEventListener('touchcancel', onTouchEnd, { passive: true, capture: true });
       return () => {
         if (frame !== 0) cancelAnimationFrame(frame);
         window.clearTimeout(idleTimerRef.current);
@@ -332,8 +389,12 @@ const LightboxSlides = React.forwardRef<HTMLDivElement, LightboxSlidesProps>(
         idleTimerRef.current = 0;
         viewport.removeEventListener('scroll', onScroll);
         viewport.removeEventListener('scrollend', settle);
+        viewport.removeEventListener('touchstart', onTouchStart, true);
+        viewport.removeEventListener('touchmove', onTouchMove, true);
+        viewport.removeEventListener('touchend', onTouchEnd, true);
+        viewport.removeEventListener('touchcancel', onTouchEnd, true);
       };
-    }, [indexFromScroll, setActiveIndex, navigationLockedRef]);
+    }, [indexFromScroll, setActiveIndex, navigationLockedRef, activeZoomRef]);
 
     // Direction (used by item-entrance CSS / consumers). Mirrors ItemGroup.
     const prevIndexRef = React.useRef(activeIndex);
