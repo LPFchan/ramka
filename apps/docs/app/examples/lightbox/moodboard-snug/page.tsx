@@ -253,7 +253,6 @@ function AutoplayMuteVideo({
       width={width}
       height={height}
       muted
-      defaultMuted
       playsInline
       autoPlay
       loop
