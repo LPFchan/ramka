@@ -2946,6 +2946,37 @@ describe('Lightbox', () => {
       expect(contentEl).toHaveAttribute('data-zoomed');
     });
 
+    it('publishes --lightbox-zoom-progress on Content while zoomed', () => {
+      const ref = React.createRef<LightboxZoomRef>();
+      render(
+        <LightboxRoot defaultOpen>
+          <LightboxPortal>
+            <LightboxContent data-testid="content" aria-label="Zoom progress var test">
+              <LightboxItemGroup>
+                <LightboxItem index={0}>
+                  <LightboxZoom ref={ref} maxZoom={4}>
+                    <img src="test.jpg" alt="test" />
+                  </LightboxZoom>
+                </LightboxItem>
+              </LightboxItemGroup>
+            </LightboxContent>
+          </LightboxPortal>
+        </LightboxRoot>,
+      );
+      const contentEl = screen.getByTestId('content');
+      expect(contentEl.style.getPropertyValue('--lightbox-zoom-progress')).toBe('');
+
+      // Progress hits 1 at +1× above min (2× here).
+      act(() => ref.current!.zoomTo(2, { rapid: true }));
+      expect(Number(contentEl.style.getPropertyValue('--lightbox-zoom-progress'))).toBeCloseTo(1);
+
+      act(() => ref.current!.zoomTo(1.5, { rapid: true }));
+      expect(Number(contentEl.style.getPropertyValue('--lightbox-zoom-progress'))).toBeCloseTo(0.5);
+
+      act(() => ref.current!.reset(true));
+      expect(contentEl.style.getPropertyValue('--lightbox-zoom-progress')).toBe('');
+    });
+
     it('data-zoomed attribute is removed when zoom resets to 1x (rapid)', () => {
       const ref = React.createRef<LightboxZoomRef>();
       render(
@@ -3659,6 +3690,102 @@ describe('Lightbox', () => {
       expect(ref.current!.zoom).toBeGreaterThan(1);
     });
 
+    it('data-zoomed stays off during under-min snap-back (chrome must not hide)', () => {
+      // Regression: snap-back WAAPI from elastic under-zoom set `data-zoomed`
+      // via the “keep while isAnimating” path, which hid chrome even though
+      // the user never zoomed in.
+      type AnimStub = {
+        finished: Promise<void>;
+        cancel: ReturnType<typeof vi.fn>;
+        play: ReturnType<typeof vi.fn>;
+        pause: ReturnType<typeof vi.fn>;
+        onfinish: ((this: Animation, ev: AnimationPlaybackEvent) => void) | null;
+        oncancel: ((this: Animation, ev: AnimationPlaybackEvent) => void) | null;
+      };
+      let latest: AnimStub | undefined;
+      const animateImpl = vi.fn(() => {
+        const stub: AnimStub = {
+          finished: Promise.resolve(),
+          cancel: vi.fn(),
+          play: vi.fn(),
+          pause: vi.fn(),
+          onfinish: null,
+          oncancel: null,
+        };
+        latest = stub;
+        return stub as unknown as Animation;
+      });
+      const hadAnimate = 'animate' in Element.prototype;
+      const previousAnimate = Element.prototype.animate;
+      Element.prototype.animate = animateImpl as unknown as typeof Element.prototype.animate;
+
+      const ref = React.createRef<LightboxZoomRef>();
+      render(<PullDismissLightbox withZoom zoomRef={ref} />);
+      const content = screen.getByTestId('content');
+      const img = screen.getByAltText('test');
+
+      act(() => {
+        dispatchPointer(img, 'pointerdown', {
+          clientX: 150,
+          clientY: 200,
+          pointerId: 1,
+          pointerType: 'touch',
+          isPrimary: true,
+        });
+        dispatchPointer(img, 'pointerdown', {
+          clientX: 250,
+          clientY: 200,
+          pointerId: 2,
+          pointerType: 'touch',
+          isPrimary: false,
+        });
+        dispatchPointer(img, 'pointermove', {
+          clientX: 190,
+          clientY: 200,
+          pointerId: 1,
+          pointerType: 'touch',
+        });
+        dispatchPointer(img, 'pointermove', {
+          clientX: 210,
+          clientY: 200,
+          pointerId: 2,
+          pointerType: 'touch',
+        });
+      });
+      expect(ref.current!.zoom).toBeLessThan(1);
+      expect(content).not.toHaveAttribute('data-zoomed');
+
+      act(() => {
+        dispatchPointer(img, 'pointerup', {
+          clientX: 190,
+          clientY: 200,
+          pointerId: 1,
+          pointerType: 'touch',
+        });
+        dispatchPointer(img, 'pointerup', {
+          clientX: 210,
+          clientY: 200,
+          pointerId: 2,
+          pointerType: 'touch',
+        });
+      });
+
+      expect(ref.current!.zoom).toBe(1);
+      expect(content).not.toHaveAttribute('data-zoomed');
+      if (latest) {
+        act(() => {
+          latest?.onfinish?.call(latest as unknown as Animation, {} as AnimationPlaybackEvent);
+        });
+      }
+      expect(content).not.toHaveAttribute('data-zoomed');
+
+      if (hadAnimate) {
+        Element.prototype.animate = previousAnimate;
+      } else {
+        delete (Element.prototype as { animate?: typeof Element.prototype.animate }).animate;
+      }
+    });
+
     it('clears data-zooming after a double-tap reset so the next pull-to-dismiss works', () => {
       // Regression: the deferred double-tap committed on pointerup but only
       // flagged `data-zooming` (setZooming(true)) without scheduling its
@@ -3929,11 +4056,21 @@ describe('Lightbox', () => {
         });
         expect(scrollIntoView).not.toHaveBeenCalled();
 
-        // Navigating to another item while open SHOULD scroll its trigger in.
-        act(() => {
-          fireEvent.click(screen.getByTestId('next'));
-        });
-        expect(scrollIntoView).toHaveBeenCalled();
+        // Navigating to another item while open SHOULD scroll its trigger in
+        // (idle-debounced so swipe/scrub doesn't thrash the page under the modal).
+        vi.useFakeTimers();
+        try {
+          act(() => {
+            fireEvent.click(screen.getByTestId('next'));
+          });
+          expect(scrollIntoView).not.toHaveBeenCalled();
+          act(() => {
+            vi.advanceTimersByTime(120);
+          });
+          expect(scrollIntoView).toHaveBeenCalled();
+        } finally {
+          vi.useRealTimers();
+        }
       } finally {
         HTMLElement.prototype.scrollIntoView = origScroll;
         HTMLElement.prototype.getBoundingClientRect = origRect;

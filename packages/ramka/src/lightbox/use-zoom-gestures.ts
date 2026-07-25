@@ -151,11 +151,39 @@ function useZoomGestures(
     [contentElementRef],
   );
 
+  /** Drop in-flight pinch/pan tracking — scroll (or pull) owns the gesture. */
+  const abortZoomInteraction = React.useCallback(() => {
+    const needsSnap = pinchState.current != null || hadPinch.current;
+    const hadZoomGesture = needsSnap || activePointers.current.length > 0;
+    activePointers.current.length = 0;
+    pinchState.current = undefined;
+    hadPinch.current = false;
+    tapCandidate.current = false;
+    tapStartPos.current = null;
+    pendingDoubleTap.current = false;
+    doubleTapFocal.current = null;
+    // Pull/scroll stole the gesture — never let it count as tap 1 of a double-tap.
+    lastWasTap.current = false;
+    lastTapPos.current = null;
+    lastPointerDown.current = 0;
+    velocityTracker.current.length = 0;
+    if (needsSnap) {
+      actionsRef.current.snapToBounds();
+    }
+    if (hadZoomGesture) {
+      actionsRef.current.setDragging(false);
+      setZooming(false);
+    }
+  }, [setZooming]);
+
   const handlePointerDown = React.useCallback(
     (event: PointerEvent) => {
       // A Lightbox.Slides swipe/fling is in flight — ignore new zoom/pan
       // gestures so the scroll stays authoritative until it settles.
-      if (isScrollingRef?.current) return;
+      if (isScrollingRef?.current) {
+        abortZoomInteraction();
+        return;
+      }
       const pointers = activePointers.current;
       const { doubleClickDelay } = configRef.current;
       const { getZoom } = actionsRef.current;
@@ -173,10 +201,7 @@ function useZoomGestures(
       // via setPointerCapture, so we never receive pointerup for it and
       // would otherwise accumulate stale entries in activePointers.
       if (contentElementRef?.current?.hasAttribute('data-pulling')) {
-        pointers.length = 0;
-        lastPointerDown.current = 0;
-        pinchState.current = undefined;
-        hadPinch.current = false;
+        abortZoomInteraction();
         return;
       }
 
@@ -205,6 +230,13 @@ function useZoomGestures(
           pinchState.current = undefined;
           hadPinch.current = false;
         }
+      }
+
+      // At 1×, a finger that already moved is a slide-scroll (or pull), not the
+      // start of a pinch. Ignore additional fingers until everything is up —
+      // otherwise a quick second touch mid-swipe arms zoom during scroll.
+      if (pointers.length > 0 && zoom <= 1 && !tapCandidate.current) {
+        return;
       }
 
       if (zoom > 1) {
@@ -248,6 +280,11 @@ function useZoomGestures(
       replacePointer(event);
 
       if (pointers.length === 2) {
+        // Scroll may have locked between the two downs (racy first scroll event).
+        if (isScrollingRef?.current) {
+          abortZoomInteraction();
+          return;
+        }
         setZooming(true);
         // A pinch invalidates both tap tracking and double-tap timing
         lastPointerDown.current = 0;
@@ -261,11 +298,29 @@ function useZoomGestures(
         hadPinch.current = true;
       }
     },
-    [wrapperRef, contentElementRef, isScrollingRef, translateCoordinates, replacePointer, setZooming],
+    [
+      wrapperRef,
+      contentElementRef,
+      isScrollingRef,
+      translateCoordinates,
+      replacePointer,
+      setZooming,
+      abortZoomInteraction,
+    ],
   );
 
   const handlePointerMove = React.useCallback(
     (event: PointerEvent) => {
+      // Scroll / pull won — never continue a pinch/pan that started before.
+      if (isScrollingRef?.current) {
+        abortZoomInteraction();
+        return;
+      }
+      if (contentElementRef?.current?.hasAttribute('data-pulling')) {
+        abortZoomInteraction();
+        return;
+      }
+
       const pointers = activePointers.current;
       const { getZoom, changeZoom, changeOffsets } = actionsRef.current;
       const zoom = getZoom();
@@ -277,6 +332,14 @@ function useZoomGestures(
         if (Math.hypot(dx, dy) > TAP_MOVE_THRESHOLD) {
           tapCandidate.current = false;
           tapStartPos.current = null;
+          // At 1× a moved finger is slide-scroll, not zoom. Drop tracking so a
+          // second finger can't pair into a pinch mid-swipe (before scroll
+          // events flip navigationLockedRef). Never do this during/after a
+          // pinch — elastic under-min zoom is still a pinch until snap.
+          if (zoom <= 1 && pointers.length <= 1 && !hadPinch.current && !pinchState.current) {
+            pointers.length = 0;
+            return;
+          }
         }
       }
 
@@ -323,18 +386,37 @@ function useZoomGestures(
         replacePointer(event);
       }
     },
-    [replacePointer, translateCoordinates],
+    [replacePointer, translateCoordinates, isScrollingRef, abortZoomInteraction, contentElementRef],
   );
 
   const handlePointerUp = React.useCallback(
     (event: PointerEvent) => {
       const pointers = activePointers.current;
-      if (pointers.length === 2 && pointers.some((p) => p.pointerId === event.pointerId)) {
+      // Already finalized (e.g. document capture ran before the element bubble).
+      if (!pointers.some((p) => p.pointerId === event.pointerId)) return;
+
+      // Pinch pair breaking (2→1 or 2→0): snap elastic overscroll immediately.
+      // Waiting until the last finger lifts left under-min zoom stuck when the
+      // remaining finger lingered, and the 1× scroll-drop path could clear
+      // `hadPinch` without snapping.
+      const leavingPinch =
+        pointers.length >= 2 && pointers.some((p) => p.pointerId === event.pointerId);
+      if (leavingPinch) {
         pinchState.current = undefined;
       }
       clearPointer(event.pointerId);
+      if (leavingPinch) {
+        actionsRef.current.snapToBounds();
+      }
+
       if (activePointers.current.length === 0) {
-        const wasTap = tapCandidate.current;
+        // Pull-to-dismiss captures the pointer on Content — this up may arrive
+        // via document capture while `data-pulling` is still set. Never treat
+        // that as a tap (next quick tap would complete a false double-tap).
+        const pullActive =
+          contentElementRef?.current?.hasAttribute('data-pulling') ||
+          contentElementRef?.current?.hasAttribute('data-pull-dismissing');
+        const wasTap = tapCandidate.current && !pullActive;
         const wasPinch = hadPinch.current;
 
         // Commit a deferred double-tap only if this second touch actually
@@ -375,12 +457,15 @@ function useZoomGestures(
         lastWasTap.current = wasTap;
         if (wasTap) {
           lastTapPos.current = { x: event.clientX, y: event.clientY };
+        } else {
+          lastTapPos.current = null;
         }
         tapCandidate.current = false;
         tapStartPos.current = null;
         actionsRef.current.setDragging(false);
         if (wasPinch) {
           hadPinch.current = false;
+          // Usually already snapped on 2→1; safe no-op when already in range.
           actionsRef.current.snapToBounds();
         }
         if (event.pointerType === 'touch') {
@@ -413,7 +498,7 @@ function useZoomGestures(
         setZooming(false);
       }
     },
-    [clearPointer, setZooming],
+    [clearPointer, setZooming, contentElementRef],
   );
 
   // -------------------------------------------------------------------
@@ -476,7 +561,10 @@ function useZoomGestures(
   // zoom through the active-zoom bridge (reset/panBy/zoomIn/zoomOut).
   // -------------------------------------------------------------------
 
-  // Pointer + keyboard listeners (always passive-compatible, stable effect)
+  // Pointer listeners stay on the Zoom surface (pan / pinch / double-tap need
+  // a media hit target). Wheel + Safari GestureEvent attach to Content when
+  // available so zoom keeps working with the cursor in chrome padding — the
+  // painted overflow zone outside Zoom’s box.
   React.useEffect(() => {
     if (disabled) return;
     const el = containerRef.current;
@@ -487,49 +575,70 @@ function useZoomGestures(
     el.addEventListener('pointerup', handlePointerUp);
     el.addEventListener('pointercancel', handlePointerUp);
 
+    // Pull-to-dismiss `setPointerCapture`s on Content, so Zoom never sees
+    // pointerup for that finger. Finalize on document capture instead — the
+    // element listener no-ops if the pointer was already cleared.
+    const onPointerUpCapture = (event: PointerEvent) => {
+      if (!activePointers.current.some((p) => p.pointerId === event.pointerId)) return;
+      handlePointerUp(event);
+    };
+    document.addEventListener('pointerup', onPointerUpCapture, true);
+    document.addEventListener('pointercancel', onPointerUpCapture, true);
+
     return () => {
       el.removeEventListener('pointerdown', handlePointerDown);
       el.removeEventListener('pointermove', handlePointerMove);
       el.removeEventListener('pointerup', handlePointerUp);
       el.removeEventListener('pointercancel', handlePointerUp);
+      document.removeEventListener('pointerup', onPointerUpCapture, true);
+      document.removeEventListener('pointercancel', onPointerUpCapture, true);
     };
   }, [disabled, containerRef, handlePointerDown, handlePointerMove, handlePointerUp]);
 
   // Wheel listener — registered separately so we can toggle passive flag.
   //
-  // Safari quirk: a non-passive wheel listener on an ancestor kills
-  // compositor-thread momentum scrolling in descendant scroll containers
-  // (e.g. Lightbox.Slides). Chrome/Firefox don't have this issue so
-  // non-passive is always safe there.
+  // Safari quirk: a non-passive wheel listener on an *ancestor* of a scroll
+  // container (Content → Slides) kills compositor-thread momentum scrolling.
+  // So on Safari we only go non-passive when zoomed (slides aren’t scrollable
+  // anyway) or scrollToZoom is on. Chrome/Firefox are fine either way.
   //
-  // On Safari, trackpad pinch-to-zoom is handled via GestureEvent (below),
-  // NOT via ctrlKey+wheel, so the wheel handler only needs non-passive
-  // when zoomed in (for pan preventDefault) or scrollToZoom is on.
+  // Prefer Content as the target so ctrl/trackpad zoom still receives events
+  // when the cursor sits in Slide chrome padding outside the Zoom box.
   const needsNonPassiveWheel = hasSafariGesturesRef.current
     ? currentZoom > 1 || config.scrollToZoom
     : true;
 
   React.useEffect(() => {
     if (disabled) return;
-    const el = containerRef.current;
+    // Prefer Content so zoom keeps receiving events in chrome padding outside Zoom.
+    const el = contentElementRef?.current ?? containerRef.current;
     if (!el) return;
 
-    el.addEventListener('wheel', handleWheel, { passive: !needsNonPassiveWheel });
+    // Capture so chrome siblings (filmstrip, buttons) can’t swallow the event
+    // before it bubbles — while zoomed those are usually inert/hidden anyway.
+    el.addEventListener('wheel', handleWheel, { passive: !needsNonPassiveWheel, capture: true });
 
     return () => {
-      el.removeEventListener('wheel', handleWheel);
+      el.removeEventListener('wheel', handleWheel, { capture: true } as EventListenerOptions);
     };
-  }, [disabled, containerRef, handleWheel, needsNonPassiveWheel]);
+  }, [disabled, contentElementRef, containerRef, handleWheel, needsNonPassiveWheel]);
 
-  // Safari trackpad pinch-to-zoom via GestureEvent.
+  // Safari *trackpad* pinch via GestureEvent on Content (full-bleed).
   //
-  // Safari fires gesturestart/gesturechange/gestureend for trackpad pinch
-  // gestures, with a `scale` property for the cumulative pinch factor.
-  // This is more reliable than ctrlKey+wheel on Safari and doesn't require
-  // a non-passive wheel listener (which would break momentum scrolling).
+  // Do NOT drive zoom from GestureEvent when the device has touch points
+  // (iPhone / iPad). `GestureEvent` exists there too and can fire for a
+  // second finger during an overflow scroll — long before `scroll` flips
+  // `navigationLockedRef` — which is the classic mobile Safari hijack.
+  // Touch pinch is handled by the pointer listeners above instead.
+  // Document-level handlers in Content still preventDefault native page zoom.
+  const useGestureEventZoom =
+    hasSafariGesturesRef.current &&
+    typeof navigator !== 'undefined' &&
+    navigator.maxTouchPoints === 0;
+
   React.useEffect(() => {
-    if (disabled || !hasSafariGesturesRef.current) return;
-    const el = containerRef.current;
+    if (disabled || !useGestureEventZoom) return;
+    const el = (contentElementRef ?? containerRef).current;
     if (!el) return;
 
     let initialZoom = 1;
@@ -548,7 +657,10 @@ function useZoomGestures(
     const onGestureChange = (e: Event) => {
       e.preventDefault();
       // Gesture never started (suppressed mid-scroll) — don't zoom.
-      if (!gestureActiveRef.current) return;
+      if (!gestureActiveRef.current || isScrollingRef?.current) {
+        gestureActiveRef.current = false;
+        return;
+      }
       const scale = (e as { scale?: number }).scale;
       if (typeof scale !== 'number') return;
       const target = initialZoom * scale;
@@ -572,7 +684,7 @@ function useZoomGestures(
       el.removeEventListener('gesturechange', onGestureChange);
       el.removeEventListener('gestureend', onGestureEnd);
     };
-  }, [disabled, containerRef, translateCoordinates, isScrollingRef]);
+  }, [disabled, containerRef, contentElementRef, translateCoordinates, isScrollingRef, useGestureEventZoom]);
 
   // Cleanup when disabled changes or component unmounts
   React.useEffect(() => {

@@ -663,7 +663,7 @@ function ProductLightbox({ product }: { product: Product }) {
         thumbnails="never"
         zoomControls={false}
         renderItem={() => (
-          <div className="flex size-full items-center justify-center px-0 pt-[calc(env(safe-area-inset-top,0px)+3.5rem)] pb-[calc(env(safe-area-inset-bottom,0px)+3.5rem)] md:px-8">
+          <div className="flex size-full items-center justify-center">
             <Lightbox.Media
               width={FRAME_SIZE}
               height={FRAME_SIZE}

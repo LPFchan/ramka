@@ -148,13 +148,60 @@ export function elasticClampSymmetric(value: number, max: number, factor = ELAST
 
 /**
  * Maximum pan offset (in pre-zoom px) for content of `contentSize` inside a
- * `containerSize` viewport at `zoom`. Zero when the content doesn't overflow.
+ * `containerSize` viewport at `zoom`, when content is centered in the viewport.
+ * Zero when the content doesn't overflow.
  */
 export function maxPanOffset(contentSize: number, containerSize: number, zoom: number): number {
   return Math.max((contentSize * zoom - containerSize) / 2 / zoom, 0);
 }
 
-/** Hard-clamp an offset pair to the pannable region for the given sizes/zoom. */
+/**
+ * Pan offset limits on one axis for `scale(zoom) translate(offset)` with origin
+ * at `stageCenter`, against a (possibly padded) `viewport`.
+ *
+ * When the Zoom stage is inset unevenly (e.g. taller bottom chrome), true cover
+ * against the real dialog is asymmetric — that is what makes every edge
+ * reachable without empty margin on the opposite side.
+ *
+ * Cover collapses to δ = (viewportCenter − stageCenter) / zoom at the fit
+ * threshold, not to rest `0`. While media still fits, we lock to a home offset
+ * that lerps `0 → δ` between `minZoom` and the fit zoom so crossing the
+ * threshold stays continuous (no mid-zoom teleport).
+ *
+ * - Fits → `{home,home}` (no pan; home is `0` at `minZoom`).
+ * - Overflows → true cover `[alignEnd, alignStart]`.
+ */
+export function panOffsetRange(
+  contentSize: number,
+  zoom: number,
+  viewportStart: number,
+  viewportEnd: number,
+  stageCenter: number,
+  minZoom = 1,
+): { min: number; max: number; overflows: boolean } {
+  if (zoom <= 0 || contentSize <= 0) {
+    return { min: 0, max: 0, overflows: false };
+  }
+
+  const viewportSize = viewportEnd - viewportStart;
+  const viewportCenter = (viewportStart + viewportEnd) / 2;
+  const alignStart = (viewportStart - stageCenter) / zoom + contentSize / 2;
+  const alignEnd = (viewportEnd - stageCenter) / zoom - contentSize / 2;
+
+  if (contentSize * zoom <= viewportSize + 0.5) {
+    const zoomFit = viewportSize / contentSize;
+    if (!(zoomFit > minZoom + 1e-6) || zoom <= minZoom + 1e-6) {
+      return { min: 0, max: 0, overflows: false };
+    }
+    const t = Math.min(1, Math.max(0, (zoom - minZoom) / (zoomFit - minZoom)));
+    const home = t * ((viewportCenter - stageCenter) / zoomFit);
+    return { min: home, max: home, overflows: false };
+  }
+
+  return { min: alignEnd, max: alignStart, overflows: true };
+}
+
+/** Hard-clamp an offset pair for a centered stage (symmetric ±max). */
 export function clampOffset(
   offsetX: number,
   offsetY: number,
@@ -169,6 +216,50 @@ export function clampOffset(
   return {
     x: Math.min(Math.abs(offsetX), maxX) * Math.sign(offsetX),
     y: Math.min(Math.abs(offsetY), maxY) * Math.sign(offsetY),
+  };
+}
+
+type RectLike = {
+  left: number;
+  top: number;
+  right: number;
+  bottom: number;
+  width: number;
+  height: number;
+};
+
+/** Clamp pan offsets against `viewport` with transform origin at `stage` center. */
+export function clampOffsetToViewport(
+  offsetX: number,
+  offsetY: number,
+  contentW: number,
+  contentH: number,
+  zoom: number,
+  viewport: RectLike,
+  stage: RectLike,
+  minZoom = 1,
+): { x: number; y: number; overflowsX: boolean; overflowsY: boolean } {
+  const xRange = panOffsetRange(
+    contentW,
+    zoom,
+    viewport.left,
+    viewport.right,
+    stage.left + stage.width / 2,
+    minZoom,
+  );
+  const yRange = panOffsetRange(
+    contentH,
+    zoom,
+    viewport.top,
+    viewport.bottom,
+    stage.top + stage.height / 2,
+    minZoom,
+  );
+  return {
+    x: clamp(offsetX, xRange.min, xRange.max),
+    y: clamp(offsetY, yRange.min, yRange.max),
+    overflowsX: xRange.overflows,
+    overflowsY: yRange.overflows,
   };
 }
 
@@ -205,6 +296,42 @@ export function computeMaxZoom(
  */
 export function focalOffset(currentOffset: number, focal: number, fromZoom: number, toZoom: number): number {
   return currentOffset + focal * (1 / toZoom - 1 / fromZoom);
+}
+
+/**
+ * Project a focal zoom step onto the feasible pan set at the target zoom.
+ *
+ * Always honors `targetZoom` (caller clamps/elastic-bounds it). Offset is the
+ * unconstrained focal result clamped into `range*` — the nearest feasible pan
+ * at that zoom. When the cursor sits past a cover edge, the image may slip off
+ * the focal point, but scale never stalls at the boundary.
+ */
+export function projectFocalZoom(
+  currentZoom: number,
+  currentOffsetX: number,
+  currentOffsetY: number,
+  targetZoom: number,
+  focalX: number,
+  focalY: number,
+  rangeX: { min: number; max: number },
+  rangeY: { min: number; max: number },
+): { zoom: number; offsetX: number; offsetY: number } {
+  if (!(targetZoom > 0) || !(currentZoom > 0)) {
+    return { zoom: currentZoom, offsetX: currentOffsetX, offsetY: currentOffsetY };
+  }
+  return {
+    zoom: targetZoom,
+    offsetX: clamp(
+      focalOffset(currentOffsetX, focalX, currentZoom, targetZoom),
+      rangeX.min,
+      rangeX.max,
+    ),
+    offsetY: clamp(
+      focalOffset(currentOffsetY, focalY, currentZoom, targetZoom),
+      rangeY.min,
+      rangeY.max,
+    ),
+  };
 }
 
 /** Pinch target zoom from the initial pinch (zoom + finger distance) and the current finger distance. */

@@ -4,16 +4,20 @@ import { mergeProps, useRender } from '@base-ui/react';
 import * as React from 'react';
 
 /**
- * `Lightbox.Slide` — one full-viewport-wide snap box inside `Lightbox.Slides`.
+ * `Lightbox.Slide` — one snap box inside `Lightbox.Slides`.
  *
  * It is the scroll child that the native snap engine positions, so it carries
  * the snap contract (`flex: 0 0 100%`, `scroll-snap-align: center`,
- * `scroll-snap-stop: always`) and the `data-ramka-slide` marker that
- * `Lightbox.Slides` measures for its offset-based geometry.
+ * `scroll-snap-stop: always`, `overflow: visible`) and the `data-ramka-slide`
+ * marker that `Lightbox.Slides` measures for its offset-based geometry. Override
+ * `flex` / `minWidth` / width via `style` when slides should hug media instead of
+ * spanning the viewport (geometry stores per-slide snap offsets either way).
  *
  * Put a `Lightbox.Item` *inside* the slide (not the slide itself): pull-to-dismiss
  * transforms the item, and keeping that transform off the snap box means the
- * scroll layout never shifts mid-gesture.
+ * scroll layout never shifts mid-gesture. Prefer resting chrome / safe-area
+ * insets as padding on this element (not on Zoom) so Item/Zoom fill the content
+ * box and zoomed media can paint into the pad under chrome.
  *
  * ```tsx
  * <Lightbox.Slides>
@@ -50,6 +54,11 @@ const LightboxSlide = React.forwardRef<HTMLDivElement, LightboxSlideProps>(
             minWidth: '100%',
             scrollSnapAlign: 'center',
             scrollSnapStop: 'always',
+            // Snap box only — allow a scrollport-sized Item/Zoom stage (and
+            // zoomed media) to paint outside the card without clipping.
+            overflow: 'visible',
+            // Containing block for absolute scrollport-fill stages in snug chrome.
+            position: 'relative',
             ...style,
           },
         } as React.ComponentPropsWithRef<'div'>,

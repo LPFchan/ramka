@@ -27,6 +27,15 @@ export enum LightboxContentCssVars {
    * @type string
    */
   pullSnapEasing = '--lightbox-pull-snap-easing',
+  /**
+   * 0 at 1× → 1 once zoom has risen by 1× above min (e.g. 2× when min is 1).
+   * Written by the active `Lightbox.Zoom` from the *visual* scale (live WAAPI
+   * transform while a discrete zoom animates; React zoom otherwise). Cleared
+   * when zoom returns to rest. Drive sibling dim/blur from this, e.g.
+   * `filter: opacity(calc(1 - var(--lightbox-zoom-progress, 0))) blur(calc(var(--lightbox-zoom-progress, 0) * 6px))`.
+   * @type number
+   */
+  zoomProgress = '--lightbox-zoom-progress',
 }
 
 export enum LightboxBackdropCssVars {
@@ -68,4 +77,13 @@ export enum LightboxDocumentCssVars {
    * @type number
    */
   morphNewOpacity = '--lightbox-morph-new-opacity',
+}
+
+export enum LightboxFilmstripCssVars {
+  /**
+   * End `translateX` travel for the scroll link (typically a negative px length
+   * spanning `(itemCount - 1) * thumbStep`). Set on the FilmstripTrack.
+   * @type string
+   */
+  travel = '--lightbox-filmstrip-travel',
 }

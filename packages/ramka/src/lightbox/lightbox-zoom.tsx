@@ -5,15 +5,15 @@ import * as React from 'react';
 
 import {
   clamp,
-  clampOffset,
+  clampOffsetToViewport,
   computeMaxZoom,
   elasticClamp,
-  elasticClampSymmetric,
-  focalOffset,
-  maxPanOffset,
+  panOffsetRange,
+  projectFocalZoom,
   round,
 } from './gesture-math';
 import { triggerHaptic } from './haptics';
+import { LightboxContentCssVars } from './lightbox-css-vars';
 import { useLightboxContext } from './lightbox-context';
 import { useOptionalLightboxItemContext } from './lightbox-item';
 import {
@@ -43,14 +43,18 @@ interface LightboxZoomState extends Record<string, unknown> {
 /**
  * `Lightbox.Zoom` is a headless zoom/pan surface. Like the other primitives it
  * follows the `render` + `data-*` model: it renders a single element (a `div`
- * by default, override via `render`) that clips its content and captures
- * pointer/wheel/gesture input. State is exposed as attributes on that element —
- * `data-zoom` while scaled past 1x and `data-dragging` while panning — so
- * consumers can style purely through CSS.
+ * by default, override via `render`) that captures pointer/wheel/gesture input.
+ * State is exposed as attributes on that element — `data-zoom` while scaled
+ * past 1x and `data-dragging` while panning — so consumers can style purely
+ * through CSS.
  *
- * Structurally, Zoom is also a CSS size container (`container-type: size`) so
- * nested `Lightbox.Media` fit-box units (`cqw` / `cqh`) resolve against the
- * zoom surface. Cosmetics (padding, flex centering, colors) stay consumer-owned.
+ * Structurally, Zoom fills its host (`width`/`height: 100%`, `position: relative`)
+ * and is a CSS size container so nested `Lightbox.Media` fit-box units
+ * (`cqw` / `cqh`) resolve against Zoom’s padding box. It does **not** set
+ * `overflow` — clipping belongs on Content / consumer chrome so zoomed media
+ * can paint outside the resting box. Prefer chrome / safe-area insets as
+ * padding on `Lightbox.Slide` (not Zoom) so this surface fills the content box.
+ * Other cosmetics (colors) stay consumer-owned.
  *
  * The zoom transform is applied to an internal wrapper element that is not
  * consumer-configurable; pass your (typically `<img>`) content as `children`.
@@ -128,6 +132,26 @@ const SNAP_OPTS = { duration: 180, easing: 'cubic-bezier(0.25, 1, 0.5, 1)' } as 
 // overshoot would spring the scale *past* the min/max bound (a zoom overflow),
 // which is exactly what we avoid.
 const ZOOM_SNAP_OPTS = { duration: 260, easing: 'cubic-bezier(0.22, 1, 0.36, 1)' } as const;
+
+/** Uniform scale from a computed `transform` (WAAPI mid-flight or resting). */
+function uniformScaleFromTransform(transform: string): number | null {
+  if (!transform || transform === 'none') return null;
+  try {
+    const m = new DOMMatrixReadOnly(transform);
+    return Math.hypot(m.a, m.b);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Map a live zoom scale to 0→1 progress for `--lightbox-zoom-progress`.
+ * Hits 1 after +1× above `minZoom` (e.g. at 2× when min is 1).
+ */
+function zoomProgressFromScale(scale: number, minZoom: number, maxZoom: number): number {
+  const range = Math.max(0.01, Math.min(maxZoom, minZoom + 1) - minZoom);
+  return Math.min(1, Math.max(0, (scale - minZoom) / range));
+}
 const MOMENTUM_OPTS = { duration: 600, easing: 'cubic-bezier(0.33, 1, 0.68, 1)' } as const;
 
 // ---------------------------------------------------------------------------
@@ -257,7 +281,7 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
     }, [zoom]);
 
     // ----- Offset clamping -----
-    const resolveContentSize = React.useCallback((containerRect: DOMRect) => {
+    const resolveContentSize = React.useCallback((fallbackRect: DOMRect) => {
       const wrapper = wrapperRef.current;
       if (wrapper) {
         // Prefer Lightbox.Media (sized morph / content host) over a raw <img>.
@@ -271,28 +295,51 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
           return { w: img.offsetWidth, h: img.offsetHeight };
         }
       }
-      return { w: containerRect.width, h: containerRect.height };
+      return { w: fallbackRect.width, h: fallbackRect.height };
     }, []);
+
+    /**
+     * Pan viewport = Content (dialog). Stage = Zoom (transform origin).
+     * Uneven Slide padding makes those centers differ — true cover against the
+     * dialog is required so every edge is reachable. `panOffsetRange` keeps the
+     * fit→overflow crossing continuous via a home offset lerp toward δ.
+     */
+    const measurePanGeometry = React.useCallback(
+      (z: number) => {
+        const stage = containerRef.current?.getBoundingClientRect() ?? null;
+        if (!stage) return null;
+        const viewport = dialogElementRef.current?.getBoundingClientRect() ?? stage;
+        const { w: contentW, h: contentH } = resolveContentSize(stage);
+        const cx = stage.left + stage.width / 2;
+        const cy = stage.top + stage.height / 2;
+        return {
+          viewport,
+          stage,
+          contentW,
+          contentH,
+          x: panOffsetRange(contentW, z, viewport.left, viewport.right, cx, minZoom),
+          y: panOffsetRange(contentH, z, viewport.top, viewport.bottom, cy, minZoom),
+        };
+      },
+      [resolveContentSize, dialogElementRef, minZoom],
+    );
 
     const clampOffsets = React.useCallback(
       (newOffsetX: number, newOffsetY: number, newZoom: number) => {
-        const el = containerRef.current;
-        if (!el) return { x: 0, y: 0 };
-
-        const containerRect = el.getBoundingClientRect();
-        const { w: contentW, h: contentH } = resolveContentSize(containerRect);
-
-        return clampOffset(
+        const geo = measurePanGeometry(newZoom);
+        if (!geo) return { x: 0, y: 0 };
+        return clampOffsetToViewport(
           newOffsetX,
           newOffsetY,
-          contentW,
-          contentH,
-          containerRect.width,
-          containerRect.height,
+          geo.contentW,
+          geo.contentH,
           newZoom,
+          geo.viewport,
+          geo.stage,
+          minZoom,
         );
       },
-      [resolveContentSize],
+      [measurePanGeometry, minZoom],
     );
 
     // ----- Core actions -----
@@ -304,25 +351,73 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
       animationDuration,
     );
 
-    // ----- Sync data-zoomed attribute on Content element -----
-    // Only the active slide writes this attribute, so it has a single writer
-    // and never fights with preloaded (inactive) siblings.
+    // ----- Sync data-zoomed + --lightbox-zoom-progress on Content -----
+    // Only the active slide writes these, so they have a single writer and
+    // never fight with preloaded (inactive) siblings.
     //
-    // React `zoom` commits immediately on double-tap reset, but the visual
-    // transform still animates for `animationDuration`. Keep `data-zoomed`
-    // set while that WAAPI transition is in flight so chrome that hides on
-    // `[data-zoomed]` (close button, captions) doesn't flash back early.
-    // Addition is eager; removal waits until `isAnimating` is false.
+    // Continuous gestures (pinch/scroll) update React `zoom` every frame — publish
+    // from that. Discrete zooms (double-tap) commit `zoom` immediately while WAAPI
+    // animates the transform, so while `isAnimating` we sample the live scale from
+    // the wrapper each frame and publish that — sibling filter/blur stays locked
+    // to what the user sees. Progress hits 1 after +1× above minZoom.
+    //
+    // `holdZoomedChromeRef`: once progress has been > 0, keep `data-zoomed` through
+    // the rest of a zoom-out WAAPI so chrome doesn’t flash early. Do *not* set it
+    // for every animation — under-min / pan snap-back also animate and must leave
+    // chrome visible.
+    const holdZoomedChromeRef = React.useRef(false);
     React.useEffect(() => {
-      if (!isActive) return;
+      if (!isActive) {
+        holdZoomedChromeRef.current = false;
+        return;
+      }
       const el = dialogElementRef.current;
       if (!el) return;
-      if (zoom > minZoom) {
-        el.setAttribute('data-zoomed', '');
-      } else if (!isAnimating) {
-        el.removeAttribute('data-zoomed');
+      const progressVar = LightboxContentCssVars.zoomProgress;
+
+      const publish = (scale: number) => {
+        const progress = zoomProgressFromScale(scale, minZoom, maxZoom);
+        // Discrete zoomTo commits React `zoom` before WAAPI moves the wrapper.
+        // Treat committed zoom as zoomed too so `data-zoomed` doesn’t clear on
+        // the first animated frames of a zoom-in (live scale still ≈ minZoom).
+        const committedProgress = zoomProgressFromScale(zoom, minZoom, maxZoom);
+        if (progress > 0 || committedProgress > 0) {
+          holdZoomedChromeRef.current = true;
+          el.setAttribute('data-zoomed', '');
+          el.style.setProperty(progressVar, String(progress));
+        } else if (isAnimating && holdZoomedChromeRef.current) {
+          // Finishing a real zoom-out — keep chrome hidden until settle.
+          el.setAttribute('data-zoomed', '');
+          el.style.setProperty(progressVar, '0');
+        } else {
+          holdZoomedChromeRef.current = false;
+          el.removeAttribute('data-zoomed');
+          el.style.removeProperty(progressVar);
+        }
+      };
+
+      if (!isAnimating) {
+        publish(zoom);
+        return;
       }
-    }, [isActive, zoom, minZoom, isAnimating, dialogElementRef]);
+
+      // Publish committed zoom immediately — RAF sampling of the live WAAPI
+      // transform starts on the next frame, which is too late for sync callers
+      // (and would leave `data-zoomed` unset for a frame on zoom-in).
+      publish(zoom);
+
+      let raf = 0;
+      const tick = () => {
+        const wrapper = wrapperRef.current;
+        const live = wrapper
+          ? uniformScaleFromTransform(getComputedStyle(wrapper).transform)
+          : null;
+        publish(live ?? zoom);
+        raf = requestAnimationFrame(tick);
+      };
+      raf = requestAnimationFrame(tick);
+      return () => cancelAnimationFrame(raf);
+    }, [isActive, zoom, minZoom, maxZoom, isAnimating, dialogElementRef]);
 
     const offsetXRef = React.useRef(offsetX);
     offsetXRef.current = offsetX;
@@ -336,45 +431,39 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
     const rawOffsetY = React.useRef(0);
     const isElasticDrag = React.useRef(false);
 
-    const getMaxOffsets = React.useCallback(
-      (z: number) => {
-        const el = containerRef.current;
-        if (!el) return { maxX: 0, maxY: 0 };
-        const rect = el.getBoundingClientRect();
-        const { w: cw, h: ch } = resolveContentSize(rect);
-        return {
-          maxX: maxPanOffset(cw, rect.width, z),
-          maxY: maxPanOffset(ch, rect.height, z),
-        };
-      },
-      [resolveContentSize],
-    );
-
     const changeOffsetsAction = React.useCallback(
       (dx: number, dy: number, overscroll?: boolean) => {
+        const z = zoomRef.current;
+        const geo = measurePanGeometry(z);
+        if (!geo) return;
+        const { x, y } = geo;
+        // Still fits the screen — no dragging (keeps letterbox stable).
+        if (!x.overflows && !y.overflows) return;
+
         if (overscroll) {
           if (!isElasticDrag.current) {
             isElasticDrag.current = true;
             rawOffsetX.current = offsetXRef.current;
             rawOffsetY.current = offsetYRef.current;
           }
-          rawOffsetX.current -= dx;
-          rawOffsetY.current -= dy;
-          const { maxX, maxY } = getMaxOffsets(zoomRef.current);
-          setOffsetX(elasticClampSymmetric(rawOffsetX.current, maxX));
-          setOffsetY(elasticClampSymmetric(rawOffsetY.current, maxY));
+          if (x.overflows) rawOffsetX.current -= dx;
+          if (y.overflows) rawOffsetY.current -= dy;
+          setOffsetX(x.overflows ? elasticClamp(rawOffsetX.current, x.min, x.max) : offsetXRef.current);
+          setOffsetY(y.overflows ? elasticClamp(rawOffsetY.current, y.min, y.max) : offsetYRef.current);
         } else {
-          const clamped = clampOffsets(offsetXRef.current - dx, offsetYRef.current - dy, zoomRef.current);
-          setOffsetX(clamped.x);
-          setOffsetY(clamped.y);
+          const nextX = x.overflows ? offsetXRef.current - dx : offsetXRef.current;
+          const nextY = y.overflows ? offsetYRef.current - dy : offsetYRef.current;
+          const clamped = clampOffsets(nextX, nextY, z);
+          setOffsetX(x.overflows ? clamped.x : offsetXRef.current);
+          setOffsetY(y.overflows ? clamped.y : offsetYRef.current);
         }
       },
-      [clampOffsets, getMaxOffsets],
+      [clampOffsets, measurePanGeometry],
     );
 
     const changeZoomAction = React.useCallback(
       (target: number, rapid: boolean, dx?: number, dy?: number, overscroll?: boolean) => {
-        const clamped = round(
+        const nextZoom = round(
           overscroll ? elasticClamp(target, minZoom, maxZoom) : clamp(target, minZoom, maxZoom),
           5,
         );
@@ -382,24 +471,34 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
         if (!rapid) captureStart();
 
         const currentZoom = zoomRef.current;
-        const currentOffX = offsetXRef.current;
-        const currentOffY = offsetYRef.current;
-
         if (dx !== undefined && dy !== undefined) {
-          const newOffX = focalOffset(currentOffX, dx, currentZoom, clamped);
-          const newOffY = focalOffset(currentOffY, dy, currentZoom, clamped);
-          const offsets = clampOffsets(newOffX, newOffY, clamped);
-          setOffsetX(offsets.x);
-          setOffsetY(offsets.y);
-        } else {
-          const offsets = clampOffsets(currentOffX, currentOffY, clamped);
-          setOffsetX(offsets.x);
-          setOffsetY(offsets.y);
+          // Project onto the feasible pan set at nextZoom so scale always
+          // advances even when the cursor sits past a cover edge.
+          const geo = measurePanGeometry(nextZoom);
+          if (geo) {
+            const projected = projectFocalZoom(
+              currentZoom,
+              offsetXRef.current,
+              offsetYRef.current,
+              nextZoom,
+              dx,
+              dy,
+              geo.x,
+              geo.y,
+            );
+            setOffsetX(projected.offsetX);
+            setOffsetY(projected.offsetY);
+            setZoom(projected.zoom);
+            return;
+          }
         }
 
-        setZoom(clamped);
+        const offsets = clampOffsets(offsetXRef.current, offsetYRef.current, nextZoom);
+        setOffsetX(offsets.x);
+        setOffsetY(offsets.y);
+        setZoom(nextZoom);
       },
-      [minZoom, maxZoom, clampOffsets, captureStart],
+      [minZoom, maxZoom, clampOffsets, captureStart, measurePanGeometry],
     );
 
     const zoomInAction = React.useCallback(() => {
@@ -448,13 +547,17 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
     const momentumPanAction = React.useCallback(
       (targetX: number, targetY: number) => {
         isElasticDrag.current = false;
+        const geo = measurePanGeometry(zoomRef.current);
+        if (!geo || (!geo.x.overflows && !geo.y.overflows)) return;
         const clamped = clampOffsets(targetX, targetY, zoomRef.current);
-        if (clamped.x === offsetXRef.current && clamped.y === offsetYRef.current) return;
+        const nextX = geo.x.overflows ? clamped.x : offsetXRef.current;
+        const nextY = geo.y.overflows ? clamped.y : offsetYRef.current;
+        if (nextX === offsetXRef.current && nextY === offsetYRef.current) return;
         captureStart(MOMENTUM_OPTS);
-        setOffsetX(clamped.x);
-        setOffsetY(clamped.y);
+        setOffsetX(nextX);
+        setOffsetY(nextY);
       },
-      [clampOffsets, captureStart],
+      [clampOffsets, captureStart, measurePanGeometry],
     );
 
     // ----- Gesture hook -----
@@ -494,7 +597,18 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
       [zoomInAction, zoomOutAction, changeZoomAction, changeOffsetsAction, snapToBoundsAction, snapOffsetsToBoundsAction, momentumPanAction],
     );
 
-    useZoomGestures(containerRef, wrapperRef, gestureConfig, gestureActions, false, dialogElementRef, zoom, navigationLockedRef);
+    // Only the active slide owns Content-level wheel/gesture listeners so
+    // preloaded siblings don’t all fight over the same dialog host.
+    useZoomGestures(
+      containerRef,
+      wrapperRef,
+      gestureConfig,
+      gestureActions,
+      !isActive,
+      dialogElementRef,
+      zoom,
+      navigationLockedRef,
+    );
 
     // ----- Imperative ref -----
     React.useImperativeHandle(
@@ -596,7 +710,6 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
       props: mergeProps<'div'>(
         {
           style: {
-            overflow: 'hidden',
             position: 'relative',
             width: '100%',
             height: '100%',

@@ -8,7 +8,7 @@ declare const height: number;
 /**
  * Fill Content → Slides → Slide → Item → Zoom → Media. Media `width`/`height`
  * apply the structural inscribed fit-box (cosmetics like radius stay on className).
- * Resting chrome insets belong on Zoom padding.
+ * Resting chrome insets belong on Slide padding.
  *
  * @docsExcerpt media-fit-box
  * @docsExcerptTitle Media fill + fit-box
@@ -20,10 +20,10 @@ export function MediaFitBoxExcerpt() {
         <Lightbox.Backdrop />
         <Lightbox.Content className="fixed inset-0 flex flex-col">
           <Lightbox.Slides className="flex-1">
-            <Lightbox.Slide className="h-full">
-              <Lightbox.Item index={0} className="size-full">
-                {/* Zoom fills + size-contains; pad Zoom for chrome insets. */}
-                <Lightbox.Zoom className="p-8">
+            <Lightbox.Slide className="h-full p-8">
+              <Lightbox.Item index={0}>
+                {/* Zoom fills the Slide content box; pad the Slide for chrome insets. */}
+                <Lightbox.Zoom>
                   <Lightbox.Media width={width} height={height}>
                     <img width={width} height={height} src={src} alt={alt} />
                   </Lightbox.Media>

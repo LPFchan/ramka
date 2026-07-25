@@ -1,0 +1,32 @@
+/**
+ * Snug slides track + responsive slide width.
+ *
+ * Mobile (< md): full scrollport width like bleed (overrides chrome inline
+ * width). End spacers off. Filmstrip hidden — same bottom inset as other demos.
+ *
+ * Desktop (md+): aspect width from chrome inline style; half-scrollport
+ * ::before/::after for center snap; flex gap between cards.
+ */
+
+.lightbox-demo-slides-snug {
+  --lightbox-snug-gap: 1.25rem;
+  gap: var(--lightbox-snug-gap);
+}
+
+@media (max-width: 767px) {
+  /* Beat Slide’s / chrome’s inline flex + width so snaps are full-bleed. */
+  .lightbox-demo-content-snug .lightbox-demo-slide-snug {
+    flex: 0 0 100% !important;
+    min-width: 100% !important;
+    width: 100% !important;
+  }
+}
+
+@media (min-width: 768px) {
+  .lightbox-demo-slides-snug::before,
+  .lightbox-demo-slides-snug::after {
+    content: '';
+    flex: 0 0 50%;
+    pointer-events: none;
+  }
+}

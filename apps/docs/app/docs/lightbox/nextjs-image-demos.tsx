@@ -21,9 +21,6 @@ const LOAD_DELAY_MS = 500;
 /** Static GitHub Pages export has no route handlers — skip the delay proxy there. */
 const USE_SLOW_PROXY = process.env.NEXT_PUBLIC_GITHUB_PAGES !== 'true';
 
-const ZOOM_PAD =
-  'px-0 pt-[calc(env(safe-area-inset-top,0px)+3.5rem)] pb-[calc(env(safe-area-inset-bottom,0px)+3.5rem)] md:px-8 md:pt-[calc(env(safe-area-inset-top,0px)+3.5rem)] md:pb-[calc(env(safe-area-inset-bottom,0px)+7.5rem)]';
-
 type DemoKind = 'do' | 'dont';
 
 function demoPhoto(kind: DemoKind): StaticImageData {
@@ -97,7 +94,7 @@ function NextImageDemo({ kind }: { kind: DemoKind }) {
         thumbnails="never"
         zoomControls={false}
         renderItem={(item) => (
-          <Lightbox.Zoom className={ZOOM_PAD}>
+          <Lightbox.Zoom>
             <Lightbox.Media
               width={photo.width}
               height={photo.height}
@@ -182,7 +179,7 @@ export function NextjsImagePlusNDemo() {
             // Only overflow indexes lack a trigger imageRef.
             const destinationBlur = index >= visible;
             return (
-              <Lightbox.Zoom className={ZOOM_PAD}>
+              <Lightbox.Zoom>
                 <Lightbox.Media
                   width={photo.width}
                   height={photo.height}
@@ -253,7 +250,7 @@ export function NextjsImageNonImageTriggerDemo() {
           renderItem={(item, index) => {
             const photo = team[index]!.photo;
             return (
-              <Lightbox.Zoom className={ZOOM_PAD}>
+              <Lightbox.Zoom>
                 <Lightbox.Media
                   width={photo.width}
                   height={photo.height}
