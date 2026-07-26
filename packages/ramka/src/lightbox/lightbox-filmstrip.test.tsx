@@ -321,9 +321,11 @@ describe('Lightbox.Filmstrip', () => {
     expect(link!.keyframes[1]).toMatchObject({
       transform: `translate3d(${-travel}px, 0, 0)`,
     });
+    // Firefox requires a non-zero duration for ScrollTimeline effects to apply.
+    expect(link!.anim.effect?.options).toMatchObject({ duration: 1, fill: 'both' });
   });
 
-  it('thumb click cancels the ScrollTimeline link during scrub, then rearms it', async () => {
+  it('thumb click cancels the ScrollTimeline link and finishes on the JS scroll mirror', async () => {
     enableScrollTimeline();
 
     const scrubPause = vi.fn();
@@ -349,7 +351,9 @@ describe('Lightbox.Filmstrip', () => {
     render(<Gallery count={5} />);
     const slides = screen.getByTestId('slides');
     setupSlidesGeometry(slides, 5);
+    const root = screen.getByTestId('filmstrip');
     const track = screen.getByTestId('filmstrip-track');
+    setupFilmstripRoot(root);
     setupThumbGeometry(track, 5);
     endScroll(slides);
 
@@ -373,9 +377,10 @@ describe('Lightbox.Filmstrip', () => {
     expect(elementAnimate).toHaveBeenCalled();
     expect(scrubPause).toHaveBeenCalled();
     expect(scrubPlay).toHaveBeenCalled();
-    // Handoff rebuilds a fresh scroll link under the scrub fill.
-    expect(linkCalls.length).toBeGreaterThan(linksBefore);
-    expect(linkCalls.at(-1)!.anim.play).toHaveBeenCalled();
+    // After scrub we stay on the JS mirror — re-arming ScrollTimeline after a
+    // programmatic jump leaves Firefox at progress 0 (first thumb).
+    expect(linkCalls.length).toBe(linksBefore);
+    expect(readTranslateX(track)).toBeCloseTo(-3 * THUMB_STEP, 5);
   });
 
   it('wrapSelectCommit can wrap the active-index commit', async () => {

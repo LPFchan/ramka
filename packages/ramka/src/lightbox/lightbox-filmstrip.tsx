@@ -143,6 +143,14 @@ const LightboxFilmstrip = React.forwardRef<HTMLDivElement, LightboxFilmstripProp
     const scrubAnimRef = React.useRef<Animation | null>(null);
     /** True from scrub arm through scroll-link handoff (blocks attach / RO rebuild). */
     const scrubHoldRef = React.useRef(false);
+    /**
+     * After a thumb scrub, prefer the JS scroll mirror. Re-arming ScrollTimeline
+     * post–programmatic `scrollLeft` can leave Firefox at progress 0 (first thumb)
+     * once the DocumentTimeline scrub fill is dropped — the inline pin masked that
+     * in our earlier handoff check.
+     */
+    const jsSyncOnlyRef = React.useRef(false);
+    const reattachRef = React.useRef<(() => void) | null>(null);
     const rafRef = React.useRef(0);
     const syncFromScrollRef = React.useRef<(() => void) | null>(null);
     const usesScrollTimelineRef = React.useRef(false);
@@ -246,7 +254,13 @@ const LightboxFilmstrip = React.forwardRef<HTMLDivElement, LightboxFilmstripProp
       const geometry = slidesGeometryRef.current;
       // ScrollTimeline progress is linear in scroll distance; variable-width
       // (snug) tracks need index-linear JS sync via slidesScrollProgress.
-      if (!track || !slides || !ScrollTimeline || !slidesGeometryIsUniform(geometry)) {
+      if (
+        jsSyncOnlyRef.current ||
+        !track ||
+        !slides ||
+        !ScrollTimeline ||
+        !slidesGeometryIsUniform(geometry)
+      ) {
         usesScrollTimelineRef.current = false;
         return false;
       }
@@ -271,7 +285,10 @@ const LightboxFilmstrip = React.forwardRef<HTMLDivElement, LightboxFilmstripProp
           { transform: 'translate3d(0px, 0, 0)' },
           { transform: `translate3d(${-travel}px, 0, 0)` },
         ],
-        { fill: 'both', easing: 'linear' },
+        // `duration` is ignored for scroll progress, but Firefox will not apply
+        // a ScrollTimeline effect when duration is missing / 0 — after a thumb
+        // scrub drops its fill:forwards, the track then sits at keyframe 0.
+        { duration: 1, fill: 'both', easing: 'linear' },
       );
       const link = new Animation(effect, timeline);
       link.play();
@@ -284,6 +301,7 @@ const LightboxFilmstrip = React.forwardRef<HTMLDivElement, LightboxFilmstripProp
     React.useLayoutEffect(() => {
       let detach: (() => void) | undefined;
       syncFromScrollRef.current = syncNow;
+      jsSyncOnlyRef.current = false;
 
       const attach = () => {
         // Never tear down / rebuild the scroll link while a thumb scrub owns
@@ -305,6 +323,10 @@ const LightboxFilmstrip = React.forwardRef<HTMLDivElement, LightboxFilmstripProp
           const ro = new ResizeObserver(() => {
             if (scrubHoldRef.current || scrubAnimRef.current) return;
             measureThumbs();
+            if (jsSyncOnlyRef.current) {
+              syncNow();
+              return;
+            }
             startLinkAnimation();
           });
           ro.observe(track);
@@ -338,14 +360,17 @@ const LightboxFilmstrip = React.forwardRef<HTMLDivElement, LightboxFilmstripProp
         };
       };
 
+      reattachRef.current = attach;
       attach();
       const unsubscribe = subscribeSlidesViewport(attach);
 
       return () => {
         unsubscribe();
         detach?.();
+        reattachRef.current = null;
         syncFromScrollRef.current = null;
         scrubHoldRef.current = false;
+        jsSyncOnlyRef.current = false;
         scrubAnimRef.current?.cancel();
         scrubAnimRef.current = null;
         linkAnimRef.current?.cancel();
@@ -433,40 +458,29 @@ const LightboxFilmstrip = React.forwardRef<HTMLDivElement, LightboxFilmstripProp
 
           const releaseToScrollLink = () => {
             if (scrubAnimRef.current !== scrubAnim) return;
-            track.style.transform = `translate3d(${toX}px, 0, 0)`;
             try {
               scrubAnim.commitStyles();
             } catch {
               /* commitStyles can throw if the effect was already cleared */
             }
-
-            // Keep the DocumentTimeline scrub on the stack (fill:forwards) while
-            // arming a new ScrollTimeline underneath. Safari often paints
-            // keyframe 0 on a fresh scroll link — the scrub hides that frame.
+            scrubAnim.cancel();
             scrubAnimRef.current = null;
-            const armed = startLinkAnimation();
-            const liveLink = linkAnimRef.current;
 
-            const dropScrub = () => {
-              // A newer scrub took over — leave its hold/animation alone.
-              if (scrubAnimRef.current) return;
-              scrubAnim.cancel();
-              track.style.removeProperty('transform');
-              scrubHoldRef.current = false;
-              setScrubbing(false);
-            };
+            // Do not rebuild ScrollTimeline here. After a programmatic Slides
+            // jump, Firefox often keeps a fresh scroll link at progress 0; when
+            // the scrub fill is cleared the track snaps to the first thumb.
+            // (An inline pin also made "is ST correct?" checks always pass.)
+            linkAnimRef.current?.cancel();
+            linkAnimRef.current = null;
+            usesScrollTimelineRef.current = false;
+            jsSyncOnlyRef.current = true;
 
-            if (armed && liveLink) {
-              void liveLink.ready.then(() => {
-                requestAnimationFrame(() => {
-                  requestAnimationFrame(dropScrub);
-                });
-              });
-              return;
-            }
-
+            track.style.transform = `translate3d(${toX}px, 0, 0)`;
             syncFromScrollRef.current?.();
-            dropScrub();
+            scrubHoldRef.current = false;
+            setScrubbing(false);
+            // Attach the JS scroll mirror (ST path has no scroll listener).
+            reattachRef.current?.();
           };
 
           void scrubAnim.finished.then(
@@ -479,9 +493,14 @@ const LightboxFilmstrip = React.forwardRef<HTMLDivElement, LightboxFilmstripProp
               track.style.transform = `translate3d(${toX}px, 0, 0)`;
               scrubAnim.cancel();
               scrubAnimRef.current = null;
-              if (!startLinkAnimation()) syncFromScrollRef.current?.();
+              linkAnimRef.current?.cancel();
+              linkAnimRef.current = null;
+              usesScrollTimelineRef.current = false;
+              jsSyncOnlyRef.current = true;
+              syncFromScrollRef.current?.();
               scrubHoldRef.current = false;
               setScrubbing(false);
+              reattachRef.current?.();
             },
           );
         }
@@ -510,7 +529,6 @@ const LightboxFilmstrip = React.forwardRef<HTMLDivElement, LightboxFilmstripProp
         setActiveIndex,
         navigationLockedRef,
         slidesViewportRef,
-        startLinkAnimation,
       ],
     );
 
