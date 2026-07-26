@@ -141,6 +141,8 @@ const LightboxFilmstrip = React.forwardRef<HTMLDivElement, LightboxFilmstripProp
     const thumbStepRef = React.useRef(0);
     const linkAnimRef = React.useRef<Animation | null>(null);
     const scrubAnimRef = React.useRef<Animation | null>(null);
+    /** True from scrub arm through scroll-link handoff (blocks attach / RO rebuild). */
+    const scrubHoldRef = React.useRef(false);
     const rafRef = React.useRef(0);
     const syncFromScrollRef = React.useRef<(() => void) | null>(null);
     const usesScrollTimelineRef = React.useRef(false);
@@ -230,9 +232,12 @@ const LightboxFilmstrip = React.forwardRef<HTMLDivElement, LightboxFilmstripProp
     }, [syncNow]);
 
     /**
-     * Native Slides→track link via ScrollTimeline. Kept alive across thumb
-     * scrubs — pause/play only — so Safari never flashes keyframe 0 from
-     * cancel/recreate.
+     * Native Slides→track link via ScrollTimeline.
+     *
+     * Thumb scrubs *cancel* this link (not pause): a paused ScrollTimeline still
+     * retargets on the Slides jump and can win a frame over the DocumentTimeline
+     * scrub — the whole strip flashes to the destination, then the scrub restarts.
+     * On scrub end we rebuild underneath the still-filling scrub, then drop it.
      */
     const startLinkAnimation = React.useCallback(() => {
       const track = trackRef.current;
@@ -249,9 +254,13 @@ const LightboxFilmstrip = React.forwardRef<HTMLDivElement, LightboxFilmstripProp
       const keepPaused =
         scrubAnimRef.current != null || linkAnimRef.current?.playState === 'paused';
 
+      // Pin the live translate before cancel — covers the gap until the new
+      // effect is on the stack (scrub fill:forwards may already own transform).
+      const pinnedX = readComputedTranslateX(track);
+      track.style.transform = `translate3d(${pinnedX}px, 0, 0)`;
+
       linkAnimRef.current?.cancel();
       linkAnimRef.current = null;
-      track.style.removeProperty('transform');
       track.style.removeProperty('animation');
 
       const travel = Math.max(0, geometry.count - 1) * thumbStepRef.current;
@@ -277,6 +286,11 @@ const LightboxFilmstrip = React.forwardRef<HTMLDivElement, LightboxFilmstripProp
       syncFromScrollRef.current = syncNow;
 
       const attach = () => {
+        // Never tear down / rebuild the scroll link while a thumb scrub owns
+        // transform — attach runs from slides viewport notify and would cancel
+        // the DocumentTimeline scrub mid-flight.
+        if (scrubHoldRef.current || scrubAnimRef.current) return;
+
         detach?.();
         detach = undefined;
 
@@ -289,8 +303,9 @@ const LightboxFilmstrip = React.forwardRef<HTMLDivElement, LightboxFilmstripProp
 
         if (startLinkAnimation()) {
           const ro = new ResizeObserver(() => {
+            if (scrubHoldRef.current || scrubAnimRef.current) return;
             measureThumbs();
-            if (!scrubAnimRef.current) startLinkAnimation();
+            startLinkAnimation();
           });
           ro.observe(track);
           ro.observe(root);
@@ -305,9 +320,13 @@ const LightboxFilmstrip = React.forwardRef<HTMLDivElement, LightboxFilmstripProp
 
         // Fallback: continuous JS mirror of Slides scroll.
         syncNow();
-        const onScroll = () => scheduleSync();
+        const onScroll = () => {
+          if (scrubHoldRef.current || scrubAnimRef.current) return;
+          scheduleSync();
+        };
         slides.addEventListener('scroll', onScroll, { passive: true });
         const ro = new ResizeObserver(() => {
+          if (scrubHoldRef.current || scrubAnimRef.current) return;
           measureThumbs();
           syncNow();
         });
@@ -326,6 +345,7 @@ const LightboxFilmstrip = React.forwardRef<HTMLDivElement, LightboxFilmstripProp
         unsubscribe();
         detach?.();
         syncFromScrollRef.current = null;
+        scrubHoldRef.current = false;
         scrubAnimRef.current?.cancel();
         scrubAnimRef.current = null;
         linkAnimRef.current?.cancel();
@@ -383,9 +403,16 @@ const LightboxFilmstrip = React.forwardRef<HTMLDivElement, LightboxFilmstripProp
 
         if (canScrub && track) {
           scrubAnimRef.current?.cancel();
-          // Freeze the scroll link in place; do not cancel it (Safari flash).
-          link?.pause();
-          setScrubbing(true);
+          scrubHoldRef.current = true;
+          // Pin, then *cancel* the scroll link. Pause is not enough on Safari:
+          // the paused ScrollTimeline still retargets when Slides jump and can
+          // paint the destination translate for a frame above/beside the scrub.
+          track.style.transform = `translate3d(${fromX}px, 0, 0)`;
+          void track.offsetWidth;
+          link?.cancel();
+          linkAnimRef.current = null;
+          usesScrollTimelineRef.current = false;
+
           const scrubAnim = track.animate(
             [
               { transform: `translate3d(${fromX}px, 0, 0)` },
@@ -403,35 +430,58 @@ const LightboxFilmstrip = React.forwardRef<HTMLDivElement, LightboxFilmstripProp
           scrubAnim.currentTime = 0;
           scrubAnimRef.current = scrubAnim;
           scrub = scrubAnim;
+
+          const releaseToScrollLink = () => {
+            if (scrubAnimRef.current !== scrubAnim) return;
+            track.style.transform = `translate3d(${toX}px, 0, 0)`;
+            try {
+              scrubAnim.commitStyles();
+            } catch {
+              /* commitStyles can throw if the effect was already cleared */
+            }
+
+            // Keep the DocumentTimeline scrub on the stack (fill:forwards) while
+            // arming a new ScrollTimeline underneath. Safari often paints
+            // keyframe 0 on a fresh scroll link — the scrub hides that frame.
+            scrubAnimRef.current = null;
+            const armed = startLinkAnimation();
+            const liveLink = linkAnimRef.current;
+
+            const dropScrub = () => {
+              // A newer scrub took over — leave its hold/animation alone.
+              if (scrubAnimRef.current) return;
+              scrubAnim.cancel();
+              track.style.removeProperty('transform');
+              scrubHoldRef.current = false;
+              setScrubbing(false);
+            };
+
+            if (armed && liveLink) {
+              void liveLink.ready.then(() => {
+                requestAnimationFrame(() => {
+                  requestAnimationFrame(dropScrub);
+                });
+              });
+              return;
+            }
+
+            syncFromScrollRef.current?.();
+            dropScrub();
+          };
+
           void scrubAnim.finished.then(
             () => {
               if (scrubAnimRef.current !== scrubAnim) return;
-              scrubAnimRef.current = null;
-              try {
-                scrubAnim.commitStyles();
-              } catch {
-                /* commitStyles can throw if the effect was already cleared */
-              }
-              scrubAnim.cancel();
-              track.style.removeProperty('transform');
-              if (usesScrollTimelineRef.current) {
-                link?.play();
-              } else {
-                syncFromScrollRef.current?.();
-              }
-              setScrubbing(false);
+              releaseToScrollLink();
             },
             () => {
-              if (scrubAnimRef.current === scrubAnim) {
-                scrubAnimRef.current = null;
-                track.style.removeProperty('transform');
-                if (usesScrollTimelineRef.current) {
-                  link?.play();
-                } else {
-                  syncFromScrollRef.current?.();
-                }
-                setScrubbing(false);
-              }
+              if (scrubAnimRef.current !== scrubAnim) return;
+              track.style.transform = `translate3d(${toX}px, 0, 0)`;
+              scrubAnim.cancel();
+              scrubAnimRef.current = null;
+              if (!startLinkAnimation()) syncFromScrollRef.current?.();
+              scrubHoldRef.current = false;
+              setScrubbing(false);
             },
           );
         }
@@ -447,7 +497,10 @@ const LightboxFilmstrip = React.forwardRef<HTMLDivElement, LightboxFilmstripProp
           commit();
         }
 
+        // Play after commit so wrapSelectCommit's flushSync cannot flush a
+        // setScrubbing render between pause(0) and play.
         scrub?.play();
+        if (scrub) setScrubbing(true);
       },
       [
         scrubOnSelect,
@@ -457,6 +510,7 @@ const LightboxFilmstrip = React.forwardRef<HTMLDivElement, LightboxFilmstripProp
         setActiveIndex,
         navigationLockedRef,
         slidesViewportRef,
+        startLinkAnimation,
       ],
     );
 

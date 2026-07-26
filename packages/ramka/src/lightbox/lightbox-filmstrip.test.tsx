@@ -163,6 +163,7 @@ class MockAnimation {
   });
   commitStyles = vi.fn();
   finished = Promise.resolve(this as unknown as Animation);
+  ready = Promise.resolve(this as unknown as Animation);
   constructor(effect: MockKeyframeEffect | null, timeline: MockScrollTimeline | null = null) {
     this.effect = effect;
     this.timeline = timeline;
@@ -322,16 +323,17 @@ describe('Lightbox.Filmstrip', () => {
     });
   });
 
-  it('thumb click pauses the ScrollTimeline link during scrub', async () => {
+  it('thumb click cancels the ScrollTimeline link during scrub, then rearms it', async () => {
     enableScrollTimeline();
 
     const scrubPause = vi.fn();
     const scrubPlay = vi.fn();
+    const scrubCancel = vi.fn();
     const elementAnimate = vi.fn(() => {
       const anim = {
         pause: scrubPause,
         play: scrubPlay,
-        cancel: vi.fn(),
+        cancel: scrubCancel,
         commitStyles: vi.fn(),
         finished: Promise.resolve(),
         currentTime: 0,
@@ -353,6 +355,7 @@ describe('Lightbox.Filmstrip', () => {
 
     const link = linkCalls.at(-1);
     expect(link).toBeTruthy();
+    const linksBefore = linkCalls.length;
 
     vi.spyOn(window, 'getComputedStyle').mockReturnValue({
       transform: 'none',
@@ -361,14 +364,18 @@ describe('Lightbox.Filmstrip', () => {
     await act(async () => {
       fireEvent.click(screen.getByTestId('thumb-3'));
       await Promise.resolve();
+      await Promise.resolve();
     });
 
     expect(screen.getByTestId('thumb-3')).toHaveAttribute('data-active');
-    expect(link!.anim.pause).toHaveBeenCalled();
+    // Pausing still retargets on the Slides jump (Safari) — cancel instead.
+    expect(link!.anim.cancel).toHaveBeenCalled();
     expect(elementAnimate).toHaveBeenCalled();
     expect(scrubPause).toHaveBeenCalled();
     expect(scrubPlay).toHaveBeenCalled();
-    expect(link!.anim.play).toHaveBeenCalled();
+    // Handoff rebuilds a fresh scroll link under the scrub fill.
+    expect(linkCalls.length).toBeGreaterThan(linksBefore);
+    expect(linkCalls.at(-1)!.anim.play).toHaveBeenCalled();
   });
 
   it('wrapSelectCommit can wrap the active-index commit', async () => {

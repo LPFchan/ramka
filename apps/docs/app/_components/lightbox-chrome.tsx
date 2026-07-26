@@ -197,7 +197,7 @@ function GalleryFilmstrip({
   const aspectScrubRef = React.useRef<Animation | null>(null);
   const usesScrollTimelineRef = React.useRef(false);
   const aspectHoldRef = React.useRef(false);
-  const startAspectLinkRef = React.useRef<() => boolean>(() => false);
+  const startAspectLinkRef = React.useRef<(force?: boolean) => boolean>(() => false);
 
   React.useEffect(() => {
     const update = () => {
@@ -248,9 +248,10 @@ function GalleryFilmstrip({
       });
     };
 
-    const startAspectLink = () => {
-      // Hold blocks rebuild at the jumped scroll offset during thumb scrub.
-      if (aspectHoldRef.current) return usesScrollTimelineRef.current;
+    const startAspectLink = (force = false) => {
+      // Hold blocks opportunistic rebuild during thumb scrub; `force` is the
+      // scrub-end handoff (arm a new link under the still-filling WAAPI scrub).
+      if (aspectHoldRef.current && !force) return usesScrollTimelineRef.current;
 
       const morph = morphRef.current;
       const slides = slidesViewportRef.current;
@@ -279,10 +280,11 @@ function GalleryFilmstrip({
         return false;
       }
 
-      const keepPaused = aspectLinkRef.current?.playState === 'paused';
+      const keepPaused =
+        aspectScrubRef.current != null || aspectLinkRef.current?.playState === 'paused';
       aspectLinkRef.current?.cancel();
       aspectLinkRef.current = null;
-      morph.style.removeProperty('width');
+      // Do not clear inline width here — scrub fill / pin covers the gap.
 
       const heightPx = morph.getBoundingClientRect().height || 56;
       const timeline = new ScrollTimeline({ source: slides, axis: 'x' });
@@ -295,12 +297,25 @@ function GalleryFilmstrip({
       if (keepPaused) link.pause();
       aspectLinkRef.current = link;
       usesScrollTimelineRef.current = true;
+      // Opportunistic pin clear only when not in a scrub handoff (hold).
+      void link.ready.then(() => {
+        requestAnimationFrame(() => {
+          if (
+            aspectLinkRef.current !== link ||
+            aspectScrubRef.current ||
+            aspectHoldRef.current
+          ) {
+            return;
+          }
+          morph.style.removeProperty('width');
+        });
+      });
       return true;
     };
     startAspectLinkRef.current = startAspectLink;
 
     const attach = () => {
-      if (aspectHoldRef.current) return;
+      if (aspectHoldRef.current || aspectScrubRef.current) return;
 
       detach?.();
       detach = undefined;
@@ -312,11 +327,26 @@ function GalleryFilmstrip({
       if (!slides || !morph) return;
 
       if (startAspectLink()) {
+        // Keyframes bake height×aspect → width. Only rebuild when *height*
+        // changes. Observing width (or rebuilding on every RO fire) cancels the
+        // ScrollTimeline mid-swipe — Safari reports RO loop errors and the
+        // morph jumps instead of interpolating (Chrome often coalesces this).
+        let lastLinkHeight = Math.round(morph.getBoundingClientRect().height || 56);
+        let roRaf = 0;
         ro = new ResizeObserver(() => {
-          if (!aspectHoldRef.current && !aspectScrubRef.current) startAspectLink();
+          if (aspectHoldRef.current || aspectScrubRef.current) return;
+          if (roRaf !== 0) return;
+          roRaf = requestAnimationFrame(() => {
+            roRaf = 0;
+            const nextH = Math.round(morph.getBoundingClientRect().height || 56);
+            if (nextH === lastLinkHeight) return;
+            lastLinkHeight = nextH;
+            startAspectLink();
+          });
         });
         ro.observe(morph);
         detach = () => {
+          if (roRaf !== 0) cancelAnimationFrame(roRaf);
           ro?.disconnect();
           ro = undefined;
           aspectLinkRef.current?.cancel();
@@ -352,10 +382,10 @@ function GalleryFilmstrip({
   /**
    * VT on Slides + WAAPI width scrub on the morph node.
    *
-   * Width cannot share a paused ScrollTimeline with a DocumentTimeline scrub the
-   * way transform can — on scroll jump the paused link still retargets width.
-   * So: pin inline width → cancel scroll link → arm scrub → commit → play →
-   * rebuild scroll link on finish.
+   * Same handoff as the filmstrip track: *cancel* the ScrollTimeline for the
+   * scrub (pause still retargets width on the Slides jump), keep DocumentTimeline
+   * fill:forwards on top while arming a new scroll link underneath, then drop
+   * the scrub after ready + 2 frames (hides Safari keyframe-0 on create).
    */
   const wrapThumbSelectCommit = React.useCallback(
     (commit: () => void, slides: HTMLElement | null, index: number) => {
@@ -373,15 +403,6 @@ function GalleryFilmstrip({
 
       aspectHoldRef.current = true;
 
-      const releaseToScrollLink = () => {
-        aspectScrubRef.current = null;
-        morph?.style.removeProperty('width');
-        aspectHoldRef.current = false;
-        if (!startAspectLinkRef.current()) {
-          if (morph) morph.style.width = `${toWidth}px`;
-        }
-      };
-
       const canScrub =
         !reduceMotion &&
         morph != null &&
@@ -393,11 +414,11 @@ function GalleryFilmstrip({
       let scrub: Animation | undefined;
 
       if (canScrub && morph) {
-        // Pin layout, then drop the scroll-driven width effect so the jump
-        // cannot retarget size under the scrub.
         morph.style.width = `${fromWidth}px`;
+        void morph.offsetWidth;
         link?.cancel();
         aspectLinkRef.current = null;
+        usesScrollTimelineRef.current = false;
 
         aspectScrubRef.current?.cancel();
         const scrubAnim = morph.animate(
@@ -412,20 +433,54 @@ function GalleryFilmstrip({
         scrubAnim.currentTime = 0;
         aspectScrubRef.current = scrubAnim;
         scrub = scrubAnim;
+
+        const releaseToScrollLink = () => {
+          if (aspectScrubRef.current !== scrubAnim) return;
+          morph.style.width = `${toWidth}px`;
+          try {
+            scrubAnim.commitStyles();
+          } catch {
+            /* commitStyles can throw if the effect was already cleared */
+          }
+
+          // Keep scrub fill on the stack; arm a fresh scroll link underneath.
+          aspectScrubRef.current = null;
+          const armed = startAspectLinkRef.current(true);
+          const liveLink = aspectLinkRef.current;
+
+          const dropScrub = () => {
+            if (aspectScrubRef.current) return;
+            scrubAnim.cancel();
+            morph.style.removeProperty('width');
+            aspectHoldRef.current = false;
+          };
+
+          if (armed && liveLink) {
+            void liveLink.ready.then(() => {
+              requestAnimationFrame(() => {
+                requestAnimationFrame(dropScrub);
+              });
+            });
+            return;
+          }
+
+          dropScrub();
+        };
+
         void scrubAnim.finished.then(
           () => {
             if (aspectScrubRef.current !== scrubAnim) return;
-            try {
-              scrubAnim.commitStyles();
-            } catch {
-              /* commitStyles can throw if the effect was already cleared */
-            }
-            scrubAnim.cancel();
             releaseToScrollLink();
           },
           () => {
             if (aspectScrubRef.current !== scrubAnim) return;
-            releaseToScrollLink();
+            morph.style.width = `${toWidth}px`;
+            scrubAnim.cancel();
+            aspectScrubRef.current = null;
+            if (!startAspectLinkRef.current(true)) {
+              /* keep pin */
+            }
+            aspectHoldRef.current = false;
           },
         );
       }
