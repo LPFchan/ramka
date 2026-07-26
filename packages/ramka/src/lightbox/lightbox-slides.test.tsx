@@ -589,6 +589,30 @@ describe('Lightbox.Slides', () => {
       expect(content).toHaveAttribute('data-pulling');
     });
 
+    it('does not leave gestures locked after an open/snap scroll echo on the first slide', () => {
+      // Regression: onScroll used to set navigationLockedRef without a settle
+      // path when the scroller was still parked on the jump target (open /
+      // snap restore). Pull/pinch/double-tap stayed dead until the user swiped.
+      render(<GestureLightbox />);
+      const viewport = screen.getByTestId('slides');
+      const content = screen.getByTestId('content');
+      setupGeometry(viewport, 8);
+
+      // Spurious scroll while still on slide 0 (jump target). Must not stick
+      // the fling lock.
+      act(() => {
+        fireEvent.scroll(viewport);
+        flushRaf();
+      });
+
+      const img = screen.getByTestId('img-0');
+      act(() => {
+        dispatchPointer(img, 'pointerdown', { clientX: 200, clientY: 200 });
+        dispatchPointer(content, 'pointermove', { clientX: 200, clientY: 240 });
+      });
+      expect(content).toHaveAttribute('data-pulling');
+    });
+
     it('suppresses zoom gestures while a scroll is in flight, then resumes after it settles', () => {
       const zoomRef = React.createRef<LightboxZoomRef>();
       render(<GestureLightbox withZoom zoomRef={zoomRef} observedIndex={1} />);

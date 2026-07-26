@@ -300,8 +300,15 @@ const LightboxSlides = React.forwardRef<HTMLDivElement, LightboxSlidesProps>(
       const lockUserScroll = () => {
         if (programmaticRef.current) return;
         navigationLockedRef.current = true;
+        // Always arm settle when locking. `onScroll` may set the lock before
+        // `process` runs; if that rAF is skipped (programmatic race) or this
+        // effect rebinds, a bare lock with no idle timer leaves pull/pinch/
+        // double-tap dead until the next real swipe settles.
         armIdleFallback();
       };
+
+      const isParkedOnJumpTarget = () =>
+        Math.abs(viewport.scrollLeft - jumpTargetRef.current) < 1;
 
       let frame = 0;
       const process = () => {
@@ -309,14 +316,22 @@ const LightboxSlides = React.forwardRef<HTMLDivElement, LightboxSlidesProps>(
         // Entire programmatic jump window (exact set + snap restore): ignore.
         // Clearing happens in `scrollToIndex`'s rAF tail — do not clear here on
         // "near target", or the restore frame's scroll is misclassified as a fling.
-        if (programmaticRef.current) return;
+        if (programmaticRef.current) {
+          // Race: `onScroll` may have locked in the same frame before
+          // `scrollToIndex` flipped `programmaticRef`. Undo the false fling
+          // lock so open/jump doesn't suppress gestures until a user swipe.
+          navigationLockedRef.current = false;
+          window.clearTimeout(idleTimerRef.current);
+          idleTimerRef.current = 0;
+          return;
+        }
         // Late echo after the programmatic flag cleared (snap restore / subpixel
-        // re-set): still parked on the jump target with no lock yet. A real user
-        // swipe changes `scrollLeft` before this handler runs, so it won't match.
-        if (
-          !navigationLockedRef.current &&
-          Math.abs(viewport.scrollLeft - jumpTargetRef.current) < 1
-        ) {
+        // re-set): still parked on the jump target. A real user swipe changes
+        // `scrollLeft` before this handler runs, so it won't match.
+        if (isParkedOnJumpTarget()) {
+          navigationLockedRef.current = false;
+          window.clearTimeout(idleTimerRef.current);
+          idleTimerRef.current = 0;
           return;
         }
         // Genuine user scroll/fling: lock discrete nav, keep the marker following
@@ -328,9 +343,11 @@ const LightboxSlides = React.forwardRef<HTMLDivElement, LightboxSlidesProps>(
       const onScroll = () => {
         // Lock synchronously — don't wait for the rAF `process` tick. A second
         // finger can land in the same frame as the first scroll event; delaying
-        // the lock lets zoom arm a pinch mid-swipe.
-        if (!programmaticRef.current) {
-          navigationLockedRef.current = true;
+        // the lock lets zoom arm a pinch mid-swipe. Skip programmatic jumps and
+        // open/snap echoes still parked on the jump target (those used to leave
+        // `navigationLockedRef` stuck true on the first slide).
+        if (!programmaticRef.current && !isParkedOnJumpTarget()) {
+          lockUserScroll();
         }
         if (frame === 0) frame = requestAnimationFrame(process);
       };
@@ -338,9 +355,10 @@ const LightboxSlides = React.forwardRef<HTMLDivElement, LightboxSlidesProps>(
       // iOS Safari often starts compositor scrolling without delivering
       // `pointermove` to Zoom — so a second finger can arm a pinch before the
       // first `scroll` event flips the lock. Capture-phase touch listeners lock
-      // at 1× as soon as a single finger slides (or a second finger lands after
-      // that). When already zoomed, don't lock from touch alone — that would
-      // abort one-finger pan / intentional pinch via `isScrollingRef`.
+      // at 1× as soon as a single finger slides horizontally (or a second finger
+      // lands after that). Vertical slides are pull-to-dismiss — do not lock.
+      // When already zoomed, don't lock from touch alone — that would abort
+      // one-finger pan / intentional pinch via `isScrollingRef`.
       const TOUCH_LOCK_PX = 10;
       let touchStartX = 0;
       let touchStartY = 0;
@@ -363,11 +381,16 @@ const LightboxSlides = React.forwardRef<HTMLDivElement, LightboxSlidesProps>(
       const onTouchMove = (event: TouchEvent) => {
         if (event.touches.length !== 1 || !sawSingleFinger || singleFingerSlid) return;
         const touch = event.touches[0]!;
-        if (Math.hypot(touch.clientX - touchStartX, touch.clientY - touchStartY) < TOUCH_LOCK_PX) {
+        const dx = touch.clientX - touchStartX;
+        const dy = touch.clientY - touchStartY;
+        if (Math.hypot(dx, dy) < TOUCH_LOCK_PX) {
           return;
         }
         singleFingerSlid = true;
-        if (isAtRestZoom()) lockUserScroll();
+        // Horizontal slide → gallery swipe. Vertical → pull-to-dismiss.
+        if (isAtRestZoom() && Math.abs(dx) >= Math.abs(dy)) {
+          lockUserScroll();
+        }
       };
       const onTouchEnd = (event: TouchEvent) => {
         if (event.touches.length > 0) return;
