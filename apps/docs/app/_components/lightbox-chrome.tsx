@@ -84,7 +84,7 @@ export type LightboxGalleryItem = {
   alt: string;
   caption?: string;
   /**
-   * Optional intrinsic pixel size. Used for snug slide sizing + filmstrip
+   * Optional intrinsic pixel size. Used for snug slide sizing + thumbnail-strip
    * aspect when `src` is not a `…/{w}/{h}` URL (video posters, 3D screenshots).
    */
   width?: number;
@@ -112,9 +112,9 @@ type GalleryItemRenderCtx = {
   morphRef: (node: HTMLElement | null) => void;
 };
 
-/** Match `Lightbox.Filmstrip` scrub defaults (track + indicator width scrub). */
-const FILMSTRIP_SCRUB_MS = 450;
-const FILMSTRIP_SCRUB_EASE = 'cubic-bezier(0.22, 1, 0.36, 1)';
+/** Match `Lightbox.ThumbnailStrip` scrub defaults (track + indicator width scrub). */
+const THUMBNAIL_STRIP_SCRUB_MS = 450;
+const THUMBNAIL_STRIP_SCRUB_EASE = 'cubic-bezier(0.22, 1, 0.36, 1)';
 
 type ScrollTimelineConstructor = new (options?: {
   source?: Element | Document | null;
@@ -251,10 +251,10 @@ function poseTransformKeyframes(poses: FramePose[], pick: (p: FramePose) => stri
 }
 
 /**
- * Docs filmstrip: per-photo-aspect thumbs + nine-slice selection frame.
+ * Docs thumbnail-strip: per-photo-aspect thumbs + nine-slice selection frame.
  * Outer host is fixed (max aspect); ScrollTimeline / WAAPI morph transforms only.
  */
-function GalleryFilmstrip({
+function GalleryThumbnailStrip({
   items,
   className,
 }: {
@@ -263,7 +263,7 @@ function GalleryFilmstrip({
 }) {
   const { activeIndex, slidesViewportRef, slidesGeometryRef, subscribeSlidesViewport } =
     useLightboxContext();
-  const filmstripRef = React.useRef<HTMLDivElement | null>(null);
+  const thumbnailStripRef = React.useRef<HTMLDivElement | null>(null);
   const hostRef = React.useRef<HTMLSpanElement | null>(null);
   const shellRef = React.useRef<HTMLSpanElement | null>(null);
   const rightRef = React.useRef<HTMLSpanElement | null>(null);
@@ -542,7 +542,7 @@ function GalleryFilmstrip({
 
   /**
    * VT on Slides + WAAPI transform scrub on the nine-slice pieces.
-   * Same handoff as the filmstrip track / prior SVG morph.
+   * Same handoff as the thumbnail-strip track / prior SVG morph.
    */
   const wrapThumbSelectCommit = React.useCallback(
     (commit: () => void, slides: HTMLElement | null, index: number) => {
@@ -580,8 +580,8 @@ function GalleryFilmstrip({
 
         cancelAnimations(aspectScrubAnimsRef.current);
         const scrubOpts: KeyframeAnimationOptions = {
-          duration: FILMSTRIP_SCRUB_MS,
-          easing: FILMSTRIP_SCRUB_EASE,
+          duration: THUMBNAIL_STRIP_SCRUB_MS,
+          easing: THUMBNAIL_STRIP_SCRUB_EASE,
           fill: 'forwards',
         };
         const scrubs = [
@@ -696,8 +696,8 @@ function GalleryFilmstrip({
   );
 
   return (
-    <Lightbox.Filmstrip
-      ref={filmstripRef}
+    <Lightbox.ThumbnailStrip
+      ref={thumbnailStripRef}
       className={className}
       wrapSelectCommit={wrapThumbSelectCommit}
       style={
@@ -707,8 +707,8 @@ function GalleryFilmstrip({
         } as React.CSSProperties
       }
     >
-      <div className="lightbox-demo-filmstrip-aspect-host">
-        <Lightbox.FilmstripTrack aria-label="Photo thumbnails">
+      <div className="lightbox-demo-thumbnail-strip-aspect-host">
+        <Lightbox.ThumbnailStripTrack aria-label="Photo thumbnails">
           {items.map((item, i) => (
             <Lightbox.Thumbnail
               key={item.id ?? i}
@@ -722,30 +722,30 @@ function GalleryFilmstrip({
               <img src={item.thumb} alt={item.alt} draggable={false} />
             </Lightbox.Thumbnail>
           ))}
-        </Lightbox.FilmstripTrack>
-        <Lightbox.FilmstripIndicator
+        </Lightbox.ThumbnailStripTrack>
+        <Lightbox.ThumbnailStripIndicator
           ref={hostRef}
-          className="lightbox-demo-filmstrip-frame"
+          className="lightbox-demo-thumbnail-strip-frame"
           aria-hidden
         >
-          <span ref={shellRef} className="lightbox-demo-filmstrip-frame-shell">
-            <span className="lightbox-demo-filmstrip-frame-cap lightbox-demo-filmstrip-frame-cap-left" />
+          <span ref={shellRef} className="lightbox-demo-thumbnail-strip-frame-shell">
+            <span className="lightbox-demo-thumbnail-strip-frame-cap lightbox-demo-thumbnail-strip-frame-cap-left" />
             <span
               ref={rightRef}
-              className="lightbox-demo-filmstrip-frame-cap lightbox-demo-filmstrip-frame-cap-right"
+              className="lightbox-demo-thumbnail-strip-frame-cap lightbox-demo-thumbnail-strip-frame-cap-right"
             />
             <span
               ref={topRef}
-              className="lightbox-demo-filmstrip-frame-edge lightbox-demo-filmstrip-frame-edge-top"
+              className="lightbox-demo-thumbnail-strip-frame-edge lightbox-demo-thumbnail-strip-frame-edge-top"
             />
             <span
               ref={bottomRef}
-              className="lightbox-demo-filmstrip-frame-edge lightbox-demo-filmstrip-frame-edge-bottom"
+              className="lightbox-demo-thumbnail-strip-frame-edge lightbox-demo-thumbnail-strip-frame-edge-bottom"
             />
           </span>
-        </Lightbox.FilmstripIndicator>
+        </Lightbox.ThumbnailStripIndicator>
       </div>
-    </Lightbox.Filmstrip>
+    </Lightbox.ThumbnailStrip>
   );
 }
 
@@ -793,13 +793,13 @@ export function LightboxGallery({
   slidesLayout?: 'bleed' | 'snug';
   renderItem?: (item: LightboxGalleryItem, index: number, ctx: GalleryItemRenderCtx) => React.ReactNode;
 }) {
-  // Viewport visibility only — linked layout/sync live in Lightbox.Filmstrip.
+  // Viewport visibility only — linked layout/sync live in Lightbox.ThumbnailStrip.
   const thumbClass =
     thumbnails === 'never'
       ? 'hidden'
       : thumbnails === 'always'
-        ? 'pointer-events-auto lightbox-demo-filmstrip'
-        : 'pointer-events-auto hidden md:block lightbox-demo-filmstrip';
+        ? 'pointer-events-auto lightbox-demo-thumbnail-strip'
+        : 'pointer-events-auto hidden md:block lightbox-demo-thumbnail-strip';
 
   const backdropTone = backdrop === 'solid' ? 'bg-white dark:bg-black' : 'lightbox-demo-backdrop-light';
   const snug = slidesLayout === 'snug';
@@ -909,7 +909,7 @@ export function LightboxGallery({
           <Lightbox.Caption className="pointer-events-auto block min-h-[1.25rem] max-w-full truncate px-6 text-center text-sm text-black/70 dark:text-white/80" />
 
           {thumbnails !== 'never' ? (
-            <GalleryFilmstrip items={items} className={thumbClass} />
+            <GalleryThumbnailStrip items={items} className={thumbClass} />
           ) : null}
         </div>
       </Lightbox.Content>

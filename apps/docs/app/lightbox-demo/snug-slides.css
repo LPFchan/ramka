@@ -2,7 +2,7 @@
  * Snug slides track + responsive slide width.
  *
  * Mobile (< md): full scrollport width like bleed (overrides chrome inline
- * width). End spacers off. Filmstrip hidden — same bottom inset as other demos.
+ * width). End spacers off. ThumbnailStrip hidden — same bottom inset as other demos.
  *
  * Desktop (md+): aspect width from chrome inline style; half-scrollport
  * ::before/::after for center snap; flex gap between cards.

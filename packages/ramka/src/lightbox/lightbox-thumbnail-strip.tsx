@@ -4,17 +4,17 @@ import { mergeProps, useRender } from '@base-ui/react';
 import * as React from 'react';
 
 import { useLightboxContext } from './lightbox-context';
-import { LightboxFilmstripCssVars } from './lightbox-css-vars';
-import { LightboxFilmstripDataAttributes } from './lightbox-data-attributes';
-import { LightboxFilmstripContext } from './lightbox-filmstrip-context';
+import { LightboxThumbnailStripCssVars } from './lightbox-css-vars';
+import { LightboxThumbnailStripDataAttributes } from './lightbox-data-attributes';
+import { LightboxThumbnailStripContext } from './lightbox-thumbnail-strip-context';
 import { slidesGeometryIsUniform, slidesScrollProgress } from './lightbox-slides-geometry';
 
-interface LightboxFilmstripState extends Record<string, unknown> {
+interface LightboxThumbnailStripState extends Record<string, unknown> {
   /** True while a pointer thumb-select WAAPI scrub is in flight. */
   scrubbing: boolean;
 }
 
-interface LightboxFilmstripProps extends useRender.ComponentProps<'div', LightboxFilmstripState> {
+interface LightboxThumbnailStripProps extends useRender.ComponentProps<'div', LightboxThumbnailStripState> {
   /**
    * When true (default), pointer selection on a thumbnail WAAPI-scrubs the
    * track to the target index. Keyboard / button navigation stays instant
@@ -35,12 +35,12 @@ interface LightboxFilmstripProps extends useRender.ComponentProps<'div', Lightbo
 const SCRUB_DURATION_MS = 450;
 const SCRUB_EASING = 'cubic-bezier(0.22, 1, 0.36, 1)';
 
-const filmstripStateAttributesMapping = {
+const thumbnailStripStateAttributesMapping = {
   scrubbing: (value: unknown) => (value ? { 'data-scrubbing': '' } : null),
 };
 
 /**
- * Per-thumb `translateX` distances so thumb `i`'s center sits on the filmstrip
+ * Per-thumb `translateX` distances so thumb `i`'s center sits on the thumbnail-strip
  * midline when `translateX = -travels[i]`.
  *
  * Prefers getBoundingClientRect center deltas (invariant under the track's own
@@ -154,15 +154,15 @@ function readComputedTranslateX(el: HTMLElement): number {
 }
 
 /**
- * Headless scroll-linked filmstrip.
+ * Headless scroll-linked thumbnail-strip.
  *
- * Always centers the active thumbnail under the filmstrip midline (Photos-style).
+ * Always centers the active thumbnail under the thumbnail-strip midline (Photos-style).
  * Owns midline padding, overflow clip, and Slides→track sync via native
  * `ScrollTimeline` + WAAPI (JS scroll→transform fallback when unavailable).
  * Consumers style flex/gap, thumb size, and optional Indicator paint.
  */
-const LightboxFilmstrip = React.forwardRef<HTMLDivElement, LightboxFilmstripProps>(
-  function LightboxFilmstrip(props, forwardedRef) {
+const LightboxThumbnailStrip = React.forwardRef<HTMLDivElement, LightboxThumbnailStripProps>(
+  function LightboxThumbnailStrip(props, forwardedRef) {
     const {
       render,
       children,
@@ -266,7 +266,7 @@ const LightboxFilmstrip = React.forwardRef<HTMLDivElement, LightboxFilmstripProp
       }
 
       const endTravel = travels[travels.length - 1] ?? 0;
-      track.style.setProperty(LightboxFilmstripCssVars.travel, `${-endTravel}px`);
+      track.style.setProperty(LightboxThumbnailStripCssVars.travel, `${-endTravel}px`);
       return travelsChanged;
     }, []);
 
@@ -456,7 +456,7 @@ const LightboxFilmstrip = React.forwardRef<HTMLDivElement, LightboxFilmstripProp
           track.style.removeProperty('padding-inline');
           track.style.removeProperty('padding-left');
           track.style.removeProperty('padding-right');
-          track.style.removeProperty(LightboxFilmstripCssVars.travel);
+          track.style.removeProperty(LightboxThumbnailStripCssVars.travel);
         }
       };
     }, [
@@ -618,24 +618,24 @@ const LightboxFilmstrip = React.forwardRef<HTMLDivElement, LightboxFilmstripProp
       ],
     );
 
-    const filmstripContext = React.useMemo(
+    const thumbnailStripContext = React.useMemo(
       () => ({ registerTrack, registerThumb, selectIndex }),
       [registerTrack, registerThumb, selectIndex],
     );
 
-    const state = React.useMemo<LightboxFilmstripState>(() => ({ scrubbing }), [scrubbing]);
+    const state = React.useMemo<LightboxThumbnailStripState>(() => ({ scrubbing }), [scrubbing]);
 
     return (
-      <LightboxFilmstripContext.Provider value={filmstripContext}>
+      <LightboxThumbnailStripContext.Provider value={thumbnailStripContext}>
         {useRender({
           render,
           ref: assignRootRef,
           state,
-          stateAttributesMapping: filmstripStateAttributesMapping,
+          stateAttributesMapping: thumbnailStripStateAttributesMapping,
           props: mergeProps<'div'>(
             {
-              [LightboxFilmstripDataAttributes.root]: '',
-              // Structural: clip padded track; relative for FilmstripIndicator.
+              [LightboxThumbnailStripDataAttributes.root]: '',
+              // Structural: clip padded track; relative for ThumbnailStripIndicator.
               // Width gives a viewport for midline padding measurement.
               style: {
                 position: 'relative',
@@ -649,12 +649,12 @@ const LightboxFilmstrip = React.forwardRef<HTMLDivElement, LightboxFilmstripProp
           ),
           defaultTagName: 'div',
         })}
-      </LightboxFilmstripContext.Provider>
+      </LightboxThumbnailStripContext.Provider>
     );
   },
 );
 
-LightboxFilmstrip.displayName = 'LightboxFilmstrip';
+LightboxThumbnailStrip.displayName = 'LightboxThumbnailStrip';
 
-export { LightboxFilmstrip };
-export type { LightboxFilmstripProps, LightboxFilmstripState };
+export { LightboxThumbnailStrip };
+export type { LightboxThumbnailStripProps, LightboxThumbnailStripState };

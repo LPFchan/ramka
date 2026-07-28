@@ -1,18 +1,18 @@
 /**
- * Docs-only filmstrip cosmetics.
+ * Docs-only thumbnail-strip cosmetics.
  *
- * Library Filmstrip owns midline padding, overflow clip, and the ScrollTimeline
+ * Library ThumbnailStrip owns midline padding, overflow clip, and the ScrollTimeline
  * → track transform link. The selection frame is a fixed-size nine-slice host
  * (max thumb aspect); chrome morphs shell/cap/edge *transforms* via
  * ScrollTimeline (swipe) and DocumentTimeline WAAPI (thumb click).
  */
 
-.lightbox-demo-filmstrip {
+.lightbox-demo-thumbnail-strip {
   --lightbox-demo-thumb-h: 3.5rem;
   /* Fallback when a thumb omits its own aspect (chrome sets per-tab). */
   --lightbox-demo-thumb-aspect: 1.777;
   /* Edge fade length; opacity stops approximate smoothstep (eased, not linear). */
-  --lightbox-demo-filmstrip-fade: 32px;
+  --lightbox-demo-thumbnail-strip-fade: 32px;
   align-self: stretch;
   padding-block: 0.25rem;
   /*
@@ -22,43 +22,43 @@
   -webkit-mask-image: linear-gradient(
     to right,
     rgb(0 0 0 / 0) 0,
-    rgb(0 0 0 / 0.156) calc(var(--lightbox-demo-filmstrip-fade) * 0.25),
-    rgb(0 0 0 / 0.5) calc(var(--lightbox-demo-filmstrip-fade) * 0.5),
-    rgb(0 0 0 / 0.844) calc(var(--lightbox-demo-filmstrip-fade) * 0.75),
-    #000 var(--lightbox-demo-filmstrip-fade),
-    #000 calc(100% - var(--lightbox-demo-filmstrip-fade)),
-    rgb(0 0 0 / 0.844) calc(100% - var(--lightbox-demo-filmstrip-fade) * 0.75),
-    rgb(0 0 0 / 0.5) calc(100% - var(--lightbox-demo-filmstrip-fade) * 0.5),
-    rgb(0 0 0 / 0.156) calc(100% - var(--lightbox-demo-filmstrip-fade) * 0.25),
+    rgb(0 0 0 / 0.156) calc(var(--lightbox-demo-thumbnail-strip-fade) * 0.25),
+    rgb(0 0 0 / 0.5) calc(var(--lightbox-demo-thumbnail-strip-fade) * 0.5),
+    rgb(0 0 0 / 0.844) calc(var(--lightbox-demo-thumbnail-strip-fade) * 0.75),
+    #000 var(--lightbox-demo-thumbnail-strip-fade),
+    #000 calc(100% - var(--lightbox-demo-thumbnail-strip-fade)),
+    rgb(0 0 0 / 0.844) calc(100% - var(--lightbox-demo-thumbnail-strip-fade) * 0.75),
+    rgb(0 0 0 / 0.5) calc(100% - var(--lightbox-demo-thumbnail-strip-fade) * 0.5),
+    rgb(0 0 0 / 0.156) calc(100% - var(--lightbox-demo-thumbnail-strip-fade) * 0.25),
     rgb(0 0 0 / 0) 100%
   );
   mask-image: linear-gradient(
     to right,
     rgb(0 0 0 / 0) 0,
-    rgb(0 0 0 / 0.156) calc(var(--lightbox-demo-filmstrip-fade) * 0.25),
-    rgb(0 0 0 / 0.5) calc(var(--lightbox-demo-filmstrip-fade) * 0.5),
-    rgb(0 0 0 / 0.844) calc(var(--lightbox-demo-filmstrip-fade) * 0.75),
-    #000 var(--lightbox-demo-filmstrip-fade),
-    #000 calc(100% - var(--lightbox-demo-filmstrip-fade)),
-    rgb(0 0 0 / 0.844) calc(100% - var(--lightbox-demo-filmstrip-fade) * 0.75),
-    rgb(0 0 0 / 0.5) calc(100% - var(--lightbox-demo-filmstrip-fade) * 0.5),
-    rgb(0 0 0 / 0.156) calc(100% - var(--lightbox-demo-filmstrip-fade) * 0.25),
+    rgb(0 0 0 / 0.156) calc(var(--lightbox-demo-thumbnail-strip-fade) * 0.25),
+    rgb(0 0 0 / 0.5) calc(var(--lightbox-demo-thumbnail-strip-fade) * 0.5),
+    rgb(0 0 0 / 0.844) calc(var(--lightbox-demo-thumbnail-strip-fade) * 0.75),
+    #000 var(--lightbox-demo-thumbnail-strip-fade),
+    #000 calc(100% - var(--lightbox-demo-thumbnail-strip-fade)),
+    rgb(0 0 0 / 0.844) calc(100% - var(--lightbox-demo-thumbnail-strip-fade) * 0.75),
+    rgb(0 0 0 / 0.5) calc(100% - var(--lightbox-demo-thumbnail-strip-fade) * 0.5),
+    rgb(0 0 0 / 0.156) calc(100% - var(--lightbox-demo-thumbnail-strip-fade) * 0.25),
     rgb(0 0 0 / 0) 100%
   );
 }
 
 /* Layout wrapper (track + indicator). React never styles this node. */
-.lightbox-demo-filmstrip-aspect-host {
+.lightbox-demo-thumbnail-strip-aspect-host {
   position: relative;
   width: 100%;
   pointer-events: none;
 }
 
-.lightbox-demo-filmstrip-aspect-host [data-ramka-filmstrip-track] {
+.lightbox-demo-thumbnail-strip-aspect-host [data-ramka-thumbnail-strip-track] {
   pointer-events: auto;
 }
 
-.lightbox-demo-filmstrip [data-ramka-filmstrip-track] {
+.lightbox-demo-thumbnail-strip [data-ramka-thumbnail-strip-track] {
   display: flex;
   width: max-content;
   gap: 0.5rem;
@@ -66,7 +66,7 @@
 }
 
 /* Thumb shell hugs the photo — width from per-tab `--lightbox-demo-thumb-aspect`. */
-.lightbox-demo-filmstrip [role='tab'] {
+.lightbox-demo-thumbnail-strip [role='tab'] {
   box-sizing: border-box;
   position: relative;
   display: block;
@@ -82,7 +82,7 @@
   background: transparent;
 }
 
-.lightbox-demo-filmstrip [role='tab'] img {
+.lightbox-demo-thumbnail-strip [role='tab'] img {
   display: block;
   width: 100%;
   height: 100%;
@@ -94,7 +94,7 @@
  * Nine-slice selection frame — fixed host (max aspect + outset each side).
  * Outset = 2px gap + 2px stroke (border-box), matching outline-offset: 2px.
  */
-.lightbox-demo-filmstrip-frame {
+.lightbox-demo-thumbnail-strip-frame {
   display: block;
   position: relative;
   box-sizing: content-box;
@@ -105,11 +105,11 @@
   overflow: visible;
 }
 
-:is(.dark, [data-theme='dark']) .lightbox-demo-filmstrip-frame {
+:is(.dark, [data-theme='dark']) .lightbox-demo-thumbnail-strip-frame {
   color: #fff;
 }
 
-.lightbox-demo-filmstrip-frame-shell {
+.lightbox-demo-thumbnail-strip-frame-shell {
   position: absolute;
   left: 0;
   top: 0;
@@ -118,7 +118,7 @@
   will-change: transform;
 }
 
-.lightbox-demo-filmstrip-frame-cap {
+.lightbox-demo-thumbnail-strip-frame-cap {
   position: absolute;
   top: 0;
   left: 0;
@@ -130,18 +130,18 @@
 }
 
 /* Radius = thumb radius + offset so the ring stays concentric. */
-.lightbox-demo-filmstrip-frame-cap-left {
+.lightbox-demo-thumbnail-strip-frame-cap-left {
   border-right: none;
   border-radius: calc(0.375rem + 2px) 0 0 calc(0.375rem + 2px);
 }
 
-.lightbox-demo-filmstrip-frame-cap-right {
+.lightbox-demo-thumbnail-strip-frame-cap-right {
   border-left: none;
   border-radius: 0 calc(0.375rem + 2px) calc(0.375rem + 2px) 0;
   will-change: transform;
 }
 
-.lightbox-demo-filmstrip-frame-edge {
+.lightbox-demo-thumbnail-strip-frame-edge {
   position: absolute;
   left: var(--lightbox-demo-frame-cap, 8px);
   width: 1px;
@@ -152,17 +152,17 @@
   pointer-events: none;
 }
 
-.lightbox-demo-filmstrip-frame-edge-top {
+.lightbox-demo-thumbnail-strip-frame-edge-top {
   top: 0;
 }
 
-.lightbox-demo-filmstrip-frame-edge-bottom {
+.lightbox-demo-thumbnail-strip-frame-edge-bottom {
   bottom: 0;
 }
 
 /**
  * Thumb-jump slides crossfade — element-scoped VT only (docs experiment).
- * Library Filmstrip does not start view transitions.
+ * Library ThumbnailStrip does not start view transitions.
  */
 .lightbox-demo-slides::view-transition-group(root) {
   animation-duration: 0.4s;

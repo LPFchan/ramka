@@ -334,7 +334,7 @@ describe('Lightbox.Slides', () => {
   });
 
   it('keeps accepting thumbnail jumps during rapid programmatic navigation (scrub)', () => {
-    // Filmstrip scrub fires many marker changes while snap restore still emits
+    // ThumbnailStrip scrub fires many marker changes while snap restore still emits
     // scroll events. Those must not take the user-fling lock, or later thumbs
     // are dropped and the active state lags behind the strip.
     render(<SlidesLightbox />);

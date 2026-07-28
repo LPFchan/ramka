@@ -4,7 +4,7 @@ import { mergeProps, useRender } from '@base-ui/react';
 import * as React from 'react';
 
 import { useLightboxContext } from './lightbox-context';
-import { useLightboxFilmstripContextOptional } from './lightbox-filmstrip-context';
+import { useLightboxThumbnailStripContextOptional } from './lightbox-thumbnail-strip-context';
 import { useLightboxThumbnailGroupContextOptional } from './lightbox-thumbnail-group-context';
 
 interface LightboxThumbnailState extends Record<string, unknown> {
@@ -27,15 +27,15 @@ const thumbnailStateAttributesMapping = {
  * Uses role="tab" within a ThumbnailGroup (role="tablist"),
  * with roving tabindex for keyboard navigation.
  *
- * Inside `Lightbox.Filmstrip`, pointer selection goes through the filmstrip so
+ * Inside `Lightbox.ThumbnailStrip`, pointer selection goes through the thumbnail-strip so
  * taps can scrub the linked track; keyboard stays instant via ThumbnailGroup.
- * Outside a filmstrip, clicks call `setActiveIndex` directly.
+ * Outside a thumbnail-strip, clicks call `setActiveIndex` directly.
  */
 const LightboxThumbnail = React.forwardRef<HTMLButtonElement, LightboxThumbnailProps>(
   function LightboxThumbnail(props, forwardedRef) {
     const { render, index, ...elementProps } = props;
     const { activeIndex, setActiveIndex, baseId } = useLightboxContext();
-    const filmstrip = useLightboxFilmstripContextOptional();
+    const thumbnailStrip = useLightboxThumbnailStripContextOptional();
     const group = useLightboxThumbnailGroupContextOptional();
 
     const isActive = index === activeIndex;
@@ -47,20 +47,20 @@ const LightboxThumbnail = React.forwardRef<HTMLButtonElement, LightboxThumbnailP
     const assignRef = React.useCallback(
       (node: HTMLButtonElement | null) => {
         group?.registerThumb(index, node);
-        filmstrip?.registerThumb(index, node);
+        thumbnailStrip?.registerThumb(index, node);
         if (typeof forwardedRef === 'function') forwardedRef(node);
         else if (forwardedRef) forwardedRef.current = node;
       },
-      [index, group, filmstrip, forwardedRef],
+      [index, group, thumbnailStrip, forwardedRef],
     );
 
     const handleClick = React.useCallback(() => {
-      if (filmstrip) {
-        filmstrip.selectIndex(index);
+      if (thumbnailStrip) {
+        thumbnailStrip.selectIndex(index);
         return;
       }
       setActiveIndex(index, 'thumbnail');
-    }, [index, setActiveIndex, filmstrip]);
+    }, [index, setActiveIndex, thumbnailStrip]);
 
     const state = React.useMemo<LightboxThumbnailState>(() => ({ active: isActive, index }), [isActive, index]);
 

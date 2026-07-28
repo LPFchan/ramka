@@ -85,7 +85,7 @@ const LightboxThumbnailGroup = React.forwardRef<HTMLDivElement, LightboxThumbnai
         // Navigate relative to the *active* index (the source of truth), not the
         // currently-focused tab. A swipe moves `activeIndex` without moving focus,
         // so roving off `document.activeElement` would compute from a stale tab.
-        // Instant (no filmstrip scrub) — pointer selection owns scrub motion.
+        // Instant (no thumbnail-strip scrub) — pointer selection owns scrub motion.
         if (nextIndex === activeIndex) return;
         setActiveIndex(nextIndex, 'thumbnail');
 

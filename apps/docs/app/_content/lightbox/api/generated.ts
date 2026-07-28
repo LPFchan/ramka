@@ -291,7 +291,7 @@ export const generatedProps: Record<string, PropRow[]> = {
       description: "Allows you to replace the component's HTML element with a different tag, or compose it with another component.\n\nAccepts a `ReactElement` or a function that returns the element to render.",
     },
   ],
-  "api-filmstrip": [
+  "api-thumbnail-strip": [
     {
       name: "scrubOnSelect",
       type: "boolean",
@@ -308,14 +308,14 @@ export const generatedProps: Record<string, PropRow[]> = {
       description: "Allows you to replace the component's HTML element with a different tag, or compose it with another component.\n\nAccepts a `ReactElement` or a function that returns the element to render.",
     },
   ],
-  "api-filmstrip-track": [
+  "api-thumbnail-strip-track": [
     {
       name: "render",
       type: "ReactElement | ComponentRenderFn",
       description: "Allows you to replace the component's HTML element with a different tag, or compose it with another component.\n\nAccepts a `ReactElement` or a function that returns the element to render.",
     },
   ],
-  "api-filmstrip-indicator": [
+  "api-thumbnail-strip-indicator": [
     {
       name: "render",
       type: "ReactElement | ComponentRenderFn",
@@ -650,17 +650,17 @@ export const generatedAttributes: Record<string, AttrRow[]> = {
       description: "The thumbnail index as a string.",
     },
   ],
-  "api-filmstrip": [
+  "api-thumbnail-strip": [
     {
-      name: "data-ramka-filmstrip",
-      description: "Always present on the filmstrip root.",
+      name: "data-ramka-thumbnail-strip",
+      description: "Always present on the thumbnail strip root.",
     },
     {
-      name: "data-ramka-filmstrip-track",
+      name: "data-ramka-thumbnail-strip-track",
       description: "Always present on the scroll-linked tablist track.",
     },
     {
-      name: "data-ramka-filmstrip-indicator",
+      name: "data-ramka-thumbnail-strip-indicator",
       description: "Always present on the stationary center indicator.",
     },
     {
@@ -668,8 +668,8 @@ export const generatedAttributes: Record<string, AttrRow[]> = {
       description: "Present while a pointer thumb-select scrub animation is in flight.",
     },
   ],
-  "api-filmstrip-track": [],
-  "api-filmstrip-indicator": [],
+  "api-thumbnail-strip-track": [],
+  "api-thumbnail-strip-indicator": [],
   "api-zoom": [
     {
       name: "data-zoom",
@@ -757,14 +757,14 @@ export const generatedCssVariables: Record<string, CssVarRow[]> = {
   "api-caption": [],
   "api-thumbnail-group": [],
   "api-thumbnail": [],
-  "api-filmstrip": [
+  "api-thumbnail-strip": [
     {
-      name: "--lightbox-filmstrip-travel",
-      description: "End `translateX` travel for the scroll link (negative px length to center the last thumb — `(count - 1) * step` when thumbs are uniform). Set on the FilmstripTrack.",
+      name: "--lightbox-thumbnail-strip-travel",
+      description: "End `translateX` travel for the scroll link (negative px length to center the last thumb — `(count - 1) * step` when thumbs are uniform). Set on the ThumbnailStripTrack.",
     },
   ],
-  "api-filmstrip-track": [],
-  "api-filmstrip-indicator": [],
+  "api-thumbnail-strip-track": [],
+  "api-thumbnail-strip-indicator": [],
   "api-zoom": [],
   "api-zoom-in": [],
   "api-zoom-out": [],
