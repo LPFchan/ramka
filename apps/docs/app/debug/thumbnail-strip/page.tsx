@@ -210,7 +210,9 @@ function PolaroidStrip() {
           </Lightbox.Thumbnail>
         ))}
       </Lightbox.ThumbnailStripTrack>
-      <Lightbox.ThumbnailStripIndicator aria-hidden />
+      <Lightbox.ThumbnailStripIndicator aria-hidden>
+        <span className="ts-debug-polaroid-tape" />
+      </Lightbox.ThumbnailStripIndicator>
     </Lightbox.ThumbnailStrip>
   );
 }
@@ -277,7 +279,7 @@ export default function ThumbnailStripDebugPage() {
 
       <DemoShell
         title="4 · Polaroids"
-        description="Little mattes with a tilt that settles when centered."
+        description="Tilted mattes that settle when centered — selection is a scrapbook tape tab, not a frame."
         contentClassName="ts-debug-content-polaroid"
         strip={<PolaroidStrip />}
       />
