@@ -199,8 +199,11 @@ export enum LightboxZoomOutDataAttributes {
 export enum LightboxDocumentDataAttributes {
   /** Present during a morph. Value is `opening` or `closing`. */
   viewTransition = 'data-ramka-view-transition',
-  /** Present for hard-cut morphs (no trigger↔item snapshot crossfade). */
-  noCrossfade = 'data-ramka-no-crossfade',
+  /**
+   * Present while the morph dissolves trigger↔item snapshots (Trigger
+   * `crossfade` is active for this phase). Absent for the default hard-cut.
+   */
+  crossfade = 'data-ramka-crossfade',
 }
 
 /**

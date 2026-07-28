@@ -111,7 +111,7 @@ export const generatedProps: Record<string, PropRow[]> = {
     {
       name: "crossfade",
       type: "'open' | 'close' | 'both'",
-      description: "Crossfade between trigger and item snapshots during the view-transition morph. Omit (default) for a hard-cut morph — ideal when trigger and item show the same image at different crops/sizes. Use a direction when they differ visually:\n\n- `'both'` — crossfade on open and close (e.g. a stack → single photo)\n- `'open'` — crossfade only when opening\n- `'close'` — crossfade only when closing (e.g. poster → live video)\n\nSets `data-crossfade` / `data-ramka-no-crossfade` for CSS.",
+      description: "Crossfade between trigger and item snapshots during the view-transition morph. Omit (default) for a hard-cut morph — ideal when trigger and item show the same image at different crops/sizes. Use a direction when they differ visually:\n\n- `'both'` — crossfade on open and close (e.g. a stack → single photo)\n- `'open'` — crossfade only when opening\n- `'close'` — crossfade only when closing (e.g. poster → live video)\n\nSets `data-crossfade` on the trigger and `data-ramka-crossfade` on `<html>` during phases that dissolve (omitted for hard-cut).",
     },
     {
       name: "children",
@@ -754,8 +754,8 @@ export const generatedAttributes: Record<string, AttrRow[]> = {
       description: "Present during a morph. Value is `opening` or `closing`.",
     },
     {
-      name: "data-ramka-no-crossfade",
-      description: "Present for hard-cut morphs (no trigger↔item snapshot crossfade).",
+      name: "data-ramka-crossfade",
+      description: "Present while the morph dissolves trigger↔item snapshots (Trigger `crossfade` is active for this phase). Absent for the default hard-cut.",
     },
   ],
   "api-use-trigger-context": [],
@@ -842,11 +842,11 @@ export const generatedCssVariables: Record<string, CssVarRow[]> = {
     },
     {
       name: "--lightbox-morph-old-opacity",
-      description: "Opacity of the old morph snapshot when hard-cutting (no-crossfade path).",
+      description: "Opacity of the old morph snapshot on the hard-cut path (no document crossfade).",
     },
     {
       name: "--lightbox-morph-new-opacity",
-      description: "Opacity of the new morph snapshot when hard-cutting (1 on open, 0 on close).",
+      description: "Opacity of the new morph snapshot on the hard-cut path (1 on open, 0 on close).",
     },
   ],
   "api-use-trigger-context": [],

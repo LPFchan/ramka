@@ -68,12 +68,12 @@ export enum LightboxDocumentCssVars {
    */
   morphBorderRadiusTo = '--lightbox-morph-border-radius-to',
   /**
-   * Opacity of the old morph snapshot when hard-cutting (no-crossfade path).
+   * Opacity of the old morph snapshot on the hard-cut path (no document crossfade).
    * @type number
    */
   morphOldOpacity = '--lightbox-morph-old-opacity',
   /**
-   * Opacity of the new morph snapshot when hard-cutting (1 on open, 0 on close).
+   * Opacity of the new morph snapshot on the hard-cut path (1 on open, 0 on close).
    * @type number
    */
   morphNewOpacity = '--lightbox-morph-new-opacity',

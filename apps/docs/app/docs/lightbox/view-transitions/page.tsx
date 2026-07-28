@@ -87,7 +87,7 @@ export default function LightboxViewTransitionsPage() {
           <li>
             <strong className="font-medium text-neutral-800 dark:text-neutral-200">Omit (default)</strong>{' '}
             — hard-cut. Best when trigger and item show the <em>same</em> picture (different crop/size
-            is fine). Sets <code className="text-xs">data-ramka-no-crossfade</code> on{' '}
+            is fine). Leaves <code className="text-xs">data-ramka-crossfade</code> unset on{' '}
             <code className="text-xs">&lt;html&gt;</code> during the transition.
           </li>
           <li>
@@ -218,8 +218,8 @@ export default function LightboxViewTransitionsPage() {
             <code className="text-xs">opening</code> | <code className="text-xs">closing</code>
           </li>
           <li>
-            <code className="text-xs">data-ramka-no-crossfade</code> — hard-cut path (default when Trigger
-            omits <code className="text-xs">crossfade</code>)
+            <code className="text-xs">data-ramka-crossfade</code> — dissolve path (present when Trigger
+            <code className="text-xs">crossfade</code> is active for this phase; absent for hard-cut)
           </li>
           <li>
             <code className="text-xs">--lightbox-morph-border-radius-from/to</code>,{' '}
@@ -291,7 +291,7 @@ export default function LightboxViewTransitionsPage() {
         <p>
           Default snapshots use <code className="text-xs">object-fit: cover</code> and{' '}
           <code className="text-xs">mix-blend-mode: plus-lighter</code> so same-image hard-cuts keep crops
-          coherent. When dissolving (no <code className="text-xs">data-ramka-no-crossfade</code>), switch
+          coherent. When dissolving (<code className="text-xs">data-ramka-crossfade</code>), switch
           to <code className="text-xs">fill</code> so circular triggers don’t “balloon” under cover — the
           group’s border-radius is the visible shape.
         </p>
@@ -302,17 +302,17 @@ export default function LightboxViewTransitionsPage() {
         />
 
         <h3 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
-          Hard-cut (no crossfade)
+          Hard-cut (default morph)
         </h3>
         <p>
-          When Trigger omits <code className="text-xs">crossfade</code>, ramka sets{' '}
-          <code className="text-xs">data-ramka-no-crossfade</code>. Kill the UA dissolve, drop{' '}
+          When Trigger omits <code className="text-xs">crossfade</code>, ramka leaves{' '}
+          <code className="text-xs">data-ramka-crossfade</code> unset. Kill the UA dissolve, drop{' '}
           <code className="text-xs">plus-lighter</code>, and drive opacity from{' '}
           <code className="text-xs">--lightbox-morph-old/new-opacity</code>.
         </p>
         <CodeBlock
-          code={lightboxExcerpts['no-crossfade-hard-cut'].code}
-          title={lightboxExcerpts['no-crossfade-hard-cut'].title}
+          code={lightboxExcerpts['vt-hard-cut'].code}
+          title={lightboxExcerpts['vt-hard-cut'].title}
           lang="css"
         />
 

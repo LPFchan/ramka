@@ -1551,7 +1551,7 @@ describe('Lightbox', () => {
     function cleanupViewTransitionAPI() {
       delete (document as unknown as Record<string, unknown>).startViewTransition;
       document.documentElement.removeAttribute('data-ramka-view-transition');
-      document.documentElement.removeAttribute('data-ramka-no-crossfade');
+      document.documentElement.removeAttribute('data-ramka-crossfade');
       document.documentElement.style.removeProperty('--lightbox-morph-border-radius-from');
       document.documentElement.style.removeProperty('--lightbox-morph-border-radius-to');
       document.documentElement.style.removeProperty('--lightbox-morph-old-opacity');
@@ -1663,7 +1663,8 @@ describe('Lightbox', () => {
       expect(startViewTransition).toHaveBeenCalledOnce();
       expect(namedDuringCapture).toBe('');
       expect(document.documentElement).toHaveAttribute('data-ramka-view-transition', 'closing');
-      expect(document.documentElement).not.toHaveAttribute('data-ramka-no-crossfade');
+      // No trigger end → plain root crossfade (not a hard-cut morph).
+      expect(document.documentElement).toHaveAttribute('data-ramka-crossfade');
     });
 
     it('removes data-ramka-view-transition after close transition finishes', async () => {
@@ -2106,10 +2107,10 @@ describe('Lightbox', () => {
         fireEvent.click(screen.getByTestId('trigger-0'));
 
         // Morph path: the destination image gets the morph view-transition-name
-        // and the no-crossfade opt-out is applied (crossfade defaults to unset).
+        // and hard-cut is applied (crossfade defaults to unset; no data-ramka-crossfade).
         const img = screen.getByTestId('item-0').querySelector('img')!;
         expect(img.style.getPropertyValue('view-transition-name')).toBe('lightbox-morph');
-        expect(document.documentElement).toHaveAttribute('data-ramka-no-crossfade');
+        expect(document.documentElement).not.toHaveAttribute('data-ramka-crossfade');
       });
 
       it('falls back to a plain crossfade when the target box is 0×0 (unsized image that never loaded)', () => {
@@ -2119,10 +2120,10 @@ describe('Lightbox', () => {
         fireEvent.click(screen.getByTestId('trigger-0'));
 
         // Fallback path: no morph name (which would shrink the trigger into a
-        // 0×0 box) and no no-crossfade opt-out — a clean root crossfade instead.
+        // 0×0 box) with data-ramka-crossfade — a clean root crossfade instead.
         const img = screen.getByTestId('item-0').querySelector('img')!;
         expect(img.style.getPropertyValue('view-transition-name')).toBe('');
-        expect(document.documentElement).not.toHaveAttribute('data-ramka-no-crossfade');
+        expect(document.documentElement).toHaveAttribute('data-ramka-crossfade');
         // Still a real View Transition, and the item is still marked ready.
         expect(document.documentElement).toHaveAttribute('data-ramka-view-transition');
         expect(screen.getByTestId('item-0')).toHaveAttribute('data-skip-fade');
@@ -2282,7 +2283,7 @@ describe('Lightbox', () => {
         mockTargetBox();
         renderCrossfadeLightbox('close');
         fireEvent.click(screen.getByTestId('trigger-0'));
-        expect(document.documentElement).toHaveAttribute('data-ramka-no-crossfade');
+        expect(document.documentElement).not.toHaveAttribute('data-ramka-crossfade');
       });
 
       it('crossfades open when crossfade="open"', () => {
@@ -2290,7 +2291,7 @@ describe('Lightbox', () => {
         mockTargetBox();
         renderCrossfadeLightbox('open');
         fireEvent.click(screen.getByTestId('trigger-0'));
-        expect(document.documentElement).not.toHaveAttribute('data-ramka-no-crossfade');
+        expect(document.documentElement).toHaveAttribute('data-ramka-crossfade');
       });
 
       it('crossfades open when crossfade="both"', () => {
@@ -2298,7 +2299,7 @@ describe('Lightbox', () => {
         mockTargetBox();
         renderCrossfadeLightbox('both');
         fireEvent.click(screen.getByTestId('trigger-0'));
-        expect(document.documentElement).not.toHaveAttribute('data-ramka-no-crossfade');
+        expect(document.documentElement).toHaveAttribute('data-ramka-crossfade');
       });
 
       function mockOpenThenCloseTransition() {
@@ -2339,12 +2340,12 @@ describe('Lightbox', () => {
         renderCrossfadeLightbox('close');
         fireEvent.click(screen.getByTestId('trigger-0'));
         // Open was hard-cut.
-        expect(document.documentElement).toHaveAttribute('data-ramka-no-crossfade');
+        expect(document.documentElement).not.toHaveAttribute('data-ramka-crossfade');
         await act(async () => resolveOpen());
 
         fireEvent.click(screen.getByTestId('close'));
         expect(document.documentElement).toHaveAttribute('data-ramka-view-transition', 'closing');
-        expect(document.documentElement).not.toHaveAttribute('data-ramka-no-crossfade');
+        expect(document.documentElement).toHaveAttribute('data-ramka-crossfade');
       });
 
       it('hard-cuts close when crossfade="open"', async () => {
@@ -2352,12 +2353,12 @@ describe('Lightbox', () => {
         mockTargetBox();
         renderCrossfadeLightbox('open');
         fireEvent.click(screen.getByTestId('trigger-0'));
-        expect(document.documentElement).not.toHaveAttribute('data-ramka-no-crossfade');
+        expect(document.documentElement).toHaveAttribute('data-ramka-crossfade');
         await act(async () => resolveOpen());
 
         fireEvent.click(screen.getByTestId('close'));
         expect(document.documentElement).toHaveAttribute('data-ramka-view-transition', 'closing');
-        expect(document.documentElement).toHaveAttribute('data-ramka-no-crossfade');
+        expect(document.documentElement).not.toHaveAttribute('data-ramka-crossfade');
       });
     });
 

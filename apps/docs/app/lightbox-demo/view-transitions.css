@@ -78,23 +78,23 @@
   /* Crossfade (dissimilar snapshots): fill the morph box so a circular trigger's
      baked alpha can't "balloon" under cover — the group's border-radius is the
      visible shape, interpolating via the from/to vars above. */
-  :root[data-ramka-view-transition]:not([data-ramka-no-crossfade])::view-transition-old(lightbox-morph),
-  :root[data-ramka-view-transition]:not([data-ramka-no-crossfade])::view-transition-new(lightbox-morph) {
+  :root[data-ramka-view-transition][data-ramka-crossfade]::view-transition-old(lightbox-morph),
+  :root[data-ramka-view-transition][data-ramka-crossfade]::view-transition-new(lightbox-morph) {
     object-fit: fill;
   }
   /* @docs-excerpt-end */
 
-  /* @docs-excerpt-start no-crossfade-hard-cut */
-  /* @docs-excerpt-title Hard-cut (no crossfade) */
-  :root[data-ramka-no-crossfade]::view-transition-old(lightbox-morph),
-  :root[data-ramka-no-crossfade]::view-transition-new(lightbox-morph) {
+  /* @docs-excerpt-start vt-hard-cut */
+  /* @docs-excerpt-title Hard-cut (default morph) */
+  :root[data-ramka-view-transition]:not([data-ramka-crossfade])::view-transition-old(lightbox-morph),
+  :root[data-ramka-view-transition]:not([data-ramka-crossfade])::view-transition-new(lightbox-morph) {
     animation: none !important;
     mix-blend-mode: normal;
   }
-  :root[data-ramka-no-crossfade]::view-transition-old(lightbox-morph) {
+  :root[data-ramka-view-transition]:not([data-ramka-crossfade])::view-transition-old(lightbox-morph) {
     opacity: var(--lightbox-morph-old-opacity, 1);
   }
-  :root[data-ramka-no-crossfade]::view-transition-new(lightbox-morph) {
+  :root[data-ramka-view-transition]:not([data-ramka-crossfade])::view-transition-new(lightbox-morph) {
     opacity: var(--lightbox-morph-new-opacity, 0);
   }
   /* @docs-excerpt-end */

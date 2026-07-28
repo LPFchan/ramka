@@ -93,7 +93,8 @@ interface LightboxTriggerProps
    * - `'open'` — crossfade only when opening
    * - `'close'` — crossfade only when closing (e.g. poster → live video)
    *
-   * Sets `data-crossfade` / `data-ramka-no-crossfade` for CSS.
+   * Sets `data-crossfade` on the trigger and `data-ramka-crossfade` on
+   * `<html>` during phases that dissolve (omitted for hard-cut).
    */
   crossfade?: LightboxCrossfade;
   /**
