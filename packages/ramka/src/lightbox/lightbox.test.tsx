@@ -2129,6 +2129,95 @@ describe('Lightbox', () => {
       });
     });
 
+    describe('data-morph-target', () => {
+      it('sets data-morph-target on the trigger when morphRef is unset', () => {
+        render(
+          <LightboxRoot>
+            <LightboxTrigger index={0} data-testid="trigger-0">
+              <img src="thumb.jpg" alt="thumb" />
+            </LightboxTrigger>
+            <LightboxPortal>
+              <LightboxContent aria-label="morph attr test">
+                <LightboxItemGroup>
+                  <LightboxItem index={0}>
+                    <img src="full.jpg" alt="full" />
+                  </LightboxItem>
+                </LightboxItemGroup>
+              </LightboxContent>
+            </LightboxPortal>
+          </LightboxRoot>,
+        );
+
+        const trigger = screen.getByTestId('trigger-0');
+        expect(trigger).not.toHaveAttribute('data-morph-target');
+        fireEvent.click(trigger);
+        expect(trigger).toHaveAttribute('data-morph-target');
+        // Base UI must not also serialize the state key as `data-morphtarget`.
+        expect(trigger).not.toHaveAttribute('data-morphtarget');
+      });
+
+      it('sets data-morph-target on the morphRef node, not the trigger', () => {
+        render(
+          <LightboxRoot>
+            <LightboxTrigger index={0} data-testid="trigger-0">
+              {({ morphRef }) => (
+                <span data-testid="card">
+                  <img ref={morphRef} data-testid="morph-el" src="thumb.jpg" alt="thumb" />
+                  <span>Label stays</span>
+                </span>
+              )}
+            </LightboxTrigger>
+            <LightboxPortal>
+              <LightboxContent aria-label="morph attr test">
+                <LightboxItemGroup>
+                  <LightboxItem index={0}>
+                    <img src="full.jpg" alt="full" />
+                  </LightboxItem>
+                </LightboxItemGroup>
+              </LightboxContent>
+            </LightboxPortal>
+          </LightboxRoot>,
+        );
+
+        fireEvent.click(screen.getByTestId('trigger-0'));
+        expect(screen.getByTestId('trigger-0')).not.toHaveAttribute('data-morph-target');
+        expect(screen.getByTestId('morph-el')).toHaveAttribute('data-morph-target');
+        expect(screen.getByTestId('card')).not.toHaveAttribute('data-morph-target');
+      });
+
+      it('tolerates an inline combined imageRef+morphRef callback without looping', () => {
+        render(
+          <LightboxRoot>
+            <LightboxTrigger index={0} data-testid="trigger-0">
+              {({ imageRef, morphRef }) => (
+                <img
+                  ref={(node) => {
+                    imageRef(node);
+                    morphRef(node);
+                  }}
+                  data-testid="morph-el"
+                  src="thumb.jpg"
+                  alt="thumb"
+                />
+              )}
+            </LightboxTrigger>
+            <LightboxPortal>
+              <LightboxContent aria-label="morph attr test">
+                <LightboxItemGroup>
+                  <LightboxItem index={0}>
+                    <img src="full.jpg" alt="full" />
+                  </LightboxItem>
+                </LightboxItemGroup>
+              </LightboxContent>
+            </LightboxPortal>
+          </LightboxRoot>,
+        );
+
+        fireEvent.click(screen.getByTestId('trigger-0'));
+        expect(screen.getByTestId('morph-el')).toHaveAttribute('data-morph-target');
+      });
+    });
+
     describe('crossfade direction', () => {
       let originalRect: PropertyDescriptor | undefined;
 

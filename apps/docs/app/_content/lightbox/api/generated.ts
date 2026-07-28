@@ -498,7 +498,7 @@ export const generatedAttributes: Record<string, AttrRow[]> = {
     },
     {
       name: "data-morph-target",
-      description: "Present when this trigger (or its morphRef) is the current morph source/target.",
+      description: "Present on the resolved morph element while it is the open/close morph source: the trigger root by default, or the node designated via `morphRef` when attached. Style hide/opacity against this attribute directly — do not assume it lives on the Trigger button.",
     },
     {
       name: "data-crossfade",

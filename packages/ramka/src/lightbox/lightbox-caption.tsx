@@ -4,6 +4,7 @@ import { mergeProps, useRender } from '@base-ui/react';
 import * as React from 'react';
 
 import { useLightboxContext } from './lightbox-context';
+import { ignoreStateAttribute } from './lightbox-state-attributes';
 
 interface LightboxCaptionState extends Record<string, unknown> {
   index: number;
@@ -13,7 +14,7 @@ interface LightboxCaptionState extends Record<string, unknown> {
 interface LightboxCaptionProps extends useRender.ComponentProps<'div', LightboxCaptionState> {}
 
 const captionStateAttributesMapping = {
-  index: () => null,
+  index: ignoreStateAttribute,
   hasCaption: (value: unknown) => (value ? { 'data-has-caption': '' } : null),
 };
 

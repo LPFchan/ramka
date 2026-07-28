@@ -16,6 +16,7 @@ import { triggerHaptic } from './haptics';
 import { LightboxContentCssVars } from './lightbox-css-vars';
 import { useLightboxContext } from './lightbox-context';
 import { useOptionalLightboxItemContext } from './lightbox-item';
+import { ignoreStateAttribute } from './lightbox-state-attributes';
 import {
   ZoomContext,
   useLightboxZoomPublish,
@@ -90,6 +91,12 @@ interface LightboxZoomProps
 const stateAttributesMapping = {
   zoom: (value: unknown) => (typeof value === 'number' && value > 1 ? { 'data-zoom': '' } : null),
   dragging: (value: unknown) => (value ? { 'data-dragging': '' } : null),
+  // Render-prop / imperative state — must not leak as data-maxzoom, etc.
+  maxZoom: ignoreStateAttribute,
+  offsetX: ignoreStateAttribute,
+  offsetY: ignoreStateAttribute,
+  canZoomIn: ignoreStateAttribute,
+  canZoomOut: ignoreStateAttribute,
 };
 
 interface LightboxZoomRef {

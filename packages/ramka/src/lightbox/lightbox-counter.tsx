@@ -4,6 +4,7 @@ import { mergeProps, useRender } from '@base-ui/react';
 import * as React from 'react';
 
 import { useLightboxContext } from './lightbox-context';
+import { ignoreStateAttribute } from './lightbox-state-attributes';
 
 interface LightboxCounterState extends Record<string, unknown> {
   current: number;
@@ -19,8 +20,8 @@ interface LightboxCounterProps extends Omit<useRender.ComponentProps<'div', Ligh
 }
 
 const counterStateAttributesMapping = {
-  current: () => null,
-  total: () => null,
+  current: ignoreStateAttribute,
+  total: ignoreStateAttribute,
 };
 
 /**

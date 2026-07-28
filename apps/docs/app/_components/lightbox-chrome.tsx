@@ -418,12 +418,12 @@ export const triggerMorphHideClass =
   'transition-opacity duration-[200ms] ease-out-expo data-[morph-target]:opacity-0 [:root[data-ramka-view-transition]_&]:transition-none';
 
 /**
- * Consumer-side hide for the morph *child* only. Apply to the element that
- * carries `morphRef` (or its media wrapper) so chrome around it — titles,
- * labels, captions — stays visible while the lightbox is open.
+ * Consumer-side hide for the morph element. Prefer on the node that carries
+ * `morphRef` (library sets `data-morph-target` there). `in-data-morph-target`
+ * remains for older patterns where the attribute lived only on the Trigger.
  */
 export const morphHideClass =
-  'transition-opacity duration-[200ms] ease-out-expo in-data-morph-target:opacity-0 [:root[data-ramka-view-transition]_&]:transition-none';
+  'transition-opacity duration-[200ms] ease-out-expo data-[morph-target]:opacity-0 in-data-morph-target:opacity-0 [:root[data-ramka-view-transition]_&]:transition-none';
 
 /**
  * Keyboard focus ring for a `Lightbox.Trigger`. Purely a demo affordance — the

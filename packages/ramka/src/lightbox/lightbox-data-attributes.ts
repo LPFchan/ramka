@@ -17,7 +17,12 @@ export enum LightboxTriggerDataAttributes {
   open = 'data-popup-open',
   /** Present when this trigger’s index is the active item. */
   active = 'data-active',
-  /** Present when this trigger (or its morphRef) is the current morph source/target. */
+  /**
+   * Present on the resolved morph element while it is the open/close morph
+   * source: the trigger root by default, or the node designated via
+   * `morphRef` when attached. Style hide/opacity against this attribute
+   * directly — do not assume it lives on the Trigger button.
+   */
   morphTarget = 'data-morph-target',
   /** Reflects the crossfade prop: `open` | `close` | `both`. */
   crossfade = 'data-crossfade',

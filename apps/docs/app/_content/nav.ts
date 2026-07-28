@@ -1,4 +1,5 @@
 import { lightboxExamples, type ExampleLink } from '../_components/examples';
+import { lightboxPresets } from '../presets/presets';
 import { debugPagesList } from './debug-pages';
 import { lightboxDocsPages } from './lightbox/docs-pages';
 
@@ -45,6 +46,10 @@ const baseNavSections: NavSection[] = [
       lightboxDocsPages.zoom,
       lightboxDocsPages.api,
     ],
+  },
+  {
+    title: 'Presets',
+    links: lightboxPresets,
   },
   {
     title: 'Examples',
