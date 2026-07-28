@@ -4,10 +4,16 @@
  * (`pnpm docs:api`). Prefer these constants over string literals when
  * reading/writing attributes in library code.
  *
+ * ## Naming
+ * - **`data-ramka-*`**: part identity / stable DOM lookup hooks. Every
+ *   DOM-rendering primitive MUST publish exactly one identity marker
+ *   (listed in `LIGHTBOX_PART_IDENTITY_ATTRIBUTES`). Root is exempt — it
+ *   renders no host element.
+ * - **Plain `data-*`**: transient UI state (`data-open`, `data-active`, …).
+ *
  * Open/close state attrs follow Base UI Dialog conventions:
  * - Trigger uses `data-popup-open` when the lightbox is open.
  * - Content/Backdrop use mutually exclusive `data-open` / `data-closed`.
- * Part identity markers use the `data-ramka-*` prefix.
  */
 
 export enum LightboxTriggerDataAttributes {
@@ -28,7 +34,14 @@ export enum LightboxTriggerDataAttributes {
   crossfade = 'data-crossfade',
 }
 
+export enum LightboxPortalDataAttributes {
+  /** Always present on the portal host element. */
+  portal = 'data-ramka-portal',
+}
+
 export enum LightboxContentDataAttributes {
+  /** Always present on the dialog surface. */
+  content = 'data-ramka-content',
   /** Present while the lightbox is open. */
   open = 'data-open',
   /** Present while the lightbox is closed (still rendered). */
@@ -44,6 +57,8 @@ export enum LightboxContentDataAttributes {
 }
 
 export enum LightboxBackdropDataAttributes {
+  /** Always present on the backdrop element. */
+  backdrop = 'data-ramka-backdrop',
   /** Present while the lightbox is open. */
   open = 'data-open',
   /** Present while the lightbox is closed (still rendered). */
@@ -52,7 +67,14 @@ export enum LightboxBackdropDataAttributes {
   pulling = 'data-pulling',
 }
 
+export enum LightboxCloseDataAttributes {
+  /** Always present on the close button. */
+  close = 'data-ramka-close',
+}
+
 export enum LightboxItemGroupDataAttributes {
+  /** Always present on the item-group element. */
+  itemGroup = 'data-ramka-item-group',
   /** Current active index as a string. */
   activeIndex = 'data-active-index',
   /** `forward` or `backward` — last navigation direction. */
@@ -74,6 +96,8 @@ export enum LightboxItemDataAttributes {
 }
 
 export enum LightboxSlidesDataAttributes {
+  /** Always present on the slides scrollport. */
+  slides = 'data-ramka-slides',
   /** Current active index. */
   activeIndex = 'data-active-index',
   /** `forward` or `backward`. */
@@ -88,26 +112,41 @@ export enum LightboxSlideDataAttributes {
 }
 
 export enum LightboxPreviousDataAttributes {
+  /** Always present on the previous button. */
+  previous = 'data-ramka-previous',
   /** Present when navigation is unavailable. */
   disabled = 'data-disabled',
 }
 
 export enum LightboxNextDataAttributes {
+  /** Always present on the next button. */
+  next = 'data-ramka-next',
   /** Present when navigation is unavailable. */
   disabled = 'data-disabled',
 }
 
+export enum LightboxCounterDataAttributes {
+  /** Always present on the counter element. */
+  counter = 'data-ramka-counter',
+}
+
 export enum LightboxCaptionDataAttributes {
+  /** Always present on the caption element. */
+  caption = 'data-ramka-caption',
   /** Present when the active item has a caption. */
   hasCaption = 'data-has-caption',
 }
 
 export enum LightboxThumbnailGroupDataAttributes {
+  /** Always present on the thumbnail group (tablist). */
+  thumbnailGroup = 'data-ramka-thumbnail-group',
   /** Present when focus is inside the group. */
   focusWithin = 'data-focus-within',
 }
 
 export enum LightboxThumbnailDataAttributes {
+  /** Always present on the thumbnail button. */
+  thumbnail = 'data-ramka-thumbnail',
   /** Present when this thumbnail’s index is active. */
   active = 'data-active',
   /** The thumbnail index as a string. */
@@ -135,6 +174,8 @@ export enum LightboxMediaDataAttributes {
 }
 
 export enum LightboxZoomDataAttributes {
+  /** Always present on the zoom container. */
+  host = 'data-ramka-zoom',
   /** Present when zoom > 1. */
   zoom = 'data-zoom',
   /** Present while panning with a pointer. */
@@ -142,11 +183,15 @@ export enum LightboxZoomDataAttributes {
 }
 
 export enum LightboxZoomInDataAttributes {
+  /** Always present on the zoom-in button. */
+  zoomIn = 'data-ramka-zoom-in',
   /** Present when zoom-in is unavailable. */
   disabled = 'data-disabled',
 }
 
 export enum LightboxZoomOutDataAttributes {
+  /** Always present on the zoom-out button. */
+  zoomOut = 'data-ramka-zoom-out',
   /** Present when zoom-out is unavailable. */
   disabled = 'data-disabled',
 }
@@ -157,3 +202,36 @@ export enum LightboxDocumentDataAttributes {
   /** Present for hard-cut morphs (no trigger↔item snapshot crossfade). */
   noCrossfade = 'data-ramka-no-crossfade',
 }
+
+/**
+ * Identity markers for every DOM-rendering Lightbox part.
+ * Root is omitted (context provider only). Document-level attrs live on
+ * `<html>` via `LightboxDocumentDataAttributes`, not here.
+ *
+ * When adding a new DOM primitive: add its `data-ramka-*` enum member, set it
+ * on the host in the component, append it here, and extend
+ * `lightbox-part-identity.test.tsx`.
+ */
+export const LIGHTBOX_PART_IDENTITY_ATTRIBUTES = [
+  LightboxTriggerDataAttributes.trigger,
+  LightboxPortalDataAttributes.portal,
+  LightboxContentDataAttributes.content,
+  LightboxBackdropDataAttributes.backdrop,
+  LightboxCloseDataAttributes.close,
+  LightboxItemGroupDataAttributes.itemGroup,
+  LightboxItemDataAttributes.item,
+  LightboxSlidesDataAttributes.slides,
+  LightboxSlideDataAttributes.slide,
+  LightboxPreviousDataAttributes.previous,
+  LightboxNextDataAttributes.next,
+  LightboxCounterDataAttributes.counter,
+  LightboxCaptionDataAttributes.caption,
+  LightboxThumbnailGroupDataAttributes.thumbnailGroup,
+  LightboxThumbnailDataAttributes.thumbnail,
+  LightboxThumbnailStripDataAttributes.root,
+  LightboxThumbnailStripDataAttributes.track,
+  LightboxMediaDataAttributes.media,
+  LightboxZoomDataAttributes.host,
+  LightboxZoomInDataAttributes.zoomIn,
+  LightboxZoomOutDataAttributes.zoomOut,
+] as const;

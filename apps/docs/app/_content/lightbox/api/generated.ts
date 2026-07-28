@@ -505,8 +505,17 @@ export const generatedAttributes: Record<string, AttrRow[]> = {
       description: "Reflects the crossfade prop: `open` | `close` | `both`.",
     },
   ],
-  "api-portal": [],
+  "api-portal": [
+    {
+      name: "data-ramka-portal",
+      description: "Always present on the portal host element.",
+    },
+  ],
   "api-content": [
+    {
+      name: "data-ramka-content",
+      description: "Always present on the dialog surface.",
+    },
     {
       name: "data-open",
       description: "Present while the lightbox is open.",
@@ -534,6 +543,10 @@ export const generatedAttributes: Record<string, AttrRow[]> = {
   ],
   "api-backdrop": [
     {
+      name: "data-ramka-backdrop",
+      description: "Always present on the backdrop element.",
+    },
+    {
       name: "data-open",
       description: "Present while the lightbox is open.",
     },
@@ -546,7 +559,12 @@ export const generatedAttributes: Record<string, AttrRow[]> = {
       description: "Present while pull-to-dismiss is active (mirrors Content).",
     },
   ],
-  "api-close": [],
+  "api-close": [
+    {
+      name: "data-ramka-close",
+      description: "Always present on the close button.",
+    },
+  ],
   "api-item": [
     {
       name: "data-ramka-item",
@@ -585,6 +603,10 @@ export const generatedAttributes: Record<string, AttrRow[]> = {
   ],
   "api-slides": [
     {
+      name: "data-ramka-slides",
+      description: "Always present on the slides scrollport.",
+    },
+    {
       name: "data-active-index",
       description: "Current active index.",
     },
@@ -605,6 +627,10 @@ export const generatedAttributes: Record<string, AttrRow[]> = {
   ],
   "api-item-group": [
     {
+      name: "data-ramka-item-group",
+      description: "Always present on the item-group element.",
+    },
+    {
       name: "data-active-index",
       description: "Current active index as a string.",
     },
@@ -615,18 +641,35 @@ export const generatedAttributes: Record<string, AttrRow[]> = {
   ],
   "api-previous": [
     {
+      name: "data-ramka-previous",
+      description: "Always present on the previous button.",
+    },
+    {
       name: "data-disabled",
       description: "Present when navigation is unavailable.",
     },
   ],
   "api-next": [
     {
+      name: "data-ramka-next",
+      description: "Always present on the next button.",
+    },
+    {
       name: "data-disabled",
       description: "Present when navigation is unavailable.",
     },
   ],
-  "api-counter": [],
+  "api-counter": [
+    {
+      name: "data-ramka-counter",
+      description: "Always present on the counter element.",
+    },
+  ],
   "api-caption": [
+    {
+      name: "data-ramka-caption",
+      description: "Always present on the caption element.",
+    },
     {
       name: "data-has-caption",
       description: "Present when the active item has a caption.",
@@ -634,11 +677,19 @@ export const generatedAttributes: Record<string, AttrRow[]> = {
   ],
   "api-thumbnail-group": [
     {
+      name: "data-ramka-thumbnail-group",
+      description: "Always present on the thumbnail group (tablist).",
+    },
+    {
       name: "data-focus-within",
       description: "Present when focus is inside the group.",
     },
   ],
   "api-thumbnail": [
+    {
+      name: "data-ramka-thumbnail",
+      description: "Always present on the thumbnail button.",
+    },
     {
       name: "data-active",
       description: "Present when this thumbnail’s index is active.",
@@ -665,6 +716,10 @@ export const generatedAttributes: Record<string, AttrRow[]> = {
   "api-thumbnail-strip-track": [],
   "api-zoom": [
     {
+      name: "data-ramka-zoom",
+      description: "Always present on the zoom container.",
+    },
+    {
       name: "data-zoom",
       description: "Present when zoom > 1.",
     },
@@ -675,11 +730,19 @@ export const generatedAttributes: Record<string, AttrRow[]> = {
   ],
   "api-zoom-in": [
     {
+      name: "data-ramka-zoom-in",
+      description: "Always present on the zoom-in button.",
+    },
+    {
       name: "data-disabled",
       description: "Present when zoom-in is unavailable.",
     },
   ],
   "api-zoom-out": [
+    {
+      name: "data-ramka-zoom-out",
+      description: "Always present on the zoom-out button.",
+    },
     {
       name: "data-disabled",
       description: "Present when zoom-out is unavailable.",

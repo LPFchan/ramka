@@ -3,6 +3,7 @@
 import { mergeProps, useRender } from '@base-ui/react';
 import * as React from 'react';
 
+import { LightboxThumbnailDataAttributes } from './lightbox-data-attributes';
 import { useLightboxContext } from './lightbox-context';
 import { useLightboxThumbnailStripContextOptional } from './lightbox-thumbnail-strip-context';
 import { useLightboxThumbnailGroupContextOptional } from './lightbox-thumbnail-group-context';
@@ -73,6 +74,7 @@ const LightboxThumbnail = React.forwardRef<HTMLButtonElement, LightboxThumbnailP
         {
           type: 'button',
           role: 'tab',
+          [LightboxThumbnailDataAttributes.thumbnail]: '',
           id: tabId,
           'aria-selected': isActive,
           'aria-controls': panelId,

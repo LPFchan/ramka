@@ -110,6 +110,7 @@ const LightboxBackdrop = React.forwardRef<HTMLDivElement, LightboxBackdropProps>
       stateAttributesMapping: backdropStateAttributesMapping,
       props: mergeProps<'div'>(
         {
+          [LightboxBackdropDataAttributes.backdrop]: '',
           'aria-hidden': true,
           inert: parked || undefined,
           onClick: handleClick,

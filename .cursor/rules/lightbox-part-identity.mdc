@@ -1,0 +1,33 @@
+---
+description: Every DOM Lightbox primitive must publish a data-ramka-* identity marker
+globs: packages/ramka/src/lightbox/**
+alwaysApply: false
+---
+
+# Lightbox part identity (`data-ramka-*`)
+
+Every **DOM-rendering** Lightbox primitive must publish a stable identity marker:
+
+- Prefix: `data-ramka-*` (never plain `data-*` for identity)
+- Plain `data-*` is reserved for transient UI state (`data-open`, `data-active`, …)
+- `Lightbox.Root` is exempt (context-only; no host element)
+- Document-level morph attrs on `<html>` use `LightboxDocumentDataAttributes` (not part identity)
+
+## When adding or changing a primitive
+
+1. Add the identity member to the part’s enum in `lightbox-data-attributes.ts` (JSDoc required — docs API source)
+2. Set it on the host element via that enum constant (prefer enum over string literals)
+3. Append it to `LIGHTBOX_PART_IDENTITY_ATTRIBUTES`
+4. Extend `lightbox-part-identity.test.tsx` if the mount tree does not already cover the part
+5. Wire `attributesFrom` in `apps/docs/app/_content/lightbox/api/meta.ts` when the part is documented
+6. Run `pnpm docs:api`
+
+## Example
+
+```tsx
+// ✅ identity via enum
+[LightboxCloseDataAttributes.close]: '',
+
+// ❌ missing identity, or ad-hoc string without enum / registry update
+'data-close': '',
+```

@@ -3,6 +3,7 @@
 import { mergeProps, useRender } from '@base-ui/react';
 import * as React from 'react';
 
+import { LightboxSlidesDataAttributes } from './lightbox-data-attributes';
 import { useLightboxContext } from './lightbox-context';
 import { LightboxItemGroupContext, type LightboxItemGroupContextValue } from './lightbox-item-group';
 import {
@@ -479,6 +480,7 @@ const LightboxSlides = React.forwardRef<HTMLDivElement, LightboxSlidesProps>(
           props: mergeProps<'div'>(
             {
               role: 'group',
+              [LightboxSlidesDataAttributes.slides]: '',
               // APG Carousel pattern: the container that wraps the slides is a
               // carousel. Give it a label via `aria-label` / `aria-labelledby`
               // (the word "carousel" is supplied by the roledescription, so the

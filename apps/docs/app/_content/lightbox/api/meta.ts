@@ -91,6 +91,10 @@ export const lightboxApiMeta: ApiPartMeta[] = [
       file: 'lightbox-portal.tsx',
       exclude: ['className', 'style', 'ref'],
     },
+    attributesFrom: {
+      enumName: 'LightboxPortalDataAttributes',
+      file: 'lightbox-data-attributes.ts',
+    },
   },
   {
     id: 'api-content',
@@ -141,6 +145,10 @@ export const lightboxApiMeta: ApiPartMeta[] = [
       typeName: 'LightboxCloseProps',
       file: 'lightbox-close.tsx',
       includeInherited: ['render'],
+    },
+    attributesFrom: {
+      enumName: 'LightboxCloseDataAttributes',
+      file: 'lightbox-data-attributes.ts',
     },
   },
   {
@@ -259,6 +267,10 @@ export const lightboxApiMeta: ApiPartMeta[] = [
       typeName: 'LightboxCounterProps',
       file: 'lightbox-counter.tsx',
       includeInherited: ['render'],
+    },
+    attributesFrom: {
+      enumName: 'LightboxCounterDataAttributes',
+      file: 'lightbox-data-attributes.ts',
     },
   },
   {

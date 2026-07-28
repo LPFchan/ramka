@@ -456,6 +456,9 @@ const LightboxContent = React.forwardRef<HTMLDivElement, LightboxContentProps>(
         onClick: handleClick,
         tabIndex: parked ? undefined : -1,
       } as React.ComponentPropsWithRef<'div'>,
+      // Identity marker is a separate merge so the enum key isn't checked as an
+      // excess property on the DetailedHTMLProps cast above.
+      { [LightboxContentDataAttributes.content]: '' } as React.ComponentPropsWithRef<'div'>,
       rest as React.ComponentPropsWithRef<'div'>,
     );
 

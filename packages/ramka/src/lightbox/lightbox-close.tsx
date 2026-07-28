@@ -3,6 +3,7 @@
 import { mergeProps, useRender } from '@base-ui/react';
 import * as React from 'react';
 
+import { LightboxCloseDataAttributes } from './lightbox-data-attributes';
 import { useLightboxContext } from './lightbox-context';
 
 interface LightboxCloseState extends Record<string, unknown> {}
@@ -36,6 +37,7 @@ const LightboxClose = React.forwardRef<HTMLButtonElement, LightboxCloseProps>(
       props: mergeProps<'button'>(
         {
           type: 'button',
+          [LightboxCloseDataAttributes.close]: '',
           'aria-label': 'Close',
           onClick: handleClick,
         } as React.ComponentPropsWithRef<'button'>,

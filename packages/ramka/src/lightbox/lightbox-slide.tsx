@@ -3,6 +3,8 @@
 import { mergeProps, useRender } from '@base-ui/react';
 import * as React from 'react';
 
+import { LightboxSlideDataAttributes } from './lightbox-data-attributes';
+
 /**
  * `Lightbox.Slide` — one snap box inside `Lightbox.Slides`.
  *
@@ -45,7 +47,7 @@ const LightboxSlide = React.forwardRef<HTMLDivElement, LightboxSlideProps>(
       ref: forwardedRef,
       props: mergeProps<'div'>(
         {
-          'data-ramka-slide': '',
+          [LightboxSlideDataAttributes.slide]: '',
           style: {
             // One viewport per slide; the browser snaps its center. `min-width`
             // is belt-and-suspenders so the box can't be squeezed by flex even

@@ -14,6 +14,7 @@ import {
 } from './gesture-math';
 import { triggerHaptic } from './haptics';
 import { LightboxContentCssVars } from './lightbox-css-vars';
+import { LightboxZoomDataAttributes } from './lightbox-data-attributes';
 import { useLightboxContext } from './lightbox-context';
 import { useOptionalLightboxItemContext } from './lightbox-item';
 import { ignoreStateAttribute } from './lightbox-state-attributes';
@@ -713,6 +714,7 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
       stateAttributesMapping,
       props: mergeProps<'div'>(
         {
+          [LightboxZoomDataAttributes.host]: '',
           style: {
             position: 'relative',
             width: '100%',

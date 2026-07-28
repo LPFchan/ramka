@@ -3,6 +3,7 @@
 import { mergeProps, useRender } from '@base-ui/react';
 import * as React from 'react';
 
+import { LightboxMediaDataAttributes } from './lightbox-data-attributes';
 import { useOptionalLightboxItemContext } from './lightbox-item';
 
 /**
@@ -281,9 +282,12 @@ const LightboxMedia = React.forwardRef<HTMLDivElement, LightboxMediaProps>(
       props: mergeProps<'div'>(
         {
           id: mediaId,
-          'data-ramka-media': '',
+          [LightboxMediaDataAttributes.media]: '',
           ...(hasFitBox && width && height
-            ? { 'data-width': String(width), 'data-height': String(height) }
+            ? {
+                [LightboxMediaDataAttributes.width]: String(width),
+                [LightboxMediaDataAttributes.height]: String(height),
+              }
             : null),
           style: {
             ...structuralStyle,

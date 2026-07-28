@@ -3,6 +3,7 @@
 import { mergeProps, useRender } from '@base-ui/react';
 import * as React from 'react';
 
+import { LightboxCaptionDataAttributes } from './lightbox-data-attributes';
 import { useLightboxContext } from './lightbox-context';
 import { ignoreStateAttribute } from './lightbox-state-attributes';
 
@@ -54,6 +55,7 @@ const LightboxCaption = React.forwardRef<HTMLDivElement, LightboxCaptionProps>(
       stateAttributesMapping: captionStateAttributesMapping,
       props: mergeProps<'div'>(
         {
+          [LightboxCaptionDataAttributes.caption]: '',
           'aria-live': 'polite',
           'aria-atomic': true,
         } as React.ComponentPropsWithRef<'div'>,

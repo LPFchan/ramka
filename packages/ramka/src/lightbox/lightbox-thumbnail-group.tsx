@@ -3,6 +3,7 @@
 import { mergeProps, useRender } from '@base-ui/react';
 import * as React from 'react';
 
+import { LightboxThumbnailGroupDataAttributes } from './lightbox-data-attributes';
 import { useLightboxContext } from './lightbox-context';
 import { LightboxThumbnailGroupContext } from './lightbox-thumbnail-group-context';
 
@@ -106,6 +107,7 @@ const LightboxThumbnailGroup = React.forwardRef<HTMLDivElement, LightboxThumbnai
           props: mergeProps<'div'>(
             {
               role: 'tablist',
+              [LightboxThumbnailGroupDataAttributes.thumbnailGroup]: '',
               onKeyDown: handleKeyDown,
               onFocus: () => setFocusWithin(true),
               onBlur: (e: React.FocusEvent<HTMLDivElement>) => {

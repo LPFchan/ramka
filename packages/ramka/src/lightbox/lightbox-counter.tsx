@@ -3,6 +3,7 @@
 import { mergeProps, useRender } from '@base-ui/react';
 import * as React from 'react';
 
+import { LightboxCounterDataAttributes } from './lightbox-data-attributes';
 import { useLightboxContext } from './lightbox-context';
 import { ignoreStateAttribute } from './lightbox-state-attributes';
 
@@ -51,6 +52,7 @@ const LightboxCounter = React.forwardRef<HTMLDivElement, LightboxCounterProps>(
       stateAttributesMapping: counterStateAttributesMapping,
       props: mergeProps<'div'>(
         {
+          [LightboxCounterDataAttributes.counter]: '',
           'aria-live': 'polite',
           'aria-atomic': true,
         } as React.ComponentPropsWithRef<'div'>,
