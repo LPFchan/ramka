@@ -159,20 +159,100 @@ function lerp(a: number, b: number, t: number): number {
   return a + (b - a) * t;
 }
 
-/** Equal-offset width keyframes for ScrollTimeline 0→1 (height × photo aspect). */
-function morphWidthKeyframes(aspects: number[], heightPx: number): Keyframe[] {
-  const max = Math.max(0, aspects.length - 1);
-  const h = Math.max(1, heightPx);
-  return aspects.map((aspect, i) => ({
+/**
+ * Nine-slice selection frame (transform-only morph).
+ *
+ * Fixed outer host (max thumb aspect + outset). Left/right caps keep
+ * `border-radius`; top/bottom edges `scaleX`; shell + right cap `translateX`.
+ * Outset = offset + stroke so a 2px gap sits between thumb and the 2px border
+ * (same look as former `outline` + `outline-offset: 2px`).
+ */
+/** Gap between thumb edge and inner edge of the stroke. */
+const FRAME_OFFSET_PX = 2;
+/** Border thickness on caps / edges. */
+const FRAME_STROKE_PX = 2;
+/** Per-side growth beyond the thumb (offset + stroke), with border-box. */
+const FRAME_OUTSET_PX = FRAME_OFFSET_PX + FRAME_STROKE_PX;
+/** Cap width — ≥ thumb radius + offset so concentric corners stay round. */
+const FRAME_CAP_PX = 8;
+
+type FrameGeom = {
+  /** Thumb height in px (shell is thumb + 2×outset). */
+  thumbHeightPx: number;
+  /** Max frame outer width (widest thumb + 2×outset). */
+  maxWidthPx: number;
+  outset: number;
+  cap: number;
+};
+
+type FramePose = {
+  /** Thumb width this pose corresponds to (not the expanded frame width). */
+  thumbWidthPx: number;
+  shell: string;
+  right: string;
+  bar: string;
+};
+
+type FramePieces = {
+  host: HTMLElement;
+  shell: HTMLElement;
+  right: HTMLElement;
+  top: HTMLElement;
+  bottom: HTMLElement;
+};
+
+function frameMaxAspect(aspects: number[]): number {
+  let max = 16 / 9;
+  for (const a of aspects) {
+    if (a > max) max = a;
+  }
+  return max;
+}
+
+/** Expand thumb size by outset on each side, then build transform pose. */
+function framePose(thumbWidthPx: number, geom: FrameGeom): FramePose {
+  const w = Math.max(geom.cap * 2, thumbWidthPx + geom.outset * 2);
+  const mid = Math.max(0, w - geom.cap * 2);
+  const x = (geom.maxWidthPx - w) / 2;
+  return {
+    thumbWidthPx,
+    shell: `translate3d(${x}px, 0px, 0)`,
+    right: `translate3d(${w - geom.cap}px, 0, 0)`,
+    bar: `scaleX(${mid})`,
+  };
+}
+
+function writeFramePose(pieces: FramePieces, pose: FramePose) {
+  pieces.shell.style.transform = pose.shell;
+  pieces.right.style.transform = pose.right;
+  pieces.top.style.transform = pose.bar;
+  pieces.bottom.style.transform = pose.bar;
+}
+
+function clearFrameInlineTransforms(pieces: FramePieces) {
+  pieces.shell.style.removeProperty('transform');
+  pieces.right.style.removeProperty('transform');
+  pieces.top.style.removeProperty('transform');
+  pieces.bottom.style.removeProperty('transform');
+}
+
+function cancelAnimations(anims: Animation[] | null | undefined) {
+  if (!anims) return;
+  for (const anim of anims) anim.cancel();
+}
+
+/** Equal-offset transform keyframes for one piece (ScrollTimeline 0→1). */
+function poseTransformKeyframes(poses: FramePose[], pick: (p: FramePose) => string): Keyframe[] {
+  const max = Math.max(0, poses.length - 1);
+  return poses.map((pose, i) => ({
     offset: max === 0 ? 0 : i / max,
-    width: `${h * aspect}px`,
+    transform: pick(pose),
   }));
 }
 
 /**
- * Docs filmstrip: per-photo-aspect thumbs + selection frame.
- * Morph `width` is the single size owner — ScrollTimeline on swipe, pause +
- * DocumentTimeline scrub on thumb click (same handoff as the track).
+ * Docs filmstrip: per-photo-aspect thumbs + nine-slice selection frame.
+ * Outer host is fixed (max aspect); ScrollTimeline / WAAPI morph transforms only.
  */
 function GalleryFilmstrip({
   items,
@@ -184,51 +264,87 @@ function GalleryFilmstrip({
   const { activeIndex, slidesViewportRef, slidesGeometryRef, subscribeSlidesViewport } =
     useLightboxContext();
   const filmstripRef = React.useRef<HTMLDivElement | null>(null);
-  const morphRef = React.useRef<HTMLSpanElement | null>(null);
+  const hostRef = React.useRef<HTMLSpanElement | null>(null);
+  const shellRef = React.useRef<HTMLSpanElement | null>(null);
+  const rightRef = React.useRef<HTMLSpanElement | null>(null);
+  const topRef = React.useRef<HTMLSpanElement | null>(null);
+  const bottomRef = React.useRef<HTMLSpanElement | null>(null);
   const activeIndexRef = React.useRef(activeIndex);
   activeIndexRef.current = activeIndex;
 
   const itemAspects = React.useMemo(() => items.map((item) => galleryItemAspect(item)), [items]);
   const itemAspectsRef = React.useRef(itemAspects);
   itemAspectsRef.current = itemAspects;
+  const maxAspect = React.useMemo(() => frameMaxAspect(itemAspects), [itemAspects]);
 
-  const aspectLinkRef = React.useRef<Animation | null>(null);
-  const aspectScrubRef = React.useRef<Animation | null>(null);
+  const aspectLinkAnimsRef = React.useRef<Animation[] | null>(null);
+  const aspectScrubAnimsRef = React.useRef<Animation[] | null>(null);
   const usesScrollTimelineRef = React.useRef(false);
   const aspectHoldRef = React.useRef(false);
-  /** Re-run attach (JS width mirror) when ScrollTimeline is unavailable. */
+  const widthRef = React.useRef(56 * (itemAspects[0] ?? 16 / 9));
+  const geomRef = React.useRef<FrameGeom>({
+    thumbHeightPx: 56,
+    maxWidthPx: 56 * maxAspect + FRAME_OUTSET_PX * 2,
+    outset: FRAME_OUTSET_PX,
+    cap: FRAME_CAP_PX,
+  });
   const reattachAspectRef = React.useRef<(() => void) | null>(null);
   const startAspectLinkRef = React.useRef<(force?: boolean) => boolean>(() => false);
   const syncAspectFromScrollRef = React.useRef<(() => void) | null>(null);
+
+  const getPieces = React.useCallback((): FramePieces | null => {
+    const host = hostRef.current;
+    const shell = shellRef.current;
+    const right = rightRef.current;
+    const top = topRef.current;
+    const bottom = bottomRef.current;
+    if (!host || !shell || !right || !top || !bottom) return null;
+    return { host, shell, right, top, bottom };
+  }, []);
+
+  const measureGeom = React.useCallback((): FrameGeom => {
+    const host = hostRef.current;
+    const thumbHeightPx = Math.max(
+      1,
+      (host?.clientHeight ?? 56 + FRAME_OUTSET_PX * 2) - FRAME_OUTSET_PX * 2,
+    );
+    const maxWidthPx = thumbHeightPx * frameMaxAspect(itemAspectsRef.current) + FRAME_OUTSET_PX * 2;
+    const geom = {
+      thumbHeightPx,
+      maxWidthPx,
+      outset: FRAME_OUTSET_PX,
+      cap: FRAME_CAP_PX,
+    };
+    geomRef.current = geom;
+    return geom;
+  }, []);
 
   React.useLayoutEffect(() => {
     let detach: (() => void) | undefined;
     let raf = 0;
     let ro: ResizeObserver | undefined;
 
-    const writeMorphWidth = (widthPx: number) => {
-      morphRef.current?.style.setProperty('width', `${widthPx}px`);
-    };
-
     const syncFromScroll = () => {
-      if (aspectHoldRef.current || aspectScrubRef.current) return;
-      const morph = morphRef.current;
+      if (aspectHoldRef.current || aspectScrubAnimsRef.current) return;
+      const pieces = getPieces();
       const slides = slidesViewportRef.current;
       const aspects = itemAspectsRef.current;
-      if (!morph || !slides || aspects.length === 0) return;
-      const heightPx = morph.getBoundingClientRect().height || 56;
+      if (!pieces || !slides || aspects.length === 0) return;
+      const geom = measureGeom();
       const geometry = slidesGeometryRef.current;
       const progress = demoSlidesScrollProgress(slides, geometry);
       const max = Math.max(0, geometry.count - 1);
-      if (max <= 0) {
-        writeMorphWidth(heightPx * (aspects[0] ?? 16 / 9));
-        return;
+      let aspect = aspects[0] ?? 16 / 9;
+      if (max > 0) {
+        const f = progress * max;
+        const i0 = Math.min(max, Math.floor(f));
+        const i1 = Math.min(max, i0 + 1);
+        aspect = lerp(aspects[i0] ?? 16 / 9, aspects[i1] ?? aspects[i0] ?? 16 / 9, f - i0);
       }
-      const f = progress * max;
-      const i0 = Math.min(max, Math.floor(f));
-      const i1 = Math.min(max, i0 + 1);
-      const aspect = lerp(aspects[i0] ?? 16 / 9, aspects[i1] ?? aspects[i0] ?? 16 / 9, f - i0);
-      writeMorphWidth(heightPx * aspect);
+      const thumbW = geom.thumbHeightPx * aspect;
+      const pose = framePose(thumbW, geom);
+      widthRef.current = pose.thumbWidthPx;
+      writeFramePose(pieces, pose);
     };
 
     const scheduleSync = () => {
@@ -242,16 +358,13 @@ function GalleryFilmstrip({
     syncAspectFromScrollRef.current = syncFromScroll;
 
     const startAspectLink = (force = false) => {
-      // Hold blocks opportunistic rebuild during thumb scrub.
       if (aspectHoldRef.current && !force) return usesScrollTimelineRef.current;
 
-      const morph = morphRef.current;
+      const pieces = getPieces();
       const slides = slidesViewportRef.current;
       const ScrollTimeline = getScrollTimelineConstructor();
       const aspects = itemAspectsRef.current;
       const geometry = slidesGeometryRef.current;
-      // Equal-offset aspect keyframes assume index-linear progress; skip
-      // ScrollTimeline on variable-width (snug) tracks and use JS sync.
       const uniform =
         !geometry.offsets ||
         geometry.offsets.length !== geometry.count ||
@@ -260,7 +373,7 @@ function GalleryFilmstrip({
           (offset, i) => Math.abs(offset - (geometry.base + i * geometry.step)) < 1,
         );
       if (
-        !morph ||
+        !pieces ||
         !slides ||
         aspects.length === 0 ||
         !ScrollTimeline ||
@@ -273,36 +386,61 @@ function GalleryFilmstrip({
       }
 
       const keepPaused =
-        aspectScrubRef.current != null || aspectLinkRef.current?.playState === 'paused';
-      aspectLinkRef.current?.cancel();
-      aspectLinkRef.current = null;
-      // Do not clear inline width here — scrub fill / pin covers the gap.
+        aspectScrubAnimsRef.current != null ||
+        aspectLinkAnimsRef.current?.some((a) => a.playState === 'paused');
+      cancelAnimations(aspectLinkAnimsRef.current);
+      aspectLinkAnimsRef.current = null;
 
-      const heightPx = morph.getBoundingClientRect().height || 56;
+      const geom = measureGeom();
+      const poses = aspects.map((aspect) => framePose(geom.thumbHeightPx * aspect, geom));
       const timeline = new ScrollTimeline({ source: slides, axis: 'x' });
-      // `duration` is ignored for scroll progress; Firefox still requires a
-      // non-zero value or the ScrollTimeline effect never applies after scrub.
-      const effect = new KeyframeEffect(morph, morphWidthKeyframes(aspects, heightPx), {
-        duration: 1,
-        fill: 'both',
-        easing: 'linear',
-      });
-      const link = new Animation(effect, timeline);
-      link.play();
-      if (keepPaused) link.pause();
-      aspectLinkRef.current = link;
+      const effectOpts: KeyframeEffectOptions = { duration: 1, fill: 'both', easing: 'linear' };
+
+      const shellFx = new KeyframeEffect(
+        pieces.shell,
+        poseTransformKeyframes(poses, (p) => p.shell),
+        effectOpts,
+      );
+      const rightFx = new KeyframeEffect(
+        pieces.right,
+        poseTransformKeyframes(poses, (p) => p.right),
+        effectOpts,
+      );
+      const topFx = new KeyframeEffect(
+        pieces.top,
+        poseTransformKeyframes(poses, (p) => p.bar),
+        effectOpts,
+      );
+      const bottomFx = new KeyframeEffect(
+        pieces.bottom,
+        poseTransformKeyframes(poses, (p) => p.bar),
+        effectOpts,
+      );
+
+      const links = [
+        new Animation(shellFx, timeline),
+        new Animation(rightFx, timeline),
+        new Animation(topFx, timeline),
+        new Animation(bottomFx, timeline),
+      ];
+      for (const link of links) {
+        link.play();
+        if (keepPaused) link.pause();
+      }
+      aspectLinkAnimsRef.current = links;
       usesScrollTimelineRef.current = true;
-      // Opportunistic pin clear only when not in a scrub handoff (hold).
-      void link.ready.then(() => {
+
+      const primary = links[0]!;
+      void primary.ready.then(() => {
         requestAnimationFrame(() => {
           if (
-            aspectLinkRef.current !== link ||
-            aspectScrubRef.current ||
+            aspectLinkAnimsRef.current !== links ||
+            aspectScrubAnimsRef.current ||
             aspectHoldRef.current
           ) {
             return;
           }
-          morph.style.removeProperty('width');
+          clearFrameInlineTransforms(pieces);
         });
       });
       return true;
@@ -310,7 +448,7 @@ function GalleryFilmstrip({
     startAspectLinkRef.current = startAspectLink;
 
     const attach = () => {
-      if (aspectHoldRef.current || aspectScrubRef.current) return;
+      if (aspectHoldRef.current || aspectScrubAnimsRef.current) return;
 
       detach?.();
       detach = undefined;
@@ -318,36 +456,33 @@ function GalleryFilmstrip({
       ro = undefined;
 
       const slides = slidesViewportRef.current;
-      const morph = morphRef.current;
-      if (!slides || !morph) return;
+      const pieces = getPieces();
+      if (!slides || !pieces) return;
+
+      measureGeom();
 
       if (startAspectLink()) {
-        // Keyframes bake height×aspect → width. Only rebuild when *height*
-        // changes. Observing width (or rebuilding on every RO fire) cancels the
-        // ScrollTimeline mid-swipe — Safari reports RO loop errors and the
-        // morph jumps instead of interpolating (Chrome often coalesces this).
-        let lastLinkHeight = Math.round(morph.getBoundingClientRect().height || 56);
+        let lastLinkHeight = Math.round(geomRef.current.thumbHeightPx);
         let roRaf = 0;
         ro = new ResizeObserver(() => {
-          if (aspectHoldRef.current || aspectScrubRef.current) return;
+          if (aspectHoldRef.current || aspectScrubAnimsRef.current) return;
           if (roRaf !== 0) return;
           roRaf = requestAnimationFrame(() => {
             roRaf = 0;
-            const nextH = Math.round(morph.getBoundingClientRect().height || 56);
+            const nextH = Math.round(measureGeom().thumbHeightPx);
             if (nextH === lastLinkHeight) return;
             lastLinkHeight = nextH;
             startAspectLink();
           });
         });
-        ro.observe(morph);
+        ro.observe(pieces.host);
         detach = () => {
           if (roRaf !== 0) cancelAnimationFrame(roRaf);
           ro?.disconnect();
           ro = undefined;
-          aspectLinkRef.current?.cancel();
-          aspectLinkRef.current = null;
+          cancelAnimations(aspectLinkAnimsRef.current);
+          aspectLinkAnimsRef.current = null;
           usesScrollTimelineRef.current = false;
-          morph.style.removeProperty('width');
         };
         return;
       }
@@ -366,92 +501,106 @@ function GalleryFilmstrip({
       reattachAspectRef.current = null;
       syncAspectFromScrollRef.current = null;
       ro?.disconnect();
-      aspectScrubRef.current?.cancel();
-      aspectScrubRef.current = null;
-      aspectLinkRef.current?.cancel();
-      aspectLinkRef.current = null;
+      cancelAnimations(aspectScrubAnimsRef.current);
+      aspectScrubAnimsRef.current = null;
+      cancelAnimations(aspectLinkAnimsRef.current);
+      aspectLinkAnimsRef.current = null;
       usesScrollTimelineRef.current = false;
       aspectHoldRef.current = false;
-      morphRef.current?.style.removeProperty('width');
       if (raf !== 0) cancelAnimationFrame(raf);
     };
-  }, [slidesViewportRef, slidesGeometryRef, subscribeSlidesViewport, itemAspects]);
+  }, [slidesViewportRef, slidesGeometryRef, subscribeSlidesViewport, itemAspects, measureGeom, getPieces]);
 
   /**
-   * VT on Slides + WAAPI width scrub on the morph node.
-   *
-   * Same handoff as the filmstrip track: cancel ScrollTimeline for the scrub,
-   * keep the scrub fill while arming a fresh scroll link, then drop it.
+   * VT on Slides + WAAPI transform scrub on the nine-slice pieces.
+   * Same handoff as the filmstrip track / prior SVG morph.
    */
   const wrapThumbSelectCommit = React.useCallback(
     (commit: () => void, slides: HTMLElement | null, index: number) => {
       const reduceMotion =
         typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
-      const morph = morphRef.current;
+      const pieces = getPieces();
       const aspects = itemAspectsRef.current;
-      const link = aspectLinkRef.current;
+      const links = aspectLinkAnimsRef.current;
+      const geom = measureGeom();
 
-      const heightPx = morph?.getBoundingClientRect().height || 56;
-      const fromWidth = morph
-        ? Number.parseFloat(getComputedStyle(morph).width) || morph.getBoundingClientRect().width
-        : 0;
-      const toWidth = heightPx * (aspects[index] ?? aspects[activeIndexRef.current] ?? 16 / 9);
+      const fromWidth = widthRef.current;
+      const fromPose = framePose(fromWidth, geom);
+      const toWidth =
+        geom.thumbHeightPx * (aspects[index] ?? aspects[activeIndexRef.current] ?? 16 / 9);
+      const toPose = framePose(toWidth, geom);
 
       aspectHoldRef.current = true;
 
       const canScrub =
         !reduceMotion &&
-        morph != null &&
-        typeof morph.animate === 'function' &&
+        pieces != null &&
+        typeof pieces.shell.animate === 'function' &&
         Number.isFinite(index) &&
         fromWidth > 0 &&
-        Math.abs(fromWidth - toWidth) > 0.5;
+        Math.abs(fromWidth - toPose.thumbWidthPx) > 0.5;
 
-      let scrub: Animation | undefined;
+      let scrubPrimary: Animation | undefined;
 
-      if (canScrub && morph) {
-        morph.style.width = `${fromWidth}px`;
-        void morph.offsetWidth;
-        link?.cancel();
-        aspectLinkRef.current = null;
+      if (canScrub && pieces) {
+        writeFramePose(pieces, fromPose);
+        void pieces.host.offsetWidth;
+        cancelAnimations(links);
+        aspectLinkAnimsRef.current = null;
         usesScrollTimelineRef.current = false;
 
-        aspectScrubRef.current?.cancel();
-        const scrubAnim = morph.animate(
-          [{ width: `${fromWidth}px` }, { width: `${toWidth}px` }],
-          {
-            duration: FILMSTRIP_SCRUB_MS,
-            easing: FILMSTRIP_SCRUB_EASE,
-            fill: 'forwards',
-          },
-        );
-        scrubAnim.pause();
-        scrubAnim.currentTime = 0;
-        aspectScrubRef.current = scrubAnim;
-        scrub = scrubAnim;
+        cancelAnimations(aspectScrubAnimsRef.current);
+        const scrubOpts: KeyframeAnimationOptions = {
+          duration: FILMSTRIP_SCRUB_MS,
+          easing: FILMSTRIP_SCRUB_EASE,
+          fill: 'forwards',
+        };
+        const scrubs = [
+          pieces.shell.animate(
+            [{ transform: fromPose.shell }, { transform: toPose.shell }],
+            scrubOpts,
+          ),
+          pieces.right.animate(
+            [{ transform: fromPose.right }, { transform: toPose.right }],
+            scrubOpts,
+          ),
+          pieces.top.animate([{ transform: fromPose.bar }, { transform: toPose.bar }], scrubOpts),
+          pieces.bottom.animate(
+            [{ transform: fromPose.bar }, { transform: toPose.bar }],
+            scrubOpts,
+          ),
+        ];
+        for (const scrub of scrubs) {
+          scrub.pause();
+          scrub.currentTime = 0;
+        }
+        aspectScrubAnimsRef.current = scrubs;
+        scrubPrimary = scrubs[0];
+        widthRef.current = toPose.thumbWidthPx;
 
         const releaseToScrollLink = () => {
-          if (aspectScrubRef.current !== scrubAnim) return;
-          try {
-            scrubAnim.commitStyles();
-          } catch {
-            /* commitStyles can throw if the effect was already cleared */
+          if (aspectScrubAnimsRef.current !== scrubs) return;
+          for (const scrub of scrubs) {
+            try {
+              scrub.commitStyles();
+            } catch {
+              /* commitStyles can throw if the effect was already cleared */
+            }
           }
 
-          // Keep scrub fill while arming ScrollTimeline (same as filmstrip track).
-          aspectScrubRef.current = null;
+          aspectScrubAnimsRef.current = null;
           const armed = startAspectLinkRef.current(true);
-          const liveLink = aspectLinkRef.current;
+          const liveLinks = aspectLinkAnimsRef.current;
 
           const dropScrub = () => {
-            if (aspectScrubRef.current) return;
-            scrubAnim.cancel();
-            morph.style.removeProperty('width');
+            if (aspectScrubAnimsRef.current) return;
+            cancelAnimations(scrubs);
+            clearFrameInlineTransforms(pieces);
             aspectHoldRef.current = false;
           };
 
-          if (armed && liveLink) {
-            void liveLink.ready.then(() => {
+          if (armed && liveLinks?.[0]) {
+            void liveLinks[0].ready.then(() => {
               requestAnimationFrame(() => {
                 requestAnimationFrame(dropScrub);
               });
@@ -459,29 +608,29 @@ function GalleryFilmstrip({
             return;
           }
 
-          scrubAnim.cancel();
-          morph.style.width = `${toWidth}px`;
+          cancelAnimations(scrubs);
+          writeFramePose(pieces, framePose(toPose.thumbWidthPx, measureGeom()));
           aspectHoldRef.current = false;
           syncAspectFromScrollRef.current?.();
           reattachAspectRef.current?.();
         };
 
-        void scrubAnim.finished.then(
+        void scrubs[0]!.finished.then(
           () => {
-            if (aspectScrubRef.current !== scrubAnim) return;
+            if (aspectScrubAnimsRef.current !== scrubs) return;
             releaseToScrollLink();
           },
           () => {
-            if (aspectScrubRef.current !== scrubAnim) return;
-            scrubAnim.cancel();
-            aspectScrubRef.current = null;
-            morph.style.width = `${toWidth}px`;
+            if (aspectScrubAnimsRef.current !== scrubs) return;
+            cancelAnimations(scrubs);
+            aspectScrubAnimsRef.current = null;
+            writeFramePose(pieces, framePose(toPose.thumbWidthPx, measureGeom()));
             aspectHoldRef.current = false;
             if (!startAspectLinkRef.current(true)) {
               syncAspectFromScrollRef.current?.();
               reattachAspectRef.current?.();
             } else {
-              morph.style.removeProperty('width');
+              clearFrameInlineTransforms(pieces);
             }
           },
         );
@@ -500,20 +649,21 @@ function GalleryFilmstrip({
         flushSync(commit);
       }
 
-      if (scrub) {
-        scrub.play();
+      if (scrubPrimary && aspectScrubAnimsRef.current) {
+        for (const scrub of aspectScrubAnimsRef.current) scrub.play();
       } else {
-        // No width delta (or reduced motion): follow the jumped scroll link.
         aspectHoldRef.current = false;
-        const liveLink = aspectLinkRef.current;
-        if (liveLink && usesScrollTimelineRef.current) {
-          liveLink.play();
-        } else if (!startAspectLinkRef.current() && morph) {
-          morph.style.width = `${toWidth}px`;
+        const liveLinks = aspectLinkAnimsRef.current;
+        if (liveLinks && usesScrollTimelineRef.current) {
+          for (const link of liveLinks) link.play();
+        } else if (!startAspectLinkRef.current() && pieces) {
+          const pose = framePose(toPose.thumbWidthPx, measureGeom());
+          widthRef.current = pose.thumbWidthPx;
+          writeFramePose(pieces, pose);
         }
       }
     },
-    [],
+    [measureGeom, getPieces],
   );
 
   return (
@@ -523,6 +673,12 @@ function GalleryFilmstrip({
       scrubDuration={FILMSTRIP_SCRUB_MS}
       scrubEasing={FILMSTRIP_SCRUB_EASE}
       wrapSelectCommit={wrapThumbSelectCommit}
+      style={
+        {
+          ['--lightbox-demo-frame-max-aspect' as string]: String(maxAspect),
+          ['--lightbox-demo-frame-cap' as string]: `${FRAME_CAP_PX}px`,
+        } as React.CSSProperties
+      }
     >
       <div className="lightbox-demo-filmstrip-aspect-host">
         <Lightbox.FilmstripTrack aria-label="Photo thumbnails">
@@ -540,8 +696,26 @@ function GalleryFilmstrip({
             </Lightbox.Thumbnail>
           ))}
         </Lightbox.FilmstripTrack>
-        <Lightbox.FilmstripIndicator className="lightbox-demo-filmstrip-frame">
-          <span ref={morphRef} className="lightbox-demo-filmstrip-frame-morph" aria-hidden />
+        <Lightbox.FilmstripIndicator
+          ref={hostRef}
+          className="lightbox-demo-filmstrip-frame"
+          aria-hidden
+        >
+          <span ref={shellRef} className="lightbox-demo-filmstrip-frame-shell">
+            <span className="lightbox-demo-filmstrip-frame-cap lightbox-demo-filmstrip-frame-cap-left" />
+            <span
+              ref={rightRef}
+              className="lightbox-demo-filmstrip-frame-cap lightbox-demo-filmstrip-frame-cap-right"
+            />
+            <span
+              ref={topRef}
+              className="lightbox-demo-filmstrip-frame-edge lightbox-demo-filmstrip-frame-edge-top"
+            />
+            <span
+              ref={bottomRef}
+              className="lightbox-demo-filmstrip-frame-edge lightbox-demo-filmstrip-frame-edge-bottom"
+            />
+          </span>
         </Lightbox.FilmstripIndicator>
       </div>
     </Lightbox.Filmstrip>
