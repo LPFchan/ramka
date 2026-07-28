@@ -377,13 +377,14 @@ export default function LightboxZoomPage() {
             Consider a <code className="text-xs">zoom-in</code> cursor over the image at 1× so mouse-only
             users discover double-click / Ctrl-wheel zoom. ramka leaves this to your CSS — the{' '}
             <DocsLink href={lightboxApiHref.zoom}>Zoom</DocsLink> surface exposes{' '}
-            <code className="text-xs">data-zoom</code> only while scaled past 1×, so target your own Zoom
-            class and gate on <code className="text-xs">:not([data-zoom])</code>:
+            <code className="text-xs">data-zoom</code> only while scaled past 1×. Set{' '}
+            <code className="text-xs">cursor: zoom-in</code> on your Zoom class — ramka’s inline cursor
+            (grab / grabbing) wins once scaled:
           </li>
         </ul>
         <pre className="overflow-x-auto rounded-lg bg-neutral-900 p-4 text-xs leading-relaxed text-neutral-100 dark:bg-neutral-950">
           <code>{`/* .my-zoom is the className you pass to Lightbox.Zoom */
-.my-zoom:not([data-zoom]) {
+.my-zoom {
   cursor: zoom-in;
 }`}</code>
         </pre>

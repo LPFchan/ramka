@@ -398,7 +398,8 @@ export function StackedItemGroup({ children, className, ...rest }: React.Compone
 
 /**
  * Per-item class for stacked layouts. The active-item fade-in is
- * applied via globals.css using `[data-ramka-item][data-active]:not([data-skip-fade])`
+ * applied via item-fade.css on `[data-ramka-item][data-active]` (opt out with
+ * `[data-skip-fade]`)
  * rather than a Tailwind `data-[active]:` utility, so that the library's
  * `data-skip-fade` flag (set on the View Transition destination item
  * during open) suppresses the entrance fade — otherwise the fade would

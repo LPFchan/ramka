@@ -22,10 +22,14 @@
  * no transition (1:1 with progress); pull opacity snaps back via snap vars.
  */
 /* Filter tracks --lightbox-zoom-progress with no transition (would lag the pinch).
-   Opacity still eases with pull snap-back. */
+   Opacity still eases with pull snap-back.
+   Base = inactive card; `:has([data-active])` opts the active slide back out. */
 .lightbox-demo-slide-snug {
   transition: opacity var(--lightbox-pull-snap-duration, 500ms)
     var(--lightbox-pull-snap-easing, var(--ease-out-expo));
+  opacity: calc(1 - var(--lightbox-pull-progress, 0) * 0.85);
+  filter: opacity(calc(1 - var(--lightbox-zoom-progress, 0)))
+    blur(calc(var(--lightbox-zoom-progress, 0) * 6px));
 }
 
 .lightbox-demo-content[data-pulling] .lightbox-demo-slide-snug {
@@ -38,18 +42,12 @@
   filter: none;
 }
 
-/* Inactive: pull dims opacity; zoom soft-dismisses via filter opacity + blur. */
-.lightbox-demo-slide-snug:not(:has([data-active])) {
-  opacity: calc(1 - var(--lightbox-pull-progress, 0) * 0.85);
-  filter: opacity(calc(1 - var(--lightbox-zoom-progress, 0)))
-    blur(calc(var(--lightbox-zoom-progress, 0) * 6px));
-}
-
-.lightbox-demo-content[data-zoomed] .lightbox-demo-slide-snug:not(:has([data-active])) {
+.lightbox-demo-content[data-zoomed] .lightbox-demo-slide-snug {
   pointer-events: none;
 }
 
 .lightbox-demo-content[data-zoomed] .lightbox-demo-slide-snug:has([data-active]) {
+  pointer-events: auto;
   z-index: 20;
 }
 
