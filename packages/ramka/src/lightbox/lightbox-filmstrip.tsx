@@ -39,35 +39,76 @@ const filmstripStateAttributesMapping = {
   scrubbing: (value: unknown) => (value ? { 'data-scrubbing': '' } : null),
 };
 
-/** Flex column-gap on the track (px). `offsetLeft` deltas omit this in some engines. */
-function measureTrackGapPx(track: HTMLElement): number {
-  const raw = getComputedStyle(track).columnGap || getComputedStyle(track).gap;
-  if (!raw || raw === 'normal') return 0;
-  const gap = Number.parseFloat(raw);
-  return Number.isFinite(gap) ? gap : 0;
+/**
+ * Per-thumb `translateX` distances so thumb `i`'s center sits on the filmstrip
+ * midline when `translateX = -travels[i]`.
+ *
+ * Prefers getBoundingClientRect center deltas (invariant under the track's own
+ * translateX; includes flex gap). Falls back to offsetLeft when rects collapse
+ * (jsdom).
+ */
+function measureThumbTravels(thumbs: HTMLElement[]): {
+  travels: number[];
+  widths: number[];
+} {
+  if (thumbs.length === 0) return { travels: [], widths: [] };
+
+  const widths = thumbs.map((thumb) => {
+    return thumb.getBoundingClientRect().width || thumb.offsetWidth || 0;
+  });
+
+  const centers = thumbs.map((thumb, i) => {
+    const rect = thumb.getBoundingClientRect();
+    if (rect.width > 0) return rect.left + rect.width / 2;
+    return thumb.offsetLeft + widths[i]! / 2;
+  });
+
+  const origin = centers[0]!;
+  return {
+    travels: centers.map((c) => c - origin),
+    widths,
+  };
+}
+
+/** Piecewise-linear travel for index-linear scroll progress `0→1`. */
+function thumbTravelAtProgress(travels: number[], progress: number): number {
+  const max = Math.max(0, travels.length - 1);
+  if (max <= 0) return travels[0] ?? 0;
+  const f = Math.min(1, Math.max(0, progress)) * max;
+  const i0 = Math.min(max, Math.floor(f));
+  const i1 = Math.min(max, i0 + 1);
+  const a = travels[i0] ?? 0;
+  const b = travels[i1] ?? a;
+  return a + (b - a) * (f - i0);
+}
+
+function thumbTravelsAreUniform(travels: number[]): boolean {
+  if (travels.length < 2) return true;
+  const step = travels[1]!;
+  if (step <= 0) return true;
+  return travels.every((travel, i) => Math.abs(travel - i * step) < 1);
 }
 
 /**
- * Stride between consecutive thumbs (width + gap).
- * Prefer getBoundingClientRect — `offsetLeft` can ignore flex `gap`, which
- * shifts the midline by one gap per index (indicator no longer sits on the thumb).
- *
- * `thumbs` come from the React registry (Thumbnail callback refs), ordered by index.
+ * ScrollTimeline / WAAPI keyframes for the track. Uniform thumbs keep the
+ * historical two-stop link; variable-width thumbs get one stop per index
+ * (equal offsets ↔ index-linear `slidesScrollProgress`).
  */
-function measureThumbStepPx(track: HTMLElement, thumbs: HTMLElement[]): number {
-  if (thumbs.length === 0) return 0;
-  const first = thumbs[0]!;
-  const width = first.getBoundingClientRect().width || first.offsetWidth || 0;
-  if (thumbs.length < 2) return width;
-
-  const second = thumbs[1]!;
-  const rectStep = second.getBoundingClientRect().left - first.getBoundingClientRect().left;
-  if (rectStep > 0) return rectStep;
-
-  const offsetStep = second.offsetLeft - first.offsetLeft;
-  // Some engines report offsetLeft deltas as width only (gap omitted).
-  if (offsetStep > width + 0.5) return offsetStep;
-  return width + measureTrackGapPx(track);
+function trackTransformKeyframes(travels: number[]): Keyframe[] {
+  const max = Math.max(0, travels.length - 1);
+  if (max === 0) {
+    return [{ transform: 'translate3d(0px, 0, 0)' }];
+  }
+  if (thumbTravelsAreUniform(travels)) {
+    return [
+      { transform: 'translate3d(0px, 0, 0)' },
+      { transform: `translate3d(${-(travels[max] ?? 0)}px, 0, 0)` },
+    ];
+  }
+  return travels.map((travel, i) => ({
+    offset: i / max,
+    transform: `translate3d(${-travel}px, 0, 0)`,
+  }));
 }
 
 /** Registered thumbs sorted by index (stable midline / travel measurement). */
@@ -138,7 +179,8 @@ const LightboxFilmstrip = React.forwardRef<HTMLDivElement, LightboxFilmstripProp
     const rootRef = React.useRef<HTMLElement | null>(null);
     const trackRef = React.useRef<HTMLElement | null>(null);
     const thumbsRef = React.useRef(new Map<number, HTMLElement>());
-    const thumbStepRef = React.useRef(0);
+    /** translateX magnitude to center each thumb (`travels[i]` → `-travels[i]`). */
+    const thumbTravelsRef = React.useRef<number[]>([]);
     const linkAnimRef = React.useRef<Animation | null>(null);
     const scrubAnimRef = React.useRef<Animation | null>(null);
     /** True from scrub arm through scroll-link handoff (blocks attach / RO rebuild). */
@@ -202,22 +244,24 @@ const LightboxFilmstrip = React.forwardRef<HTMLDivElement, LightboxFilmstripProp
       if (!track) return;
 
       const thumbs = orderedThumbs(thumbsRef.current);
-      thumbStepRef.current = measureThumbStepPx(track, thumbs);
+      const { travels, widths } = measureThumbTravels(thumbs);
+      thumbTravelsRef.current = travels;
 
-      const firstThumb = thumbs[0];
-      const thumbWidth =
-        firstThumb != null
-          ? firstThumb.getBoundingClientRect().width || firstThumb.offsetWidth || 0
-          : 0;
-      if (root && thumbWidth > 0) {
-        const pad = Math.max(0, (root.clientWidth - thumbWidth) / 2);
-        track.style.paddingInline = `${pad}px`;
+      const firstWidth = widths[0] ?? 0;
+      const lastWidth = widths[widths.length - 1] ?? firstWidth;
+      if (root && firstWidth > 0) {
+        // Asymmetric pad so the first *and* last thumb (possibly different
+        // widths) can both sit on the midline.
+        const padStart = Math.max(0, (root.clientWidth - firstWidth) / 2);
+        const padEnd = Math.max(0, (root.clientWidth - lastWidth) / 2);
+        track.style.paddingLeft = `${padStart}px`;
+        track.style.paddingRight = `${padEnd}px`;
+        track.style.removeProperty('padding-inline');
       }
 
-      const geometry = slidesGeometryRef.current;
-      const travel = Math.max(0, geometry.count - 1) * thumbStepRef.current;
-      track.style.setProperty(LightboxFilmstripCssVars.travel, `${-travel}px`);
-    }, [slidesGeometryRef]);
+      const endTravel = travels[travels.length - 1] ?? 0;
+      track.style.setProperty(LightboxFilmstripCssVars.travel, `${-endTravel}px`);
+    }, []);
 
     const syncNow = React.useCallback(() => {
       if (scrubAnimRef.current) return;
@@ -227,8 +271,8 @@ const LightboxFilmstrip = React.forwardRef<HTMLDivElement, LightboxFilmstripProp
 
       const geometry = slidesGeometryRef.current;
       const t = slidesScrollProgress(slides, geometry);
-      const travel = Math.max(0, geometry.count - 1) * thumbStepRef.current;
-      track.style.transform = `translate3d(${-t * travel}px, 0, 0)`;
+      const x = thumbTravelAtProgress(thumbTravelsRef.current, t);
+      track.style.transform = `translate3d(${-x}px, 0, 0)`;
     }, [slidesViewportRef, slidesGeometryRef]);
 
     const scheduleSync = React.useCallback(() => {
@@ -277,14 +321,15 @@ const LightboxFilmstrip = React.forwardRef<HTMLDivElement, LightboxFilmstripProp
       linkAnimRef.current = null;
       track.style.removeProperty('animation');
 
-      const travel = Math.max(0, geometry.count - 1) * thumbStepRef.current;
+      const travels = thumbTravelsRef.current;
+      if (travels.length === 0) {
+        usesScrollTimelineRef.current = false;
+        return false;
+      }
       const timeline = new ScrollTimeline({ source: slides, axis: 'x' });
       const effect = new KeyframeEffect(
         track,
-        [
-          { transform: 'translate3d(0px, 0, 0)' },
-          { transform: `translate3d(${-travel}px, 0, 0)` },
-        ],
+        trackTransformKeyframes(travels),
         // `duration` is ignored for scroll progress, but Firefox will not apply
         // a ScrollTimeline effect when duration is missing / 0 — after a thumb
         // scrub drops its fill:forwards, the track then sits at keyframe 0.
@@ -389,6 +434,8 @@ const LightboxFilmstrip = React.forwardRef<HTMLDivElement, LightboxFilmstripProp
           track.style.removeProperty('transform');
           track.style.removeProperty('animation');
           track.style.removeProperty('padding-inline');
+          track.style.removeProperty('padding-left');
+          track.style.removeProperty('padding-right');
           track.style.removeProperty(LightboxFilmstripCssVars.travel);
         }
       };
@@ -416,7 +463,7 @@ const LightboxFilmstrip = React.forwardRef<HTMLDivElement, LightboxFilmstripProp
           matchMedia('(prefers-reduced-motion: reduce)').matches;
 
         const fromX = track ? readComputedTranslateX(track) : 0;
-        const toX = -index * thumbStepRef.current;
+        const toX = -(thumbTravelsRef.current[index] ?? 0);
         const canScrub =
           scrubOnSelect &&
           !reduceMotion &&

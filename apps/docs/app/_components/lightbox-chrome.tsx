@@ -170,7 +170,7 @@ function morphWidthKeyframes(aspects: number[], heightPx: number): Keyframe[] {
 }
 
 /**
- * Docs filmstrip: viewport-aspect thumbs + selection frame.
+ * Docs filmstrip: per-photo-aspect thumbs + selection frame.
  * Morph `width` is the single size owner — ScrollTimeline on swipe, pause +
  * DocumentTimeline scrub on thumb click (same handoff as the track).
  */
@@ -192,7 +192,6 @@ function GalleryFilmstrip({
   const itemAspectsRef = React.useRef(itemAspects);
   itemAspectsRef.current = itemAspects;
 
-  const [viewportAspect, setViewportAspect] = React.useState(16 / 9);
   const aspectLinkRef = React.useRef<Animation | null>(null);
   const aspectScrubRef = React.useRef<Animation | null>(null);
   const usesScrollTimelineRef = React.useRef(false);
@@ -202,17 +201,6 @@ function GalleryFilmstrip({
   const reattachAspectRef = React.useRef<(() => void) | null>(null);
   const startAspectLinkRef = React.useRef<(force?: boolean) => boolean>(() => false);
   const syncAspectFromScrollRef = React.useRef<(() => void) | null>(null);
-
-  React.useEffect(() => {
-    const update = () => {
-      const w = window.innerWidth;
-      const h = Math.max(1, window.innerHeight);
-      setViewportAspect(w / h);
-    };
-    update();
-    window.addEventListener('resize', update);
-    return () => window.removeEventListener('resize', update);
-  }, []);
 
   React.useLayoutEffect(() => {
     let detach: (() => void) | undefined;
@@ -529,17 +517,19 @@ function GalleryFilmstrip({
       scrubDuration={FILMSTRIP_SCRUB_MS}
       scrubEasing={FILMSTRIP_SCRUB_EASE}
       wrapSelectCommit={wrapThumbSelectCommit}
-      style={
-        {
-          ['--lightbox-demo-thumb-aspect' as string]: String(viewportAspect),
-        } as React.CSSProperties
-      }
     >
       <div className="lightbox-demo-filmstrip-aspect-host">
         <Lightbox.FilmstripTrack aria-label="Photo thumbnails">
           {items.map((item, i) => (
-            <Lightbox.Thumbnail key={item.id ?? i} index={i}>
-              {/* No HTML width/height — shell size is CSS; img letterboxes inside. */}
+            <Lightbox.Thumbnail
+              key={item.id ?? i}
+              index={i}
+              style={
+                {
+                  ['--lightbox-demo-thumb-aspect' as string]: String(itemAspects[i] ?? 16 / 9),
+                } as React.CSSProperties
+              }
+            >
               <img src={item.thumb} alt={item.alt} draggable={false} />
             </Lightbox.Thumbnail>
           ))}

@@ -73,29 +73,43 @@ function setupSlidesGeometry(viewport: HTMLElement, count: number) {
 
 const FILMSTRIP_WIDTH = 320;
 
-function setupThumbGeometry(track: HTMLElement, count: number) {
+function setupThumbGeometry(track: HTMLElement, count: number, widths?: number[]) {
   const tabs = track.querySelectorAll<HTMLElement>('[role="tab"]');
+  const resolved =
+    widths ??
+    Array.from({ length: count }, () => THUMB);
+  expect(tabs.length).toBe(count);
+  expect(resolved.length).toBe(count);
+
+  let left = 0;
+  const lefts: number[] = [];
+  for (let i = 0; i < count; i++) {
+    lefts.push(left);
+    left += resolved[i]! + THUMB_GAP;
+  }
+
   tabs.forEach((tab, i) => {
+    const w = resolved[i]!;
+    const x = lefts[i]!;
     Object.defineProperty(tab, 'offsetLeft', {
       configurable: true,
-      get: () => i * THUMB_STEP,
+      get: () => x,
     });
-    Object.defineProperty(tab, 'offsetWidth', { configurable: true, get: () => THUMB });
+    Object.defineProperty(tab, 'offsetWidth', { configurable: true, get: () => w });
     // Prefer getBoundingClientRect in Filmstrip — include flex gap in the stride.
     tab.getBoundingClientRect = () =>
       ({
-        x: i * THUMB_STEP,
+        x,
         y: 0,
         top: 0,
-        left: i * THUMB_STEP,
-        right: i * THUMB_STEP + THUMB,
+        left: x,
+        right: x + w,
         bottom: THUMB,
-        width: THUMB,
+        width: w,
         height: THUMB,
         toJSON: () => ({}),
       }) as DOMRect;
   });
-  expect(tabs.length).toBe(count);
   flushResizeObservers();
 }
 
@@ -295,6 +309,30 @@ describe('Lightbox.Filmstrip', () => {
 
     swipeTo(slides, 4);
     expect(readTranslateX(track)).toBeCloseTo(-4 * THUMB_STEP, 5);
+  });
+
+  it('JS fallback centers variable-width thumbs by midpoint travel', () => {
+    render(<Gallery count={3} />);
+    const slides = screen.getByTestId('slides');
+    setupSlidesGeometry(slides, 3);
+
+    const root = screen.getByTestId('filmstrip');
+    const track = screen.getByTestId('filmstrip-track');
+    setupFilmstripRoot(root);
+    // Landscape / portrait / landscape — unequal strides between centers.
+    setupThumbGeometry(track, 3, [80, 40, 80]);
+
+    // Centers at 40, 108, 176 → travels 0, 68, 136.
+    expect(readTranslateX(track)).toBe(0);
+
+    swipeTo(slides, 1);
+    expect(readTranslateX(track)).toBeCloseTo(-68, 5);
+
+    swipeTo(slides, 2);
+    expect(readTranslateX(track)).toBeCloseTo(-136, 5);
+
+    expect(track.style.paddingLeft).toBe('120px'); // (320 - 80) / 2
+    expect(track.style.paddingRight).toBe('120px');
   });
 
   it('links the track to Slides via ScrollTimeline when available', () => {

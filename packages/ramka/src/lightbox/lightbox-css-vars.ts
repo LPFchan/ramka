@@ -81,8 +81,9 @@ export enum LightboxDocumentCssVars {
 
 export enum LightboxFilmstripCssVars {
   /**
-   * End `translateX` travel for the scroll link (typically a negative px length
-   * spanning `(itemCount - 1) * thumbStep`). Set on the FilmstripTrack.
+   * End `translateX` travel for the scroll link (negative px length to center
+   * the last thumb — `(count - 1) * step` when thumbs are uniform). Set on the
+   * FilmstripTrack.
    * @type string
    */
   travel = '--lightbox-filmstrip-travel',
