@@ -32,7 +32,40 @@ const ASPECTS: ReadonlyArray<readonly [number, number]> = [
   [1300, 975], // 4:3
 ];
 
-const photos: Photo[] = ASPECTS.map(([w, h], i) => {
+/** Short handwritten-style labels for the polaroid matte band. */
+const POLAROID_LABELS = [
+  'july 12',
+  'road trip',
+  'golden hour',
+  'late night',
+  'home',
+  'say cheese',
+  'coastline',
+  'after rain',
+  'blue hour',
+  'sunday',
+  'city walk',
+  'sunset',
+  'on the train',
+  'market day',
+  'first snow',
+  'backyard',
+  'open road',
+  'coffee run',
+  'night bus',
+  'old town',
+  'river walk',
+  'picnic',
+  'neon signs',
+  'early flight',
+] as const;
+
+const PHOTO_COUNT = 24;
+/** Triggers on the page — lightbox still contains the full `photos` set. */
+const TRIGGER_COUNT = 6;
+
+const photos: Photo[] = Array.from({ length: PHOTO_COUNT }, (_, i) => {
+  const [w, h] = ASPECTS[i % ASPECTS.length]!;
   const thumbScale = 320 / Math.max(w, h);
   const tw = Math.round(w * thumbScale);
   const th = Math.round(h * thumbScale);
@@ -41,12 +74,12 @@ const photos: Photo[] = ASPECTS.map(([w, h], i) => {
     src: `https://picsum.photos/seed/ramka-strip-${i}/${w}/${h}`,
     thumb: `https://picsum.photos/seed/ramka-strip-${i}/${tw}/${th}`,
     alt: `Photo ${i + 1}`,
-    caption: `Frame ${i + 1}`,
+    caption: POLAROID_LABELS[i % POLAROID_LABELS.length] ?? `Frame ${i + 1}`,
     aspect: w / h,
   };
 });
 
-const TILTS = [-3.5, 2.2, -1.4, 3.1, -2.6, 1.8];
+const TILTS = [-3.5, 2.2, -1.4, 3.1, -2.6, 1.8, -2.8, 2.5, -1.1, 3.4, -3.2, 1.6];
 
 const chromePullHide =
   'transition-opacity duration-200 [[data-pulling]_&]:pointer-events-none [[data-pulling]_&]:opacity-0 [[data-pull-dismissing]_&]:pointer-events-none [[data-pull-dismissing]_&]:opacity-0';
@@ -55,12 +88,14 @@ function DemoShell({
   title,
   description,
   contentClassName,
+  captionClassName,
   strip,
 }: {
   title: string;
   description: string;
   /** Sets `--lightbox-inset-bottom` for this strip’s chrome height. */
   contentClassName: string;
+  captionClassName?: string;
   strip: React.ReactNode;
 }) {
   return (
@@ -76,7 +111,7 @@ function DemoShell({
 
       <Lightbox.Root loop awaitImageDecode={350}>
         <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
-          {photos.map((photo, i) => (
+          {photos.slice(0, TRIGGER_COUNT).map((photo, i) => (
             <Lightbox.Trigger
               key={photo.id}
               index={i}
@@ -142,7 +177,9 @@ function DemoShell({
             <div
               className={`pointer-events-none absolute inset-x-0 bottom-0 z-30 flex flex-col items-center gap-2 px-3 pb-[calc(1rem+env(safe-area-inset-bottom,0px))] [[data-zoomed]_&]:opacity-0 ${chromePullHide}`}
             >
-              <Lightbox.Caption className="pointer-events-auto block min-h-[1.1rem] max-w-full truncate px-4 text-center text-sm font-medium text-neutral-800 drop-shadow-[0_1px_1px_rgb(255_255_255/0.7)] dark:text-neutral-100 dark:drop-shadow-[0_1px_2px_rgb(0_0_0/0.65)]" />
+              <Lightbox.Caption
+                className={`pointer-events-auto block min-h-[1.1rem] max-w-full truncate px-4 text-center text-sm font-medium text-neutral-800 drop-shadow-[0_1px_1px_rgb(255_255_255/0.7)] dark:text-neutral-100 dark:drop-shadow-[0_1px_2px_rgb(0_0_0/0.65)]${captionClassName ? ` ${captionClassName}` : ''}`}
+              />
               <div className="pointer-events-auto w-full flex justify-center">{strip}</div>
             </div>
           </Lightbox.Content>
@@ -207,6 +244,7 @@ function PolaroidStrip() {
             style={{ ['--ts-tilt' as string]: `${TILTS[i % TILTS.length]}deg` }}
           >
             <img src={photo.thumb} alt="" draggable={false} />
+            <span className="ts-debug-polaroid-caption">{photo.caption}</span>
           </Lightbox.Thumbnail>
         ))}
       </Lightbox.ThumbnailStripTrack>
@@ -279,8 +317,9 @@ export default function ThumbnailStripDebugPage() {
 
       <DemoShell
         title="4 · Polaroids"
-        description="Tilted mattes that settle when centered — selection is a scrapbook tape tab, not a frame."
+        description="Real Polaroid proportions (square image + caption band) with handwritten labels — selection is washi tape."
         contentClassName="ts-debug-content-polaroid"
+        captionClassName="ts-debug-polaroid-viewer-caption"
         strip={<PolaroidStrip />}
       />
 

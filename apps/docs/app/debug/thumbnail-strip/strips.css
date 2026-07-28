@@ -68,8 +68,8 @@
 }
 
 .lightbox-demo-content.ts-debug-content-polaroid {
-  /* larger mattes + 2.25rem pad-block×2 + shadow room + chrome */
-  --ts-inset-bottom: 14.5rem;
+  /* classic polaroid height + pad-block×2 + tape + chrome */
+  --ts-inset-bottom: 15.25rem;
 }
 
 .lightbox-demo-content.ts-debug-content-fade {
@@ -99,8 +99,12 @@
   box-shadow: 0 0 0 1px rgb(0 0 0 / 0.12);
 }
 
+.ts-debug-bare [role='tab']:hover,
 .ts-debug-bare [role='tab'][data-active] {
   opacity: 1;
+}
+
+.ts-debug-bare [role='tab'][data-active] {
   box-shadow: 0 0 0 1px rgb(0 0 0 / 0.28);
 }
 
@@ -128,6 +132,7 @@
   opacity: 0.55;
 }
 
+.ts-debug-circles [role='tab']:hover,
 .ts-debug-circles [role='tab'][data-active] {
   opacity: 1;
 }
@@ -198,33 +203,41 @@
 }
 
 /* -------------------------------------------------------------------------- */
-/* 4. Polaroids — white matte, soft lift on active                            */
+/* 4. Polaroids — classic integral-film proportions + caption band              */
+/* Outer ~3.483×4.233in (w×h); image ~square. See polaroid.com support dims.   */
 /* -------------------------------------------------------------------------- */
 
-.ts-debug-polaroid[data-ramka-thumbnail-strip] {
-  --ts-polaroid-w: 4.5rem;
-  --ts-polaroid-h: 5.35rem;
-  width: min(100%, 34rem);
+.ts-debug-strip.ts-debug-polaroid[data-ramka-thumbnail-strip] {
+  /* Width sets the scale; height follows real Polaroid aspect (w/h). */
+  --ts-polaroid-w: 4.75rem;
+  /* ~5.4% of frame width — NOT `%` padding (that resolves against the strip). */
+  --ts-polaroid-pad: calc(var(--ts-polaroid-w) * 0.054);
+  width: min(100%, 36rem);
   /*
    * Equal pad so thumbs stay on the indicator midline. Must clear active
    * drop-shadow, tilted corners, and the tape tab above the frame.
    */
-  padding-block: 2.25rem;
+  padding-block: 2.35rem;
 }
 
-.ts-debug-polaroid [data-ramka-thumbnail-strip-track] {
+.ts-debug-strip.ts-debug-polaroid [data-ramka-thumbnail-strip-track] {
   gap: 0.75rem;
   /* Must match indicator midline (strip centers thumbs in both axes). */
   align-items: center;
 }
 
-.ts-debug-polaroid [role='tab'] {
+.ts-debug-strip.ts-debug-polaroid [role='tab'] {
+  /* Grid: square photo on top, caption band fills the classic bottom matte. */
+  display: grid;
+  grid-template-rows: auto 1fr;
   width: var(--ts-polaroid-w);
-  height: var(--ts-polaroid-h);
-  padding: 0.35rem 0.35rem 0.85rem;
+  /* Literal ratio — custom props can break `a / b` aspect-ratio parsing. */
+  aspect-ratio: 3.483 / 4.233;
+  height: auto;
+  padding: var(--ts-polaroid-pad) var(--ts-polaroid-pad) 0;
   overflow: hidden;
-  border-radius: 0.25rem;
-  background: #f7f4ef;
+  border-radius: 0.2rem;
+  background: #f4f0e8;
   box-shadow:
     0 0 0 1px rgb(0 0 0 / 0.1),
     0 1px 2px rgb(0 0 0 / 0.18),
@@ -240,16 +253,66 @@
   transition-delay: 0ms;
 }
 
-.ts-debug-polaroid [role='tab']:not([data-active]) {
+.ts-debug-strip.ts-debug-polaroid [role='tab']:not([data-active]) {
   transform: rotate(var(--ts-tilt, 0deg)) translateZ(0);
 }
 
-.ts-debug-polaroid [role='tab'] img {
-  border-radius: 0.12rem;
+/*
+ * Beat shared `.ts-debug-strip [role=tab] img { height:100% }` which collapses
+ * the photo in this grid (percentage height + aspect-ratio → tiny square).
+ */
+.ts-debug-strip.ts-debug-polaroid [role='tab'] > img {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: none;
+  aspect-ratio: 1 / 1;
+  border-radius: 0;
   background: #ddd;
+  object-fit: cover;
+  pointer-events: none;
 }
 
-.ts-debug-polaroid [role='tab'][data-active] {
+.ts-debug-polaroid-caption {
+  /* Fill the matte band and center the label in both axes. */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  min-height: 0;
+  max-width: 100%;
+  padding-inline: 0.1rem;
+  font-family: 'Segoe Print', 'Bradley Hand', 'Apple Chancery', 'Snell Roundhand', cursive;
+  font-size: 0.62rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  line-height: 1.15;
+  color: #3a342c;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Same hand lettering on the lightbox Caption for this demo. */
+.ts-debug-polaroid-viewer-caption {
+  font-family: 'Segoe Print', 'Bradley Hand', 'Apple Chancery', 'Snell Roundhand', cursive;
+  font-size: 1.35rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  line-height: 1.2;
+  color: #3a342c;
+}
+
+:is(.dark, [data-theme='dark']) .ts-debug-polaroid-viewer-caption {
+  color: #f0ebe3;
+}
+
+.ts-debug-strip.ts-debug-polaroid [role='tab']:hover {
+  opacity: 1;
+}
+
+.ts-debug-strip.ts-debug-polaroid [role='tab'][data-active] {
   opacity: 1;
   transform: translateZ(0);
   box-shadow:
@@ -261,10 +324,11 @@
 }
 
 /* Same box as a polaroid — hosts the tape tab (no outline frame). */
-.ts-debug-polaroid [data-ramka-thumbnail-strip-indicator] {
+.ts-debug-strip.ts-debug-polaroid [data-ramka-thumbnail-strip-indicator] {
   display: block;
   width: var(--ts-polaroid-w);
-  height: var(--ts-polaroid-h);
+  aspect-ratio: 3.483 / 4.233;
+  height: auto;
 }
 
 /*
