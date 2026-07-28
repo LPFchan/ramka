@@ -48,30 +48,16 @@ function IconZoomOut() {
   );
 }
 
-/* ── Helpers ────────────────────────────────────────────────────────────── */
-
-/** Intrinsic pixel dims from a `…/{width}/{height}` URL (e.g. picsum). */
-export function imgDims(url: string) {
-  const m = url.match(/\/(\d+)\/(\d+)$/);
-  return m ? { width: Number(m[1]), height: Number(m[2]) } : undefined;
-}
-
+/** Item shape for `Lightbox.Gallery` — pass real intrinsic pixel size. */
 export type LightboxItem = {
   id?: string | number;
   src: string;
   thumb: string;
   alt: string;
   caption?: string;
-  width?: number;
-  height?: number;
+  width: number;
+  height: number;
 };
-
-function itemDims(item: LightboxItem): { width: number; height: number } | undefined {
-  if (item.width && item.height && item.width > 0 && item.height > 0) {
-    return { width: item.width, height: item.height };
-  }
-  return imgDims(item.src);
-}
 
 /* ── Styled primitives (design-system re-exports) ───────────────────────── */
 
@@ -232,9 +218,10 @@ function Gallery({ items, ariaLabel }: { items: LightboxItem[]; ariaLabel: strin
             <Slide key={item.id ?? i}>
               <Item index={i} caption={item.caption ?? item.alt}>
                 <Zoom maxZoom={6}>
-                  <Media {...(itemDims(item) ?? {})}>
+                  <Media width={item.width} height={item.height}>
                     <img
-                      {...(itemDims(item) ?? {})}
+                      width={item.width}
+                      height={item.height}
                       src={item.src}
                       alt={item.alt}
                       loading="eager"

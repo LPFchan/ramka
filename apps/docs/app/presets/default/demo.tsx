@@ -1,43 +1,57 @@
 'use client';
 
-import { Lightbox, imgDims, type LightboxItem } from './lightbox';
+import { imgDims } from '../../_components/lightbox-chrome';
+import { Lightbox, type LightboxItem } from './lightbox';
 
+/** Demo seed data — dims are explicit (package Gallery requires them). */
 const trip: LightboxItem[] = [
   {
     src: 'https://picsum.photos/seed/preset-trip-a/1200/1200',
     thumb: 'https://picsum.photos/seed/preset-trip-a/400/400',
     alt: 'Maya on the ridge',
     caption: 'Maya Chen',
+    width: 1200,
+    height: 1200,
   },
   {
     src: 'https://picsum.photos/seed/preset-trip-b/1600/1000',
     thumb: 'https://picsum.photos/seed/preset-trip-b/800/500',
     alt: 'Cliffside road at sunset',
     caption: 'Cliffside road at sunset',
+    width: 1600,
+    height: 1000,
   },
   {
     src: 'https://picsum.photos/seed/preset-trip-c/1600/1000',
     thumb: 'https://picsum.photos/seed/preset-trip-c/800/500',
     alt: 'Turquoise cove',
     caption: 'A turquoise cove',
+    width: 1600,
+    height: 1000,
   },
   {
     src: 'https://picsum.photos/seed/preset-trip-d/1200/1500',
     thumb: 'https://picsum.photos/seed/preset-trip-d/480/600',
     alt: 'Trail through pines',
     caption: 'Through the pines',
+    width: 1200,
+    height: 1500,
   },
   {
     src: 'https://picsum.photos/seed/preset-trip-e/1600/1000',
     thumb: 'https://picsum.photos/seed/preset-trip-e/800/500',
     alt: 'Camp under the stars',
     caption: 'Camp under the stars',
+    width: 1600,
+    height: 1000,
   },
   {
     src: 'https://picsum.photos/seed/preset-trip-f/1200/1200',
     thumb: 'https://picsum.photos/seed/preset-trip-f/600/600',
     alt: 'Morning coffee on the rocks',
     caption: 'Morning on the rocks',
+    width: 1200,
+    height: 1200,
   },
 ];
 

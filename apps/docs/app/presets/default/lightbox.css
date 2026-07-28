@@ -14,8 +14,6 @@
   --lb-ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
   --lb-ease-vt-morph: cubic-bezier(0.32, 0.72, 0, 1);
   --lb-duration-open: 340ms;
-  --lb-thumb-h: 3.5rem;
-  --lb-strip-fade: 32px;
 }
 
 /* ── Trigger ────────────────────────────────────────────────────────────── */
@@ -353,6 +351,8 @@ html.dark .lb-control:focus-visible {
 /* ── Thumbnail strip ────────────────────────────────────────────────────── */
 
 .lb-thumbnail-strip {
+  --lb-thumb-h: 3.5rem;
+  --lb-strip-fade: 32px;
   pointer-events: auto;
   align-self: stretch;
   width: 100%;
