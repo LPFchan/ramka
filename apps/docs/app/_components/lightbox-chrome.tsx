@@ -699,8 +699,6 @@ function GalleryFilmstrip({
     <Lightbox.Filmstrip
       ref={filmstripRef}
       className={className}
-      scrubDuration={FILMSTRIP_SCRUB_MS}
-      scrubEasing={FILMSTRIP_SCRUB_EASE}
       wrapSelectCommit={wrapThumbSelectCommit}
       style={
         {

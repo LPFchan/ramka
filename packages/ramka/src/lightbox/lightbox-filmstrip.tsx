@@ -21,10 +21,6 @@ interface LightboxFilmstripProps extends useRender.ComponentProps<'div', Lightbo
    * (follows the Slides jump via the scroll link).
    */
   scrubOnSelect?: boolean;
-  /** WAAPI scrub duration in ms. @default 450 */
-  scrubDuration?: number;
-  /** WAAPI scrub easing. @default 'cubic-bezier(0.22, 1, 0.36, 1)' */
-  scrubEasing?: string;
   /**
    * Optional wrapper around the active-index commit (e.g. docs chrome can run
    * an element-scoped `slides.startViewTransition`). Receives the target
@@ -34,6 +30,10 @@ interface LightboxFilmstripProps extends useRender.ComponentProps<'div', Lightbo
    */
   wrapSelectCommit?: (commit: () => void, slides: HTMLElement | null, index: number) => void;
 }
+
+/** Baked pointer-select scrub timing (not a public prop — keep the API lean). */
+const SCRUB_DURATION_MS = 450;
+const SCRUB_EASING = 'cubic-bezier(0.22, 1, 0.36, 1)';
 
 const filmstripStateAttributesMapping = {
   scrubbing: (value: unknown) => (value ? { 'data-scrubbing': '' } : null),
@@ -167,8 +167,6 @@ const LightboxFilmstrip = React.forwardRef<HTMLDivElement, LightboxFilmstripProp
       render,
       children,
       scrubOnSelect = true,
-      scrubDuration = 450,
-      scrubEasing = 'cubic-bezier(0.22, 1, 0.36, 1)',
       wrapSelectCommit,
       style,
       ...elementProps
@@ -513,8 +511,8 @@ const LightboxFilmstrip = React.forwardRef<HTMLDivElement, LightboxFilmstripProp
               { transform: `translate3d(${toX}px, 0, 0)` },
             ],
             {
-              duration: scrubDuration,
-              easing: scrubEasing,
+              duration: SCRUB_DURATION_MS,
+              easing: SCRUB_EASING,
               fill: 'forwards',
             },
           );
@@ -611,8 +609,6 @@ const LightboxFilmstrip = React.forwardRef<HTMLDivElement, LightboxFilmstripProp
       },
       [
         scrubOnSelect,
-        scrubDuration,
-        scrubEasing,
         wrapSelectCommit,
         setActiveIndex,
         navigationLockedRef,

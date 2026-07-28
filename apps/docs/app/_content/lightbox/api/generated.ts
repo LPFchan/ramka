@@ -298,18 +298,6 @@ export const generatedProps: Record<string, PropRow[]> = {
       description: "When true (default), pointer selection on a thumbnail WAAPI-scrubs the track to the target index. Keyboard / button navigation stays instant (follows the Slides jump via the scroll link).",
     },
     {
-      name: "scrubDuration",
-      type: "number",
-      default: "450",
-      description: "WAAPI scrub duration in ms.",
-    },
-    {
-      name: "scrubEasing",
-      type: "string",
-      default: "'cubic-bezier(0.22, 1, 0.36, 1)'",
-      description: "WAAPI scrub easing.",
-    },
-    {
       name: "wrapSelectCommit",
       type: "(commit: () => void, slides: HTMLElement | null, index: number) => void",
       description: "Optional wrapper around the active-index commit (e.g. docs chrome can run an element-scoped `slides.startViewTransition`). Receives the target `index` so consumers can arm WAAPI (same as the track scrub) *before* `commit` jumps Slides scroll. Track scrub still runs outside this callback. Defaults to invoking `commit` immediately.",
@@ -381,12 +369,6 @@ export const generatedProps: Record<string, PropRow[]> = {
       type: "number",
       default: "300",
       description: "Max delay between clicks for double-click detection (ms).",
-    },
-    {
-      name: "animationDuration",
-      type: "number",
-      default: "300",
-      description: "Smooth zoom animation duration (ms).",
     },
     {
       name: "onZoomChange",
@@ -778,7 +760,7 @@ export const generatedCssVariables: Record<string, CssVarRow[]> = {
   "api-filmstrip": [
     {
       name: "--lightbox-filmstrip-travel",
-      description: "End `translateX` travel for the scroll link (typically a negative px length spanning `(itemCount - 1) * thumbStep`). Set on the FilmstripTrack.",
+      description: "End `translateX` travel for the scroll link (negative px length to center the last thumb — `(count - 1) * step` when thumbs are uniform). Set on the FilmstripTrack.",
     },
   ],
   "api-filmstrip-track": [],

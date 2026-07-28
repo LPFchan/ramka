@@ -83,8 +83,6 @@ interface LightboxZoomProps
   keyboardPanDistance?: number;
   /** Max delay between clicks for double-click detection (ms). @default 300 */
   doubleClickDelay?: number;
-  /** Smooth zoom animation duration (ms). @default 300 */
-  animationDuration?: number;
   /** Callback when zoom level changes. */
   onZoomChange?: (zoom: number) => void;
 }
@@ -170,7 +168,6 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
       wheelSensitivity = DEFAULT_WHEEL_SENSITIVITY,
       keyboardPanDistance = DEFAULT_KEYBOARD_PAN,
       doubleClickDelay = DEFAULT_DOUBLE_CLICK_DELAY,
-      animationDuration = DEFAULT_ANIMATION_DURATION,
       onZoomChange,
       ...elementProps
     } = props;
@@ -348,7 +345,7 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
       offsetX,
       offsetY,
       wrapperRef,
-      animationDuration,
+      DEFAULT_ANIMATION_DURATION,
     );
 
     // ----- Sync data-zoomed + --lightbox-zoom-progress on Content -----
