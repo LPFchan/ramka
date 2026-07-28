@@ -363,7 +363,7 @@ describe('Lightbox.Filmstrip', () => {
     expect(link!.anim.effect?.options).toMatchObject({ duration: 1, fill: 'both' });
   });
 
-  it('thumb click cancels the ScrollTimeline link and finishes on the JS scroll mirror', async () => {
+  it('thumb click cancels the ScrollTimeline link, scrubs via WAAPI, then re-arms ScrollTimeline', async () => {
     enableScrollTimeline();
 
     const scrubPause = vi.fn();
@@ -407,6 +407,8 @@ describe('Lightbox.Filmstrip', () => {
       fireEvent.click(screen.getByTestId('thumb-3'));
       await Promise.resolve();
       await Promise.resolve();
+      flushRaf();
+      flushRaf();
     });
 
     expect(screen.getByTestId('thumb-3')).toHaveAttribute('data-active');
@@ -415,10 +417,11 @@ describe('Lightbox.Filmstrip', () => {
     expect(elementAnimate).toHaveBeenCalled();
     expect(scrubPause).toHaveBeenCalled();
     expect(scrubPlay).toHaveBeenCalled();
-    // After scrub we stay on the JS mirror — re-arming ScrollTimeline after a
-    // programmatic jump leaves Firefox at progress 0 (first thumb).
-    expect(linkCalls.length).toBe(linksBefore);
-    expect(readTranslateX(track)).toBeCloseTo(-3 * THUMB_STEP, 5);
+    // Scrub fill stays until a fresh ScrollTimeline is ready, then drops —
+    // not a permanent JS scroll mirror.
+    expect(linkCalls.length).toBeGreaterThan(linksBefore);
+    expect(scrubCancel).toHaveBeenCalled();
+    expect(track.style.transform).toBe('');
   });
 
   it('wrapSelectCommit can wrap the active-index commit', async () => {

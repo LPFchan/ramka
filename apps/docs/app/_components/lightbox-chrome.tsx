@@ -196,8 +196,7 @@ function GalleryFilmstrip({
   const aspectScrubRef = React.useRef<Animation | null>(null);
   const usesScrollTimelineRef = React.useRef(false);
   const aspectHoldRef = React.useRef(false);
-  /** After thumb scrub, stay on JS width sync (Firefox ST post-jump sits at 0). */
-  const aspectJsSyncOnlyRef = React.useRef(false);
+  /** Re-run attach (JS width mirror) when ScrollTimeline is unavailable. */
   const reattachAspectRef = React.useRef<(() => void) | null>(null);
   const startAspectLinkRef = React.useRef<(force?: boolean) => boolean>(() => false);
   const syncAspectFromScrollRef = React.useRef<(() => void) | null>(null);
@@ -261,7 +260,6 @@ function GalleryFilmstrip({
           (offset, i) => Math.abs(offset - (geometry.base + i * geometry.step)) < 1,
         );
       if (
-        aspectJsSyncOnlyRef.current ||
         !morph ||
         !slides ||
         aspects.length === 0 ||
@@ -338,10 +336,6 @@ function GalleryFilmstrip({
             const nextH = Math.round(morph.getBoundingClientRect().height || 56);
             if (nextH === lastLinkHeight) return;
             lastLinkHeight = nextH;
-            if (aspectJsSyncOnlyRef.current) {
-              syncFromScroll();
-              return;
-            }
             startAspectLink();
           });
         });
@@ -364,7 +358,6 @@ function GalleryFilmstrip({
     };
 
     reattachAspectRef.current = attach;
-    aspectJsSyncOnlyRef.current = false;
     attach();
     const unsubscribe = subscribeSlidesViewport(attach);
     return () => {
@@ -379,7 +372,6 @@ function GalleryFilmstrip({
       aspectLinkRef.current = null;
       usesScrollTimelineRef.current = false;
       aspectHoldRef.current = false;
-      aspectJsSyncOnlyRef.current = false;
       morphRef.current?.style.removeProperty('width');
       if (raf !== 0) cancelAnimationFrame(raf);
     };
@@ -389,8 +381,7 @@ function GalleryFilmstrip({
    * VT on Slides + WAAPI width scrub on the morph node.
    *
    * Same handoff as the filmstrip track: cancel ScrollTimeline for the scrub,
-   * then finish on the JS scroll mirror (re-arming ST after a programmatic jump
-   * leaves Firefox at progress 0 / wrong width).
+   * keep the scrub fill while arming a fresh scroll link, then drop it.
    */
   const wrapThumbSelectCommit = React.useCallback(
     (commit: () => void, slides: HTMLElement | null, index: number) => {
@@ -446,16 +437,31 @@ function GalleryFilmstrip({
           } catch {
             /* commitStyles can throw if the effect was already cleared */
           }
-          scrubAnim.cancel();
+
+          // Keep scrub fill while arming ScrollTimeline (same as filmstrip track).
           aspectScrubRef.current = null;
+          const armed = startAspectLinkRef.current(true);
+          const liveLink = aspectLinkRef.current;
 
-          aspectLinkRef.current?.cancel();
-          aspectLinkRef.current = null;
-          usesScrollTimelineRef.current = false;
-          aspectJsSyncOnlyRef.current = true;
+          const dropScrub = () => {
+            if (aspectScrubRef.current) return;
+            scrubAnim.cancel();
+            morph.style.removeProperty('width');
+            aspectHoldRef.current = false;
+          };
 
-          aspectHoldRef.current = false;
+          if (armed && liveLink) {
+            void liveLink.ready.then(() => {
+              requestAnimationFrame(() => {
+                requestAnimationFrame(dropScrub);
+              });
+            });
+            return;
+          }
+
+          scrubAnim.cancel();
           morph.style.width = `${toWidth}px`;
+          aspectHoldRef.current = false;
           syncAspectFromScrollRef.current?.();
           reattachAspectRef.current?.();
         };
@@ -469,14 +475,14 @@ function GalleryFilmstrip({
             if (aspectScrubRef.current !== scrubAnim) return;
             scrubAnim.cancel();
             aspectScrubRef.current = null;
-            aspectLinkRef.current?.cancel();
-            aspectLinkRef.current = null;
-            usesScrollTimelineRef.current = false;
-            aspectJsSyncOnlyRef.current = true;
-            aspectHoldRef.current = false;
             morph.style.width = `${toWidth}px`;
-            syncAspectFromScrollRef.current?.();
-            reattachAspectRef.current?.();
+            aspectHoldRef.current = false;
+            if (!startAspectLinkRef.current(true)) {
+              syncAspectFromScrollRef.current?.();
+              reattachAspectRef.current?.();
+            } else {
+              morph.style.removeProperty('width');
+            }
           },
         );
       }
