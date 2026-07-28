@@ -320,7 +320,6 @@ function GalleryFilmstrip({
   }, []);
 
   React.useLayoutEffect(() => {
-    let detach: (() => void) | undefined;
     let raf = 0;
     let ro: ResizeObserver | undefined;
 
@@ -385,6 +384,16 @@ function GalleryFilmstrip({
         return false;
       }
 
+      // Thumb height / aspects unchanged — keep the live scroll link.
+      if (
+        !force &&
+        usesScrollTimelineRef.current &&
+        aspectLinkAnimsRef.current != null &&
+        aspectLinkAnimsRef.current.length > 0
+      ) {
+        return true;
+      }
+
       const keepPaused =
         aspectScrubAnimsRef.current != null ||
         aspectLinkAnimsRef.current?.some((a) => a.playState === 'paused');
@@ -447,22 +456,32 @@ function GalleryFilmstrip({
     };
     startAspectLinkRef.current = startAspectLink;
 
-    const attach = () => {
-      if (aspectHoldRef.current || aspectScrubAnimsRef.current) return;
+    let scrollSlides: HTMLElement | null = null;
+    let lastLinkHeight = 0;
 
-      detach?.();
-      detach = undefined;
-      ro?.disconnect();
-      ro = undefined;
+    const unbindScroll = () => {
+      if (scrollSlides) {
+        scrollSlides.removeEventListener('scroll', scheduleSync);
+      }
+      scrollSlides = null;
+    };
+
+    /**
+     * Wire observers once; rebuild ST only when thumb height (rem/zoom) changes.
+     * Slides viewport resize must NOT cancel+rebuild — keyframes are aspect-based
+     * and ScrollTimeline remaps progress automatically (same glitch as the track).
+     */
+    const refresh = (forceLink = false) => {
+      if (aspectHoldRef.current || aspectScrubAnimsRef.current) return;
 
       const slides = slidesViewportRef.current;
       const pieces = getPieces();
       if (!slides || !pieces) return;
 
-      measureGeom();
+      const geom = measureGeom();
+      const heightChanged = Math.round(geom.thumbHeightPx) !== lastLinkHeight;
 
-      if (startAspectLink()) {
-        let lastLinkHeight = Math.round(geomRef.current.thumbHeightPx);
+      if (!ro) {
         let roRaf = 0;
         ro = new ResizeObserver(() => {
           if (aspectHoldRef.current || aspectScrubAnimsRef.current) return;
@@ -472,32 +491,42 @@ function GalleryFilmstrip({
             const nextH = Math.round(measureGeom().thumbHeightPx);
             if (nextH === lastLinkHeight) return;
             lastLinkHeight = nextH;
-            startAspectLink();
+            startAspectLink(true);
           });
         });
         ro.observe(pieces.host);
-        detach = () => {
-          if (roRaf !== 0) cancelAnimationFrame(roRaf);
-          ro?.disconnect();
-          ro = undefined;
-          cancelAnimations(aspectLinkAnimsRef.current);
-          aspectLinkAnimsRef.current = null;
-          usesScrollTimelineRef.current = false;
-        };
+      }
+
+      if (usesScrollTimelineRef.current && !forceLink && !heightChanged) {
+        // Live ST — slides/window resize must not cancel+rebuild (keyframes are
+        // aspect-based; ScrollTimeline remaps progress on its own).
         return;
       }
 
+      lastLinkHeight = Math.round(geom.thumbHeightPx);
+      if (startAspectLink(forceLink || heightChanged)) {
+        unbindScroll();
+        return;
+      }
+
+      // JS fallback mirror.
+      cancelAnimations(aspectLinkAnimsRef.current);
+      aspectLinkAnimsRef.current = null;
+      usesScrollTimelineRef.current = false;
       syncFromScroll();
-      slides.addEventListener('scroll', scheduleSync, { passive: true });
-      detach = () => slides.removeEventListener('scroll', scheduleSync);
+      if (scrollSlides !== slides) {
+        unbindScroll();
+        slides.addEventListener('scroll', scheduleSync, { passive: true });
+        scrollSlides = slides;
+      }
     };
 
-    reattachAspectRef.current = attach;
-    attach();
-    const unsubscribe = subscribeSlidesViewport(attach);
+    reattachAspectRef.current = () => refresh(true);
+    refresh(true);
+    const unsubscribe = subscribeSlidesViewport(() => refresh(false));
     return () => {
       unsubscribe();
-      detach?.();
+      unbindScroll();
       reattachAspectRef.current = null;
       syncAspectFromScrollRef.current = null;
       ro?.disconnect();

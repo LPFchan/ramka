@@ -89,6 +89,14 @@ function thumbTravelsAreUniform(travels: number[]): boolean {
   return travels.every((travel, i) => Math.abs(travel - i * step) < 1);
 }
 
+function thumbTravelsEqual(a: number[], b: number[]): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    if (Math.abs(a[i]! - b[i]!) > 0.5) return false;
+  }
+  return true;
+}
+
 /**
  * ScrollTimeline / WAAPI keyframes for the track. Uniform thumbs keep the
  * historical two-stop link; variable-width thumbs get one stop per index
@@ -232,20 +240,26 @@ const LightboxFilmstrip = React.forwardRef<HTMLDivElement, LightboxFilmstripProp
       [forwardedRef],
     );
 
-    const measureThumbs = React.useCallback(() => {
+    /**
+     * Remeasure thumb centers + midline padding.
+     * @returns whether travel keyframes changed (ST must rebuild). Padding-only
+     * updates (window resize) return false so the live ScrollTimeline stays up.
+     */
+    const measureThumbs = React.useCallback((): boolean => {
       const track = trackRef.current;
       const root = rootRef.current;
-      if (!track) return;
+      if (!track) return false;
 
       const thumbs = orderedThumbs(thumbsRef.current);
       const { travels, widths } = measureThumbTravels(thumbs);
+      const travelsChanged = !thumbTravelsEqual(thumbTravelsRef.current, travels);
       thumbTravelsRef.current = travels;
 
       const firstWidth = widths[0] ?? 0;
       const lastWidth = widths[widths.length - 1] ?? firstWidth;
       if (root && firstWidth > 0) {
         // Asymmetric pad so the first *and* last thumb (possibly different
-        // widths) can both sit on the midline.
+        // widths) can both sit on the midline. Safe to update without touching ST.
         const padStart = Math.max(0, (root.clientWidth - firstWidth) / 2);
         const padEnd = Math.max(0, (root.clientWidth - lastWidth) / 2);
         track.style.paddingLeft = `${padStart}px`;
@@ -255,6 +269,7 @@ const LightboxFilmstrip = React.forwardRef<HTMLDivElement, LightboxFilmstripProp
 
       const endTravel = travels[travels.length - 1] ?? 0;
       track.style.setProperty(LightboxFilmstripCssVars.travel, `${-endTravel}px`);
+      return travelsChanged;
     }, []);
 
     const syncNow = React.useCallback(() => {
@@ -285,7 +300,7 @@ const LightboxFilmstrip = React.forwardRef<HTMLDivElement, LightboxFilmstripProp
      * scrub — the whole strip flashes to the destination, then the scrub restarts.
      * On scrub end we rebuild underneath the still-filling scrub, then drop it.
      */
-    const startLinkAnimation = React.useCallback(() => {
+    const startLinkAnimation = React.useCallback((force = false) => {
       const track = trackRef.current;
       const slides = slidesViewportRef.current;
       const ScrollTimeline = getScrollTimelineConstructor();
@@ -295,6 +310,22 @@ const LightboxFilmstrip = React.forwardRef<HTMLDivElement, LightboxFilmstripProp
       if (!track || !slides || !ScrollTimeline || !slidesGeometryIsUniform(geometry)) {
         usesScrollTimelineRef.current = false;
         return false;
+      }
+
+      const travels = thumbTravelsRef.current;
+      if (travels.length === 0) {
+        usesScrollTimelineRef.current = false;
+        return false;
+      }
+
+      // Resize often only changes midline padding — keep the live ST effect.
+      if (
+        !force &&
+        usesScrollTimelineRef.current &&
+        linkAnimRef.current != null &&
+        linkAnimRef.current.playState !== 'idle'
+      ) {
+        return true;
       }
 
       const keepPaused =
@@ -309,11 +340,6 @@ const LightboxFilmstrip = React.forwardRef<HTMLDivElement, LightboxFilmstripProp
       linkAnimRef.current = null;
       track.style.removeProperty('animation');
 
-      const travels = thumbTravelsRef.current;
-      if (travels.length === 0) {
-        usesScrollTimelineRef.current = false;
-        return false;
-      }
       const timeline = new ScrollTimeline({ source: slides, axis: 'x' });
       const effect = new KeyframeEffect(
         track,
@@ -332,69 +358,83 @@ const LightboxFilmstrip = React.forwardRef<HTMLDivElement, LightboxFilmstripProp
     }, [slidesViewportRef, slidesGeometryRef]);
 
     React.useLayoutEffect(() => {
-      let detach: (() => void) | undefined;
+      let ro: ResizeObserver | undefined;
+      let scrollSlides: HTMLElement | null = null;
+      let onScroll: (() => void) | undefined;
       syncFromScrollRef.current = syncNow;
 
-      const attach = () => {
-        // Never tear down / rebuild the scroll link while a thumb scrub owns
-        // transform — attach runs from slides viewport notify and would cancel
-        // the DocumentTimeline scrub mid-flight.
-        if (scrubHoldRef.current || scrubAnimRef.current) return;
+      const unbindScroll = () => {
+        if (scrollSlides && onScroll) {
+          scrollSlides.removeEventListener('scroll', onScroll);
+        }
+        scrollSlides = null;
+        onScroll = undefined;
+      };
 
-        detach?.();
-        detach = undefined;
+      /**
+       * Update padding / travels; rebuild ST only when keyframes must change.
+       * Window resize used to cancel+rebuild ST every frame (visible glitch).
+       */
+      const refresh = (forceLink = false) => {
+        if (scrubHoldRef.current || scrubAnimRef.current) return;
 
         const track = trackRef.current;
         const slides = slidesViewportRef.current;
         const root = rootRef.current;
         if (!track || !slides || !root) return;
 
-        measureThumbs();
+        const travelsChanged = measureThumbs();
 
-        if (startLinkAnimation()) {
-          const ro = new ResizeObserver(() => {
-            if (scrubHoldRef.current || scrubAnimRef.current) return;
-            measureThumbs();
-            startLinkAnimation();
-          });
-          ro.observe(track);
-          ro.observe(root);
-          detach = () => {
-            ro.disconnect();
-            linkAnimRef.current?.cancel();
-            linkAnimRef.current = null;
-            usesScrollTimelineRef.current = false;
-          };
+        if (startLinkAnimation(forceLink || travelsChanged)) {
+          unbindScroll();
           return;
         }
 
         // Fallback: continuous JS mirror of Slides scroll (no ScrollTimeline).
+        linkAnimRef.current?.cancel();
+        linkAnimRef.current = null;
+        usesScrollTimelineRef.current = false;
         syncNow();
-        const onScroll = () => {
-          if (scrubHoldRef.current || scrubAnimRef.current) return;
-          scheduleSync();
-        };
-        slides.addEventListener('scroll', onScroll, { passive: true });
-        const ro = new ResizeObserver(() => {
-          if (scrubHoldRef.current || scrubAnimRef.current) return;
-          measureThumbs();
-          syncNow();
-        });
-        ro.observe(track);
-        ro.observe(root);
-        detach = () => {
-          slides.removeEventListener('scroll', onScroll);
-          ro.disconnect();
-        };
+        if (scrollSlides !== slides) {
+          unbindScroll();
+          onScroll = () => {
+            if (scrubHoldRef.current || scrubAnimRef.current) return;
+            scheduleSync();
+          };
+          slides.addEventListener('scroll', onScroll, { passive: true });
+          scrollSlides = slides;
+        }
       };
 
-      reattachRef.current = attach;
+      const attach = () => {
+        if (scrubHoldRef.current || scrubAnimRef.current) return;
+
+        const track = trackRef.current;
+        const root = rootRef.current;
+        if (!track || !root) return;
+
+        if (!ro) {
+          ro = new ResizeObserver(() => {
+            if (scrubHoldRef.current || scrubAnimRef.current) return;
+            // Padding updates every time; ST rebuilds only if travels changed.
+            refresh(false);
+          });
+          ro.observe(track);
+          ro.observe(root);
+        }
+
+        refresh(true);
+      };
+
+      reattachRef.current = () => refresh(true);
       attach();
-      const unsubscribe = subscribeSlidesViewport(attach);
+      const unsubscribe = subscribeSlidesViewport(() => refresh(false));
 
       return () => {
         unsubscribe();
-        detach?.();
+        unbindScroll();
+        ro?.disconnect();
+        ro = undefined;
         reattachRef.current = null;
         syncFromScrollRef.current = null;
         scrubHoldRef.current = false;
