@@ -3,6 +3,8 @@ import path from 'node:path';
 
 import { highlightCode, type CodeLang } from './highlight-code';
 
+export type SourceFileGroup = 'package' | 'example';
+
 export type SourceFile = {
   /** Display name in the file tab (e.g. `lightbox.tsx`). */
   name: string;
@@ -11,6 +13,14 @@ export type SourceFile = {
   /** Shiki-highlighted HTML. */
   html: string;
   lang: CodeLang;
+  /**
+   * Optional source bucket for the Code UI.
+   * - `package` — copy-paste skin / design-system entry
+   * - `example` — app composition (may use Tailwind, etc.)
+   */
+  group?: SourceFileGroup;
+  /** Short note shown while this file is active (e.g. Tailwind disclaimer). */
+  note?: string;
 };
 
 /**
@@ -18,7 +28,13 @@ export type SourceFile = {
  * Use from Server Components only.
  */
 export async function readSourceFiles(
-  files: Array<{ path: string; name?: string; lang?: CodeLang }>,
+  files: Array<{
+    path: string;
+    name?: string;
+    lang?: CodeLang;
+    group?: SourceFileGroup;
+    note?: string;
+  }>,
 ): Promise<SourceFile[]> {
   return Promise.all(
     files.map(async (file) => {
@@ -26,7 +42,7 @@ export async function readSourceFiles(
       const name = file.name ?? path.basename(file.path);
       const lang = file.lang ?? langFromName(name);
       const html = await highlightCode(code, lang);
-      return { name, code, html, lang };
+      return { name, code, html, lang, group: file.group, note: file.note };
     }),
   );
 }

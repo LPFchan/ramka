@@ -59,9 +59,9 @@ const trip: LightboxItem[] = [
  * App-level demos only — not part of the copy-paste package.
  * Import the styled Lightbox from `./lightbox`, then compose triggers like this.
  *
- * 1. User card → portrait (`crossfade="both"` — whole card morphs)
- * 2. Listing card (`morphRef` on the photo — title/price stay put)
- * 3. Album grid with +N (`crossfade="both"` + `morphTo="closest"`)
+ * 1. Whole-trigger morph + crossfade (card → photo)
+ * 2. Child morph via `morphRef` (chrome stays put)
+ * 3. +N overlay tile with `crossfade` + `morphTo="closest"`
  */
 export function DefaultPresetDemo() {
   return (
@@ -73,35 +73,40 @@ export function DefaultPresetDemo() {
   );
 }
 
-/** User card — the whole card is the morph origin and crossfades into the photo. */
+/** Whole trigger morphs (default); `crossfade="both"` dissolves card ↔ photo. */
 function UserCardMorph() {
   const portrait = trip[0]!;
 
   return (
     <Lightbox.Root>
       <p className="mb-2 text-xs font-medium tracking-wide text-neutral-500 uppercase">
-        User card → image
+        Whole trigger morph
       </p>
       <Lightbox.Trigger
         index={0}
         crossfade="both"
         className="flex w-44 flex-col items-center gap-3 rounded-2xl border border-neutral-300 bg-white p-4 text-center shadow-[0_1px_2px_rgb(0_0_0/0.06),0_4px_12px_rgb(0_0_0/0.06)] dark:border-neutral-600 dark:bg-neutral-800 dark:shadow-[0_1px_2px_rgb(0_0_0/0.4),0_4px_16px_rgb(0_0_0/0.35)]"
       >
-        <img
-          {...imgDims(portrait.thumb)}
-          src={portrait.thumb}
-          alt=""
-          className="size-16 rounded-full object-cover"
-        />
-        <span className="min-w-0">
-          <span className="block text-sm font-semibold text-neutral-900 dark:text-neutral-50">
-            Maya Chen
-          </span>
-          <span className="block text-xs text-neutral-500">@mayachen</span>
-          <span className="mt-1 block text-xs text-neutral-600 dark:text-neutral-400">
-            Photographer
-          </span>
-        </span>
+        {({ imageRef }) => (
+          <>
+            <img
+              ref={imageRef}
+              {...imgDims(portrait.thumb)}
+              src={portrait.thumb}
+              alt=""
+              className="size-16 rounded-full object-cover"
+            />
+            <span className="min-w-0">
+              <span className="block text-sm font-semibold text-neutral-900 dark:text-neutral-50">
+                Maya Chen
+              </span>
+              <span className="block text-xs text-neutral-500">@mayachen</span>
+              <span className="mt-1 block text-xs text-neutral-600 dark:text-neutral-400">
+                Photographer
+              </span>
+            </span>
+          </>
+        )}
       </Lightbox.Trigger>
       <Lightbox.Gallery items={[portrait]} ariaLabel="Maya Chen portrait" />
     </Lightbox.Root>
@@ -109,9 +114,8 @@ function UserCardMorph() {
 }
 
 /**
- * Listing card — the whole card is the Trigger, but only the photo morphs
- * (`morphRef` + `imageRef` on the media). Title / price / meta stay visible
- * because `data-morph-target` lands on the image, not the button.
+ * Trigger wraps the card; `morphRef` (+ `imageRef`) on the photo so only that
+ * child morphs — title / price stay put (`data-morph-target` on the image).
  */
 function ListingCardMorph() {
   const listing = trip[1]!;
@@ -119,7 +123,7 @@ function ListingCardMorph() {
   return (
     <Lightbox.Root>
       <p className="mb-2 text-xs font-medium tracking-wide text-neutral-500 uppercase">
-        Listing card · child morph
+        Child morph via morphRef
       </p>
       <Lightbox.Trigger
         index={0}
@@ -173,9 +177,9 @@ function tileCornerClass(index: number) {
 }
 
 /**
- * Facebook-style 2×2 grid; extras collapse behind +N.
- * Overlay tile uses crossfade both ways; close from overflow slides uses closest trigger.
- * Corner radius is on each Trigger (not the parent) so the VT morph can animate it.
+ * 2×2 grid; extras behind +N. Overlay trigger uses `crossfade="both"`;
+ * `morphTo="closest"` on close from overflow slides. Corner radius lives on
+ * each Trigger so the VT morph can animate it.
  */
 function AlbumPlusNMorph() {
   const extra = trip.length - 4;
@@ -183,7 +187,7 @@ function AlbumPlusNMorph() {
   return (
     <Lightbox.Root morphTo="closest">
       <p className="mb-2 text-xs font-medium tracking-wide text-neutral-500 uppercase">
-        +N tile · crossfade
+        +N overlay with crossfade
       </p>
       <div className="grid aspect-[3/2] w-full grid-cols-2 grid-rows-2 gap-0.5 overflow-hidden rounded-xl">
         {trip.slice(0, 4).map((img, i) => {

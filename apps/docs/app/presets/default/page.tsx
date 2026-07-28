@@ -5,8 +5,22 @@ import { DefaultPresetDemo } from './demo';
 
 export default async function DefaultLightboxPresetPage() {
   const files = await readSourceFiles([
-    { path: 'app/presets/default/lightbox.tsx', name: 'lightbox.tsx' },
-    { path: 'app/presets/default/lightbox.css', name: 'lightbox.css' },
+    {
+      path: 'app/presets/default/lightbox.tsx',
+      name: 'lightbox.tsx',
+      group: 'package',
+    },
+    {
+      path: 'app/presets/default/lightbox.css',
+      name: 'lightbox.css',
+      group: 'package',
+    },
+    {
+      path: 'app/presets/default/demo.tsx',
+      name: 'demo.tsx',
+      group: 'example',
+      note: 'App composition for the preview — uses Tailwind. Not part of the package; swap utility classes for your own tokens/CSS.',
+    },
   ]);
 
   return (
@@ -14,14 +28,14 @@ export default async function DefaultLightboxPresetPage() {
       title="Default"
       description={
         <>
-          Drop this skin into a design-system package (
-          <code className="text-xs">lightbox.tsx</code> +{' '}
-          <code className="text-xs">lightbox.css</code>
-          ), then build app UI against{' '}
-          <code className="text-xs">Lightbox.*</code>. The preview below is
-          app-level only (user card, listing card with child{' '}
-          <code className="text-xs">morphRef</code>,{' '}
-          <code className="text-xs">+N</code> album) — not part of the package.
+          Drop the <strong className="font-medium text-neutral-800 dark:text-neutral-200">Package</strong>{' '}
+          files (<code className="text-xs">lightbox.tsx</code> +{' '}
+          <code className="text-xs">lightbox.css</code>) into a design-system entry, then compose
+          triggers in your app. The{' '}
+          <strong className="font-medium text-neutral-800 dark:text-neutral-200">Example</strong> tab
+          shows the live preview (whole-trigger morph, child{' '}
+          <code className="text-xs">morphRef</code>, <code className="text-xs">+N</code> crossfade) — it
+          uses Tailwind for layout and is not part of the skin.
         </>
       }
       docsHref="/docs/lightbox"
