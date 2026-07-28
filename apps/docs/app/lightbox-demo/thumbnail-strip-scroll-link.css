@@ -13,9 +13,10 @@
   --lightbox-demo-thumb-aspect: 1.777;
   /* Edge fade length; opacity stops approximate smoothstep (eased, not linear). */
   --lightbox-demo-thumbnail-strip-fade: 32px;
-  /* Stretch in the bottom chrome flex so midline padding sees the full width. */
+  /* Full chrome width = clip / midline viewport (library does not force width). */
   align-self: stretch;
   width: 100%;
+  min-width: 0;
   padding-block: 0.25rem;
   /*
    * Soft clip on both edges. Stops at 25/50/75% of the fade use smoothstep

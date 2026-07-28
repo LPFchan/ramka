@@ -181,7 +181,7 @@ function DemoShell({
               <Lightbox.Caption
                 className={`pointer-events-auto block min-h-[1.1rem] max-w-full truncate px-4 text-center text-sm font-medium text-neutral-800 drop-shadow-[0_1px_1px_rgb(255_255_255/0.7)] dark:text-neutral-100 dark:drop-shadow-[0_1px_2px_rgb(0_0_0/0.65)]${captionClassName ? ` ${captionClassName}` : ''}`}
               />
-              <div className="pointer-events-auto w-full flex justify-center">{strip}</div>
+              <div className="pointer-events-auto w-full min-w-0">{strip}</div>
             </div>
           </Lightbox.Content>
         </Lightbox.Portal>

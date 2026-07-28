@@ -26,8 +26,13 @@
 
 /* Shared track flex for every recipe */
 .ts-debug-strip[data-ramka-thumbnail-strip] {
-  /* Viewport for midline padding (library no longer forces width:100%). */
+  /*
+   * Full chrome width = clip / midline viewport. `min-width: 0` lets the flex
+   * item shrink so overflow:clip can hide off-midline thumbs (default
+   * min-width:auto would grow to the track’s max-content).
+   */
   width: 100%;
+  min-width: 0;
   /* Breathing room above/below so transforms aren't clipped by overflow:clip */
   padding-block: 0.55rem;
 }
@@ -109,7 +114,6 @@
 /* -------------------------------------------------------------------------- */
 
 .ts-debug-bare[data-ramka-thumbnail-strip] {
-  width: min(100%, 22rem);
   padding-block: 0.25rem;
 }
 
@@ -140,7 +144,6 @@
 /* -------------------------------------------------------------------------- */
 
 .ts-debug-circles[data-ramka-thumbnail-strip] {
-  width: min(100%, 24rem);
   padding-block: 0.7rem;
 }
 
@@ -180,7 +183,6 @@
 /* -------------------------------------------------------------------------- */
 
 .ts-debug-chips[data-ramka-thumbnail-strip] {
-  width: min(100%, 20rem);
   padding-block: 0.35rem;
 }
 
@@ -235,11 +237,10 @@
 /* -------------------------------------------------------------------------- */
 
 .ts-debug-strip.ts-debug-polaroid[data-ramka-thumbnail-strip] {
-  /* Width sets the scale; height follows real Polaroid aspect (w/h). */
+  /* Frame width sets polaroid scale; height follows real Polaroid aspect (w/h). */
   --ts-polaroid-w: 4.75rem;
   /* ~5.4% of frame width — NOT `%` padding (that resolves against the strip). */
   --ts-polaroid-pad: calc(var(--ts-polaroid-w) * 0.054);
-  width: min(100%, 36rem);
   /*
    * Equal pad so thumbs stay on the indicator midline. Must clear active
    * drop-shadow, tilted corners, and the tape tab above the frame.
@@ -405,8 +406,6 @@
 .ts-debug-fade[data-ramka-thumbnail-strip] {
   --ts-thumb-h: 4.5rem;
   --ts-fade: 2.5rem;
-  align-self: stretch;
-  width: min(100%, 36rem);
   padding-block: 0.65rem;
   -webkit-mask-image: linear-gradient(
     to right,
