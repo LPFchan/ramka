@@ -189,7 +189,7 @@ function readComputedTranslateX(el: HTMLElement): number {
  * Owns midline padding, overflow clip, Slides→track sync via native
  * `ScrollTimeline` + WAAPI (JS scroll→transform fallback when unavailable),
  * and (by default) an element-scoped Slides view transition on pointer select.
- * Consumers style flex/gap, thumb size, optional Indicator paint, and VT look
+ * Consumers style flex/gap, thumb size, optional midline chrome, and VT look
  * via `--lightbox-select-vt-*` on Slides.
  */
 const LightboxThumbnailStrip = React.forwardRef<HTMLDivElement, LightboxThumbnailStripProps>(
@@ -549,7 +549,7 @@ const LightboxThumbnailStrip = React.forwardRef<HTMLDivElement, LightboxThumbnai
             },
           );
           // Hold on the first frame until the index commit starts (so a
-          // wrapSelectCommit view transition can capture a stable "old" slide).
+          // select view transition can capture a stable "old" slide).
           scrubAnim.pause();
           scrubAnim.currentTime = 0;
           scrubAnimRef.current = scrubAnim;

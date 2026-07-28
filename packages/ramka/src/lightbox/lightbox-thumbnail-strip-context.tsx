@@ -20,7 +20,7 @@ const LightboxThumbnailStripContext = React.createContext<LightboxThumbnailStrip
 function useLightboxThumbnailStripContext(): LightboxThumbnailStripContextValue {
   const ctx = React.useContext(LightboxThumbnailStripContext);
   if (!ctx) {
-    throw new Error('Lightbox.ThumbnailStripTrack / Indicator must be used within Lightbox.ThumbnailStrip');
+    throw new Error('Lightbox.ThumbnailStripTrack must be used within Lightbox.ThumbnailStrip');
   }
   return ctx;
 }

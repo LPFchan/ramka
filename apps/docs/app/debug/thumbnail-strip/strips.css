@@ -38,7 +38,7 @@
   align-items: center;
 }
 
-/* Consumer midline chrome (replaces former ThumbnailStripIndicator). */
+/* Consumer midline selection chrome. */
 .ts-debug-indicator {
   position: absolute;
   left: 50%;
