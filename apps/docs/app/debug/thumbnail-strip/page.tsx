@@ -109,12 +109,13 @@ function DemoShell({
         </p>
       </header>
 
-      <Lightbox.Root loop awaitImageDecode={350}>
+      <Lightbox.Root loop morphTo="closest">
         <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
           {photos.slice(0, TRIGGER_COUNT).map((photo, i) => (
             <Lightbox.Trigger
               key={photo.id}
               index={i}
+              crossfade={i === TRIGGER_COUNT - 1 ? 'both' : undefined}
               className={`relative aspect-square overflow-hidden rounded-lg bg-neutral-100 ${triggerFocusClass} dark:bg-neutral-900`}
             >
               <img
