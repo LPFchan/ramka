@@ -286,14 +286,14 @@ export default function LightboxViewTransitionsPage() {
         />
 
         <h3 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
-          Morph snapshot fit
+          Morph snapshots (hard-cut default)
         </h3>
         <p>
-          Default snapshots use <code className="text-xs">object-fit: cover</code> and{' '}
-          <code className="text-xs">mix-blend-mode: plus-lighter</code> so same-image hard-cuts keep crops
-          coherent. When dissolving (<code className="text-xs">data-ramka-crossfade</code>), switch
-          to <code className="text-xs">fill</code> so circular triggers don’t “balloon” under cover — the
-          group’s border-radius is the visible shape.
+          Default morph styles match the API default (Trigger omits{' '}
+          <code className="text-xs">crossfade</code>): <code className="text-xs">object-fit: cover</code>,
+          no UA dissolve, opacity from{' '}
+          <code className="text-xs">--lightbox-morph-old/new-opacity</code>. No{' '}
+          <code className="text-xs">:not()</code> — hard-cut is just the base rule.
         </p>
         <CodeBlock
           code={lightboxExcerpts['vt-morph-snapshots'].code}
@@ -302,17 +302,17 @@ export default function LightboxViewTransitionsPage() {
         />
 
         <h3 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
-          Hard-cut (default morph)
+          Crossfade morph
         </h3>
         <p>
-          When Trigger omits <code className="text-xs">crossfade</code>, ramka leaves{' '}
-          <code className="text-xs">data-ramka-crossfade</code> unset. Kill the UA dissolve, drop{' '}
-          <code className="text-xs">plus-lighter</code>, and drive opacity from{' '}
-          <code className="text-xs">--lightbox-morph-old/new-opacity</code>.
+          When ramka sets <code className="text-xs">data-ramka-crossfade</code>, override the base:
+          restore the UA fade (<code className="text-xs">animation: revert</code>),{' '}
+          <code className="text-xs">plus-lighter</code>, and <code className="text-xs">object-fit: fill</code>{' '}
+          so circular triggers don’t balloon under cover — the group’s border-radius is the visible shape.
         </p>
         <CodeBlock
-          code={lightboxExcerpts['vt-hard-cut'].code}
-          title={lightboxExcerpts['vt-hard-cut'].title}
+          code={lightboxExcerpts['vt-crossfade'].code}
+          title={lightboxExcerpts['vt-crossfade'].title}
           lang="css"
         />
 

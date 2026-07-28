@@ -492,30 +492,30 @@ html.dark .lb-thumbnail-strip-indicator {
     z-index: 2;
   }
 
+  /* Hard-cut default (Trigger omits crossfade). */
   ::view-transition-old(lightbox-morph),
   ::view-transition-new(lightbox-morph) {
     object-fit: cover;
     width: 100%;
     height: 100%;
-    mix-blend-mode: plus-lighter;
-  }
-
-  :root[data-ramka-view-transition][data-ramka-crossfade]::view-transition-old(lightbox-morph),
-  :root[data-ramka-view-transition][data-ramka-crossfade]::view-transition-new(lightbox-morph) {
-    object-fit: fill;
-  }
-
-  :root[data-ramka-view-transition]:not([data-ramka-crossfade])::view-transition-old(lightbox-morph),
-  :root[data-ramka-view-transition]:not([data-ramka-crossfade])::view-transition-new(lightbox-morph) {
     animation: none !important;
     mix-blend-mode: normal;
   }
 
-  :root[data-ramka-view-transition]:not([data-ramka-crossfade])::view-transition-old(lightbox-morph) {
+  ::view-transition-old(lightbox-morph) {
     opacity: var(--lightbox-morph-old-opacity, 1);
   }
 
-  :root[data-ramka-view-transition]:not([data-ramka-crossfade])::view-transition-new(lightbox-morph) {
+  ::view-transition-new(lightbox-morph) {
     opacity: var(--lightbox-morph-new-opacity, 0);
+  }
+
+  /* Dissolve path — positive attribute only, no :not. */
+  :root[data-ramka-crossfade]::view-transition-old(lightbox-morph),
+  :root[data-ramka-crossfade]::view-transition-new(lightbox-morph) {
+    object-fit: fill;
+    mix-blend-mode: plus-lighter;
+    animation: revert !important;
+    opacity: revert;
   }
 }

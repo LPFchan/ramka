@@ -65,37 +65,38 @@
   /* @docs-excerpt-end */
 
   /* @docs-excerpt-start vt-morph-snapshots */
-  /* @docs-excerpt-title Morph snapshot fit */
-  /* Same-image hard-cuts keep cover so crops stay correct. */
+  /* @docs-excerpt-title Morph snapshots (hard-cut default) */
+  /* Default morph = hard-cut (Trigger omits crossfade). Cover keeps same-image
+     crops coherent; kill the UA dissolve and drive opacity from library vars. */
   ::view-transition-old(lightbox-morph),
   ::view-transition-new(lightbox-morph) {
     object-fit: cover;
     width: 100%;
     height: 100%;
-    mix-blend-mode: plus-lighter;
-  }
-
-  /* Crossfade (dissimilar snapshots): fill the morph box so a circular trigger's
-     baked alpha can't "balloon" under cover — the group's border-radius is the
-     visible shape, interpolating via the from/to vars above. */
-  :root[data-ramka-view-transition][data-ramka-crossfade]::view-transition-old(lightbox-morph),
-  :root[data-ramka-view-transition][data-ramka-crossfade]::view-transition-new(lightbox-morph) {
-    object-fit: fill;
-  }
-  /* @docs-excerpt-end */
-
-  /* @docs-excerpt-start vt-hard-cut */
-  /* @docs-excerpt-title Hard-cut (default morph) */
-  :root[data-ramka-view-transition]:not([data-ramka-crossfade])::view-transition-old(lightbox-morph),
-  :root[data-ramka-view-transition]:not([data-ramka-crossfade])::view-transition-new(lightbox-morph) {
     animation: none !important;
     mix-blend-mode: normal;
   }
-  :root[data-ramka-view-transition]:not([data-ramka-crossfade])::view-transition-old(lightbox-morph) {
+
+  ::view-transition-old(lightbox-morph) {
     opacity: var(--lightbox-morph-old-opacity, 1);
   }
-  :root[data-ramka-view-transition]:not([data-ramka-crossfade])::view-transition-new(lightbox-morph) {
+
+  ::view-transition-new(lightbox-morph) {
     opacity: var(--lightbox-morph-new-opacity, 0);
+  }
+  /* @docs-excerpt-end */
+
+  /* @docs-excerpt-start vt-crossfade */
+  /* @docs-excerpt-title Crossfade morph */
+  /* Dissolve path (`data-ramka-crossfade`): restore UA fade, plus-lighter blend,
+     fill so circular triggers don't balloon under cover — the group's
+     border-radius is the visible shape. */
+  :root[data-ramka-crossfade]::view-transition-old(lightbox-morph),
+  :root[data-ramka-crossfade]::view-transition-new(lightbox-morph) {
+    object-fit: fill;
+    mix-blend-mode: plus-lighter;
+    animation: revert !important;
+    opacity: revert;
   }
   /* @docs-excerpt-end */
 }

@@ -112,9 +112,9 @@ export const lightboxExcerpts = {
     code: "import { Lightbox } from 'ramka';\n\n<Lightbox.Root>\n  <Lightbox.Portal>\n    <Lightbox.Backdrop />\n    <Lightbox.Content>\n      <Lightbox.Slides preload={1}>\n        {items.map((item, i) => (\n          <Lightbox.Slide key={item.id}>\n            <Lightbox.Item index={i}>\n              <Lightbox.Zoom>\n                <Lightbox.Media>\n                  <img src={item.src} alt={item.alt} />\n                </Lightbox.Media>\n              </Lightbox.Zoom>\n            </Lightbox.Item>\n          </Lightbox.Slide>\n        ))}\n      </Lightbox.Slides>\n    </Lightbox.Content>\n  </Lightbox.Portal>\n</Lightbox.Root>\n",
     source: "app/_content/lightbox/excerpts/sources/slides-nesting.tsx",
   },
-  "vt-hard-cut": {
-    title: "Hard-cut (default morph)",
-    code: ":root[data-ramka-view-transition]:not([data-ramka-crossfade])::view-transition-old(lightbox-morph),\n:root[data-ramka-view-transition]:not([data-ramka-crossfade])::view-transition-new(lightbox-morph) {\n  animation: none !important;\n  mix-blend-mode: normal;\n}\n:root[data-ramka-view-transition]:not([data-ramka-crossfade])::view-transition-old(lightbox-morph) {\n  opacity: var(--lightbox-morph-old-opacity, 1);\n}\n:root[data-ramka-view-transition]:not([data-ramka-crossfade])::view-transition-new(lightbox-morph) {\n  opacity: var(--lightbox-morph-new-opacity, 0);\n}\n",
+  "vt-crossfade": {
+    title: "Crossfade morph",
+    code: "/* Dissolve path (`data-ramka-crossfade`): restore UA fade, plus-lighter blend,\n   fill so circular triggers don't balloon under cover — the group's\n   border-radius is the visible shape. */\n:root[data-ramka-crossfade]::view-transition-old(lightbox-morph),\n:root[data-ramka-crossfade]::view-transition-new(lightbox-morph) {\n  object-fit: fill;\n  mix-blend-mode: plus-lighter;\n  animation: revert !important;\n  opacity: revert;\n}\n",
     source: "app/lightbox-demo/view-transitions.css",
   },
   "vt-isolate-names": {
@@ -123,8 +123,8 @@ export const lightboxExcerpts = {
     source: "app/lightbox-demo/view-transitions.css",
   },
   "vt-morph-snapshots": {
-    title: "Morph snapshot fit",
-    code: "/* Same-image hard-cuts keep cover so crops stay correct. */\n::view-transition-old(lightbox-morph),\n::view-transition-new(lightbox-morph) {\n  object-fit: cover;\n  width: 100%;\n  height: 100%;\n  mix-blend-mode: plus-lighter;\n}\n\n/* Crossfade (dissimilar snapshots): fill the morph box so a circular trigger's\n   baked alpha can't \"balloon\" under cover — the group's border-radius is the\n   visible shape, interpolating via the from/to vars above. */\n:root[data-ramka-view-transition][data-ramka-crossfade]::view-transition-old(lightbox-morph),\n:root[data-ramka-view-transition][data-ramka-crossfade]::view-transition-new(lightbox-morph) {\n  object-fit: fill;\n}\n",
+    title: "Morph snapshots (hard-cut default)",
+    code: "/* Default morph = hard-cut (Trigger omits crossfade). Cover keeps same-image\n   crops coherent; kill the UA dissolve and drive opacity from library vars. */\n::view-transition-old(lightbox-morph),\n::view-transition-new(lightbox-morph) {\n  object-fit: cover;\n  width: 100%;\n  height: 100%;\n  animation: none !important;\n  mix-blend-mode: normal;\n}\n\n::view-transition-old(lightbox-morph) {\n  opacity: var(--lightbox-morph-old-opacity, 1);\n}\n\n::view-transition-new(lightbox-morph) {\n  opacity: var(--lightbox-morph-new-opacity, 0);\n}\n",
     source: "app/lightbox-demo/view-transitions.css",
   },
   "vt-root-snapshot": {
