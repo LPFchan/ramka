@@ -4,7 +4,6 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 import { LightboxContent } from './lightbox-content';
 import { LightboxThumbnailStrip } from './lightbox-thumbnail-strip';
-import { LightboxThumbnailStripIndicator } from './lightbox-thumbnail-strip-indicator';
 import { LightboxThumbnailStripTrack } from './lightbox-thumbnail-strip-track';
 import { LightboxItem } from './lightbox-item';
 import { LightboxPortal } from './lightbox-portal';
@@ -34,6 +33,7 @@ type LinkCall = {
     pause: ReturnType<typeof vi.fn>;
     cancel: ReturnType<typeof vi.fn>;
     playState: string;
+    effect: MockKeyframeEffect | null;
   };
 };
 
@@ -219,7 +219,6 @@ function Gallery({
                 </LightboxThumbnail>
               ))}
             </LightboxThumbnailStripTrack>
-            <LightboxThumbnailStripIndicator data-testid="thumbnail-strip-indicator" />
           </LightboxThumbnailStrip>
         </LightboxContent>
       </LightboxPortal>
@@ -284,9 +283,6 @@ describe('Lightbox.ThumbnailStrip', () => {
     expect(screen.getByTestId('thumbnail-strip')).toHaveAttribute('data-ramka-thumbnail-strip');
     expect(track).toHaveAttribute('data-ramka-thumbnail-strip-track');
     expect(track).toHaveAttribute('role', 'tablist');
-    expect(screen.getByTestId('thumbnail-strip-indicator')).toHaveAttribute(
-      'data-ramka-thumbnail-strip-indicator',
-    );
     expect(screen.getByText('item 0').closest('[role="tabpanel"]')).toBeTruthy();
   });
 
@@ -441,7 +437,11 @@ describe('Lightbox.ThumbnailStrip', () => {
                 </LightboxSlide>
               ))}
             </LightboxSlides>
-            <LightboxThumbnailStrip data-testid="thumbnail-strip" wrapSelectCommit={wrapSelectCommit}>
+            <LightboxThumbnailStrip
+              data-testid="thumbnail-strip"
+              selectViewTransition={false}
+              wrapSelectCommit={wrapSelectCommit}
+            >
               <LightboxThumbnailStripTrack data-testid="thumbnail-strip-track" aria-label="Thumbs">
                 {Array.from({ length: 3 }, (_, i) => (
                   <LightboxThumbnail key={i} index={i} data-testid={`thumb-${i}`}>
@@ -463,6 +463,100 @@ describe('Lightbox.ThumbnailStrip', () => {
 
     fireEvent.click(screen.getByTestId('thumb-2'));
     expect(wrapSelectCommit).toHaveBeenCalledWith(expect.any(Function), expect.any(HTMLElement), 2);
+    expect(screen.getByTestId('thumb-2')).toHaveAttribute('data-active');
+  });
+
+  it('selectViewTransition starts an element-scoped transition on Slides', async () => {
+    const startViewTransition = vi.fn((cb: () => void) => {
+      cb();
+      return { finished: Promise.resolve() };
+    });
+
+    render(
+      <LightboxRoot defaultOpen>
+        <LightboxTrigger index={0}>open</LightboxTrigger>
+        <LightboxPortal>
+          <LightboxContent aria-label="vt select test">
+            <LightboxSlides data-testid="slides" aria-label="Slides">
+              {Array.from({ length: 3 }, (_, i) => (
+                <LightboxSlide key={i}>
+                  <LightboxItem index={i}>item {i}</LightboxItem>
+                </LightboxSlide>
+              ))}
+            </LightboxSlides>
+            <LightboxThumbnailStrip data-testid="thumbnail-strip">
+              <LightboxThumbnailStripTrack data-testid="thumbnail-strip-track" aria-label="Thumbs">
+                {Array.from({ length: 3 }, (_, i) => (
+                  <LightboxThumbnail key={i} index={i} data-testid={`thumb-${i}`}>
+                    t{i}
+                  </LightboxThumbnail>
+                ))}
+              </LightboxThumbnailStripTrack>
+            </LightboxThumbnailStrip>
+          </LightboxContent>
+        </LightboxPortal>
+      </LightboxRoot>,
+    );
+
+    const slides = screen.getByTestId('slides');
+    Object.defineProperty(slides, 'startViewTransition', {
+      configurable: true,
+      value: startViewTransition,
+    });
+    setupSlidesGeometry(slides, 3);
+    const track = screen.getByTestId('thumbnail-strip-track');
+    setupThumbGeometry(track, 3);
+    endScroll(slides);
+
+    fireEvent.click(screen.getByTestId('thumb-2'));
+    expect(startViewTransition).toHaveBeenCalledOnce();
+    expect(screen.getByTestId('thumb-2')).toHaveAttribute('data-active');
+  });
+
+  it('selectViewTransition={false} skips the Slides view transition', async () => {
+    const startViewTransition = vi.fn((cb: () => void) => {
+      cb();
+      return { finished: Promise.resolve() };
+    });
+
+    render(
+      <LightboxRoot defaultOpen>
+        <LightboxTrigger index={0}>open</LightboxTrigger>
+        <LightboxPortal>
+          <LightboxContent aria-label="no vt select test">
+            <LightboxSlides data-testid="slides" aria-label="Slides">
+              {Array.from({ length: 3 }, (_, i) => (
+                <LightboxSlide key={i}>
+                  <LightboxItem index={i}>item {i}</LightboxItem>
+                </LightboxSlide>
+              ))}
+            </LightboxSlides>
+            <LightboxThumbnailStrip data-testid="thumbnail-strip" selectViewTransition={false}>
+              <LightboxThumbnailStripTrack data-testid="thumbnail-strip-track" aria-label="Thumbs">
+                {Array.from({ length: 3 }, (_, i) => (
+                  <LightboxThumbnail key={i} index={i} data-testid={`thumb-${i}`}>
+                    t{i}
+                  </LightboxThumbnail>
+                ))}
+              </LightboxThumbnailStripTrack>
+            </LightboxThumbnailStrip>
+          </LightboxContent>
+        </LightboxPortal>
+      </LightboxRoot>,
+    );
+
+    const slides = screen.getByTestId('slides');
+    Object.defineProperty(slides, 'startViewTransition', {
+      configurable: true,
+      value: startViewTransition,
+    });
+    setupSlidesGeometry(slides, 3);
+    const track = screen.getByTestId('thumbnail-strip-track');
+    setupThumbGeometry(track, 3);
+    endScroll(slides);
+
+    fireEvent.click(screen.getByTestId('thumb-2'));
+    expect(startViewTransition).not.toHaveBeenCalled();
     expect(screen.getByTestId('thumb-2')).toHaveAttribute('data-active');
   });
 

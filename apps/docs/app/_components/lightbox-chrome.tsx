@@ -1,7 +1,6 @@
 'use client';
 
 import * as React from 'react';
-import { flushSync } from 'react-dom';
 import { Lightbox, useLightboxContext, useLightboxTriggerContext } from 'ramka';
 import { ChevronLeft, ChevronRight, X, ZoomIn, ZoomOut } from 'lucide-react';
 
@@ -541,11 +540,11 @@ function GalleryThumbnailStrip({
   }, [slidesViewportRef, slidesGeometryRef, subscribeSlidesViewport, itemAspects, measureGeom, getPieces]);
 
   /**
-   * VT on Slides + WAAPI transform scrub on the nine-slice pieces.
-   * Same handoff as the thumbnail-strip track / prior SVG morph.
+   * WAAPI transform scrub on the nine-slice pieces around the index commit.
+   * Slides view transition is baked into ThumbnailStrip (`selectViewTransition`).
    */
   const wrapThumbSelectCommit = React.useCallback(
-    (commit: () => void, slides: HTMLElement | null, index: number) => {
+    (commit: () => void, _slides: HTMLElement | null, index: number) => {
       const reduceMotion =
         typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
       const pieces = getPieces();
@@ -665,18 +664,7 @@ function GalleryThumbnailStrip({
         );
       }
 
-      type VTHost = { startViewTransition: (cb: () => void) => unknown };
-      if (
-        !reduceMotion &&
-        slides &&
-        typeof (slides as HTMLElement & VTHost).startViewTransition === 'function'
-      ) {
-        (slides as HTMLElement & VTHost).startViewTransition(() => {
-          flushSync(commit);
-        });
-      } else {
-        flushSync(commit);
-      }
+      commit();
 
       if (scrubPrimary && aspectScrubAnimsRef.current) {
         for (const scrub of aspectScrubAnimsRef.current) scrub.play();
@@ -723,7 +711,7 @@ function GalleryThumbnailStrip({
             </Lightbox.Thumbnail>
           ))}
         </Lightbox.ThumbnailStripTrack>
-        <Lightbox.ThumbnailStripIndicator
+        <span
           ref={hostRef}
           className="lightbox-demo-thumbnail-strip-frame"
           aria-hidden
@@ -743,7 +731,7 @@ function GalleryThumbnailStrip({
               className="lightbox-demo-thumbnail-strip-frame-edge lightbox-demo-thumbnail-strip-frame-edge-bottom"
             />
           </span>
-        </Lightbox.ThumbnailStripIndicator>
+        </span>
       </div>
     </Lightbox.ThumbnailStrip>
   );

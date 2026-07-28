@@ -310,7 +310,7 @@ export const lightboxApiMeta: ApiPartMeta[] = [
     id: 'api-thumbnail-strip',
     name: 'ThumbnailStrip',
     description:
-      'Scroll-linked thumbnail strip root. Always centers the active thumbnail on the midline (Photos-style): owns overflow clip, measured midline track padding (from registered Thumbnail nodes — not role=tab queries), and Slides→track sync via native ScrollTimeline + WAAPI (JS scroll→transform fallback when ScrollTimeline is unavailable). Compose with ThumbnailStripTrack + Thumbnails (+ optional ThumbnailStripIndicator). Pointer selects go through ThumbnailStrip context (optional DocumentTimeline WAAPI scrub via scrubOnSelect; optional wrapSelectCommit(commit, slides, index) for e.g. element-scoped Slides view transitions / arming consumer WAAPI before the scroll jump); keyboard stays instant with the stage. Flex/gap/thumb size remain consumer CSS.',
+      'Scroll-linked thumbnail strip root. Always centers the active thumbnail on the midline (Photos-style): owns overflow clip, measured midline track padding (from registered Thumbnail nodes — not role=tab queries), and Slides→track sync via native ScrollTimeline + WAAPI (JS scroll→transform fallback when ScrollTimeline is unavailable). Compose with ThumbnailStripTrack + Thumbnails; optional midline selection chrome is plain consumer markup (strip root is position:relative). Pointer selects go through ThumbnailStrip context (DocumentTimeline WAAPI track scrub via scrubOnSelect; element-scoped Slides view transition via selectViewTransition — tune with --lightbox-select-vt-duration / --lightbox-select-vt-easing on Slides; optional wrapSelectCommit(commit, slides, index) to arm consumer WAAPI such as an indicator scrub before the scroll jump). Keyboard stays instant with the stage. Flex/gap/thumb size remain consumer CSS.',
     extract: {
       kind: 'interface-props',
       typeName: 'LightboxThumbnailStripProps',
@@ -335,18 +335,6 @@ export const lightboxApiMeta: ApiPartMeta[] = [
       kind: 'interface-props',
       typeName: 'LightboxThumbnailStripTrackProps',
       file: 'lightbox-thumbnail-strip-track.tsx',
-      includeInherited: ['render'],
-    },
-  },
-  {
-    id: 'api-thumbnail-strip-indicator',
-    name: 'ThumbnailStripIndicator',
-    description:
-      'Optional stationary center selection chrome for ThumbnailStrip. Structurally centered; paint size/outline in consumer CSS. Active thumbs stay under this midline via ThumbnailStrip padding + ScrollTimeline transform.',
-    extract: {
-      kind: 'interface-props',
-      typeName: 'LightboxThumbnailStripIndicatorProps',
-      file: 'lightbox-thumbnail-strip-indicator.tsx',
       includeInherited: ['render'],
     },
   },

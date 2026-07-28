@@ -87,4 +87,19 @@ export enum LightboxThumbnailStripCssVars {
    * @type string
    */
   travel = '--lightbox-thumbnail-strip-travel',
+  /**
+   * Duration of the element-scoped Slides view transition on pointer thumb
+   * select (`selectViewTransition`). Set on Slides (or a parent) and use from
+   * `::view-transition-group(root)` — library starts the transition; CSS owns
+   * the look. Default fallback in demos: `0.4s`.
+   * @type string
+   */
+  selectVtDuration = '--lightbox-select-vt-duration',
+  /**
+   * Easing of the element-scoped Slides view transition on pointer thumb
+   * select. Pair with `--lightbox-select-vt-duration`. Default fallback in
+   * demos: `cubic-bezier(0.22, 1, 0.36, 1)`.
+   * @type string
+   */
+  selectVtEasing = '--lightbox-select-vt-easing',
 }

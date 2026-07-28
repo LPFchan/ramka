@@ -114,8 +114,6 @@ export enum LightboxThumbnailStripDataAttributes {
   root = 'data-ramka-thumbnail-strip',
   /** Always present on the scroll-linked tablist track. */
   track = 'data-ramka-thumbnail-strip-track',
-  /** Always present on the stationary center indicator. */
-  indicator = 'data-ramka-thumbnail-strip-indicator',
   /** Present while a pointer thumb-select scrub animation is in flight. */
   scrubbing = 'data-scrubbing',
 }

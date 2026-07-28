@@ -8,8 +8,26 @@
  * Bottom chrome ≈ safe-area + footer pad + caption + gap + strip outer height.
  */
 
+/* Stage crossfade on thumb select (ThumbnailStrip selectViewTransition). */
+.lightbox-demo-slides::view-transition-group(root) {
+  animation-duration: var(--lightbox-select-vt-duration, 0.4s);
+  animation-timing-function: var(
+    --lightbox-select-vt-easing,
+    cubic-bezier(0.22, 1, 0.36, 1)
+  );
+}
+
+.lightbox-demo-slides::view-transition-old(root),
+.lightbox-demo-slides::view-transition-new(root) {
+  mix-blend-mode: normal;
+  height: 100%;
+  overflow: clip;
+}
+
 /* Shared track flex for every recipe */
 .ts-debug-strip[data-ramka-thumbnail-strip] {
+  /* Viewport for midline padding (library no longer forces width:100%). */
+  width: 100%;
   /* Breathing room above/below so transforms aren't clipped by overflow:clip */
   padding-block: 0.55rem;
 }
@@ -18,6 +36,15 @@
   display: flex;
   width: max-content;
   align-items: center;
+}
+
+/* Consumer midline chrome (replaces former ThumbnailStripIndicator). */
+.ts-debug-indicator {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
 }
 
 .ts-debug-strip [role='tab'] {
@@ -137,7 +164,7 @@
   opacity: 1;
 }
 
-.ts-debug-circles [data-ramka-thumbnail-strip-indicator] {
+.ts-debug-circles .ts-debug-indicator {
   width: calc(2.6rem + 10px);
   height: calc(2.6rem + 10px);
   border-radius: 999px;
@@ -197,7 +224,7 @@
   box-shadow: 0 1px 3px rgb(0 0 0 / 0.45);
 }
 
-.ts-debug-chips [data-ramka-thumbnail-strip-indicator] {
+.ts-debug-chips .ts-debug-indicator {
   width: 2.25rem;
   height: 2.25rem;
 }
@@ -324,7 +351,7 @@
 }
 
 /* Same box as a polaroid — hosts the tape tab (no outline frame). */
-.ts-debug-strip.ts-debug-polaroid [data-ramka-thumbnail-strip-indicator] {
+.ts-debug-strip.ts-debug-polaroid .ts-debug-indicator {
   display: block;
   width: var(--ts-polaroid-w);
   aspect-ratio: 3.483 / 4.233;
@@ -409,7 +436,7 @@
   box-shadow: 0 0 0 1px rgb(0 0 0 / 0.14);
 }
 
-.ts-debug-fade [data-ramka-thumbnail-strip-indicator] {
+.ts-debug-fade .ts-debug-indicator {
   width: calc(var(--ts-thumb-h) * 1.78 + 10px);
   height: calc(var(--ts-thumb-h) + 10px);
   border-radius: calc(0.45rem + 2px);

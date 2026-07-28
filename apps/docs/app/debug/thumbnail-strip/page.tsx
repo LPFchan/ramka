@@ -214,7 +214,7 @@ function CirclesStrip() {
           </Lightbox.Thumbnail>
         ))}
       </Lightbox.ThumbnailStripTrack>
-      <Lightbox.ThumbnailStripIndicator aria-hidden />
+      <span className="ts-debug-indicator" aria-hidden />
     </Lightbox.ThumbnailStrip>
   );
 }
@@ -229,7 +229,7 @@ function ChipsStrip() {
           </Lightbox.Thumbnail>
         ))}
       </Lightbox.ThumbnailStripTrack>
-      <Lightbox.ThumbnailStripIndicator aria-hidden />
+      <span className="ts-debug-indicator" aria-hidden />
     </Lightbox.ThumbnailStrip>
   );
 }
@@ -249,9 +249,9 @@ function PolaroidStrip() {
           </Lightbox.Thumbnail>
         ))}
       </Lightbox.ThumbnailStripTrack>
-      <Lightbox.ThumbnailStripIndicator aria-hidden>
+      <span className="ts-debug-indicator" aria-hidden>
         <span className="ts-debug-polaroid-tape" />
-      </Lightbox.ThumbnailStripIndicator>
+      </span>
     </Lightbox.ThumbnailStrip>
   );
 }
@@ -270,7 +270,7 @@ function FadeStrip() {
           </Lightbox.Thumbnail>
         ))}
       </Lightbox.ThumbnailStripTrack>
-      <Lightbox.ThumbnailStripIndicator aria-hidden />
+      <span className="ts-debug-indicator" aria-hidden />
     </Lightbox.ThumbnailStrip>
   );
 }

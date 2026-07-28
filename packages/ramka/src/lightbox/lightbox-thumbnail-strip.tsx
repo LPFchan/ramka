@@ -2,6 +2,7 @@
 
 import { mergeProps, useRender } from '@base-ui/react';
 import * as React from 'react';
+import { flushSync } from 'react-dom';
 
 import { useLightboxContext } from './lightbox-context';
 import { LightboxThumbnailStripCssVars } from './lightbox-css-vars';
@@ -22,10 +23,18 @@ interface LightboxThumbnailStripProps extends useRender.ComponentProps<'div', Li
    */
   scrubOnSelect?: boolean;
   /**
-   * Optional wrapper around the active-index commit (e.g. docs chrome can run
-   * an element-scoped `slides.startViewTransition`). Receives the target
-   * `index` so consumers can arm WAAPI (same as the track scrub) *before*
-   * `commit` jumps Slides scroll. Track scrub still runs outside this
+   * When true (default), pointer selection runs an element-scoped View
+   * Transition on Slides around the active-index commit (stage crossfade).
+   * Falls back to a plain commit when unsupported or
+   * `prefers-reduced-motion`. Tune with `--lightbox-select-vt-duration` /
+   * `--lightbox-select-vt-easing` on Slides. Keyboard stays instant.
+   */
+  selectViewTransition?: boolean;
+  /**
+   * Optional wrapper around the active-index commit so consumers can arm
+   * custom WAAPI (e.g. an indicator scrub) *before* `commit` jumps Slides.
+   * `commit` already includes the baked Slides view transition when
+   * `selectViewTransition` is on. Track scrub still runs outside this
    * callback. Defaults to invoking `commit` immediately.
    */
   wrapSelectCommit?: (commit: () => void, slides: HTMLElement | null, index: number) => void;
@@ -34,6 +43,10 @@ interface LightboxThumbnailStripProps extends useRender.ComponentProps<'div', Li
 /** Baked pointer-select scrub timing (not a public prop — keep the API lean). */
 const SCRUB_DURATION_MS = 450;
 const SCRUB_EASING = 'cubic-bezier(0.22, 1, 0.36, 1)';
+
+type SlidesVtHost = HTMLElement & {
+  startViewTransition?: (cb: () => void) => unknown;
+};
 
 const thumbnailStripStateAttributesMapping = {
   scrubbing: (value: unknown) => (value ? { 'data-scrubbing': '' } : null),
@@ -173,9 +186,11 @@ function readComputedTranslateX(el: HTMLElement): number {
  * Headless scroll-linked thumbnail-strip.
  *
  * Always centers the active thumbnail under the thumbnail-strip midline (Photos-style).
- * Owns midline padding, overflow clip, and Slides→track sync via native
- * `ScrollTimeline` + WAAPI (JS scroll→transform fallback when unavailable).
- * Consumers style flex/gap, thumb size, and optional Indicator paint.
+ * Owns midline padding, overflow clip, Slides→track sync via native
+ * `ScrollTimeline` + WAAPI (JS scroll→transform fallback when unavailable),
+ * and (by default) an element-scoped Slides view transition on pointer select.
+ * Consumers style flex/gap, thumb size, optional Indicator paint, and VT look
+ * via `--lightbox-select-vt-*` on Slides.
  */
 const LightboxThumbnailStrip = React.forwardRef<HTMLDivElement, LightboxThumbnailStripProps>(
   function LightboxThumbnailStrip(props, forwardedRef) {
@@ -183,6 +198,7 @@ const LightboxThumbnailStrip = React.forwardRef<HTMLDivElement, LightboxThumbnai
       render,
       children,
       scrubOnSelect = true,
+      selectViewTransition = true,
       wrapSelectCommit,
       style,
       ...elementProps
@@ -607,9 +623,21 @@ const LightboxThumbnailStrip = React.forwardRef<HTMLDivElement, LightboxThumbnai
           );
         }
 
-        const commit = () => {
+        const applyIndex = () => {
           activeIndexRef.current = index;
           setActiveIndex(index, 'thumbnail');
+        };
+
+        const commit = () => {
+          const host = slides as SlidesVtHost | null;
+          const startVt = host?.startViewTransition;
+          if (selectViewTransition && !reduceMotion && typeof startVt === 'function') {
+            startVt.call(host, () => {
+              flushSync(applyIndex);
+            });
+          } else {
+            flushSync(applyIndex);
+          }
         };
 
         if (wrapSelectCommit) {
@@ -618,13 +646,14 @@ const LightboxThumbnailStrip = React.forwardRef<HTMLDivElement, LightboxThumbnai
           commit();
         }
 
-        // Play after commit so wrapSelectCommit's flushSync cannot flush a
-        // setScrubbing render between pause(0) and play.
+        // Play after commit so wrapSelectCommit cannot flush a setScrubbing
+        // render between pause(0) and play.
         scrub?.play();
         if (scrub) setScrubbing(true);
       },
       [
         scrubOnSelect,
+        selectViewTransition,
         wrapSelectCommit,
         setActiveIndex,
         navigationLockedRef,
@@ -651,12 +680,12 @@ const LightboxThumbnailStrip = React.forwardRef<HTMLDivElement, LightboxThumbnai
           props: mergeProps<'div'>(
             {
               [LightboxThumbnailStripDataAttributes.root]: '',
-              // Structural: clip padded track; relative for ThumbnailStripIndicator.
-              // Width gives a viewport for midline padding measurement.
+              // Structural: clip padded track; relative for consumer midline chrome.
+              // Consumers size the root (width / stretch) so midline padding can
+              // measure against the intended viewport.
               style: {
                 position: 'relative',
                 overflow: 'clip',
-                width: '100%',
                 ...style,
               },
               children,

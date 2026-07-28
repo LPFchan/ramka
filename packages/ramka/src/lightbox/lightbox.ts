@@ -62,7 +62,6 @@
  *   Thumbnail       — Tab button navigating to a specific item
  *   ThumbnailStrip       — Centered scroll-linked thumbnail strip (pad + ScrollTimeline)
  *   ThumbnailStripTrack  — Linked tablist track (ThumbnailGroup + transform target)
- *   ThumbnailStripIndicator — Optional midline selection chrome slot
  *   Zoom            — Zoom/pan wrapper for item content (pinch, scroll, keyboard)
  *   ZoomIn          — Button to zoom in (consumes ZoomContext)
  *   ZoomOut         — Button to zoom out (consumes ZoomContext)
@@ -89,7 +88,6 @@ export { LightboxThumbnailGroup as ThumbnailGroup } from './lightbox-thumbnail-g
 export { LightboxThumbnail as Thumbnail } from './lightbox-thumbnail';
 export { LightboxThumbnailStrip as ThumbnailStrip } from './lightbox-thumbnail-strip';
 export { LightboxThumbnailStripTrack as ThumbnailStripTrack } from './lightbox-thumbnail-strip-track';
-export { LightboxThumbnailStripIndicator as ThumbnailStripIndicator } from './lightbox-thumbnail-strip-indicator';
 export { LightboxZoom as Zoom } from './lightbox-zoom';
 export { LightboxZoomIn as ZoomIn } from './lightbox-zoom-in';
 export { LightboxZoomOut as ZoomOut } from './lightbox-zoom-out';
@@ -118,10 +116,6 @@ export type { LightboxThumbnailGroupProps, LightboxThumbnailGroupState } from '.
 export type { LightboxThumbnailProps, LightboxThumbnailState } from './lightbox-thumbnail';
 export type { LightboxThumbnailStripProps, LightboxThumbnailStripState } from './lightbox-thumbnail-strip';
 export type { LightboxThumbnailStripTrackProps } from './lightbox-thumbnail-strip-track';
-export type {
-  LightboxThumbnailStripIndicatorProps,
-  LightboxThumbnailStripIndicatorState,
-} from './lightbox-thumbnail-strip-indicator';
 export type { NavigationSource } from './lightbox-context';
 export type { LightboxZoomProps, LightboxZoomState, LightboxZoomRef } from './lightbox-zoom';
 export type { LightboxZoomInProps, LightboxZoomInState } from './lightbox-zoom-in';
