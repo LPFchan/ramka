@@ -123,10 +123,13 @@ export default function LightboxCompositionPage() {
 
       <DocsSection id="chrome" title="Chrome">
         <p>
-          The site default viewer is Slides + Zoom with Counter (top-left), Close / ZoomIn / ZoomOut, Caption, and
-          desktop ThumbnailGroup as siblings inside <DocsLink href={lightboxApiHref.content}>Content</DocsLink>.
-          Thumbnails register by <code className="text-xs">index</code> like Triggers. Put Backdrop and Content in{' '}
-          <DocsLink href={lightboxApiHref.portal}>Portal</DocsLink>. Stacking follows Base UI:{' '}
+          The site default viewer is Slides + Zoom with Counter (top-left), Close / ZoomIn / ZoomOut, Caption, and a
+          desktop <DocsLink href={lightboxApiHref.thumbnailStrip}>ThumbnailStrip</DocsLink> (scroll-linked midline
+          track) as siblings inside <DocsLink href={lightboxApiHref.content}>Content</DocsLink>. Midline selection
+          chrome is plain consumer markup on the strip root. Prefer{' '}
+          <DocsLink href={lightboxApiHref.thumbnailGroup}>ThumbnailGroup</DocsLink> when you want a static tablist
+          without scroll-linking. Thumbnails register by <code className="text-xs">index</code> like Triggers. Put
+          Backdrop and Content in <DocsLink href={lightboxApiHref.portal}>Portal</DocsLink>. Stacking follows Base UI:{' '}
           <code className="text-xs">isolation: isolate</code> on the app layout root, and — when using{' '}
           <code className="text-xs">keepMounted</code> — a consumer <code className="text-xs">z-index</code> on the
           Portal host (e.g. <code className="text-xs">className=&quot;relative z-[1]&quot;</code>). Inside the portal,

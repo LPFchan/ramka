@@ -3,7 +3,7 @@ import { Lightbox } from 'ramka';
 declare const items: { id: string; src: string; thumb: string; alt: string; caption: string }[];
 
 /**
- * Default gallery chrome: Counter + Close + Zoom + Slides + Caption + ThumbnailGroup.
+ * Default gallery chrome: Counter + Close + Zoom + Slides + Caption + ThumbnailStrip.
  *
  * @docsExcerpt chrome-composition
  * @docsExcerptTitle Chrome composition
@@ -34,13 +34,17 @@ export function ChromeCompositionExcerpt() {
           <Lightbox.Close />
 
           <Lightbox.Caption />
-          <Lightbox.ThumbnailGroup>
-            {items.map((item, i) => (
-              <Lightbox.Thumbnail key={item.id} index={i}>
-                <img src={item.thumb} alt="" />
-              </Lightbox.Thumbnail>
-            ))}
-          </Lightbox.ThumbnailGroup>
+          <Lightbox.ThumbnailStrip>
+            <Lightbox.ThumbnailStripTrack aria-label="Photo thumbnails">
+              {items.map((item, i) => (
+                <Lightbox.Thumbnail key={item.id} index={i}>
+                  <img src={item.thumb} alt="" />
+                </Lightbox.Thumbnail>
+              ))}
+            </Lightbox.ThumbnailStripTrack>
+            {/* Optional midline chrome — plain consumer markup */}
+            <span aria-hidden />
+          </Lightbox.ThumbnailStrip>
         </Lightbox.Content>
       </Lightbox.Portal>
     </Lightbox.Root>

@@ -12,6 +12,7 @@ import {
   triggerMorphHideClass,
 } from '../../_components/lightbox-chrome';
 
+import { AspectFrameStrip } from './aspect-frame-strip';
 import './strips.css';
 
 type Photo = {
@@ -329,6 +330,13 @@ export default function ThumbnailStripDebugPage() {
         description="Per-thumb aspect widths, soft side mask, and a simple fixed frame."
         contentClassName="ts-debug-content-fade"
         strip={<FadeStrip />}
+      />
+
+      <DemoShell
+        title="6 · Aspect frame"
+        description="Hardcoded per-thumb aspects with a nine-slice midline frame that morphs width on swipe / select."
+        contentClassName="ts-debug-content-aspect-frame"
+        strip={<AspectFrameStrip photos={photos} />}
       />
     </div>
   );

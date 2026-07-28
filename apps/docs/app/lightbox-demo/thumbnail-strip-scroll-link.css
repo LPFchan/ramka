@@ -1,19 +1,14 @@
 /**
- * Docs-only thumbnail-strip cosmetics.
+ * Docs-only thumbnail-strip cosmetics (default gallery chrome).
  *
- * Library ThumbnailStrip owns midline padding, overflow clip, and the ScrollTimeline
- * → track transform link. The selection frame is a fixed-size nine-slice host
- * (max thumb aspect); chrome morphs shell/cap/edge *transforms* via
- * ScrollTimeline (swipe) and DocumentTimeline WAAPI (thumb click).
+ * Library ThumbnailStrip owns midline padding, overflow clip, and the
+ * ScrollTimeline → track transform link. Selection chrome here is a simple
+ * floating square. Aspect-morph nine-slice lives on the debug recipes page.
  */
 
 .lightbox-demo-thumbnail-strip {
   --lightbox-demo-thumb-h: 3.5rem;
-  /* Fallback when a thumb omits its own aspect (chrome sets per-tab). */
-  --lightbox-demo-thumb-aspect: 1.777;
-  /* Edge fade length; opacity stops approximate smoothstep (eased, not linear). */
   --lightbox-demo-thumbnail-strip-fade: 32px;
-  /* Full chrome width = clip / midline viewport (library does not force width). */
   align-self: stretch;
   width: 100%;
   min-width: 0;
@@ -50,17 +45,6 @@
   );
 }
 
-/* Layout wrapper (track + indicator). React never styles this node. */
-.lightbox-demo-thumbnail-strip-aspect-host {
-  position: relative;
-  width: 100%;
-  pointer-events: none;
-}
-
-.lightbox-demo-thumbnail-strip-aspect-host [data-ramka-thumbnail-strip-track] {
-  pointer-events: auto;
-}
-
 .lightbox-demo-thumbnail-strip [data-ramka-thumbnail-strip-track] {
   display: flex;
   width: max-content;
@@ -68,13 +52,12 @@
   align-items: center;
 }
 
-/* Thumb shell hugs the photo — width from per-tab `--lightbox-demo-thumb-aspect`. */
 .lightbox-demo-thumbnail-strip [role='tab'] {
   box-sizing: border-box;
   position: relative;
   display: block;
+  width: var(--lightbox-demo-thumb-h);
   height: var(--lightbox-demo-thumb-h);
-  width: calc(var(--lightbox-demo-thumb-h) * var(--lightbox-demo-thumb-aspect));
   flex-shrink: 0;
   overflow: hidden;
   margin: 0;
@@ -93,78 +76,22 @@
   pointer-events: none;
 }
 
-/*
- * Nine-slice selection frame — fixed host (max aspect + outset each side).
- * Outset = 2px gap + 2px stroke (border-box), matching outline-offset: 2px.
- */
-.lightbox-demo-thumbnail-strip-frame {
-  display: block;
+/* Stationary midline square — same size as a thumb + 2px gap + 2px stroke. */
+.lightbox-demo-thumbnail-strip-indicator {
   position: absolute;
   left: 50%;
   top: 50%;
-  box-sizing: content-box;
-  /* +8px = 2px offset + 2px stroke on each side. */
+  box-sizing: border-box;
+  width: calc(var(--lightbox-demo-thumb-h) + 8px);
   height: calc(var(--lightbox-demo-thumb-h) + 8px);
-  width: calc(var(--lightbox-demo-thumb-h) * var(--lightbox-demo-frame-max-aspect, 1.777) + 8px);
-  color: #000;
-  overflow: visible;
+  border-radius: calc(0.375rem + 2px);
+  border: 2px solid #000;
   pointer-events: none;
   transform: translate(-50%, -50%);
 }
 
-:is(.dark, [data-theme='dark']) .lightbox-demo-thumbnail-strip-frame {
-  color: #fff;
-}
-
-.lightbox-demo-thumbnail-strip-frame-shell {
-  position: absolute;
-  left: 0;
-  top: 0;
-  width: 0;
-  height: calc(var(--lightbox-demo-thumb-h) + 8px);
-  will-change: transform;
-}
-
-.lightbox-demo-thumbnail-strip-frame-cap {
-  position: absolute;
-  top: 0;
-  left: 0;
-  box-sizing: border-box;
-  width: var(--lightbox-demo-frame-cap, 8px);
-  height: 100%;
-  border: 2px solid currentColor;
-  pointer-events: none;
-}
-
-/* Radius = thumb radius + offset so the ring stays concentric. */
-.lightbox-demo-thumbnail-strip-frame-cap-left {
-  border-right: none;
-  border-radius: calc(0.375rem + 2px) 0 0 calc(0.375rem + 2px);
-}
-
-.lightbox-demo-thumbnail-strip-frame-cap-right {
-  border-left: none;
-  border-radius: 0 calc(0.375rem + 2px) calc(0.375rem + 2px) 0;
-  will-change: transform;
-}
-
-.lightbox-demo-thumbnail-strip-frame-edge {
-  position: absolute;
-  left: var(--lightbox-demo-frame-cap, 8px);
-  width: 1px;
-  height: 2px;
-  background: currentColor;
-  transform-origin: left center;
-  will-change: transform;
-  pointer-events: none;
-}
-
-.lightbox-demo-thumbnail-strip-frame-edge-top {
-  top: 0;
-}
-
-.lightbox-demo-thumbnail-strip-frame-edge-bottom {
-  bottom: 0;
+:is(.dark, [data-theme='dark']) .lightbox-demo-thumbnail-strip-indicator {
+  border-color: #fff;
 }
 
 /**
