@@ -182,19 +182,19 @@ interface LightboxContextValue {
   /**
    * The currently-mounted `Lightbox.Slides` viewport element (if any).
    * Populated by Slides' ref callback so scroll-linked chrome
-   * (`Lightbox.Filmstrip`) can mirror scroll without DOM sniffing.
+   * (`Lightbox.ThumbnailStrip`) can mirror scroll without DOM sniffing.
    * Stays `null` when no Slides scroller is rendered.
    */
   slidesViewportRef: React.MutableRefObject<HTMLElement | null>;
   /**
    * Latest Slides offset geometry (`offsets` / `base` / `step` / `count`), owned
-   * and updated by `Lightbox.Slides`. Filmstrip reads this instead of re-querying
+   * and updated by `Lightbox.Slides`. ThumbnailStrip reads this instead of re-querying
    * the slide DOM.
    */
   slidesGeometryRef: React.MutableRefObject<SlidesGeometry>;
   /**
    * Subscribe to Slides viewport attach/detach / geometry publish. Returns an
-   * unsubscribe function. Used by Filmstrip to (re)wire scroll mirroring
+   * unsubscribe function. Used by ThumbnailStrip to (re)wire scroll mirroring
    * without polling.
    */
   subscribeSlidesViewport: (listener: () => void) => () => void;

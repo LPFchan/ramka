@@ -291,7 +291,7 @@ function LightboxRoot(props: LightboxRootProps) {
     // the index is unchanged). The close path scrolls the origin trigger into
     // view on its own, so opening never needs to.
     //
-    // Idle-debounce: swipe / filmstrip scrub can change the index many times per
+    // Idle-debounce: swipe / thumbnail-strip scrub can change the index many times per
     // second. Scrolling the page under the modal on every tick janks the viewer;
     // only the resting index matters for the close morph.
     const scrollSyncRef = React.useRef({ open, activeIndex });

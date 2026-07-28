@@ -614,7 +614,7 @@ function useZoomGestures(
     const el = contentElementRef?.current ?? containerRef.current;
     if (!el) return;
 
-    // Capture so chrome siblings (filmstrip, buttons) can’t swallow the event
+    // Capture so chrome siblings (thumbnail-strip, buttons) can’t swallow the event
     // before it bubbles — while zoomed those are usually inert/hidden anyway.
     el.addEventListener('wheel', handleWheel, { passive: !needsNonPassiveWheel, capture: true });
 

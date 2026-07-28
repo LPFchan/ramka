@@ -90,7 +90,7 @@ const SCROLL_IDLE_MS = 140;
 
 /**
  * Safari half-decoded-tile fix is only needed after a jump *settles*. During
- * rapid marker changes (filmstrip scrub, key repeat) a synchronous visibility
+ * rapid marker changes (thumbnail-strip scrub, key repeat) a synchronous visibility
  * toggle per jump forces layout every frame — debounce to the last index.
  */
 const REPAINT_IDLE_MS = 120;
@@ -126,7 +126,7 @@ const LightboxSlides = React.forwardRef<HTMLDivElement, LightboxSlidesProps>(
     // frame that restores scroll-snap). Scroll events in this window must not
     // lock navigation — snap restore often emits a second scroll after the
     // exact `scrollLeft` set, and mistaking that for a user fling drops the
-    // next thumbnail/keyboard update (filmstrip scrub feels lagged).
+    // next thumbnail/keyboard update (thumbnail-strip scrub feels lagged).
     const programmaticRef = React.useRef(false);
     const jumpTargetRef = React.useRef(0);
     /** Bumps on every `scrollToIndex` so superseded rAF tails no-op. */
@@ -151,7 +151,7 @@ const LightboxSlides = React.forwardRef<HTMLDivElement, LightboxSlidesProps>(
       (node: HTMLDivElement | null) => {
         const prev = viewportRef.current;
         viewportRef.current = node;
-        // Publish for scroll-linked chrome (Filmstrip). Clear only if we still own
+        // Publish for scroll-linked chrome (ThumbnailStrip). Clear only if we still own
         // the slot — another Slides mount could have replaced us.
         if (node) {
           slidesViewportRef.current = node;

@@ -67,6 +67,8 @@ export const lightboxApiHref = {
   caption: `${api}#api-caption`,
   thumbnailGroup: `${api}#api-thumbnail-group`,
   thumbnail: `${api}#api-thumbnail`,
+  thumbnailStrip: `${api}#api-thumbnail-strip`,
+  thumbnailStripTrack: `${api}#api-thumbnail-strip-track`,
   zoom: `${api}#api-zoom`,
   zoomIn: `${api}#api-zoom-in`,
   zoomOut: `${api}#api-zoom-out`,

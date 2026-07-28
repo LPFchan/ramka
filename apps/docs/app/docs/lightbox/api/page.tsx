@@ -68,6 +68,8 @@ const byConcern: { label: string; links: { href: string; title: string }[] }[] =
       { href: lightboxApiHref.caption, title: 'Caption' },
       { href: lightboxApiHref.thumbnailGroup, title: 'ThumbnailGroup' },
       { href: lightboxApiHref.thumbnail, title: 'Thumbnail' },
+      { href: lightboxApiHref.thumbnailStrip, title: 'ThumbnailStrip' },
+      { href: lightboxApiHref.thumbnailStripTrack, title: 'ThumbnailStripTrack' },
     ],
   },
 ];

@@ -2,50 +2,65 @@
 
 import { mergeProps, useRender } from '@base-ui/react';
 import * as React from 'react';
+import { flushSync } from 'react-dom';
 
 import { useLightboxContext } from './lightbox-context';
-import { LightboxFilmstripCssVars } from './lightbox-css-vars';
-import { LightboxFilmstripDataAttributes } from './lightbox-data-attributes';
-import { LightboxFilmstripContext } from './lightbox-filmstrip-context';
+import { LightboxThumbnailStripCssVars } from './lightbox-css-vars';
+import { LightboxThumbnailStripDataAttributes } from './lightbox-data-attributes';
+import { LightboxThumbnailStripContext } from './lightbox-thumbnail-strip-context';
 import { slidesGeometryIsUniform, slidesScrollProgress } from './lightbox-slides-geometry';
 
-interface LightboxFilmstripState extends Record<string, unknown> {
+interface LightboxThumbnailStripState extends Record<string, unknown> {
   /** True while a pointer thumb-select WAAPI scrub is in flight. */
   scrubbing: boolean;
 }
 
-interface LightboxFilmstripProps extends useRender.ComponentProps<'div', LightboxFilmstripState> {
+interface LightboxThumbnailStripProps extends useRender.ComponentProps<'div', LightboxThumbnailStripState> {
   /**
    * When true (default), pointer selection on a thumbnail WAAPI-scrubs the
    * track to the target index. Keyboard / button navigation stays instant
    * (follows the Slides jump via the scroll link).
    */
   scrubOnSelect?: boolean;
-  /** WAAPI scrub duration in ms. @default 450 */
-  scrubDuration?: number;
-  /** WAAPI scrub easing. @default 'cubic-bezier(0.22, 1, 0.36, 1)' */
-  scrubEasing?: string;
   /**
-   * Optional wrapper around the active-index commit (e.g. docs chrome can run
-   * an element-scoped `slides.startViewTransition`). Receives the target
-   * `index` so consumers can arm WAAPI (same as the track scrub) *before*
-   * `commit` jumps Slides scroll. Track scrub still runs outside this
+   * When true (default), pointer selection runs an element-scoped View
+   * Transition on Slides around the active-index commit (stage crossfade).
+   * Falls back to a plain commit when unsupported or
+   * `prefers-reduced-motion`. Tune with `--lightbox-select-vt-duration` /
+   * `--lightbox-select-vt-easing` on Slides. Keyboard stays instant.
+   */
+  selectViewTransition?: boolean;
+  /**
+   * Optional wrapper around the active-index commit so consumers can arm
+   * custom WAAPI (e.g. an indicator scrub) *before* `commit` jumps Slides.
+   * `commit` already includes the baked Slides view transition when
+   * `selectViewTransition` is on. Track scrub still runs outside this
    * callback. Defaults to invoking `commit` immediately.
    */
   wrapSelectCommit?: (commit: () => void, slides: HTMLElement | null, index: number) => void;
 }
 
-const filmstripStateAttributesMapping = {
+/** Baked pointer-select scrub timing (not a public prop — keep the API lean). */
+const SCRUB_DURATION_MS = 450;
+const SCRUB_EASING = 'cubic-bezier(0.22, 1, 0.36, 1)';
+
+type SlidesVtHost = HTMLElement & {
+  startViewTransition?: (cb: () => void) => unknown;
+};
+
+const thumbnailStripStateAttributesMapping = {
   scrubbing: (value: unknown) => (value ? { 'data-scrubbing': '' } : null),
 };
 
 /**
- * Per-thumb `translateX` distances so thumb `i`'s center sits on the filmstrip
- * midline when `translateX = -travels[i]`.
+ * Per-thumb `translateX` distances so thumb `i`'s layout center sits on the
+ * thumbnail-strip midline when `translateX = -travels[i]`.
  *
- * Prefers getBoundingClientRect center deltas (invariant under the track's own
- * translateX; includes flex gap). Falls back to offsetLeft when rects collapse
- * (jsdom).
+ * Uses `offsetLeft` / `offsetWidth` (layout box), not `getBoundingClientRect`.
+ * Rect centers follow the axis-aligned bounding box of CSS transforms — so a
+ * consumer `rotate()` on inactive thumbs would shift travel stops and leave the
+ * upright active thumb off the indicator. Layout offsets ignore those transforms
+ * and still include flex gap. Falls back to rects when offsets collapse (jsdom).
  */
 function measureThumbTravels(thumbs: HTMLElement[]): {
   travels: number[];
@@ -53,16 +68,30 @@ function measureThumbTravels(thumbs: HTMLElement[]): {
 } {
   if (thumbs.length === 0) return { travels: [], widths: [] };
 
-  const widths = thumbs.map((thumb) => {
-    return thumb.getBoundingClientRect().width || thumb.offsetWidth || 0;
-  });
+  const layoutWidths = thumbs.map((thumb) => thumb.offsetWidth || 0);
+  const layoutCenters = thumbs.map(
+    (thumb, i) => thumb.offsetLeft + layoutWidths[i]! / 2,
+  );
+  const layoutOk =
+    layoutWidths.some((w) => w > 0) &&
+    (thumbs.length < 2 || layoutCenters.some((c, i) => i > 0 && c !== layoutCenters[0]));
 
+  if (layoutOk) {
+    const origin = layoutCenters[0]!;
+    return {
+      travels: layoutCenters.map((c) => c - origin),
+      widths: layoutWidths,
+    };
+  }
+
+  const widths = thumbs.map((thumb, i) => {
+    return thumb.getBoundingClientRect().width || layoutWidths[i] || 0;
+  });
   const centers = thumbs.map((thumb, i) => {
     const rect = thumb.getBoundingClientRect();
     if (rect.width > 0) return rect.left + rect.width / 2;
     return thumb.offsetLeft + widths[i]! / 2;
   });
-
   const origin = centers[0]!;
   return {
     travels: centers.map((c) => c - origin),
@@ -87,6 +116,14 @@ function thumbTravelsAreUniform(travels: number[]): boolean {
   const step = travels[1]!;
   if (step <= 0) return true;
   return travels.every((travel, i) => Math.abs(travel - i * step) < 1);
+}
+
+function thumbTravelsEqual(a: number[], b: number[]): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    if (Math.abs(a[i]! - b[i]!) > 0.5) return false;
+  }
+  return true;
 }
 
 /**
@@ -146,21 +183,22 @@ function readComputedTranslateX(el: HTMLElement): number {
 }
 
 /**
- * Headless scroll-linked filmstrip.
+ * Headless scroll-linked thumbnail-strip.
  *
- * Always centers the active thumbnail under the filmstrip midline (Photos-style).
- * Owns midline padding, overflow clip, and Slides→track sync via native
- * `ScrollTimeline` + WAAPI (JS scroll→transform fallback when unavailable).
- * Consumers style flex/gap, thumb size, and optional Indicator paint.
+ * Always centers the active thumbnail under the thumbnail-strip midline (Photos-style).
+ * Owns midline padding, overflow clip, Slides→track sync via native
+ * `ScrollTimeline` + WAAPI (JS scroll→transform fallback when unavailable),
+ * and (by default) an element-scoped Slides view transition on pointer select.
+ * Consumers style flex/gap, thumb size, optional midline chrome, and VT look
+ * via `--lightbox-select-vt-*` on Slides.
  */
-const LightboxFilmstrip = React.forwardRef<HTMLDivElement, LightboxFilmstripProps>(
-  function LightboxFilmstrip(props, forwardedRef) {
+const LightboxThumbnailStrip = React.forwardRef<HTMLDivElement, LightboxThumbnailStripProps>(
+  function LightboxThumbnailStrip(props, forwardedRef) {
     const {
       render,
       children,
       scrubOnSelect = true,
-      scrubDuration = 450,
-      scrubEasing = 'cubic-bezier(0.22, 1, 0.36, 1)',
+      selectViewTransition = true,
       wrapSelectCommit,
       style,
       ...elementProps
@@ -185,13 +223,7 @@ const LightboxFilmstrip = React.forwardRef<HTMLDivElement, LightboxFilmstripProp
     const scrubAnimRef = React.useRef<Animation | null>(null);
     /** True from scrub arm through scroll-link handoff (blocks attach / RO rebuild). */
     const scrubHoldRef = React.useRef(false);
-    /**
-     * After a thumb scrub, prefer the JS scroll mirror. Re-arming ScrollTimeline
-     * post–programmatic `scrollLeft` can leave Firefox at progress 0 (first thumb)
-     * once the DocumentTimeline scrub fill is dropped — the inline pin masked that
-     * in our earlier handoff check.
-     */
-    const jsSyncOnlyRef = React.useRef(false);
+    /** Re-run attach (JS scroll mirror) when ScrollTimeline is unavailable. */
     const reattachRef = React.useRef<(() => void) | null>(null);
     const rafRef = React.useRef(0);
     const syncFromScrollRef = React.useRef<(() => void) | null>(null);
@@ -238,20 +270,26 @@ const LightboxFilmstrip = React.forwardRef<HTMLDivElement, LightboxFilmstripProp
       [forwardedRef],
     );
 
-    const measureThumbs = React.useCallback(() => {
+    /**
+     * Remeasure thumb centers + midline padding.
+     * @returns whether travel keyframes changed (ST must rebuild). Padding-only
+     * updates (window resize) return false so the live ScrollTimeline stays up.
+     */
+    const measureThumbs = React.useCallback((): boolean => {
       const track = trackRef.current;
       const root = rootRef.current;
-      if (!track) return;
+      if (!track) return false;
 
       const thumbs = orderedThumbs(thumbsRef.current);
       const { travels, widths } = measureThumbTravels(thumbs);
+      const travelsChanged = !thumbTravelsEqual(thumbTravelsRef.current, travels);
       thumbTravelsRef.current = travels;
 
       const firstWidth = widths[0] ?? 0;
       const lastWidth = widths[widths.length - 1] ?? firstWidth;
       if (root && firstWidth > 0) {
         // Asymmetric pad so the first *and* last thumb (possibly different
-        // widths) can both sit on the midline.
+        // widths) can both sit on the midline. Safe to update without touching ST.
         const padStart = Math.max(0, (root.clientWidth - firstWidth) / 2);
         const padEnd = Math.max(0, (root.clientWidth - lastWidth) / 2);
         track.style.paddingLeft = `${padStart}px`;
@@ -260,7 +298,8 @@ const LightboxFilmstrip = React.forwardRef<HTMLDivElement, LightboxFilmstripProp
       }
 
       const endTravel = travels[travels.length - 1] ?? 0;
-      track.style.setProperty(LightboxFilmstripCssVars.travel, `${-endTravel}px`);
+      track.style.setProperty(LightboxThumbnailStripCssVars.travel, `${-endTravel}px`);
+      return travelsChanged;
     }, []);
 
     const syncNow = React.useCallback(() => {
@@ -291,22 +330,32 @@ const LightboxFilmstrip = React.forwardRef<HTMLDivElement, LightboxFilmstripProp
      * scrub — the whole strip flashes to the destination, then the scrub restarts.
      * On scrub end we rebuild underneath the still-filling scrub, then drop it.
      */
-    const startLinkAnimation = React.useCallback(() => {
+    const startLinkAnimation = React.useCallback((force = false) => {
       const track = trackRef.current;
       const slides = slidesViewportRef.current;
       const ScrollTimeline = getScrollTimelineConstructor();
       const geometry = slidesGeometryRef.current;
       // ScrollTimeline progress is linear in scroll distance; variable-width
       // (snug) tracks need index-linear JS sync via slidesScrollProgress.
-      if (
-        jsSyncOnlyRef.current ||
-        !track ||
-        !slides ||
-        !ScrollTimeline ||
-        !slidesGeometryIsUniform(geometry)
-      ) {
+      if (!track || !slides || !ScrollTimeline || !slidesGeometryIsUniform(geometry)) {
         usesScrollTimelineRef.current = false;
         return false;
+      }
+
+      const travels = thumbTravelsRef.current;
+      if (travels.length === 0) {
+        usesScrollTimelineRef.current = false;
+        return false;
+      }
+
+      // Resize often only changes midline padding — keep the live ST effect.
+      if (
+        !force &&
+        usesScrollTimelineRef.current &&
+        linkAnimRef.current != null &&
+        linkAnimRef.current.playState !== 'idle'
+      ) {
+        return true;
       }
 
       const keepPaused =
@@ -321,11 +370,6 @@ const LightboxFilmstrip = React.forwardRef<HTMLDivElement, LightboxFilmstripProp
       linkAnimRef.current = null;
       track.style.removeProperty('animation');
 
-      const travels = thumbTravelsRef.current;
-      if (travels.length === 0) {
-        usesScrollTimelineRef.current = false;
-        return false;
-      }
       const timeline = new ScrollTimeline({ source: slides, axis: 'x' });
       const effect = new KeyframeEffect(
         track,
@@ -344,78 +388,86 @@ const LightboxFilmstrip = React.forwardRef<HTMLDivElement, LightboxFilmstripProp
     }, [slidesViewportRef, slidesGeometryRef]);
 
     React.useLayoutEffect(() => {
-      let detach: (() => void) | undefined;
+      let ro: ResizeObserver | undefined;
+      let scrollSlides: HTMLElement | null = null;
+      let onScroll: (() => void) | undefined;
       syncFromScrollRef.current = syncNow;
-      jsSyncOnlyRef.current = false;
 
-      const attach = () => {
-        // Never tear down / rebuild the scroll link while a thumb scrub owns
-        // transform — attach runs from slides viewport notify and would cancel
-        // the DocumentTimeline scrub mid-flight.
+      const unbindScroll = () => {
+        if (scrollSlides && onScroll) {
+          scrollSlides.removeEventListener('scroll', onScroll);
+        }
+        scrollSlides = null;
+        onScroll = undefined;
+      };
+
+      /**
+       * Update padding / travels; rebuild ST only when keyframes must change.
+       * Window resize used to cancel+rebuild ST every frame (visible glitch).
+       */
+      const refresh = (forceLink = false) => {
         if (scrubHoldRef.current || scrubAnimRef.current) return;
-
-        detach?.();
-        detach = undefined;
 
         const track = trackRef.current;
         const slides = slidesViewportRef.current;
         const root = rootRef.current;
         if (!track || !slides || !root) return;
 
-        measureThumbs();
+        const travelsChanged = measureThumbs();
 
-        if (startLinkAnimation()) {
-          const ro = new ResizeObserver(() => {
-            if (scrubHoldRef.current || scrubAnimRef.current) return;
-            measureThumbs();
-            if (jsSyncOnlyRef.current) {
-              syncNow();
-              return;
-            }
-            startLinkAnimation();
-          });
-          ro.observe(track);
-          ro.observe(root);
-          detach = () => {
-            ro.disconnect();
-            linkAnimRef.current?.cancel();
-            linkAnimRef.current = null;
-            usesScrollTimelineRef.current = false;
-          };
+        if (startLinkAnimation(forceLink || travelsChanged)) {
+          unbindScroll();
           return;
         }
 
-        // Fallback: continuous JS mirror of Slides scroll.
+        // Fallback: continuous JS mirror of Slides scroll (no ScrollTimeline).
+        linkAnimRef.current?.cancel();
+        linkAnimRef.current = null;
+        usesScrollTimelineRef.current = false;
         syncNow();
-        const onScroll = () => {
-          if (scrubHoldRef.current || scrubAnimRef.current) return;
-          scheduleSync();
-        };
-        slides.addEventListener('scroll', onScroll, { passive: true });
-        const ro = new ResizeObserver(() => {
-          if (scrubHoldRef.current || scrubAnimRef.current) return;
-          measureThumbs();
-          syncNow();
-        });
-        ro.observe(track);
-        ro.observe(root);
-        detach = () => {
-          slides.removeEventListener('scroll', onScroll);
-          ro.disconnect();
-        };
+        if (scrollSlides !== slides) {
+          unbindScroll();
+          onScroll = () => {
+            if (scrubHoldRef.current || scrubAnimRef.current) return;
+            scheduleSync();
+          };
+          slides.addEventListener('scroll', onScroll, { passive: true });
+          scrollSlides = slides;
+        }
       };
 
-      reattachRef.current = attach;
+      const attach = () => {
+        if (scrubHoldRef.current || scrubAnimRef.current) return;
+
+        const track = trackRef.current;
+        const root = rootRef.current;
+        if (!track || !root) return;
+
+        if (!ro) {
+          ro = new ResizeObserver(() => {
+            if (scrubHoldRef.current || scrubAnimRef.current) return;
+            // Padding updates every time; ST rebuilds only if travels changed.
+            refresh(false);
+          });
+          ro.observe(track);
+          ro.observe(root);
+        }
+
+        refresh(true);
+      };
+
+      reattachRef.current = () => refresh(true);
       attach();
-      const unsubscribe = subscribeSlidesViewport(attach);
+      const unsubscribe = subscribeSlidesViewport(() => refresh(false));
 
       return () => {
         unsubscribe();
-        detach?.();
+        unbindScroll();
+        ro?.disconnect();
+        ro = undefined;
         reattachRef.current = null;
         syncFromScrollRef.current = null;
         scrubHoldRef.current = false;
-        jsSyncOnlyRef.current = false;
         scrubAnimRef.current?.cancel();
         scrubAnimRef.current = null;
         linkAnimRef.current?.cancel();
@@ -436,7 +488,7 @@ const LightboxFilmstrip = React.forwardRef<HTMLDivElement, LightboxFilmstripProp
           track.style.removeProperty('padding-inline');
           track.style.removeProperty('padding-left');
           track.style.removeProperty('padding-right');
-          track.style.removeProperty(LightboxFilmstripCssVars.travel);
+          track.style.removeProperty(LightboxThumbnailStripCssVars.travel);
         }
       };
     }, [
@@ -491,13 +543,13 @@ const LightboxFilmstrip = React.forwardRef<HTMLDivElement, LightboxFilmstripProp
               { transform: `translate3d(${toX}px, 0, 0)` },
             ],
             {
-              duration: scrubDuration,
-              easing: scrubEasing,
+              duration: SCRUB_DURATION_MS,
+              easing: SCRUB_EASING,
               fill: 'forwards',
             },
           );
           // Hold on the first frame until the index commit starts (so a
-          // wrapSelectCommit view transition can capture a stable "old" slide).
+          // select view transition can capture a stable "old" slide).
           scrubAnim.pause();
           scrubAnim.currentTime = 0;
           scrubAnimRef.current = scrubAnim;
@@ -510,23 +562,41 @@ const LightboxFilmstrip = React.forwardRef<HTMLDivElement, LightboxFilmstripProp
             } catch {
               /* commitStyles can throw if the effect was already cleared */
             }
-            scrubAnim.cancel();
+
+            // Keep the DocumentTimeline scrub on the stack (fill:forwards) while
+            // arming a new ScrollTimeline underneath. Safari often paints
+            // keyframe 0 on a fresh scroll link — the scrub hides that frame.
+            // Firefox needs a non-zero effect `duration` (see startLinkAnimation)
+            // or the ST effect never applies and dropping the scrub snaps to 0.
             scrubAnimRef.current = null;
+            measureThumbs();
+            const armed = startLinkAnimation();
+            const liveLink = linkAnimRef.current;
 
-            // Do not rebuild ScrollTimeline here. After a programmatic Slides
-            // jump, Firefox often keeps a fresh scroll link at progress 0; when
-            // the scrub fill is cleared the track snaps to the first thumb.
-            // (An inline pin also made "is ST correct?" checks always pass.)
-            linkAnimRef.current?.cancel();
-            linkAnimRef.current = null;
-            usesScrollTimelineRef.current = false;
-            jsSyncOnlyRef.current = true;
+            const dropScrub = () => {
+              // A newer scrub took over — leave its hold/animation alone.
+              if (scrubAnimRef.current) return;
+              scrubAnim.cancel();
+              track.style.removeProperty('transform');
+              scrubHoldRef.current = false;
+              setScrubbing(false);
+            };
 
+            if (armed && liveLink) {
+              void liveLink.ready.then(() => {
+                requestAnimationFrame(() => {
+                  requestAnimationFrame(dropScrub);
+                });
+              });
+              return;
+            }
+
+            // No ScrollTimeline — pin destination and use the JS scroll mirror.
+            scrubAnim.cancel();
             track.style.transform = `translate3d(${toX}px, 0, 0)`;
             syncFromScrollRef.current?.();
             scrubHoldRef.current = false;
             setScrubbing(false);
-            // Attach the JS scroll mirror (ST path has no scroll listener).
             reattachRef.current?.();
           };
 
@@ -540,21 +610,34 @@ const LightboxFilmstrip = React.forwardRef<HTMLDivElement, LightboxFilmstripProp
               track.style.transform = `translate3d(${toX}px, 0, 0)`;
               scrubAnim.cancel();
               scrubAnimRef.current = null;
-              linkAnimRef.current?.cancel();
-              linkAnimRef.current = null;
-              usesScrollTimelineRef.current = false;
-              jsSyncOnlyRef.current = true;
-              syncFromScrollRef.current?.();
+              measureThumbs();
+              if (!startLinkAnimation()) {
+                syncFromScrollRef.current?.();
+                reattachRef.current?.();
+              } else {
+                track.style.removeProperty('transform');
+              }
               scrubHoldRef.current = false;
               setScrubbing(false);
-              reattachRef.current?.();
             },
           );
         }
 
-        const commit = () => {
+        const applyIndex = () => {
           activeIndexRef.current = index;
           setActiveIndex(index, 'thumbnail');
+        };
+
+        const commit = () => {
+          const host = slides as SlidesVtHost | null;
+          const startVt = host?.startViewTransition;
+          if (selectViewTransition && !reduceMotion && typeof startVt === 'function') {
+            startVt.call(host, () => {
+              flushSync(applyIndex);
+            });
+          } else {
+            flushSync(applyIndex);
+          }
         };
 
         if (wrapSelectCommit) {
@@ -563,45 +646,46 @@ const LightboxFilmstrip = React.forwardRef<HTMLDivElement, LightboxFilmstripProp
           commit();
         }
 
-        // Play after commit so wrapSelectCommit's flushSync cannot flush a
-        // setScrubbing render between pause(0) and play.
+        // Play after commit so wrapSelectCommit cannot flush a setScrubbing
+        // render between pause(0) and play.
         scrub?.play();
         if (scrub) setScrubbing(true);
       },
       [
         scrubOnSelect,
-        scrubDuration,
-        scrubEasing,
+        selectViewTransition,
         wrapSelectCommit,
         setActiveIndex,
         navigationLockedRef,
         slidesViewportRef,
+        startLinkAnimation,
+        measureThumbs,
       ],
     );
 
-    const filmstripContext = React.useMemo(
+    const thumbnailStripContext = React.useMemo(
       () => ({ registerTrack, registerThumb, selectIndex }),
       [registerTrack, registerThumb, selectIndex],
     );
 
-    const state = React.useMemo<LightboxFilmstripState>(() => ({ scrubbing }), [scrubbing]);
+    const state = React.useMemo<LightboxThumbnailStripState>(() => ({ scrubbing }), [scrubbing]);
 
     return (
-      <LightboxFilmstripContext.Provider value={filmstripContext}>
+      <LightboxThumbnailStripContext.Provider value={thumbnailStripContext}>
         {useRender({
           render,
           ref: assignRootRef,
           state,
-          stateAttributesMapping: filmstripStateAttributesMapping,
+          stateAttributesMapping: thumbnailStripStateAttributesMapping,
           props: mergeProps<'div'>(
             {
-              [LightboxFilmstripDataAttributes.root]: '',
-              // Structural: clip padded track; relative for FilmstripIndicator.
-              // Width gives a viewport for midline padding measurement.
+              [LightboxThumbnailStripDataAttributes.root]: '',
+              // Structural: clip padded track; relative for consumer midline chrome.
+              // Consumers size the root (width / stretch) so midline padding can
+              // measure against the intended viewport.
               style: {
                 position: 'relative',
                 overflow: 'clip',
-                width: '100%',
                 ...style,
               },
               children,
@@ -610,12 +694,12 @@ const LightboxFilmstrip = React.forwardRef<HTMLDivElement, LightboxFilmstripProp
           ),
           defaultTagName: 'div',
         })}
-      </LightboxFilmstripContext.Provider>
+      </LightboxThumbnailStripContext.Provider>
     );
   },
 );
 
-LightboxFilmstrip.displayName = 'LightboxFilmstrip';
+LightboxThumbnailStrip.displayName = 'LightboxThumbnailStrip';
 
-export { LightboxFilmstrip };
-export type { LightboxFilmstripProps, LightboxFilmstripState };
+export { LightboxThumbnailStrip };
+export type { LightboxThumbnailStripProps, LightboxThumbnailStripState };

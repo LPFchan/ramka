@@ -3036,7 +3036,7 @@ describe('Lightbox', () => {
             <LightboxContent data-testid="content" aria-label="Zoom animated reset attr test">
               <LightboxItemGroup>
                 <LightboxItem index={0}>
-                  <LightboxZoom ref={ref} maxZoom={4} animationDuration={300}>
+                  <LightboxZoom ref={ref} maxZoom={4}>
                     <img src="test.jpg" alt="test" />
                   </LightboxZoom>
                 </LightboxItem>

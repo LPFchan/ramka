@@ -79,12 +79,27 @@ export enum LightboxDocumentCssVars {
   morphNewOpacity = '--lightbox-morph-new-opacity',
 }
 
-export enum LightboxFilmstripCssVars {
+export enum LightboxThumbnailStripCssVars {
   /**
    * End `translateX` travel for the scroll link (negative px length to center
    * the last thumb — `(count - 1) * step` when thumbs are uniform). Set on the
-   * FilmstripTrack.
+   * ThumbnailStripTrack.
    * @type string
    */
-  travel = '--lightbox-filmstrip-travel',
+  travel = '--lightbox-thumbnail-strip-travel',
+  /**
+   * Duration of the element-scoped Slides view transition on pointer thumb
+   * select (`selectViewTransition`). Set on Slides (or a parent) and use from
+   * `::view-transition-group(root)` — library starts the transition; CSS owns
+   * the look. Default fallback in demos: `0.4s`.
+   * @type string
+   */
+  selectVtDuration = '--lightbox-select-vt-duration',
+  /**
+   * Easing of the element-scoped Slides view transition on pointer thumb
+   * select. Pair with `--lightbox-select-vt-duration`. Default fallback in
+   * demos: `cubic-bezier(0.22, 1, 0.36, 1)`.
+   * @type string
+   */
+  selectVtEasing = '--lightbox-select-vt-easing',
 }

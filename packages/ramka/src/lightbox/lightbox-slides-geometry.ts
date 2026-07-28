@@ -1,6 +1,6 @@
 /**
  * Shared offset-geometry for `Lightbox.Slides` and scroll-linked chrome
- * (`Lightbox.Filmstrip`). Uses layout properties (`offsetLeft` / `offsetWidth`)
+ * (`Lightbox.ThumbnailStrip`). Uses layout properties (`offsetLeft` / `offsetWidth`)
  * so measurements stay reliable inside portals / dialogs on mobile Safari.
  *
  * Slides may be full-viewport or content-sized (snug around media). Snap
@@ -86,7 +86,7 @@ export function slideIndexFromScrollLeft(scrollLeft: number, geometry: SlidesGeo
 /**
  * Logical scroll progress 0→1 over the index range.
  * Piecewise-linear across per-slide snap offsets so variable-width tracks stay
- * aligned with equal-offset filmstrip keyframes (one stop per index).
+ * aligned with equal-offset thumbnail-strip keyframes (one stop per index).
  */
 export function slidesScrollProgress(viewport: HTMLElement, geometry: SlidesGeometry): number {
   const { offsets, count, base, step } = geometry;

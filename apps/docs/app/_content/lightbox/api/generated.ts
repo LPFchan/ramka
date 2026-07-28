@@ -291,28 +291,21 @@ export const generatedProps: Record<string, PropRow[]> = {
       description: "Allows you to replace the component's HTML element with a different tag, or compose it with another component.\n\nAccepts a `ReactElement` or a function that returns the element to render.",
     },
   ],
-  "api-filmstrip": [
+  "api-thumbnail-strip": [
     {
       name: "scrubOnSelect",
       type: "boolean",
       description: "When true (default), pointer selection on a thumbnail WAAPI-scrubs the track to the target index. Keyboard / button navigation stays instant (follows the Slides jump via the scroll link).",
     },
     {
-      name: "scrubDuration",
-      type: "number",
-      default: "450",
-      description: "WAAPI scrub duration in ms.",
-    },
-    {
-      name: "scrubEasing",
-      type: "string",
-      default: "'cubic-bezier(0.22, 1, 0.36, 1)'",
-      description: "WAAPI scrub easing.",
+      name: "selectViewTransition",
+      type: "boolean",
+      description: "When true (default), pointer selection runs an element-scoped View Transition on Slides around the active-index commit (stage crossfade). Falls back to a plain commit when unsupported or `prefers-reduced-motion`. Tune with `--lightbox-select-vt-duration` / `--lightbox-select-vt-easing` on Slides. Keyboard stays instant.",
     },
     {
       name: "wrapSelectCommit",
       type: "(commit: () => void, slides: HTMLElement | null, index: number) => void",
-      description: "Optional wrapper around the active-index commit (e.g. docs chrome can run an element-scoped `slides.startViewTransition`). Receives the target `index` so consumers can arm WAAPI (same as the track scrub) *before* `commit` jumps Slides scroll. Track scrub still runs outside this callback. Defaults to invoking `commit` immediately.",
+      description: "Optional wrapper around the active-index commit so consumers can arm custom WAAPI (e.g. an indicator scrub) *before* `commit` jumps Slides. `commit` already includes the baked Slides view transition when `selectViewTransition` is on. Track scrub still runs outside this callback. Defaults to invoking `commit` immediately.",
     },
     {
       name: "render",
@@ -320,14 +313,7 @@ export const generatedProps: Record<string, PropRow[]> = {
       description: "Allows you to replace the component's HTML element with a different tag, or compose it with another component.\n\nAccepts a `ReactElement` or a function that returns the element to render.",
     },
   ],
-  "api-filmstrip-track": [
-    {
-      name: "render",
-      type: "ReactElement | ComponentRenderFn",
-      description: "Allows you to replace the component's HTML element with a different tag, or compose it with another component.\n\nAccepts a `ReactElement` or a function that returns the element to render.",
-    },
-  ],
-  "api-filmstrip-indicator": [
+  "api-thumbnail-strip-track": [
     {
       name: "render",
       type: "ReactElement | ComponentRenderFn",
@@ -381,12 +367,6 @@ export const generatedProps: Record<string, PropRow[]> = {
       type: "number",
       default: "300",
       description: "Max delay between clicks for double-click detection (ms).",
-    },
-    {
-      name: "animationDuration",
-      type: "number",
-      default: "300",
-      description: "Smooth zoom animation duration (ms).",
     },
     {
       name: "onZoomChange",
@@ -668,26 +648,21 @@ export const generatedAttributes: Record<string, AttrRow[]> = {
       description: "The thumbnail index as a string.",
     },
   ],
-  "api-filmstrip": [
+  "api-thumbnail-strip": [
     {
-      name: "data-ramka-filmstrip",
-      description: "Always present on the filmstrip root.",
+      name: "data-ramka-thumbnail-strip",
+      description: "Always present on the thumbnail strip root.",
     },
     {
-      name: "data-ramka-filmstrip-track",
+      name: "data-ramka-thumbnail-strip-track",
       description: "Always present on the scroll-linked tablist track.",
-    },
-    {
-      name: "data-ramka-filmstrip-indicator",
-      description: "Always present on the stationary center indicator.",
     },
     {
       name: "data-scrubbing",
       description: "Present while a pointer thumb-select scrub animation is in flight.",
     },
   ],
-  "api-filmstrip-track": [],
-  "api-filmstrip-indicator": [],
+  "api-thumbnail-strip-track": [],
   "api-zoom": [
     {
       name: "data-zoom",
@@ -775,14 +750,21 @@ export const generatedCssVariables: Record<string, CssVarRow[]> = {
   "api-caption": [],
   "api-thumbnail-group": [],
   "api-thumbnail": [],
-  "api-filmstrip": [
+  "api-thumbnail-strip": [
     {
-      name: "--lightbox-filmstrip-travel",
-      description: "End `translateX` travel for the scroll link (typically a negative px length spanning `(itemCount - 1) * thumbStep`). Set on the FilmstripTrack.",
+      name: "--lightbox-thumbnail-strip-travel",
+      description: "End `translateX` travel for the scroll link (negative px length to center the last thumb — `(count - 1) * step` when thumbs are uniform). Set on the ThumbnailStripTrack.",
+    },
+    {
+      name: "--lightbox-select-vt-duration",
+      description: "Duration of the element-scoped Slides view transition on pointer thumb select (`selectViewTransition`). Set on Slides (or a parent) and use from `::view-transition-group(root)` — library starts the transition; CSS owns the look. Default fallback in demos: `0.4s`.",
+    },
+    {
+      name: "--lightbox-select-vt-easing",
+      description: "Easing of the element-scoped Slides view transition on pointer thumb select. Pair with `--lightbox-select-vt-duration`. Default fallback in demos: `cubic-bezier(0.22, 1, 0.36, 1)`.",
     },
   ],
-  "api-filmstrip-track": [],
-  "api-filmstrip-indicator": [],
+  "api-thumbnail-strip-track": [],
   "api-zoom": [],
   "api-zoom-in": [],
   "api-zoom-out": [],

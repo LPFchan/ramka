@@ -307,46 +307,34 @@ export const lightboxApiMeta: ApiPartMeta[] = [
     },
   },
   {
-    id: 'api-filmstrip',
-    name: 'Filmstrip',
+    id: 'api-thumbnail-strip',
+    name: 'ThumbnailStrip',
     description:
-      'Scroll-linked filmstrip root. Always centers the active thumbnail on the midline (Photos-style): owns overflow clip, measured midline track padding (from registered Thumbnail nodes — not role=tab queries), and Slides→track sync via native ScrollTimeline + WAAPI (JS scroll→transform fallback when ScrollTimeline is unavailable). Compose with FilmstripTrack + Thumbnails (+ optional FilmstripIndicator). Pointer selects go through filmstrip context (optional DocumentTimeline WAAPI scrub via scrubOnSelect; optional wrapSelectCommit(commit, slides, index) for e.g. element-scoped Slides view transitions / arming consumer WAAPI before the scroll jump); keyboard stays instant with the stage. Flex/gap/thumb size remain consumer CSS.',
+      'Scroll-linked thumbnail strip root. Always centers the active thumbnail on the midline (Photos-style): owns overflow clip, measured midline track padding (from registered Thumbnail nodes — not role=tab queries), and Slides→track sync via native ScrollTimeline + WAAPI (JS scroll→transform fallback when ScrollTimeline is unavailable). Compose with ThumbnailStripTrack + Thumbnails; optional midline selection chrome is plain consumer markup (strip root is position:relative). Pointer selects go through ThumbnailStrip context (DocumentTimeline WAAPI track scrub via scrubOnSelect; element-scoped Slides view transition via selectViewTransition — tune with --lightbox-select-vt-duration / --lightbox-select-vt-easing on Slides; optional wrapSelectCommit(commit, slides, index) to arm consumer WAAPI such as an indicator scrub before the scroll jump). Keyboard stays instant with the stage. Flex/gap/thumb size remain consumer CSS.',
     extract: {
       kind: 'interface-props',
-      typeName: 'LightboxFilmstripProps',
-      file: 'lightbox-filmstrip.tsx',
+      typeName: 'LightboxThumbnailStripProps',
+      file: 'lightbox-thumbnail-strip.tsx',
       includeInherited: ['render'],
     },
     attributesFrom: {
-      enumName: 'LightboxFilmstripDataAttributes',
+      enumName: 'LightboxThumbnailStripDataAttributes',
       file: 'lightbox-data-attributes.ts',
     },
     cssVariablesFrom: {
-      enumName: 'LightboxFilmstripCssVars',
+      enumName: 'LightboxThumbnailStripCssVars',
       file: 'lightbox-css-vars.ts',
     },
   },
   {
-    id: 'api-filmstrip-track',
-    name: 'FilmstripTrack',
+    id: 'api-thumbnail-strip-track',
+    name: 'ThumbnailStripTrack',
     description:
-      'Linked tablist track for Filmstrip. A ThumbnailGroup that registers as the ScrollTimeline transform target (same keyboard / ARIA). Parent Filmstrip writes midline padding + travel CSS var and owns the link animation; flex, gap, and thumb sizing are consumer CSS.',
+      'Linked tablist track for ThumbnailStrip. A ThumbnailGroup that registers as the ScrollTimeline transform target (same keyboard / ARIA). Parent ThumbnailStrip writes midline padding + travel CSS var and owns the link animation; flex, gap, and thumb sizing are consumer CSS.',
     extract: {
       kind: 'interface-props',
-      typeName: 'LightboxFilmstripTrackProps',
-      file: 'lightbox-filmstrip-track.tsx',
-      includeInherited: ['render'],
-    },
-  },
-  {
-    id: 'api-filmstrip-indicator',
-    name: 'FilmstripIndicator',
-    description:
-      'Optional stationary center selection chrome for Filmstrip. Structurally centered; paint size/outline in consumer CSS. Active thumbs stay under this midline via Filmstrip padding + ScrollTimeline transform.',
-    extract: {
-      kind: 'interface-props',
-      typeName: 'LightboxFilmstripIndicatorProps',
-      file: 'lightbox-filmstrip-indicator.tsx',
+      typeName: 'LightboxThumbnailStripTrackProps',
+      file: 'lightbox-thumbnail-strip-track.tsx',
       includeInherited: ['render'],
     },
   },

@@ -60,9 +60,8 @@
  *   Caption         — Per-item caption from Item's caption prop
  *   ThumbnailGroup  — Tablist container for thumbnails
  *   Thumbnail       — Tab button navigating to a specific item
- *   Filmstrip       — Centered scroll-linked filmstrip (pad + ScrollTimeline)
- *   FilmstripTrack  — Linked tablist track (ThumbnailGroup + transform target)
- *   FilmstripIndicator — Optional midline selection chrome slot
+ *   ThumbnailStrip       — Centered scroll-linked thumbnail strip (pad + ScrollTimeline)
+ *   ThumbnailStripTrack  — Linked tablist track (ThumbnailGroup + transform target)
  *   Zoom            — Zoom/pan wrapper for item content (pinch, scroll, keyboard)
  *   ZoomIn          — Button to zoom in (consumes ZoomContext)
  *   ZoomOut         — Button to zoom out (consumes ZoomContext)
@@ -87,9 +86,8 @@ export { LightboxCounter as Counter } from './lightbox-counter';
 export { LightboxCaption as Caption } from './lightbox-caption';
 export { LightboxThumbnailGroup as ThumbnailGroup } from './lightbox-thumbnail-group';
 export { LightboxThumbnail as Thumbnail } from './lightbox-thumbnail';
-export { LightboxFilmstrip as Filmstrip } from './lightbox-filmstrip';
-export { LightboxFilmstripTrack as FilmstripTrack } from './lightbox-filmstrip-track';
-export { LightboxFilmstripIndicator as FilmstripIndicator } from './lightbox-filmstrip-indicator';
+export { LightboxThumbnailStrip as ThumbnailStrip } from './lightbox-thumbnail-strip';
+export { LightboxThumbnailStripTrack as ThumbnailStripTrack } from './lightbox-thumbnail-strip-track';
 export { LightboxZoom as Zoom } from './lightbox-zoom';
 export { LightboxZoomIn as ZoomIn } from './lightbox-zoom-in';
 export { LightboxZoomOut as ZoomOut } from './lightbox-zoom-out';
@@ -116,12 +114,8 @@ export type { LightboxCounterProps, LightboxCounterState } from './lightbox-coun
 export type { LightboxCaptionProps, LightboxCaptionState } from './lightbox-caption';
 export type { LightboxThumbnailGroupProps, LightboxThumbnailGroupState } from './lightbox-thumbnail-group';
 export type { LightboxThumbnailProps, LightboxThumbnailState } from './lightbox-thumbnail';
-export type { LightboxFilmstripProps, LightboxFilmstripState } from './lightbox-filmstrip';
-export type { LightboxFilmstripTrackProps } from './lightbox-filmstrip-track';
-export type {
-  LightboxFilmstripIndicatorProps,
-  LightboxFilmstripIndicatorState,
-} from './lightbox-filmstrip-indicator';
+export type { LightboxThumbnailStripProps, LightboxThumbnailStripState } from './lightbox-thumbnail-strip';
+export type { LightboxThumbnailStripTrackProps } from './lightbox-thumbnail-strip-track';
 export type { NavigationSource } from './lightbox-context';
 export type { LightboxZoomProps, LightboxZoomState, LightboxZoomRef } from './lightbox-zoom';
 export type { LightboxZoomInProps, LightboxZoomInState } from './lightbox-zoom-in';
@@ -141,7 +135,7 @@ export {
   LightboxCaptionDataAttributes,
   LightboxThumbnailGroupDataAttributes,
   LightboxThumbnailDataAttributes,
-  LightboxFilmstripDataAttributes,
+  LightboxThumbnailStripDataAttributes,
   LightboxZoomDataAttributes,
   LightboxZoomInDataAttributes,
   LightboxZoomOutDataAttributes,
@@ -151,5 +145,5 @@ export {
   LightboxContentCssVars,
   LightboxBackdropCssVars,
   LightboxDocumentCssVars,
-  LightboxFilmstripCssVars,
+  LightboxThumbnailStripCssVars,
 } from './lightbox-css-vars';

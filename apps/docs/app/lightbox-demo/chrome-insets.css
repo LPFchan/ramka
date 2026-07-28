@@ -5,7 +5,7 @@
 
 .lightbox-demo-content {
   --lightbox-inset-top: calc(3.5rem + env(safe-area-inset-top, 0px));
-  /* Mobile: no filmstrip → shorter bottom. md+ matches filmstrip row. */
+  /* Mobile: no thumbnail-strip → shorter bottom. md+ matches thumbnail-strip row. */
   --lightbox-inset-bottom: calc(3.5rem + env(safe-area-inset-bottom, 0px));
   --lightbox-inset-inline: 0px;
 }
@@ -18,7 +18,7 @@
 }
 
 /*
- * Snug uses the same bottom insets as bleed (filmstrip desktop-only). Inline
+ * Snug uses the same bottom insets as bleed (thumbnail-strip desktop-only). Inline
  * token is a scrollport gutter for the md+ width formula — not per-slide padding.
  */
 .lightbox-demo-content-snug {

@@ -3,9 +3,8 @@ import * as React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 import { LightboxContent } from './lightbox-content';
-import { LightboxFilmstrip } from './lightbox-filmstrip';
-import { LightboxFilmstripIndicator } from './lightbox-filmstrip-indicator';
-import { LightboxFilmstripTrack } from './lightbox-filmstrip-track';
+import { LightboxThumbnailStrip } from './lightbox-thumbnail-strip';
+import { LightboxThumbnailStripTrack } from './lightbox-thumbnail-strip-track';
 import { LightboxItem } from './lightbox-item';
 import { LightboxPortal } from './lightbox-portal';
 import { LightboxRoot } from './lightbox-root';
@@ -34,6 +33,7 @@ type LinkCall = {
     pause: ReturnType<typeof vi.fn>;
     cancel: ReturnType<typeof vi.fn>;
     playState: string;
+    effect: MockKeyframeEffect | null;
   };
 };
 
@@ -71,7 +71,7 @@ function setupSlidesGeometry(viewport: HTMLElement, count: number) {
   flushResizeObservers();
 }
 
-const FILMSTRIP_WIDTH = 320;
+const THUMBNAIL_STRIP_WIDTH = 320;
 
 function setupThumbGeometry(track: HTMLElement, count: number, widths?: number[]) {
   const tabs = track.querySelectorAll<HTMLElement>('[role="tab"]');
@@ -96,7 +96,7 @@ function setupThumbGeometry(track: HTMLElement, count: number, widths?: number[]
       get: () => x,
     });
     Object.defineProperty(tab, 'offsetWidth', { configurable: true, get: () => w });
-    // Prefer getBoundingClientRect in Filmstrip — include flex gap in the stride.
+    // Prefer getBoundingClientRect in ThumbnailStrip — include flex gap in the stride.
     tab.getBoundingClientRect = () =>
       ({
         x,
@@ -113,7 +113,7 @@ function setupThumbGeometry(track: HTMLElement, count: number, widths?: number[]
   flushResizeObservers();
 }
 
-function setupFilmstripRoot(root: HTMLElement, width = FILMSTRIP_WIDTH) {
+function setupThumbnailStripRoot(root: HTMLElement, width = THUMBNAIL_STRIP_WIDTH) {
   Object.defineProperty(root, 'clientWidth', { configurable: true, get: () => width });
   flushResizeObservers();
 }
@@ -203,7 +203,7 @@ function Gallery({
     <LightboxRoot defaultOpen>
       <LightboxTrigger index={0}>open</LightboxTrigger>
       <LightboxPortal>
-        <LightboxContent aria-label="Filmstrip test">
+        <LightboxContent aria-label="ThumbnailStrip test">
           <LightboxSlides data-testid="slides" aria-label="Slides">
             {Array.from({ length: count }, (_, i) => (
               <LightboxSlide key={i}>
@@ -211,16 +211,15 @@ function Gallery({
               </LightboxSlide>
             ))}
           </LightboxSlides>
-          <LightboxFilmstrip data-testid="filmstrip" scrubOnSelect={scrubOnSelect}>
-            <LightboxFilmstripTrack data-testid="filmstrip-track" aria-label="Thumbs">
+          <LightboxThumbnailStrip data-testid="thumbnail-strip" scrubOnSelect={scrubOnSelect}>
+            <LightboxThumbnailStripTrack data-testid="thumbnail-strip-track" aria-label="Thumbs">
               {Array.from({ length: count }, (_, i) => (
                 <LightboxThumbnail key={i} index={i} data-testid={`thumb-${i}`}>
                   t{i}
                 </LightboxThumbnail>
               ))}
-            </LightboxFilmstripTrack>
-            <LightboxFilmstripIndicator data-testid="filmstrip-indicator" />
-          </LightboxFilmstrip>
+            </LightboxThumbnailStripTrack>
+          </LightboxThumbnailStrip>
         </LightboxContent>
       </LightboxPortal>
     </LightboxRoot>
@@ -272,21 +271,18 @@ function enableScrollTimeline() {
   vi.stubGlobal('Animation', MockAnimation);
 }
 
-describe('Lightbox.Filmstrip', () => {
+describe('Lightbox.ThumbnailStrip', () => {
   it('publishes identity data attrs and registers a tablist', () => {
     render(<Gallery />);
     const slides = screen.getByTestId('slides');
     setupSlidesGeometry(slides, 5);
 
-    const track = screen.getByTestId('filmstrip-track');
+    const track = screen.getByTestId('thumbnail-strip-track');
     setupThumbGeometry(track, 5);
 
-    expect(screen.getByTestId('filmstrip')).toHaveAttribute('data-ramka-filmstrip');
-    expect(track).toHaveAttribute('data-ramka-filmstrip-track');
+    expect(screen.getByTestId('thumbnail-strip')).toHaveAttribute('data-ramka-thumbnail-strip');
+    expect(track).toHaveAttribute('data-ramka-thumbnail-strip-track');
     expect(track).toHaveAttribute('role', 'tablist');
-    expect(screen.getByTestId('filmstrip-indicator')).toHaveAttribute(
-      'data-ramka-filmstrip-indicator',
-    );
     expect(screen.getByText('item 0').closest('[role="tabpanel"]')).toBeTruthy();
   });
 
@@ -297,9 +293,9 @@ describe('Lightbox.Filmstrip', () => {
     const slides = screen.getByTestId('slides');
     setupSlidesGeometry(slides, 5);
 
-    const root = screen.getByTestId('filmstrip');
-    const track = screen.getByTestId('filmstrip-track');
-    setupFilmstripRoot(root);
+    const root = screen.getByTestId('thumbnail-strip');
+    const track = screen.getByTestId('thumbnail-strip-track');
+    setupThumbnailStripRoot(root);
     setupThumbGeometry(track, 5);
 
     expect(readTranslateX(track)).toBe(0);
@@ -316,9 +312,9 @@ describe('Lightbox.Filmstrip', () => {
     const slides = screen.getByTestId('slides');
     setupSlidesGeometry(slides, 3);
 
-    const root = screen.getByTestId('filmstrip');
-    const track = screen.getByTestId('filmstrip-track');
-    setupFilmstripRoot(root);
+    const root = screen.getByTestId('thumbnail-strip');
+    const track = screen.getByTestId('thumbnail-strip-track');
+    setupThumbnailStripRoot(root);
     // Landscape / portrait / landscape — unequal strides between centers.
     setupThumbGeometry(track, 3, [80, 40, 80]);
 
@@ -342,9 +338,9 @@ describe('Lightbox.Filmstrip', () => {
     const slides = screen.getByTestId('slides');
     setupSlidesGeometry(slides, 5);
 
-    const root = screen.getByTestId('filmstrip');
-    const track = screen.getByTestId('filmstrip-track');
-    setupFilmstripRoot(root);
+    const root = screen.getByTestId('thumbnail-strip');
+    const track = screen.getByTestId('thumbnail-strip-track');
+    setupThumbnailStripRoot(root);
     setupThumbGeometry(track, 5);
 
     const link = linkCalls.at(-1);
@@ -363,7 +359,7 @@ describe('Lightbox.Filmstrip', () => {
     expect(link!.anim.effect?.options).toMatchObject({ duration: 1, fill: 'both' });
   });
 
-  it('thumb click cancels the ScrollTimeline link and finishes on the JS scroll mirror', async () => {
+  it('thumb click cancels the ScrollTimeline link, scrubs via WAAPI, then re-arms ScrollTimeline', async () => {
     enableScrollTimeline();
 
     const scrubPause = vi.fn();
@@ -389,9 +385,9 @@ describe('Lightbox.Filmstrip', () => {
     render(<Gallery count={5} />);
     const slides = screen.getByTestId('slides');
     setupSlidesGeometry(slides, 5);
-    const root = screen.getByTestId('filmstrip');
-    const track = screen.getByTestId('filmstrip-track');
-    setupFilmstripRoot(root);
+    const root = screen.getByTestId('thumbnail-strip');
+    const track = screen.getByTestId('thumbnail-strip-track');
+    setupThumbnailStripRoot(root);
     setupThumbGeometry(track, 5);
     endScroll(slides);
 
@@ -407,6 +403,8 @@ describe('Lightbox.Filmstrip', () => {
       fireEvent.click(screen.getByTestId('thumb-3'));
       await Promise.resolve();
       await Promise.resolve();
+      flushRaf();
+      flushRaf();
     });
 
     expect(screen.getByTestId('thumb-3')).toHaveAttribute('data-active');
@@ -415,10 +413,11 @@ describe('Lightbox.Filmstrip', () => {
     expect(elementAnimate).toHaveBeenCalled();
     expect(scrubPause).toHaveBeenCalled();
     expect(scrubPlay).toHaveBeenCalled();
-    // After scrub we stay on the JS mirror — re-arming ScrollTimeline after a
-    // programmatic jump leaves Firefox at progress 0 (first thumb).
-    expect(linkCalls.length).toBe(linksBefore);
-    expect(readTranslateX(track)).toBeCloseTo(-3 * THUMB_STEP, 5);
+    // Scrub fill stays until a fresh ScrollTimeline is ready, then drops —
+    // not a permanent JS scroll mirror.
+    expect(linkCalls.length).toBeGreaterThan(linksBefore);
+    expect(scrubCancel).toHaveBeenCalled();
+    expect(track.style.transform).toBe('');
   });
 
   it('wrapSelectCommit can wrap the active-index commit', async () => {
@@ -438,15 +437,19 @@ describe('Lightbox.Filmstrip', () => {
                 </LightboxSlide>
               ))}
             </LightboxSlides>
-            <LightboxFilmstrip data-testid="filmstrip" wrapSelectCommit={wrapSelectCommit}>
-              <LightboxFilmstripTrack data-testid="filmstrip-track" aria-label="Thumbs">
+            <LightboxThumbnailStrip
+              data-testid="thumbnail-strip"
+              selectViewTransition={false}
+              wrapSelectCommit={wrapSelectCommit}
+            >
+              <LightboxThumbnailStripTrack data-testid="thumbnail-strip-track" aria-label="Thumbs">
                 {Array.from({ length: 3 }, (_, i) => (
                   <LightboxThumbnail key={i} index={i} data-testid={`thumb-${i}`}>
                     t{i}
                   </LightboxThumbnail>
                 ))}
-              </LightboxFilmstripTrack>
-            </LightboxFilmstrip>
+              </LightboxThumbnailStripTrack>
+            </LightboxThumbnailStrip>
           </LightboxContent>
         </LightboxPortal>
       </LightboxRoot>,
@@ -454,7 +457,7 @@ describe('Lightbox.Filmstrip', () => {
 
     const slides = screen.getByTestId('slides');
     setupSlidesGeometry(slides, 3);
-    const track = screen.getByTestId('filmstrip-track');
+    const track = screen.getByTestId('thumbnail-strip-track');
     setupThumbGeometry(track, 3);
     endScroll(slides);
 
@@ -463,11 +466,105 @@ describe('Lightbox.Filmstrip', () => {
     expect(screen.getByTestId('thumb-2')).toHaveAttribute('data-active');
   });
 
+  it('selectViewTransition starts an element-scoped transition on Slides', async () => {
+    const startViewTransition = vi.fn((cb: () => void) => {
+      cb();
+      return { finished: Promise.resolve() };
+    });
+
+    render(
+      <LightboxRoot defaultOpen>
+        <LightboxTrigger index={0}>open</LightboxTrigger>
+        <LightboxPortal>
+          <LightboxContent aria-label="vt select test">
+            <LightboxSlides data-testid="slides" aria-label="Slides">
+              {Array.from({ length: 3 }, (_, i) => (
+                <LightboxSlide key={i}>
+                  <LightboxItem index={i}>item {i}</LightboxItem>
+                </LightboxSlide>
+              ))}
+            </LightboxSlides>
+            <LightboxThumbnailStrip data-testid="thumbnail-strip">
+              <LightboxThumbnailStripTrack data-testid="thumbnail-strip-track" aria-label="Thumbs">
+                {Array.from({ length: 3 }, (_, i) => (
+                  <LightboxThumbnail key={i} index={i} data-testid={`thumb-${i}`}>
+                    t{i}
+                  </LightboxThumbnail>
+                ))}
+              </LightboxThumbnailStripTrack>
+            </LightboxThumbnailStrip>
+          </LightboxContent>
+        </LightboxPortal>
+      </LightboxRoot>,
+    );
+
+    const slides = screen.getByTestId('slides');
+    Object.defineProperty(slides, 'startViewTransition', {
+      configurable: true,
+      value: startViewTransition,
+    });
+    setupSlidesGeometry(slides, 3);
+    const track = screen.getByTestId('thumbnail-strip-track');
+    setupThumbGeometry(track, 3);
+    endScroll(slides);
+
+    fireEvent.click(screen.getByTestId('thumb-2'));
+    expect(startViewTransition).toHaveBeenCalledOnce();
+    expect(screen.getByTestId('thumb-2')).toHaveAttribute('data-active');
+  });
+
+  it('selectViewTransition={false} skips the Slides view transition', async () => {
+    const startViewTransition = vi.fn((cb: () => void) => {
+      cb();
+      return { finished: Promise.resolve() };
+    });
+
+    render(
+      <LightboxRoot defaultOpen>
+        <LightboxTrigger index={0}>open</LightboxTrigger>
+        <LightboxPortal>
+          <LightboxContent aria-label="no vt select test">
+            <LightboxSlides data-testid="slides" aria-label="Slides">
+              {Array.from({ length: 3 }, (_, i) => (
+                <LightboxSlide key={i}>
+                  <LightboxItem index={i}>item {i}</LightboxItem>
+                </LightboxSlide>
+              ))}
+            </LightboxSlides>
+            <LightboxThumbnailStrip data-testid="thumbnail-strip" selectViewTransition={false}>
+              <LightboxThumbnailStripTrack data-testid="thumbnail-strip-track" aria-label="Thumbs">
+                {Array.from({ length: 3 }, (_, i) => (
+                  <LightboxThumbnail key={i} index={i} data-testid={`thumb-${i}`}>
+                    t{i}
+                  </LightboxThumbnail>
+                ))}
+              </LightboxThumbnailStripTrack>
+            </LightboxThumbnailStrip>
+          </LightboxContent>
+        </LightboxPortal>
+      </LightboxRoot>,
+    );
+
+    const slides = screen.getByTestId('slides');
+    Object.defineProperty(slides, 'startViewTransition', {
+      configurable: true,
+      value: startViewTransition,
+    });
+    setupSlidesGeometry(slides, 3);
+    const track = screen.getByTestId('thumbnail-strip-track');
+    setupThumbGeometry(track, 3);
+    endScroll(slides);
+
+    fireEvent.click(screen.getByTestId('thumb-2'));
+    expect(startViewTransition).not.toHaveBeenCalled();
+    expect(screen.getByTestId('thumb-2')).toHaveAttribute('data-active');
+  });
+
   it('drops thumb navigation while a user scroll/fling is locked', async () => {
     render(<Gallery count={5} />);
     const slides = screen.getByTestId('slides');
     setupSlidesGeometry(slides, 5);
-    const track = screen.getByTestId('filmstrip-track');
+    const track = screen.getByTestId('thumbnail-strip-track');
     setupThumbGeometry(track, 5);
 
     swipeTo(slides, 1);

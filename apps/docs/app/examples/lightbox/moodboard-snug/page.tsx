@@ -22,7 +22,7 @@ import {
 
 /**
  * Mixed-media moodboard with snug lightbox: full-width slides on mobile;
- * aspect-sized snap cards + desktop filmstrip on md+; sibling dim/zoom CSS.
+ * aspect-sized snap cards + desktop thumbnail-strip on md+; sibling dim/zoom CSS.
  */
 
 const THUMB_WIDTH = 400;
@@ -349,7 +349,7 @@ export default function MoodboardSnugPage() {
   return (
     <ExampleShell
       title="Moodboard (snug slides)"
-      description="Masonry wall with mixed media — photos, two muted autoplaying vertical clips, and three orbitable Khronos GLBs. Lightbox is snug on desktop (aspect-sized snap cards + gap, desktop filmstrip) and full-width on mobile; sibling dim/blur while zoomed. 3D tiles wait for a painted WebGL frame via onBeforeOpen, then enable Trackball orbit after the morph settles."
+      description="Masonry wall with mixed media — photos, two muted autoplaying vertical clips, and three orbitable Khronos GLBs. Lightbox is snug on desktop (aspect-sized snap cards + gap, desktop thumbnail-strip) and full-width on mobile; sibling dim/blur while zoomed. 3D tiles wait for a painted WebGL frame via onBeforeOpen, then enable Trackball orbit after the morph settles."
     >
       <Lightbox.Root
         loop
