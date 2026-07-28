@@ -1,0 +1,319 @@
+/**
+ * Debug page only — ThumbnailStrip recipe skins.
+ * Library owns midline pad + scroll link (`overflow: clip` on the root).
+ * Extra padding-block keeps scale / tilt / shadows inside that clip.
+ *
+ * Each recipe pairs with a `.ts-debug-content-*` class that sets
+ * `--lightbox-inset-bottom` so slide media clears caption + strip chrome.
+ * Bottom chrome ≈ safe-area + footer pad + caption + gap + strip outer height.
+ */
+
+/* Shared track flex for every recipe */
+.ts-debug-strip[data-ramka-thumbnail-strip] {
+  /* Breathing room above/below so transforms aren't clipped by overflow:clip */
+  padding-block: 0.55rem;
+}
+
+.ts-debug-strip [data-ramka-thumbnail-strip-track] {
+  display: flex;
+  width: max-content;
+  align-items: center;
+}
+
+.ts-debug-strip [role='tab'] {
+  box-sizing: border-box;
+  flex-shrink: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+.ts-debug-strip [role='tab'] img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  pointer-events: none;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Content insets — override lightbox-demo defaults (strip always visible)    */
+/* Compound with .lightbox-demo-content so we beat its md+ inset rule.        */
+/* -------------------------------------------------------------------------- */
+
+.lightbox-demo-content.ts-debug-content-bare,
+.lightbox-demo-content.ts-debug-content-circles,
+.lightbox-demo-content.ts-debug-content-chips,
+.lightbox-demo-content.ts-debug-content-polaroid,
+.lightbox-demo-content.ts-debug-content-fade {
+  /* Always reserve strip room (debug demos don't hide the strip on mobile). */
+  --lightbox-inset-bottom: calc(var(--ts-inset-bottom) + env(safe-area-inset-bottom, 0px));
+}
+
+.lightbox-demo-content.ts-debug-content-bare {
+  /* strip ~3.25rem + caption/gap/footer ~3.25rem */
+  --ts-inset-bottom: 7rem;
+}
+
+.lightbox-demo-content.ts-debug-content-circles {
+  /* strip ~4rem (pad + ring) + chrome */
+  --ts-inset-bottom: 7.75rem;
+}
+
+.lightbox-demo-content.ts-debug-content-chips {
+  --ts-inset-bottom: 6.75rem;
+}
+
+.lightbox-demo-content.ts-debug-content-polaroid {
+  /* larger mattes + 2.25rem pad-block×2 + shadow room + chrome */
+  --ts-inset-bottom: 14.5rem;
+}
+
+.lightbox-demo-content.ts-debug-content-fade {
+  /* taller aspect thumbs + frame + chrome */
+  --ts-inset-bottom: 10rem;
+}
+
+/* -------------------------------------------------------------------------- */
+/* 1. Bare — squares, no indicator                                            */
+/* -------------------------------------------------------------------------- */
+
+.ts-debug-bare[data-ramka-thumbnail-strip] {
+  width: min(100%, 22rem);
+  padding-block: 0.25rem;
+}
+
+.ts-debug-bare [data-ramka-thumbnail-strip-track] {
+  gap: 0.4rem;
+}
+
+.ts-debug-bare [role='tab'] {
+  width: 2.75rem;
+  height: 2.75rem;
+  overflow: hidden;
+  border-radius: 0.35rem;
+  opacity: 0.5;
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 0.12);
+}
+
+.ts-debug-bare [role='tab'][data-active] {
+  opacity: 1;
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 0.28);
+}
+
+/* -------------------------------------------------------------------------- */
+/* 2. Circles + hairline ring indicator                                       */
+/* -------------------------------------------------------------------------- */
+
+.ts-debug-circles[data-ramka-thumbnail-strip] {
+  width: min(100%, 24rem);
+  padding-block: 0.7rem;
+}
+
+.ts-debug-circles [data-ramka-thumbnail-strip-track] {
+  gap: 0.55rem;
+}
+
+.ts-debug-circles [role='tab'] {
+  width: 2.6rem;
+  height: 2.6rem;
+  overflow: hidden;
+  border-radius: 999px;
+  box-shadow:
+    0 0 0 1px rgb(0 0 0 / 0.2),
+    0 1px 2px rgb(0 0 0 / 0.12);
+  opacity: 0.55;
+}
+
+.ts-debug-circles [role='tab'][data-active] {
+  opacity: 1;
+}
+
+.ts-debug-circles [data-ramka-thumbnail-strip-indicator] {
+  width: calc(2.6rem + 10px);
+  height: calc(2.6rem + 10px);
+  border-radius: 999px;
+  /* Dual stroke so the ring reads on light and dark photos */
+  box-shadow:
+    inset 0 0 0 1.5px rgb(255 255 255 / 0.95),
+    0 0 0 1px rgb(0 0 0 / 0.35),
+    0 1px 3px rgb(0 0 0 / 0.25);
+}
+
+/* -------------------------------------------------------------------------- */
+/* 3. Index chips — labels only                                               */
+/* -------------------------------------------------------------------------- */
+
+.ts-debug-chips[data-ramka-thumbnail-strip] {
+  width: min(100%, 20rem);
+  padding-block: 0.35rem;
+}
+
+.ts-debug-chips [data-ramka-thumbnail-strip-track] {
+  gap: 0.35rem;
+}
+
+.ts-debug-chips [role='tab'] {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.25rem;
+  height: 2.25rem;
+  padding-inline: 0.65rem;
+  border-radius: 999px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  /* Readable on the light demo scrim (and dark theme) */
+  color: rgb(0 0 0 / 0.55);
+  background: rgb(0 0 0 / 0.08);
+  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.08);
+}
+
+:is(.dark, [data-theme='dark']) .ts-debug-chips [role='tab'] {
+  color: rgb(255 255 255 / 0.7);
+  background: rgb(255 255 255 / 0.12);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.14);
+}
+
+.ts-debug-chips [role='tab'][data-active] {
+  color: #fff;
+  background: #171717;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.28);
+}
+
+:is(.dark, [data-theme='dark']) .ts-debug-chips [role='tab'][data-active] {
+  color: #111;
+  background: #fff;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.45);
+}
+
+.ts-debug-chips [data-ramka-thumbnail-strip-indicator] {
+  width: 2.25rem;
+  height: 2.25rem;
+}
+
+/* -------------------------------------------------------------------------- */
+/* 4. Polaroids — white matte, soft lift on active                            */
+/* -------------------------------------------------------------------------- */
+
+.ts-debug-polaroid[data-ramka-thumbnail-strip] {
+  --ts-polaroid-w: 4.5rem;
+  --ts-polaroid-h: 5.35rem;
+  --ts-polaroid-outset: 7px;
+  width: min(100%, 34rem);
+  /*
+   * Equal pad so thumbs stay on the indicator midline. Must clear active
+   * `0 10px 22px` drop-shadow + tilted corners inside overflow:clip.
+   */
+  padding-block: 2.25rem;
+}
+
+.ts-debug-polaroid [data-ramka-thumbnail-strip-track] {
+  gap: 0.75rem;
+  /* Must match indicator midline (strip centers thumbs in both axes). */
+  align-items: center;
+}
+
+.ts-debug-polaroid [role='tab'] {
+  width: var(--ts-polaroid-w);
+  height: var(--ts-polaroid-h);
+  padding: 0.35rem 0.35rem 0.85rem;
+  overflow: hidden;
+  border-radius: 0.25rem;
+  background: #f7f4ef;
+  box-shadow:
+    0 0 0 1px rgb(0 0 0 / 0.1),
+    0 1px 2px rgb(0 0 0 / 0.18),
+    0 4px 10px rgb(0 0 0 / 0.12);
+  opacity: 0.78;
+  /* translateZ(0) keeps a compositor layer; tilt lives on inactive only. */
+  transform: translateZ(0);
+  transform-origin: center center;
+  transition:
+    transform 240ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 180ms ease,
+    box-shadow 240ms ease;
+  transition-delay: 0ms;
+}
+
+.ts-debug-polaroid [role='tab']:not([data-active]) {
+  transform: rotate(var(--ts-tilt, 0deg)) translateZ(0);
+}
+
+.ts-debug-polaroid [role='tab'] img {
+  border-radius: 0.12rem;
+  background: #ddd;
+}
+
+.ts-debug-polaroid [role='tab'][data-active] {
+  opacity: 1;
+  transform: translateZ(0);
+  box-shadow:
+    0 0 0 1px rgb(0 0 0 / 0.14),
+    0 2px 4px rgb(0 0 0 / 0.2),
+    0 10px 22px rgb(0 0 0 / 0.22);
+  /* Skip the untilt during fast scroll — only settle after active sticks. */
+  transition-delay: 140ms;
+}
+
+.ts-debug-polaroid [data-ramka-thumbnail-strip-indicator] {
+  width: calc(var(--ts-polaroid-w) + var(--ts-polaroid-outset) * 2);
+  height: calc(var(--ts-polaroid-h) + var(--ts-polaroid-outset) * 2);
+  border-radius: 0.4rem;
+  box-shadow:
+    inset 0 0 0 1px rgb(255 255 255 / 0.55),
+    0 0 0 1px rgb(0 0 0 / 0.18);
+}
+
+/* -------------------------------------------------------------------------- */
+/* 5. Edge fade + aspect thumbs + static frame                                */
+/* -------------------------------------------------------------------------- */
+
+.ts-debug-fade[data-ramka-thumbnail-strip] {
+  --ts-thumb-h: 4.5rem;
+  --ts-fade: 2.5rem;
+  align-self: stretch;
+  width: min(100%, 36rem);
+  padding-block: 0.65rem;
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    #000 var(--ts-fade),
+    #000 calc(100% - var(--ts-fade)),
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    #000 var(--ts-fade),
+    #000 calc(100% - var(--ts-fade)),
+    transparent 100%
+  );
+}
+
+.ts-debug-fade [data-ramka-thumbnail-strip-track] {
+  gap: 0.5rem;
+}
+
+.ts-debug-fade [role='tab'] {
+  height: var(--ts-thumb-h);
+  width: calc(var(--ts-thumb-h) * var(--ts-aspect, 1.5));
+  overflow: hidden;
+  border-radius: 0.45rem;
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 0.14);
+}
+
+.ts-debug-fade [data-ramka-thumbnail-strip-indicator] {
+  width: calc(var(--ts-thumb-h) * 1.78 + 10px);
+  height: calc(var(--ts-thumb-h) + 10px);
+  border-radius: calc(0.45rem + 2px);
+  box-shadow:
+    inset 0 0 0 2px #fff,
+    0 0 0 1px rgb(0 0 0 / 0.35),
+    0 1px 3px rgb(0 0 0 / 0.28);
+}

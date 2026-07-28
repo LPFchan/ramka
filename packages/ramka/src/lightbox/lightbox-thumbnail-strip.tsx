@@ -40,12 +40,14 @@ const thumbnailStripStateAttributesMapping = {
 };
 
 /**
- * Per-thumb `translateX` distances so thumb `i`'s center sits on the thumbnail-strip
- * midline when `translateX = -travels[i]`.
+ * Per-thumb `translateX` distances so thumb `i`'s layout center sits on the
+ * thumbnail-strip midline when `translateX = -travels[i]`.
  *
- * Prefers getBoundingClientRect center deltas (invariant under the track's own
- * translateX; includes flex gap). Falls back to offsetLeft when rects collapse
- * (jsdom).
+ * Uses `offsetLeft` / `offsetWidth` (layout box), not `getBoundingClientRect`.
+ * Rect centers follow the axis-aligned bounding box of CSS transforms — so a
+ * consumer `rotate()` on inactive thumbs would shift travel stops and leave the
+ * upright active thumb off the indicator. Layout offsets ignore those transforms
+ * and still include flex gap. Falls back to rects when offsets collapse (jsdom).
  */
 function measureThumbTravels(thumbs: HTMLElement[]): {
   travels: number[];
@@ -53,16 +55,30 @@ function measureThumbTravels(thumbs: HTMLElement[]): {
 } {
   if (thumbs.length === 0) return { travels: [], widths: [] };
 
-  const widths = thumbs.map((thumb) => {
-    return thumb.getBoundingClientRect().width || thumb.offsetWidth || 0;
-  });
+  const layoutWidths = thumbs.map((thumb) => thumb.offsetWidth || 0);
+  const layoutCenters = thumbs.map(
+    (thumb, i) => thumb.offsetLeft + layoutWidths[i]! / 2,
+  );
+  const layoutOk =
+    layoutWidths.some((w) => w > 0) &&
+    (thumbs.length < 2 || layoutCenters.some((c, i) => i > 0 && c !== layoutCenters[0]));
 
+  if (layoutOk) {
+    const origin = layoutCenters[0]!;
+    return {
+      travels: layoutCenters.map((c) => c - origin),
+      widths: layoutWidths,
+    };
+  }
+
+  const widths = thumbs.map((thumb, i) => {
+    return thumb.getBoundingClientRect().width || layoutWidths[i] || 0;
+  });
   const centers = thumbs.map((thumb, i) => {
     const rect = thumb.getBoundingClientRect();
     if (rect.width > 0) return rect.left + rect.width / 2;
     return thumb.offsetLeft + widths[i]! / 2;
   });
-
   const origin = centers[0]!;
   return {
     travels: centers.map((c) => c - origin),
