@@ -35,11 +35,18 @@ function flushRaf() {
   callbacks.forEach(([, cb]) => cb(0));
 }
 
-/** Fire every live ResizeObserver, then flush the frame it schedules. */
+/**
+ * Fire every live ResizeObserver, then drain the frames it schedules.
+ * A real geometry change pins `activeIndex` via a double-rAF settle (and may
+ * schedule `scrollToIndex` restore frames) — leave those pending and
+ * `resizingRef` stays true, which would suppress later swipe→index updates.
+ */
 function flushResizeObservers() {
   act(() => {
     roInstances.forEach((o) => o.cb([], o as unknown as ResizeObserver));
   });
+  act(() => flushRaf());
+  act(() => flushRaf());
   act(() => flushRaf());
 }
 
@@ -216,6 +223,53 @@ describe('Lightbox.Slides', () => {
     const viewport = screen.getByTestId('slides');
     setupGeometry(viewport, 8);
     expect(viewport.scrollLeft).toBe(3 * WIDTH);
+  });
+
+  it('opts the slides viewport out of CSS scroll anchoring', () => {
+    render(<SlidesLightbox />);
+    expect(screen.getByTestId('slides').style.overflowAnchor).toBe('none');
+  });
+
+  it('keeps the active index on viewport resize when scrollLeft is temporarily stale', () => {
+    render(<SlidesLightbox defaultValue={3} />);
+    const viewport = screen.getByTestId('slides');
+    setupGeometry(viewport, 8);
+    expect(activeThumb()).toBe(3);
+    expect(viewport.scrollLeft).toBe(3 * WIDTH);
+
+    // Layout shrink: slide geometry updates but scrollLeft is still the
+    // pre-resize px. Nearest-index with the new step would pick a different
+    // slide — resize must pin `activeIndex` instead of adopting that.
+    const NEW = 50;
+    Object.defineProperty(viewport, 'clientWidth', { configurable: true, get: () => NEW });
+    Object.defineProperty(viewport, 'scrollWidth', { configurable: true, get: () => NEW * 8 });
+    viewport.querySelectorAll<HTMLElement>('[data-ramka-slide]').forEach((slide, i) => {
+      Object.defineProperty(slide, 'offsetLeft', { configurable: true, get: () => i * NEW });
+      Object.defineProperty(slide, 'offsetWidth', { configurable: true, get: () => NEW });
+    });
+    expect(viewport.scrollLeft).toBe(3 * WIDTH); // 300 → would map to index 6 at NEW=50
+
+    // Fire RO without draining the double-rAF settle so `resizingRef` stays true.
+    act(() => {
+      roInstances.forEach((o) => o.cb([], o as unknown as ResizeObserver));
+    });
+    act(() => flushRaf()); // scrollToIndex restore + outer resize frame
+
+    // Mid-resize echo with a "wrong" scrollLeft must not update the marker.
+    act(() => {
+      viewport.scrollLeft = 6 * NEW;
+      fireEvent.scroll(viewport);
+      flushRaf();
+    });
+    expect(activeThumb()).toBe(3);
+
+    // Finish resize settle (inner rAF re-pins active, then jump frames).
+    act(() => flushRaf());
+    act(() => flushRaf());
+    act(() => flushRaf());
+
+    expect(activeThumb()).toBe(3);
+    expect(viewport.scrollLeft).toBe(3 * NEW);
   });
 
   it('jumps to the exact snap offset on programmatic navigation (thumbnail click) at rest', () => {

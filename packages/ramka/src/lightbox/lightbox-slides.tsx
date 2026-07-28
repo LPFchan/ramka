@@ -131,6 +131,14 @@ const LightboxSlides = React.forwardRef<HTMLDivElement, LightboxSlidesProps>(
     const jumpTargetRef = React.useRef(0);
     /** Bumps on every `scrollToIndex` so superseded rAF tails no-op. */
     const jumpGenRef = React.useRef(0);
+    /**
+     * True while a viewport resize is re-snapping to `activeIndex`. Mid-resize
+     * `scrollLeft` is stale px (slides are % width) — must not be read as a
+     * user swipe or the active item jumps. See `overflow-anchor: none` + RO.
+     */
+    const resizingRef = React.useRef(false);
+    /** Bumps on every resize pass so superseded re-snap rAF tails no-op. */
+    const resizeGenRef = React.useRef(0);
     const repaintTimerRef = React.useRef(0);
     // setTimeout id for the scroll-idle fallback that clears the lock in browsers
     // without (or that miss) `scrollend`.
@@ -255,12 +263,32 @@ const LightboxSlides = React.forwardRef<HTMLDivElement, LightboxSlidesProps>(
         ) {
           return;
         }
+
+        // Hold scroll→index updates: layout leaves scrollLeft in stale px while
+        // slide widths (% / cqw) change, so nearest-index math picks the wrong
+        // slide until we re-snap. Chrome's snap-after-layout helps; Safari less
+        // so — we always pin `activeIndex` and ignore mid-resize scroll echoes.
+        const gen = (resizeGenRef.current += 1);
+        resizingRef.current = true;
+        navigationLockedRef.current = false;
+        window.clearTimeout(idleTimerRef.current);
+        idleTimerRef.current = 0;
+
         notifySlidesViewport();
         scrollToIndex(activeIndexRef.current);
+
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            if (gen !== resizeGenRef.current) return;
+            // Second pin after UA snap-after-layout / anchoring has settled.
+            scrollToIndex(activeIndexRef.current);
+            resizingRef.current = false;
+          });
+        });
       });
       observer.observe(viewport);
       return () => observer.disconnect();
-    }, [itemCount, scrollToIndex, notifySlidesViewport]);
+    }, [itemCount, scrollToIndex, notifySlidesViewport, navigationLockedRef]);
 
     // Drive scroll position from the active index. Skip when the viewport is
     // already showing it (our own swipe-derived updates, which must not
@@ -288,6 +316,8 @@ const LightboxSlides = React.forwardRef<HTMLDivElement, LightboxSlidesProps>(
         idleTimerRef.current = 0;
         navigationLockedRef.current = false;
         programmaticRef.current = false;
+        // Resize re-snap owns the marker — don't adopt a stale mid-layout index.
+        if (resizingRef.current) return;
         const derived = indexFromScroll(viewport);
         if (derived !== activeIndexRef.current) setActiveIndex(derived, 'scroll');
       };
@@ -316,7 +346,7 @@ const LightboxSlides = React.forwardRef<HTMLDivElement, LightboxSlidesProps>(
         // Entire programmatic jump window (exact set + snap restore): ignore.
         // Clearing happens in `scrollToIndex`'s rAF tail — do not clear here on
         // "near target", or the restore frame's scroll is misclassified as a fling.
-        if (programmaticRef.current) {
+        if (programmaticRef.current || resizingRef.current) {
           // Race: `onScroll` may have locked in the same frame before
           // `scrollToIndex` flipped `programmaticRef`. Undo the false fling
           // lock so open/jump doesn't suppress gestures until a user swipe.
@@ -346,7 +376,7 @@ const LightboxSlides = React.forwardRef<HTMLDivElement, LightboxSlidesProps>(
         // the lock lets zoom arm a pinch mid-swipe. Skip programmatic jumps and
         // open/snap echoes still parked on the jump target (those used to leave
         // `navigationLockedRef` stuck true on the first slide).
-        if (!programmaticRef.current && !isParkedOnJumpTarget()) {
+        if (!programmaticRef.current && !resizingRef.current && !isParkedOnJumpTarget()) {
           lockUserScroll();
         }
         if (frame === 0) frame = requestAnimationFrame(process);
@@ -469,6 +499,10 @@ const LightboxSlides = React.forwardRef<HTMLDivElement, LightboxSlidesProps>(
                 // animations that snap-stop:always could intercept.
                 scrollBehavior: 'auto',
                 scrollbarWidth: 'none',
+                // Carousels: opt out of scroll anchoring. Default `auto` can nudge
+                // `scrollLeft` during resize/reflow and fight snap-after-layout /
+                // our active-index pin (Chromium carousel footguns do the same).
+                overflowAnchor: 'none',
                 ...style,
                 // Size container so snug stage/snap CSS can use cqw/cqh against
                 // this scrollport (consumer styles; not a new prop).
