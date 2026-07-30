@@ -314,7 +314,7 @@ html.dark .lb-backdrop {
 }
 
 .lb-bottom {
-  /* Let taps pass through the inset band to the image; re-enable on the strip below. */
+  /* Click-through the inset band; caption opts back in for text selection. */
   pointer-events: none;
   position: absolute;
   inset-inline: 0;
@@ -358,6 +358,9 @@ html.dark .lb-counter {
 }
 
 .lb-caption {
+  pointer-events: auto;
+  -webkit-user-select: text;
+  user-select: text;
   display: block;
   min-height: 1.25rem;
   max-width: 100%;
