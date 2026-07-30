@@ -195,6 +195,8 @@ function ThumbnailGroup(props: React.ComponentProps<typeof RamkaLightbox.Thumbna
 /* ── Composed Gallery (product chrome) ──────────────────────────────────── */
 
 function GalleryThumbnailStrip({ items }: { items: LightboxItem[] }) {
+  if (items.length <= 1) return null;
+
   return (
     <ThumbnailStrip className="lb-thumbnail-strip-desktop">
       <ThumbnailStripTrack aria-label="Photo thumbnails">
@@ -322,7 +324,13 @@ function Gallery({
           <Close />
         </div>
 
-        <div className={cx('lb-bottom', 'lb-chrome-pull-hide')}>
+        <div
+          className={cx(
+            'lb-bottom',
+            'lb-chrome-pull-hide',
+            items.length <= 1 && 'lb-bottom-solo',
+          )}
+        >
           <Caption />
           <GalleryThumbnailStrip items={items} />
         </div>
