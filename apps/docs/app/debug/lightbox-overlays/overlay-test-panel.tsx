@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { ChevronDown, Info, MoreHorizontal, Settings2 } from 'lucide-react';
+import { ChevronDown, HelpCircle, Info, MoreHorizontal, Settings2 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -161,6 +161,29 @@ export function OverlayTestPanel({ slideIndex, slideCount }: OverlayTestPanelPro
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-3 text-sm">
+                <div className="flex items-start gap-2 rounded-lg border border-border/60 bg-muted/40 p-3">
+                  <Tooltip>
+                    <TooltipTrigger
+                      render={
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          className="mt-0.5 shrink-0"
+                          aria-label="About dialog tooltips"
+                        />
+                      }
+                    >
+                      <HelpCircle />
+                    </TooltipTrigger>
+                    <TooltipContent side="right" className="max-w-xs text-left">
+                      Tooltip inside a nested dialog. Escape should dismiss this tooltip
+                      before the dialog, and the dialog before the lightbox.
+                    </TooltipContent>
+                  </Tooltip>
+                  <p className="text-muted-foreground">
+                    Hover the help icon to open a tooltip portaled above this dialog.
+                  </p>
+                </div>
                 <p>
                   Open a second dialog to test stacked focus management and backdrop
                   layering.

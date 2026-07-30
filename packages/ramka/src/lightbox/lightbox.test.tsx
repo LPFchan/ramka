@@ -899,6 +899,37 @@ describe('Lightbox', () => {
 
       expect(document.activeElement).toBe(screen.getByTestId('content'));
     });
+
+    it('allows focus to stay in a portaled overlay outside the dialog subtree', async () => {
+      render(
+        <LightboxRoot defaultOpen defaultValue={0}>
+          <LightboxPortal>
+            <LightboxContent data-testid="content" aria-label="Portaled overlay test">
+              <button data-testid="in-dialog" type="button">
+                In dialog
+              </button>
+            </LightboxContent>
+          </LightboxPortal>
+        </LightboxRoot>,
+      );
+
+      const portalHost = document.createElement('div');
+      document.body.appendChild(portalHost);
+      const portaledButton = document.createElement('button');
+      portaledButton.type = 'button';
+      portaledButton.textContent = 'Portaled menu item';
+      portalHost.appendChild(portaledButton);
+
+      screen.getByTestId('in-dialog').focus();
+      await act(async () => {
+        portaledButton.focus();
+        await Promise.resolve();
+      });
+
+      expect(document.activeElement).toBe(portaledButton);
+
+      portalHost.remove();
+    });
   });
 
   // ---------------------------------------------------------------------------
