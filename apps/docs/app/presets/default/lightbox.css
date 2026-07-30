@@ -233,31 +233,30 @@ html.dark .lb-backdrop {
   }
 }
 
-/* Inactive snug cards track pull + zoom; active card opts out. */
-.lb-slide-snug {
+/* Inactive snug items track pull + zoom; active item opts out. */
+.lb-slide-snug [data-ramka-item] {
   transition: opacity var(--lightbox-pull-snap-duration, 500ms)
     var(--lightbox-pull-snap-easing, var(--lb-ease-out-expo));
+}
+
+.lb-slide-snug [data-ramka-item]:not([data-active]) {
+  --lb-snug-dim: max(var(--lightbox-pull-progress, 0), var(--lightbox-zoom-progress, 0));
   opacity: calc(1 - var(--lightbox-pull-progress, 0) * 0.85);
-  filter: opacity(calc(1 - var(--lightbox-zoom-progress, 0)))
-    blur(calc(var(--lightbox-zoom-progress, 0) * 6px));
+  filter: opacity(calc(1 - var(--lb-snug-dim)))
+    blur(calc(var(--lb-snug-dim) * 6px));
 }
 
-.lb-content[data-pulling] .lb-slide-snug {
+.lb-content[data-pulling] .lb-slide-snug [data-ramka-item] {
   transition: none;
-}
-
-.lb-slide-snug:has([data-active]) {
-  opacity: 1;
-  filter: none;
 }
 
 .lb-content[data-zoomed] .lb-slide-snug {
   pointer-events: none;
 }
 
-.lb-content[data-zoomed] .lb-slide-snug:has([data-active]) {
+.lb-content[data-zoomed] .lb-slide-snug:has([data-ramka-item][data-active]) {
   pointer-events: auto;
-  z-index: 20;
+  z-index: 1;
 }
 
 /* ── Chrome (counter, controls, caption, strip) ─────────────────────────── */
