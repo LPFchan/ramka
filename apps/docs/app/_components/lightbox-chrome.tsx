@@ -92,6 +92,12 @@ export function galleryItemDims(item: LightboxGalleryItem): { width: number; hei
   return imgDims(item.src);
 }
 
+/** Width/height ratio for snug slide width + end-spacer geometry. */
+export function galleryItemAspectRatio(item: LightboxGalleryItem): number {
+  const dims = galleryItemDims(item);
+  return dims ? dims.width / dims.height : 16 / 9;
+}
+
 type GalleryItemRenderCtx = {
   imageRef: (node: HTMLImageElement | null) => void;
   morphRef: (node: HTMLElement | null) => void;
@@ -174,6 +180,13 @@ export function LightboxGallery({
 
   const backdropTone = backdrop === 'solid' ? 'bg-white dark:bg-black' : 'lightbox-demo-backdrop-light';
   const snug = slidesLayout === 'snug';
+  const snugEdgeRatios =
+    snug && items.length > 0
+      ? {
+          start: galleryItemAspectRatio(items[0]!),
+          end: galleryItemAspectRatio(items[items.length - 1]!),
+        }
+      : null;
 
   return (
     <Lightbox.Portal>
@@ -192,10 +205,17 @@ export function LightboxGallery({
                 'lightbox-demo-slides lightbox-demo-slides-snug flex-1 [&::-webkit-scrollbar]:hidden'
               : 'lightbox-demo-slides flex-1 gap-5 [&::-webkit-scrollbar]:hidden md:gap-0'
           }
+          style={
+            snugEdgeRatios
+              ? ({
+                  '--lightbox-snug-ratio-start': snugEdgeRatios.start,
+                  '--lightbox-snug-ratio-end': snugEdgeRatios.end,
+                } as React.CSSProperties)
+              : undefined
+          }
         >
           {items.map((item, i) => {
-            const dims = galleryItemDims(item);
-            const ratio = dims ? dims.width / dims.height : 16 / 9;
+            const ratio = galleryItemAspectRatio(item);
             return (
               <Lightbox.Slide
                 key={item.id ?? i}
@@ -207,13 +227,13 @@ export function LightboxGallery({
                 }
                 style={
                   snug
-                    ? {
+                    ? ({
                         // Override Slide’s baked `flex: 0 0 100%` for md+ card width.
-                        // Mobile forces full width in `snug-slides.css`.
+                        // Width formula lives in `snug-slides.css` via `--lightbox-snug-ratio`.
                         flex: '0 0 auto',
                         minWidth: 0,
-                        width: `min(calc(100cqw - 2 * var(--lightbox-inset-inline)), calc((100cqh - var(--lightbox-inset-top) - var(--lightbox-inset-bottom)) * ${ratio}))`,
-                      }
+                        '--lightbox-snug-ratio': ratio,
+                      } as React.CSSProperties)
                     : undefined
                 }
               >
