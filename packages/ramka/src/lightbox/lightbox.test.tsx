@@ -1,5 +1,6 @@
 import { render, screen, fireEvent, act, cleanup } from '@testing-library/react';
 import * as React from 'react';
+import * as ReactDOM from 'react-dom';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
@@ -787,6 +788,52 @@ describe('Lightbox', () => {
       fireEvent.keyDown(screen.getByTestId('descendant'), { key: 'ArrowRight' });
 
       // Content bailed out, so the active item is unchanged.
+      expect(screen.getByTestId('item-0')).toHaveAttribute('aria-hidden', 'false');
+      expect(screen.getByTestId('item-1')).toHaveAttribute('aria-hidden', 'true');
+    });
+
+    it('ignores keys whose DOM target is in a React portal outside the dialog host', () => {
+      function PortaledMenuItem() {
+        const [host] = React.useState(() => {
+          const node = document.createElement('div');
+          node.setAttribute('data-testid', 'menu-portal-host');
+          return node;
+        });
+
+        React.useEffect(() => {
+          document.body.appendChild(host);
+          return () => {
+            host.remove();
+          };
+        }, [host]);
+
+        return ReactDOM.createPortal(
+          <button data-testid="portaled-menu-item" type="button">
+            Download
+          </button>,
+          host,
+        );
+      }
+
+      render(
+        <LightboxRoot defaultOpen defaultValue={0}>
+          <LightboxPortal>
+            <LightboxContent data-testid="content" aria-label="Portal key test">
+              <PortaledMenuItem />
+              <LightboxItemGroup preload={1}>
+                {Array.from({ length: 3 }, (_, i) => (
+                  <LightboxItem key={`i-${i}`} index={i} data-testid={`item-${i}`}>
+                    Item {i}
+                  </LightboxItem>
+                ))}
+              </LightboxItemGroup>
+            </LightboxContent>
+          </LightboxPortal>
+        </LightboxRoot>,
+      );
+
+      fireEvent.keyDown(screen.getByTestId('portaled-menu-item'), { key: 'ArrowRight' });
+
       expect(screen.getByTestId('item-0')).toHaveAttribute('aria-hidden', 'false');
       expect(screen.getByTestId('item-1')).toHaveAttribute('aria-hidden', 'true');
     });

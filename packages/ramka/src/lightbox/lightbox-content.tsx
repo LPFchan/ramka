@@ -272,11 +272,16 @@ const LightboxContent = React.forwardRef<HTMLDivElement, LightboxContentProps>(
 
     // Keyboard is owned entirely by Content — the single authority while focus
     // is inside this dialog. Portaled overlays (menu, dialog, etc.) keep focus
-    // outside this subtree so their document-level Escape handlers run first.
+    // outside this subtree; React still re-bubbles their key events through the
+    // React tree, so ignore keys whose DOM target is outside this host element.
     const handleKeyDown = React.useCallback(
       (event: React.KeyboardEvent) => {
         // Parked keepMounted content stays in the DOM but must not handle keys.
         if (!mounted) return;
+
+        const el = contentRef.current;
+        const target = event.target as Node | null;
+        if (el && target && !el.contains(target)) return;
 
         // A descendant (e.g. a Lightbox.Slides viewport or the thumbnail
         // group) already handled this key and called preventDefault. Defer so
