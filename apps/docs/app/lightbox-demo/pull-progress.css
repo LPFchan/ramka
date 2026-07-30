@@ -1,7 +1,7 @@
 /**
  * Fade Backdrop (and snug sibling slides) with pull-to-dismiss progress
  * (open/close base fade lives in open-close.css). Chrome fades separately via
- * Tailwind `data-pulling` selectors in lightbox-chrome.
+ * Chrome fades separately via `.lightbox-demo-chrome-hide` below.
  *
  * @docsExcerpt pull-progress-css
  * @docsExcerptTitle Pull progress CSS
@@ -40,13 +40,49 @@
   transition: none;
 }
 
-.lightbox-demo-content[data-zoomed] .lightbox-demo-slide-snug {
-  pointer-events: none;
+.lightbox-demo-content[data-zoomed] .lightbox-demo-slide-snug:has([data-ramka-item][data-active]) {
+  z-index: 1;
 }
 
-.lightbox-demo-content[data-zoomed] .lightbox-demo-slide-snug:has([data-ramka-item][data-active]) {
-  pointer-events: auto;
-  z-index: 1;
+/* Chrome fade — visibility keeps hidden controls out of tab order. */
+.lightbox-demo-chrome-hide {
+  opacity: 1;
+  visibility: visible;
+  transition:
+    opacity 200ms,
+    visibility 0s linear 0s;
+}
+
+@starting-style {
+  .lightbox-demo-chrome-hide {
+    opacity: 0;
+  }
+}
+
+.lightbox-demo-content:is([data-pulling], [data-pull-dismissing]) .lightbox-demo-chrome-hide {
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 200ms,
+    visibility 0s linear 200ms;
+}
+
+.lightbox-demo-content[data-zoomed] .lightbox-demo-chrome-bottom.lightbox-demo-chrome-hide {
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 200ms,
+    visibility 0s linear 200ms;
+}
+
+@media (max-width: 767px) {
+  .lightbox-demo-content[data-zoomed] .lightbox-demo-chrome-top.lightbox-demo-chrome-hide {
+    opacity: 0;
+    visibility: hidden;
+    transition:
+      opacity 200ms,
+      visibility 0s linear 200ms;
+  }
 }
 
 /* Light scrim used by LightboxGallery (responsive-gallery chrome). */

@@ -250,57 +250,76 @@ html.dark .lb-backdrop {
   transition: none;
 }
 
-.lb-content[data-zoomed] .lb-slide-snug {
-  pointer-events: none;
-}
-
 .lb-content[data-zoomed] .lb-slide-snug:has([data-ramka-item][data-active]) {
-  pointer-events: auto;
   z-index: 1;
 }
 
 /* ── Chrome (counter, controls, caption, strip) ─────────────────────────── */
 
+/* Chrome fade — visibility keeps hidden controls out of tab order (pointer-events does not). */
 .lb-chrome-pull-hide {
-  transition: opacity 200ms;
+  opacity: 1;
+  visibility: visible;
+  transition:
+    opacity 200ms,
+    visibility 0s linear 0s;
 }
 
-.lb-content[data-pulling] .lb-chrome-pull-hide,
-.lb-content[data-pull-dismissing] .lb-chrome-pull-hide {
-  pointer-events: none;
+@starting-style {
+  .lb-chrome-pull-hide {
+    opacity: 0;
+  }
+}
+
+.lb-content:is([data-pulling], [data-pull-dismissing]) .lb-chrome-pull-hide {
   opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 200ms,
+    visibility 0s linear 200ms;
+}
+
+.lb-content[data-zoomed] .lb-bottom.lb-chrome-pull-hide {
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 200ms,
+    visibility 0s linear 200ms;
+}
+
+@media (max-width: 767px) {
+  .lb-content[data-zoomed] :is(.lb-top-left, .lb-top-right).lb-chrome-pull-hide {
+    opacity: 0;
+    visibility: hidden;
+    transition:
+      opacity 200ms,
+      visibility 0s linear 200ms;
+  }
 }
 
 .lb-top-left {
   position: absolute;
   left: 0.75rem;
   top: calc(0.75rem + env(safe-area-inset-top, 0px));
-  z-index: 30;
+  z-index: 1;
 }
 
 .lb-top-right {
   position: absolute;
   right: 0.75rem;
   top: calc(0.75rem + env(safe-area-inset-top, 0px));
-  z-index: 30;
+  z-index: 1;
   display: flex;
   gap: 0.5rem;
 }
 
-@media (max-width: 767px) {
-  .lb-content[data-zoomed] .lb-top-left,
-  .lb-content[data-zoomed] .lb-top-right {
-    pointer-events: none;
-    opacity: 0;
-  }
-}
-
 .lb-bottom {
+  /* Let taps pass through the inset band to the image; re-enable on the strip below. */
   pointer-events: none;
   position: absolute;
   inset-inline: 0;
   bottom: 0;
-  z-index: 30;
+  z-index: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -308,7 +327,6 @@ html.dark .lb-backdrop {
   min-height: var(--lightbox-inset-bottom);
   padding-inline: 0.75rem;
   padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
-  transition: opacity 200ms;
 }
 
 /* Multi-item: grow the caption band and center text between image and strip. */
@@ -326,10 +344,6 @@ html.dark .lb-backdrop {
   padding-bottom: 0;
 }
 
-.lb-content[data-zoomed] .lb-bottom {
-  opacity: 0;
-}
-
 .lb-counter {
   min-width: 3.5rem;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
@@ -344,7 +358,6 @@ html.dark .lb-counter {
 }
 
 .lb-caption {
-  pointer-events: auto;
   display: block;
   min-height: 1.25rem;
   max-width: 100%;
@@ -364,7 +377,6 @@ html.dark .lb-caption {
 
 /* iOS-style liquid-glass control */
 .lb-control {
-  pointer-events: auto;
   display: inline-flex;
   height: 2.25rem;
   width: 2.25rem;
@@ -486,7 +498,7 @@ html.dark .lb-control:focus-visible {
 .lb-thumbnail-strip {
   --lb-thumb-h: 3.5rem;
   --lb-strip-fade: 32px;
-  pointer-events: auto;
+  pointer-events: auto; /* counteract .lb-bottom click-through */
   align-self: stretch;
   width: 100%;
   min-width: 0;
@@ -559,7 +571,6 @@ html.dark .lb-control:focus-visible {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  pointer-events: none;
 }
 
 .lb-thumbnail-strip-indicator {
@@ -571,7 +582,7 @@ html.dark .lb-control:focus-visible {
   height: calc(var(--lb-thumb-h) + 8px);
   border-radius: calc(0.375rem + 2px);
   border: 2px solid #000;
-  pointer-events: none;
+  pointer-events: none; /* decorative ring over the active tab */
   transform: translate(-50%, -50%);
 }
 
