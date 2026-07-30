@@ -227,13 +227,7 @@ export function LightboxGallery({
                 }
                 style={
                   snug
-                    ? ({
-                        // Override Slide’s baked `flex: 0 0 100%` for md+ card width.
-                        // Width formula lives in `snug-slides.css` via `--lightbox-snug-ratio`.
-                        flex: '0 0 auto',
-                        minWidth: 0,
-                        '--lightbox-snug-ratio': ratio,
-                      } as React.CSSProperties)
+                    ? ({ '--lightbox-snug-ratio': ratio } as React.CSSProperties)
                     : undefined
                 }
               >

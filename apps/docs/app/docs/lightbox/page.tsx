@@ -97,9 +97,11 @@ export default function LightboxOverviewPage() {
               Cosmetics vs mechanics
             </strong>{' '}
             — colors, chrome, and radius <em>values</em> are yours. Structural styles (morph host box, zoom
-            overflow, placeholders) are applied by the library or via Media{' '}
-            <code className="text-xs">width</code>/<code className="text-xs">height</code>. Style with
-            documented <code className="text-xs">data-*</code> attributes and CSS variables from the{' '}
+            overflow, slide snap alignment, placeholders) are applied by the library or via Media{' '}
+            <code className="text-xs">width</code>/<code className="text-xs">height</code>; slide track width
+            (full-bleed vs snug cards) is consumer CSS — see{' '}
+            <DocsLink href={`${lightboxDocsPages.composition.href}#slides`}>Composition → Slides + Zoom</DocsLink>.
+            Style with documented <code className="text-xs">data-*</code> attributes and CSS variables from the{' '}
             <DocsLink href={lightboxDocsPages.api.href}>API reference</DocsLink>.
           </li>
         </ol>

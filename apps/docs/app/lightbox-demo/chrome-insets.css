@@ -39,9 +39,24 @@
   padding-top: var(--lightbox-inset-top);
   padding-bottom: var(--lightbox-inset-bottom);
   padding-inline: var(--lightbox-inset-inline);
+  /* Default track: one scrollport per slide (bleed + snug mobile). */
+  flex: 0 0 100%;
+  min-width: 100%;
 }
 
 /* Snug: no horizontal pad on each card — gutter is the width formula only. */
 .lightbox-demo-content-snug .lightbox-demo-slide-pad {
   padding-inline: 0;
 }
+
+/* @docs-excerpt-start slide-track-css */
+/* @docs-excerpt-title Slide track (full-bleed carousel) */
+/*
+ * Default bleed track — one scrollport width per slide.
+ * Slides geometry assumes center snap (built into Lightbox.Slide).
+ */
+[data-ramka-slide] {
+  flex: 0 0 100%;
+  min-width: 100%;
+}
+/* @docs-excerpt-end */

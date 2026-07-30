@@ -9,11 +9,11 @@ import { LightboxSlideDataAttributes } from './lightbox-data-attributes';
  * `Lightbox.Slide` — one snap box inside `Lightbox.Slides`.
  *
  * It is the scroll child that the native snap engine positions, so it carries
- * the snap contract (`flex: 0 0 100%`, `scroll-snap-align: center`,
- * `scroll-snap-stop: always`, `overflow: visible`) and the `data-ramka-slide`
- * marker that `Lightbox.Slides` measures for its offset-based geometry. Override
- * `flex` / `minWidth` / width via `style` when slides should hug media instead of
- * spanning the viewport (geometry stores per-slide snap offsets either way).
+ * the snap contract (`scroll-snap-align: center`, `scroll-snap-stop: always`,
+ * `overflow: visible`) and the `data-ramka-slide` marker that `Lightbox.Slides`
+ * measures for its offset-based geometry. Slide **width** (full-bleed,
+ * aspect-sized snug cards, …) is consumer CSS — set `flex` / `width` / `min-width`
+ * on this element or via `className` / `style`.
  *
  * Put a `Lightbox.Item` *inside* the slide (not the slide itself): pull-to-dismiss
  * transforms the item, and keeping that transform off the snap box means the
@@ -49,11 +49,6 @@ const LightboxSlide = React.forwardRef<HTMLDivElement, LightboxSlideProps>(
         {
           [LightboxSlideDataAttributes.slide]: '',
           style: {
-            // One viewport per slide; the browser snaps its center. `min-width`
-            // is belt-and-suspenders so the box can't be squeezed by flex even
-            // if a consumer forgets `shrink-0`.
-            flex: '0 0 100%',
-            minWidth: '100%',
             scrollSnapAlign: 'center',
             scrollSnapStop: 'always',
             // Snap box only — allow a scrollport-sized Item/Zoom stage (and

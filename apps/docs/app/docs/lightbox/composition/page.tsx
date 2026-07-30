@@ -50,6 +50,11 @@ export default function LightboxCompositionPage() {
           </li>
         </ul>
         <CodeBlock code={lightboxExcerpts['slides-nesting'].code} title={lightboxExcerpts['slides-nesting'].title} />
+        <CodeBlock
+          code={lightboxExcerpts['slide-track-css'].code}
+          title={lightboxExcerpts['slide-track-css'].title}
+          lang="css"
+        />
       </DocsSection>
 
       <DocsSection id="media-layout" title="Media layout">
@@ -57,9 +62,17 @@ export default function LightboxCompositionPage() {
           Ramka is <em>cosmetically</em> unstyled — colors and chrome are yours — but Media may apply{' '}
           <em>structural</em> fit-box styles via <code className="text-xs">width</code>/
           <code className="text-xs">height</code> (same idea as Next.js <code className="text-xs">&lt;Image&gt;</code>)
-          so the morph target has a correct aspect before pixels load. Nothing sizes Slide / Item / Zoom for you: for a
-          fullscreen gallery, make the media stack fill <DocsLink href={lightboxApiHref.content}>Content</DocsLink> so
-          when Zoom scales past 1× the image can cover the viewport and is not clipped by a shorter ancestor.
+          so the morph target has a correct aspect before pixels load. Slide width is consumer CSS too —{' '}
+          <DocsLink href={lightboxApiHref.slide}>Slide</DocsLink> only bakes in snap alignment (
+          <code className="text-xs">scroll-snap-align: center</code>,{' '}
+          <code className="text-xs">scroll-snap-stop: always</code>); you size each snap box. For a
+          full-bleed carousel, use <code className="text-xs">flex: 0 0 100%</code> and{' '}
+          <code className="text-xs">min-width: 100%</code> on each slide (see snippet below). Snug /
+          variable-width tracks use a different width formula — see{' '}
+          <DocsLink href="/presets/default">Default preset</DocsLink> or{' '}
+          <DocsLink href="/examples/lightbox/moodboard-snug">Moodboard (snug slides)</DocsLink>. Item
+          and Zoom fill the slide content box; size the stack so when Zoom scales past 1× the image can
+          cover the viewport and is not clipped by a shorter ancestor.
         </p>
         <ul className="list-disc space-y-2 pl-5">
           <li>
@@ -70,8 +83,10 @@ export default function LightboxCompositionPage() {
             <code className="text-xs">Slides</code> — <code className="text-xs">flex-1</code> (or equivalent stretch)
           </li>
           <li>
-            <code className="text-xs">Slide</code> — <code className="text-xs">h-full</code>; put chrome / safe-area
-            insets here as padding (not on Zoom)
+            <code className="text-xs">Slide</code> —{' '}
+            <code className="text-xs">flex: 0 0 100%; min-width: 100%</code> for a full-bleed track;{' '}
+            <code className="text-xs">h-full</code> for height; put chrome / safe-area insets here as padding (not on
+            Zoom)
           </li>
           <li>
             <code className="text-xs">Item</code> — already fills the Slide (<code className="text-xs">width/height: 100%</code>)

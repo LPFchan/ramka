@@ -107,6 +107,11 @@ export const lightboxExcerpts = {
     code: "import { Lightbox } from 'ramka';\n\n<Lightbox.Root\n  scrollTriggerIntoView={[\n    { type: 'onChange', behavior: 'instant' },\n    { type: 'onOpenComplete', behavior: 'instant' },\n  ]}\n>\n  {/* triggers + content */}\n</Lightbox.Root>\n",
     source: "app/_content/lightbox/excerpts/sources/scroll-trigger-into-view.tsx",
   },
+  "slide-track-css": {
+    title: "Slide track (full-bleed carousel)",
+    code: "/*\n * Default bleed track — one scrollport width per slide.\n * Slides geometry assumes center snap (built into Lightbox.Slide).\n */\n[data-ramka-slide] {\n  flex: 0 0 100%;\n  min-width: 100%;\n}\n",
+    source: "app/lightbox-demo/chrome-insets.css",
+  },
   "slides-nesting": {
     title: "Slides + Slide nesting",
     code: "import { Lightbox } from 'ramka';\n\n<Lightbox.Root>\n  <Lightbox.Portal>\n    <Lightbox.Backdrop />\n    <Lightbox.Content>\n      <Lightbox.Slides preload={1}>\n        {items.map((item, i) => (\n          <Lightbox.Slide key={item.id}>\n            <Lightbox.Item index={i}>\n              <Lightbox.Zoom>\n                <Lightbox.Media>\n                  <img src={item.src} alt={item.alt} />\n                </Lightbox.Media>\n              </Lightbox.Zoom>\n            </Lightbox.Item>\n          </Lightbox.Slide>\n        ))}\n      </Lightbox.Slides>\n    </Lightbox.Content>\n  </Lightbox.Portal>\n</Lightbox.Root>\n",

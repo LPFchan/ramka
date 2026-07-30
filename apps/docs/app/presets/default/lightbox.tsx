@@ -280,11 +280,7 @@ function Gallery({
                 className={snug ? 'lb-slide-snug' : undefined}
                 style={
                   snug
-                    ? ({
-                        flex: '0 0 auto',
-                        minWidth: 0,
-                        '--lightbox-snug-ratio': ratio,
-                      } as React.CSSProperties)
+                    ? ({ '--lightbox-snug-ratio': ratio } as React.CSSProperties)
                     : undefined
                 }
               >

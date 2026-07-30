@@ -187,7 +187,7 @@ export const lightboxApiMeta: ApiPartMeta[] = [
     id: 'api-slides',
     name: 'Slides',
     description:
-      'Default layout: horizontal snap carousel wired to the active index. Exposes the WAI-ARIA carousel container (role="group", aria-roledescription="carousel") — give it a label via aria-label / aria-labelledby. Provides ItemGroup context; put Slide → Item → Zoom → Media inside. While the user is flinging, navigation is locked so pull-to-dismiss and zoom chrome do not fight the scroll.',
+      'Default layout: horizontal snap carousel wired to the active index. Exposes the WAI-ARIA carousel container (role="group", aria-roledescription="carousel") — give it a label via aria-label / aria-labelledby. Provides ItemGroup context; put Slide → Item → Zoom → Media inside. Consumer CSS sizes each Slide snap box (e.g. flex 0 0 100% for full-bleed); index geometry measures offsetLeft/offsetWidth. While the user is flinging, navigation is locked so pull-to-dismiss and zoom chrome do not fight the scroll.',
     extract: {
       kind: 'interface-props',
       typeName: 'LightboxSlidesProps',
@@ -204,7 +204,7 @@ export const lightboxApiMeta: ApiPartMeta[] = [
     id: 'api-slide',
     name: 'Slide',
     description:
-      'One snap-aligned slide box inside Slides. Place a Lightbox.Item (and typically Zoom → Media) inside. Prefer putting resting chrome / safe-area insets as padding on Slide (not Zoom) so Item/Zoom fill the content box and zoomed media can paint into the pad under chrome.',
+      'One snap-aligned slide box inside Slides. Snap alignment (`scroll-snap-align`, `scroll-snap-stop`) is built in; slide width (full-bleed, aspect-sized cards, …) is consumer CSS — set `flex` / `width` / `min-width` via className or style. Place a Lightbox.Item (and typically Zoom → Media) inside. Prefer putting resting chrome / safe-area insets as padding on Slide (not Zoom) so Item/Zoom fill the content box and zoomed media can paint into the pad under chrome.',
     extract: { kind: 'none' },
     attributesFrom: {
       enumName: 'LightboxSlideDataAttributes',
