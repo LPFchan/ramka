@@ -10,6 +10,11 @@ export const debugPages = {
     title: 'ThumbnailStrip',
     description: 'Recipes for Lightbox.ThumbnailStrip — bare through creative skins.',
   },
+  lightboxOverlays: {
+    href: '/debug/lightbox-overlays',
+    title: 'Lightbox overlays',
+    description: 'Default preset + shadcn dialog, dropdown, and tooltip inside the viewer.',
+  },
 } as const;
 
 export const debugPagesList = Object.values(debugPages);
