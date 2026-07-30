@@ -95,6 +95,24 @@ html.dark .lb-backdrop {
 @media (min-width: 768px) {
   .lb-content {
     --lightbox-inset-bottom: calc(7.5rem + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* Bleed: horizontal letterbox on Slide padding (snug uses the width formula instead). */
+  .lb-content:not(.lb-content-snug) {
+    --lightbox-inset-inline: 2rem;
+  }
+}
+
+/*
+ * Snug: horizontal inset is a scrollport gutter for the md+ width formula only —
+ * not per-slide padding (slides use vertical inset in both modes).
+ */
+.lb-content-snug {
+  --lightbox-inset-inline: 0px;
+}
+
+@media (min-width: 768px) {
+  .lb-content-snug {
     --lightbox-inset-inline: 2rem;
   }
 }
@@ -131,7 +149,12 @@ html.dark .lb-backdrop {
   height: 100%;
   padding-top: var(--lightbox-inset-top);
   padding-bottom: var(--lightbox-inset-bottom);
-  padding-inline: var(--lightbox-inset-inline);
+}
+
+@media (min-width: 768px) {
+  .lb-content:not(.lb-content-snug) .lb-slide {
+    padding-inline: var(--lightbox-inset-inline);
+  }
 }
 
 .lb-media {
@@ -148,6 +171,97 @@ html.dark .lb-backdrop {
 .lb-media img {
   user-select: none;
   -webkit-user-select: none;
+}
+
+/* ── Snug slides (aspect-sized cards + peeking neighbors) ─────────────────── */
+
+.lb-slides-snug {
+  --lightbox-snug-gap: 1.25rem;
+  --lightbox-snug-slide-width-start: min(
+    calc(100cqw - 2 * var(--lightbox-inset-inline)),
+    calc(
+      (100cqh - var(--lightbox-inset-top) - var(--lightbox-inset-bottom)) *
+        var(--lightbox-snug-ratio-start, 1)
+    )
+  );
+  --lightbox-snug-slide-width-end: min(
+    calc(100cqw - 2 * var(--lightbox-inset-inline)),
+    calc(
+      (100cqh - var(--lightbox-inset-top) - var(--lightbox-inset-bottom)) *
+        var(--lightbox-snug-ratio-end, 1)
+    )
+  );
+  gap: var(--lightbox-snug-gap);
+}
+
+.lb-content-snug .lb-slide-snug {
+  --lightbox-snug-slide-width: min(
+    calc(100cqw - 2 * var(--lightbox-inset-inline)),
+    calc(
+      (100cqh - var(--lightbox-inset-top) - var(--lightbox-inset-bottom)) *
+        var(--lightbox-snug-ratio)
+    )
+  );
+  z-index: 0;
+}
+
+@media (max-width: 767px) {
+  .lb-content-snug .lb-slide-snug {
+    flex: 0 0 100% !important;
+    min-width: 100% !important;
+    width: 100% !important;
+  }
+}
+
+@media (min-width: 768px) {
+  .lb-content-snug .lb-slide-snug {
+    width: var(--lightbox-snug-slide-width);
+  }
+
+  .lb-slides-snug::before,
+  .lb-slides-snug::after {
+    content: '';
+    pointer-events: none;
+  }
+
+  .lb-slides-snug::before {
+    flex: 0 0
+      calc(
+        (100cqw - var(--lightbox-snug-slide-width-start)) / 2 - var(--lightbox-snug-gap)
+      );
+  }
+
+  .lb-slides-snug::after {
+    flex: 0 0
+      calc((100cqw - var(--lightbox-snug-slide-width-end)) / 2 - var(--lightbox-snug-gap));
+  }
+}
+
+/* Inactive snug cards track pull + zoom; active card opts out. */
+.lb-slide-snug {
+  transition: opacity var(--lightbox-pull-snap-duration, 500ms)
+    var(--lightbox-pull-snap-easing, var(--lb-ease-out-expo));
+  opacity: calc(1 - var(--lightbox-pull-progress, 0) * 0.85);
+  filter: opacity(calc(1 - var(--lightbox-zoom-progress, 0)))
+    blur(calc(var(--lightbox-zoom-progress, 0) * 6px));
+}
+
+.lb-content[data-pulling] .lb-slide-snug {
+  transition: none;
+}
+
+.lb-slide-snug:has([data-active]) {
+  opacity: 1;
+  filter: none;
+}
+
+.lb-content[data-zoomed] .lb-slide-snug {
+  pointer-events: none;
+}
+
+.lb-content[data-zoomed] .lb-slide-snug:has([data-active]) {
+  pointer-events: auto;
+  z-index: 20;
 }
 
 /* ── Chrome (counter, controls, caption, strip) ─────────────────────────── */
@@ -346,6 +460,14 @@ html.dark .lb-control:focus-visible {
 .lb-control[aria-label='Close'] svg {
   width: 1.125rem;
   height: 1.125rem;
+}
+
+.lb-control-layout {
+  width: auto;
+  padding-inline: 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
 }
 
 /* ── Thumbnail strip ────────────────────────────────────────────────────── */

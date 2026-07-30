@@ -4,7 +4,7 @@
  * Default lightbox — design-system package entry (copy with lightbox.css).
  *
  * Re-exports ramka Lightbox primitives with this skin attached, plus composed
- * `Lightbox.Gallery` (bleed slides, glass controls, desktop thumbnail strip).
+ * `Lightbox.Gallery` (bleed or snug slides, glass controls, desktop thumbnail strip).
  *
  * Package boundary: only the styled primitives + Gallery. Trigger layouts,
  * album grids, user cards, and other app UI belong in the consuming app
@@ -58,6 +58,12 @@ export type LightboxItem = {
   width: number;
   height: number;
 };
+
+export type SlidesLayout = 'bleed' | 'snug';
+
+function itemAspectRatio(item: LightboxItem): number {
+  return item.width / item.height;
+}
 
 /* ── Styled primitives (design-system re-exports) ───────────────────────── */
 
@@ -204,34 +210,101 @@ function GalleryThumbnailStrip({ items }: { items: LightboxItem[] }) {
 }
 
 /**
- * Default product chrome — same composition as the docs hero / gallery demos:
- * Portal → Backdrop + Content → Slides/Zoom + counter / glass controls /
- * caption / desktop ThumbnailStrip (hidden below md).
+ * Default product chrome — Portal → Backdrop + Content → Slides/Zoom + counter /
+ * glass controls / caption / desktop ThumbnailStrip. Supports bleed (full-width)
+ * and snug (aspect-sized cards) via the top-right layout toggle or `slidesLayout`.
  */
-function Gallery({ items, ariaLabel }: { items: LightboxItem[]; ariaLabel: string }) {
+function Gallery({
+  items,
+  ariaLabel,
+  slidesLayout: slidesLayoutProp,
+  onSlidesLayoutChange,
+}: {
+  items: LightboxItem[];
+  ariaLabel: string;
+  slidesLayout?: SlidesLayout;
+  onSlidesLayoutChange?: (layout: SlidesLayout) => void;
+}) {
+  const [slidesLayoutInternal, setSlidesLayoutInternal] = React.useState<SlidesLayout>('bleed');
+  const slidesLayout = slidesLayoutProp ?? slidesLayoutInternal;
+  const snug = slidesLayout === 'snug';
+
+  const setSlidesLayout = React.useCallback(
+    (next: SlidesLayout) => {
+      onSlidesLayoutChange?.(next);
+      if (slidesLayoutProp === undefined) {
+        setSlidesLayoutInternal(next);
+      }
+    },
+    [onSlidesLayoutChange, slidesLayoutProp],
+  );
+
+  const toggleSlidesLayout = React.useCallback(() => {
+    setSlidesLayout(slidesLayout === 'snug' ? 'bleed' : 'snug');
+  }, [setSlidesLayout, slidesLayout]);
+
+  const snugEdgeRatios =
+    snug && items.length > 0
+      ? {
+          start: itemAspectRatio(items[0]!),
+          end: itemAspectRatio(items[items.length - 1]!),
+        }
+      : null;
+
   return (
     <Portal>
       <Backdrop />
-      <Content aria-label={ariaLabel}>
-        <Slides aria-label="Full-size images" preload={2}>
-          {items.map((item, i) => (
-            <Slide key={item.id ?? i}>
-              <Item index={i} caption={item.caption ?? item.alt}>
-                <Zoom maxZoom={6}>
-                  <Media width={item.width} height={item.height}>
-                    <img
-                      width={item.width}
-                      height={item.height}
-                      src={item.src}
-                      alt={item.alt}
-                      loading="eager"
-                      draggable={false}
-                    />
-                  </Media>
-                </Zoom>
-              </Item>
-            </Slide>
-          ))}
+      <Content
+        aria-label={ariaLabel}
+        className={snug ? 'lb-content-snug' : undefined}
+      >
+        <Slides
+          key={slidesLayout}
+          aria-label="Full-size images"
+          preload={2}
+          className={snug ? 'lb-slides-snug' : undefined}
+          style={
+            snugEdgeRatios
+              ? ({
+                  '--lightbox-snug-ratio-start': snugEdgeRatios.start,
+                  '--lightbox-snug-ratio-end': snugEdgeRatios.end,
+                } as React.CSSProperties)
+              : undefined
+          }
+        >
+          {items.map((item, i) => {
+            const ratio = itemAspectRatio(item);
+            return (
+              <Slide
+                key={item.id ?? i}
+                className={snug ? 'lb-slide-snug' : undefined}
+                style={
+                  snug
+                    ? ({
+                        flex: '0 0 auto',
+                        minWidth: 0,
+                        '--lightbox-snug-ratio': ratio,
+                      } as React.CSSProperties)
+                    : undefined
+                }
+              >
+                <Item index={i} caption={item.caption ?? item.alt}>
+                  <Zoom maxZoom={6}>
+                    <Media width={item.width} height={item.height}>
+                      <img
+                        width={item.width}
+                        height={item.height}
+                        src={item.src}
+                        alt={item.alt}
+                        loading="eager"
+                        draggable={false}
+                      />
+                    </Media>
+                  </Zoom>
+                </Item>
+              </Slide>
+            );
+          })}
         </Slides>
 
         <div className={cx('lb-top-left', 'lb-chrome-pull-hide')}>
@@ -239,6 +312,15 @@ function Gallery({ items, ariaLabel }: { items: LightboxItem[]; ariaLabel: strin
         </div>
 
         <div className={cx('lb-top-right', 'lb-chrome-pull-hide')}>
+          <button
+            type="button"
+            className={cx('lb-control', 'lb-control-md', 'lb-control-layout')}
+            aria-pressed={snug}
+            aria-label={snug ? 'Switch to full-bleed slides' : 'Switch to snug slides'}
+            onClick={toggleSlidesLayout}
+          >
+            {snug ? 'Bleed' : 'Snug'}
+          </button>
           <ZoomOut />
           <ZoomIn />
           <Close />
