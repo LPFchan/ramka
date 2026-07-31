@@ -20,6 +20,11 @@ export const debugPages = {
     title: 'Dynamic items',
     description: 'Docs chrome + in-viewer dropdown to add/remove slides while open.',
   },
+  doubleClickOpen: {
+    href: '/debug/double-click-open',
+    title: 'Double-click open',
+    description: 'Double-click preview + accessible Open trigger via createHandle().',
+  },
 } as const;
 
 export const debugPagesList = Object.values(debugPages);
