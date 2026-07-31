@@ -11,7 +11,8 @@
   --xlb-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --xlb-duration-open: 280ms;
   --xlb-thread-width: 22.5rem;
-  --xlb-media-bg: rgb(0 0 0 / 0.88);
+  /* Clear media plane — dimming comes from `.xlb-backdrop` (mobile solid, desktop 0.5). */
+  --xlb-media-bg: transparent;
 }
 
 /* ── Trigger ────────────────────────────────────────────────────────────── */
@@ -47,14 +48,15 @@
   position: fixed;
   inset: 0;
   opacity: 0;
-  background: rgb(0 0 0 / 0.65);
+  /* Mobile: solid black. Desktop overrides background alpha below. */
+  background: #000;
   transition: opacity var(--lightbox-pull-snap-duration, var(--xlb-duration-open))
     var(--lightbox-pull-snap-easing, var(--xlb-ease-out));
 }
 
 @media (min-width: 768px) {
   .xlb-backdrop {
-    background: rgb(0 0 0 / 0.5);
+    background: rgb(0 0 0 / 0.9);
   }
 }
 
@@ -64,6 +66,7 @@
   }
 }
 
+/* Opacity stays 1 at rest; only pull-to-dismiss fades it. */
 .xlb-backdrop[data-open] {
   opacity: calc(1 - var(--lightbox-pull-progress, 0) * 0.75);
 }
