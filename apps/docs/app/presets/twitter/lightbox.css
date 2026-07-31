@@ -1,0 +1,516 @@
+/**
+ * Twitter / X-style lightbox skin — ships with lightbox.tsx.
+ *
+ * Split layout: dark translucent media pane (close + prev/next) and a white
+ * thread sidebar. Prefix: `xlb-`.
+ */
+
+/* ── Tokens ─────────────────────────────────────────────────────────────── */
+
+:root {
+  --xlb-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --xlb-duration-open: 280ms;
+  --xlb-thread-width: 22.5rem;
+  --xlb-media-bg: rgb(0 0 0 / 0.88);
+}
+
+/* ── Trigger ────────────────────────────────────────────────────────────── */
+
+.xlb-trigger {
+  font: inherit;
+  color: inherit;
+  appearance: none;
+  cursor: pointer;
+}
+
+.xlb-trigger:focus {
+  outline: none;
+}
+
+.xlb-trigger:focus-visible {
+  outline: 2px solid #1d9bf0;
+  outline-offset: 2px;
+}
+
+[data-morph-target] {
+  opacity: 0;
+  transition: opacity 200ms var(--xlb-ease-out);
+}
+
+:root[data-ramka-view-transition] [data-morph-target] {
+  transition: none;
+}
+
+/* ── Backdrop / Content ─────────────────────────────────────────────────── */
+
+.xlb-backdrop {
+  position: fixed;
+  inset: 0;
+  opacity: 0;
+  background: rgb(0 0 0 / 0.65);
+  transition: opacity var(--lightbox-pull-snap-duration, var(--xlb-duration-open))
+    var(--lightbox-pull-snap-easing, var(--xlb-ease-out));
+}
+
+@starting-style {
+  .xlb-backdrop[data-open] {
+    opacity: 0;
+  }
+}
+
+.xlb-backdrop[data-open] {
+  opacity: calc(1 - var(--lightbox-pull-progress, 0) * 0.75);
+}
+
+.xlb-backdrop[data-pulling] {
+  transition: none;
+}
+
+.xlb-content {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  outline: none;
+  opacity: 0;
+  transition: opacity var(--xlb-duration-open) var(--xlb-ease-out);
+}
+
+.xlb-content[data-open] {
+  opacity: 1;
+}
+
+@starting-style {
+  .xlb-content[data-open] {
+    opacity: 0;
+  }
+}
+
+/* ── Media pane ─────────────────────────────────────────────────────────── */
+
+.xlb-media-pane {
+  position: relative;
+  display: flex;
+  min-height: 0;
+  flex: 1 1 0%;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--xlb-media-bg);
+}
+
+.xlb-item-group {
+  position: relative;
+  display: flex;
+  width: 100%;
+  min-height: 0;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.xlb-item-group [data-ramka-item] {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  padding:
+    calc(3rem + env(safe-area-inset-top, 0px))
+    calc(3.5rem + env(safe-area-inset-inline, 0px))
+    calc(3rem + env(safe-area-inset-bottom, 0px));
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 180ms var(--xlb-ease-out);
+}
+
+.xlb-item-group [data-ramka-item][data-active] {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.xlb-content[data-pulling] .xlb-item-group [data-ramka-item] {
+  transition: none;
+}
+
+.xlb-media img {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* ── Controls ───────────────────────────────────────────────────────────── */
+
+.xlb-chrome-pull-hide {
+  opacity: 1;
+  visibility: visible;
+  transition:
+    opacity 200ms,
+    visibility 0s linear 0s;
+}
+
+@starting-style {
+  .xlb-chrome-pull-hide {
+    opacity: 0;
+  }
+}
+
+.xlb-content:is([data-pulling], [data-pull-dismissing]) .xlb-chrome-pull-hide {
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 200ms,
+    visibility 0s linear 200ms;
+}
+
+.xlb-close {
+  position: absolute;
+  z-index: 2;
+  top: calc(0.75rem + env(safe-area-inset-top, 0px));
+  left: calc(0.75rem + env(safe-area-inset-left, 0px));
+}
+
+.xlb-nav {
+  position: absolute;
+  z-index: 2;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.xlb-nav-prev {
+  left: calc(0.75rem + env(safe-area-inset-left, 0px));
+}
+
+.xlb-nav-next {
+  right: calc(0.75rem + env(safe-area-inset-right, 0px));
+}
+
+.xlb-control {
+  display: inline-flex;
+  height: 2.25rem;
+  width: 2.25rem;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 9999px;
+  background: rgb(15 20 25 / 0.65);
+  color: #fff;
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  transition:
+    background-color 150ms ease-out,
+    transform 150ms ease-out,
+    opacity 150ms ease-out;
+  cursor: pointer;
+}
+
+.xlb-control:hover {
+  background: rgb(15 20 25 / 0.82);
+}
+
+.xlb-control:active {
+  transform: scale(0.96);
+}
+
+.xlb-nav:active {
+  transform: translateY(-50%) scale(0.96);
+}
+
+.xlb-control:focus {
+  outline: none;
+}
+
+.xlb-control:focus-visible {
+  box-shadow: 0 0 0 2px #fff;
+}
+
+.xlb-control:disabled {
+  cursor: not-allowed;
+  opacity: 0.35;
+}
+
+.xlb-control:disabled:active {
+  transform: none;
+}
+
+.xlb-nav:disabled:active {
+  transform: translateY(-50%);
+}
+
+.xlb-control svg {
+  display: block;
+  width: 1.125rem;
+  height: 1.125rem;
+}
+
+.xlb-counter {
+  position: absolute;
+  z-index: 2;
+  left: 50%;
+  bottom: calc(0.75rem + env(safe-area-inset-bottom, 0px));
+  transform: translateX(-50%);
+  border-radius: 9999px;
+  padding: 0.25rem 0.625rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  color: rgb(255 255 255 / 0.92);
+  background: rgb(15 20 25 / 0.55);
+}
+
+/* ── Thread pane ────────────────────────────────────────────────────────── */
+
+.xlb-thread-pane {
+  display: flex;
+  min-height: 0;
+  max-height: min(45vh, 28rem);
+  flex: 0 1 auto;
+  flex-direction: column;
+  border-top: 1px solid rgb(239 243 244);
+  background: #fff;
+  color: #0f1419;
+}
+
+@media (min-width: 768px) {
+  .xlb-thread-pane {
+    width: var(--xlb-thread-width);
+    max-width: 40vw;
+    max-height: none;
+    flex: 0 0 var(--xlb-thread-width);
+    border-top: 0;
+    border-left: 1px solid rgb(239 243 244);
+  }
+
+  .xlb-content {
+    flex-direction: row;
+  }
+}
+
+.xlb-thread-scroll {
+  min-height: 0;
+  flex: 1;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.xlb-thread-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.875rem 1rem;
+  border-bottom: 1px solid rgb(239 243 244);
+}
+
+.xlb-thread-title {
+  margin: 0;
+  font-size: 1.0625rem;
+  font-weight: 700;
+}
+
+.xlb-thread-body {
+  padding: 0.875rem 1rem 0;
+}
+
+.xlb-author {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.625rem;
+}
+
+.xlb-avatar {
+  display: block;
+  width: 2.5rem;
+  height: 2.5rem;
+  flex-shrink: 0;
+  border-radius: 9999px;
+  object-fit: cover;
+}
+
+.xlb-author-meta {
+  min-width: 0;
+  flex: 1;
+}
+
+.xlb-author-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.xlb-author-name {
+  font-size: 0.9375rem;
+  font-weight: 700;
+}
+
+.xlb-verified {
+  display: inline-flex;
+  color: #1d9bf0;
+}
+
+.xlb-author-handle,
+.xlb-post-time {
+  font-size: 0.9375rem;
+  color: rgb(83 100 113);
+}
+
+.xlb-follow {
+  flex-shrink: 0;
+  border: 1px solid rgb(207 217 222);
+  border-radius: 9999px;
+  padding: 0.375rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 700;
+  background: #fff;
+  color: #0f1419;
+  cursor: pointer;
+}
+
+.xlb-post-text {
+  margin: 0.75rem 0 0;
+  font-size: 0.9375rem;
+  line-height: 1.35;
+  white-space: pre-wrap;
+}
+
+.xlb-post-meta {
+  margin-top: 0.75rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid rgb(239 243 244);
+  font-size: 0.9375rem;
+  color: rgb(83 100 113);
+}
+
+.xlb-post-meta strong {
+  color: #0f1419;
+}
+
+.xlb-actions {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.25rem 0.5rem;
+  border-bottom: 1px solid rgb(239 243 244);
+}
+
+.xlb-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  border: 0;
+  border-radius: 9999px;
+  padding: 0.625rem;
+  font-size: 0.8125rem;
+  color: rgb(83 100 113);
+  background: transparent;
+  cursor: pointer;
+}
+
+.xlb-action svg {
+  width: 1.125rem;
+  height: 1.125rem;
+}
+
+.xlb-reply-box {
+  display: flex;
+  gap: 0.625rem;
+  padding: 0.875rem 1rem;
+  border-bottom: 1px solid rgb(239 243 244);
+}
+
+.xlb-reply-input {
+  min-width: 0;
+  flex: 1;
+  border: 0;
+  padding: 0.625rem 0;
+  font: inherit;
+  font-size: 0.9375rem;
+  color: rgb(83 100 113);
+  background: transparent;
+}
+
+.xlb-reply-input:focus {
+  outline: none;
+}
+
+.xlb-replies {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.xlb-reply {
+  display: flex;
+  gap: 0.625rem;
+  padding: 0.875rem 1rem;
+  border-bottom: 1px solid rgb(239 243 244);
+}
+
+.xlb-reply-avatar {
+  width: 2rem;
+  height: 2rem;
+}
+
+.xlb-reply-text {
+  margin: 0.125rem 0 0;
+  font-size: 0.9375rem;
+  line-height: 1.35;
+}
+
+/* ── View transitions (document-level; required for morph) ──────────────── */
+
+:root[data-ramka-view-transition] * {
+  view-transition-name: none !important;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  :root[data-ramka-view-transition]::view-transition-old(root),
+  :root[data-ramka-view-transition]::view-transition-new(root) {
+    animation-duration: var(--xlb-duration-open);
+    animation-timing-function: var(--xlb-ease-out);
+  }
+
+  @keyframes xlb-morph-border-radius {
+    to {
+      border-radius: var(--lightbox-morph-border-radius-to, 0px);
+    }
+  }
+
+  ::view-transition-group(lightbox-morph) {
+    overflow: hidden;
+    border-radius: var(--lightbox-morph-border-radius-from, 0px);
+    animation-name: -ua-view-transition-group-anim-lightbox-morph, xlb-morph-border-radius;
+    animation-duration: var(--xlb-duration-open);
+    animation-timing-function: var(--xlb-ease-out);
+    animation-fill-mode: both;
+    z-index: 2;
+  }
+
+  ::view-transition-old(lightbox-morph),
+  ::view-transition-new(lightbox-morph) {
+    object-fit: cover;
+    width: 100%;
+    height: 100%;
+    animation: none !important;
+    mix-blend-mode: normal;
+  }
+
+  ::view-transition-old(lightbox-morph) {
+    opacity: var(--lightbox-morph-old-opacity, 1);
+  }
+
+  ::view-transition-new(lightbox-morph) {
+    opacity: var(--lightbox-morph-new-opacity, 0);
+  }
+
+  :root[data-ramka-crossfade]::view-transition-old(lightbox-morph),
+  :root[data-ramka-crossfade]::view-transition-new(lightbox-morph) {
+    object-fit: fill;
+    mix-blend-mode: plus-lighter;
+    animation: revert !important;
+    opacity: revert;
+  }
+}
