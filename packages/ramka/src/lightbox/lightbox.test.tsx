@@ -3652,7 +3652,10 @@ describe('Lightbox', () => {
               pause: vi.fn(),
               onfinish: null as (() => void) | null,
               oncancel: null as (() => void) | null,
+              commitStyles: vi.fn(),
             };
+            // Finish synchronously after the caller assigns `onfinish` so
+            // `isZoomAnimating` is cleared before subsequent pointer acts.
             queueMicrotask(() => {
               anim.onfinish?.();
             });
@@ -3800,7 +3803,7 @@ describe('Lightbox', () => {
             const img = screen.getByTestId('zoom-img');
             setupOverflowGeometry(img);
 
-            act(() => ref.current!.zoomTo(2));
+            act(() => ref.current!.zoomTo(2, { rapid: true }));
 
             // Pointer moves right → content offset past +max
             act(() => {
@@ -3854,7 +3857,7 @@ describe('Lightbox', () => {
             const img = screen.getByTestId('zoom-img');
             setupOverflowGeometry(img);
 
-            act(() => ref.current!.zoomTo(2));
+            act(() => ref.current!.zoomTo(2, { rapid: true }));
 
             act(() => {
               dispatchPointer(img, 'pointerdown', {
@@ -3893,7 +3896,7 @@ describe('Lightbox', () => {
               renderZoomPan(ref);
               const img = screen.getByTestId('zoom-img');
               setupOverflowGeometry(img);
-              act(() => ref.current!.zoomTo(2));
+              act(() => ref.current!.zoomTo(2, { rapid: true }));
               act(() => {
                 dispatchPointer(img, 'pointerdown', {
                   clientX: 200,
@@ -3924,7 +3927,7 @@ describe('Lightbox', () => {
             const img = screen.getByTestId('zoom-img');
             setupLetterboxGeometry(img);
 
-            act(() => ref.current!.zoomTo(2));
+            act(() => ref.current!.zoomTo(2, { rapid: true }));
             act(() => {
               dispatchPointer(img, 'pointerdown', {
                 clientX: 200,
@@ -3963,7 +3966,7 @@ describe('Lightbox', () => {
             const img = screen.getByTestId('zoom-img');
             setupLetterboxGeometry(img);
 
-            act(() => ref.current!.zoomTo(2));
+            act(() => ref.current!.zoomTo(2, { rapid: true }));
             act(() => {
               dispatchPointer(img, 'pointerdown', {
                 clientX: 200,
@@ -3991,6 +3994,69 @@ describe('Lightbox', () => {
           } finally {
             HTMLElement.prototype.getBoundingClientRect = origRect;
           }
+        });
+
+        it('does not pan while a finger remains after pinch (suppress until full release)', () => {
+          withViewport(() => {
+            const ref = React.createRef<LightboxZoomRef>();
+            renderZoomPan(ref);
+            const img = screen.getByTestId('zoom-img');
+            setupOverflowGeometry(img);
+
+            act(() => {
+              // Two-finger pinch out
+              dispatchPointer(img, 'pointerdown', {
+                clientX: 150,
+                clientY: 200,
+                pointerId: 1,
+                pointerType: 'touch',
+                isPrimary: true,
+              });
+              dispatchPointer(img, 'pointerdown', {
+                clientX: 250,
+                clientY: 200,
+                pointerId: 2,
+                pointerType: 'touch',
+                isPrimary: false,
+              });
+              dispatchPointer(img, 'pointermove', {
+                clientX: 100,
+                clientY: 200,
+                pointerId: 1,
+                pointerType: 'touch',
+              });
+              dispatchPointer(img, 'pointermove', {
+                clientX: 300,
+                clientY: 200,
+                pointerId: 2,
+                pointerType: 'touch',
+              });
+            });
+            expect(ref.current!.zoom).toBeGreaterThan(1);
+            const zoomedOffsets = {
+              x: ref.current!.offsetX,
+              y: ref.current!.offsetY,
+            };
+
+            // Lift finger 1 — remaining finger can move a lot; must not pan.
+            act(() => {
+              dispatchPointer(img, 'pointerup', {
+                clientX: 100,
+                clientY: 200,
+                pointerId: 1,
+                pointerType: 'touch',
+              });
+              dispatchPointer(img, 'pointermove', {
+                clientX: 360,
+                clientY: 240,
+                pointerId: 2,
+                pointerType: 'touch',
+              });
+            });
+
+            expect(ref.current!.offsetX).toBeCloseTo(zoomedOffsets.x, 5);
+            expect(ref.current!.offsetY).toBeCloseTo(zoomedOffsets.y, 5);
+          });
         });
       });
     });
@@ -4463,6 +4529,94 @@ describe('Lightbox', () => {
       expect(ref.current!.zoom).toBeGreaterThan(1);
     });
 
+    it('ignores further taps while the double-tap zoom WAAPI is in flight', () => {
+      type AnimStub = {
+        finished: Promise<void>;
+        cancel: ReturnType<typeof vi.fn>;
+        play: ReturnType<typeof vi.fn>;
+        pause: ReturnType<typeof vi.fn>;
+        onfinish: ((this: Animation, ev: AnimationPlaybackEvent) => void) | null;
+        oncancel: ((this: Animation, ev: AnimationPlaybackEvent) => void) | null;
+        commitStyles: ReturnType<typeof vi.fn>;
+      };
+      let latest: AnimStub | undefined;
+      const animateImpl = vi.fn(() => {
+        const stub: AnimStub = {
+          finished: Promise.resolve(),
+          cancel: vi.fn(),
+          play: vi.fn(),
+          pause: vi.fn(),
+          onfinish: null,
+          oncancel: null,
+          commitStyles: vi.fn(),
+        };
+        latest = stub;
+        return stub as unknown as Animation;
+      });
+      const hadAnimate = 'animate' in Element.prototype;
+      const previousAnimate = Element.prototype.animate;
+      Element.prototype.animate = animateImpl as unknown as typeof Element.prototype.animate;
+
+      const ref = React.createRef<LightboxZoomRef>();
+      render(<PullDismissLightbox withZoom zoomRef={ref} />);
+      const img = screen.getByAltText('test');
+
+      act(() => {
+        dispatchPointer(img, 'pointerdown', {
+          clientX: 200,
+          clientY: 200,
+          pointerId: 1,
+          isPrimary: true,
+          timeStamp: 0,
+        });
+        dispatchPointer(img, 'pointerup', { clientX: 200, clientY: 200, pointerId: 1, timeStamp: 10 });
+        dispatchPointer(img, 'pointerdown', {
+          clientX: 202,
+          clientY: 201,
+          pointerId: 2,
+          isPrimary: true,
+          timeStamp: 120,
+        });
+        dispatchPointer(img, 'pointerup', { clientX: 202, clientY: 201, pointerId: 2, timeStamp: 130 });
+      });
+
+      const zoomAfterDoubleTap = ref.current!.zoom;
+      expect(zoomAfterDoubleTap).toBeGreaterThan(1);
+      expect(animateImpl).toHaveBeenCalled();
+      const animAfterDoubleTap = latest;
+
+      // Rapid third/fourth taps while WAAPI is still playing must not start a
+      // new discrete zoom (which would cancel the in-flight animation).
+      act(() => {
+        dispatchPointer(img, 'pointerdown', {
+          clientX: 200,
+          clientY: 200,
+          pointerId: 3,
+          isPrimary: true,
+          timeStamp: 180,
+        });
+        dispatchPointer(img, 'pointerup', { clientX: 200, clientY: 200, pointerId: 3, timeStamp: 190 });
+        dispatchPointer(img, 'pointerdown', {
+          clientX: 201,
+          clientY: 200,
+          pointerId: 4,
+          isPrimary: true,
+          timeStamp: 250,
+        });
+        dispatchPointer(img, 'pointerup', { clientX: 201, clientY: 200, pointerId: 4, timeStamp: 260 });
+      });
+
+      expect(ref.current!.zoom).toBe(zoomAfterDoubleTap);
+      expect(latest).toBe(animAfterDoubleTap);
+      expect(animAfterDoubleTap?.cancel).not.toHaveBeenCalled();
+
+      if (hadAnimate) {
+        Element.prototype.animate = previousAnimate;
+      } else {
+        delete (Element.prototype as { animate?: typeof Element.prototype.animate }).animate;
+      }
+    });
+
     it('data-zoomed stays off during under-min snap-back (chrome must not hide)', () => {
       // Regression: snap-back WAAPI from elastic under-zoom set `data-zoomed`
       // via the “keep while isAnimating” path, which hid chrome even though
@@ -4571,7 +4725,9 @@ describe('Lightbox', () => {
         const content = screen.getByTestId('content');
         const img = screen.getByAltText('test');
 
-        act(() => ref.current!.zoomTo(2));
+        // Rapid so we aren't mid WAAPI when the double-tap starts (gestures are
+        // ignored while a discrete zoom animation is in flight).
+        act(() => ref.current!.zoomTo(2, { rapid: true }));
 
         // Double-tap to reset zoom back to 1 (deferred commit on 2nd pointerup).
         act(() => {
@@ -4596,7 +4752,7 @@ describe('Lightbox', () => {
 
         // The zooming flag must not be stuck — it clears after its cover window.
         act(() => {
-          vi.advanceTimersByTime(300);
+          vi.advanceTimersByTime(350);
         });
         expect(content).not.toHaveAttribute('data-zooming');
 

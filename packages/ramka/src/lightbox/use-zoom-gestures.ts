@@ -52,6 +52,8 @@ interface ZoomGestureActions {
   momentumPan: (vx: number, vy: number, touch?: boolean) => boolean;
   /** Cancel in-flight pan physics (e.g. new pointer down). */
   stopPanPhysics: () => void;
+  /** True while a discrete zoom WAAPI (double-tap / button / snap) is playing. */
+  isZoomAnimating: () => boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -83,6 +85,13 @@ function useZoomGestures(
   const activePointers = React.useRef<PointerEvent[]>([]);
   const lastPointerDown = React.useRef(0);
   const hadPinch = React.useRef(false);
+  /**
+   * After a pinch pair breaks, ignore single-finger pan until every finger is
+   * up. Lift jitter on the remaining finger otherwise becomes a one-frame jump
+   * (and can cancel an in-flight zoom snap). Matches Photos: pinch and pan are
+   * separate recognizers — pan needs a new touch after the pinch ends.
+   */
+  const suppressPanAfterPinch = React.useRef(false);
 
   // Tap detection for double-tap: track whether the previous single-finger
   // interaction was a stationary tap (not a drag/pinch/pull).
@@ -159,11 +168,12 @@ function useZoomGestures(
         }
         el.setAttribute('data-zooming', '');
       } else {
-        // Delay removal to cover the snap-back animation period
+        // Delay removal to cover discrete zoom WAAPI (default 300ms) so
+        // pull-to-dismiss stays blocked until the transform has settled.
         zoomingTimerRef.current = setTimeout(() => {
           el.removeAttribute('data-zooming');
           zoomingTimerRef.current = null;
-        }, 250);
+        }, 350);
       }
     },
     [contentElementRef],
@@ -176,6 +186,7 @@ function useZoomGestures(
     activePointers.current.length = 0;
     pinchState.current = undefined;
     hadPinch.current = false;
+    suppressPanAfterPinch.current = false;
     tapCandidate.current = false;
     tapStartPos.current = null;
     pendingDoubleTap.current = false;
@@ -200,6 +211,11 @@ function useZoomGestures(
       // gestures so the scroll stays authoritative until it settles.
       if (isScrollingRef?.current) {
         abortZoomInteraction();
+        return;
+      }
+      // Discrete zoom WAAPI in flight (double-tap / snap) — ignore all pointer
+      // input so a rapid third tap can't cancel the animation mid-flight.
+      if (actionsRef.current.isZoomAnimating()) {
         return;
       }
       const pointers = activePointers.current;
@@ -235,6 +251,7 @@ function useZoomGestures(
         pointers.length = 0;
         pinchState.current = undefined;
         hadPinch.current = false;
+        suppressPanAfterPinch.current = false;
       }
 
       // Stale pointer cleanup: if all recorded pointers are old (>500ms),
@@ -247,6 +264,7 @@ function useZoomGestures(
           pointers.length = 0;
           pinchState.current = undefined;
           hadPinch.current = false;
+          suppressPanAfterPinch.current = false;
         }
       }
 
@@ -315,6 +333,7 @@ function useZoomGestures(
           initialZoom: zoom,
         };
         hadPinch.current = true;
+        suppressPanAfterPinch.current = false;
       }
     },
     [
@@ -333,6 +352,9 @@ function useZoomGestures(
       // Scroll / pull won — never continue a pinch/pan that started before.
       if (isScrollingRef?.current) {
         abortZoomInteraction();
+        return;
+      }
+      if (actionsRef.current.isZoomAnimating()) {
         return;
       }
       if (contentElementRef?.current?.hasAttribute('data-pulling')) {
@@ -387,6 +409,13 @@ function useZoomGestures(
       if (zoom > 1 && existing) {
         event.stopPropagation();
         if (pointers.length === 1) {
+          if (suppressPanAfterPinch.current) {
+            // Still finishing a pinch (one finger left). Absorb moves so lift
+            // jitter can't pan or cancel a zoom-bound snap WAAPI.
+            replacePointer(event);
+            return;
+          }
+
           const isTouch = event.pointerType === 'touch';
           changeOffsets(
             (existing.clientX - event.clientX) / zoom,
@@ -411,6 +440,15 @@ function useZoomGestures(
 
   const handlePointerUp = React.useCallback(
     (event: PointerEvent) => {
+      // Animation started after this pointer went down (e.g. double-tap commit
+      // on a prior up) — drop any leftover tracking without starting a pan.
+      if (actionsRef.current.isZoomAnimating()) {
+        clearPointer(event.pointerId);
+        if (activePointers.current.length === 0) {
+          actionsRef.current.setDragging(false);
+        }
+        return;
+      }
       const pointers = activePointers.current;
       // Already finalized (e.g. document capture ran before the element bubble).
       if (!pointers.some((p) => p.pointerId === event.pointerId)) return;
@@ -423,13 +461,19 @@ function useZoomGestures(
         pointers.length >= 2 && pointers.some((p) => p.pointerId === event.pointerId);
       if (leavingPinch) {
         pinchState.current = undefined;
+        // Pinch finger motion must not seed a pan flick on the remaining finger.
+        velocityTracker.current.length = 0;
       }
       clearPointer(event.pointerId);
       if (leavingPinch) {
         actionsRef.current.snapToBounds();
+        // Suppress pan for the rest of this touch sequence (remaining finger
+        // or both-up). Cleared below when the gesture fully ends.
+        suppressPanAfterPinch.current = true;
       }
 
       if (activePointers.current.length === 0) {
+        suppressPanAfterPinch.current = false;
         // Pull-to-dismiss captures the pointer on Content — this up may arrive
         // via document capture while `data-pulling` is still set. Never treat
         // that as a tap (next quick tap would complete a false double-tap).
@@ -490,11 +534,15 @@ function useZoomGestures(
         }
         // Pan release: one rAF physics sim — friction coast, spring bounce at
         // edges, and overscroll spring-back (including zero-velocity release).
+        // After a pinch, never coast with residual finger velocity — only spring
+        // home if pan ended past bounds.
         const tracker = velocityTracker.current;
         const zoom = actionsRef.current.getZoom();
-        if (!wasPinch && zoom > 1) {
-          const vel = computeMomentumVelocity(tracker, zoom, MOMENTUM_THRESHOLD);
+        if (zoom > 1) {
           const touch = event.pointerType === 'touch';
+          const vel = wasPinch
+            ? null
+            : computeMomentumVelocity(tracker, zoom, MOMENTUM_THRESHOLD);
           if (actionsRef.current.momentumPan(vel?.vx ?? 0, vel?.vy ?? 0, touch)) {
             tracker.length = 0;
             setZooming(false);
@@ -527,6 +575,7 @@ function useZoomGestures(
       // Defer to an in-flight Lightbox.Slides scroll (passive: the event still
       // scrolls the slides; we just don't start a scroll-to-zoom).
       if (isScrollingRef?.current) return;
+      if (actionsRef.current.isZoomAnimating()) return;
       const { scrollToZoom, wheelSensitivity } = configRef.current;
       const { getZoom, changeZoom, changeOffsets } = actionsRef.current;
       const zoom = getZoom();
@@ -667,6 +716,7 @@ function useZoomGestures(
       // hijack the scroll. It re-arms naturally on the next gesture once settled.
       e.preventDefault();
       if (isScrollingRef?.current) return;
+      if (actionsRef.current.isZoomAnimating()) return;
       gestureActiveRef.current = true;
       initialZoom = actionsRef.current.getZoom();
     };
@@ -675,6 +725,10 @@ function useZoomGestures(
       e.preventDefault();
       // Gesture never started (suppressed mid-scroll) — don't zoom.
       if (!gestureActiveRef.current || isScrollingRef?.current) {
+        gestureActiveRef.current = false;
+        return;
+      }
+      if (actionsRef.current.isZoomAnimating()) {
         gestureActiveRef.current = false;
         return;
       }
@@ -720,6 +774,7 @@ function useZoomGestures(
       lastPointerDown.current = 0;
       hadPinch.current = false;
       pinchState.current = undefined;
+      suppressPanAfterPinch.current = false;
       if (zoomingTimerRef.current) {
         clearTimeout(zoomingTimerRef.current);
         zoomingTimerRef.current = null;

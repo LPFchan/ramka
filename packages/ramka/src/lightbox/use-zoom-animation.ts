@@ -33,35 +33,48 @@ function useZoomAnimation(
   const runningAnimation = React.useRef<Animation | undefined>(undefined);
   const startTransform = React.useRef<string | undefined>(undefined);
   const overrideOpts = React.useRef<CaptureOptions | undefined>(undefined);
+  // Sync flag for gesture gates — React state can lag a frame behind WAAPI
+  // settle, and pointer handlers must not read a stale `true`.
+  const animatingRef = React.useRef(false);
   const [isAnimating, setIsAnimating] = React.useState(false);
 
   const reducedMotion =
     typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  const play = React.useCallback(() => {
-    runningAnimation.current?.cancel();
-    runningAnimation.current = undefined;
+  const setAnimating = React.useCallback((value: boolean) => {
+    animatingRef.current = value;
+    setIsAnimating(value);
+  }, []);
 
+  const play = React.useCallback(() => {
     const el = wrapperRef.current;
     const from = startTransform.current;
+    // Only `captureStart()` arms a transition. Ignore layout-effect re-runs
+    // from unrelated zoom/offset updates so they can't cancel an in-flight
+    // double-tap / snap WAAPI (a mid-animation pan used to clear `from` and
+    // then tear the animation down on the next play).
+    if (!from || !el) return;
+
     const opts = overrideOpts.current;
     startTransform.current = undefined;
     overrideOpts.current = undefined;
     const onFinish = opts?.onFinish;
 
-    if (!from || !el) {
-      setIsAnimating(false);
-      return;
-    }
+    runningAnimation.current?.cancel();
+    runningAnimation.current = undefined;
 
     const to = `scale(${zoom}) translate(${offsetX}px, ${offsetY}px)`;
     if (from === to) {
-      setIsAnimating(false);
+      setAnimating(false);
       onFinish?.();
       return;
     }
 
     try {
+      // React just committed `to` on the style attribute. Pin `from` before
+      // paint so we don't flash the end pose for a frame, then let WAAPI own
+      // the composite until settle.
+      el.style.transform = from;
       const anim = el.animate(
         [
           { transform: from, easing: opts?.easing ?? 'ease-in-out' },
@@ -69,30 +82,46 @@ function useZoomAnimation(
         ],
         {
           duration: reducedMotion ? 0 : (opts?.duration ?? duration),
-          fill: 'none',
+          fill: 'forwards',
         },
       );
       runningAnimation.current = anim;
-      setIsAnimating(true);
+      setAnimating(true);
+
+      const settleInlineToTarget = () => {
+        // Never clear transform to '' — that drops React's inline style until
+        // the next commit and flashes identity scale. Always land on `to`.
+        el.style.transform = to;
+      };
+
       anim.onfinish = () => {
-        if (runningAnimation.current === anim) {
-          runningAnimation.current = undefined;
-          setIsAnimating(false);
-          onFinish?.();
+        if (runningAnimation.current !== anim) return;
+        runningAnimation.current = undefined;
+        anim.onfinish = null;
+        anim.oncancel = null;
+        try {
+          anim.commitStyles();
+        } catch {
+          settleInlineToTarget();
         }
+        anim.cancel();
+        settleInlineToTarget();
+        setAnimating(false);
+        onFinish?.();
       };
       anim.oncancel = () => {
-        if (runningAnimation.current === anim) {
-          runningAnimation.current = undefined;
-          setIsAnimating(false);
-        }
+        if (runningAnimation.current !== anim) return;
+        runningAnimation.current = undefined;
+        settleInlineToTarget();
+        setAnimating(false);
       };
     } catch {
       // WAAPI not supported — silent fallback to instant state
-      setIsAnimating(false);
+      el.style.transform = to;
+      setAnimating(false);
       onFinish?.();
     }
-  }, [zoom, offsetX, offsetY, wrapperRef, duration, reducedMotion]);
+  }, [zoom, offsetX, offsetY, wrapperRef, duration, reducedMotion, setAnimating]);
 
   React.useLayoutEffect(play, [zoom, offsetX, offsetY, play]);
 
@@ -110,18 +139,30 @@ function useZoomAnimation(
     const el = wrapperRef.current;
     startTransform.current = el ? getComputedStyle(el).transform : undefined;
     overrideOpts.current = opts;
-    setIsAnimating(true);
-  }, [wrapperRef]);
+    setAnimating(true);
+  }, [wrapperRef, setAnimating]);
 
   const cancel = React.useCallback(() => {
-    runningAnimation.current?.cancel();
+    const anim = runningAnimation.current;
     runningAnimation.current = undefined;
     startTransform.current = undefined;
     overrideOpts.current = undefined;
-    setIsAnimating(false);
-  }, []);
+    if (anim) {
+      anim.onfinish = null;
+      anim.oncancel = null;
+      anim.cancel();
+    }
+    // If we had pinned `from` for a snap, jump to the committed React pose.
+    const el = wrapperRef.current;
+    if (el) {
+      el.style.transform = `scale(${zoom}) translate(${offsetX}px, ${offsetY}px)`;
+    }
+    setAnimating(false);
+  }, [wrapperRef, zoom, offsetX, offsetY, setAnimating]);
 
-  return { captureStart, cancel, isAnimating };
+  const getIsAnimating = React.useCallback(() => animatingRef.current, []);
+
+  return { captureStart, cancel, isAnimating, getIsAnimating };
 }
 
 export { useZoomAnimation };

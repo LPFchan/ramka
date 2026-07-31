@@ -358,13 +358,12 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
     );
 
     // ----- Core actions -----
-    const { captureStart, cancel: cancelZoomAnimation, isAnimating } = useZoomAnimation(
-      zoom,
-      offsetX,
-      offsetY,
-      wrapperRef,
-      DEFAULT_ANIMATION_DURATION,
-    );
+    const {
+      captureStart,
+      cancel: cancelZoomAnimation,
+      isAnimating,
+      getIsAnimating,
+    } = useZoomAnimation(zoom, offsetX, offsetY, wrapperRef, DEFAULT_ANIMATION_DURATION);
 
     // rAF 2D scroll physics (friction coast + spring bounce). Not WAAPI.
     const panPhysicsRafRef = React.useRef<number | null>(null);
@@ -522,7 +521,10 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
           5,
         );
 
-        if (!rapid) captureStart();
+        // Discrete zooms arm WAAPI; rapid pinch/wheel must cancel any in-flight
+        // discrete animation so the live transform isn't composited on top.
+        if (rapid) cancelZoomAnimation();
+        else captureStart();
 
         const currentZoom = zoomRef.current;
         if (dx !== undefined && dy !== undefined) {
@@ -552,7 +554,15 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
         setOffsetY(offsets.y);
         setZoom(nextZoom);
       },
-      [minZoom, maxZoom, clampOffsets, captureStart, measurePanGeometry, stopPanPhysics],
+      [
+        minZoom,
+        maxZoom,
+        clampOffsets,
+        captureStart,
+        cancelZoomAnimation,
+        measurePanGeometry,
+        stopPanPhysics,
+      ],
     );
 
     const zoomInAction = React.useCallback(() => {
@@ -730,6 +740,7 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
         snapOffsetsToBounds: snapOffsetsToBoundsAction,
         momentumPan: momentumPanAction,
         stopPanPhysics,
+        isZoomAnimating: getIsAnimating,
       }),
       [
         zoomInAction,
@@ -740,6 +751,7 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
         snapOffsetsToBoundsAction,
         momentumPanAction,
         stopPanPhysics,
+        getIsAnimating,
       ],
     );
 
