@@ -129,7 +129,7 @@ export default function DoubleClickOpenDebugPage() {
             <code className="text-xs">Lightbox.Trigger</code> button is the single-pointer alternative.
           </li>
           <li>
-            Preview uses <code className="text-xs">role="group"</code> + screen-reader label; the
+            Preview uses <code className="text-xs">{'role="group"'}</code> + screen-reader label; the
             decorative image is <code className="text-xs">aria-hidden</code>.
           </li>
           <li>
