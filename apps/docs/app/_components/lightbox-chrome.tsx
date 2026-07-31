@@ -156,6 +156,8 @@ export function LightboxGallery({
    */
   slidesLayout = 'bleed',
   renderItem,
+  /** Portaled inside Content — e.g. debug tooling or in-viewer controls. */
+  overlay,
 }: {
   items: LightboxGalleryItem[];
   ariaLabel: string;
@@ -169,6 +171,7 @@ export function LightboxGallery({
   backdrop?: 'scrim' | 'solid';
   slidesLayout?: 'bleed' | 'snug';
   renderItem?: (item: LightboxGalleryItem, index: number, ctx: GalleryItemRenderCtx) => React.ReactNode;
+  overlay?: React.ReactNode;
 }) {
   // Viewport visibility only — linked layout/sync live in Lightbox.ThumbnailStrip.
   const thumbClass =
@@ -259,6 +262,8 @@ export function LightboxGallery({
             );
           })}
         </Lightbox.Slides>
+
+        {overlay}
 
         {/*
           Chrome after Slides, and above snug zoomed-slide `z-20` — DOM order alone

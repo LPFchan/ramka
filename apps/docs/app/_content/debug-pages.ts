@@ -15,6 +15,11 @@ export const debugPages = {
     title: 'Lightbox overlays',
     description: 'Default preset + shadcn dialog, dropdown, and tooltip inside the viewer.',
   },
+  dynamicItems: {
+    href: '/debug/dynamic-items',
+    title: 'Dynamic items',
+    description: 'Docs chrome + in-viewer dropdown to add/remove slides while open.',
+  },
 } as const;
 
 export const debugPagesList = Object.values(debugPages);
