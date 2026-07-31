@@ -3,7 +3,7 @@
 import * as React from 'react';
 
 import {
-  computeMomentumTarget,
+  computeMomentumVelocity,
   distance,
   doubleTapTargetZoom,
   pinchZoom,
@@ -34,12 +34,24 @@ interface ZoomGestureActions {
   zoomIn: () => void;
   zoomOut: () => void;
   changeZoom: (target: number, rapid: boolean, dx?: number, dy?: number, overscroll?: boolean) => void;
-  changeOffsets: (dx: number, dy: number, overscroll?: boolean) => void;
+  /**
+   * @param overscroll Elastic rubber-band past pan bounds.
+   * @param overflowAxesOnly When set with overscroll, only overflowing axes
+   *   pan (touch). Mouse omits this so letterboxed axes can still rubber-band.
+   */
+  changeOffsets: (dx: number, dy: number, overscroll?: boolean, overflowAxesOnly?: boolean) => void;
   setDragging: (dragging: boolean) => void;
   snapToBounds: () => void;
-  snapOffsetsToBounds: () => void;
-  /** Animate offsets with momentum deceleration to a final position. */
-  momentumPan: (targetX: number, targetY: number) => void;
+  /** Spring pan offsets into range (rAF physics). Returns `true` when started. */
+  snapOffsetsToBounds: () => boolean;
+  /**
+   * Start 2D coast/bounce physics from release velocity (offset-space px/s).
+   * Also springs home when already past bounds with near-zero velocity.
+   * `touch` selects the softer mobile overscroll spring.
+   */
+  momentumPan: (vx: number, vy: number, touch?: boolean) => boolean;
+  /** Cancel in-flight pan physics (e.g. new pointer down). */
+  stopPanPhysics: () => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -92,11 +104,11 @@ function useZoomGestures(
   } | undefined>(undefined);
   const zoomingTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Velocity tracking for momentum pan on touch release.
+  // Velocity tracking for momentum pan on pointer release.
   // Stores recent pointer positions within a ~100ms window.
   const velocityTracker = React.useRef<Array<{ x: number; y: number; t: number }>>([]);
   const VELOCITY_WINDOW = 100;
-  const MOMENTUM_MULTIPLIER = 300;
+  /** Screen-space px/s below which we treat the release as no flick. */
   const MOMENTUM_THRESHOLD = 50;
 
   // Stable refs so event listeners always see latest values
@@ -247,6 +259,7 @@ function useZoomGestures(
 
       if (zoom > 1) {
         event.stopPropagation();
+        actionsRef.current.stopPanPhysics();
         actionsRef.current.setDragging(true);
         setZooming(true);
       }
@@ -368,7 +381,9 @@ function useZoomGestures(
         return;
       }
 
-      // Single-pointer drag for panning — elastic on touch
+      // Single-pointer drag for panning — elastic past bounds (touch + mouse).
+      // Touch keeps letterbox axes locked (overflow-only); mouse may rubber-band
+      // even when the item still fits.
       if (zoom > 1 && existing) {
         event.stopPropagation();
         if (pointers.length === 1) {
@@ -376,17 +391,16 @@ function useZoomGestures(
           changeOffsets(
             (existing.clientX - event.clientX) / zoom,
             (existing.clientY - event.clientY) / zoom,
+            true,
             isTouch,
           );
-          // Track positions for momentum calculation on touch release
-          if (isTouch) {
-            const now = event.timeStamp;
-            const tracker = velocityTracker.current;
-            tracker.push({ x: event.clientX, y: event.clientY, t: now });
-            // Trim entries older than the velocity window
-            while (tracker.length > 0 && now - tracker[0].t > VELOCITY_WINDOW) {
-              tracker.shift();
-            }
+          // Track positions for momentum calculation on release
+          const now = event.timeStamp;
+          const tracker = velocityTracker.current;
+          tracker.push({ x: event.clientX, y: event.clientY, t: now });
+          // Trim entries older than the velocity window
+          while (tracker.length > 0 && now - tracker[0].t > VELOCITY_WINDOW) {
+            tracker.shift();
           }
         }
         replacePointer(event);
@@ -474,32 +488,20 @@ function useZoomGestures(
           // Usually already snapped on 2→1; safe no-op when already in range.
           actionsRef.current.snapToBounds();
         }
-        if (event.pointerType === 'touch') {
-          const tracker = velocityTracker.current;
-          const zoom = actionsRef.current.getZoom();
-          const hasMomentum = !wasPinch && zoom > 1 && tracker.length >= 2;
-
-          if (hasMomentum) {
-            const { x: curX, y: curY } = actionsRef.current.getOffsets();
-            const target = computeMomentumTarget(
-              tracker,
-              curX,
-              curY,
-              zoom,
-              MOMENTUM_MULTIPLIER,
-              MOMENTUM_THRESHOLD,
-            );
-            if (target) {
-              tracker.length = 0;
-              actionsRef.current.momentumPan(target.targetX, target.targetY);
-              setZooming(false);
-              return;
-            }
+        // Pan release: one rAF physics sim — friction coast, spring bounce at
+        // edges, and overscroll spring-back (including zero-velocity release).
+        const tracker = velocityTracker.current;
+        const zoom = actionsRef.current.getZoom();
+        if (!wasPinch && zoom > 1) {
+          const vel = computeMomentumVelocity(tracker, zoom, MOMENTUM_THRESHOLD);
+          const touch = event.pointerType === 'touch';
+          if (actionsRef.current.momentumPan(vel?.vx ?? 0, vel?.vy ?? 0, touch)) {
+            tracker.length = 0;
+            setZooming(false);
+            return;
           }
-
-          tracker.length = 0;
-          actionsRef.current.snapOffsetsToBounds();
         }
+        tracker.length = 0;
         // Clear zooming flag (delayed to cover snap-back animation)
         setZooming(false);
       }

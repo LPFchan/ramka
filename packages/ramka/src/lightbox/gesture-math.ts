@@ -122,13 +122,81 @@ export function wheelAxis(deltaX: number, deltaY: number): GestureAxis {
 // Zoom
 // ---------------------------------------------------------------------------
 
-/** Resistance applied to values pulled past their bounds (iOS-like rubber band). */
+/** Linear resistance for simple elastic clamps (e.g. pinch zoom overshoot). */
 export const ELASTIC_FACTOR = 0.2;
 
 /**
- * Rubber-band clamp: values inside `[min, max]` pass through unchanged; values
- * outside are allowed through with `factor` resistance so they can overshoot
- * with increasing difficulty.
+ * UIScrollView rubber-band constant. Paired with {@link rubberBandDistance}:
+ * `f(x, d, c) = (x · d · c) / (d + c · x)`.
+ *
+ * Lower = stiffer early resistance. Apple uses `0.55` for full-bleed scroll
+ * views; media viewers feel better a bit tighter.
+ */
+export const RUBBER_BAND_CONSTANT = 0.28;
+
+/**
+ * Fraction of the viewport used as the rubber-band asymptote (touch).
+ * Apple scroll views use `1` (ceiling ≈ full viewport). For zoomed media that
+ * reads as “pulls way off-screen”, so we use a shorter leash.
+ */
+export const RUBBER_BAND_DIMENSION_FACTOR = 0.16;
+
+/**
+ * Mouse pan rubber-band asymptote. Pointer precision makes the touch leash
+ * feel like you can yank the image too far — keep desktop tighter.
+ */
+export const RUBBER_BAND_DIMENSION_FACTOR_MOUSE = 0.09;
+
+/**
+ * Pan rubber-band dimension in offset units: `(viewportPx * factor) / zoom`.
+ * Keeps screen-space feel zoom-invariant while capping max stretch.
+ */
+export function rubberBandPanDimension(
+  viewportPx: number,
+  zoom: number,
+  factor = RUBBER_BAND_DIMENSION_FACTOR,
+): number {
+  if (viewportPx <= 0 || zoom <= 0) return 0;
+  return (viewportPx * factor) / zoom;
+}
+
+/**
+ * Apple UIScrollView rubber-band: maps unconstrained overscroll `x` (≥ 0) to a
+ * resisted distance that asymptotes toward `dimension` and never reaches it.
+ *
+ * `dimension` must be in the **same units** as `x` (for pan offsets use
+ * {@link rubberBandPanDimension}).
+ */
+export function rubberBandDistance(
+  overscroll: number,
+  dimension: number,
+  constant = RUBBER_BAND_CONSTANT,
+): number {
+  if (overscroll <= 0 || dimension <= 0 || constant <= 0) return 0;
+  return (overscroll * dimension * constant) / (dimension + constant * overscroll);
+}
+
+/**
+ * Clamp `value` into `[min, max]` with UIScrollView-style rubber-banding past
+ * the edges. In-range values pass through; outside, overshoot is compressed by
+ * {@link rubberBandDistance} against `dimension`.
+ */
+export function rubberBandClamp(
+  value: number,
+  min: number,
+  max: number,
+  dimension: number,
+  constant = RUBBER_BAND_CONSTANT,
+): number {
+  if (value < min) return min - rubberBandDistance(min - value, dimension, constant);
+  if (value > max) return max + rubberBandDistance(value - max, dimension, constant);
+  return value;
+}
+
+/**
+ * Linear rubber-band clamp: values inside `[min, max]` pass through; outside
+ * are scaled by `factor`. Used for pinch zoom overshoot (not pan — pan uses
+ * {@link rubberBandClamp}).
  */
 export function elasticClamp(value: number, min: number, max: number, factor = ELASTIC_FACTOR): number {
   if (value < min) return min - (min - value) * factor;
@@ -137,8 +205,8 @@ export function elasticClamp(value: number, min: number, max: number, factor = E
 }
 
 /**
- * Elastic clamp against a symmetric `±max` bound (used for pan offsets). The
- * resistance is applied to the magnitude so the sign is preserved.
+ * Elastic clamp against a symmetric `±max` bound. The resistance is applied to
+ * the magnitude so the sign is preserved.
  */
 export function elasticClampSymmetric(value: number, max: number, factor = ELASTIC_FACTOR): number {
   const abs = Math.abs(value);
@@ -429,7 +497,7 @@ export function springEasingLinear(
 }
 
 // ---------------------------------------------------------------------------
-// Momentum
+// Momentum / scroll physics (rAF-stepped, not WAAPI)
 // ---------------------------------------------------------------------------
 
 export interface MomentumSample {
@@ -438,16 +506,70 @@ export interface MomentumSample {
   t: number;
 }
 
-export interface MomentumTarget {
-  targetX: number;
-  targetY: number;
+export interface MomentumVelocity {
+  /** Offset-space px/s (already divided by zoom). */
+  vx: number;
+  vy: number;
+}
+
+/** Exponential friction while coasting inside pan bounds (higher = stops sooner). */
+export const PAN_PHYSICS_FRICTION = 3.2;
+
+export interface PanPhysicsSpring {
+  stiffness: number;
+  damping: number;
 }
 
 /**
- * Momentum-pan target from recent drag samples, projecting the release
- * velocity forward. Returns `null` when there aren't enough samples, the
- * time delta is non-positive, or the release speed is at/below `threshold`
- * (in which case the caller should just snap to bounds instead).
+ * Mouse overscroll snap — snappy (~150–180ms). Touch uses a softer spring;
+ * the same k on a phone feels harsh.
+ */
+export const PAN_PHYSICS_SPRING_MOUSE: PanPhysicsSpring = {
+  stiffness: 480,
+  damping: 44, // ≈ critical: 2 * sqrt(480)
+};
+
+/** Touch overscroll snap / wall bounce — gentler iOS-like return. */
+export const PAN_PHYSICS_SPRING_TOUCH: PanPhysicsSpring = {
+  stiffness: 210,
+  damping: 30, // ≈ critical: 2 * sqrt(210)
+};
+
+/** @deprecated Prefer {@link PAN_PHYSICS_SPRING_MOUSE}. */
+export const PAN_PHYSICS_STIFFNESS = PAN_PHYSICS_SPRING_MOUSE.stiffness;
+/** @deprecated Prefer {@link PAN_PHYSICS_SPRING_MOUSE}. */
+export const PAN_PHYSICS_DAMPING = PAN_PHYSICS_SPRING_MOUSE.damping;
+/** Settle when |velocity| is below this (offset px/s). */
+export const PAN_PHYSICS_STOP_SPEED = 12;
+/** Settle when within this distance of the bound while slow (offset px). */
+export const PAN_PHYSICS_STOP_DISTANCE = 0.6;
+
+/**
+ * Release velocity from recent pointer samples, in **offset-space** px/s.
+ * Returns `null` when there aren't enough samples or screen speed is at/below
+ * `threshold` (screen px/s).
+ */
+export function computeMomentumVelocity(
+  samples: readonly MomentumSample[],
+  zoom: number,
+  threshold: number,
+): MomentumVelocity | null {
+  if (samples.length < 2 || zoom <= 0) return null;
+  const first = samples[0];
+  const last = samples[samples.length - 1];
+  const dt = last.t - first.t;
+  if (dt <= 0) return null;
+
+  const vxScreen = ((last.x - first.x) / dt) * 1000;
+  const vyScreen = ((last.y - first.y) / dt) * 1000;
+  if (Math.hypot(vxScreen, vyScreen) <= threshold) return null;
+
+  return { vx: vxScreen / zoom, vy: vyScreen / zoom };
+}
+
+/**
+ * @deprecated Prefer {@link computeMomentumVelocity} + rAF physics. Kept for
+ * older call sites/tests that project a one-shot target.
  */
 export function computeMomentumTarget(
   samples: readonly MomentumSample[],
@@ -456,21 +578,143 @@ export function computeMomentumTarget(
   zoom: number,
   multiplier: number,
   threshold: number,
-): MomentumTarget | null {
-  if (samples.length < 2) return null;
-  const first = samples[0];
-  const last = samples[samples.length - 1];
-  const dt = last.t - first.t;
-  if (dt <= 0) return null;
-
-  const vx = ((last.x - first.x) / dt) * 1000;
-  const vy = ((last.y - first.y) / dt) * 1000;
-  const speed = Math.hypot(vx, vy);
-  if (speed <= threshold) return null;
-
+): { targetX: number; targetY: number } | null {
+  const vel = computeMomentumVelocity(samples, zoom, threshold);
+  if (!vel) return null;
   const factor = multiplier / 1000;
+  // Velocity is already offset-space; multiplier was tuned for screen vel / zoom.
   return {
-    targetX: currentX + (vx * factor) / zoom,
-    targetY: currentY + (vy * factor) / zoom,
+    targetX: currentX + vel.vx * factor,
+    targetY: currentY + vel.vy * factor,
+  };
+}
+
+export interface PanPhysicsAxisInput {
+  position: number;
+  velocity: number;
+  min: number;
+  max: number;
+  /** When false, axis won't coast — only spring back if past rest. */
+  canCoast: boolean;
+}
+
+export interface PanPhysicsAxisResult {
+  position: number;
+  velocity: number;
+  settled: boolean;
+}
+
+/**
+ * One integration step of iOS-like scroll physics on a single axis:
+ * friction coast inside bounds, spring+damping bounce outside.
+ */
+export function stepPanPhysicsAxis(
+  axis: PanPhysicsAxisInput,
+  dt: number,
+  friction = PAN_PHYSICS_FRICTION,
+  stiffness = PAN_PHYSICS_SPRING_MOUSE.stiffness,
+  damping = PAN_PHYSICS_SPRING_MOUSE.damping,
+  stopSpeed = PAN_PHYSICS_STOP_SPEED,
+  stopDistance = PAN_PHYSICS_STOP_DISTANCE,
+): PanPhysicsAxisResult {
+  let { position: x, velocity: v } = axis;
+  const { min, max, canCoast } = axis;
+  if (dt <= 0) {
+    return { position: x, velocity: v, settled: true };
+  }
+
+  const out = x < min || x > max;
+  if (out) {
+    const target = x < min ? min : max;
+    const a = (target - x) * stiffness - v * damping;
+    v += a * dt;
+    x += v * dt;
+    // Crossed back into bounds this step — hand off remaining velocity to coast
+    // (or stop on a locked axis). Keeps wall-bounce continuous.
+    if (x >= min && x <= max) {
+      if (!canCoast) {
+        return { position: clamp(x, min, max), velocity: 0, settled: true };
+      }
+      if (Math.abs(v) < stopSpeed) {
+        return { position: clamp(x, min, max), velocity: 0, settled: true };
+      }
+      return { position: clamp(x, min, max), velocity: v, settled: false };
+    }
+    const dist = Math.abs(x - target);
+    if (Math.abs(v) < stopSpeed && dist < stopDistance) {
+      return { position: target, velocity: 0, settled: true };
+    }
+    return { position: x, velocity: v, settled: false };
+  }
+
+  if (!canCoast) {
+    return { position: x, velocity: 0, settled: true };
+  }
+
+  v *= Math.exp(-friction * dt);
+  x += v * dt;
+
+  // Crossed a bound this step — leave overshoot for the next spring step.
+  if (x < min || x > max) {
+    return { position: x, velocity: v, settled: false };
+  }
+  if (Math.abs(v) < stopSpeed) {
+    return { position: x, velocity: 0, settled: true };
+  }
+  return { position: x, velocity: v, settled: false };
+}
+
+export interface PanPhysicsState {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+}
+
+/**
+ * One 2D integration step. `canCoastX/Y` gate freestyle inertia (overflowing
+ * axes); non-coasting axes still spring home if past their rest bound.
+ */
+export function stepPanPhysics2D(
+  state: PanPhysicsState,
+  xRange: { min: number; max: number },
+  yRange: { min: number; max: number },
+  canCoastX: boolean,
+  canCoastY: boolean,
+  dt: number,
+  spring: PanPhysicsSpring = PAN_PHYSICS_SPRING_MOUSE,
+): PanPhysicsState & { settled: boolean } {
+  const xStep = stepPanPhysicsAxis(
+    {
+      position: state.x,
+      velocity: state.vx,
+      min: xRange.min,
+      max: xRange.max,
+      canCoast: canCoastX,
+    },
+    dt,
+    PAN_PHYSICS_FRICTION,
+    spring.stiffness,
+    spring.damping,
+  );
+  const yStep = stepPanPhysicsAxis(
+    {
+      position: state.y,
+      velocity: state.vy,
+      min: yRange.min,
+      max: yRange.max,
+      canCoast: canCoastY,
+    },
+    dt,
+    PAN_PHYSICS_FRICTION,
+    spring.stiffness,
+    spring.damping,
+  );
+  return {
+    x: xStep.position,
+    y: yStep.position,
+    vx: xStep.velocity,
+    vy: yStep.velocity,
+    settled: xStep.settled && yStep.settled,
   };
 }

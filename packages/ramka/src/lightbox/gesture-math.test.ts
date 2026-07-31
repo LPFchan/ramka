@@ -3,12 +3,17 @@ import { describe, it, expect } from 'vitest';
 import {
   PULL_DAMP_TRAVEL_RATIO,
   ELASTIC_FACTOR,
+  RUBBER_BAND_CONSTANT,
+  RUBBER_BAND_DIMENSION_FACTOR,
   clamp,
   clampOffset,
   clampOffsetToViewport,
   computeMaxZoom,
   computeMomentumTarget,
+  computeMomentumVelocity,
   computePullTransform,
+  stepPanPhysicsAxis,
+  stepPanPhysics2D,
   computePullVelocity,
   distance,
   doubleTapTargetZoom,
@@ -21,6 +26,9 @@ import {
   projectFocalZoom,
   resolveDragAxis,
   round,
+  rubberBandClamp,
+  rubberBandDistance,
+  rubberBandPanDimension,
   scaleZoom,
   shouldDismissPull,
   springEasingLinear,
@@ -248,6 +256,78 @@ describe('elasticClamp', () => {
 
   it('honors a custom factor', () => {
     expect(elasticClamp(5, 1, 4, 0.5)).toBeCloseTo(4.5, 10);
+  });
+});
+
+describe('rubberBandDistance', () => {
+  it('is 0 for non-positive overscroll or dimension', () => {
+    expect(rubberBandDistance(0, 400)).toBe(0);
+    expect(rubberBandDistance(-10, 400)).toBe(0);
+    expect(rubberBandDistance(50, 0)).toBe(0);
+  });
+
+  it('matches the UIScrollView formula', () => {
+    const x = 100;
+    const d = 400;
+    const c = RUBBER_BAND_CONSTANT;
+    expect(rubberBandDistance(x, d, c)).toBeCloseTo((x * d * c) / (d + c * x), 10);
+  });
+
+  it('stays strictly below the dimension asymptote', () => {
+    expect(rubberBandDistance(1e9, 400)).toBeLessThan(400);
+    expect(rubberBandDistance(1e9, 400)).toBeGreaterThan(399);
+  });
+
+  it('is stiffer for small pulls than a linear 0.2 factor would be at large x', () => {
+    // Small pull: Apple ~0.55·x/(1 + …) ≈ half of x early; still resisted.
+    const small = rubberBandDistance(20, 400);
+    expect(small).toBeGreaterThan(0);
+    expect(small).toBeLessThan(20);
+  });
+});
+
+describe('rubberBandClamp', () => {
+  it('passes in-range values through untouched', () => {
+    expect(rubberBandClamp(3, 1, 4, 400)).toBe(3);
+    expect(rubberBandClamp(1, 1, 4, 400)).toBe(1);
+    expect(rubberBandClamp(4, 1, 4, 400)).toBe(4);
+  });
+
+  it('rubber-bands past max and min', () => {
+    const pastMax = rubberBandClamp(4 + 100, 1, 4, 400);
+    expect(pastMax).toBeCloseTo(4 + rubberBandDistance(100, 400), 10);
+    expect(pastMax).toBeLessThan(4 + 100);
+
+    const pastMin = rubberBandClamp(1 - 100, 1, 4, 400);
+    expect(pastMin).toBeCloseTo(1 - rubberBandDistance(100, 400), 10);
+    expect(pastMin).toBeGreaterThan(1 - 100);
+  });
+
+  it('keeps screen-space feel when dimension is viewport/zoom', () => {
+    // Same finger travel (screen px) at two zooms → same screen overshoot.
+    const finger = 80;
+    const viewport = 400;
+    const z1 = 1.5;
+    const z2 = 3;
+    const screen1 =
+      rubberBandDistance(finger / z1, rubberBandPanDimension(viewport, z1)) * z1;
+    const screen2 =
+      rubberBandDistance(finger / z2, rubberBandPanDimension(viewport, z2)) * z2;
+    expect(screen1).toBeCloseTo(screen2, 8);
+  });
+});
+
+describe('rubberBandPanDimension', () => {
+  it('scales viewport by the dimension factor and zoom', () => {
+    expect(rubberBandPanDimension(400, 2)).toBeCloseTo(
+      (400 * RUBBER_BAND_DIMENSION_FACTOR) / 2,
+      10,
+    );
+  });
+
+  it('is 0 for non-positive inputs', () => {
+    expect(rubberBandPanDimension(0, 2)).toBe(0);
+    expect(rubberBandPanDimension(400, 0)).toBe(0);
   });
 });
 
@@ -526,6 +606,106 @@ describe('computeMomentumTarget', () => {
     // vy = 1000 px/s, factor 0.3, zoom 1 => +300; plus current 20 => 320
     expect(target!.targetY).toBeCloseTo(320, 10);
     expect(target!.targetX).toBeCloseTo(10, 10);
+  });
+});
+
+describe('computeMomentumVelocity', () => {
+  it('returns offset-space velocity scaled by zoom', () => {
+    // 100px over 100ms => 1000 screen px/s; zoom 2 => 500 offset px/s
+    const vel = computeMomentumVelocity(
+      [
+        { x: 0, y: 0, t: 0 },
+        { x: 100, y: 0, t: 100 },
+      ],
+      2,
+      50,
+    );
+    expect(vel).not.toBeNull();
+    expect(vel!.vx).toBeCloseTo(500, 10);
+    expect(vel!.vy).toBeCloseTo(0, 10);
+  });
+});
+
+describe('stepPanPhysicsAxis', () => {
+  const dt = 1 / 60;
+
+  it('coasts inside bounds with friction (keeps momentum direction)', () => {
+    const a = stepPanPhysicsAxis(
+      { position: 0, velocity: 400, min: -100, max: 100, canCoast: true },
+      dt,
+    );
+    expect(a.position).toBeGreaterThan(0);
+    expect(a.velocity).toBeGreaterThan(0);
+    expect(a.velocity).toBeLessThan(400);
+    expect(a.settled).toBe(false);
+  });
+
+  it('springs back when past the max bound while carrying outward velocity', () => {
+    let state = { position: 100, velocity: 600, min: -100, max: 100, canCoast: true };
+    let peak = state.position;
+    for (let i = 0; i < 12; i++) {
+      const step = stepPanPhysicsAxis(state, dt);
+      state = {
+        position: step.position,
+        velocity: step.velocity,
+        min: -100,
+        max: 100,
+        canCoast: true,
+      };
+      peak = Math.max(peak, state.position);
+    }
+    expect(peak).toBeGreaterThan(100);
+    // After the overshoot, spring pulls velocity back inward.
+    expect(state.velocity).toBeLessThan(600);
+  });
+
+  it('settles onto the bound from an overscrolled rest', () => {
+    let state = { position: 130, velocity: 0, min: -100, max: 100, canCoast: true };
+    let settled = false;
+    for (let i = 0; i < 180; i++) {
+      const step = stepPanPhysicsAxis(state, dt);
+      state = {
+        position: step.position,
+        velocity: step.velocity,
+        min: -100,
+        max: 100,
+        canCoast: true,
+      };
+      if (step.settled) {
+        settled = true;
+        break;
+      }
+    }
+    expect(settled).toBe(true);
+    expect(state.position).toBeCloseTo(100, 0);
+    expect(state.velocity).toBe(0);
+  });
+
+  it('does not coast a locked axis that is already at rest', () => {
+    const step = stepPanPhysicsAxis(
+      { position: 0, velocity: 500, min: 0, max: 0, canCoast: false },
+      dt,
+    );
+    expect(step.position).toBe(0);
+    expect(step.velocity).toBe(0);
+    expect(step.settled).toBe(true);
+  });
+});
+
+describe('stepPanPhysics2D', () => {
+  it('coasts independently per axis', () => {
+    const next = stepPanPhysics2D(
+      { x: 0, y: 0, vx: 300, vy: 0 },
+      { min: -100, max: 100 },
+      { min: 0, max: 0 },
+      true,
+      false,
+      1 / 60,
+    );
+    expect(next.x).toBeGreaterThan(0);
+    expect(next.y).toBe(0);
+    expect(next.vy).toBe(0);
+    expect(next.settled).toBe(false);
   });
 });
 

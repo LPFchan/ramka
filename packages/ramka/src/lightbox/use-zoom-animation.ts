@@ -19,6 +19,8 @@ import * as React from 'react';
 interface CaptureOptions {
   duration?: number;
   easing?: string;
+  /** Fired when the WAAPI transition finishes (not when cancelled). */
+  onFinish?: () => void;
 }
 
 function useZoomAnimation(
@@ -45,6 +47,7 @@ function useZoomAnimation(
     const opts = overrideOpts.current;
     startTransform.current = undefined;
     overrideOpts.current = undefined;
+    const onFinish = opts?.onFinish;
 
     if (!from || !el) {
       setIsAnimating(false);
@@ -54,28 +57,40 @@ function useZoomAnimation(
     const to = `scale(${zoom}) translate(${offsetX}px, ${offsetY}px)`;
     if (from === to) {
       setIsAnimating(false);
+      onFinish?.();
       return;
     }
 
     try {
-      const anim = el.animate([{ transform: from }, { transform: to }], {
-        duration: reducedMotion ? 0 : (opts?.duration ?? duration),
-        easing: opts?.easing ?? 'ease-in-out',
-        fill: 'none',
-      });
+      const anim = el.animate(
+        [
+          { transform: from, easing: opts?.easing ?? 'ease-in-out' },
+          { transform: to },
+        ],
+        {
+          duration: reducedMotion ? 0 : (opts?.duration ?? duration),
+          fill: 'none',
+        },
+      );
       runningAnimation.current = anim;
       setIsAnimating(true);
-      const settle = () => {
+      anim.onfinish = () => {
+        if (runningAnimation.current === anim) {
+          runningAnimation.current = undefined;
+          setIsAnimating(false);
+          onFinish?.();
+        }
+      };
+      anim.oncancel = () => {
         if (runningAnimation.current === anim) {
           runningAnimation.current = undefined;
           setIsAnimating(false);
         }
       };
-      anim.onfinish = settle;
-      anim.oncancel = settle;
     } catch {
       // WAAPI not supported — silent fallback to instant state
       setIsAnimating(false);
+      onFinish?.();
     }
   }, [zoom, offsetX, offsetY, wrapperRef, duration, reducedMotion]);
 
@@ -98,7 +113,15 @@ function useZoomAnimation(
     setIsAnimating(true);
   }, [wrapperRef]);
 
-  return { captureStart, isAnimating };
+  const cancel = React.useCallback(() => {
+    runningAnimation.current?.cancel();
+    runningAnimation.current = undefined;
+    startTransform.current = undefined;
+    overrideOpts.current = undefined;
+    setIsAnimating(false);
+  }, []);
+
+  return { captureStart, cancel, isAnimating };
 }
 
 export { useZoomAnimation };

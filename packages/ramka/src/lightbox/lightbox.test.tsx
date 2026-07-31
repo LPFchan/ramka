@@ -28,8 +28,14 @@ import { LightboxThumbnailGroup } from './lightbox-thumbnail-group';
 import { LightboxTrigger } from './lightbox-trigger';
 import { LightboxMedia } from './lightbox-media';
 import { LightboxZoom, type LightboxZoomRef } from './lightbox-zoom';
+import { useZoomContext } from './lightbox-zoom-context';
 import { LightboxZoomIn } from './lightbox-zoom-in';
 import { LightboxZoomOut } from './lightbox-zoom-out';
+import {
+  rubberBandClamp,
+  rubberBandPanDimension,
+  RUBBER_BAND_DIMENSION_FACTOR_MOUSE,
+} from './gesture-math';
 
 // ---------------------------------------------------------------------------
 // Mocks — jsdom lacks matchMedia, getAnimations
@@ -3538,6 +3544,454 @@ describe('Lightbox', () => {
 
         act(() => ref.current!.zoomTo(0.5));
         expect(ref.current!.zoom).toBe(1);
+      });
+
+      describe('elastic pan (mouse + touch)', () => {
+        type OverscrollPan = (
+          dx: number,
+          dy: number,
+          overscroll?: boolean,
+          overflowAxesOnly?: boolean,
+        ) => void;
+
+        function ZoomPanProbe({
+          panRef,
+        }: {
+          panRef: React.MutableRefObject<OverscrollPan | null>;
+        }) {
+          const { changeOffsets } = useZoomContext();
+          panRef.current = changeOffsets as OverscrollPan;
+          return null;
+        }
+
+        function setupOverflowGeometry(img: HTMLElement) {
+          Object.defineProperty(img, 'offsetWidth', { configurable: true, value: 400 });
+          Object.defineProperty(img, 'offsetHeight', { configurable: true, value: 400 });
+        }
+
+        function setupLetterboxGeometry(img: HTMLElement) {
+          Object.defineProperty(img, 'offsetWidth', { configurable: true, value: 120 });
+          Object.defineProperty(img, 'offsetHeight', { configurable: true, value: 120 });
+        }
+
+        function withViewport(run: () => void) {
+          const origRect = HTMLElement.prototype.getBoundingClientRect;
+          HTMLElement.prototype.getBoundingClientRect = function () {
+            return {
+              width: 400,
+              height: 400,
+              top: 0,
+              left: 0,
+              right: 400,
+              bottom: 400,
+              x: 0,
+              y: 0,
+              toJSON() {},
+            } as DOMRect;
+          };
+          try {
+            run();
+          } finally {
+            HTMLElement.prototype.getBoundingClientRect = origRect;
+          }
+        }
+
+        function renderZoomPan(ref: React.RefObject<LightboxZoomRef | null>) {
+          const panRef = { current: null as OverscrollPan | null };
+          render(
+            <LightboxRoot defaultOpen>
+              <LightboxPortal>
+                <LightboxContent aria-label="Elastic pan test">
+                  <LightboxItemGroup>
+                    <LightboxItem index={0}>
+                      <LightboxZoom ref={ref} maxZoom={4}>
+                        <img src="test.jpg" alt="test" data-testid="zoom-img" />
+                        <ZoomPanProbe panRef={panRef} />
+                      </LightboxZoom>
+                    </LightboxItem>
+                  </LightboxItemGroup>
+                </LightboxContent>
+              </LightboxPortal>
+            </LightboxRoot>,
+          );
+          return panRef;
+        }
+
+        // Polyfill PointerEvent + animate for gesture-path tests. Restore both
+        // afterward — a mock `animate` that never fires `onfinish` leaves
+        // `isAnimating` stuck and leaks `data-zoomed` into later suites.
+        const origPointerEvent = globalThis.PointerEvent;
+        const origAnimate = Element.prototype.animate;
+        beforeEach(() => {
+          if (!globalThis.PointerEvent) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (globalThis as Record<string, unknown>).PointerEvent = class PointerEvent extends MouseEvent {
+              pointerId: number;
+              pointerType: string;
+              isPrimary: boolean;
+              constructor(
+                type: string,
+                init: PointerEventInit & {
+                  pointerId?: number;
+                  pointerType?: string;
+                  isPrimary?: boolean;
+                } = {},
+              ) {
+                super(type, init);
+                this.pointerId = init.pointerId ?? 0;
+                this.pointerType = init.pointerType ?? 'mouse';
+                this.isPrimary = init.isPrimary ?? true;
+              }
+            };
+          }
+          Element.prototype.animate = vi.fn(() => {
+            const anim = {
+              finished: Promise.resolve(),
+              cancel: vi.fn(),
+              play: vi.fn(),
+              pause: vi.fn(),
+              onfinish: null as (() => void) | null,
+              oncancel: null as (() => void) | null,
+            };
+            queueMicrotask(() => {
+              anim.onfinish?.();
+            });
+            return anim;
+          }) as unknown as typeof Element.prototype.animate;
+        });
+        afterEach(() => {
+          if (origPointerEvent) {
+            (globalThis as Record<string, unknown>).PointerEvent = origPointerEvent;
+          } else {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            delete (globalThis as any).PointerEvent;
+          }
+          Element.prototype.animate = origAnimate;
+        });
+
+        function dispatchPointer(
+          el: Element,
+          type: string,
+          init: Partial<PointerEventInit> & {
+            pointerId?: number;
+            pointerType?: string;
+            clientX?: number;
+            clientY?: number;
+          } = {},
+        ) {
+          el.dispatchEvent(
+            new PointerEvent(type, {
+              bubbles: true,
+              cancelable: true,
+              pointerId: 1,
+              isPrimary: true,
+              ...init,
+            }),
+          );
+        }
+
+        /**
+         * Install a sync rAF queue, run `release`, then pump frames until the
+         * physics sim settles (or the frame budget is hit).
+         */
+        function withPanPhysicsFlush(release: () => void, frames = 120) {
+          const queue: FrameRequestCallback[] = [];
+          let now = 0;
+          const origRaf = globalThis.requestAnimationFrame;
+          const origCancel = globalThis.cancelAnimationFrame;
+          const origNow = performance.now.bind(performance);
+          globalThis.requestAnimationFrame = ((cb: FrameRequestCallback) => {
+            queue.push(cb);
+            return queue.length;
+          }) as typeof requestAnimationFrame;
+          globalThis.cancelAnimationFrame = (() => {}) as typeof cancelAnimationFrame;
+          performance.now = () => now;
+          try {
+            act(release);
+            act(() => {
+              for (let i = 0; i < frames && queue.length > 0; i++) {
+                const cb = queue.shift()!;
+                now += 1000 / 60;
+                cb(now);
+              }
+            });
+          } finally {
+            globalThis.requestAnimationFrame = origRaf;
+            globalThis.cancelAnimationFrame = origCancel;
+            performance.now = origNow;
+          }
+        }
+
+        it('elastic overscroll lets mouse pan past the hard pan edge', () => {
+          withViewport(() => {
+            const ref = React.createRef<LightboxZoomRef>();
+            const panRef = renderZoomPan(ref);
+            setupOverflowGeometry(screen.getByTestId('zoom-img'));
+
+            // content 400 @ zoom 2 in 400 viewport → ±100 pan range
+            act(() => ref.current!.zoomTo(2));
+            expect(ref.current!.zoom).toBe(2);
+
+            // Hard-clamp path stops at the edge
+            act(() => panRef.current!(-200, 0, false));
+            expect(ref.current!.offsetX).toBe(100);
+
+            // Elastic path allows past the edge (resisted, not raw) — mouse leash
+            act(() => panRef.current!(-200, 0, true));
+            const dim = rubberBandPanDimension(400, 2, RUBBER_BAND_DIMENSION_FACTOR_MOUSE);
+            expect(ref.current!.offsetX).toBeCloseTo(rubberBandClamp(300, -100, 100, dim), 5);
+            expect(ref.current!.offsetX).toBeGreaterThan(100);
+            expect(ref.current!.offsetX).toBeLessThan(300);
+          });
+        });
+
+        it('mouse elastic overscroll allows letterboxed (non-overflowing) pan past rest', () => {
+          withViewport(() => {
+            const ref = React.createRef<LightboxZoomRef>();
+            const panRef = renderZoomPan(ref);
+            setupLetterboxGeometry(screen.getByTestId('zoom-img'));
+
+            act(() => ref.current!.zoomTo(2));
+
+            // Hard-clamp: still fits → no pan
+            act(() => panRef.current!(40, 0, false));
+            expect(ref.current!.offsetX).toBe(0);
+
+            // Mouse elastic: rubber-band away from rest even when letterboxed
+            act(() => panRef.current!(40, 0, true, false));
+            expect(ref.current!.offsetX).not.toBe(0);
+            const dim = rubberBandPanDimension(400, 2, RUBBER_BAND_DIMENSION_FACTOR_MOUSE);
+            // dx positive → raw decreases (changeOffsets subtracts dx)
+            expect(ref.current!.offsetX).toBeCloseTo(rubberBandClamp(-40, 0, 0, dim), 5);
+          });
+        });
+
+        it('touch elastic overscroll does not pan letterboxed (non-overflowing) axes', () => {
+          withViewport(() => {
+            const ref = React.createRef<LightboxZoomRef>();
+            const panRef = renderZoomPan(ref);
+            setupLetterboxGeometry(screen.getByTestId('zoom-img'));
+
+            act(() => ref.current!.zoomTo(2));
+            act(() => panRef.current!(40, 25, true, true));
+            expect(ref.current!.offsetX).toBe(0);
+            expect(ref.current!.offsetY).toBe(0);
+          });
+        });
+
+        it('mouse drag past bounds rubber-bands and snaps back on release', () => {
+          const origRect = HTMLElement.prototype.getBoundingClientRect;
+          HTMLElement.prototype.getBoundingClientRect = function () {
+            return {
+              width: 400,
+              height: 400,
+              top: 0,
+              left: 0,
+              right: 400,
+              bottom: 400,
+              x: 0,
+              y: 0,
+              toJSON() {},
+            } as DOMRect;
+          };
+          try {
+            const ref = React.createRef<LightboxZoomRef>();
+            renderZoomPan(ref);
+            const img = screen.getByTestId('zoom-img');
+            setupOverflowGeometry(img);
+
+            act(() => ref.current!.zoomTo(2));
+
+            // Pointer moves right → content offset past +max
+            act(() => {
+              dispatchPointer(img, 'pointerdown', {
+                clientX: 200,
+                clientY: 200,
+                pointerType: 'mouse',
+                button: 0,
+              });
+              dispatchPointer(img, 'pointermove', {
+                clientX: 600,
+                clientY: 200,
+                pointerType: 'mouse',
+              });
+            });
+
+            expect(ref.current!.offsetX).toBeGreaterThan(100);
+
+            withPanPhysicsFlush(() => {
+              dispatchPointer(img, 'pointerup', {
+                clientX: 600,
+                clientY: 200,
+                pointerType: 'mouse',
+              });
+            });
+            expect(ref.current!.offsetX).toBe(100);
+            expect(ref.current!.offsetY).toBe(0);
+          } finally {
+            HTMLElement.prototype.getBoundingClientRect = origRect;
+          }
+        });
+
+        it('touch drag past bounds rubber-bands and snaps back on release', () => {
+          const origRect = HTMLElement.prototype.getBoundingClientRect;
+          HTMLElement.prototype.getBoundingClientRect = function () {
+            return {
+              width: 400,
+              height: 400,
+              top: 0,
+              left: 0,
+              right: 400,
+              bottom: 400,
+              x: 0,
+              y: 0,
+              toJSON() {},
+            } as DOMRect;
+          };
+          try {
+            const ref = React.createRef<LightboxZoomRef>();
+            renderZoomPan(ref);
+            const img = screen.getByTestId('zoom-img');
+            setupOverflowGeometry(img);
+
+            act(() => ref.current!.zoomTo(2));
+
+            act(() => {
+              dispatchPointer(img, 'pointerdown', {
+                clientX: 200,
+                clientY: 200,
+                pointerType: 'touch',
+              });
+              dispatchPointer(img, 'pointermove', {
+                clientX: 600,
+                clientY: 200,
+                pointerType: 'touch',
+              });
+            });
+
+            expect(ref.current!.offsetX).toBeGreaterThan(100);
+
+            withPanPhysicsFlush(() => {
+              dispatchPointer(img, 'pointerup', {
+                clientX: 600,
+                clientY: 200,
+                pointerType: 'touch',
+              });
+            });
+            expect(ref.current!.offsetX).toBe(100);
+            expect(ref.current!.offsetY).toBe(0);
+          } finally {
+            HTMLElement.prototype.getBoundingClientRect = origRect;
+          }
+        });
+
+        it('mouse rubber-band leash is shorter than touch for the same drag', () => {
+          withViewport(() => {
+            const measure = (pointerType: 'mouse' | 'touch') => {
+              cleanup();
+              const ref = React.createRef<LightboxZoomRef>();
+              renderZoomPan(ref);
+              const img = screen.getByTestId('zoom-img');
+              setupOverflowGeometry(img);
+              act(() => ref.current!.zoomTo(2));
+              act(() => {
+                dispatchPointer(img, 'pointerdown', {
+                  clientX: 200,
+                  clientY: 200,
+                  pointerType,
+                  button: 0,
+                });
+                dispatchPointer(img, 'pointermove', {
+                  clientX: 600,
+                  clientY: 200,
+                  pointerType,
+                });
+              });
+              return ref.current!.offsetX;
+            };
+
+            const mouseX = measure('mouse');
+            const touchX = measure('touch');
+            expect(mouseX).toBeGreaterThan(100);
+            expect(touchX).toBeGreaterThan(mouseX);
+          });
+        });
+
+        it('touch drag on letterboxed zoom does not move offsets', () => {
+          withViewport(() => {
+            const ref = React.createRef<LightboxZoomRef>();
+            renderZoomPan(ref);
+            const img = screen.getByTestId('zoom-img');
+            setupLetterboxGeometry(img);
+
+            act(() => ref.current!.zoomTo(2));
+            act(() => {
+              dispatchPointer(img, 'pointerdown', {
+                clientX: 200,
+                clientY: 200,
+                pointerType: 'touch',
+              });
+              dispatchPointer(img, 'pointermove', {
+                clientX: 280,
+                clientY: 260,
+                pointerType: 'touch',
+              });
+            });
+            expect(ref.current!.offsetX).toBe(0);
+            expect(ref.current!.offsetY).toBe(0);
+          });
+        });
+
+        it('mouse drag on letterboxed zoom rubber-bands then snaps home', () => {
+          const origRect = HTMLElement.prototype.getBoundingClientRect;
+          HTMLElement.prototype.getBoundingClientRect = function () {
+            return {
+              width: 400,
+              height: 400,
+              top: 0,
+              left: 0,
+              right: 400,
+              bottom: 400,
+              x: 0,
+              y: 0,
+              toJSON() {},
+            } as DOMRect;
+          };
+          try {
+            const ref = React.createRef<LightboxZoomRef>();
+            renderZoomPan(ref);
+            const img = screen.getByTestId('zoom-img');
+            setupLetterboxGeometry(img);
+
+            act(() => ref.current!.zoomTo(2));
+            act(() => {
+              dispatchPointer(img, 'pointerdown', {
+                clientX: 200,
+                clientY: 200,
+                pointerType: 'mouse',
+                button: 0,
+              });
+              dispatchPointer(img, 'pointermove', {
+                clientX: 280,
+                clientY: 200,
+                pointerType: 'mouse',
+              });
+            });
+            expect(ref.current!.offsetX).not.toBe(0);
+
+            withPanPhysicsFlush(() => {
+              dispatchPointer(img, 'pointerup', {
+                clientX: 280,
+                clientY: 200,
+                pointerType: 'mouse',
+              });
+            });
+            expect(ref.current!.offsetX).toBe(0);
+            expect(ref.current!.offsetY).toBe(0);
+          } finally {
+            HTMLElement.prototype.getBoundingClientRect = origRect;
+          }
+        });
       });
     });
   });

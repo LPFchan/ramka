@@ -8,9 +8,18 @@ import {
   clampOffsetToViewport,
   computeMaxZoom,
   elasticClamp,
+  PAN_PHYSICS_SPRING_MOUSE,
+  PAN_PHYSICS_SPRING_TOUCH,
+  PAN_PHYSICS_STOP_SPEED,
   panOffsetRange,
   projectFocalZoom,
   round,
+  RUBBER_BAND_DIMENSION_FACTOR,
+  RUBBER_BAND_DIMENSION_FACTOR_MOUSE,
+  rubberBandClamp,
+  rubberBandPanDimension,
+  stepPanPhysics2D,
+  type PanPhysicsSpring,
 } from './gesture-math';
 import { triggerHaptic } from './haptics';
 import { LightboxContentCssVars } from './lightbox-css-vars';
@@ -130,7 +139,6 @@ const DEFAULT_WHEEL_SENSITIVITY = 100;
 const DEFAULT_KEYBOARD_PAN = 50;
 const DEFAULT_DOUBLE_CLICK_DELAY = 300;
 const DEFAULT_ANIMATION_DURATION = 300;
-const SNAP_OPTS = { duration: 180, easing: 'cubic-bezier(0.25, 1, 0.5, 1)' } as const;
 // Releasing a pinch past a zoom bound rubber-bands the scale back into range.
 // A firm, no-overshoot decelerate — matching the pull-to-dismiss snap-back's
 // serious, no-overflow feel. There is no release velocity to carry on a pinch,
@@ -158,7 +166,6 @@ function zoomProgressFromScale(scale: number, minZoom: number, maxZoom: number):
   const range = Math.max(0.01, Math.min(maxZoom, minZoom + 1) - minZoom);
   return Math.min(1, Math.max(0, (scale - minZoom) / range));
 }
-const MOMENTUM_OPTS = { duration: 600, easing: 'cubic-bezier(0.33, 1, 0.68, 1)' } as const;
 
 // ---------------------------------------------------------------------------
 // Component
@@ -351,13 +358,31 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
     );
 
     // ----- Core actions -----
-    const { captureStart, isAnimating } = useZoomAnimation(
+    const { captureStart, cancel: cancelZoomAnimation, isAnimating } = useZoomAnimation(
       zoom,
       offsetX,
       offsetY,
       wrapperRef,
       DEFAULT_ANIMATION_DURATION,
     );
+
+    // rAF 2D scroll physics (friction coast + spring bounce). Not WAAPI.
+    const panPhysicsRafRef = React.useRef<number | null>(null);
+    const panPhysicsLastTsRef = React.useRef(0);
+    const panVelRef = React.useRef({ vx: 0, vy: 0 });
+    const reducedMotionPan =
+      typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    const stopPanPhysics = React.useCallback(() => {
+      if (panPhysicsRafRef.current != null) {
+        cancelAnimationFrame(panPhysicsRafRef.current);
+        panPhysicsRafRef.current = null;
+      }
+      panPhysicsLastTsRef.current = 0;
+      panVelRef.current = { vx: 0, vy: 0 };
+    }, []);
+
+    React.useEffect(() => () => stopPanPhysics(), [stopPanPhysics]);
 
     // ----- Sync data-zoomed + --lightbox-zoom-progress on Content -----
     // Only the active slide writes these, so they have a single writer and
@@ -432,33 +457,53 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
     const offsetYRef = React.useRef(offsetY);
     offsetYRef.current = offsetY;
 
-    // Raw (unclamped) offsets during elastic touch drag. The elastic
-    // formula is applied to these to compute the displayed value, so
-    // resistance is based on total overshoot rather than compounding.
+    // Raw (unclamped) offsets during elastic drag. The elastic formula
+    // is applied to these to compute the displayed value, so resistance
+    // is based on total overshoot rather than compounding.
     const rawOffsetX = React.useRef(0);
     const rawOffsetY = React.useRef(0);
     const isElasticDrag = React.useRef(false);
 
     const changeOffsetsAction = React.useCallback(
-      (dx: number, dy: number, overscroll?: boolean) => {
+      (dx: number, dy: number, overscroll?: boolean, overflowAxesOnly?: boolean) => {
+        stopPanPhysics();
         const z = zoomRef.current;
         const geo = measurePanGeometry(z);
         if (!geo) return;
         const { x, y } = geo;
-        // Still fits the screen — no dragging (keeps letterbox stable).
-        if (!x.overflows && !y.overflows) return;
 
         if (overscroll) {
+          // Touch (`overflowAxesOnly`): only pan axes that overflow — letterbox
+          // stays put. Mouse: both axes rubber-band even when the item fits
+          // (min===max rest → pure overshoot that snaps back).
+          //
+          // UIScrollView formula in offset space. Dimension is a fraction of
+          // viewport/zoom — same screen-space feel at every zoom, but a shorter
+          // leash than Apple's full-viewport scroll-view asymptote.
+          const allowX = !overflowAxesOnly || x.overflows;
+          const allowY = !overflowAxesOnly || y.overflows;
+          if (!allowX && !allowY) return;
+
           if (!isElasticDrag.current) {
             isElasticDrag.current = true;
             rawOffsetX.current = offsetXRef.current;
             rawOffsetY.current = offsetYRef.current;
           }
-          if (x.overflows) rawOffsetX.current -= dx;
-          if (y.overflows) rawOffsetY.current -= dy;
-          setOffsetX(x.overflows ? elasticClamp(rawOffsetX.current, x.min, x.max) : offsetXRef.current);
-          setOffsetY(y.overflows ? elasticClamp(rawOffsetY.current, y.min, y.max) : offsetYRef.current);
+          if (allowX) rawOffsetX.current -= dx;
+          if (allowY) rawOffsetY.current -= dy;
+          // Touch keeps the longer leash; mouse uses a shorter asymptote so
+          // precise dragging can't yank the image as far past the edge.
+          const dimFactor = overflowAxesOnly
+            ? RUBBER_BAND_DIMENSION_FACTOR
+            : RUBBER_BAND_DIMENSION_FACTOR_MOUSE;
+          const dimX = rubberBandPanDimension(geo.viewport.width, z, dimFactor);
+          const dimY = rubberBandPanDimension(geo.viewport.height, z, dimFactor);
+          setOffsetX(allowX ? rubberBandClamp(rawOffsetX.current, x.min, x.max, dimX) : offsetXRef.current);
+          setOffsetY(allowY ? rubberBandClamp(rawOffsetY.current, y.min, y.max, dimY) : offsetYRef.current);
         } else {
+          // Hard-clamp path (keyboard / wheel): keep letterbox stable — no
+          // pan on an axis that doesn't overflow.
+          if (!x.overflows && !y.overflows) return;
           const nextX = x.overflows ? offsetXRef.current - dx : offsetXRef.current;
           const nextY = y.overflows ? offsetYRef.current - dy : offsetYRef.current;
           const clamped = clampOffsets(nextX, nextY, z);
@@ -466,11 +511,12 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
           setOffsetY(y.overflows ? clamped.y : offsetYRef.current);
         }
       },
-      [clampOffsets, measurePanGeometry],
+      [clampOffsets, measurePanGeometry, stopPanPhysics],
     );
 
     const changeZoomAction = React.useCallback(
       (target: number, rapid: boolean, dx?: number, dy?: number, overscroll?: boolean) => {
+        stopPanPhysics();
         const nextZoom = round(
           overscroll ? elasticClamp(target, minZoom, maxZoom) : clamp(target, minZoom, maxZoom),
           5,
@@ -506,7 +552,7 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
         setOffsetY(offsets.y);
         setZoom(nextZoom);
       },
-      [minZoom, maxZoom, clampOffsets, captureStart, measurePanGeometry],
+      [minZoom, maxZoom, clampOffsets, captureStart, measurePanGeometry, stopPanPhysics],
     );
 
     const zoomInAction = React.useCallback(() => {
@@ -543,29 +589,111 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
       setOffsetY(offsets.y);
     }, [minZoom, maxZoom, clampOffsets, captureStart]);
 
-    const snapOffsetsToBoundsAction = React.useCallback(() => {
-      isElasticDrag.current = false;
-      const clamped = clampOffsets(offsetXRef.current, offsetYRef.current, zoomRef.current);
-      if (clamped.x === offsetXRef.current && clamped.y === offsetYRef.current) return;
-      captureStart(SNAP_OPTS);
-      setOffsetX(clamped.x);
-      setOffsetY(clamped.y);
-    }, [clampOffsets, captureStart]);
-
-    const momentumPanAction = React.useCallback(
-      (targetX: number, targetY: number) => {
+    /**
+     * Native-like 2D scroll physics: friction coast inside bounds, spring bounce
+     * past edges. Driven by rAF — not WAAPI keyframes.
+     *
+     * @param vx Offset-space px/s
+     * @param vy Offset-space px/s
+     * @param spring Mouse vs touch return feel (touch is softer).
+     * @returns `true` when a simulation was started (or instantly settled).
+     */
+    const startPanPhysicsAction = React.useCallback(
+      (vx: number, vy: number, spring: PanPhysicsSpring = PAN_PHYSICS_SPRING_MOUSE): boolean => {
+        stopPanPhysics();
+        cancelZoomAnimation();
         isElasticDrag.current = false;
-        const geo = measurePanGeometry(zoomRef.current);
-        if (!geo || (!geo.x.overflows && !geo.y.overflows)) return;
-        const clamped = clampOffsets(targetX, targetY, zoomRef.current);
-        const nextX = geo.x.overflows ? clamped.x : offsetXRef.current;
-        const nextY = geo.y.overflows ? clamped.y : offsetYRef.current;
-        if (nextX === offsetXRef.current && nextY === offsetYRef.current) return;
-        captureStart(MOMENTUM_OPTS);
-        setOffsetX(nextX);
-        setOffsetY(nextY);
+
+        const z = zoomRef.current;
+        const geo = measurePanGeometry(z);
+        if (!geo) return false;
+
+        let x = offsetXRef.current;
+        let y = offsetYRef.current;
+        let velX = vx;
+        let velY = vy;
+        const outX = x < geo.x.min || x > geo.x.max;
+        const outY = y < geo.y.min || y > geo.y.max;
+        // Letterboxed axes don't coast — only spring home if already past rest.
+        if (!geo.x.overflows && !outX) velX = 0;
+        if (!geo.y.overflows && !outY) velY = 0;
+
+        const speed = Math.hypot(velX, velY);
+        if (!outX && !outY && speed < PAN_PHYSICS_STOP_SPEED) return false;
+
+        if (reducedMotionPan) {
+          const clamped = clampOffsets(x, y, z);
+          setOffsetX(clamped.x);
+          setOffsetY(clamped.y);
+          return true;
+        }
+
+        panVelRef.current = { vx: velX, vy: velY };
+
+        const tick = (ts: number) => {
+          const prev = panPhysicsLastTsRef.current;
+          panPhysicsLastTsRef.current = ts;
+          let dt = prev > 0 ? (ts - prev) / 1000 : 1 / 60;
+          if (dt > 0.048) dt = 1 / 60;
+
+          const g = measurePanGeometry(zoomRef.current);
+          if (!g) {
+            panPhysicsRafRef.current = null;
+            return;
+          }
+
+          const next = stepPanPhysics2D(
+            {
+              x: offsetXRef.current,
+              y: offsetYRef.current,
+              vx: panVelRef.current.vx,
+              vy: panVelRef.current.vy,
+            },
+            g.x,
+            g.y,
+            g.x.overflows,
+            g.y.overflows,
+            dt,
+            spring,
+          );
+          panVelRef.current = { vx: next.vx, vy: next.vy };
+          offsetXRef.current = next.x;
+          offsetYRef.current = next.y;
+          setOffsetX(next.x);
+          setOffsetY(next.y);
+
+          if (next.settled) {
+            const clamped = clampOffsets(next.x, next.y, zoomRef.current);
+            offsetXRef.current = clamped.x;
+            offsetYRef.current = clamped.y;
+            setOffsetX(clamped.x);
+            setOffsetY(clamped.y);
+            panPhysicsRafRef.current = null;
+            panPhysicsLastTsRef.current = 0;
+            panVelRef.current = { vx: 0, vy: 0 };
+            return;
+          }
+
+          panPhysicsRafRef.current = requestAnimationFrame(tick);
+        };
+
+        panPhysicsLastTsRef.current = 0;
+        panPhysicsRafRef.current = requestAnimationFrame(tick);
+        return true;
       },
-      [clampOffsets, captureStart, measurePanGeometry],
+      [stopPanPhysics, cancelZoomAnimation, measurePanGeometry, clampOffsets, reducedMotionPan],
+    );
+
+    /** @returns `true` when offsets were past bounds and a spring-back started. */
+    const snapOffsetsToBoundsAction = React.useCallback((): boolean => {
+      return startPanPhysicsAction(0, 0);
+    }, [startPanPhysicsAction]);
+
+    /** @returns `true` when coast / bounce physics was started. */
+    const momentumPanAction = React.useCallback(
+      (vx: number, vy: number, touch = false): boolean =>
+        startPanPhysicsAction(vx, vy, touch ? PAN_PHYSICS_SPRING_TOUCH : PAN_PHYSICS_SPRING_MOUSE),
+      [startPanPhysicsAction],
     );
 
     // ----- Gesture hook -----
@@ -601,8 +729,18 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
         snapToBounds: snapToBoundsAction,
         snapOffsetsToBounds: snapOffsetsToBoundsAction,
         momentumPan: momentumPanAction,
+        stopPanPhysics,
       }),
-      [zoomInAction, zoomOutAction, changeZoomAction, changeOffsetsAction, snapToBoundsAction, snapOffsetsToBoundsAction, momentumPanAction],
+      [
+        zoomInAction,
+        zoomOutAction,
+        changeZoomAction,
+        changeOffsetsAction,
+        snapToBoundsAction,
+        snapOffsetsToBoundsAction,
+        momentumPanAction,
+        stopPanPhysics,
+      ],
     );
 
     // Only the active slide owns Stage/Content-level wheel/gesture listeners so
