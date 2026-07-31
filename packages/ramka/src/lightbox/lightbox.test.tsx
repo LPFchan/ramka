@@ -4609,13 +4609,79 @@ describe('Lightbox', () => {
           act(() => {
             vi.advanceTimersByTime(120);
           });
-          expect(scrollIntoView).toHaveBeenCalled();
+          expect(scrollIntoView).toHaveBeenCalledWith({
+            block: 'nearest',
+            inline: 'nearest',
+            behavior: 'instant',
+          });
         } finally {
           vi.useRealTimers();
         }
       } finally {
         HTMLElement.prototype.scrollIntoView = origScroll;
         HTMLElement.prototype.getBoundingClientRect = origRect;
+      }
+    });
+
+    it('forwards block/inline alignment from scrollTriggerIntoView options', () => {
+      const scrollIntoView = vi.fn();
+      const origScroll = HTMLElement.prototype.scrollIntoView;
+      HTMLElement.prototype.scrollIntoView = scrollIntoView;
+      try {
+        function Harness() {
+          return (
+            <LightboxRoot
+              scrollTriggerIntoView={{
+                type: 'onChange',
+                behavior: 'instant',
+                inline: 'center',
+                block: 'center',
+              }}
+            >
+              {[0, 1].map((i) => (
+                <LightboxTrigger key={i} index={i} data-testid={`trigger-${i}`}>
+                  T{i}
+                </LightboxTrigger>
+              ))}
+              <LightboxPortal>
+                <LightboxContent data-testid="content" aria-label="scroll align test">
+                  <LightboxItemGroup preload={1}>
+                    {[0, 1].map((i) => (
+                      <LightboxItem key={i} index={i}>
+                        Item {i}
+                      </LightboxItem>
+                    ))}
+                  </LightboxItemGroup>
+                  <LightboxNext data-testid="next">Next</LightboxNext>
+                </LightboxContent>
+              </LightboxPortal>
+            </LightboxRoot>
+          );
+        }
+        render(<Harness />);
+
+        act(() => {
+          fireEvent.click(screen.getByTestId('trigger-0'));
+        });
+
+        vi.useFakeTimers();
+        try {
+          act(() => {
+            fireEvent.click(screen.getByTestId('next'));
+          });
+          act(() => {
+            vi.advanceTimersByTime(120);
+          });
+          expect(scrollIntoView).toHaveBeenCalledWith({
+            block: 'center',
+            inline: 'center',
+            behavior: 'instant',
+          });
+        } finally {
+          vi.useRealTimers();
+        }
+      } finally {
+        HTMLElement.prototype.scrollIntoView = origScroll;
       }
     });
   });

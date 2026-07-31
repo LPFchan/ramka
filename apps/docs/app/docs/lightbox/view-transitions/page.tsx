@@ -180,7 +180,11 @@ export default function LightboxViewTransitionsPage() {
           </li>
         </ul>
         <p>
-          Pass one option or an array. Pair with <code className="text-xs">morphTo</code> so the scrolled
+          Pass one option or an array. Each option also accepts{' '}
+          <code className="text-xs">block</code> / <code className="text-xs">inline</code> alignment
+          (defaults <code className="text-xs">nearest</code>) — use{' '}
+          <code className="text-xs">inline: &apos;center&apos;</code> for horizontal snap strips with
+          variable-width tiles. Pair with <code className="text-xs">morphTo</code> so the scrolled
           element is the same one that receives the morph.
         </p>
         <CodeBlock
