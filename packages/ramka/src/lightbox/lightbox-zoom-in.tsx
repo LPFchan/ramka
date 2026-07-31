@@ -3,6 +3,7 @@
 import { mergeProps, useRender } from '@base-ui/react';
 import * as React from 'react';
 
+import { LightboxZoomInDataAttributes } from './lightbox-data-attributes';
 import { useLightboxContext } from './lightbox-context';
 import { useOptionalActiveZoom, useOptionalZoomContext } from './lightbox-zoom-context';
 
@@ -45,6 +46,7 @@ const LightboxZoomIn = React.forwardRef<HTMLButtonElement, LightboxZoomInProps>(
       props: mergeProps<'button'>(
         {
           type: 'button',
+          [LightboxZoomInDataAttributes.zoomIn]: '',
           'aria-label': 'Zoom in',
           disabled,
           onClick: handleClick,

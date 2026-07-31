@@ -377,8 +377,8 @@ export function resolveMorphBorderRadius(el: HTMLElement): string {
 
 /**
  * Applies the document-level state that drives the morph CSS: the phase
- * attribute, the optional no-crossfade opt-out (with its old/new opacity
- * vars), and the from/to border-radius vars. Only defined values are written,
+ * attribute, optional `data-ramka-crossfade` (with hard-cut opacity vars when
+ * absent), and the from/to border-radius vars. Only defined values are written,
  * matching the original conditional writes.
  */
 function applyMorphState(
@@ -387,9 +387,10 @@ function applyMorphState(
   opts: { useCrossfade: boolean; fromRadius: string | null; toRadius: string | null },
 ) {
   docEl.setAttribute(LightboxDocumentDataAttributes.viewTransition, phase);
-  if (!opts.useCrossfade) {
-    docEl.setAttribute(LightboxDocumentDataAttributes.noCrossfade, '');
-    // No-crossfade makes the item the single visible, animated layer in both
+  if (opts.useCrossfade) {
+    docEl.setAttribute(LightboxDocumentDataAttributes.crossfade, '');
+  } else {
+    // Hard-cut: the item is the single visible, animated layer in both
     // directions and never crossfades the trigger. But on OPEN we ALWAYS keep
     // the `old` (trigger) snapshot opaque underneath as a paint fallback —
     // never 0. (In the CSS both pseudos have `animation: none` and stretch to
@@ -450,7 +451,7 @@ function clearMorphName(el: HTMLElement) {
 /** Removes every document-level attribute/var set by {@link applyMorphState}. */
 function clearMorphState(docEl: HTMLElement) {
   docEl.removeAttribute(LightboxDocumentDataAttributes.viewTransition);
-  docEl.removeAttribute(LightboxDocumentDataAttributes.noCrossfade);
+  docEl.removeAttribute(LightboxDocumentDataAttributes.crossfade);
   docEl.style.removeProperty(LightboxDocumentCssVars.morphOldOpacity);
   docEl.style.removeProperty(LightboxDocumentCssVars.morphNewOpacity);
   docEl.style.removeProperty(LightboxDocumentCssVars.morphBorderRadiusFrom);
@@ -696,7 +697,7 @@ function useViewTransitionMorph(config: ViewTransitionMorphConfig): ViewTransiti
     // Radius is unaffected by the `visibility: hidden` prepare state.
     const toRadius = canMorph ? resolveMorphBorderRadius(itemTargetPrep!) : null;
 
-    // In the fallback we force the root crossfade on (no `data-no-crossfade`)
+    // In the fallback we force the root crossfade on (`data-ramka-crossfade`)
     // and set no morph name/radius, so the transition is a clean fade.
     applyMorphState(docEl, 'opening', {
       useCrossfade: canMorph ? useCrossfade : true,

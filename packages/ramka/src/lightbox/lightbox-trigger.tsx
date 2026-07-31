@@ -14,6 +14,7 @@ import {
   type LightboxHandle,
   type LightboxHandleTriggerRegistration,
 } from './lightbox-handle';
+import { ignoreStateAttribute } from './lightbox-state-attributes';
 
 /** Direction(s) in which the trigger↔item morph should crossfade snapshots. */
 type LightboxCrossfade = 'open' | 'close' | 'both';
@@ -43,7 +44,8 @@ interface LightboxTriggerRenderState {
    * Optional. Attach to the element that should morph when it should be a
    * *bigger* element than the image (e.g. a tile that also contains an overlay).
    * When unattached the whole trigger morphs, which already includes any
-   * overlay — so you rarely need this.
+   * overlay — so you rarely need this. While this trigger is the morph source,
+   * `data-morph-target` is set on this node (or on the trigger root when unset).
    */
   morphRef: (node: HTMLElement | null) => void;
   /** Whether the lightbox is open. */
@@ -91,7 +93,8 @@ interface LightboxTriggerProps
    * - `'open'` — crossfade only when opening
    * - `'close'` — crossfade only when closing (e.g. poster → live video)
    *
-   * Sets `data-crossfade` / `data-ramka-no-crossfade` for CSS.
+   * Sets `data-crossfade` on the trigger and `data-ramka-crossfade` on
+   * `<html>` during phases that dissolve (omitted for hard-cut).
    */
   crossfade?: LightboxCrossfade;
   /**
@@ -107,8 +110,10 @@ interface LightboxTriggerProps
 const triggerStateAttributesMapping = {
   open: (value: unknown) => (value ? { [LightboxTriggerDataAttributes.open]: '' } : null),
   active: (value: unknown) => (value ? { [LightboxTriggerDataAttributes.active]: '' } : null),
-  morphTarget: (value: unknown) =>
-    value ? { [LightboxTriggerDataAttributes.morphTarget]: '' } : null,
+  // Suppress Base UI's default `data-morphtarget` serialization. We set the
+  // documented `data-morph-target` imperatively on the resolved morph element
+  // (trigger root, or `morphRef` node) instead.
+  morphTarget: ignoreStateAttribute,
 };
 
 const noopSubscribe = () => () => {};
@@ -313,12 +318,41 @@ const LightboxTrigger = React.forwardRef<HTMLButtonElement, LightboxTriggerProps
       [index, idProp, triggerImageElementsRef, triggerIdsRef, syncHandleRegistration],
     );
 
+    // Tracks whether this trigger is currently the morph source so `morphRef`
+    // can move `data-morph-target` imperatively without setState (inline
+    // consumer ref callbacks re-fire null→node every render).
+    const isMorphTargetRef = React.useRef(false);
+    const morphTargetAttrElRef = React.useRef<HTMLElement | null>(null);
+
+    const syncMorphTargetAttribute = React.useCallback((active: boolean) => {
+      const triggerEl = internalRef.current;
+      const morphEl = morphNodeRef.current ?? triggerEl;
+      const prev = morphTargetAttrElRef.current;
+      const attr = LightboxTriggerDataAttributes.morphTarget;
+
+      if (prev && prev !== morphEl) {
+        prev.removeAttribute(attr);
+      }
+
+      if (active && morphEl) {
+        morphEl.setAttribute(attr, '');
+        morphTargetAttrElRef.current = morphEl;
+      } else {
+        morphEl?.removeAttribute(attr);
+        if (prev && prev !== morphEl) prev.removeAttribute(attr);
+        morphTargetAttrElRef.current = null;
+      }
+    }, []);
+
     const morphRef = React.useCallback(
       (node: HTMLElement | null) => {
         morphNodeRef.current = node;
         registerMorphElement();
+        if (isMorphTargetRef.current) {
+          syncMorphTargetAttribute(true);
+        }
       },
-      [registerMorphElement],
+      [registerMorphElement, syncMorphTargetAttribute],
     );
 
     const handleClick = React.useCallback(() => {
@@ -392,6 +426,21 @@ const LightboxTrigger = React.forwardRef<HTMLButtonElement, LightboxTriggerProps
       }
       return active;
     }, [open, morphTo, activeIndex, index, active, openingTriggerIndexRef, triggerElementsRef]);
+
+    // Publish `data-morph-target` on the resolved morph element (trigger root,
+    // or `morphRef` node). No setState here — see `morphRef` / `syncMorphTargetAttribute`.
+    React.useLayoutEffect(() => {
+      isMorphTargetRef.current = morphTarget;
+      syncMorphTargetAttribute(morphTarget);
+      return () => {
+        isMorphTargetRef.current = false;
+        const el = morphTargetAttrElRef.current;
+        if (el) {
+          el.removeAttribute(LightboxTriggerDataAttributes.morphTarget);
+          morphTargetAttrElRef.current = null;
+        }
+      };
+    }, [morphTarget, syncMorphTargetAttribute]);
 
     const state = React.useMemo<LightboxTriggerState>(
       () => ({ open, active, morphTarget }),

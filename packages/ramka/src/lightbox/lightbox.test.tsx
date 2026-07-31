@@ -1,5 +1,6 @@
 import { render, screen, fireEvent, act, cleanup } from '@testing-library/react';
 import * as React from 'react';
+import * as ReactDOM from 'react-dom';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
@@ -790,6 +791,52 @@ describe('Lightbox', () => {
       expect(screen.getByTestId('item-0')).toHaveAttribute('aria-hidden', 'false');
       expect(screen.getByTestId('item-1')).toHaveAttribute('aria-hidden', 'true');
     });
+
+    it('ignores keys whose DOM target is in a React portal outside the dialog host', () => {
+      function PortaledMenuItem() {
+        const [host] = React.useState(() => {
+          const node = document.createElement('div');
+          node.setAttribute('data-testid', 'menu-portal-host');
+          return node;
+        });
+
+        React.useEffect(() => {
+          document.body.appendChild(host);
+          return () => {
+            host.remove();
+          };
+        }, [host]);
+
+        return ReactDOM.createPortal(
+          <button data-testid="portaled-menu-item" type="button">
+            Download
+          </button>,
+          host,
+        );
+      }
+
+      render(
+        <LightboxRoot defaultOpen defaultValue={0}>
+          <LightboxPortal>
+            <LightboxContent data-testid="content" aria-label="Portal key test">
+              <PortaledMenuItem />
+              <LightboxItemGroup preload={1}>
+                {Array.from({ length: 3 }, (_, i) => (
+                  <LightboxItem key={`i-${i}`} index={i} data-testid={`item-${i}`}>
+                    Item {i}
+                  </LightboxItem>
+                ))}
+              </LightboxItemGroup>
+            </LightboxContent>
+          </LightboxPortal>
+        </LightboxRoot>,
+      );
+
+      fireEvent.keyDown(screen.getByTestId('portaled-menu-item'), { key: 'ArrowRight' });
+
+      expect(screen.getByTestId('item-0')).toHaveAttribute('aria-hidden', 'false');
+      expect(screen.getByTestId('item-1')).toHaveAttribute('aria-hidden', 'true');
+    });
   });
 
   // ---------------------------------------------------------------------------
@@ -898,6 +945,37 @@ describe('Lightbox', () => {
       });
 
       expect(document.activeElement).toBe(screen.getByTestId('content'));
+    });
+
+    it('allows focus to stay in a portaled overlay outside the dialog subtree', async () => {
+      render(
+        <LightboxRoot defaultOpen defaultValue={0}>
+          <LightboxPortal>
+            <LightboxContent data-testid="content" aria-label="Portaled overlay test">
+              <button data-testid="in-dialog" type="button">
+                In dialog
+              </button>
+            </LightboxContent>
+          </LightboxPortal>
+        </LightboxRoot>,
+      );
+
+      const portalHost = document.createElement('div');
+      document.body.appendChild(portalHost);
+      const portaledButton = document.createElement('button');
+      portaledButton.type = 'button';
+      portaledButton.textContent = 'Portaled menu item';
+      portalHost.appendChild(portaledButton);
+
+      screen.getByTestId('in-dialog').focus();
+      await act(async () => {
+        portaledButton.focus();
+        await Promise.resolve();
+      });
+
+      expect(document.activeElement).toBe(portaledButton);
+
+      portalHost.remove();
     });
   });
 
@@ -1551,7 +1629,7 @@ describe('Lightbox', () => {
     function cleanupViewTransitionAPI() {
       delete (document as unknown as Record<string, unknown>).startViewTransition;
       document.documentElement.removeAttribute('data-ramka-view-transition');
-      document.documentElement.removeAttribute('data-ramka-no-crossfade');
+      document.documentElement.removeAttribute('data-ramka-crossfade');
       document.documentElement.style.removeProperty('--lightbox-morph-border-radius-from');
       document.documentElement.style.removeProperty('--lightbox-morph-border-radius-to');
       document.documentElement.style.removeProperty('--lightbox-morph-old-opacity');
@@ -1663,7 +1741,8 @@ describe('Lightbox', () => {
       expect(startViewTransition).toHaveBeenCalledOnce();
       expect(namedDuringCapture).toBe('');
       expect(document.documentElement).toHaveAttribute('data-ramka-view-transition', 'closing');
-      expect(document.documentElement).not.toHaveAttribute('data-ramka-no-crossfade');
+      // No trigger end → plain root crossfade (not a hard-cut morph).
+      expect(document.documentElement).toHaveAttribute('data-ramka-crossfade');
     });
 
     it('removes data-ramka-view-transition after close transition finishes', async () => {
@@ -2106,10 +2185,10 @@ describe('Lightbox', () => {
         fireEvent.click(screen.getByTestId('trigger-0'));
 
         // Morph path: the destination image gets the morph view-transition-name
-        // and the no-crossfade opt-out is applied (crossfade defaults to unset).
+        // and hard-cut is applied (crossfade defaults to unset; no data-ramka-crossfade).
         const img = screen.getByTestId('item-0').querySelector('img')!;
         expect(img.style.getPropertyValue('view-transition-name')).toBe('lightbox-morph');
-        expect(document.documentElement).toHaveAttribute('data-ramka-no-crossfade');
+        expect(document.documentElement).not.toHaveAttribute('data-ramka-crossfade');
       });
 
       it('falls back to a plain crossfade when the target box is 0×0 (unsized image that never loaded)', () => {
@@ -2119,13 +2198,102 @@ describe('Lightbox', () => {
         fireEvent.click(screen.getByTestId('trigger-0'));
 
         // Fallback path: no morph name (which would shrink the trigger into a
-        // 0×0 box) and no no-crossfade opt-out — a clean root crossfade instead.
+        // 0×0 box) with data-ramka-crossfade — a clean root crossfade instead.
         const img = screen.getByTestId('item-0').querySelector('img')!;
         expect(img.style.getPropertyValue('view-transition-name')).toBe('');
-        expect(document.documentElement).not.toHaveAttribute('data-ramka-no-crossfade');
+        expect(document.documentElement).toHaveAttribute('data-ramka-crossfade');
         // Still a real View Transition, and the item is still marked ready.
         expect(document.documentElement).toHaveAttribute('data-ramka-view-transition');
         expect(screen.getByTestId('item-0')).toHaveAttribute('data-skip-fade');
+      });
+    });
+
+    describe('data-morph-target', () => {
+      it('sets data-morph-target on the trigger when morphRef is unset', () => {
+        render(
+          <LightboxRoot>
+            <LightboxTrigger index={0} data-testid="trigger-0">
+              <img src="thumb.jpg" alt="thumb" />
+            </LightboxTrigger>
+            <LightboxPortal>
+              <LightboxContent aria-label="morph attr test">
+                <LightboxItemGroup>
+                  <LightboxItem index={0}>
+                    <img src="full.jpg" alt="full" />
+                  </LightboxItem>
+                </LightboxItemGroup>
+              </LightboxContent>
+            </LightboxPortal>
+          </LightboxRoot>,
+        );
+
+        const trigger = screen.getByTestId('trigger-0');
+        expect(trigger).not.toHaveAttribute('data-morph-target');
+        fireEvent.click(trigger);
+        expect(trigger).toHaveAttribute('data-morph-target');
+        // Base UI must not also serialize the state key as `data-morphtarget`.
+        expect(trigger).not.toHaveAttribute('data-morphtarget');
+      });
+
+      it('sets data-morph-target on the morphRef node, not the trigger', () => {
+        render(
+          <LightboxRoot>
+            <LightboxTrigger index={0} data-testid="trigger-0">
+              {({ morphRef }) => (
+                <span data-testid="card">
+                  <img ref={morphRef} data-testid="morph-el" src="thumb.jpg" alt="thumb" />
+                  <span>Label stays</span>
+                </span>
+              )}
+            </LightboxTrigger>
+            <LightboxPortal>
+              <LightboxContent aria-label="morph attr test">
+                <LightboxItemGroup>
+                  <LightboxItem index={0}>
+                    <img src="full.jpg" alt="full" />
+                  </LightboxItem>
+                </LightboxItemGroup>
+              </LightboxContent>
+            </LightboxPortal>
+          </LightboxRoot>,
+        );
+
+        fireEvent.click(screen.getByTestId('trigger-0'));
+        expect(screen.getByTestId('trigger-0')).not.toHaveAttribute('data-morph-target');
+        expect(screen.getByTestId('morph-el')).toHaveAttribute('data-morph-target');
+        expect(screen.getByTestId('card')).not.toHaveAttribute('data-morph-target');
+      });
+
+      it('tolerates an inline combined imageRef+morphRef callback without looping', () => {
+        render(
+          <LightboxRoot>
+            <LightboxTrigger index={0} data-testid="trigger-0">
+              {({ imageRef, morphRef }) => (
+                <img
+                  ref={(node) => {
+                    imageRef(node);
+                    morphRef(node);
+                  }}
+                  data-testid="morph-el"
+                  src="thumb.jpg"
+                  alt="thumb"
+                />
+              )}
+            </LightboxTrigger>
+            <LightboxPortal>
+              <LightboxContent aria-label="morph attr test">
+                <LightboxItemGroup>
+                  <LightboxItem index={0}>
+                    <img src="full.jpg" alt="full" />
+                  </LightboxItem>
+                </LightboxItemGroup>
+              </LightboxContent>
+            </LightboxPortal>
+          </LightboxRoot>,
+        );
+
+        fireEvent.click(screen.getByTestId('trigger-0'));
+        expect(screen.getByTestId('morph-el')).toHaveAttribute('data-morph-target');
       });
     });
 
@@ -2193,7 +2361,7 @@ describe('Lightbox', () => {
         mockTargetBox();
         renderCrossfadeLightbox('close');
         fireEvent.click(screen.getByTestId('trigger-0'));
-        expect(document.documentElement).toHaveAttribute('data-ramka-no-crossfade');
+        expect(document.documentElement).not.toHaveAttribute('data-ramka-crossfade');
       });
 
       it('crossfades open when crossfade="open"', () => {
@@ -2201,7 +2369,7 @@ describe('Lightbox', () => {
         mockTargetBox();
         renderCrossfadeLightbox('open');
         fireEvent.click(screen.getByTestId('trigger-0'));
-        expect(document.documentElement).not.toHaveAttribute('data-ramka-no-crossfade');
+        expect(document.documentElement).toHaveAttribute('data-ramka-crossfade');
       });
 
       it('crossfades open when crossfade="both"', () => {
@@ -2209,7 +2377,7 @@ describe('Lightbox', () => {
         mockTargetBox();
         renderCrossfadeLightbox('both');
         fireEvent.click(screen.getByTestId('trigger-0'));
-        expect(document.documentElement).not.toHaveAttribute('data-ramka-no-crossfade');
+        expect(document.documentElement).toHaveAttribute('data-ramka-crossfade');
       });
 
       function mockOpenThenCloseTransition() {
@@ -2250,12 +2418,12 @@ describe('Lightbox', () => {
         renderCrossfadeLightbox('close');
         fireEvent.click(screen.getByTestId('trigger-0'));
         // Open was hard-cut.
-        expect(document.documentElement).toHaveAttribute('data-ramka-no-crossfade');
+        expect(document.documentElement).not.toHaveAttribute('data-ramka-crossfade');
         await act(async () => resolveOpen());
 
         fireEvent.click(screen.getByTestId('close'));
         expect(document.documentElement).toHaveAttribute('data-ramka-view-transition', 'closing');
-        expect(document.documentElement).not.toHaveAttribute('data-ramka-no-crossfade');
+        expect(document.documentElement).toHaveAttribute('data-ramka-crossfade');
       });
 
       it('hard-cuts close when crossfade="open"', async () => {
@@ -2263,12 +2431,12 @@ describe('Lightbox', () => {
         mockTargetBox();
         renderCrossfadeLightbox('open');
         fireEvent.click(screen.getByTestId('trigger-0'));
-        expect(document.documentElement).not.toHaveAttribute('data-ramka-no-crossfade');
+        expect(document.documentElement).toHaveAttribute('data-ramka-crossfade');
         await act(async () => resolveOpen());
 
         fireEvent.click(screen.getByTestId('close'));
         expect(document.documentElement).toHaveAttribute('data-ramka-view-transition', 'closing');
-        expect(document.documentElement).toHaveAttribute('data-ramka-no-crossfade');
+        expect(document.documentElement).not.toHaveAttribute('data-ramka-crossfade');
       });
     });
 

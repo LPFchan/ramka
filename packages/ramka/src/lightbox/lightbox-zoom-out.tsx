@@ -3,6 +3,7 @@
 import { mergeProps, useRender } from '@base-ui/react';
 import * as React from 'react';
 
+import { LightboxZoomOutDataAttributes } from './lightbox-data-attributes';
 import { useLightboxContext } from './lightbox-context';
 import { useOptionalActiveZoom, useOptionalZoomContext } from './lightbox-zoom-context';
 
@@ -45,6 +46,7 @@ const LightboxZoomOut = React.forwardRef<HTMLButtonElement, LightboxZoomOutProps
       props: mergeProps<'button'>(
         {
           type: 'button',
+          [LightboxZoomOutDataAttributes.zoomOut]: '',
           'aria-label': 'Zoom out',
           disabled,
           onClick: handleClick,

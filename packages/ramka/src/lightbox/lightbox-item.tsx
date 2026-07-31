@@ -3,6 +3,7 @@
 import { mergeProps, useRender } from '@base-ui/react';
 import * as React from 'react';
 
+import { LightboxItemDataAttributes } from './lightbox-data-attributes';
 import { useLightboxContext } from './lightbox-context';
 import { useLightboxItemGroupContext } from './lightbox-item-group';
 
@@ -602,7 +603,7 @@ const LightboxItem = React.forwardRef<HTMLDivElement, LightboxItemProps>(
           // (e.g. pull-to-dismiss) use to walk up from a pointer's target to
           // the owning item. It replaces what was a branded class name in
           // upstream so the primitives stay free of ship-as-is styles.
-          'data-ramka-item': '',
+          [LightboxItemDataAttributes.item]: '',
           id: panelId,
           ...semanticProps,
           // Inactive slides/panels are kept out of the a11y tree (and out of

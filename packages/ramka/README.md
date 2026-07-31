@@ -25,7 +25,7 @@ import { Lightbox } from 'ramka';
 `Lightbox.*` is a fullscreen modal image viewer composed of headless parts:
 
 - `Lightbox.Trigger` / `Lightbox.Portal` / `Lightbox.Content` / `Lightbox.Backdrop` — the modal shell with an optional View Transition morph from the trigger.
-- `Lightbox.Slides` / `Lightbox.Slide` — a swipeable, snapping carousel wired directly to the lightbox's active index.
+- `Lightbox.Slides` / `Lightbox.Slide` — a swipeable, snapping carousel wired directly to the lightbox's active index. Snap alignment is built in; slide width (full-bleed, aspect cards, …) is consumer CSS.
 - `Lightbox.Zoom`, `Lightbox.Caption`, `Lightbox.ThumbnailGroup`, `Lightbox.Previous` / `Lightbox.Next` — zoom, captions, thumbnails, and navigation, plus built-in pull-to-dismiss.
 
 Docs: run the [docs site](../../apps/docs) and open `/docs/lightbox` (overview → composition → view transitions → gestures → API). Live demos live under `/examples/lightbox/*`.

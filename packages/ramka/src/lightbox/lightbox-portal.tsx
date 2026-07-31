@@ -3,6 +3,7 @@
 import * as React from 'react';
 import * as ReactDOM from 'react-dom';
 
+import { LightboxPortalDataAttributes } from './lightbox-data-attributes';
 import { useLightboxContext } from './lightbox-context';
 
 const useLayoutEffect = typeof window !== 'undefined' ? React.useLayoutEffect : React.useEffect;
@@ -103,7 +104,13 @@ const LightboxPortal = React.forwardRef<HTMLDivElement, LightboxPortalProps>(
 
     const host = (
       <LightboxPortalContext.Provider value={contextValue}>
-        <div ref={forwardedRef} data-ramka-portal="" className={className} style={style} {...rest}>
+        <div
+          ref={forwardedRef}
+          className={className}
+          style={style}
+          {...rest}
+          {...{ [LightboxPortalDataAttributes.portal]: '' }}
+        >
           {children}
         </div>
       </LightboxPortalContext.Provider>

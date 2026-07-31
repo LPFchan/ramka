@@ -1,32 +1,64 @@
 /**
  * Snug slides track + responsive slide width.
  *
- * Mobile (< md): full scrollport width like bleed (overrides chrome inline
- * width). End spacers off. ThumbnailStrip hidden — same bottom inset as other demos.
+ * Mobile (< md): full scrollport width like bleed (via slide-pad flex). End spacers off.
  *
- * Desktop (md+): aspect width from chrome inline style; half-scrollport
- * ::before/::after for center snap; flex gap between cards.
+ * Desktop (md+): aspect width from `--lightbox-snug-ratio` on each card;
+ * ::before/::after sized to center the first/last card, minus one track `gap`
+ * (flex gap sits between each pseudo-element and its adjacent slide).
  */
 
 .lightbox-demo-slides-snug {
   --lightbox-snug-gap: 1.25rem;
+  --lightbox-snug-slide-width-start: min(
+    calc(100cqw - 2 * var(--lightbox-inset-inline)),
+    calc(
+      (100cqh - var(--lightbox-inset-top) - var(--lightbox-inset-bottom)) *
+        var(--lightbox-snug-ratio-start, 1)
+    )
+  );
+  --lightbox-snug-slide-width-end: min(
+    calc(100cqw - 2 * var(--lightbox-inset-inline)),
+    calc(
+      (100cqh - var(--lightbox-inset-top) - var(--lightbox-inset-bottom)) *
+        var(--lightbox-snug-ratio-end, 1)
+    )
+  );
   gap: var(--lightbox-snug-gap);
 }
 
-@media (max-width: 767px) {
-  /* Beat Slide’s / chrome’s inline flex + width so snaps are full-bleed. */
-  .lightbox-demo-content-snug .lightbox-demo-slide-snug {
-    flex: 0 0 100% !important;
-    min-width: 100% !important;
-    width: 100% !important;
-  }
+.lightbox-demo-content-snug .lightbox-demo-slide-snug {
+  --lightbox-snug-slide-width: min(
+    calc(100cqw - 2 * var(--lightbox-inset-inline)),
+    calc(
+      (100cqh - var(--lightbox-inset-top) - var(--lightbox-inset-bottom)) *
+        var(--lightbox-snug-ratio)
+    )
+  );
 }
 
 @media (min-width: 768px) {
+  .lightbox-demo-content-snug .lightbox-demo-slide-snug {
+    flex: 0 0 auto;
+    min-width: 0;
+    width: var(--lightbox-snug-slide-width);
+  }
+
   .lightbox-demo-slides-snug::before,
   .lightbox-demo-slides-snug::after {
     content: '';
-    flex: 0 0 50%;
     pointer-events: none;
+  }
+
+  .lightbox-demo-slides-snug::before {
+    flex: 0 0
+      calc(
+        (100cqw - var(--lightbox-snug-slide-width-start)) / 2 - var(--lightbox-snug-gap)
+      );
+  }
+
+  .lightbox-demo-slides-snug::after {
+    flex: 0 0
+      calc((100cqw - var(--lightbox-snug-slide-width-end)) / 2 - var(--lightbox-snug-gap));
   }
 }

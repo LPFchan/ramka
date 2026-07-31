@@ -3,6 +3,7 @@
 import { mergeProps, useRender } from '@base-ui/react';
 import * as React from 'react';
 
+import { LightboxItemGroupDataAttributes } from './lightbox-data-attributes';
 import { useLightboxContext } from './lightbox-context';
 
 interface LightboxItemGroupState extends Record<string, unknown> {
@@ -84,6 +85,7 @@ const LightboxItemGroup = React.forwardRef<HTMLDivElement, LightboxItemGroupProp
           props: mergeProps<'div'>(
             {
               role: 'group',
+              [LightboxItemGroupDataAttributes.itemGroup]: '',
               // APG Carousel pattern: this is the carousel container. Provide a
               // label via `aria-label` / `aria-labelledby` (omit the word
               // "carousel" — the roledescription supplies it).

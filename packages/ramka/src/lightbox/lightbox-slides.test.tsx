@@ -272,6 +272,46 @@ describe('Lightbox.Slides', () => {
     expect(viewport.scrollLeft).toBe(3 * NEW);
   });
 
+  it('never leaves scroll-snap stuck at none across overlapping resize jumps', () => {
+    render(<SlidesLightbox defaultValue={3} />);
+    const viewport = screen.getByTestId('slides');
+    setupGeometry(viewport, 8);
+    expect(viewport.style.scrollSnapType).toBe('x mandatory');
+
+    const applyWidth = (width: number) => {
+      Object.defineProperty(viewport, 'clientWidth', { configurable: true, get: () => width });
+      Object.defineProperty(viewport, 'scrollWidth', { configurable: true, get: () => width * 8 });
+      viewport.querySelectorAll<HTMLElement>('[data-ramka-slide]').forEach((slide, i) => {
+        Object.defineProperty(slide, 'offsetLeft', { configurable: true, get: () => i * width });
+        Object.defineProperty(slide, 'offsetWidth', { configurable: true, get: () => width });
+      });
+    };
+
+    // First resize: stale scrollLeft forces a snap-suppressed jump (rAF pending).
+    applyWidth(50);
+    viewport.scrollLeft = 3 * WIDTH;
+    act(() => {
+      roInstances.forEach((o) => o.cb([], o as unknown as ResizeObserver));
+    });
+    expect(viewport.style.scrollSnapType).toBe('none');
+
+    // Second resize before the first restore frame — previously this captured
+    // savedSnap='none' and permanently stuck snap off after the superseded rAF.
+    applyWidth(40);
+    act(() => {
+      roInstances.forEach((o) => o.cb([], o as unknown as ResizeObserver));
+    });
+
+    act(() => flushRaf());
+    act(() => flushRaf());
+    act(() => flushRaf());
+    act(() => flushRaf());
+
+    expect(viewport.style.scrollSnapType).toBe('x mandatory');
+    expect(activeThumb()).toBe(3);
+    expect(viewport.scrollLeft).toBe(3 * 40);
+  });
+
   it('jumps to the exact snap offset on programmatic navigation (thumbnail click) at rest', () => {
     render(<SlidesLightbox />);
     const viewport = screen.getByTestId('slides');

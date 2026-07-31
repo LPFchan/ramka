@@ -3,6 +3,7 @@
 import { mergeProps, useRender } from '@base-ui/react';
 import * as React from 'react';
 
+import { LightboxNextDataAttributes } from './lightbox-data-attributes';
 import { useLightboxContext } from './lightbox-context';
 
 interface LightboxNextState extends Record<string, unknown> {
@@ -42,6 +43,7 @@ const LightboxNext = React.forwardRef<HTMLButtonElement, LightboxNextProps>(
       props: mergeProps<'button'>(
         {
           type: 'button',
+          [LightboxNextDataAttributes.next]: '',
           disabled,
           'aria-label': 'Next',
           onClick: handleClick,

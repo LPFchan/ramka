@@ -92,6 +92,12 @@ export function galleryItemDims(item: LightboxGalleryItem): { width: number; hei
   return imgDims(item.src);
 }
 
+/** Width/height ratio for snug slide width + end-spacer geometry. */
+export function galleryItemAspectRatio(item: LightboxGalleryItem): number {
+  const dims = galleryItemDims(item);
+  return dims ? dims.width / dims.height : 16 / 9;
+}
+
 type GalleryItemRenderCtx = {
   imageRef: (node: HTMLImageElement | null) => void;
   morphRef: (node: HTMLElement | null) => void;
@@ -174,6 +180,13 @@ export function LightboxGallery({
 
   const backdropTone = backdrop === 'solid' ? 'bg-white dark:bg-black' : 'lightbox-demo-backdrop-light';
   const snug = slidesLayout === 'snug';
+  const snugEdgeRatios =
+    snug && items.length > 0
+      ? {
+          start: galleryItemAspectRatio(items[0]!),
+          end: galleryItemAspectRatio(items[items.length - 1]!),
+        }
+      : null;
 
   return (
     <Lightbox.Portal>
@@ -192,10 +205,17 @@ export function LightboxGallery({
                 'lightbox-demo-slides lightbox-demo-slides-snug flex-1 [&::-webkit-scrollbar]:hidden'
               : 'lightbox-demo-slides flex-1 gap-5 [&::-webkit-scrollbar]:hidden md:gap-0'
           }
+          style={
+            snugEdgeRatios
+              ? ({
+                  '--lightbox-snug-ratio-start': snugEdgeRatios.start,
+                  '--lightbox-snug-ratio-end': snugEdgeRatios.end,
+                } as React.CSSProperties)
+              : undefined
+          }
         >
           {items.map((item, i) => {
-            const dims = galleryItemDims(item);
-            const ratio = dims ? dims.width / dims.height : 16 / 9;
+            const ratio = galleryItemAspectRatio(item);
             return (
               <Lightbox.Slide
                 key={item.id ?? i}
@@ -207,13 +227,7 @@ export function LightboxGallery({
                 }
                 style={
                   snug
-                    ? {
-                        // Override Slide’s baked `flex: 0 0 100%` for md+ card width.
-                        // Mobile forces full width in `snug-slides.css`.
-                        flex: '0 0 auto',
-                        minWidth: 0,
-                        width: `min(calc(100cqw - 2 * var(--lightbox-inset-inline)), calc((100cqh - var(--lightbox-inset-top) - var(--lightbox-inset-bottom)) * ${ratio}))`,
-                      }
+                    ? ({ '--lightbox-snug-ratio': ratio } as React.CSSProperties)
                     : undefined
                 }
               >
@@ -251,13 +265,13 @@ export function LightboxGallery({
           can’t win when a sibling slide creates a higher stacking context.
         */}
         <div
-          className={`absolute left-3 top-[calc(0.75rem+env(safe-area-inset-top,0px))] z-30 ${chromePullHide} max-md:[[data-zoomed]_&]:pointer-events-none max-md:[[data-zoomed]_&]:opacity-0`}
+          className={`lightbox-demo-chrome-top lightbox-demo-chrome-hide absolute left-3 top-[calc(0.75rem+env(safe-area-inset-top,0px))] z-30`}
         >
           <Lightbox.Counter className="min-w-[3.5rem] font-mono text-sm tabular-nums text-black/70 dark:text-white/70" />
         </div>
 
         <div
-          className={`absolute right-3 top-[calc(0.75rem+env(safe-area-inset-top,0px))] z-30 flex gap-2 ${chromePullHide} max-md:[[data-zoomed]_&]:pointer-events-none max-md:[[data-zoomed]_&]:opacity-0`}
+          className={`lightbox-demo-chrome-top lightbox-demo-chrome-hide absolute right-3 top-[calc(0.75rem+env(safe-area-inset-top,0px))] z-30 flex gap-2`}
         >
           {zoomControls ? (
             <>
@@ -275,7 +289,7 @@ export function LightboxGallery({
         </div>
 
         <div
-          className={`pointer-events-none absolute inset-x-0 bottom-0 z-30 flex flex-col items-center gap-3 px-3 pb-[calc(1rem+env(safe-area-inset-bottom,0px))] transition-opacity duration-200 [[data-zoomed]_&]:opacity-0 ${chromePullHide}`}
+          className={`lightbox-demo-chrome-bottom lightbox-demo-chrome-hide pointer-events-none absolute inset-x-0 bottom-0 z-30 flex flex-col items-center gap-3 px-3 pb-[calc(1rem+env(safe-area-inset-bottom,0px))]`}
         >
           <Lightbox.Caption className="pointer-events-auto block min-h-[1.25rem] max-w-full truncate px-6 text-center text-sm text-black/70 dark:text-white/80" />
 
@@ -289,9 +303,8 @@ export function LightboxGallery({
 }
 
 
-/** Hide chrome while pulling / committing pull-to-dismiss (opacity only — no blur). */
-const chromePullHide =
-  'transition-opacity duration-200 [[data-pulling]_&]:pointer-events-none [[data-pulling]_&]:opacity-0 [[data-pull-dismissing]_&]:pointer-events-none [[data-pull-dismissing]_&]:opacity-0';
+/** Hide chrome while pulling / committing pull-to-dismiss. See pull-progress.css. */
+const chromePullHide = 'lightbox-demo-chrome-hide';
 
 /**
  * Styled Backdrop — place inside the same `Lightbox.Portal` as Content/Frame.
@@ -398,7 +411,8 @@ export function StackedItemGroup({ children, className, ...rest }: React.Compone
 
 /**
  * Per-item class for stacked layouts. The active-item fade-in is
- * applied via globals.css using `[data-ramka-item][data-active]:not([data-skip-fade])`
+ * applied via item-fade.css on `[data-ramka-item][data-active]` (opt out with
+ * `[data-skip-fade]`)
  * rather than a Tailwind `data-[active]:` utility, so that the library's
  * `data-skip-fade` flag (set on the View Transition destination item
  * during open) suppresses the entrance fade — otherwise the fade would
@@ -418,12 +432,12 @@ export const triggerMorphHideClass =
   'transition-opacity duration-[200ms] ease-out-expo data-[morph-target]:opacity-0 [:root[data-ramka-view-transition]_&]:transition-none';
 
 /**
- * Consumer-side hide for the morph *child* only. Apply to the element that
- * carries `morphRef` (or its media wrapper) so chrome around it — titles,
- * labels, captions — stays visible while the lightbox is open.
+ * Consumer-side hide for the morph element. Prefer on the node that carries
+ * `morphRef` (library sets `data-morph-target` there). `in-data-morph-target`
+ * remains for older patterns where the attribute lived only on the Trigger.
  */
 export const morphHideClass =
-  'transition-opacity duration-[200ms] ease-out-expo in-data-morph-target:opacity-0 [:root[data-ramka-view-transition]_&]:transition-none';
+  'transition-opacity duration-[200ms] ease-out-expo data-[morph-target]:opacity-0 in-data-morph-target:opacity-0 [:root[data-ramka-view-transition]_&]:transition-none';
 
 /**
  * Keyboard focus ring for a `Lightbox.Trigger`. Purely a demo affordance — the

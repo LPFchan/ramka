@@ -3,6 +3,7 @@
 import { mergeProps, useRender } from '@base-ui/react';
 import * as React from 'react';
 
+import { LightboxSlidesDataAttributes } from './lightbox-data-attributes';
 import { useLightboxContext } from './lightbox-context';
 import { LightboxItemGroupContext, type LightboxItemGroupContextValue } from './lightbox-item-group';
 import {
@@ -95,6 +96,9 @@ const SCROLL_IDLE_MS = 140;
  */
 const REPAINT_IDLE_MS = 120;
 
+/** Must match the slides viewport React `style.scrollSnapType`. */
+const SLIDES_SCROLL_SNAP_TYPE = 'x mandatory';
+
 function clamp(value: number, min: number, max: number): number {
   return value < min ? min : value > max ? max : value;
 }
@@ -132,6 +136,12 @@ const LightboxSlides = React.forwardRef<HTMLDivElement, LightboxSlidesProps>(
     /** Bumps on every `scrollToIndex` so superseded rAF tails no-op. */
     const jumpGenRef = React.useRef(0);
     /**
+     * Nested `scrollToIndex` calls (resize storms) briefly set
+     * `scrollSnapType: none`. Depth-count restores so a superseded rAF cannot
+     * leave snap stuck at `none` after capturing the in-flight value.
+     */
+    const snapSuppressDepthRef = React.useRef(0);
+    /**
      * True while a viewport resize is re-snapping to `activeIndex`. Mid-resize
      * `scrollLeft` is stale px (slides are % width) — must not be read as a
      * user swipe or the active item jumps. See `overflow-anchor: none` + RO.
@@ -157,6 +167,11 @@ const LightboxSlides = React.forwardRef<HTMLDivElement, LightboxSlidesProps>(
           slidesViewportRef.current = node;
         } else if (slidesViewportRef.current === prev) {
           slidesViewportRef.current = null;
+        }
+        if (!node && prev) {
+          // Unmount mid-jump: never leave the host with snap suppressed.
+          snapSuppressDepthRef.current = 0;
+          prev.style.scrollSnapType = SLIDES_SCROLL_SNAP_TYPE;
         }
         notifySlidesViewport();
         if (typeof forwardedRef === 'function') forwardedRef(node);
@@ -189,6 +204,10 @@ const LightboxSlides = React.forwardRef<HTMLDivElement, LightboxSlidesProps>(
     // momentarily disabled so `scroll-snap-stop: always` can't intercept the
     // exact set; the follow-up frame restores it and re-asserts the offset.
     // Safari tile repaint runs only after jumps go idle (see `REPAINT_IDLE_MS`).
+    //
+    // Never save/restore `scrollSnapType` from the live inline style: overlapping
+    // jumps (resize storms) would capture `none` and permanently stick snap off
+    // when a superseded rAF returns early. Depth-count + constant restore only.
     const scrollToIndex = React.useCallback(
       (index: number) => {
         const viewport = viewportRef.current;
@@ -205,13 +224,21 @@ const LightboxSlides = React.forwardRef<HTMLDivElement, LightboxSlidesProps>(
         jumpTargetRef.current = target;
         const gen = (jumpGenRef.current += 1);
 
-        const savedSnap = viewport.style.scrollSnapType;
-        viewport.style.scrollSnapType = 'none';
+        if (snapSuppressDepthRef.current === 0) {
+          viewport.style.scrollSnapType = 'none';
+        }
+        snapSuppressDepthRef.current += 1;
+
         viewport.scrollLeft = target;
         requestAnimationFrame(() => {
           const vp = viewportRef.current;
+          // Always release our suppress slot — even when this jump was
+          // superseded — so snap cannot stick at `none`.
+          snapSuppressDepthRef.current = Math.max(0, snapSuppressDepthRef.current - 1);
+          if (vp && snapSuppressDepthRef.current === 0) {
+            vp.style.scrollSnapType = SLIDES_SCROLL_SNAP_TYPE;
+          }
           if (!vp || gen !== jumpGenRef.current) return;
-          vp.style.scrollSnapType = savedSnap;
           if (Math.abs(vp.scrollLeft - target) >= 1) {
             // Keep the programmatic window open through the restore write so its
             // scroll event can't take the user-fling lock.
@@ -479,6 +506,7 @@ const LightboxSlides = React.forwardRef<HTMLDivElement, LightboxSlidesProps>(
           props: mergeProps<'div'>(
             {
               role: 'group',
+              [LightboxSlidesDataAttributes.slides]: '',
               // APG Carousel pattern: the container that wraps the slides is a
               // carousel. Give it a label via `aria-label` / `aria-labelledby`
               // (the word "carousel" is supplied by the roledescription, so the
@@ -493,7 +521,7 @@ const LightboxSlides = React.forwardRef<HTMLDivElement, LightboxSlidesProps>(
                 overflowX: 'auto',
                 overflowY: 'hidden',
                 overscrollBehaviorX: 'contain',
-                scrollSnapType: 'x mandatory',
+                scrollSnapType: SLIDES_SCROLL_SNAP_TYPE,
                 // Programmatic navigation sets scrollLeft directly (instant); a
                 // smooth scroll-behavior here would turn those exact jumps into
                 // animations that snap-stop:always could intercept.

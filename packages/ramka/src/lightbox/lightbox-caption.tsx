@@ -3,7 +3,9 @@
 import { mergeProps, useRender } from '@base-ui/react';
 import * as React from 'react';
 
+import { LightboxCaptionDataAttributes } from './lightbox-data-attributes';
 import { useLightboxContext } from './lightbox-context';
+import { ignoreStateAttribute } from './lightbox-state-attributes';
 
 interface LightboxCaptionState extends Record<string, unknown> {
   index: number;
@@ -13,7 +15,7 @@ interface LightboxCaptionState extends Record<string, unknown> {
 interface LightboxCaptionProps extends useRender.ComponentProps<'div', LightboxCaptionState> {}
 
 const captionStateAttributesMapping = {
-  index: () => null,
+  index: ignoreStateAttribute,
   hasCaption: (value: unknown) => (value ? { 'data-has-caption': '' } : null),
 };
 
@@ -53,6 +55,7 @@ const LightboxCaption = React.forwardRef<HTMLDivElement, LightboxCaptionProps>(
       stateAttributesMapping: captionStateAttributesMapping,
       props: mergeProps<'div'>(
         {
+          [LightboxCaptionDataAttributes.caption]: '',
           'aria-live': 'polite',
           'aria-atomic': true,
         } as React.ComponentPropsWithRef<'div'>,

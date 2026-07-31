@@ -123,8 +123,10 @@ export type { LightboxZoomOutProps, LightboxZoomOutState } from './lightbox-zoom
 
 export {
   LightboxTriggerDataAttributes,
+  LightboxPortalDataAttributes,
   LightboxContentDataAttributes,
   LightboxBackdropDataAttributes,
+  LightboxCloseDataAttributes,
   LightboxItemGroupDataAttributes,
   LightboxItemDataAttributes,
   LightboxMediaDataAttributes,
@@ -132,6 +134,7 @@ export {
   LightboxSlideDataAttributes,
   LightboxPreviousDataAttributes,
   LightboxNextDataAttributes,
+  LightboxCounterDataAttributes,
   LightboxCaptionDataAttributes,
   LightboxThumbnailGroupDataAttributes,
   LightboxThumbnailDataAttributes,
@@ -140,6 +143,7 @@ export {
   LightboxZoomInDataAttributes,
   LightboxZoomOutDataAttributes,
   LightboxDocumentDataAttributes,
+  LIGHTBOX_PART_IDENTITY_ATTRIBUTES,
 } from './lightbox-data-attributes';
 export {
   LightboxContentCssVars,

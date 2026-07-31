@@ -27,6 +27,11 @@ function getTabbableElements(container: HTMLElement): HTMLElement[] {
   );
 }
 
+/** Focus ejected to `<body>` when a slide goes inert — not a portaled overlay. */
+function isStrandedFocus(node: Element | null | undefined): boolean {
+  return !node || node === document.body || node === document.documentElement;
+}
+
 const focusGuardStyle: React.CSSProperties = {
   position: 'fixed',
   overflow: 'hidden',
@@ -142,21 +147,26 @@ const LightboxContent = React.forwardRef<HTMLDivElement, LightboxContentProps>(
     // below). Slides are non-focusable, so normal usage never strands focus.
     // But a consumer may place a focusable control inside a slide; when that
     // slide deactivates it becomes `inert` and the browser ejects focus to
-    // `<body>`. If focus ever leaves the open dialog, pull it back so keyboard
-    // control (and this handler) can never be lost. Runs on the next microtask
-    // so the browser's own focus move settles first, and only while open.
+    // `<body>`. If focus lands on `<body>`, pull it back so keyboard control
+    // can never be lost.
+    //
+    // Portaled overlays opened from inside the dialog (Base UI menu/dialog,
+    // Radix popovers, etc.) live outside this element's DOM subtree — allow
+    // focus to stay there so their own dismiss handlers (Escape) run first.
     React.useEffect(() => {
       if (!mounted) return;
       const el = contentRef.current;
       if (!el) return;
       const handleFocusOut = (event: FocusEvent) => {
         if (!openRef.current) return;
-        const next = event.relatedTarget as Node | null;
+        const next = event.relatedTarget as Element | null;
         if (next && el.contains(next)) return;
+        if (next && !isStrandedFocus(next)) return;
         queueMicrotask(() => {
           if (!openRef.current) return;
           const active = document.activeElement;
           if (active && el.contains(active)) return;
+          if (active && !isStrandedFocus(active)) return;
           el.focus({ preventScroll: true });
         });
       };
@@ -260,24 +270,18 @@ const LightboxContent = React.forwardRef<HTMLDivElement, LightboxContentProps>(
       isScrollingRef: navigationLockedRef,
     });
 
-    // Keyboard is owned entirely by Content — the single authority.
-    //
-    // This works because slides never hold focus: nothing inside a
-    // `Lightbox.Item` is focusable (the zoom container has no tabindex), so
-    // clicking an image focuses the nearest focusable ancestor — this dialog —
-    // which is never `inert`. Focus therefore can never be stranded on `<body>`
-    // when a slide deactivates, and every key reliably reaches this handler.
-    //
-    //   - zoom keys (`+`/`-`/`Cmd|Ctrl+0`): always routed to the active slide's
-    //     zoom via the bridge, regardless of current zoom level.
-    //   - arrows while zoomed (> 1x): pan the active slide's zoom.
-    //   - arrows / Home / End at 1x: navigate the gallery (index-driven, so a
-    //     composed scroller like Lightbox.Slides follows the active index and
-    //     keeps thumbnails in sync).
+    // Keyboard is owned entirely by Content — the single authority while focus
+    // is inside this dialog. Portaled overlays (menu, dialog, etc.) keep focus
+    // outside this subtree; React still re-bubbles their key events through the
+    // React tree, so ignore keys whose DOM target is outside this host element.
     const handleKeyDown = React.useCallback(
       (event: React.KeyboardEvent) => {
         // Parked keepMounted content stays in the DOM but must not handle keys.
         if (!mounted) return;
+
+        const el = contentRef.current;
+        const target = event.target as Node | null;
+        if (el && target && !el.contains(target)) return;
 
         // A descendant (e.g. a Lightbox.Slides viewport or the thumbnail
         // group) already handled this key and called preventDefault. Defer so
@@ -456,6 +460,9 @@ const LightboxContent = React.forwardRef<HTMLDivElement, LightboxContentProps>(
         onClick: handleClick,
         tabIndex: parked ? undefined : -1,
       } as React.ComponentPropsWithRef<'div'>,
+      // Identity marker is a separate merge so the enum key isn't checked as an
+      // excess property on the DetailedHTMLProps cast above.
+      { [LightboxContentDataAttributes.content]: '' } as React.ComponentPropsWithRef<'div'>,
       rest as React.ComponentPropsWithRef<'div'>,
     );
 

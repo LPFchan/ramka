@@ -1,7 +1,7 @@
 /**
  * Fade Backdrop (and snug sibling slides) with pull-to-dismiss progress
  * (open/close base fade lives in open-close.css). Chrome fades separately via
- * Tailwind `data-pulling` selectors in lightbox-chrome.
+ * Chrome fades separately via `.lightbox-demo-chrome-hide` below.
  *
  * @docsExcerpt pull-progress-css
  * @docsExcerptTitle Pull progress CSS
@@ -21,36 +21,68 @@
  * and zoom (`--lightbox-zoom-progress`, 0→1 by +1× above min). Zoom filter has
  * no transition (1:1 with progress); pull opacity snaps back via snap vars.
  */
-/* Filter tracks --lightbox-zoom-progress with no transition (would lag the pinch).
-   Opacity still eases with pull snap-back. */
-.lightbox-demo-slide-snug {
+/* Filter tracks pull + zoom with no transition (would lag the finger/pinch).
+   Opacity still eases with pull snap-back.
+   Inactive items only; `[data-active]` opts the active item back out. */
+.lightbox-demo-slide-snug [data-ramka-item] {
   transition: opacity var(--lightbox-pull-snap-duration, 500ms)
     var(--lightbox-pull-snap-easing, var(--ease-out-expo));
 }
 
-.lightbox-demo-content[data-pulling] .lightbox-demo-slide-snug {
+.lightbox-demo-slide-snug [data-ramka-item]:not([data-active]) {
+  --lb-snug-dim: max(var(--lightbox-pull-progress, 0), var(--lightbox-zoom-progress, 0));
+  opacity: calc(1 - var(--lightbox-pull-progress, 0) * 0.85);
+  filter: opacity(calc(1 - var(--lb-snug-dim)))
+    blur(calc(var(--lb-snug-dim) * 6px));
+}
+
+.lightbox-demo-content[data-pulling] .lightbox-demo-slide-snug [data-ramka-item] {
   transition: none;
 }
 
-/* Active card stays solid (pull transform is the dismiss cue). */
-.lightbox-demo-slide-snug:has([data-active]) {
+.lightbox-demo-content[data-zoomed] .lightbox-demo-slide-snug:has([data-ramka-item][data-active]) {
+  z-index: 1;
+}
+
+/* Chrome fade — visibility keeps hidden controls out of tab order. */
+.lightbox-demo-chrome-hide {
   opacity: 1;
-  filter: none;
+  visibility: visible;
+  transition:
+    opacity 200ms,
+    visibility 0s linear 0s;
 }
 
-/* Inactive: pull dims opacity; zoom soft-dismisses via filter opacity + blur. */
-.lightbox-demo-slide-snug:not(:has([data-active])) {
-  opacity: calc(1 - var(--lightbox-pull-progress, 0) * 0.85);
-  filter: opacity(calc(1 - var(--lightbox-zoom-progress, 0)))
-    blur(calc(var(--lightbox-zoom-progress, 0) * 6px));
+@starting-style {
+  .lightbox-demo-chrome-hide {
+    opacity: 0;
+  }
 }
 
-.lightbox-demo-content[data-zoomed] .lightbox-demo-slide-snug:not(:has([data-active])) {
-  pointer-events: none;
+.lightbox-demo-content:is([data-pulling], [data-pull-dismissing]) .lightbox-demo-chrome-hide {
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 200ms,
+    visibility 0s linear 200ms;
 }
 
-.lightbox-demo-content[data-zoomed] .lightbox-demo-slide-snug:has([data-active]) {
-  z-index: 20;
+.lightbox-demo-content[data-zoomed] .lightbox-demo-chrome-bottom.lightbox-demo-chrome-hide {
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 200ms,
+    visibility 0s linear 200ms;
+}
+
+@media (max-width: 767px) {
+  .lightbox-demo-content[data-zoomed] .lightbox-demo-chrome-top.lightbox-demo-chrome-hide {
+    opacity: 0;
+    visibility: hidden;
+    transition:
+      opacity 200ms,
+      visibility 0s linear 200ms;
+  }
 }
 
 /* Light scrim used by LightboxGallery (responsive-gallery chrome). */
