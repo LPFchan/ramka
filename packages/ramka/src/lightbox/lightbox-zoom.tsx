@@ -605,8 +605,8 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
       [zoomInAction, zoomOutAction, changeZoomAction, changeOffsetsAction, snapToBoundsAction, snapOffsetsToBoundsAction, momentumPanAction],
     );
 
-    // Only the active slide owns Content-level wheel/gesture listeners so
-    // preloaded siblings don’t all fight over the same dialog host.
+    // Only the active slide owns Stage/Content-level wheel/gesture listeners so
+    // preloaded siblings don’t all fight over the same host.
     useZoomGestures(
       containerRef,
       wrapperRef,
@@ -616,6 +616,7 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
       dialogElementRef,
       zoom,
       navigationLockedRef,
+      stageElementRef,
     );
 
     // ----- Imperative ref -----

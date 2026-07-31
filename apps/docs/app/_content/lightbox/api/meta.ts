@@ -100,7 +100,7 @@ export const lightboxApiMeta: ApiPartMeta[] = [
     id: 'api-content',
     name: 'Content',
     description:
-      'Dialog surface (role="dialog", aria-modal). Provide an accessible name via aria-label or aria-labelledby (required by the WAI-ARIA dialog pattern; the library warns in development if it is missing). Place inside Lightbox.Portal. Owns focus trap, Escape, zoom shortcuts, and pull-to-dismiss. When Lightbox.Stage is mounted, arrow/Home/End gallery nav and wheel pull are scoped to Stage (and Zoom pan uses Stage as viewport); otherwise Content itself is the stage. Keyboard pan vs navigate depends on whether the active Zoom is above 1×.',
+      'Dialog surface (role="dialog", aria-modal). Provide an accessible name via aria-label or aria-labelledby (required by the WAI-ARIA dialog pattern; the library warns in development if it is missing). Place inside Lightbox.Portal. Owns focus trap, Escape, and pull-to-dismiss. When Lightbox.Stage is mounted, gallery nav (arrows/Home/End), zoom shortcuts (⌘/+/-), pinch/ctrl+wheel zoom, and wheel pull are scoped to Stage (and Zoom pan uses Stage as viewport); otherwise Content itself is the stage. Keyboard pan vs navigate depends on whether the active Zoom is above 1×.',
     extract: {
       kind: 'interface-props',
       typeName: 'LightboxContentProps',
@@ -120,7 +120,7 @@ export const lightboxApiMeta: ApiPartMeta[] = [
     id: 'api-stage',
     name: 'Stage',
     description:
-      'Optional media interaction surface inside Content. Scopes trackpad wheel pull-to-dismiss, Zoom pan viewport geometry, and arrow/Home/End gallery keyboard navigation to the media pane. Place side panels / threads as siblings of Stage under Content. When omitted, Content itself is the stage.',
+      'Optional media interaction surface inside Content. Scopes trackpad wheel pull-to-dismiss, Zoom pan viewport geometry, arrow/Home/End gallery navigation, zoom shortcuts (⌘/+/-), and pinch/ctrl+wheel zoom to the media pane. Place side panels / threads as siblings of Stage under Content. When omitted, Content itself is the stage.',
     extract: {
       kind: 'interface-props',
       typeName: 'LightboxStageProps',

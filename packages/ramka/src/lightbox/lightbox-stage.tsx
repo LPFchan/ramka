@@ -17,6 +17,7 @@ interface LightboxStageProps extends useRender.ComponentProps<'div', LightboxSta
  *   - trackpad wheel pull-to-dismiss (events whose target is outside Stage are ignored)
  *   - Zoom pan cover / viewport geometry (instead of the full Content dialog)
  *   - Arrow / Home / End gallery keyboard navigation (only while focus is inside Stage)
+ *   - Zoom shortcuts (⌘/+/-/0) and pinch / ctrl+wheel zoom (pointer/focus in Stage)
  *
  * Content remains the dialog shell (focus trap, Escape, zoom shortcuts `+/-`).
  * Side panels, threads, and other app chrome should sit as siblings of Stage
