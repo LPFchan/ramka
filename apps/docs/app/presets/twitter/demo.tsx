@@ -130,19 +130,17 @@ export function TwitterPresetDemo() {
             </div>
           </div>
 
-          <div className="grid aspect-[16/10] grid-cols-2 grid-rows-2 gap-0.5 bg-neutral-100 dark:bg-neutral-800">
+          {/* Corner radius on Trigger — morph reads it when morphRef is unset. */}
+          <div className="grid aspect-[16/10] grid-cols-2 grid-rows-2 gap-0.5 overflow-hidden rounded-2xl bg-neutral-100 dark:bg-neutral-800">
             {media.map((item, i) => (
               <Lightbox.Trigger
                 key={item.src}
                 index={i}
                 className={`relative block min-h-0 min-w-0 overflow-hidden border-0 bg-transparent p-0 ${tileCornerClass(i)}`}
               >
-                {({ imageRef, morphRef }) => (
+                {({ imageRef }) => (
                   <img
-                    ref={(node) => {
-                      imageRef(node);
-                      morphRef(node);
-                    }}
+                    ref={imageRef}
                     src={item.thumb}
                     alt={item.alt}
                     width={item.width}
