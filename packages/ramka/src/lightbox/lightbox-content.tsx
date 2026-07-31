@@ -304,42 +304,35 @@ const LightboxContent = React.forwardRef<HTMLDivElement, LightboxContentProps>(
         const zoomCtl = activeZoomRef.current;
         const meta = event.metaKey || event.ctrlKey;
 
-        // Zoom shortcuts — active at any zoom level.
-        if (zoomCtl) {
-          if (event.key === '+' || (meta && event.key === '=')) {
-            event.preventDefault();
-            zoomCtl.zoomIn();
-            return;
+        // When Stage is mounted, media actions (image zoom, arrows / Home /
+        // End, zoomed pan) run while focus is inside Stage — or on Content
+        // itself (default focus after open). Without Stage, Content is the
+        // stage. Escape stays dialog-scoped.
+        const stage = stageElementRef.current;
+        const focusOutsideStage =
+          !!stage && !!target && target !== el && !stage.contains(target);
+
+        // Zoom shortcuts: always swallow browser page-zoom while the dialog
+        // owns the viewport. Image zoom only runs when focus is in Stage
+        // (or Content, when Stage is absent / dialog-focused).
+        const zoomInKey = event.key === '+' || (meta && event.key === '=');
+        const zoomOutKey = event.key === '-' || event.key === '_' || (meta && event.key === '-');
+        const zoomResetKey = meta && event.key === '0';
+        if (zoomInKey || zoomOutKey || zoomResetKey) {
+          event.preventDefault();
+          if (zoomCtl && !focusOutsideStage) {
+            if (zoomInKey) zoomCtl.zoomIn();
+            else if (zoomOutKey) zoomCtl.zoomOut();
+            else zoomCtl.reset();
           }
-          if (event.key === '-' || event.key === '_' || (meta && event.key === '-')) {
-            event.preventDefault();
-            zoomCtl.zoomOut();
-            return;
-          }
-          if (meta && event.key === '0') {
-            event.preventDefault();
-            zoomCtl.reset();
-            return;
-          }
+          return;
         }
 
         const isArrow = event.key.startsWith('Arrow');
         const isGalleryNavKey =
           isArrow || event.key === 'Home' || event.key === 'End';
 
-        // When Stage is mounted, gallery nav (arrows / Home / End, including
-        // zoomed pan) runs while focus is inside Stage — or on Content itself
-        // (default focus after open). Sibling chrome outside Stage (e.g. a
-        // thread sidebar) keeps native arrow scrolling. Without Stage, Content
-        // is the stage. Escape / zoom shortcuts above stay dialog-scoped.
-        const stage = stageElementRef.current;
-        if (
-          isGalleryNavKey &&
-          stage &&
-          target &&
-          target !== el &&
-          !stage.contains(target)
-        ) {
+        if (isGalleryNavKey && focusOutsideStage) {
           return;
         }
 

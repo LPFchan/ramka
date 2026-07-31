@@ -61,6 +61,12 @@ function useZoomGestures(
    *  starts (pinch / pan / double-tap / scroll-to-zoom) are ignored while this
    *  is set, so an in-progress swipe can't be hijacked mid-scroll. */
   isScrollingRef?: React.RefObject<boolean>,
+  /**
+   * Optional `Lightbox.Stage` host. When set, wheel / Safari GestureEvent zoom
+   * attach here (not Content) so side panels outside Stage don't pinch-zoom
+   * the image. When null/omitted, Content remains the host.
+   */
+  stageElementRef?: React.RefObject<HTMLElement | null>,
 ) {
   const activePointers = React.useRef<PointerEvent[]>([]);
   const lastPointerDown = React.useRef(0);
@@ -602,16 +608,17 @@ function useZoomGestures(
   // So on Safari we only go non-passive when zoomed (slides aren’t scrollable
   // anyway) or scrollToZoom is on. Chrome/Firefox are fine either way.
   //
-  // Prefer Content as the target so ctrl/trackpad zoom still receives events
-  // when the cursor sits in Slide chrome padding outside the Zoom box.
+  // Prefer Stage (when mounted) else Content so ctrl/trackpad zoom still
+  // receives events in media chrome padding outside the Zoom box, but not
+  // over side panels outside Stage.
   const needsNonPassiveWheel = hasSafariGesturesRef.current
     ? currentZoom > 1 || config.scrollToZoom
     : true;
 
   React.useEffect(() => {
     if (disabled) return;
-    // Prefer Content so zoom keeps receiving events in chrome padding outside Zoom.
-    const el = contentElementRef?.current ?? containerRef.current;
+    const el =
+      stageElementRef?.current ?? contentElementRef?.current ?? containerRef.current;
     if (!el) return;
 
     // Capture so chrome siblings (thumbnail-strip, buttons) can’t swallow the event
@@ -621,9 +628,16 @@ function useZoomGestures(
     return () => {
       el.removeEventListener('wheel', handleWheel, { capture: true } as EventListenerOptions);
     };
-  }, [disabled, contentElementRef, containerRef, handleWheel, needsNonPassiveWheel]);
+  }, [
+    disabled,
+    stageElementRef,
+    contentElementRef,
+    containerRef,
+    handleWheel,
+    needsNonPassiveWheel,
+  ]);
 
-  // Safari *trackpad* pinch via GestureEvent on Content (full-bleed).
+  // Safari *trackpad* pinch via GestureEvent on Stage (or Content).
   //
   // Do NOT drive zoom from GestureEvent when the device has touch points
   // (iPhone / iPad). `GestureEvent` exists there too and can fire for a
@@ -638,7 +652,8 @@ function useZoomGestures(
 
   React.useEffect(() => {
     if (disabled || !useGestureEventZoom) return;
-    const el = (contentElementRef ?? containerRef).current;
+    const el =
+      stageElementRef?.current ?? contentElementRef?.current ?? containerRef.current;
     if (!el) return;
 
     let initialZoom = 1;
@@ -684,7 +699,15 @@ function useZoomGestures(
       el.removeEventListener('gesturechange', onGestureChange);
       el.removeEventListener('gestureend', onGestureEnd);
     };
-  }, [disabled, containerRef, contentElementRef, translateCoordinates, isScrollingRef, useGestureEventZoom]);
+  }, [
+    disabled,
+    containerRef,
+    contentElementRef,
+    stageElementRef,
+    translateCoordinates,
+    isScrollingRef,
+    useGestureEventZoom,
+  ]);
 
   // Cleanup when disabled changes or component unmounts
   React.useEffect(() => {

@@ -4403,6 +4403,140 @@ describe('Lightbox', () => {
     });
   });
 
+  // ---------------------------------------------------------------------------
+  // Stage-scoped zoom (keyboard + ctrl/trackpad pinch)
+  // ---------------------------------------------------------------------------
+
+  describe('Lightbox.Stage zoom scoping', () => {
+    function StageZoomLightbox({
+      zoomRef,
+    }: {
+      zoomRef: React.RefObject<LightboxZoomRef | null>;
+    }) {
+      return (
+        <LightboxRoot defaultOpen>
+          <LightboxPortal>
+            <LightboxContent data-testid="content" aria-label="Stage zoom scope test">
+              <LightboxStage data-testid="stage">
+                <LightboxItemGroup>
+                  <LightboxItem index={0}>
+                    <LightboxZoom ref={zoomRef} maxZoom={4}>
+                      <img src="test.jpg" alt="test" data-testid="zoom-img" />
+                    </LightboxZoom>
+                  </LightboxItem>
+                </LightboxItemGroup>
+              </LightboxStage>
+              <aside data-testid="sidebar" tabIndex={0}>
+                Thread
+              </aside>
+            </LightboxContent>
+          </LightboxPortal>
+        </LightboxRoot>
+      );
+    }
+
+    function dispatchCtrlWheel(target: Element, deltaY = -40) {
+      const event = new WheelEvent('wheel', {
+        bubbles: true,
+        cancelable: true,
+        ctrlKey: true,
+        deltaX: 0,
+        deltaY,
+      });
+      Object.defineProperty(event, 'deltaMode', { value: 0 });
+      target.dispatchEvent(event);
+    }
+
+    it('⌘/Ctrl + and - on sidebar do not zoom when Stage is mounted', () => {
+      const zoomRef = React.createRef<LightboxZoomRef>();
+      render(<StageZoomLightbox zoomRef={zoomRef} />);
+      expect(zoomRef.current!.zoom).toBe(1);
+
+      fireEvent.keyDown(screen.getByTestId('sidebar'), { key: '=', metaKey: true });
+      expect(zoomRef.current!.zoom).toBe(1);
+
+      fireEvent.keyDown(screen.getByTestId('sidebar'), { key: '+', ctrlKey: true });
+      expect(zoomRef.current!.zoom).toBe(1);
+
+      fireEvent.keyDown(screen.getByTestId('sidebar'), { key: '-', metaKey: true });
+      expect(zoomRef.current!.zoom).toBe(1);
+    });
+
+    it('⌘/Ctrl + on sidebar still preventDefaults browser page zoom', () => {
+      const zoomRef = React.createRef<LightboxZoomRef>();
+      render(<StageZoomLightbox zoomRef={zoomRef} />);
+
+      const prevented = fireEvent.keyDown(screen.getByTestId('sidebar'), {
+        key: '=',
+        metaKey: true,
+      });
+      // fireEvent.keyDown returns false when defaultPrevented
+      expect(prevented).toBe(false);
+      expect(zoomRef.current!.zoom).toBe(1);
+    });
+
+    it('⌘/Ctrl + on Content still zooms when Stage is mounted (default dialog focus)', () => {
+      const zoomRef = React.createRef<LightboxZoomRef>();
+      render(<StageZoomLightbox zoomRef={zoomRef} />);
+
+      fireEvent.keyDown(screen.getByTestId('content'), { key: '=', metaKey: true });
+      expect(zoomRef.current!.zoom).toBeGreaterThan(1);
+    });
+
+    it('⌘/Ctrl + inside Stage zooms the active image', () => {
+      const zoomRef = React.createRef<LightboxZoomRef>();
+      render(<StageZoomLightbox zoomRef={zoomRef} />);
+
+      fireEvent.keyDown(screen.getByTestId('stage'), { key: '=', metaKey: true });
+      expect(zoomRef.current!.zoom).toBeGreaterThan(1);
+    });
+
+    it('ctrl+wheel over sidebar does not zoom when Stage is mounted', () => {
+      const zoomRef = React.createRef<LightboxZoomRef>();
+      render(<StageZoomLightbox zoomRef={zoomRef} />);
+      expect(zoomRef.current!.zoom).toBe(1);
+
+      act(() => {
+        dispatchCtrlWheel(screen.getByTestId('sidebar'));
+      });
+      expect(zoomRef.current!.zoom).toBe(1);
+    });
+
+    it('ctrl+wheel over Stage zooms the active image', () => {
+      const zoomRef = React.createRef<LightboxZoomRef>();
+      render(<StageZoomLightbox zoomRef={zoomRef} />);
+
+      act(() => {
+        dispatchCtrlWheel(screen.getByTestId('zoom-img'));
+      });
+      expect(zoomRef.current!.zoom).toBeGreaterThan(1);
+    });
+
+    it('ctrl+wheel still zooms without Stage (Content is the stage)', () => {
+      const zoomRef = React.createRef<LightboxZoomRef>();
+      render(
+        <LightboxRoot defaultOpen>
+          <LightboxPortal>
+            <LightboxContent data-testid="content" aria-label="No-stage zoom test">
+              <LightboxItemGroup>
+                <LightboxItem index={0}>
+                  <LightboxZoom ref={zoomRef} maxZoom={4}>
+                    <img src="test.jpg" alt="test" data-testid="zoom-img" />
+                  </LightboxZoom>
+                </LightboxItem>
+              </LightboxItemGroup>
+            </LightboxContent>
+          </LightboxPortal>
+        </LightboxRoot>,
+      );
+
+      act(() => {
+        dispatchCtrlWheel(screen.getByTestId('zoom-img'));
+      });
+      expect(zoomRef.current!.zoom).toBeGreaterThan(1);
+    });
+  });
+
   describe('scrollTriggerIntoView onChange', () => {
     it('does not scroll the origin trigger into view on open, only on an index change while open', () => {
       // 'onChange' must scroll when the active index changes while already open
