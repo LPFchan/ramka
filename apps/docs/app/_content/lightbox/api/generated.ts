@@ -862,6 +862,18 @@ export const generatedCssVariables: Record<string, CssVarRow[]> = {
       name: "--lightbox-morph-new-opacity",
       description: "Opacity of the new morph snapshot on the hard-cut path (1 on open, 0 on close).",
     },
+    {
+      name: "--lightbox-vt-duration",
+      description: "Morph group + root-snapshot duration. Set on your skin host (e.g. Portal); the library promotes the computed value onto `documentElement` for the morph so document-level `::view-transition-*` rules can read it.",
+    },
+    {
+      name: "--lightbox-vt-easing",
+      description: "Easing for `::view-transition-group(lightbox-morph)`. Prefer a dedicated morph curve (not easeOutExpo) — named VT groups are CPU-rasterized on WebKit. Promoted from the skin host like `--lightbox-vt-duration`.",
+    },
+    {
+      name: "--lightbox-vt-root-easing",
+      description: "Easing for the root snapshot cross-fade (`::view-transition-old/new(root)`). Promoted from the skin host like `--lightbox-vt-duration`.",
+    },
   ],
   "api-use-trigger-context": [],
   "api-use-item-context": [],

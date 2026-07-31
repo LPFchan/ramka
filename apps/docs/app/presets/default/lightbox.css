@@ -8,17 +8,24 @@
  * Prefix: `lb-`. Document-level view-transition rules are required for morph.
  */
 
-/* ── Tokens ─────────────────────────────────────────────────────────────── */
+/* ── Tokens (scoped to skin host — not :root) ───────────────────────────── */
 
-:root {
+.lb-portal {
   --lb-ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
   --lb-ease-vt-morph: cubic-bezier(0.32, 0.72, 0, 1);
   --lb-duration-open: 340ms;
+  /* Library morph contract — promoted onto documentElement during VT. */
+  --lightbox-vt-duration: var(--lb-duration-open);
+  --lightbox-vt-easing: var(--lb-ease-vt-morph);
+  --lightbox-vt-root-easing: var(--lb-ease-out-expo);
 }
 
 /* ── Trigger ────────────────────────────────────────────────────────────── */
 
 .lb-trigger {
+  /* Outside Portal — local copies of skin tokens for morph-hide transitions. */
+  --lb-ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --lb-duration-open: 340ms;
   font: inherit;
   color: inherit;
   appearance: none;
@@ -36,14 +43,16 @@
 
 /*
  * Morph hide — library sets `data-morph-target` on the resolved morph element
- * (Trigger root, or the `morphRef` node).
+ * (Trigger root, or the `morphRef` node). Scoped to this skin's triggers.
  */
-[data-morph-target] {
+.lb-trigger[data-morph-target],
+.lb-trigger [data-morph-target] {
   opacity: 0;
   transition: opacity 200ms var(--lb-ease-out-expo);
 }
 
-:root[data-ramka-view-transition] [data-morph-target] {
+:root[data-ramka-view-transition] .lb-trigger[data-morph-target],
+:root[data-ramka-view-transition] .lb-trigger [data-morph-target] {
   transition: none;
 }
 
@@ -610,7 +619,9 @@ html.dark .lb-thumbnail-strip-indicator {
   overflow: clip;
 }
 
-/* ── View transitions (document-level; required for morph) ──────────────── */
+/* ── View transitions (document-level; required for morph) ────────────────
+   Structural block uses only `--lightbox-vt-*` contract vars (identical across
+   skins). Keep this block in sync with other presets / lightbox-demo. */
 
 :root[data-ramka-view-transition] * {
   view-transition-name: none !important;
@@ -619,11 +630,11 @@ html.dark .lb-thumbnail-strip-indicator {
 @media (prefers-reduced-motion: no-preference) {
   :root[data-ramka-view-transition]::view-transition-old(root),
   :root[data-ramka-view-transition]::view-transition-new(root) {
-    animation-duration: var(--lb-duration-open);
-    animation-timing-function: var(--lb-ease-out-expo);
+    animation-duration: var(--lightbox-vt-duration, 340ms);
+    animation-timing-function: var(--lightbox-vt-root-easing, cubic-bezier(0.16, 1, 0.3, 1));
   }
 
-  @keyframes lb-morph-border-radius {
+  @keyframes lightbox-morph-border-radius {
     to {
       border-radius: var(--lightbox-morph-border-radius-to, 0px);
     }
@@ -632,9 +643,9 @@ html.dark .lb-thumbnail-strip-indicator {
   ::view-transition-group(lightbox-morph) {
     overflow: hidden;
     border-radius: var(--lightbox-morph-border-radius-from, 0px);
-    animation-name: -ua-view-transition-group-anim-lightbox-morph, lb-morph-border-radius;
-    animation-duration: var(--lb-duration-open);
-    animation-timing-function: var(--lb-ease-vt-morph);
+    animation-name: -ua-view-transition-group-anim-lightbox-morph, lightbox-morph-border-radius;
+    animation-duration: var(--lightbox-vt-duration, 340ms);
+    animation-timing-function: var(--lightbox-vt-easing, cubic-bezier(0.32, 0.72, 0, 1));
     animation-fill-mode: both;
     z-index: 2;
   }

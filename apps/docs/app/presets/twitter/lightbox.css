@@ -5,22 +5,27 @@
  * thread sidebar. Prefix: `xlb-`.
  */
 
-/* ── Tokens ─────────────────────────────────────────────────────────────── */
+/* ── Tokens (scoped to skin host — not :root) ───────────────────────────── */
 
-:root {
+.xlb-portal {
   --xlb-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
-  /* Match docs/default morph contract so this sheet can coexist in the SPA
-     without retuning every other lightbox's view-transition group. */
   --xlb-ease-vt-morph: cubic-bezier(0.32, 0.72, 0, 1);
   --xlb-duration-open: 340ms;
   --xlb-thread-width: 22.5rem;
   /* Clear media plane — dimming comes from `.xlb-backdrop` (mobile solid, desktop 0.5). */
   --xlb-media-bg: transparent;
+  /* Library morph contract — promoted onto documentElement during VT. */
+  --lightbox-vt-duration: var(--xlb-duration-open);
+  --lightbox-vt-easing: var(--xlb-ease-vt-morph);
+  --lightbox-vt-root-easing: var(--xlb-ease-out);
 }
 
 /* ── Trigger ────────────────────────────────────────────────────────────── */
 
 .xlb-trigger {
+  /* Outside Portal — local copies of skin tokens for morph-hide transitions. */
+  --xlb-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --xlb-duration-open: 340ms;
   font: inherit;
   color: inherit;
   appearance: none;
@@ -36,12 +41,15 @@
   outline-offset: 2px;
 }
 
-[data-morph-target] {
+/* Morph hide — scoped to this skin's triggers (not a bare [data-morph-target]). */
+.xlb-trigger[data-morph-target],
+.xlb-trigger [data-morph-target] {
   opacity: 0;
   transition: opacity 200ms var(--xlb-ease-out);
 }
 
-:root[data-ramka-view-transition] [data-morph-target] {
+:root[data-ramka-view-transition] .xlb-trigger[data-morph-target],
+:root[data-ramka-view-transition] .xlb-trigger [data-morph-target] {
   transition: none;
 }
 
@@ -621,7 +629,9 @@
   line-height: 1.35;
 }
 
-/* ── View transitions (document-level; required for morph) ──────────────── */
+/* ── View transitions (document-level; required for morph) ────────────────
+   Structural block uses only `--lightbox-vt-*` contract vars (identical across
+   skins). Keep this block in sync with other presets / lightbox-demo. */
 
 :root[data-ramka-view-transition] * {
   view-transition-name: none !important;
@@ -630,11 +640,11 @@
 @media (prefers-reduced-motion: no-preference) {
   :root[data-ramka-view-transition]::view-transition-old(root),
   :root[data-ramka-view-transition]::view-transition-new(root) {
-    animation-duration: var(--xlb-duration-open);
-    animation-timing-function: var(--xlb-ease-out);
+    animation-duration: var(--lightbox-vt-duration, 340ms);
+    animation-timing-function: var(--lightbox-vt-root-easing, cubic-bezier(0.16, 1, 0.3, 1));
   }
 
-  @keyframes xlb-morph-border-radius {
+  @keyframes lightbox-morph-border-radius {
     to {
       border-radius: var(--lightbox-morph-border-radius-to, 0px);
     }
@@ -643,10 +653,9 @@
   ::view-transition-group(lightbox-morph) {
     overflow: hidden;
     border-radius: var(--lightbox-morph-border-radius-from, 0px);
-    animation-name: -ua-view-transition-group-anim-lightbox-morph, xlb-morph-border-radius;
-    animation-duration: var(--xlb-duration-open);
-    /* Use the VT morph curve — not easeOutExpo (janks named groups on WebKit). */
-    animation-timing-function: var(--xlb-ease-vt-morph);
+    animation-name: -ua-view-transition-group-anim-lightbox-morph, lightbox-morph-border-radius;
+    animation-duration: var(--lightbox-vt-duration, 340ms);
+    animation-timing-function: var(--lightbox-vt-easing, cubic-bezier(0.32, 0.72, 0, 1));
     animation-fill-mode: both;
     z-index: 2;
   }

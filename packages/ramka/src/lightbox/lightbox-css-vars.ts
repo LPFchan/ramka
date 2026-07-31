@@ -77,6 +77,27 @@ export enum LightboxDocumentCssVars {
    * @type number
    */
   morphNewOpacity = '--lightbox-morph-new-opacity',
+  /**
+   * Morph group + root-snapshot duration. Set on your skin host (e.g. Portal);
+   * the library promotes the computed value onto `documentElement` for the
+   * morph so document-level `::view-transition-*` rules can read it.
+   * @type string
+   */
+  vtDuration = '--lightbox-vt-duration',
+  /**
+   * Easing for `::view-transition-group(lightbox-morph)`. Prefer a dedicated
+   * morph curve (not easeOutExpo) — named VT groups are CPU-rasterized on
+   * WebKit. Promoted from the skin host like `--lightbox-vt-duration`.
+   * @type string
+   */
+  vtEasing = '--lightbox-vt-easing',
+  /**
+   * Easing for the root snapshot cross-fade
+   * (`::view-transition-old/new(root)`). Promoted from the skin host like
+   * `--lightbox-vt-duration`.
+   * @type string
+   */
+  vtRootEasing = '--lightbox-vt-root-easing',
 }
 
 export enum LightboxThumbnailStripCssVars {

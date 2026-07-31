@@ -1737,6 +1737,9 @@ describe('Lightbox', () => {
       document.documentElement.style.removeProperty('--lightbox-morph-border-radius-to');
       document.documentElement.style.removeProperty('--lightbox-morph-old-opacity');
       document.documentElement.style.removeProperty('--lightbox-morph-new-opacity');
+      document.documentElement.style.removeProperty('--lightbox-vt-duration');
+      document.documentElement.style.removeProperty('--lightbox-vt-easing');
+      document.documentElement.style.removeProperty('--lightbox-vt-root-easing');
     }
 
     afterEach(() => {
@@ -1782,6 +1785,51 @@ describe('Lightbox', () => {
       const docStyle = document.documentElement.style;
       expect(docStyle.getPropertyValue('--lightbox-morph-border-radius-from')).toBe('');
       expect(docStyle.getPropertyValue('--lightbox-morph-border-radius-to')).toBe('');
+      expect(docStyle.getPropertyValue('--lightbox-vt-duration')).toBe('');
+      expect(docStyle.getPropertyValue('--lightbox-vt-easing')).toBe('');
+      expect(docStyle.getPropertyValue('--lightbox-vt-root-easing')).toBe('');
+    });
+
+    it('promotes --lightbox-vt-* tokens from Content onto documentElement during morph', async () => {
+      const { resolveFinished } = mockViewTransitionAPI();
+      render(
+        <LightboxRoot viewTransition>
+          <LightboxTrigger index={0} data-testid="trigger-0">
+            {({ imageRef }) => <img ref={imageRef} src="thumb.jpg" alt="thumb" />}
+          </LightboxTrigger>
+          <LightboxPortal>
+            <LightboxContent
+              data-testid="content"
+              aria-label="vt token test"
+              style={
+                {
+                  ['--lightbox-vt-duration' as string]: '500ms',
+                  ['--lightbox-vt-easing' as string]: 'linear',
+                  ['--lightbox-vt-root-easing' as string]: 'ease-in',
+                } as React.CSSProperties
+              }
+            >
+              <LightboxItemGroup>
+                <LightboxItem index={0}>
+                  {({ imageRef }) => <img ref={imageRef} src="full.jpg" alt="full" />}
+                </LightboxItem>
+              </LightboxItemGroup>
+              <LightboxClose data-testid="close">Close</LightboxClose>
+            </LightboxContent>
+          </LightboxPortal>
+        </LightboxRoot>,
+      );
+
+      fireEvent.click(screen.getByTestId('trigger-0'));
+      const docStyle = document.documentElement.style;
+      expect(docStyle.getPropertyValue('--lightbox-vt-duration')).toBe('500ms');
+      expect(docStyle.getPropertyValue('--lightbox-vt-easing')).toBe('linear');
+      expect(docStyle.getPropertyValue('--lightbox-vt-root-easing')).toBe('ease-in');
+
+      await act(async () => resolveFinished());
+      expect(docStyle.getPropertyValue('--lightbox-vt-duration')).toBe('');
+      expect(docStyle.getPropertyValue('--lightbox-vt-easing')).toBe('');
+      expect(docStyle.getPropertyValue('--lightbox-vt-root-easing')).toBe('');
     });
 
     it('fires onOpenChangeComplete(true) after VT open finishes', async () => {

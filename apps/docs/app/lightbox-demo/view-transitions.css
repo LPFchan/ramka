@@ -1,6 +1,11 @@
 /* View Transition pseudo-elements — live on the document, not in React.
    Targeted with CSS only (cannot use Tailwind utilities).
-   Documented under View transitions → Styling. */
+   Documented under View transitions → Styling.
+
+   Motion uses the library contract vars (`--lightbox-vt-*`). Skins set those
+   on a host (Portal/Content); Ramka promotes the active host's computed values
+   onto `documentElement` for the morph. Keep this structural block identical
+   across skins so cascade order cannot retune every lightbox on the page. */
 
 /* @docs-excerpt-start vt-isolate-names */
 /* @docs-excerpt-title Isolate other view-transition names */
@@ -36,8 +41,8 @@
      root snapshot. */
   :root[data-ramka-view-transition]::view-transition-old(root),
   :root[data-ramka-view-transition]::view-transition-new(root) {
-    animation-duration: var(--duration-open);
-    animation-timing-function: var(--ease-out-expo);
+    animation-duration: var(--lightbox-vt-duration, 340ms);
+    animation-timing-function: var(--lightbox-vt-root-easing, cubic-bezier(0.16, 1, 0.3, 1));
   }
   /* @docs-excerpt-end */
 
@@ -57,8 +62,8 @@
     overflow: hidden;
     border-radius: var(--lightbox-morph-border-radius-from, 0px);
     animation-name: -ua-view-transition-group-anim-lightbox-morph, lightbox-morph-border-radius;
-    animation-duration: var(--duration-open);
-    animation-timing-function: var(--ease-vt-morph);
+    animation-duration: var(--lightbox-vt-duration, 340ms);
+    animation-timing-function: var(--lightbox-vt-easing, cubic-bezier(0.32, 0.72, 0, 1));
     animation-fill-mode: both;
     z-index: 2;
   }
