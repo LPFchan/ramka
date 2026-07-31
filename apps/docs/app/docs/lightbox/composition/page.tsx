@@ -8,6 +8,7 @@ import { lightboxExcerpts } from '../../../_content/lightbox/excerpts/generated'
 const toc: DocsTocItem[] = [
   { id: 'slides', title: 'Slides + Zoom' },
   { id: 'media-layout', title: 'Media layout' },
+  { id: 'stage', title: 'Stage (split layouts)' },
   { id: 'chrome', title: 'Chrome' },
   { id: 'item-group', title: 'ItemGroup (swap)' },
   { id: 'item-count', title: 'Dynamic itemCount' },
@@ -133,6 +134,32 @@ export default function LightboxCompositionPage() {
         <p>
           Live compositions: <DocsLink href="/examples/lightbox/responsive-gallery">Responsive gallery</DocsLink>,{' '}
           <DocsLink href="/examples/lightbox/photos-app">Photos app</DocsLink>.
+        </p>
+      </DocsSection>
+
+      <DocsSection id="stage" title="Stage (split layouts)">
+        <p>
+          Use <DocsLink href={lightboxApiHref.stage}>Lightbox.Stage</DocsLink> when Content holds more than the media
+          pane — for example a thread sidebar beside the gallery. Stage is the media interaction surface: trackpad
+          wheel pull-to-dismiss, Zoom pan cover geometry, and arrow / Home / End gallery navigation are scoped to it.
+          Content remains the dialog shell (focus trap, Escape, zoom shortcuts). Place side panels as siblings of Stage
+          under Content so they keep native scroll and their own keyboard behavior. When Stage is omitted, Content
+          itself is the stage (default full-bleed viewers need no change).
+        </p>
+        <CodeBlock
+          code={`<Lightbox.Content aria-label="Post">
+  <Lightbox.Stage className="media-pane">
+    <Lightbox.Close />
+    <Lightbox.ItemGroup>{/* media */}</Lightbox.ItemGroup>
+    <Lightbox.Previous />
+    <Lightbox.Next />
+  </Lightbox.Stage>
+  <aside>{/* thread / details */}</aside>
+</Lightbox.Content>`}
+          title="Stage + side panel"
+        />
+        <p>
+          Live example: <DocsLink href="/presets/twitter">Twitter preset</DocsLink>.
         </p>
       </DocsSection>
 

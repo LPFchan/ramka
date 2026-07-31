@@ -78,6 +78,13 @@ interface PullToDismissOptions {
   /** The currently-active slide element, tracked in context by Lightbox.Item. */
   activeItemRef: React.RefObject<HTMLElement | null>;
   /**
+   * Optional `Lightbox.Stage` host. When set, trackpad wheel pull-to-dismiss
+   * only starts if the wheel target is inside Stage — so side panels outside
+   * Stage keep native scroll. When null/omitted, any wheel over Content can
+   * pull (Content itself is the stage).
+   */
+  stageRef?: React.RefObject<HTMLElement | null>;
+  /**
    * Item element → its registered content/morph element (the `<img>` marked via
    * `imageRef`, or a `morphRef` override). The touch gate starts a pull
    * only when the finger lands inside this element, so grabbing an item's
@@ -105,6 +112,7 @@ function usePullToDismiss({
   contentRef,
   backdropRef,
   activeItemRef,
+  stageRef,
   itemContentElementsRef,
   getZoom,
   onClose,
@@ -502,6 +510,12 @@ function usePullToDismiss({
       if (getZoom() > 1 || el.hasAttribute('data-zooming')) return;
       if (pointerIdRef.current !== null) return;
       if (event.ctrlKey) return; // pinch-zoom intent
+
+      // When a Stage is mounted, only wheels whose target is inside it can
+      // start/continue a pull — side panels outside Stage keep native scroll.
+      const stage = stageRef?.current;
+      const wheelTarget = event.target as Node | null;
+      if (stage && wheelTarget && !stage.contains(wheelTarget)) return;
 
       if (wheelDirRef.current === 'none') {
         const axis = wheelAxis(event.deltaX, event.deltaY);

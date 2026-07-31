@@ -54,6 +54,7 @@ export const lightboxApiHref = {
   trigger: `${api}#api-trigger`,
   portal: `${api}#api-portal`,
   content: `${api}#api-content`,
+  stage: `${api}#api-stage`,
   backdrop: `${api}#api-backdrop`,
   close: `${api}#api-close`,
   itemGroup: `${api}#api-item-group`,

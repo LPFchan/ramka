@@ -180,7 +180,8 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
       ...elementProps
     } = props;
 
-    const { activeIndex, dialogElementRef, navigationLockedRef } = useLightboxContext();
+    const { activeIndex, dialogElementRef, stageElementRef, navigationLockedRef } =
+      useLightboxContext();
     const itemContext = useOptionalLightboxItemContext();
     const { publish: publishActiveZoom } = useLightboxZoomPublish();
     // A Zoom used inside a Lightbox.Item only publishes when its slide is
@@ -304,16 +305,18 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
     }, []);
 
     /**
-     * Pan viewport = Content (dialog). Stage = Zoom (transform origin).
-     * Uneven Slide padding makes those centers differ — true cover against the
-     * dialog is required so every edge is reachable. `panOffsetRange` keeps the
-     * fit→overflow crossing continuous via a home offset lerp toward δ.
+     * Pan viewport = `Lightbox.Stage` when mounted, else Content (dialog).
+     * Transform stage = Zoom (origin). Uneven Slide padding makes those
+     * centers differ — true cover against the pan viewport is required so
+     * every edge is reachable. `panOffsetRange` keeps the fit→overflow
+     * crossing continuous via a home offset lerp toward δ.
      */
     const measurePanGeometry = React.useCallback(
       (z: number) => {
         const stage = containerRef.current?.getBoundingClientRect() ?? null;
         if (!stage) return null;
-        const viewport = dialogElementRef.current?.getBoundingClientRect() ?? stage;
+        const panViewportEl = stageElementRef.current ?? dialogElementRef.current;
+        const viewport = panViewportEl?.getBoundingClientRect() ?? stage;
         const { w: contentW, h: contentH } = resolveContentSize(stage);
         const cx = stage.left + stage.width / 2;
         const cy = stage.top + stage.height / 2;
@@ -326,7 +329,7 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
           y: panOffsetRange(contentH, z, viewport.top, viewport.bottom, cy, minZoom),
         };
       },
-      [resolveContentSize, dialogElementRef, minZoom],
+      [resolveContentSize, dialogElementRef, stageElementRef, minZoom],
     );
 
     const clampOffsets = React.useCallback(

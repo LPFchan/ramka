@@ -49,6 +49,7 @@
  *   Content         — Modal overlay (div-based) + keyboard navigation
  *   Backdrop        — Optional visible scrim, closes on click, animated by pull-to-dismiss
  *   Close           — Closes the lightbox
+ *   Stage           — Optional media interaction surface (pull / pan / arrow scope)
  *   ItemGroup       — Container for items, manages swap rendering + preload
  *   Item            — Individual media item with lazy-load support. Its render
  *                     function exposes `imageRef` / `morphRef` (escape hatches;
@@ -75,6 +76,7 @@ export { LightboxPortal as Portal } from './lightbox-portal';
 export { LightboxContent as Content } from './lightbox-content';
 export { LightboxBackdrop as Backdrop } from './lightbox-backdrop';
 export { LightboxClose as Close } from './lightbox-close';
+export { LightboxStage as Stage } from './lightbox-stage';
 export { LightboxItemGroup as ItemGroup } from './lightbox-item-group';
 export { LightboxItem as Item } from './lightbox-item';
 export { LightboxMedia as Media } from './lightbox-media';
@@ -103,6 +105,7 @@ export type { LightboxPortalProps } from './lightbox-portal';
 export type { LightboxContentProps } from './lightbox-content';
 export type { LightboxBackdropProps, LightboxBackdropState } from './lightbox-backdrop';
 export type { LightboxCloseProps, LightboxCloseState } from './lightbox-close';
+export type { LightboxStageProps, LightboxStageState } from './lightbox-stage';
 export type { LightboxItemGroupProps, LightboxItemGroupState } from './lightbox-item-group';
 export type { LightboxItemProps, LightboxItemState, LightboxItemRenderState } from './lightbox-item';
 export type { LightboxMediaProps, LightboxMediaState, LightboxMediaContextValue } from './lightbox-media';
@@ -127,6 +130,7 @@ export {
   LightboxContentDataAttributes,
   LightboxBackdropDataAttributes,
   LightboxCloseDataAttributes,
+  LightboxStageDataAttributes,
   LightboxItemGroupDataAttributes,
   LightboxItemDataAttributes,
   LightboxMediaDataAttributes,

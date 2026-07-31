@@ -172,6 +172,14 @@ interface LightboxContextValue {
   dialogElementRef: React.MutableRefObject<HTMLElement | null>;
 
   /**
+   * The currently-mounted `Lightbox.Stage` element (if any). When set, Stage
+   * is the media interaction surface for wheel pull-to-dismiss, Zoom pan
+   * viewport geometry, and arrow/Home/End gallery keyboard navigation.
+   * Stays `null` when no Stage is rendered — Content itself is the stage.
+   */
+  stageElementRef: React.MutableRefObject<HTMLElement | null>;
+
+  /**
    * The currently-mounted `Lightbox.Backdrop` element (if any). Populated
    * by the Backdrop primitive's ref callback so descendants like the
    * pull-to-dismiss hook can read its opacity / data attributes without
