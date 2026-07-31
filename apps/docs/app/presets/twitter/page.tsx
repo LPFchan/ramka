@@ -29,8 +29,9 @@ export default async function TwitterLightboxPresetPage() {
       description={
         <>
           X-style split viewer: a semi-translucent dark media pane with close (top-left) and
-          previous/next controls on the gallery edges, plus a white thread sidebar for post context
-          and replies. Copy the{' '}
+          previous/next on the gallery edges. Desktop keeps a white thread sidebar; mobile shows a
+          bottom engagement bar and opens the thread as a full-screen sheet from the comment control.
+          Copy the{' '}
           <strong className="font-medium text-neutral-800 dark:text-neutral-200">Package</strong>{' '}
           files (<code className="text-xs">lightbox.tsx</code> +{' '}
           <code className="text-xs">lightbox.css</code>) into your design system, then wire triggers

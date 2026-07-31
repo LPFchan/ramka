@@ -3,8 +3,8 @@
 /**
  * Twitter / X-style lightbox — design-system package entry (copy with lightbox.css).
  *
- * Split viewer: translucent dark media pane with close + prev/next, and a
- * scrollable thread sidebar for post context and replies.
+ * Desktop: translucent media pane + thread sidebar (edge prev/next).
+ * Mobile: swipeable Slides + bottom engagement bar; comment opens a full-screen thread.
  */
 
 import * as React from 'react';
@@ -82,10 +82,10 @@ function IconLike() {
   );
 }
 
-function IconBookmark() {
+function IconViews() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} aria-hidden>
-      <path d="M6 4.5h12V19.5l-6-3.75L6 19.5V4.5Z" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M4 18V10M10 18V6M16 18v-5M20 18V8" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
@@ -94,7 +94,7 @@ function IconShare() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} aria-hidden>
       <path
-        d="M8.25 13.5 15.75 17.25M15.75 6.75 8.25 10.5M17.25 5.25a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0ZM8.25 12a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm11.25 5.25a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z"
+        d="M4 14v4.5A1.5 1.5 0 0 0 5.5 20h13a1.5 1.5 0 0 0 1.5-1.5V14M12 4v11M8.5 7.5 12 4l3.5 3.5"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
@@ -185,8 +185,12 @@ function Close({
   );
 }
 
-function ItemGroup({ className, ...props }: React.ComponentProps<typeof RamkaLightbox.ItemGroup>) {
-  return <RamkaLightbox.ItemGroup className={cx('xlb-item-group', className)} {...props} />;
+function Slides({ className, ...props }: React.ComponentProps<typeof RamkaLightbox.Slides>) {
+  return <RamkaLightbox.Slides className={cx('xlb-slides', className)} {...props} />;
+}
+
+function Slide({ className, ...props }: React.ComponentProps<typeof RamkaLightbox.Slide>) {
+  return <RamkaLightbox.Slide className={cx('xlb-slide', className)} {...props} />;
 }
 
 function Item(props: React.ComponentProps<typeof RamkaLightbox.Item>) {
@@ -230,16 +234,114 @@ function Counter({ className, ...props }: React.ComponentProps<typeof RamkaLight
   );
 }
 
-function ThreadPanel({ thread }: { thread: ThreadPost }) {
+/* ── Mobile engagement bar ───────────────────────────────────────────────── */
+
+function MobileActionBar({
+  stats,
+  onOpenThread,
+}: {
+  stats: ThreadPost['stats'];
+  onOpenThread: () => void;
+}) {
+  return (
+    <div className="xlb-mobile-bar xlb-chrome-pull-hide" aria-label="Post actions">
+      <button type="button" className="xlb-mobile-action" aria-label="View comments" onClick={onOpenThread}>
+        <IconReply />
+        <span>{formatCount(stats?.replies)}</span>
+      </button>
+      <button type="button" className="xlb-mobile-action" aria-label="Repost">
+        <IconRepost />
+        <span>{formatCount(stats?.reposts)}</span>
+      </button>
+      <button type="button" className="xlb-mobile-action" aria-label="Like">
+        <IconLike />
+        <span>{formatCount(stats?.likes)}</span>
+      </button>
+      <button type="button" className="xlb-mobile-action" aria-label="Views">
+        <IconViews />
+        <span>{stats?.views ?? '—'}</span>
+      </button>
+      <button type="button" className="xlb-mobile-action" aria-label="Share">
+        <IconShare />
+      </button>
+    </div>
+  );
+}
+
+function useMobileLayout() {
+  const [mobile, setMobile] = React.useState(false);
+
+  React.useEffect(() => {
+    const mq = window.matchMedia('(max-width: 767px)');
+    const sync = () => setMobile(mq.matches);
+    sync();
+    mq.addEventListener('change', sync);
+    return () => mq.removeEventListener('change', sync);
+  }, []);
+
+  return mobile;
+}
+
+function ThreadPanel({
+  thread,
+  open,
+  onClose,
+}: {
+  thread: ThreadPost;
+  /** Mobile sheet visibility. Ignored on desktop (sidebar always shown). */
+  open: boolean;
+  onClose: () => void;
+}) {
   const stats = thread.stats;
+  const scrollRef = React.useRef<HTMLDivElement | null>(null);
+  const mobile = useMobileLayout();
+  // Desktop sidebar is always interactive; mobile sheet is inert while closed.
+  const sheetActive = !mobile || open;
+
+  React.useEffect(() => {
+    if (!open || !mobile) return;
+    scrollRef.current?.focus({ preventScroll: true });
+  }, [open, mobile]);
+
+  const handleKeyDown = React.useCallback(
+    (event: React.KeyboardEvent) => {
+      if (event.key !== 'Escape' || !mobile || !open) return;
+      event.preventDefault();
+      event.stopPropagation();
+      onClose();
+    },
+    [mobile, open, onClose],
+  );
 
   return (
-    <aside className="xlb-thread-pane" aria-label="Post thread">
+    <aside
+      className="xlb-thread-pane"
+      aria-label="Post thread"
+      data-open={open ? '' : undefined}
+      aria-hidden={sheetActive ? undefined : true}
+      inert={sheetActive ? undefined : true}
+      onKeyDown={handleKeyDown}
+    >
       <div className="xlb-thread-header">
+        <button
+          type="button"
+          className="xlb-thread-back"
+          aria-label="Close thread"
+          onClick={onClose}
+        >
+          <IconX />
+        </button>
         <h2 className="xlb-thread-title">Post</h2>
+        <span className="xlb-thread-header-spacer" aria-hidden />
       </div>
 
-      <div className="xlb-thread-scroll">
+      <div
+        ref={scrollRef}
+        className="xlb-thread-scroll"
+        tabIndex={0}
+        role="region"
+        aria-label="Thread"
+      >
         <div className="xlb-thread-body">
           <div className="xlb-author">
             <img src={thread.author.avatar} alt="" className="xlb-avatar" draggable={false} />
@@ -289,9 +391,6 @@ function ThreadPanel({ thread }: { thread: ThreadPost }) {
               <IconLike />
               {stats?.likes != null ? formatCount(stats.likes) : null}
             </button>
-            <button type="button" className="xlb-action" aria-label="Bookmark">
-              <IconBookmark />
-            </button>
             <button type="button" className="xlb-action" aria-label="Share">
               <IconShare />
             </button>
@@ -330,7 +429,7 @@ function ThreadPanel({ thread }: { thread: ThreadPost }) {
 }
 
 /**
- * Twitter-style split viewer — dark media pane + thread sidebar.
+ * Twitter-style split viewer — dark media pane + thread (sidebar / mobile sheet).
  */
 function Gallery({
   items,
@@ -342,32 +441,41 @@ function Gallery({
   ariaLabel: string;
 }) {
   const showNav = items.length > 1;
+  const [threadOpen, setThreadOpen] = React.useState(false);
+
+  const openThread = React.useCallback(() => setThreadOpen(true), []);
+  const closeThread = React.useCallback(() => setThreadOpen(false), []);
 
   return (
     <Portal>
       <Backdrop />
-      <Content aria-label={ariaLabel}>
+      <Content
+        aria-label={ariaLabel}
+        className={threadOpen ? 'xlb-content-thread-open' : undefined}
+      >
         <Stage>
           <Close className="xlb-chrome-pull-hide" />
 
-          <ItemGroup aria-label="Post media" preload={1}>
+          <Slides aria-label="Post media" preload={1}>
             {items.map((item, i) => (
-              <Item key={item.id ?? i} index={i}>
-                <Zoom>
-                  <Media width={item.width} height={item.height}>
-                    <img
-                      width={item.width}
-                      height={item.height}
-                      src={item.src}
-                      alt={item.alt}
-                      loading="eager"
-                      draggable={false}
-                    />
-                  </Media>
-                </Zoom>
-              </Item>
+              <Slide key={item.id ?? i}>
+                <Item index={i}>
+                  <Zoom>
+                    <Media width={item.width} height={item.height}>
+                      <img
+                        width={item.width}
+                        height={item.height}
+                        src={item.src}
+                        alt={item.alt}
+                        loading="eager"
+                        draggable={false}
+                      />
+                    </Media>
+                  </Zoom>
+                </Item>
+              </Slide>
             ))}
-          </ItemGroup>
+          </Slides>
 
           {showNav ? (
             <>
@@ -376,9 +484,11 @@ function Gallery({
               <Counter className="xlb-chrome-pull-hide" />
             </>
           ) : null}
+
+          <MobileActionBar stats={thread.stats} onOpenThread={openThread} />
         </Stage>
 
-        <ThreadPanel thread={thread} />
+        <ThreadPanel thread={thread} open={threadOpen} onClose={closeThread} />
       </Content>
     </Portal>
   );
@@ -392,7 +502,8 @@ export const Lightbox = {
   Content,
   Stage,
   Close,
-  ItemGroup,
+  Slides,
+  Slide,
   Item,
   Media,
   Zoom,
