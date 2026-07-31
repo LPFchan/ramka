@@ -16,6 +16,9 @@ const toc: DocsTocItem[] = [
   { id: 'scroll-trigger', title: 'scrollTriggerIntoView' },
   { id: 'programmatic', title: 'Programmatic open' },
   { id: 'styling', title: 'Styling' },
+  { id: 'motion-tokens', title: 'Motion tokens' },
+  { id: 'styling-recipe', title: 'Structural recipe' },
+  { id: 'multi-skin', title: 'Multiple skins' },
 ];
 
 export default function LightboxViewTransitionsPage() {
@@ -230,6 +233,12 @@ export default function LightboxViewTransitionsPage() {
             <code className="text-xs">--lightbox-morph-old/new-opacity</code>
           </li>
           <li>
+            <code className="text-xs">--lightbox-vt-duration</code>,{' '}
+            <code className="text-xs">--lightbox-vt-easing</code>,{' '}
+            <code className="text-xs">--lightbox-vt-root-easing</code> — motion contract (see{' '}
+            <DocsLink href="#motion-tokens">Motion tokens</DocsLink>)
+          </li>
+          <li>
             <DocsLink href={lightboxApiHref.trigger}>Trigger</DocsLink>{' '}
             <code className="text-xs">data-morph-target</code> /{' '}
             <DocsLink href={lightboxApiHref.item}>Item</DocsLink>{' '}
@@ -238,12 +247,60 @@ export default function LightboxViewTransitionsPage() {
           </li>
         </ul>
         <p>
-          The recipe below is what this docs site loads from{' '}
-          <code className="text-xs">app/lightbox-demo/view-transitions.css</code> — copy and tune it for
-          your app. Gate motion under{' '}
-          <code className="text-xs">prefers-reduced-motion: no-preference</code> (the file does).
+          Split motion into <strong className="font-medium text-neutral-800 dark:text-neutral-200">tokens</strong>{' '}
+          (duration/easing on a Portal host) and{' '}
+          <strong className="font-medium text-neutral-800 dark:text-neutral-200">structure</strong>{' '}
+          (the <code className="text-xs">::view-transition-*</code> recipe below). Do not hard-code
+          skin-specific timings on <code className="text-xs">::view-transition-group(lightbox-morph)</code> —
+          read the contract vars instead. Full file:{' '}
+          <code className="text-xs">app/lightbox-demo/view-transitions.css</code> (same block as the{' '}
+          <DocsLink href="/presets/default">Default</DocsLink> /{' '}
+          <DocsLink href="/presets/twitter">Twitter</DocsLink> presets). Gate under{' '}
+          <code className="text-xs">prefers-reduced-motion: no-preference</code>.
         </p>
+      </DocsSection>
 
+      <DocsSection id="motion-tokens" title="Motion tokens">
+        <p>
+          <code className="text-xs">::view-transition-*</code> pseudos are document-level — they cannot
+          inherit from Portal or Content. Put the contract vars on a skin host that wraps Backdrop +
+          Content (typically <DocsLink href={lightboxApiHref.portal}>Portal</DocsLink>), and Ramka
+          promotes the computed values onto <code className="text-xs">documentElement</code> for the
+          morph, then clears them when it ends.
+        </p>
+        <CodeBlock
+          code={`<Lightbox.Portal className="my-lightbox">
+  <Lightbox.Backdrop />
+  <Lightbox.Content>{/* … */}</Lightbox.Content>
+</Lightbox.Portal>`}
+          title="Portal skin host"
+          lang="tsx"
+        />
+        <CodeBlock
+          code={`/* Tokens on the Portal host — not :root */
+.my-lightbox {
+  --lightbox-vt-duration: 340ms;
+  /* Dedicated morph curve (not easeOutExpo) — named VT groups are CPU-rasterized on WebKit */
+  --lightbox-vt-easing: cubic-bezier(0.32, 0.72, 0, 1);
+  --lightbox-vt-root-easing: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Structure reads only the contract (literal fallbacks for copy-paste) */
+::view-transition-group(lightbox-morph) {
+  animation-duration: var(--lightbox-vt-duration, 340ms);
+  animation-timing-function: var(--lightbox-vt-easing, cubic-bezier(0.32, 0.72, 0, 1));
+}`}
+          title="Motion contract"
+          lang="css"
+        />
+        <p>
+          Scope cosmetic attribute rules under your trigger class (e.g.{' '}
+          <code className="text-xs">.my-trigger[data-morph-target]</code>) — avoid bare{' '}
+          <code className="text-xs">[data-morph-target]</code>.
+        </p>
+      </DocsSection>
+
+      <DocsSection id="styling-recipe" title="Structural recipe">
         <h3 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
           Isolate other view-transition names
         </h3>
@@ -329,6 +386,17 @@ export default function LightboxViewTransitionsPage() {
             State & lifecycle → Lifecycle callbacks
           </DocsLink>
           .
+        </p>
+      </DocsSection>
+
+      <DocsSection id="multi-skin" title="Multiple skins">
+        <p>
+          Follow <DocsLink href="#motion-tokens">Motion tokens</DocsLink> + the{' '}
+          <DocsLink href="#styling-recipe">structural recipe</DocsLink> in every skin file. If skins
+          hard-code different timings on <code className="text-xs">::view-transition-group(lightbox-morph)</code>,
+          the last stylesheet loaded retunes <em>every</em> lightbox on the page. Keep structural blocks
+          byte-identical (contract vars only); put per-skin duration/easing on each Portal host so
+          promotion picks the active lightbox.
         </p>
       </DocsSection>
 

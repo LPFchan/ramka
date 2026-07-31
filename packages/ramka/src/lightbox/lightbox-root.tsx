@@ -637,6 +637,7 @@ function LightboxRoot(props: LightboxRootProps) {
       openingTriggerIndexRef,
       openingTriggerElementRef,
       activeIndexRef,
+      dialogElementRef,
       closeGenRef,
       commitPrepare,
       commitReveal,

@@ -405,17 +405,39 @@ export function resolveMorphBorderRadius(el: HTMLElement): string {
 }
 
 /**
+ * Copy skin-host motion tokens onto `documentElement` so document-level
+ * `::view-transition-*` rules (which cannot inherit from Content/Portal) see
+ * the active lightbox's duration/easing for this morph only.
+ */
+function promoteVtMotionTokens(docEl: HTMLElement, tokenHost: HTMLElement | null | undefined) {
+  if (!tokenHost) return;
+  const styles = getComputedStyle(tokenHost);
+  const duration = styles.getPropertyValue(LightboxDocumentCssVars.vtDuration).trim();
+  const easing = styles.getPropertyValue(LightboxDocumentCssVars.vtEasing).trim();
+  const rootEasing = styles.getPropertyValue(LightboxDocumentCssVars.vtRootEasing).trim();
+  if (duration) docEl.style.setProperty(LightboxDocumentCssVars.vtDuration, duration);
+  if (easing) docEl.style.setProperty(LightboxDocumentCssVars.vtEasing, easing);
+  if (rootEasing) docEl.style.setProperty(LightboxDocumentCssVars.vtRootEasing, rootEasing);
+}
+
+/**
  * Applies the document-level state that drives the morph CSS: the phase
  * attribute, optional `data-ramka-crossfade` (with hard-cut opacity vars when
- * absent), and the from/to border-radius vars. Only defined values are written,
- * matching the original conditional writes.
+ * absent), from/to border-radius vars, and promoted `--lightbox-vt-*` motion
+ * tokens from the active skin host. Only defined values are written.
  */
 function applyMorphState(
   docEl: HTMLElement,
   phase: 'opening' | 'closing',
-  opts: { useCrossfade: boolean; fromRadius: string | null; toRadius: string | null },
+  opts: {
+    useCrossfade: boolean;
+    fromRadius: string | null;
+    toRadius: string | null;
+    tokenHost?: HTMLElement | null;
+  },
 ) {
   docEl.setAttribute(LightboxDocumentDataAttributes.viewTransition, phase);
+  promoteVtMotionTokens(docEl, opts.tokenHost);
   if (opts.useCrossfade) {
     docEl.setAttribute(LightboxDocumentDataAttributes.crossfade, '');
   } else {
@@ -485,6 +507,9 @@ function clearMorphState(docEl: HTMLElement) {
   docEl.style.removeProperty(LightboxDocumentCssVars.morphNewOpacity);
   docEl.style.removeProperty(LightboxDocumentCssVars.morphBorderRadiusFrom);
   docEl.style.removeProperty(LightboxDocumentCssVars.morphBorderRadiusTo);
+  docEl.style.removeProperty(LightboxDocumentCssVars.vtDuration);
+  docEl.style.removeProperty(LightboxDocumentCssVars.vtEasing);
+  docEl.style.removeProperty(LightboxDocumentCssVars.vtRootEasing);
 }
 
 // ---------------------------------------------------------------------------
@@ -519,6 +544,12 @@ interface ViewTransitionMorphConfig {
    */
   openingTriggerElementRef: React.RefObject<HTMLElement | null>;
   activeIndexRef: React.RefObject<number>;
+  /**
+   * Skin token host (typically `Lightbox.Content`). Motion contract vars
+   * (`--lightbox-vt-*`) are read from here and promoted onto `documentElement`
+   * for the morph so document-level VT pseudos see the active skin's values.
+   */
+  dialogElementRef: React.RefObject<HTMLElement | null>;
   closeGenRef: React.MutableRefObject<number>;
   /**
    * flushSync body that MOUNTS the viewer in a hidden ("preparing") state.
@@ -732,6 +763,7 @@ function useViewTransitionMorph(config: ViewTransitionMorphConfig): ViewTransiti
       useCrossfade: canMorph ? useCrossfade : true,
       fromRadius: canMorph ? fromRadius : null,
       toRadius,
+      tokenHost: configRef.current.dialogElementRef.current,
     });
 
     if (canMorph) {
@@ -844,7 +876,12 @@ function useViewTransitionMorph(config: ViewTransitionMorphConfig): ViewTransiti
 
     // Writes — radii go to CSS vars; the VT group interpolates them (no live
     // border-radius mutation).
-    applyMorphState(docEl, 'closing', { useCrossfade, fromRadius, toRadius });
+    applyMorphState(docEl, 'closing', {
+      useCrossfade,
+      fromRadius,
+      toRadius,
+      tokenHost: configRef.current.dialogElementRef.current,
+    });
     if (canMorph) {
       setMorphName(itemTarget!);
     }

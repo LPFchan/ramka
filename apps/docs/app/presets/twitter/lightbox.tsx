@@ -157,8 +157,8 @@ function Trigger({ className, ...props }: React.ComponentProps<typeof RamkaLight
   return <RamkaLightbox.Trigger className={cx('xlb-trigger', className)} {...props} />;
 }
 
-function Portal(props: React.ComponentProps<typeof RamkaLightbox.Portal>) {
-  return <RamkaLightbox.Portal {...props} />;
+function Portal({ className, ...props }: React.ComponentProps<typeof RamkaLightbox.Portal>) {
+  return <RamkaLightbox.Portal className={cx('xlb-portal', className)} {...props} />;
 }
 
 function Backdrop({ className, ...props }: React.ComponentProps<typeof RamkaLightbox.Backdrop>) {
