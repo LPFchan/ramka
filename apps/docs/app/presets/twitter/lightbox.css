@@ -9,7 +9,10 @@
 
 :root {
   --xlb-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
-  --xlb-duration-open: 280ms;
+  /* Match docs/default morph contract so this sheet can coexist in the SPA
+     without retuning every other lightbox's view-transition group. */
+  --xlb-ease-vt-morph: cubic-bezier(0.32, 0.72, 0, 1);
+  --xlb-duration-open: 340ms;
   --xlb-thread-width: 22.5rem;
   /* Clear media plane — dimming comes from `.xlb-backdrop` (mobile solid, desktop 0.5). */
   --xlb-media-bg: transparent;
@@ -358,8 +361,8 @@
     visibility: hidden;
     pointer-events: none;
     transition:
-      transform 280ms var(--xlb-ease-out),
-      visibility 0s linear 280ms;
+      transform var(--xlb-duration-open) var(--xlb-ease-out),
+      visibility 0s linear var(--xlb-duration-open);
   }
 
   .xlb-thread-pane[data-open] {
@@ -367,7 +370,7 @@
     visibility: visible;
     pointer-events: auto;
     transition:
-      transform 280ms var(--xlb-ease-out),
+      transform var(--xlb-duration-open) var(--xlb-ease-out),
       visibility 0s linear 0s;
   }
 
@@ -642,7 +645,8 @@
     border-radius: var(--lightbox-morph-border-radius-from, 0px);
     animation-name: -ua-view-transition-group-anim-lightbox-morph, xlb-morph-border-radius;
     animation-duration: var(--xlb-duration-open);
-    animation-timing-function: var(--xlb-ease-out);
+    /* Use the VT morph curve — not easeOutExpo (janks named groups on WebKit). */
+    animation-timing-function: var(--xlb-ease-vt-morph);
     animation-fill-mode: both;
     z-index: 2;
   }
