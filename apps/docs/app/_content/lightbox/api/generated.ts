@@ -156,6 +156,13 @@ export const generatedProps: Record<string, PropRow[]> = {
       description: "Enable pull-to-close on touch. Publishes `data-pulling`, `data-pull-dismissing`, and `--lightbox-pull-progress` while active.",
     },
   ],
+  "api-stage": [
+    {
+      name: "render",
+      type: "ReactElement | ComponentRenderFn",
+      description: "Allows you to replace the component's HTML element with a different tag, or compose it with another component.\n\nAccepts a `ReactElement` or a function that returns the element to render.",
+    },
+  ],
   "api-backdrop": [
     {
       name: "render",
@@ -541,6 +548,12 @@ export const generatedAttributes: Record<string, AttrRow[]> = {
       description: "Present when content zoom is greater than 1× (held through zoom-out animation).",
     },
   ],
+  "api-stage": [
+    {
+      name: "data-ramka-stage",
+      description: "Always present on the media interaction stage.",
+    },
+  ],
   "api-backdrop": [
     {
       name: "data-ramka-backdrop",
@@ -787,6 +800,7 @@ export const generatedCssVariables: Record<string, CssVarRow[]> = {
       description: "0 at 1× → 1 once zoom has risen by 1× above min (e.g. 2× when min is 1). Written by the active `Lightbox.Zoom` from the *visual* scale (live WAAPI transform while a discrete zoom animates; React zoom otherwise). Cleared when zoom returns to rest. Drive sibling dim/blur from this, e.g. `filter: opacity(calc(1 - var(--lightbox-zoom-progress, 0))) blur(calc(var(--lightbox-zoom-progress, 0) * 6px))`.",
     },
   ],
+  "api-stage": [],
   "api-backdrop": [
     {
       name: "--lightbox-pull-progress",

@@ -169,6 +169,10 @@ function Content({ className, ...props }: React.ComponentProps<typeof RamkaLight
   return <RamkaLightbox.Content className={cx('xlb-content', className)} {...props} />;
 }
 
+function Stage({ className, ...props }: React.ComponentProps<typeof RamkaLightbox.Stage>) {
+  return <RamkaLightbox.Stage className={cx('xlb-media-pane', className)} {...props} />;
+}
+
 function Close({
   className,
   children,
@@ -343,7 +347,7 @@ function Gallery({
     <Portal>
       <Backdrop />
       <Content aria-label={ariaLabel}>
-        <div className="xlb-media-pane">
+        <Stage>
           <Close className="xlb-chrome-pull-hide" />
 
           <ItemGroup aria-label="Post media" preload={1}>
@@ -372,7 +376,7 @@ function Gallery({
               <Counter className="xlb-chrome-pull-hide" />
             </>
           ) : null}
-        </div>
+        </Stage>
 
         <ThreadPanel thread={thread} />
       </Content>
@@ -386,6 +390,7 @@ export const Lightbox = {
   Portal,
   Backdrop,
   Content,
+  Stage,
   Close,
   ItemGroup,
   Item,

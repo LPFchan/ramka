@@ -17,6 +17,7 @@ import { LightboxPrevious } from './lightbox-previous';
 import { LightboxRoot } from './lightbox-root';
 import { LightboxSlide } from './lightbox-slide';
 import { LightboxSlides } from './lightbox-slides';
+import { LightboxStage } from './lightbox-stage';
 import { LightboxThumbnail } from './lightbox-thumbnail';
 import { LightboxThumbnailGroup } from './lightbox-thumbnail-group';
 import { LightboxThumbnailStrip } from './lightbox-thumbnail-strip';
@@ -42,29 +43,31 @@ function FullChromeLightbox() {
       <LightboxPortal>
         <LightboxBackdrop />
         <LightboxContent aria-label="Gallery">
-          <LightboxClose />
-          <LightboxPrevious />
-          <LightboxNext />
-          <LightboxCounter />
-          <LightboxCaption />
-          <LightboxZoomIn />
-          <LightboxZoomOut />
-          <LightboxSlides aria-label="Slides">
-            <LightboxSlide>
-              <LightboxItem index={0} caption="One">
-                <LightboxZoom>
-                  <LightboxMedia width={100} height={100}>
-                    <img src="/a.jpg" alt="A" width={100} height={100} />
-                  </LightboxMedia>
-                </LightboxZoom>
-              </LightboxItem>
-            </LightboxSlide>
-          </LightboxSlides>
-          <LightboxThumbnailStrip>
-            <LightboxThumbnailStripTrack aria-label="Filmstrip">
-              <LightboxThumbnail index={0}>1</LightboxThumbnail>
-            </LightboxThumbnailStripTrack>
-          </LightboxThumbnailStrip>
+          <LightboxStage>
+            <LightboxClose />
+            <LightboxPrevious />
+            <LightboxNext />
+            <LightboxCounter />
+            <LightboxCaption />
+            <LightboxZoomIn />
+            <LightboxZoomOut />
+            <LightboxSlides aria-label="Slides">
+              <LightboxSlide>
+                <LightboxItem index={0} caption="One">
+                  <LightboxZoom>
+                    <LightboxMedia width={100} height={100}>
+                      <img src="/a.jpg" alt="A" width={100} height={100} />
+                    </LightboxMedia>
+                  </LightboxZoom>
+                </LightboxItem>
+              </LightboxSlide>
+            </LightboxSlides>
+            <LightboxThumbnailStrip>
+              <LightboxThumbnailStripTrack aria-label="Filmstrip">
+                <LightboxThumbnail index={0}>1</LightboxThumbnail>
+              </LightboxThumbnailStripTrack>
+            </LightboxThumbnailStrip>
+          </LightboxStage>
         </LightboxContent>
       </LightboxPortal>
     </LightboxRoot>

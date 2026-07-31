@@ -495,6 +495,7 @@ function LightboxRoot(props: LightboxRootProps) {
       >
     >(new Map());
     const dialogElementRef = React.useRef<HTMLElement | null>(null);
+    const stageElementRef = React.useRef<HTMLElement | null>(null);
     const backdropElementRef = React.useRef<HTMLElement | null>(null);
     const slidesViewportRef = React.useRef<HTMLElement | null>(null);
     const slidesGeometryRef = React.useRef({
@@ -920,6 +921,7 @@ function LightboxRoot(props: LightboxRootProps) {
         triggerImageElementsRef,
         triggerIdsRef,
         dialogElementRef,
+        stageElementRef,
         backdropElementRef,
         slidesViewportRef,
         slidesGeometryRef,

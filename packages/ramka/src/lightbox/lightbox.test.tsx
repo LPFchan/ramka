@@ -22,6 +22,7 @@ import { LightboxNext } from './lightbox-next';
 import { LightboxPrevious } from './lightbox-previous';
 import { createHandle } from './lightbox-handle';
 import { LightboxRoot } from './lightbox-root';
+import { LightboxStage } from './lightbox-stage';
 import { LightboxThumbnail } from './lightbox-thumbnail';
 import { LightboxThumbnailGroup } from './lightbox-thumbnail-group';
 import { LightboxTrigger } from './lightbox-trigger';
@@ -755,6 +756,108 @@ describe('Lightbox', () => {
       render(<TestLightbox defaultOpen defaultValue={0} loop={false} />);
       fireEvent.keyDown(screen.getByTestId('content'), { key: 'ArrowLeft' });
       expect(screen.getByTestId('item-0')).toHaveAttribute('aria-hidden', 'false');
+    });
+
+    it('ArrowRight on Content still navigates when Stage is mounted (default dialog focus)', () => {
+      render(
+        <LightboxRoot defaultOpen defaultValue={0}>
+          <LightboxPortal>
+            <LightboxContent data-testid="content" aria-label="Stage focus test">
+              <LightboxStage data-testid="stage">
+                <LightboxItemGroup preload={1}>
+                  {Array.from({ length: 3 }, (_, i) => (
+                    <LightboxItem key={`i-${i}`} index={i} data-testid={`item-${i}`}>
+                      Item {i}
+                    </LightboxItem>
+                  ))}
+                </LightboxItemGroup>
+              </LightboxStage>
+              <aside data-testid="sidebar" tabIndex={0}>
+                Thread
+              </aside>
+            </LightboxContent>
+          </LightboxPortal>
+        </LightboxRoot>,
+      );
+
+      fireEvent.keyDown(screen.getByTestId('content'), { key: 'ArrowRight' });
+      expect(screen.getByTestId('item-1')).toHaveAttribute('aria-hidden', 'false');
+    });
+
+    it('arrow keys inside Stage navigate the gallery', () => {
+      render(
+        <LightboxRoot defaultOpen defaultValue={0}>
+          <LightboxPortal>
+            <LightboxContent data-testid="content" aria-label="Stage nav test">
+              <LightboxStage data-testid="stage">
+                <LightboxItemGroup preload={1}>
+                  {Array.from({ length: 3 }, (_, i) => (
+                    <LightboxItem key={`i-${i}`} index={i} data-testid={`item-${i}`}>
+                      Item {i}
+                    </LightboxItem>
+                  ))}
+                </LightboxItemGroup>
+              </LightboxStage>
+              <aside data-testid="sidebar" tabIndex={0}>
+                Thread
+              </aside>
+            </LightboxContent>
+          </LightboxPortal>
+        </LightboxRoot>,
+      );
+
+      fireEvent.keyDown(screen.getByTestId('stage'), { key: 'ArrowRight' });
+      expect(screen.getByTestId('item-1')).toHaveAttribute('aria-hidden', 'false');
+    });
+
+    it('arrow keys outside Stage (sidebar) do not navigate the gallery', () => {
+      render(
+        <LightboxRoot defaultOpen defaultValue={0}>
+          <LightboxPortal>
+            <LightboxContent data-testid="content" aria-label="Stage sidebar test">
+              <LightboxStage data-testid="stage">
+                <LightboxItemGroup preload={1}>
+                  {Array.from({ length: 3 }, (_, i) => (
+                    <LightboxItem key={`i-${i}`} index={i} data-testid={`item-${i}`}>
+                      Item {i}
+                    </LightboxItem>
+                  ))}
+                </LightboxItemGroup>
+              </LightboxStage>
+              <aside data-testid="sidebar" tabIndex={0}>
+                Thread
+              </aside>
+            </LightboxContent>
+          </LightboxPortal>
+        </LightboxRoot>,
+      );
+
+      fireEvent.keyDown(screen.getByTestId('sidebar'), { key: 'ArrowRight' });
+      expect(screen.getByTestId('item-0')).toHaveAttribute('aria-hidden', 'false');
+      expect(screen.getByTestId('item-1')).toHaveAttribute('aria-hidden', 'true');
+    });
+
+    it('Escape still closes when focus is outside Stage', () => {
+      const onOpenChange = vi.fn();
+      render(
+        <LightboxRoot defaultOpen onOpenChange={onOpenChange}>
+          <LightboxPortal>
+            <LightboxContent data-testid="content" aria-label="Stage escape test">
+              <LightboxStage>
+                <LightboxItemGroup>
+                  <LightboxItem index={0}>Item</LightboxItem>
+                </LightboxItemGroup>
+              </LightboxStage>
+              <aside data-testid="sidebar" tabIndex={0}>
+                Thread
+              </aside>
+            </LightboxContent>
+          </LightboxPortal>
+        </LightboxRoot>,
+      );
+
+      fireEvent.keyDown(screen.getByTestId('sidebar'), { key: 'Escape' });
+      expect(onOpenChange).toHaveBeenCalledWith(false);
     });
 
     it('defers navigation when a descendant already handled the key (defaultPrevented)', () => {
@@ -4160,6 +4263,143 @@ describe('Lightbox', () => {
         dispatchPointer(content, 'pointermove', { clientX: 200, clientY: 250 });
       });
       expect(content).toHaveAttribute('data-pulling');
+    });
+
+    function dispatchTrackpadWheel(target: Element, deltaY = -40) {
+      const event = new WheelEvent('wheel', {
+        bubbles: true,
+        cancelable: true,
+        deltaX: 0,
+        deltaY,
+      });
+      // jsdom may omit deltaMode from the constructor; pixel-mode is required.
+      Object.defineProperty(event, 'deltaMode', { value: 0 });
+      target.dispatchEvent(event);
+    }
+
+    it('wheel pull ignores events whose target is outside Stage', () => {
+      render(
+        <LightboxRoot defaultOpen>
+          <LightboxPortal>
+            <LightboxContent data-testid="content" aria-label="Stage wheel test">
+              <LightboxStage data-testid="stage">
+                <LightboxItemGroup>
+                  <LightboxItem index={0}>
+                    <img src="test.jpg" alt="test" />
+                  </LightboxItem>
+                </LightboxItemGroup>
+              </LightboxStage>
+              <aside data-testid="sidebar">Thread</aside>
+            </LightboxContent>
+          </LightboxPortal>
+        </LightboxRoot>,
+      );
+      const content = screen.getByTestId('content');
+      const sidebar = screen.getByTestId('sidebar');
+      const img = screen.getByAltText('test');
+
+      act(() => {
+        // Stay under the dismiss threshold so we can assert data-pulling.
+        for (let i = 0; i < 3; i++) dispatchTrackpadWheel(sidebar, -20);
+      });
+      expect(content).not.toHaveAttribute('data-pulling');
+
+      act(() => {
+        for (let i = 0; i < 3; i++) dispatchTrackpadWheel(img, -20);
+      });
+      expect(content).toHaveAttribute('data-pulling');
+    });
+
+    it('wheel pull still works without Stage (Content is the stage)', () => {
+      render(
+        <LightboxRoot defaultOpen>
+          <LightboxPortal>
+            <LightboxContent data-testid="content" aria-label="No-stage wheel test">
+              <LightboxItemGroup>
+                <LightboxItem index={0}>
+                  <img src="test.jpg" alt="test" />
+                </LightboxItem>
+              </LightboxItemGroup>
+            </LightboxContent>
+          </LightboxPortal>
+        </LightboxRoot>,
+      );
+      const content = screen.getByTestId('content');
+      const img = screen.getByAltText('test');
+
+      act(() => {
+        for (let i = 0; i < 3; i++) dispatchTrackpadWheel(img, -20);
+      });
+      expect(content).toHaveAttribute('data-pulling');
+    });
+  });
+
+  describe('Lightbox.Stage pan viewport', () => {
+    it('reads Stage getBoundingClientRect for pan geometry when Stage is mounted', () => {
+      const ref = React.createRef<LightboxZoomRef>();
+      let stageEl: HTMLElement | null = null;
+      let stageRectCalls = 0;
+      // Patch HTMLElement (not Element) — earlier tests may own-property override
+      // HTMLElement.prototype.getBoundingClientRect and shadow Element.prototype.
+      const origRect = HTMLElement.prototype.getBoundingClientRect;
+      HTMLElement.prototype.getBoundingClientRect = function (this: HTMLElement) {
+        if (stageEl && this === stageEl) {
+          stageRectCalls += 1;
+          return {
+            left: 0,
+            top: 0,
+            right: 600,
+            bottom: 800,
+            width: 600,
+            height: 800,
+            x: 0,
+            y: 0,
+            toJSON() {},
+          } as DOMRect;
+        }
+        return {
+          left: 0,
+          top: 0,
+          right: 1000,
+          bottom: 800,
+          width: 1000,
+          height: 800,
+          x: 0,
+          y: 0,
+          toJSON() {},
+        } as DOMRect;
+      };
+
+      try {
+        render(
+          <LightboxRoot defaultOpen>
+            <LightboxPortal>
+              <LightboxContent data-testid="content" aria-label="Stage pan test">
+                <LightboxStage data-testid="stage">
+                  <LightboxItemGroup>
+                    <LightboxItem index={0}>
+                      <LightboxZoom ref={ref} maxZoom={4}>
+                        <LightboxMedia width={400} height={300}>
+                          <img src="test.jpg" alt="test" width={400} height={300} />
+                        </LightboxMedia>
+                      </LightboxZoom>
+                    </LightboxItem>
+                  </LightboxItemGroup>
+                </LightboxStage>
+                <aside data-testid="sidebar">Thread</aside>
+              </LightboxContent>
+            </LightboxPortal>
+          </LightboxRoot>,
+        );
+
+        stageEl = screen.getByTestId('stage');
+        expect(stageEl).toHaveAttribute('data-ramka-stage');
+        // Focal zoom path always measures pan geometry (viewport = Stage).
+        act(() => ref.current!.zoomTo(2, { rapid: true, dx: 0, dy: 0 }));
+        expect(stageRectCalls).toBeGreaterThan(0);
+      } finally {
+        HTMLElement.prototype.getBoundingClientRect = origRect;
+      }
     });
   });
 

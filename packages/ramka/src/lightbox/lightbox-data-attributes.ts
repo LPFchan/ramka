@@ -72,6 +72,11 @@ export enum LightboxCloseDataAttributes {
   close = 'data-ramka-close',
 }
 
+export enum LightboxStageDataAttributes {
+  /** Always present on the media interaction stage. */
+  stage = 'data-ramka-stage',
+}
+
 export enum LightboxItemGroupDataAttributes {
   /** Always present on the item-group element. */
   itemGroup = 'data-ramka-item-group',
@@ -221,6 +226,7 @@ export const LIGHTBOX_PART_IDENTITY_ATTRIBUTES = [
   LightboxContentDataAttributes.content,
   LightboxBackdropDataAttributes.backdrop,
   LightboxCloseDataAttributes.close,
+  LightboxStageDataAttributes.stage,
   LightboxItemGroupDataAttributes.itemGroup,
   LightboxItemDataAttributes.item,
   LightboxSlidesDataAttributes.slides,

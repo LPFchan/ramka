@@ -71,6 +71,7 @@ const LightboxContent = React.forwardRef<HTMLDivElement, LightboxContentProps>(
       itemCount,
       loop,
       dialogElementRef,
+      stageElementRef,
       backdropElementRef,
       activeItemElementRef,
       itemMorphElementsRef,
@@ -259,6 +260,8 @@ const LightboxContent = React.forwardRef<HTMLDivElement, LightboxContentProps>(
       // The wheel/trackpad pull path reads it directly instead of re-querying
       // the DOM for `[data-ramka-item][data-active]`.
       activeItemRef: activeItemElementRef,
+      // Optional Stage scopes wheel pull to the media pane; null → Content.
+      stageRef: stageElementRef,
       // The touch gate starts a pull only inside an item's registered content
       // element (imageRef / morphRef) — the same element that morphs —
       // rather than sniffing the DOM for an inner <img>/<video>.
@@ -321,6 +324,24 @@ const LightboxContent = React.forwardRef<HTMLDivElement, LightboxContentProps>(
         }
 
         const isArrow = event.key.startsWith('Arrow');
+        const isGalleryNavKey =
+          isArrow || event.key === 'Home' || event.key === 'End';
+
+        // When Stage is mounted, gallery nav (arrows / Home / End, including
+        // zoomed pan) runs while focus is inside Stage — or on Content itself
+        // (default focus after open). Sibling chrome outside Stage (e.g. a
+        // thread sidebar) keeps native arrow scrolling. Without Stage, Content
+        // is the stage. Escape / zoom shortcuts above stay dialog-scoped.
+        const stage = stageElementRef.current;
+        if (
+          isGalleryNavKey &&
+          stage &&
+          target &&
+          target !== el &&
+          !stage.contains(target)
+        ) {
+          return;
+        }
 
         // While zoomed in, arrows pan the active slide instead of navigating.
         if (isArrow && (zoomCtl?.getZoom() ?? 1) > 1 && zoomCtl) {
@@ -373,7 +394,7 @@ const LightboxContent = React.forwardRef<HTMLDivElement, LightboxContentProps>(
           setActiveIndex(nextIndex, 'keyboard');
         }
       },
-      [mounted, activeIndex, itemCount, loop, setActiveIndex, setOpen, activeZoomRef],
+      [mounted, activeIndex, itemCount, loop, setActiveIndex, setOpen, activeZoomRef, stageElementRef],
     );
 
     // Click on the content container itself (not children) closes the
