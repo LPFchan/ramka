@@ -6,7 +6,8 @@ import { Lightbox, type LightboxHandle, type LightboxTriggerRenderState } from '
 import { imgDims, morphHideClass, triggerFocusClass } from '../../_components/lightbox-chrome';
 
 type Photo = {
-  id: string;
+  /** Matches demo `LightboxGalleryItem.id` (optional string | number). */
+  id?: string | number;
   thumb: string;
   alt: string;
 };
@@ -30,12 +31,13 @@ export function AccessibleDoubleClickTile({
   index: number;
 }) {
   const previewRef = React.useRef<HTMLDivElement | null>(null);
+  const triggerId = String(photo.id ?? `dbl-${index}`);
   const open = React.useCallback(() => {
-    handle.open(index, { triggerId: photo.id });
-  }, [handle, index, photo.id]);
+    handle.open(index, { triggerId });
+  }, [handle, index, triggerId]);
 
-  const previewId = `${photo.id}-preview`;
-  const hintId = `${photo.id}-hint`;
+  const previewId = `${triggerId}-preview`;
+  const hintId = `${triggerId}-hint`;
 
   return (
     <figure className="flex flex-col gap-2">
@@ -66,7 +68,7 @@ export function AccessibleDoubleClickTile({
 
       <Lightbox.Trigger
         handle={handle}
-        id={photo.id}
+        id={triggerId}
         index={index}
         className={`self-start rounded-lg border border-neutral-300 bg-white px-3 py-1.5 text-sm font-medium text-neutral-900 shadow-sm transition-colors hover:bg-neutral-50 focus:outline-none dark:border-neutral-600 dark:bg-neutral-900 dark:text-neutral-100 dark:hover:bg-neutral-800 ${triggerFocusClass}`}
       >
