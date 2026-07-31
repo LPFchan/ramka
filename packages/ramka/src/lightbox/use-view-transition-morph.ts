@@ -191,45 +191,70 @@ function warnCollapsedMediaMorph(target: HTMLElement | null) {
  */
 type ScrollTriggerMoment = 'onChange' | 'onOpenComplete' | 'onClose';
 
+/** Alignment passed through to `Element.scrollIntoView`. */
+type ScrollTriggerAlign = ScrollLogicalPosition;
+
 interface ScrollTriggerOption {
   type: ScrollTriggerMoment;
   behavior?: 'smooth' | 'instant';
+  /**
+   * Vertical alignment for `scrollIntoView`.
+   * @default 'nearest'
+   */
+  block?: ScrollTriggerAlign;
+  /**
+   * Horizontal alignment for `scrollIntoView`. Use `'center'` for
+   * variable-width horizontal strips with scroll-snap so a narrow tile
+   * isn't re-snapped back to a wider sibling after a minimal `nearest` nudge.
+   * @default 'nearest'
+   */
+  inline?: ScrollTriggerAlign;
 }
 
 /** Single option, an array of options, or `null` to disable. */
 type ScrollTriggerIntoView = null | ScrollTriggerOption | ScrollTriggerOption[];
 
+interface ResolvedScrollTrigger {
+  behavior: ScrollBehavior;
+  block: ScrollTriggerAlign;
+  inline: ScrollTriggerAlign;
+}
+
 /**
- * Resolve the scroll behavior configured for a given moment, or `null` when
- * that moment isn't enabled. Accepts both the single-object and array config
- * forms so `scrollTriggerIntoView={{ type: 'onChange' }}` and
+ * Resolve the scroll config for a given moment, or `null` when that moment
+ * isn't enabled. Accepts both the single-object and array config forms so
+ * `scrollTriggerIntoView={{ type: 'onChange' }}` and
  * `scrollTriggerIntoView={[{ type: 'onChange' }, { type: 'onOpenComplete' }]}`
  * both work.
  */
-function resolveScrollBehavior(
+function resolveScrollTriggerOption(
   config: ScrollTriggerIntoView | undefined,
   moment: ScrollTriggerMoment,
-): ScrollBehavior | null {
+): ResolvedScrollTrigger | null {
   if (!config) return null;
   const options = Array.isArray(config) ? config : [config];
   const match = options.find((option) => option.type === moment);
-  return match ? (match.behavior ?? 'smooth') : null;
+  if (!match) return null;
+  return {
+    behavior: match.behavior ?? 'smooth',
+    block: match.block ?? 'nearest',
+    inline: match.inline ?? 'nearest',
+  };
 }
 
 // ---------------------------------------------------------------------------
 // Trigger resolution (shared with Root's non-VT close paths)
 // ---------------------------------------------------------------------------
 
-function scrollTriggerEl(el: HTMLElement | undefined, behavior: ScrollBehavior = 'smooth') {
+function scrollTriggerEl(
+  el: HTMLElement | undefined,
+  options: ResolvedScrollTrigger = { behavior: 'smooth', block: 'nearest', inline: 'nearest' },
+) {
   if (!el) return;
-  // Defer the "is it already visible?" decision to the browser via
-  // `block: 'nearest'`: it's a no-op when the trigger is already within the
-  // scrollport and otherwise scrolls the minimum amount to reveal it. Crucially
-  // it honors CSS `scroll-margin`/`scroll-padding`, so a sticky header's safe
-  // area is respected — a trigger tucked *under* a sticky nav is treated as
-  // not-visible and scrolled clear of it. (Consumers set `scroll-padding-top`
-  // on the scroll container, or `scroll-margin-top` on the trigger, to the
-  // header height.)
+  // Defaults (`nearest` / `nearest`) only scroll when needed and honor CSS
+  // `scroll-margin`/`scroll-padding` (sticky header clearance). Consumers set
+  // `block` / `inline` on `scrollTriggerIntoView` options when a different
+  // alignment is required (e.g. `inline: 'center'` for horizontal snap strips).
   //
   // We deliberately do NOT gate this on a manual getBoundingClientRect check:
   // that check measures against the raw viewport (top >= 0), so it considers a
@@ -237,7 +262,11 @@ function scrollTriggerEl(el: HTMLElement | undefined, behavior: ScrollBehavior =
   // IntersectionObserver can't fix this either — v1 is purely geometric (same
   // blind spot) and v2's occlusion-aware `isVisible` is Chromium-only, async,
   // and expensive, so unusable for a synchronous cross-browser decision here.
-  el.scrollIntoView({ block: 'nearest', behavior });
+  el.scrollIntoView({
+    block: options.block,
+    inline: options.inline,
+    behavior: options.behavior,
+  });
 }
 
 function resolveTriggerIndex(
@@ -752,15 +781,18 @@ function useViewTransitionMorph(config: ViewTransitionMorphConfig): ViewTransiti
       // Reposition the active trigger while the viewer still covers the page
       // (and scroll is locked), so a later close morph lands on-screen with no
       // visible jump at close start. Invisible now; only pays off on close.
-      const openCompleteBehavior = resolveScrollBehavior(cfg.scrollTriggerIntoView, 'onOpenComplete');
-      if (openCompleteBehavior) {
+      const openCompleteScroll = resolveScrollTriggerOption(
+        cfg.scrollTriggerIntoView,
+        'onOpenComplete',
+      );
+      if (openCompleteScroll) {
         const idx = resolveTriggerIndex(
           cfg.activeIndexRef.current,
           cfg.morphTo,
           cfg.openingTriggerIndexRef.current,
           cfg.triggerElementsRef.current,
         );
-        scrollTriggerEl(cfg.triggerElementsRef.current.get(idx), openCompleteBehavior);
+        scrollTriggerEl(cfg.triggerElementsRef.current.get(idx), openCompleteScroll);
       }
 
       cfg.onOpenComplete();
@@ -822,9 +854,9 @@ function useViewTransitionMorph(config: ViewTransitionMorphConfig): ViewTransiti
         clearMorphName(itemTarget!);
       }
       flushSync(commitClose);
-      const closeBehavior = resolveScrollBehavior(scrollTriggerIntoView, 'onClose');
-      if (closeBehavior) {
-        scrollTriggerEl(triggerEl, closeBehavior);
+      const closeScroll = resolveScrollTriggerOption(scrollTriggerIntoView, 'onClose');
+      if (closeScroll) {
+        scrollTriggerEl(triggerEl, closeScroll);
       }
       if (canMorph) {
         setMorphName(triggerTarget!);
@@ -851,7 +883,7 @@ export {
   waitForImageDecode,
   scrollTriggerEl,
   resolveTriggerIndex,
-  resolveScrollBehavior,
+  resolveScrollTriggerOption,
   DEFAULT_DECODE_MAX_WAIT,
 };
 export type {
@@ -860,4 +892,6 @@ export type {
   ScrollTriggerIntoView,
   ScrollTriggerOption,
   ScrollTriggerMoment,
+  ScrollTriggerAlign,
+  ResolvedScrollTrigger,
 };

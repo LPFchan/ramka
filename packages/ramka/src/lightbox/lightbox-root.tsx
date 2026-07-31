@@ -28,7 +28,7 @@ import {
 } from './lightbox-handle';
 import {
   DEFAULT_DECODE_MAX_WAIT,
-  resolveScrollBehavior,
+  resolveScrollTriggerOption,
   resolveTriggerIndex,
   scrollTriggerEl,
   useViewTransitionMorph,
@@ -80,8 +80,10 @@ interface LightboxRootProps {
    * animations land on-screen instead of animating off-viewport.
    *
    * Accepts a single option or an array of options, so you can combine the
-   * moments below. `behavior` controls the scroll animation per option:
-   * `"smooth"` (default) or `"instant"`.
+   * moments below. Per option:
+   * - `behavior` — `"smooth"` (default) or `"instant"`
+   * - `block` / `inline` — `scrollIntoView` alignment (`"nearest"` default).
+   *   Use `inline: "center"` for horizontal snap strips with variable-width tiles.
    *
    * - `null` (default) — no automatic scrolling
    * - `{ type: "onChange" }` — scroll to the active trigger whenever the active
@@ -100,6 +102,13 @@ interface LightboxRootProps {
    * scrollTriggerIntoView={[
    *   { type: 'onChange', behavior: 'instant' },
    *   { type: 'onOpenComplete', behavior: 'instant' },
+   * ]}
+   *
+   * @example
+   * // Horizontal media strip — center so snap doesn't pull back to a wider sibling:
+   * scrollTriggerIntoView={[
+   *   { type: 'onChange', behavior: 'instant', inline: 'center' },
+   *   { type: 'onOpenComplete', behavior: 'instant', inline: 'center' },
    * ]}
    *
    * @default null
@@ -299,15 +308,15 @@ function LightboxRoot(props: LightboxRootProps) {
     React.useEffect(() => {
       const prev = scrollSyncRef.current;
       scrollSyncRef.current = { open, activeIndex };
-      const behavior = resolveScrollBehavior(scrollTriggerIntoView, 'onChange');
-      if (!behavior || !open) return;
+      const scroll = resolveScrollTriggerOption(scrollTriggerIntoView, 'onChange');
+      if (!scroll || !open) return;
       if (!prev.open || prev.activeIndex === activeIndex) return;
 
       window.clearTimeout(scrollSyncTimerRef.current);
       const index = activeIndex;
       scrollSyncTimerRef.current = window.setTimeout(() => {
         if (!scrollSyncRef.current.open || scrollSyncRef.current.activeIndex !== index) return;
-        scrollTriggerEl(triggerElementsRef.current.get(index), behavior);
+        scrollTriggerEl(triggerElementsRef.current.get(index), scroll);
       }, 120);
 
       return () => window.clearTimeout(scrollSyncTimerRef.current);
@@ -683,18 +692,18 @@ function LightboxRoot(props: LightboxRootProps) {
             requestAnimationFrame(() => {
               if (closeGenRef.current !== gen) return;
               runAfterAnimations(dialogElementRef.current, gen, closeGenRef, () => {
-                const openCompleteBehavior = resolveScrollBehavior(
+                const openCompleteScroll = resolveScrollTriggerOption(
                   scrollTriggerIntoView,
                   'onOpenComplete',
                 );
-                if (openCompleteBehavior) {
+                if (openCompleteScroll) {
                   const idx = resolveTriggerIndex(
                     activeIndexRef.current,
                     morphTo,
                     openingTriggerIndexRef.current,
                     triggerElementsRef.current,
                   );
-                  scrollTriggerEl(triggerElementsRef.current.get(idx), openCompleteBehavior);
+                  scrollTriggerEl(triggerElementsRef.current.get(idx), openCompleteScroll);
                 }
                 settleOpenTransition();
                 onOpenChangeCompleteRef.current?.(true);
@@ -707,10 +716,10 @@ function LightboxRoot(props: LightboxRootProps) {
               openingTriggerIndexRef.current,
               triggerElementsRef.current,
             );
-            const closeBehavior = resolveScrollBehavior(scrollTriggerIntoView, 'onClose');
-            if (closeBehavior) {
+            const closeScroll = resolveScrollTriggerOption(scrollTriggerIntoView, 'onClose');
+            if (closeScroll) {
               const triggerEl = triggerElementsRef.current.get(closeTriggerIdx);
-              scrollTriggerEl(triggerEl, closeBehavior);
+              scrollTriggerEl(triggerEl, closeScroll);
             }
             if (!isControlledOpen) {
               setUncontrolledOpen(false);

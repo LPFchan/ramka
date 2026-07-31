@@ -94,23 +94,24 @@ const media: LightboxItem[] = [
   },
 ];
 
-function tileCornerClass(index: number) {
-  return [
-    'rounded-tl-2xl rounded-tr-none rounded-br-none rounded-bl-none',
-    'rounded-tl-none rounded-tr-2xl rounded-br-none rounded-bl-none',
-    'rounded-tl-none rounded-tr-none rounded-br-none rounded-bl-2xl',
-    'rounded-tl-none rounded-tr-none rounded-br-2xl rounded-bl-none',
-  ][index]!;
-}
+/** Shared carousel height — width follows each item's intrinsic aspect ratio. */
+const MEDIA_ROW_HEIGHT_PX = 220;
 
 /**
  * App-level demo — not part of the copy-paste package.
- * Tweet card with a 2×2 media grid opens the split viewer + thread sidebar.
+ * Tweet card with a horizontal media strip (latest X layout) opens the split viewer.
  */
 export function TwitterPresetDemo() {
   return (
     <div className="w-full max-w-md">
-      <Lightbox.Root>
+      <Lightbox.Root
+        // Keep the active strip tile on-screen while navigating / after open
+        // so the close morph lands on the right image (horizontal overflow).
+        scrollTriggerIntoView={[
+          { type: 'onChange', behavior: 'instant', inline: 'nearest' },
+          { type: 'onOpenComplete', behavior: 'instant', inline: 'nearest' },
+        ]}
+      >
         <article className="overflow-hidden rounded-2xl border border-neutral-200 bg-white text-left shadow-sm dark:border-neutral-700 dark:bg-neutral-900">
           <div className="flex gap-3 p-3">
             <img
@@ -130,30 +131,40 @@ export function TwitterPresetDemo() {
             </div>
           </div>
 
-          {/* Corner radius on Trigger — morph reads it when morphRef is unset. */}
-          <div className="grid aspect-[16/10] grid-cols-2 grid-rows-2 gap-0.5 overflow-hidden rounded-2xl bg-neutral-100 dark:bg-neutral-800">
-            {media.map((item, i) => (
-              <Lightbox.Trigger
-                key={item.src}
-                index={i}
-                className={`relative block min-h-0 min-w-0 overflow-hidden border-0 bg-transparent p-0 ${tileCornerClass(i)}`}
-              >
-                {({ imageRef }) => (
-                  <img
-                    ref={imageRef}
-                    src={item.thumb}
-                    alt={item.alt}
-                    width={item.width}
-                    height={item.height}
-                    className="absolute inset-0 size-full object-cover"
-                    draggable={false}
-                  />
-                )}
-              </Lightbox.Trigger>
-            ))}
+          {/*
+            Full-width scrollport; L/R inset is padding on the flex track
+            (scrollable content) so first/last tiles aren't clipped and align
+            with the text column (p-3 + avatar + gap-3 = 4rem).
+          */}
+          <div className="overflow-x-auto [scrollbar-width:none] snap-x snap-mandatory [&::-webkit-scrollbar]:hidden">
+            <div className="flex w-max gap-2 pr-3 pl-16">
+              {media.map((item, i) => (
+                <Lightbox.Trigger
+                  key={item.src}
+                  index={i}
+                  className="relative block shrink-0 snap-center overflow-hidden rounded-2xl border-0 bg-neutral-100 p-0 dark:bg-neutral-800"
+                  style={{
+                    height: MEDIA_ROW_HEIGHT_PX,
+                    aspectRatio: `${item.width} / ${item.height}`,
+                  }}
+                >
+                  {({ imageRef }) => (
+                    <img
+                      ref={imageRef}
+                      src={item.thumb}
+                      alt={item.alt}
+                      width={item.width}
+                      height={item.height}
+                      className="size-full object-cover"
+                      draggable={false}
+                    />
+                  )}
+                </Lightbox.Trigger>
+              ))}
+            </div>
           </div>
 
-          <div className="flex justify-between px-3 py-2 text-xs text-neutral-500">
+          <div className="flex justify-between py-2 pr-3 pl-16 text-xs text-neutral-500">
             <span>{thread.stats?.replies} replies</span>
             <span>{thread.stats?.likes} likes</span>
           </div>
