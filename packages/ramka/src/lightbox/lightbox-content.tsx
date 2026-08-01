@@ -394,13 +394,25 @@ const LightboxContent = React.forwardRef<HTMLDivElement, LightboxContentProps>(
     // lightbox, matching native <dialog> backdrop click behavior. A
     // visible scrim is provided by the optional `Lightbox.Backdrop`
     // primitive, which also closes on click.
+    //
+    // Require the press to *start* on the scrim too. Browsers retarget
+    // `click` to the nearest common ancestor of mousedown/mouseup — so a
+    // drag from the image onto chrome (caption, strip, sidebar, …) fires
+    // `click` on Content with target === currentTarget and would otherwise
+    // false-dismiss.
+    const dismissPressOnScrimRef = React.useRef(false);
+    const handlePointerDown = React.useCallback((event: React.PointerEvent) => {
+      dismissPressOnScrimRef.current = event.target === event.currentTarget;
+    }, []);
     const handleClick = React.useCallback(
       (event: React.MouseEvent) => {
-      if (!mounted) return;
-      if (event.target === event.currentTarget) {
-        // Background (scrim) click is a pointer interaction → no focus ring.
-        setOpen(false, { focusVisible: false });
-      }
+        if (!mounted) return;
+        const startedOnScrim = dismissPressOnScrimRef.current;
+        dismissPressOnScrimRef.current = false;
+        if (startedOnScrim && event.target === event.currentTarget) {
+          // Background (scrim) click is a pointer interaction → no focus ring.
+          setOpen(false, { focusVisible: false });
+        }
       },
       [mounted, setOpen],
     );
@@ -471,6 +483,7 @@ const LightboxContent = React.forwardRef<HTMLDivElement, LightboxContentProps>(
           ? { [LightboxContentDataAttributes.open]: '' }
           : { [LightboxContentDataAttributes.closed]: '' }),
         onKeyDown: handleKeyDown,
+        onPointerDown: handlePointerDown,
         onClick: handleClick,
         tabIndex: parked ? undefined : -1,
       } as React.ComponentPropsWithRef<'div'>,

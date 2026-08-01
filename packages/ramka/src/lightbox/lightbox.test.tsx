@@ -468,9 +468,11 @@ describe('Lightbox', () => {
           </LightboxPortal>
         </LightboxRoot>,
       );
-      // Clicking the content background (target === currentTarget) must run
+      // Clicking the content background (press started on scrim) must run
       // BOTH the consumer handler and the internal close — not clobber either.
-      fireEvent.click(screen.getByTestId('content'));
+      const content = screen.getByTestId('content');
+      fireEvent.pointerDown(content);
+      fireEvent.click(content);
       expect(onClick).toHaveBeenCalledTimes(1);
       await flushMicrotasks();
       expect(screen.queryByTestId('content')).toBeNull();
@@ -603,9 +605,37 @@ describe('Lightbox', () => {
     it('clicking content backdrop area closes the lightbox', async () => {
       render(<TestLightbox defaultOpen />);
       const content = screen.getByTestId('content');
+      fireEvent.pointerDown(content);
       fireEvent.click(content);
       await flushMicrotasks();
       expect(screen.queryByTestId('content')).toBeNull();
+    });
+
+    it('does not close when a drag starts on media and ends on chrome (retargeted click)', async () => {
+      // Browsers fire `click` on the nearest common ancestor of mousedown/mouseup.
+      // A press that starts on the image and releases on caption/strip/sidebar
+      // therefore lands on Content with target === currentTarget — must not dismiss.
+      render(
+        <LightboxRoot defaultOpen>
+          <LightboxPortal>
+            <LightboxContent data-testid="content" aria-label="Drag dismiss guard">
+              <LightboxItemGroup>
+                <LightboxItem index={0}>
+                  <img data-testid="media" src="test.jpg" alt="test" />
+                </LightboxItem>
+              </LightboxItemGroup>
+              <div data-testid="chrome">Caption / strip / sidebar</div>
+            </LightboxContent>
+          </LightboxPortal>
+        </LightboxRoot>,
+      );
+      const content = screen.getByTestId('content');
+      fireEvent.pointerDown(screen.getByTestId('media'));
+      fireEvent.pointerUp(screen.getByTestId('chrome'));
+      // Simulate the browser-retargeted click on the LCA (Content).
+      fireEvent.click(content);
+      await flushMicrotasks();
+      expect(screen.getByTestId('content')).toBeInTheDocument();
     });
 
     it('controlled open prop controls visibility', () => {
@@ -982,8 +1012,9 @@ describe('Lightbox', () => {
       fireEvent.click(trigger); // open
       await flushMicrotasks();
 
-      // Click the dialog background itself (target === currentTarget) → pointer close.
+      // Click the dialog background itself (press + click on scrim) → pointer close.
       const content = screen.getByTestId('content');
+      fireEvent.pointerDown(content);
       fireEvent.click(content);
 
       await act(async () => {
