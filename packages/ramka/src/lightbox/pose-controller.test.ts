@@ -90,6 +90,74 @@ describe('PoseController', () => {
     expect(c.getPose()).toEqual({ zoom: 2, offsetX: 80, offsetY: 0 });
   });
 
+  it('settle does not notifyCommit until finish (release-seam)', () => {
+    Element.prototype.animate = vi.fn((_kf, opts) => {
+      return {
+        cancel: vi.fn(),
+        play: vi.fn(),
+        pause: vi.fn(),
+        onfinish: null as (() => void) | null,
+        oncancel: null as (() => void) | null,
+        commitStyles: vi.fn(),
+        currentTime: 0,
+        duration: typeof opts === 'object' ? Number(opts?.duration ?? 0) : 0,
+      } as unknown as Animation;
+    }) as unknown as typeof Element.prototype.animate;
+
+    const c = new PoseController({ zoom: 2, offsetX: 0, offsetY: 0 });
+    c.attach(el);
+    c.beginTracking();
+    c.setPose({ zoom: 2, offsetX: 40, offsetY: 0 });
+
+    const commits: Array<{ zoom: number; offsetX: number; phase: string }> = [];
+    c.subscribeCommit(() => {
+      const s = c.getSnapshot();
+      commits.push({ zoom: s.zoom, offsetX: s.offsetX, phase: s.phase });
+    });
+    // Drop the beginTracking commit so we only assert settle enter/finish.
+    commits.length = 0;
+
+    // Old (wrong) order: leave tracking before settle — must not dump pan delta.
+    c.endTracking({ commit: false });
+    expect(commits.length).toBe(0);
+
+    const ok = c.settle({
+      path: [{ zoom: 2, offsetX: 60, offsetY: 0 }],
+      pathOffsets: [0.5],
+      to: { zoom: 2, offsetX: 80, offsetY: 0 },
+      durationMs: 100,
+    });
+    expect(ok).toBe(true);
+    expect(c.getPhase()).toBe('settling');
+    expect(commits.length).toBe(0);
+
+    const running = (
+      Element.prototype.animate as ReturnType<typeof vi.fn>
+    ).mock.results[0]!.value as { onfinish: (() => void) | null };
+    running.onfinish?.();
+    expect(commits.length).toBe(1);
+    expect(commits[0]).toEqual({ zoom: 2, offsetX: 80, phase: 'idle' });
+  });
+
+  it('endTracking defaults to no commit; commitSnapshot syncs at rest', () => {
+    const c = new PoseController({ zoom: 1, offsetX: 0, offsetY: 0 });
+    c.attach(el);
+    c.beginTracking();
+    c.setPose({ zoom: 2, offsetX: 30, offsetY: 0 });
+    const commits: number[] = [];
+    c.subscribeCommit(() => commits.push(1));
+    commits.length = 0;
+
+    c.endTracking();
+    expect(c.getPhase()).toBe('idle');
+    expect(commits.length).toBe(0);
+    expect(c.getSnapshot().offsetX).toBe(0); // still beginTracking snapshot
+
+    c.commitSnapshot();
+    expect(commits.length).toBe(1);
+    expect(c.getSnapshot().offsetX).toBe(30);
+  });
+
   it('catch recovers the mid-settle pose analytically', () => {
     Element.prototype.animate = vi.fn((_kf, opts) => {
       const anim = {

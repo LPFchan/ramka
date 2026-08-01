@@ -85,6 +85,13 @@ interface ZoomGestureActions {
    * Used so rapid double-taps chain without cutting the in-flight animation.
    */
   whenZoomAnimationSettled: (cb: () => void) => void;
+  /** True while a baked settle WAAPI is playing. */
+  isSettling: () => boolean;
+  /**
+   * Sync the React commit store to the live pose after an at-rest release
+   * (no settle started). Must not run on the settle-enter frame.
+   */
+  commitPose: () => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -599,13 +606,10 @@ function useZoomGestures(
         }
         tapCandidate.current = false;
         tapStartPos.current = null;
-        actionsRef.current.setDragging(false);
-        // Final release: everything left is deterministic physics. momentumPan
-        // bakes the WHOLE settle — flick coast, edge bounce, zoom bound
-        // snap-back and offset glide, jointly — into compositor keyframes,
-        // absorbing an in-flight rAF zoom snap (its spring velocity carries
-        // over). Pure pinch release (no post-pinch pan handoff) keeps wasPinch
-        // and must not seed a flick from pinch finger motion; after a 2→1 pan,
+        // Final release: bake+settle FIRST, then clear dragging UI. Never
+        // notifyCommit / bust layout before WAAPI — that was the flick jump.
+        // Pure pinch release (no post-pinch pan handoff) keeps wasPinch and
+        // must not seed a flick from pinch finger motion; after a 2→1 pan,
         // hadPinch was cleared so tracker velocity is used and the flick
         // glides while the scale returns — one baked motion, like iOS.
         hadPinch.current = false;
@@ -613,24 +617,27 @@ function useZoomGestures(
         const releaseZoom = actionsRef.current.getZoom();
         const zoomOutOfBounds = releaseZoom < minZoom || releaseZoom > maxZoom;
         const tracker = velocityTracker.current;
+        let coasting = false;
         if (releaseZoom > 1 || zoomOutOfBounds) {
           const touch = event.pointerType === 'touch';
           const vel = wasPinch
             ? null
             : computeMomentumVelocity(tracker, releaseZoom, MOMENTUM_THRESHOLD);
-          if (actionsRef.current.momentumPan(vel?.vx ?? 0, vel?.vy ?? 0, touch)) {
-            tracker.length = 0;
-            setZooming(false);
-            return;
-          }
+          coasting = actionsRef.current.momentumPan(vel?.vx ?? 0, vel?.vy ?? 0, touch);
         }
         // Safety net for the no-motion cases momentumPan rejected (e.g. an
         // out-of-bounds pose without velocity) — no-op when at rest.
-        if (wasPinch || zoomOutOfBounds) {
+        if (!coasting && (wasPinch || zoomOutOfBounds)) {
           actionsRef.current.snapToBounds();
+          coasting = actionsRef.current.isSettling();
+        }
+        // UI-only: data-dragging / cursor. Pose phase already settling or idle.
+        actionsRef.current.setDragging(false);
+        if (!coasting && !actionsRef.current.isSettling()) {
+          // At-rest release — sync React store now that WAAPI will not start.
+          actionsRef.current.commitPose();
         }
         tracker.length = 0;
-        // Clear zooming flag (delayed to cover snap-back animation)
         setZooming(false);
       }
     },

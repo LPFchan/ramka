@@ -196,9 +196,19 @@ export class PoseController {
     return this.getPose();
   }
 
-  endTracking(): void {
+  /**
+   * Leave tracking. Default does **not** notify the React commit store —
+   * flick release must settle (or explicitly `commitSnapshot`) without dumping
+   * the full pan delta into a sync re-render before WAAPI starts.
+   */
+  endTracking(opts?: { commit?: boolean }): void {
     if (this.phase !== 'tracking') return;
     this.phase = 'idle';
+    if (opts?.commit) this.notifyCommit();
+  }
+
+  /** Push the live pose into the React commit store (at-rest release sync). */
+  commitSnapshot(): void {
     this.notifyCommit();
   }
 
@@ -285,8 +295,11 @@ export class PoseController {
     ];
 
     try {
-      // Pin before animate — from must match what's already on the element.
-      el.style.transform = from;
+      // Pin only when needed — a redundant style write dirties the layer on the
+      // release frame. KF0 must still equal the pose already on the element.
+      if (el.style.transform !== from) {
+        el.style.transform = from;
+      }
       const anim = el.animate(keyframes, { duration, fill: 'forwards' });
       this.anim = anim;
       this.pathInfo = {
@@ -294,6 +307,7 @@ export class PoseController {
         offsets: [0, ...spec.pathOffsets, 1],
         duration,
       };
+      // tracking|idle → settling with no idle commit epoch in between.
       this.phase = 'settling';
       this.animatesZoom = spec.zoomChanges ?? false;
       // Keep `this.pose` at the release pose; getPose() reads the live path.

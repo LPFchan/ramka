@@ -248,14 +248,20 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
         if (value) {
           const live = controller.beginTracking();
           syncPoseRefs(live);
-        } else {
-          controller.endTracking();
+          setDragging(true);
+          // Fresh geometry for the new gesture. Do NOT clear on release — the
+          // settle bake needs the same-frame cache from the last pointermove.
+          layoutCacheRef.current = null;
+          return;
         }
-        setDragging(value);
-        // Gesture boundary — re-measure on the next geometry read. Redundant
-        // with the per-frame rAF invalidation in browsers; load-bearing in test
-        // environments that never tick rAF between synchronous gestures.
-        layoutCacheRef.current = null;
+        // UI-only on release: data-dragging / cursor. Pose phase is owned by
+        // settle/discrete/finish — never notifyCommit here (that dumped the
+        // full pan delta into React before WAAPI and caused the flick jump).
+        setDragging(false);
+        if (controller.isSettling() || controller.isDiscreteAnimating()) return;
+        if (controller.getPhase() === 'tracking') {
+          controller.endTracking({ commit: false });
+        }
       },
       [controller, syncPoseRefs],
     );
@@ -1089,6 +1095,11 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
         cancelZoomAnimation,
         isZoomAnimating: getIsDiscreteAnimating,
         whenZoomAnimationSettled,
+        isSettling: () => controller.isSettling(),
+        commitPose: () => {
+          syncPoseRefs(controller.getPose());
+          controller.commitSnapshot();
+        },
       }),
       [
         controller,
@@ -1107,6 +1118,7 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
         cancelZoomAnimation,
         getIsDiscreteAnimating,
         whenZoomAnimationSettled,
+        syncPoseRefs,
       ],
     );
 
