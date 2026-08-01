@@ -8,6 +8,7 @@ import {
   clampOffsetToViewport,
   computeMaxZoom,
   elasticClamp,
+  PAN_PHYSICS_FRICTION,
   PAN_PHYSICS_SPRING_MOUSE,
   PAN_PHYSICS_SPRING_TOUCH,
   PAN_PHYSICS_STOP_SPEED,
@@ -19,6 +20,10 @@ import {
   rubberBandClamp,
   rubberBandPanDimension,
   stepPanPhysics2D,
+  stepPanPhysicsAxis,
+  ZOOM_SNAP_SPRING,
+  ZOOM_SNAP_STOP_DISTANCE,
+  ZOOM_SNAP_STOP_SPEED,
   type PanPhysicsSpring,
 } from './gesture-math';
 import { triggerHaptic } from './haptics';
@@ -200,6 +205,13 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
     const [offsetX, setOffsetX] = React.useState(0);
     const [offsetY, setOffsetY] = React.useState(0);
     const [dragging, setDragging] = React.useState(false);
+    // Sync mirror for rAF ticks (zoom snap-back) that must know, mid-frame,
+    // whether a finger currently owns the offsets.
+    const draggingRef = React.useRef(false);
+    const setDraggingAction = React.useCallback((value: boolean) => {
+      draggingRef.current = value;
+      setDragging(value);
+    }, []);
     const [imageDimensions, setImageDimensions] = React.useState<{ w: number; h: number } | null>(null);
     const [containerSize, setContainerSize] = React.useState<{ w: number; h: number } | null>(null);
 
@@ -208,6 +220,27 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
 
     const onZoomChangeRef = React.useRef(onZoomChange);
     onZoomChangeRef.current = onZoomChange;
+
+    // rAF zoom bound snap-back (spring on the zoom *value*), started when a
+    // pinch breaks 2→1 out of bounds. Like iOS, it runs CONCURRENTLY with
+    // the surviving finger's pan: the finger owns the offsets, this owns
+    // zoom, and the scale returns uniformly about the stage center under the
+    // live pan. Only a gesture that takes zoom ownership (new pinch, wheel,
+    // discrete zoom) stops it; `changeOffsets` deliberately does not.
+    const zoomSnapRafRef = React.useRef<number | null>(null);
+    const zoomSnapLastTsRef = React.useRef(0);
+    const zoomSnapVelRef = React.useRef(0);
+
+    const stopZoomSnap = React.useCallback(() => {
+      if (zoomSnapRafRef.current != null) {
+        cancelAnimationFrame(zoomSnapRafRef.current);
+        zoomSnapRafRef.current = null;
+      }
+      zoomSnapLastTsRef.current = 0;
+      zoomSnapVelRef.current = 0;
+    }, []);
+
+    const isZoomSnapActive = React.useCallback(() => zoomSnapRafRef.current != null, []);
 
     // ----- Measure the container out of render -----
     // Layout reads belong in an effect, not render (render must stay pure and
@@ -282,11 +315,12 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
 
     // ----- Reset on slide change -----
     React.useEffect(() => {
+      stopZoomSnap();
       setZoom(minZoom);
       setOffsetX(0);
       setOffsetY(0);
       setImageDimensions(null);
-    }, [activeIndex, minZoom]);
+    }, [activeIndex, minZoom, stopZoomSnap]);
 
     // ----- Fire callback on zoom change -----
     React.useEffect(() => {
@@ -436,7 +470,13 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
       panVelRef.current = { vx: 0, vy: 0 };
     }, []);
 
-    React.useEffect(() => () => stopPanPhysics(), [stopPanPhysics]);
+    React.useEffect(
+      () => () => {
+        stopPanPhysics();
+        stopZoomSnap();
+      },
+      [stopPanPhysics, stopZoomSnap],
+    );
 
     // ----- Sync data-zoomed + --lightbox-zoom-progress on Content -----
     // Only the active slide writes these, so they have a single writer and
@@ -590,6 +630,9 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
     const changeZoomAction = React.useCallback(
       (target: number, rapid: boolean, dx?: number, dy?: number, overscroll?: boolean) => {
         stopPanPhysics();
+        // A live pinch / wheel / discrete zoom takes zoom ownership from any
+        // in-flight bound snap-back.
+        stopZoomSnap();
         // Zoom rewrites offsets (focal projection / clamp) outside the elastic
         // pan accumulator. Drop the latch so a pan resuming after this zoom
         // (e.g. pinch 2→1 handoff) re-anchors to the current offsets instead
@@ -649,6 +692,7 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
         cancelZoomAnimation,
         measurePanGeometry,
         stopPanPhysics,
+        stopZoomSnap,
       ],
     );
 
@@ -664,6 +708,7 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
 
     const resetAction = React.useCallback(
       (rapid = false) => {
+        stopZoomSnap();
         if (!rapid) captureStart();
         isElasticDrag.current = false;
         zoomRef.current = minZoom;
@@ -673,10 +718,14 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
         setOffsetX(0);
         setOffsetY(0);
       },
-      [minZoom, captureStart],
+      [minZoom, captureStart, stopZoomSnap],
     );
 
     const snapToBoundsAction = React.useCallback(() => {
+      // The rAF snap-back is already carrying zoom to the bound (and composes
+      // with any live pan) — starting a WAAPI on the same transform would
+      // fight it. Let it finish.
+      if (zoomSnapRafRef.current != null) return;
       const currentZoom = zoomRef.current;
       if (currentZoom >= minZoom && currentZoom <= maxZoom) return;
       // Offsets are re-clamped below — invalidate the elastic pan accumulator.
@@ -815,6 +864,114 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
     // Content's pull-to-dismiss and keyboard handlers).
     const getLiveZoom = React.useCallback(() => zoomRef.current, []);
 
+    /**
+     * iOS-style zoom rubber-band return: a rAF spring on the zoom *value*
+     * that starts the moment a pinch breaks (2→1). The return is a UNIFORM
+     * zoom-out about the stage center — no focal anchoring to the finger —
+     * and it runs concurrently with the surviving finger's pan, which owns
+     * the offsets the whole time. Offsets are only nudged toward their
+     * clamped rest pose (along the same spring progress) when nothing else
+     * is authoring them — no live drag, no pan physics — so a stationary
+     * release still lands as one unified motion.
+     *
+     * @returns `true` when zoom was out of bounds and a snap-back started.
+     */
+    const startZoomSnapAction = React.useCallback((): boolean => {
+      const from = zoomRef.current;
+      const target = clamp(from, minZoom, maxZoom);
+      if (Math.abs(target - from) < 1e-6) return false;
+      stopZoomSnap();
+      // Take over any discrete WAAPI continuously (commits its live pose).
+      cancelZoomAnimation();
+      // Mirror iOS's light rubber-band tick as the scale starts returning.
+      triggerHaptic('snap');
+
+      if (reducedMotionPan) {
+        const offsets = clampOffsets(offsetXRef.current, offsetYRef.current, target);
+        isElasticDrag.current = false;
+        zoomRef.current = target;
+        offsetXRef.current = offsets.x;
+        offsetYRef.current = offsets.y;
+        setZoom(target);
+        setOffsetX(offsets.x);
+        setOffsetY(offsets.y);
+        return true;
+      }
+
+      zoomSnapVelRef.current = 0;
+
+      const tick = (ts: number) => {
+        const prev = zoomSnapLastTsRef.current;
+        zoomSnapLastTsRef.current = ts;
+        let dt = prev > 0 ? (ts - prev) / 1000 : 1 / 60;
+        if (dt > 0.048) dt = 1 / 60;
+
+        const z = zoomRef.current;
+        const bound = clamp(z, minZoom, maxZoom);
+        const step = stepPanPhysicsAxis(
+          { position: z, velocity: zoomSnapVelRef.current, min: bound, max: bound, canCoast: false },
+          dt,
+          PAN_PHYSICS_FRICTION,
+          ZOOM_SNAP_SPRING.stiffness,
+          ZOOM_SNAP_SPRING.damping,
+          ZOOM_SNAP_STOP_SPEED,
+          ZOOM_SNAP_STOP_DISTANCE,
+        );
+        zoomSnapVelRef.current = step.velocity;
+        const nextZ = step.settled ? bound : step.position;
+
+        // Offsets: hands off while a finger drags or pan physics coasts —
+        // those already handle ranges at the animating zoom (rubber-band /
+        // per-tick re-measure), and a held overscroll is legit gesture state.
+        // Otherwise glide offsets toward their clamped rest pose at the
+        // bound by the fraction of remaining zoom distance this frame
+        // covered — both settle together, as one motion. The rest pose is
+        // re-derived per frame so it can never go stale.
+        const offsetsOwned = draggingRef.current || panPhysicsRafRef.current != null;
+        if (!offsetsOwned) {
+          const rest = clampOffsets(offsetXRef.current, offsetYRef.current, bound);
+          if (rest.x !== offsetXRef.current || rest.y !== offsetYRef.current) {
+            const denom = z - bound;
+            const f = denom !== 0 ? Math.min(1, Math.max(0, (z - nextZ) / denom)) : 1;
+            const nextX = offsetXRef.current + (rest.x - offsetXRef.current) * f;
+            const nextY = offsetYRef.current + (rest.y - offsetYRef.current) * f;
+            offsetXRef.current = nextX;
+            offsetYRef.current = nextY;
+            setOffsetX(nextX);
+            setOffsetY(nextY);
+          }
+        }
+
+        zoomRef.current = nextZ;
+        setZoom(nextZ);
+
+        if (step.settled) {
+          zoomSnapRafRef.current = null;
+          zoomSnapLastTsRef.current = 0;
+          zoomSnapVelRef.current = 0;
+          // Safety: land offsets in range at the final zoom, unless a live
+          // finger or coast owns them (their own release/settle re-clamps).
+          if (!draggingRef.current && panPhysicsRafRef.current == null) {
+            snapOffsetsToBoundsAction();
+          }
+          return;
+        }
+        zoomSnapRafRef.current = requestAnimationFrame(tick);
+      };
+
+      zoomSnapLastTsRef.current = 0;
+      zoomSnapRafRef.current = requestAnimationFrame(tick);
+      return true;
+    }, [
+      minZoom,
+      maxZoom,
+      stopZoomSnap,
+      cancelZoomAnimation,
+      clampOffsets,
+      reducedMotionPan,
+      snapOffsetsToBoundsAction,
+    ]);
+
     const gestureConfig = React.useMemo<ZoomGestureConfig>(
       () => ({
         minZoom,
@@ -836,10 +993,13 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
         zoomOut: zoomOutAction,
         changeZoom: changeZoomAction,
         changeOffsets: changeOffsetsAction,
-        setDragging,
+        setDragging: setDraggingAction,
         snapToBounds: snapToBoundsAction,
         snapOffsetsToBounds: snapOffsetsToBoundsAction,
         momentumPan: momentumPanAction,
+        startZoomSnap: startZoomSnapAction,
+        stopZoomSnap,
+        isZoomSnapActive,
         stopPanPhysics,
         cancelZoomAnimation,
         isZoomAnimating: getIsAnimating,
@@ -850,9 +1010,13 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
         zoomOutAction,
         changeZoomAction,
         changeOffsetsAction,
+        setDraggingAction,
         snapToBoundsAction,
         snapOffsetsToBoundsAction,
         momentumPanAction,
+        startZoomSnapAction,
+        stopZoomSnap,
+        isZoomSnapActive,
         stopPanPhysics,
         cancelZoomAnimation,
         getIsAnimating,

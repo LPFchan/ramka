@@ -4147,116 +4147,153 @@ describe('Lightbox', () => {
           });
         });
 
-        it('holds elastic overshoot through a 2→1 handoff and snaps only on final release', () => {
+        it('runs the 2→1 snap-back concurrently with the surviving finger’s pan', () => {
           withViewport(() => {
             const ref = React.createRef<LightboxZoomRef>();
             renderZoomPan(ref);
             const img = screen.getByTestId('zoom-img');
             setupOverflowGeometry(img);
-
-            // Count armed WAAPI animations (held forever — nothing finishes).
-            const held: Array<{ cancel: ReturnType<typeof vi.fn> }> = [];
-            Element.prototype.animate = vi.fn(() => {
-              const anim = {
-                finished: new Promise<void>(() => {}),
-                cancel: vi.fn(),
-                play: vi.fn(),
-                pause: vi.fn(),
-                onfinish: null as (() => void) | null,
-                oncancel: null as (() => void) | null,
-                commitStyles: vi.fn(),
-              };
-              held.push(anim);
-              return anim;
-            }) as unknown as typeof Element.prototype.animate;
 
             act(() => ref.current!.zoomTo(3, { rapid: true }));
 
-            // Pinch out past maxZoom (4) — elastic overshoot to 5×.
-            act(() => {
-              dispatchPointer(img, 'pointerdown', {
-                clientX: 180,
-                clientY: 200,
-                pointerId: 1,
-                pointerType: 'touch',
-                isPrimary: true,
+            // Manual rAF queue so snap frames can be interleaved with pointer
+            // moves — that's exactly what happens on a real device.
+            const queue: FrameRequestCallback[] = [];
+            let now = 0;
+            const origRaf = globalThis.requestAnimationFrame;
+            const origCancel = globalThis.cancelAnimationFrame;
+            globalThis.requestAnimationFrame = ((cb: FrameRequestCallback) => {
+              queue.push(cb);
+              return queue.length;
+            }) as typeof requestAnimationFrame;
+            globalThis.cancelAnimationFrame = (() => {}) as typeof cancelAnimationFrame;
+            const pump = (frames: number) => {
+              act(() => {
+                for (let i = 0; i < frames && queue.length > 0; i++) {
+                  const cb = queue.shift()!;
+                  now += 1000 / 60;
+                  cb(now);
+                }
               });
-              dispatchPointer(img, 'pointerdown', {
-                clientX: 220,
-                clientY: 200,
-                pointerId: 2,
-                pointerType: 'touch',
-                isPrimary: false,
-              });
-              dispatchPointer(img, 'pointermove', {
-                clientX: 140,
-                clientY: 200,
-                pointerId: 1,
-                pointerType: 'touch',
-              });
-              dispatchPointer(img, 'pointermove', {
-                clientX: 260,
-                clientY: 200,
-                pointerId: 2,
-                pointerType: 'touch',
-              });
-            });
-            expect(ref.current!.zoom).toBeCloseTo(5, 5);
+            };
 
-            // Release one finger. The overshoot is gesture state — it must
-            // HOLD while a finger remains (iOS), with no snap animation
-            // racing the remaining finger's pan.
-            act(() => {
-              dispatchPointer(img, 'pointerup', {
-                clientX: 140,
-                clientY: 200,
-                pointerId: 1,
-                pointerType: 'touch',
+            try {
+              // Pinch out past maxZoom (4) — elastic overshoot to 5×.
+              act(() => {
+                dispatchPointer(img, 'pointerdown', {
+                  clientX: 180,
+                  clientY: 200,
+                  pointerId: 1,
+                  pointerType: 'touch',
+                  isPrimary: true,
+                });
+                dispatchPointer(img, 'pointerdown', {
+                  clientX: 220,
+                  clientY: 200,
+                  pointerId: 2,
+                  pointerType: 'touch',
+                  isPrimary: false,
+                });
+                dispatchPointer(img, 'pointermove', {
+                  clientX: 140,
+                  clientY: 200,
+                  pointerId: 1,
+                  pointerType: 'touch',
+                });
+                dispatchPointer(img, 'pointermove', {
+                  clientX: 260,
+                  clientY: 200,
+                  pointerId: 2,
+                  pointerType: 'touch',
+                });
               });
-            });
-            expect(ref.current!.zoom).toBeCloseTo(5, 5);
-            expect(held.length).toBe(0);
+              expect(ref.current!.zoom).toBeCloseTo(5, 5);
 
-            // Remaining finger pans at the held elastic zoom (rebase, then pan).
-            act(() => {
-              dispatchPointer(img, 'pointermove', {
-                clientX: 261,
-                clientY: 201,
-                pointerId: 2,
-                pointerType: 'touch',
+              // Lift one finger: like iOS, the rubber-band return starts NOW —
+              // as a rAF value animation, not a WAAPI racing the pointer.
+              act(() => {
+                dispatchPointer(img, 'pointerup', {
+                  clientX: 140,
+                  clientY: 200,
+                  pointerId: 1,
+                  pointerType: 'touch',
+                });
               });
-              dispatchPointer(img, 'pointermove', {
-                clientX: 266,
-                clientY: 206,
-                pointerId: 2,
-                pointerType: 'touch',
-              });
-            });
-            expect(ref.current!.zoom).toBeCloseTo(5, 5);
-            expect(ref.current!.offsetX).not.toBe(0);
+              pump(3);
+              const mid = ref.current!.zoom;
+              expect(mid).toBeLessThan(5);
+              expect(mid).toBeGreaterThan(4);
 
-            // Last finger lifts → NOW the zoom springs back to maxZoom.
-            act(() => {
-              dispatchPointer(img, 'pointerup', {
-                clientX: 266,
-                clientY: 206,
-                pointerId: 2,
-                pointerType: 'touch',
+              // Mid-snap the pan is LIVE: the first move only re-anchors the
+              // pan origin (rebase), the next one pans — concurrently with
+              // the returning zoom. The moves themselves never touch zoom.
+              const held = { x: ref.current!.offsetX, y: ref.current!.offsetY };
+              act(() => {
+                dispatchPointer(img, 'pointermove', {
+                  clientX: 261,
+                  clientY: 201,
+                  pointerId: 2,
+                  pointerType: 'touch',
+                });
               });
-            });
-            expect(ref.current!.zoom).toBe(4);
-            expect(held.length).toBeGreaterThan(0);
+              expect(ref.current!.offsetX).toBe(held.x);
+              act(() => {
+                dispatchPointer(img, 'pointermove', {
+                  clientX: 275,
+                  clientY: 215,
+                  pointerId: 2,
+                  pointerType: 'touch',
+                });
+              });
+              expect(ref.current!.offsetX).not.toBe(held.x);
+              expect(ref.current!.zoom).toBe(mid);
+
+              // Snap completes while the finger is still down — the pan
+              // position it carried is untouched by the settle.
+              const panned = { x: ref.current!.offsetX, y: ref.current!.offsetY };
+              pump(200);
+              expect(ref.current!.zoom).toBe(4);
+              expect(ref.current!.offsetX).toBe(panned.x);
+              expect(ref.current!.offsetY).toBe(panned.y);
+
+              // Panning continues seamlessly after the snap lands.
+              act(() => {
+                dispatchPointer(img, 'pointermove', {
+                  clientX: 300,
+                  clientY: 240,
+                  pointerId: 2,
+                  pointerType: 'touch',
+                });
+              });
+              expect(ref.current!.offsetX).not.toBe(panned.x);
+              expect(ref.current!.zoom).toBe(4);
+
+              // Final release: nothing left to snap.
+              act(() => {
+                dispatchPointer(img, 'pointerup', {
+                  clientX: 300,
+                  clientY: 240,
+                  pointerId: 2,
+                  pointerType: 'touch',
+                });
+              });
+              pump(200);
+              expect(ref.current!.zoom).toBe(4);
+            } finally {
+              globalThis.requestAnimationFrame = origRaf;
+              globalThis.cancelAnimationFrame = origCancel;
+            }
           });
         });
 
-        it('pan taking over the final bound-snap freezes at the live pose and re-snaps on release', () => {
+        it('touch pan taking over a discrete zoom WAAPI freezes at the live pose', () => {
           withViewport(() => {
             const ref = React.createRef<LightboxZoomRef>();
             renderZoomPan(ref);
             const img = screen.getByTestId('zoom-img');
             setupOverflowGeometry(img);
 
-            // Hold the bound-snap WAAPI so a new pan can take it over mid-flight.
+            // Hold the discrete zoom WAAPI so a new pan can take it over mid-flight.
             const held: Array<{ cancel: ReturnType<typeof vi.fn> }> = [];
             Element.prototype.animate = vi.fn(() => {
               const anim = {
@@ -4298,60 +4335,18 @@ describe('Lightbox', () => {
             g.DOMMatrixReadOnly = FakeDOMMatrixReadOnly;
 
             try {
-              act(() => ref.current!.zoomTo(3, { rapid: true }));
-
-              // Pinch out past maxZoom (4) to 5×, then release both fingers
-              // in a separate task (like real per-event browser delivery) →
-              // the final release arms the bound-snap WAAPI back to max.
-              act(() => {
-                dispatchPointer(img, 'pointerdown', {
-                  clientX: 180,
-                  clientY: 200,
-                  pointerId: 1,
-                  pointerType: 'touch',
-                  isPrimary: true,
-                });
-                dispatchPointer(img, 'pointerdown', {
-                  clientX: 220,
-                  clientY: 200,
-                  pointerId: 2,
-                  pointerType: 'touch',
-                  isPrimary: false,
-                });
-                dispatchPointer(img, 'pointermove', {
-                  clientX: 140,
-                  clientY: 200,
-                  pointerId: 1,
-                  pointerType: 'touch',
-                });
-                dispatchPointer(img, 'pointermove', {
-                  clientX: 260,
-                  clientY: 200,
-                  pointerId: 2,
-                  pointerType: 'touch',
-                });
-              });
-              expect(ref.current!.zoom).toBeCloseTo(5, 5);
-              act(() => {
-                dispatchPointer(img, 'pointerup', {
-                  clientX: 140,
-                  clientY: 200,
-                  pointerId: 1,
-                  pointerType: 'touch',
-                });
-                dispatchPointer(img, 'pointerup', {
-                  clientX: 260,
-                  clientY: 200,
-                  pointerId: 2,
-                  pointerType: 'touch',
-                });
-              });
+              // Commit 2× instantly, then start a discrete (animated) zoom to
+              // 4× — the WAAPI is held mid-flight with `from` pinned at the
+              // committed 2× pose (jsdom's stand-in for the live transform).
+              act(() => ref.current!.zoomTo(2, { rapid: true }));
+              act(() => ref.current!.zoomTo(4));
               expect(ref.current!.zoom).toBe(4);
               expect(held.length).toBeGreaterThan(0);
-              const snapAnim = held[held.length - 1]!;
+              const zoomAnim = held[held.length - 1]!;
 
-              // New finger lands mid-snap and pans: the takeover must freeze
-              // at the live (still elastic) pose — not the snap target.
+              // A touch pan takes over mid-animation: it must cancel the WAAPI
+              // and freeze at the LIVE visual pose — not teleport to the
+              // animation's target.
               act(() => {
                 dispatchPointer(img, 'pointerdown', {
                   clientX: 200,
@@ -4367,20 +4362,8 @@ describe('Lightbox', () => {
                   pointerType: 'touch',
                 });
               });
-              expect(snapAnim.cancel).toHaveBeenCalled();
-              expect(ref.current!.zoom).toBeCloseTo(5, 5);
-
-              // Releasing that finger must snap the frozen out-of-bounds zoom
-              // back to maxZoom (the gesture was never flagged as a pinch).
-              act(() => {
-                dispatchPointer(img, 'pointerup', {
-                  clientX: 215,
-                  clientY: 215,
-                  pointerId: 3,
-                  pointerType: 'touch',
-                });
-              });
-              expect(ref.current!.zoom).toBe(4);
+              expect(zoomAnim.cancel).toHaveBeenCalled();
+              expect(ref.current!.zoom).toBeCloseTo(2, 5);
             } finally {
               if (origMatrix === undefined) {
                 delete g.DOMMatrixReadOnly;
@@ -4403,9 +4386,10 @@ describe('Lightbox', () => {
             // Whole gesture — downs, elastic pinch to 5×, both ups — in ONE
             // synchronous task, so React batches every state commit until the
             // end. Regression for the eager ref sync: `zoomRef` used to lag
-            // the batched state, the release read the stale in-bounds zoom
-            // (3×) and skipped the bound snap, leaving zoom stuck at 5×.
-            act(() => {
+            // the batched state, so the 2→1 breakup read the stale in-bounds
+            // zoom (3×), never started the snap-back, and zoom stuck at 5×.
+            // The flush then pumps the rAF spring to convergence.
+            withPanPhysicsFlush(() => {
               dispatchPointer(img, 'pointerdown', {
                 clientX: 180,
                 clientY: 200,
@@ -4449,31 +4433,12 @@ describe('Lightbox', () => {
           });
         });
 
-        it('lets a new pinch interrupt under-min snap WAAPI (no freeze between pinch-outs)', () => {
+        it('lets a new pinch take over the under-min snap-back mid-flight (no freeze between pinch-ins)', () => {
           withViewport(() => {
             const ref = React.createRef<LightboxZoomRef>();
             renderZoomPan(ref);
             const img = screen.getByTestId('zoom-img');
             setupOverflowGeometry(img);
-
-            // Hold bound-snap WAAPI so a follow-up pinch can race it.
-            const held: Array<{
-              cancel: ReturnType<typeof vi.fn>;
-              onfinish: (() => void) | null;
-            }> = [];
-            Element.prototype.animate = vi.fn(() => {
-              const anim = {
-                finished: new Promise<void>(() => {}),
-                cancel: vi.fn(),
-                play: vi.fn(),
-                pause: vi.fn(),
-                onfinish: null as (() => void) | null,
-                oncancel: null as (() => void) | null,
-                commitStyles: vi.fn(),
-              };
-              held.push(anim);
-              return anim;
-            }) as unknown as typeof Element.prototype.animate;
 
             // Pinch in past minZoom (elastic under-zoom).
             act(() => {
@@ -4504,10 +4469,12 @@ describe('Lightbox', () => {
                 pointerType: 'touch',
               });
             });
-            expect(ref.current!.zoom).toBeLessThan(1);
+            const elastic = ref.current!.zoom;
+            expect(elastic).toBeLessThan(1);
 
-            // Release → bound snap arms WAAPI back to 1×.
-            act(() => {
+            // Release both fingers, then pump only a few frames — the rAF
+            // spring is mid-flight, carrying zoom back up toward 1×.
+            withPanPhysicsFlush(() => {
               dispatchPointer(img, 'pointerup', {
                 clientX: 180,
                 clientY: 200,
@@ -4520,13 +4487,14 @@ describe('Lightbox', () => {
                 pointerId: 2,
                 pointerType: 'touch',
               });
-            });
-            expect(ref.current!.zoom).toBe(1);
-            expect(held.length).toBeGreaterThan(0);
-            const snapAnim = held[held.length - 1]!;
+            }, 4);
+            const mid = ref.current!.zoom;
+            expect(mid).toBeGreaterThan(elastic);
+            expect(mid).toBeLessThan(1);
 
-            // Immediate second pinch-out while snap WAAPI is still playing —
-            // must take over (cancel snap) and go under-min again.
+            // Immediate second pinch while the snap-back is still in flight —
+            // it must take zoom ownership at the mid-snap value: no jump to
+            // 1× on the downs, and the pinch scales from `mid`, not from 1.
             act(() => {
               dispatchPointer(img, 'pointerdown', {
                 clientX: 100,
@@ -4542,6 +4510,10 @@ describe('Lightbox', () => {
                 pointerType: 'touch',
                 isPrimary: false,
               });
+            });
+            expect(ref.current!.zoom).toBeCloseTo(mid, 5);
+
+            act(() => {
               dispatchPointer(img, 'pointermove', {
                 clientX: 170,
                 clientY: 200,
@@ -4555,9 +4527,7 @@ describe('Lightbox', () => {
                 pointerType: 'touch',
               });
             });
-
-            expect(snapAnim.cancel).toHaveBeenCalled();
-            expect(ref.current!.zoom).toBeLessThan(1);
+            expect(ref.current!.zoom).toBeLessThan(mid);
           });
         });
       });
@@ -5193,20 +5163,46 @@ describe('Lightbox', () => {
       expect(ref.current!.zoom).toBeLessThan(1);
       expect(content).not.toHaveAttribute('data-zoomed');
 
-      act(() => {
-        dispatchPointer(img, 'pointerup', {
-          clientX: 190,
-          clientY: 200,
-          pointerId: 1,
-          pointerType: 'touch',
-        });
-        dispatchPointer(img, 'pointerup', {
-          clientX: 210,
-          clientY: 200,
-          pointerId: 2,
-          pointerType: 'touch',
-        });
-      });
+      // The under-min return is a rAF spring (starts on the 2→1 breakup) —
+      // pump frames until it settles back at 1×. `data-zoomed` must stay off
+      // the whole way: the user never actually zoomed in.
+      {
+        const queue: FrameRequestCallback[] = [];
+        let now = 0;
+        const origRaf = globalThis.requestAnimationFrame;
+        const origCancel = globalThis.cancelAnimationFrame;
+        globalThis.requestAnimationFrame = ((cb: FrameRequestCallback) => {
+          queue.push(cb);
+          return queue.length;
+        }) as typeof requestAnimationFrame;
+        globalThis.cancelAnimationFrame = (() => {}) as typeof cancelAnimationFrame;
+        try {
+          act(() => {
+            dispatchPointer(img, 'pointerup', {
+              clientX: 190,
+              clientY: 200,
+              pointerId: 1,
+              pointerType: 'touch',
+            });
+            dispatchPointer(img, 'pointerup', {
+              clientX: 210,
+              clientY: 200,
+              pointerId: 2,
+              pointerType: 'touch',
+            });
+          });
+          act(() => {
+            for (let i = 0; i < 200 && queue.length > 0; i++) {
+              const cb = queue.shift()!;
+              now += 1000 / 60;
+              cb(now);
+            }
+          });
+        } finally {
+          globalThis.requestAnimationFrame = origRaf;
+          globalThis.cancelAnimationFrame = origCancel;
+        }
+      }
 
       expect(ref.current!.zoom).toBe(1);
       expect(content).not.toHaveAttribute('data-zoomed');

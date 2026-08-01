@@ -535,6 +535,28 @@ export const PAN_PHYSICS_SPRING_TOUCH: PanPhysicsSpring = {
   damping: 30, // ≈ critical: 2 * sqrt(210)
 };
 
+/**
+ * Zoom bound snap-back spring (rAF-stepped, in zoom units). Runs as a *value*
+ * animation on zoom that composes with a live pan on the surviving finger —
+ * never a WAAPI transform racing the pointer. Stiffer than the touch pan
+ * spring: iOS's pinch rubber-band return is brisk (~300ms) even while the
+ * remaining finger keeps panning.
+ */
+export const ZOOM_SNAP_SPRING: PanPhysicsSpring = {
+  stiffness: 480,
+  damping: 44, // ≈ critical: 2 * sqrt(480)
+};
+/**
+ * Settle thresholds — deliberately loose. Gestures are deferred while the
+ * snap runs, so a strict tail is a felt input freeze: with tight thresholds
+ * the spring was visually done ~80ms before it formally settled. These cut
+ * the tail to ~0 at the cost of a ≤1% zoom-unit correction on the settle
+ * frame (imperceptible — ~0.2% of scale at a typical 4× bound).
+ */
+export const ZOOM_SNAP_STOP_SPEED = 0.25;
+/** Settle when within this distance of the bound (zoom units). */
+export const ZOOM_SNAP_STOP_DISTANCE = 0.01;
+
 /** @deprecated Prefer {@link PAN_PHYSICS_SPRING_MOUSE}. */
 export const PAN_PHYSICS_STIFFNESS = PAN_PHYSICS_SPRING_MOUSE.stiffness;
 /** @deprecated Prefer {@link PAN_PHYSICS_SPRING_MOUSE}. */
