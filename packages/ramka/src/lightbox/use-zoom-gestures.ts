@@ -646,6 +646,19 @@ function useZoomGestures(
       const { getZoom, changeZoom, changeOffsets } = actionsRef.current;
       const zoom = getZoom();
 
+      // A discrete zoom WAAPI (double-click zoom / bound snap) owns the
+      // transform — wheel zoom or pan against it would cancel it at a stale
+      // base and read as a freeze/jump. Swallow all wheel input until it
+      // settles. Only preventDefault when the listener is non-passive (see
+      // needsNonPassiveWheel) to avoid Safari passive-listener warnings.
+      if (actionsRef.current.isZoomAnimating()) {
+        if (!hasSafariGesturesRef.current || zoom > 1 || scrollToZoom) {
+          event.preventDefault();
+        }
+        event.stopPropagation();
+        return;
+      }
+
       // Skip ctrlKey+wheel during an active Safari trackpad pinch gesture
       // (GestureEvent handles it). Physical Ctrl+wheel still works.
       const shouldZoom =
@@ -774,6 +787,10 @@ function useZoomGestures(
     if (!el) return;
 
     let initialZoom = 1;
+    // Pinch started while a discrete zoom WAAPI (double-click zoom) was in
+    // flight — hold it off so it can't tear the animation, then activate on
+    // the first gesturechange after settle.
+    let deferredForAnimation = false;
 
     const onGestureStart = (e: Event) => {
       // Always swallow the native page-zoom gesture over the lightbox. Then, if a
@@ -783,6 +800,7 @@ function useZoomGestures(
       e.preventDefault();
       if (isScrollingRef?.current) return;
       gestureActiveRef.current = true;
+      deferredForAnimation = actionsRef.current.isZoomAnimating();
       initialZoom = actionsRef.current.getZoom();
     };
 
@@ -795,6 +813,14 @@ function useZoomGestures(
       }
       const scale = (e as { scale?: number }).scale;
       if (typeof scale !== 'number') return;
+      if (deferredForAnimation) {
+        // Animation still owns the transform — ignore this sample.
+        if (actionsRef.current.isZoomAnimating()) return;
+        // Settled mid-gesture: rebase so `initialZoom * scale` equals the
+        // settled zoom right now, and scaling continues seamlessly from it.
+        deferredForAnimation = false;
+        initialZoom = actionsRef.current.getZoom() / Math.max(scale, 1e-6);
+      }
       const target = initialZoom * scale;
       const [cx, cy] = translateCoordinates(e as unknown as { clientX: number; clientY: number });
       actionsRef.current.changeZoom(target, true, cx, cy, true);
@@ -804,6 +830,12 @@ function useZoomGestures(
       e.preventDefault();
       if (!gestureActiveRef.current) return;
       gestureActiveRef.current = false;
+      // Never activated (animation outlived the pinch) — nothing to snap;
+      // snapToBounds here would sample the WAAPI mid-flight and tear it.
+      if (deferredForAnimation) {
+        deferredForAnimation = false;
+        return;
+      }
       actionsRef.current.snapToBounds();
     };
 

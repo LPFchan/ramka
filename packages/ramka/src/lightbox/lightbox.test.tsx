@@ -4451,6 +4451,83 @@ describe('Lightbox', () => {
           });
         });
 
+        it('swallows wheel zoom and wheel pan while a discrete zoom WAAPI is in flight', () => {
+          withViewport(() => {
+            const ref = React.createRef<LightboxZoomRef>();
+            renderZoomPan(ref);
+            const img = screen.getByTestId('zoom-img');
+            setupOverflowGeometry(img);
+
+            const held: Array<{
+              cancel: ReturnType<typeof vi.fn>;
+              onfinish: (() => void) | null;
+            }> = [];
+            Element.prototype.animate = vi.fn(() => {
+              const anim = {
+                finished: new Promise<void>(() => {}),
+                cancel: vi.fn(),
+                play: vi.fn(),
+                pause: vi.fn(),
+                onfinish: null as (() => void) | null,
+                oncancel: null as (() => void) | null,
+                commitStyles: vi.fn(),
+              };
+              held.push(anim);
+              return anim;
+            }) as unknown as typeof Element.prototype.animate;
+
+            act(() => ref.current!.zoomTo(2, { rapid: true }));
+            act(() => ref.current!.zoomTo(4));
+            expect(ref.current!.zoom).toBe(4);
+            const zoomAnim = held[held.length - 1]!;
+
+            const dispatchWheel = (opts: {
+              ctrlKey?: boolean;
+              deltaX?: number;
+              deltaY?: number;
+            }) => {
+              const event = new WheelEvent('wheel', {
+                bubbles: true,
+                cancelable: true,
+                ctrlKey: opts.ctrlKey ?? false,
+                deltaX: opts.deltaX ?? 0,
+                deltaY: opts.deltaY ?? 0,
+              });
+              Object.defineProperty(event, 'deltaMode', { value: 0 });
+              img.dispatchEvent(event);
+              return event;
+            };
+
+            // Trackpad pinch (ctrl+wheel) mid-animation: swallowed. The WAAPI
+            // is never torn — this is the desktop freeze regression: canceling
+            // it re-based the wheel zoom on the stale committed target.
+            let event!: WheelEvent;
+            act(() => {
+              event = dispatchWheel({ ctrlKey: true, deltaY: 40 });
+            });
+            expect(event.defaultPrevented).toBe(true);
+            expect(zoomAnim.cancel).not.toHaveBeenCalled();
+            expect(ref.current!.zoom).toBe(4);
+
+            // Wheel pan mid-animation: also swallowed, offsets untouched.
+            act(() => {
+              event = dispatchWheel({ deltaX: 30, deltaY: 30 });
+            });
+            expect(event.defaultPrevented).toBe(true);
+            expect(ref.current!.offsetX).toBe(0);
+            expect(ref.current!.offsetY).toBe(0);
+
+            // Animation settles → wheel input works again.
+            act(() => {
+              zoomAnim.onfinish?.();
+            });
+            act(() => {
+              dispatchWheel({ ctrlKey: true, deltaY: 40 });
+            });
+            expect(ref.current!.zoom).toBeLessThan(4);
+          });
+        });
+
         it('snaps an out-of-bounds pinch released in the same task as its moves', () => {
           withViewport(() => {
             const ref = React.createRef<LightboxZoomRef>();
