@@ -186,7 +186,13 @@ function useZoomGestures(
 
   /** Drop in-flight pinch/pan tracking — scroll (or pull) owns the gesture. */
   const abortZoomInteraction = React.useCallback(() => {
-    const needsSnap = pinchState.current != null || hadPinch.current;
+    // Elastic overshoot can outlive the pinch flags (held through a 2→1 pan
+    // handoff) — if the gesture is stolen while zoom is out of bounds, snap
+    // now; the final pointerup that would normally do it may never arrive.
+    const { minZoom, maxZoom } = configRef.current;
+    const currentZoom = actionsRef.current.getZoom();
+    const zoomOutOfBounds = currentZoom < minZoom || currentZoom > maxZoom;
+    const needsSnap = pinchState.current != null || hadPinch.current || zoomOutOfBounds;
     const hadZoomGesture = needsSnap || activePointers.current.length > 0;
     activePointers.current.length = 0;
     pinchState.current = undefined;
@@ -448,10 +454,13 @@ function useZoomGestures(
       // Already finalized (e.g. document capture ran before the element bubble).
       if (!pointers.some((p) => p.pointerId === event.pointerId)) return;
 
-      // Pinch pair breaking (2→1 or 2→0): snap elastic overscroll immediately.
-      // Waiting until the last finger lifts left under-min zoom stuck when the
-      // remaining finger lingered, and the 1× scroll-drop path could clear
-      // `hadPinch` without snapping.
+      // Pinch pair breaking (2→1 or 2→0): do NOT snap elastic overscroll here.
+      // Rubber-band overshoot is gesture state — like iOS, it holds for as
+      // long as any finger stays down, and springs back only when the LAST
+      // finger lifts (the out-of-bounds snap in the empty-pointers branch).
+      // Snapping on 2→1 raced the remaining finger's pan: the snap WAAPI
+      // visibly dipped toward the bound before the first real pan move froze
+      // it back — a timing-dependent zoom flicker on fast pinch→pan handoffs.
       const leavingPinch =
         pointers.length >= 2 && pointers.some((p) => p.pointerId === event.pointerId);
       if (leavingPinch) {
@@ -461,7 +470,6 @@ function useZoomGestures(
       }
       clearPointer(event.pointerId);
       if (leavingPinch) {
-        actionsRef.current.snapToBounds();
         // Remaining finger can pan immediately after one rebase sample.
         rebasePanAfterPinch.current = activePointers.current.length === 1;
       }
@@ -525,9 +533,17 @@ function useZoomGestures(
         tapCandidate.current = false;
         tapStartPos.current = null;
         actionsRef.current.setDragging(false);
-        if (wasPinch) {
+        // This is where elastic zoom springs back — and only here, once the
+        // whole gesture has ended. Zoom is routinely out of bounds without
+        // `hadPinch`: the 2→1 handoff holds the overshoot and its rebase move
+        // clears the pinch flag, and a pan can take over a bound-snap WAAPI
+        // mid-flight (freezing the still-elastic scale). Snap on release
+        // either way — safe no-op when already in range.
+        const { minZoom, maxZoom } = configRef.current;
+        const preSnapZoom = actionsRef.current.getZoom();
+        const zoomOutOfBounds = preSnapZoom < minZoom || preSnapZoom > maxZoom;
+        if (wasPinch || zoomOutOfBounds) {
           hadPinch.current = false;
-          // Usually already snapped on 2→1; safe no-op when already in range.
           actionsRef.current.snapToBounds();
         }
         // Pan release: one rAF physics sim — friction coast, spring bounce at
@@ -535,11 +551,13 @@ function useZoomGestures(
         // Pure pinch release (no post-pinch pan handoff) keeps wasPinch and
         // skips coast — only spring home if past bounds. After 2→1 pan,
         // hadPinch was cleared so flick velocity from the tracker is used.
+        // A release that just snapped a zoom bound has no meaningful flick —
+        // let the snap WAAPI play out instead of coasting over it.
         const tracker = velocityTracker.current;
         const zoom = actionsRef.current.getZoom();
         if (zoom > 1) {
           const touch = event.pointerType === 'touch';
-          const vel = wasPinch
+          const vel = wasPinch || zoomOutOfBounds
             ? null
             : computeMomentumVelocity(tracker, zoom, MOMENTUM_THRESHOLD);
           if (actionsRef.current.momentumPan(vel?.vx ?? 0, vel?.vy ?? 0, touch)) {

@@ -391,7 +391,21 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
       // Drop queued double-taps — a live pinch/pan took over; don't fire them
       // after cancel (that would start a new discrete zoom mid-gesture).
       zoomAnimSettleWaitersRef.current = [];
-      cancelZoomAnimationRaw();
+      const live = cancelZoomAnimationRaw();
+      if (live) {
+        // A gesture interrupted a mid-flight WAAPI — commit the frozen visual
+        // pose so the takeover continues from what's on screen instead of
+        // teleporting to the animation's target. Refs sync eagerly so
+        // same-turn readers (pan geometry, pinch arming) see the live pose.
+        const liveZoom = round(live.zoom, 5);
+        zoomRef.current = liveZoom;
+        offsetXRef.current = live.offsetX;
+        offsetYRef.current = live.offsetY;
+        isElasticDrag.current = false;
+        setZoom(liveZoom);
+        setOffsetX(live.offsetX);
+        setOffsetY(live.offsetY);
+      }
     }, [cancelZoomAnimationRaw]);
 
     const whenZoomAnimationSettled = React.useCallback(
@@ -540,17 +554,34 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
             : RUBBER_BAND_DIMENSION_FACTOR_MOUSE;
           const dimX = rubberBandPanDimension(geo.viewport.width, z, dimFactor);
           const dimY = rubberBandPanDimension(geo.viewport.height, z, dimFactor);
-          setOffsetX(allowX ? rubberBandClamp(rawOffsetX.current, x.min, x.max, dimX) : offsetXRef.current);
-          setOffsetY(allowY ? rubberBandClamp(rawOffsetY.current, y.min, y.max, dimY) : offsetYRef.current);
+          const nextX = allowX
+            ? rubberBandClamp(rawOffsetX.current, x.min, x.max, dimX)
+            : offsetXRef.current;
+          const nextY = allowY
+            ? rubberBandClamp(rawOffsetY.current, y.min, y.max, dimY)
+            : offsetYRef.current;
+          // Eager ref sync: same-task readers (release snap, pinch arming)
+          // must see this move even before React commits the state.
+          offsetXRef.current = nextX;
+          offsetYRef.current = nextY;
+          setOffsetX(nextX);
+          setOffsetY(nextY);
         } else {
           // Hard-clamp path (keyboard / wheel): keep letterbox stable — no
-          // pan on an axis that doesn't overflow.
+          // pan on an axis that doesn't overflow. Offsets change outside the
+          // elastic accumulator, so drop the latch — a later elastic drag must
+          // re-anchor to the offsets it actually starts from.
+          isElasticDrag.current = false;
           if (!x.overflows && !y.overflows) return;
           const nextX = x.overflows ? offsetXRef.current - dx : offsetXRef.current;
           const nextY = y.overflows ? offsetYRef.current - dy : offsetYRef.current;
           const clamped = clampOffsets(nextX, nextY, z);
-          setOffsetX(x.overflows ? clamped.x : offsetXRef.current);
-          setOffsetY(y.overflows ? clamped.y : offsetYRef.current);
+          const finalX = x.overflows ? clamped.x : offsetXRef.current;
+          const finalY = y.overflows ? clamped.y : offsetYRef.current;
+          offsetXRef.current = finalX;
+          offsetYRef.current = finalY;
+          setOffsetX(finalX);
+          setOffsetY(finalY);
         }
       },
       [clampOffsets, measurePanGeometry, stopPanPhysics, cancelZoomAnimation],
@@ -559,6 +590,11 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
     const changeZoomAction = React.useCallback(
       (target: number, rapid: boolean, dx?: number, dy?: number, overscroll?: boolean) => {
         stopPanPhysics();
+        // Zoom rewrites offsets (focal projection / clamp) outside the elastic
+        // pan accumulator. Drop the latch so a pan resuming after this zoom
+        // (e.g. pinch 2→1 handoff) re-anchors to the current offsets instead
+        // of teleporting back to stale pre-zoom raw values.
+        isElasticDrag.current = false;
         const nextZoom = round(
           overscroll ? elasticClamp(target, minZoom, maxZoom) : clamp(target, minZoom, maxZoom),
           5,
@@ -585,6 +621,11 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
               geo.x,
               geo.y,
             );
+            // Eager ref sync — a same-task release (coalesced pinch move + up)
+            // must see the elastic zoom, or its out-of-bounds snap won't fire.
+            zoomRef.current = projected.zoom;
+            offsetXRef.current = projected.offsetX;
+            offsetYRef.current = projected.offsetY;
             setOffsetX(projected.offsetX);
             setOffsetY(projected.offsetY);
             setZoom(projected.zoom);
@@ -593,6 +634,9 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
         }
 
         const offsets = clampOffsets(offsetXRef.current, offsetYRef.current, nextZoom);
+        zoomRef.current = nextZoom;
+        offsetXRef.current = offsets.x;
+        offsetYRef.current = offsets.y;
         setOffsetX(offsets.x);
         setOffsetY(offsets.y);
         setZoom(nextZoom);
@@ -621,6 +665,10 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
     const resetAction = React.useCallback(
       (rapid = false) => {
         if (!rapid) captureStart();
+        isElasticDrag.current = false;
+        zoomRef.current = minZoom;
+        offsetXRef.current = 0;
+        offsetYRef.current = 0;
         setZoom(minZoom);
         setOffsetX(0);
         setOffsetY(0);
@@ -631,6 +679,8 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
     const snapToBoundsAction = React.useCallback(() => {
       const currentZoom = zoomRef.current;
       if (currentZoom >= minZoom && currentZoom <= maxZoom) return;
+      // Offsets are re-clamped below — invalidate the elastic pan accumulator.
+      isElasticDrag.current = false;
       // The gesture was released past a zoom bound — mirror iOS's light
       // rubber-band tick as the scale snaps back into range.
       triggerHaptic('snap');

@@ -23,6 +23,31 @@ interface CaptureOptions {
   onFinish?: () => void;
 }
 
+interface ZoomPose {
+  zoom: number;
+  offsetX: number;
+  offsetY: number;
+}
+
+/**
+ * Recover `{zoom, offsetX, offsetY}` from a computed transform. The wrapper
+ * transform is always `scale(z) translate(x, y)`, which resolves to
+ * `matrix(z, 0, 0, z, z·x, z·y)` — so the pose is uniquely recoverable.
+ * Returns `null` when the transform is missing/`none` or the environment
+ * lacks `DOMMatrixReadOnly` (jsdom).
+ */
+function poseFromComputedTransform(transform: string): ZoomPose | null {
+  if (!transform || transform === 'none') return null;
+  try {
+    const m = new DOMMatrixReadOnly(transform);
+    const scale = Math.hypot(m.a, m.b);
+    if (!(scale > 0)) return null;
+    return { zoom: scale, offsetX: m.e / scale, offsetY: m.f / scale };
+  } catch {
+    return null;
+  }
+}
+
 function useZoomAnimation(
   zoom: number,
   offsetX: number,
@@ -142,22 +167,40 @@ function useZoomAnimation(
     setAnimating(true);
   }, [wrapperRef, setAnimating]);
 
-  const cancel = React.useCallback(() => {
+  /**
+   * Cancel an in-flight transition so a live gesture can take over.
+   *
+   * Freezes the element at the **live mid-flight pose** (not the animation's
+   * target) and returns that pose so the caller can commit it to state —
+   * otherwise the takeover teleports to the end pose, a visible jump when a
+   * pan interrupts a zoom bound-snap. Returns `null` when nothing was in
+   * flight or the pose can't be recovered (then the committed React pose is
+   * restored instead).
+   */
+  const cancel = React.useCallback((): ZoomPose | null => {
     const anim = runningAnimation.current;
     runningAnimation.current = undefined;
     startTransform.current = undefined;
     overrideOpts.current = undefined;
-    if (anim) {
-      anim.onfinish = null;
-      anim.oncancel = null;
-      anim.cancel();
+    if (!anim) {
+      setAnimating(false);
+      return null;
     }
-    // If we had pinned `from` for a snap, jump to the committed React pose.
+    anim.onfinish = null;
+    anim.oncancel = null;
     const el = wrapperRef.current;
+    // Sample BEFORE cancel — cancelling drops the WAAPI style layer.
+    const live = el ? poseFromComputedTransform(getComputedStyle(el).transform) : null;
+    anim.cancel();
     if (el) {
-      el.style.transform = `scale(${zoom}) translate(${offsetX}px, ${offsetY}px)`;
+      el.style.transform = live
+        ? `scale(${live.zoom}) translate(${live.offsetX}px, ${live.offsetY}px)`
+        : // Pose unrecoverable — fall back to the committed React pose (play()
+          // may have pinned `from` on the inline style; never leave that).
+          `scale(${zoom}) translate(${offsetX}px, ${offsetY}px)`;
     }
     setAnimating(false);
+    return live;
   }, [wrapperRef, zoom, offsetX, offsetY, setAnimating]);
 
   const getIsAnimating = React.useCallback(() => animatingRef.current, []);
