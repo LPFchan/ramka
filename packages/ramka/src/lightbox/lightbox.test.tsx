@@ -1736,6 +1736,20 @@ describe('Lightbox', () => {
         }
       }
     });
+
+    it('disables document text selection while open, then restores it on close', async () => {
+      // Regression: iOS Safari tap→pan while zoomed selected the page behind
+      // the lightbox. The scroll lock sets user-select on <html> for the
+      // open lifetime.
+      render(<TestLightbox defaultOpen />);
+
+      expect(document.documentElement.style.userSelect).toBe('none');
+
+      fireEvent.click(screen.getByTestId('close'));
+      await flushMicrotasks();
+
+      expect(document.documentElement.style.userSelect).toBe('');
+    });
   });
 
   // ---------------------------------------------------------------------------

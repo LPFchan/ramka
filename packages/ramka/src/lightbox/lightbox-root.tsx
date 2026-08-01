@@ -454,7 +454,13 @@ function LightboxRoot(props: LightboxRootProps) {
       const scrollbarWidth = Math.max(0, window.innerWidth - html.clientWidth);
       const originalOverflow = html.style.overflow;
       const originalPaddingRight = body.style.paddingRight;
+      const originalUserSelect = html.style.userSelect;
+      const originalWebkitUserSelect = html.style.getPropertyValue('-webkit-user-select');
       html.style.overflow = 'hidden';
+      // iOS Safari can select the page behind an open lightbox during zoomed
+      // tap→pan. Disable selection on the document for the lock's lifetime.
+      html.style.userSelect = 'none';
+      html.style.setProperty('-webkit-user-select', 'none');
       if (scrollbarWidth > 0) {
         const currentPadding = parseFloat(window.getComputedStyle(body).paddingRight) || 0;
         body.style.paddingRight = `${currentPadding + scrollbarWidth}px`;
@@ -462,6 +468,12 @@ function LightboxRoot(props: LightboxRootProps) {
       scrollLockCleanupRef.current = () => {
         html.style.overflow = originalOverflow;
         body.style.paddingRight = originalPaddingRight;
+        html.style.userSelect = originalUserSelect;
+        if (originalWebkitUserSelect) {
+          html.style.setProperty('-webkit-user-select', originalWebkitUserSelect);
+        } else {
+          html.style.removeProperty('-webkit-user-select');
+        }
       };
     }, []);
     const unlockScroll = React.useCallback(() => {
