@@ -20,7 +20,6 @@ import {
   RUBBER_BAND_DIMENSION_FACTOR_MOUSE,
   rubberBandClamp,
   rubberBandPanDimension,
-  SETTLE_BAKE_DT,
   stepPanPhysicsAxis,
   ZOOM_SNAP_SPRING,
   ZOOM_SNAP_STOP_DISTANCE,
@@ -199,12 +198,25 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
     const [offsetX, setOffsetX] = React.useState(0);
     const [offsetY, setOffsetY] = React.useState(0);
     const [dragging, setDragging] = React.useState(false);
+    // Frame-scoped layout cache storage — declared early so gesture-boundary
+    // actions can invalidate it; populated by `measureStageLayout` below.
+    const layoutCacheRef = React.useRef<{
+      stage: DOMRect;
+      viewport: DOMRect;
+      contentW: number;
+      contentH: number;
+    } | null>(null);
+    const layoutCacheRafRef = React.useRef<number | null>(null);
     // Sync mirror for rAF ticks (zoom snap-back) that must know, mid-frame,
     // whether a finger currently owns the offsets.
     const draggingRef = React.useRef(false);
     const setDraggingAction = React.useCallback((value: boolean) => {
       draggingRef.current = value;
       setDragging(value);
+      // Gesture boundary — re-measure on the next geometry read. Redundant
+      // with the per-frame rAF invalidation in browsers; load-bearing in test
+      // environments that never tick rAF between synchronous gestures.
+      layoutCacheRef.current = null;
     }, []);
     const [imageDimensions, setImageDimensions] = React.useState<{ w: number; h: number } | null>(null);
     const [containerSize, setContainerSize] = React.useState<{ w: number; h: number } | null>(null);
@@ -339,6 +351,42 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
       return { w: fallbackRect.width, h: fallbackRect.height };
     }, []);
 
+    // Frame-scoped layout measurement. Pan geometry needs 2× getBoundingClientRect
+    // plus a querySelector + offsetWidth/Height read, and it used to run on
+    // EVERY pointermove — a forced style/layout flush right after the previous
+    // move's commit dirtied style. None of these rects depend on the zoom
+    // transform (the wrapper is transformed, its ancestors are not), so within
+    // a rendered frame they cannot meaningfully change: measure once per frame
+    // and share across moves, clamps, and the release-settle bake.
+    const measureStageLayout = React.useCallback(() => {
+      const cached = layoutCacheRef.current;
+      if (cached) return cached;
+      const stage = containerRef.current?.getBoundingClientRect() ?? null;
+      if (!stage) return null;
+      const panViewportEl = stageElementRef.current ?? dialogElementRef.current;
+      const viewport = panViewportEl?.getBoundingClientRect() ?? stage;
+      const { w: contentW, h: contentH } = resolveContentSize(stage);
+      const measured = { stage, viewport, contentW, contentH };
+      layoutCacheRef.current = measured;
+      if (typeof requestAnimationFrame === 'function' && layoutCacheRafRef.current == null) {
+        layoutCacheRafRef.current = requestAnimationFrame(() => {
+          layoutCacheRafRef.current = null;
+          layoutCacheRef.current = null;
+        });
+      }
+      return measured;
+    }, [resolveContentSize, dialogElementRef, stageElementRef]);
+    // Defensive invalidation for environments where rAF doesn't tick between
+    // synchronous gesture bursts (tests) and for viewport changes.
+    const invalidateStageLayout = React.useCallback(() => {
+      layoutCacheRef.current = null;
+    }, []);
+    React.useEffect(() => {
+      if (typeof window === 'undefined') return;
+      window.addEventListener('resize', invalidateStageLayout);
+      return () => window.removeEventListener('resize', invalidateStageLayout);
+    }, [invalidateStageLayout]);
+
     /**
      * Pan viewport = `Lightbox.Stage` when mounted, else Content (dialog).
      * Transform stage = Zoom (origin). Uneven Slide padding makes those
@@ -348,11 +396,9 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
      */
     const measurePanGeometry = React.useCallback(
       (z: number) => {
-        const stage = containerRef.current?.getBoundingClientRect() ?? null;
-        if (!stage) return null;
-        const panViewportEl = stageElementRef.current ?? dialogElementRef.current;
-        const viewport = panViewportEl?.getBoundingClientRect() ?? stage;
-        const { w: contentW, h: contentH } = resolveContentSize(stage);
+        const layout = measureStageLayout();
+        if (!layout) return null;
+        const { stage, viewport, contentW, contentH } = layout;
         const cx = stage.left + stage.width / 2;
         const cy = stage.top + stage.height / 2;
         return {
@@ -364,7 +410,7 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
           y: panOffsetRange(contentH, z, viewport.top, viewport.bottom, cy, minZoom),
         };
       },
-      [resolveContentSize, dialogElementRef, stageElementRef, minZoom],
+      [measureStageLayout, minZoom],
     );
 
     const clampOffsets = React.useCallback(
@@ -768,12 +814,12 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
     const startPanPhysicsAction = React.useCallback(
       (vx: number, vy: number, spring: PanPhysicsSpring = PAN_PHYSICS_SPRING_MOUSE): boolean => {
         // Measure once — the settle plays on a static layout, so geometry is
-        // pure math over cached rects for the whole bake.
-        const stage = containerRef.current?.getBoundingClientRect() ?? null;
-        if (!stage) return false;
-        const panViewportEl = stageElementRef.current ?? dialogElementRef.current;
-        const viewport = panViewportEl?.getBoundingClientRect() ?? stage;
-        const { w: contentW, h: contentH } = resolveContentSize(stage);
+        // pure math over cached rects for the whole bake. The frame-scoped
+        // cache usually makes this free: a flick release follows a pointermove
+        // in the same frame, which already measured.
+        const layout = measureStageLayout();
+        if (!layout) return false;
+        const { stage, viewport, contentW, contentH } = layout;
         const cx = stage.left + stage.width / 2;
         const cy = stage.top + stage.height / 2;
         const geometryAt = (z: number) => ({
@@ -853,6 +899,8 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
         captureStart({
           kind: 'settle',
           path: baked.path,
+          // Decimated trajectories keep true timing via explicit offsets.
+          pathOffsets: baked.offsets,
           // Refs hold the exact visual pose here (cancelZoomAnimation synced
           // them) — passing it skips captureStart's getComputedStyle, a forced
           // style recalc that eats into the release frame budget.
@@ -860,9 +908,7 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
           // Zoom-static coasts let chrome skip its per-frame live-scale
           // sampling loop entirely.
           zoomChanges: vz !== undefined || Math.abs(z - bound) > 1e-6,
-          // Keyframes: captured live pose + path + committed rest pose, one
-          // fixed bake step per interval.
-          duration: (baked.path.length + 1) * SETTLE_BAKE_DT * 1000,
+          duration: baked.durationMs,
         });
         // Commit the rest pose; WAAPI plays the trajectory over it. Eager ref
         // sync keeps same-turn readers (pinch arming, wheel) on the rest pose.
@@ -877,9 +923,7 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
       [
         minZoom,
         maxZoom,
-        resolveContentSize,
-        dialogElementRef,
-        stageElementRef,
+        measureStageLayout,
         stopZoomSnap,
         cancelZoomAnimation,
         captureStart,

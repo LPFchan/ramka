@@ -837,4 +837,59 @@ describe('bakeSettlePath', () => {
     const baked = bakeSettlePath({ ...base, zoom: 2, offsetX: 0, offsetY: 0, vy: 900 });
     expect(baked).toBeNull();
   });
+
+  it('emits offsets aligned with the path, strictly increasing and < 1', () => {
+    const baked = bakeSettlePath({ ...base, zoom: 6, offsetX: 0, offsetY: 0 });
+    expect(baked!.offsets.length).toBe(baked!.path.length);
+    let prev = 0;
+    for (const t of baked!.offsets) {
+      expect(t).toBeGreaterThan(prev);
+      expect(t).toBeLessThan(1);
+      prev = t;
+    }
+    // Duration covers the whole trajectory: one extra interval carries the
+    // final keyframe onto the rest pose.
+    expect(baked!.durationMs).toBeGreaterThan(0);
+    expect(baked!.offsets[baked!.offsets.length - 1]!).toBeCloseTo(
+      1 - (1000 / 60) / baked!.durationMs,
+      5,
+    );
+  });
+
+  it('decimates long coasts to a bounded keyframe budget with true timing', () => {
+    // A wide range and a huge flick produce a multi-second coast — hundreds
+    // of 60Hz sim frames. The keyframe list must stay bounded while offsets
+    // keep each kept frame at its exact original time.
+    const wide = {
+      ...base,
+      geometryAt: (zoom: number) => ({
+        x: { min: -5000 * zoom, max: 5000 * zoom, overflows: true },
+        y: { min: 0, max: 0, overflows: false },
+      }),
+      restOffsetsAt: (zoom: number, x: number, y: number) => {
+        const min = -5000 * zoom;
+        const max = 5000 * zoom;
+        return { x: clamp(x, min, max), y: clamp(y, min, max) };
+      },
+    };
+    const baked = bakeSettlePath({ ...wide, zoom: 2, offsetX: 0, offsetY: 0, vx: 4000 });
+    expect(baked).not.toBeNull();
+    expect(baked!.path.length).toBeLessThanOrEqual(64);
+    expect(baked!.path.length).toBeGreaterThan(16);
+    // Long trajectory: duration far exceeds keyframe count at uniform 60Hz —
+    // only explicit offsets can represent it.
+    expect(baked!.durationMs).toBeGreaterThan((baked!.path.length + 1) * (1000 / 60));
+    // The final kept pose is the last sim frame, just before the rest pose.
+    const last = baked!.path[baked!.path.length - 1]!;
+    expect(Math.abs(last.offsetX - baked!.offsetX)).toBeLessThan(2);
+    // Friction ordering survives decimation: early gaps outpace late gaps in
+    // position-per-unit-time.
+    const o = baked!.offsets;
+    const p = baked!.path;
+    const speedFirst = p[1]!.offsetX - p[0]!.offsetX;
+    const speedLast = p[p.length - 1]!.offsetX - p[p.length - 2]!.offsetX;
+    const dtFirst = o[1]! - o[0]!;
+    const dtLast = o[o.length - 1]! - o[o.length - 2]!;
+    expect(speedFirst / dtFirst).toBeGreaterThan(speedLast / dtLast);
+  });
 });

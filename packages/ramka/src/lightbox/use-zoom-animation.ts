@@ -37,6 +37,12 @@ interface CaptureOptions {
    */
   path?: ZoomPose[];
   /**
+   * Fractional keyframe times (0..1, exclusive) aligned 1:1 with `path`.
+   * Decimated trajectories drop intermediate samples but keep true timing via
+   * explicit WAAPI keyframe offsets. Omitted = uniform spacing.
+   */
+  pathOffsets?: number[];
+  /**
    * Exact numeric start pose. When provided, captureStart skips the
    * `getComputedStyle` sample — a forced style recalc that costs real frames
    * in the release hot path. Only valid when the caller KNOWS the visual pose
@@ -58,8 +64,13 @@ interface ZoomPose {
 }
 
 interface RunningPathInfo {
-  /** All poses incl. start and end — keyframes at uniform time offsets. */
+  /** All poses incl. start and end keyframes. */
   poses: ZoomPose[];
+  /**
+   * Fractional time of each pose (0..1), aligned with `poses`. Undefined =
+   * uniform spacing.
+   */
+  offsets?: number[];
   duration: number;
 }
 
@@ -69,10 +80,10 @@ function poseTransform(p: ZoomPose): string {
 
 /**
  * Exact live pose of a keyframed settle animation at `currentTime`. Keyframes
- * sit at uniform offsets and interpolate linearly, and CSS interpolates a
- * matching `scale() translate()` pair per-function numerically — so lerping
- * the two bracketing poses reproduces the composited transform exactly,
- * without trusting `getComputedStyle` mid-WAAPI (inconsistent in Safari).
+ * interpolate linearly, and CSS interpolates a matching `scale() translate()`
+ * pair per-function numerically — so lerping the two bracketing poses
+ * reproduces the composited transform exactly, without trusting
+ * `getComputedStyle` mid-WAAPI (inconsistent in Safari).
  */
 function livePoseOnPath(info: RunningPathInfo, currentTime: unknown): ZoomPose | null {
   const n = info.poses.length;
@@ -80,9 +91,21 @@ function livePoseOnPath(info: RunningPathInfo, currentTime: unknown): ZoomPose |
   if (n === 1 || info.duration <= 0) return info.poses[n - 1]!;
   const ct = typeof currentTime === 'number' ? currentTime : 0;
   const p = Math.min(1, Math.max(0, ct / info.duration));
-  const seg = p * (n - 1);
-  const i = Math.min(n - 2, Math.floor(seg));
-  const f = seg - i;
+  let i: number;
+  let f: number;
+  const offsets = info.offsets;
+  if (offsets) {
+    // Non-uniform (decimated) timeline — find the bracketing segment.
+    i = 0;
+    while (i < n - 2 && offsets[i + 1]! < p) i += 1;
+    const t0 = offsets[i]!;
+    const t1 = offsets[i + 1]!;
+    f = t1 > t0 ? Math.min(1, Math.max(0, (p - t0) / (t1 - t0))) : 1;
+  } else {
+    const seg = p * (n - 1);
+    i = Math.min(n - 2, Math.floor(seg));
+    f = seg - i;
+  }
   const a = info.poses[i]!;
   const b = info.poses[i + 1]!;
   return {
@@ -175,13 +198,22 @@ function useZoomAnimation(
       // the composite until settle.
       el.style.transform = from;
       const path = opts?.path;
+      const pathOffsets = opts?.pathOffsets;
       const animDuration = reducedMotion ? 0 : (opts?.duration ?? duration);
       const keyframes: Keyframe[] =
         path && path.length > 0
-          ? // Baked physics: uniform linear keyframes ending on the committed
-            // pose. Per-keyframe easing defaults to linear — the trajectory
-            // itself carries the physics curve.
-            [{ transform: from }, ...path.map((p) => ({ transform: poseTransform(p) })), { transform: to }]
+          ? // Baked physics: linear keyframes ending on the committed pose.
+            // Per-keyframe easing defaults to linear — the trajectory itself
+            // carries the physics curve. Decimated paths keep true timing via
+            // explicit offsets; otherwise spacing is uniform.
+            [
+              { transform: from, offset: 0 },
+              ...path.map((p, i) => ({
+                transform: poseTransform(p),
+                offset: pathOffsets?.[i],
+              })),
+              { transform: to, offset: 1 },
+            ]
           : [{ transform: from, easing: opts?.easing ?? 'ease-in-out' }, { transform: to }];
       const anim = el.animate(keyframes, {
         duration: animDuration,
@@ -195,6 +227,7 @@ function useZoomAnimation(
         // starting the recovery trajectory there is exact for practical use.
         runningPath.current = {
           poses: [opts?.fromPose ?? path[0]!, ...path, toPose],
+          offsets: pathOffsets ? [0, ...pathOffsets, 1] : undefined,
           duration: animDuration,
         };
       }

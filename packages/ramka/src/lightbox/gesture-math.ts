@@ -593,6 +593,17 @@ export const ZOOM_SNAP_STOP_DISTANCE = 0.01;
 export const SETTLE_BAKE_DT = 1 / 60;
 /** Hard cap on baked trajectory length (frames) — 12s of coast is a bug. */
 const SETTLE_BAKE_MAX_FRAMES = 720;
+/**
+ * Max keyframes handed to WAAPI. Physics still integrates at 60Hz for
+ * fidelity; the recorded path is then decimated to this budget (keyframes get
+ * explicit time offsets so playback timing is unchanged). Long coasts would
+ * otherwise emit hundreds of keyframes — costly to parse on release (the
+ * exact moment the main thread must go idle for the handoff) and costly for
+ * the engine's compositor commit. The settle curves are smooth exponentials/
+ * near-critical springs, so linear interpolation across a few steps stays
+ * within a small fraction of a pixel.
+ */
+const SETTLE_BAKE_MAX_KEYFRAMES = 64;
 
 export interface SettlePose {
   zoom: number;
@@ -629,8 +640,15 @@ export interface BakeSettleInput {
 }
 
 export interface BakedSettle {
-  /** Intermediate poses at SETTLE_BAKE_DT steps (final rest pose excluded). */
+  /**
+   * Intermediate poses (final rest pose excluded), decimated to at most
+   * SETTLE_BAKE_MAX_KEYFRAMES. Aligned 1:1 with `offsets`.
+   */
   path: SettlePose[];
+  /** Fractional keyframe time (0..1, exclusive) for each pose in `path`. */
+  offsets: number[];
+  /** Total trajectory duration in milliseconds. */
+  durationMs: number;
   /** Exact rest pose to commit as state / final keyframe. */
   zoom: number;
   offsetX: number;
@@ -735,7 +753,32 @@ export function bakeSettlePath(input: BakeSettleInput): BakedSettle | null {
   }
 
   const rest = restOffsetsAt(bound, x, y);
-  return { path, zoom: bound, offsetX: rest.x, offsetY: rest.y };
+
+  // The rest pose lands one step after the last simulated pose; total
+  // trajectory time therefore spans path.length + 1 intervals.
+  const total = path.length + 1;
+  const durationMs = total * SETTLE_BAKE_DT * 1000;
+
+  let keptPath = path;
+  let offsets: number[];
+  if (path.length > SETTLE_BAKE_MAX_KEYFRAMES) {
+    // Decimate: keep every stride-th sim frame (plus, always, the last one)
+    // and carry each kept frame's true time as an explicit keyframe offset —
+    // playback timing is identical, only intermediate samples are dropped.
+    const stride = Math.ceil(path.length / SETTLE_BAKE_MAX_KEYFRAMES);
+    keptPath = [];
+    offsets = [];
+    for (let i = stride - 1; i < path.length - 1; i += stride) {
+      keptPath.push(path[i]!);
+      offsets.push((i + 1) / total);
+    }
+    keptPath.push(path[path.length - 1]!);
+    offsets.push(path.length / total);
+  } else {
+    offsets = path.map((_, i) => (i + 1) / total);
+  }
+
+  return { path: keptPath, offsets, durationMs, zoom: bound, offsetX: rest.x, offsetY: rest.y };
 }
 
 /** @deprecated Prefer {@link PAN_PHYSICS_SPRING_MOUSE}. */
