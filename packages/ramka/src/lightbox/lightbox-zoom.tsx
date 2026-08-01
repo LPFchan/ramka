@@ -39,7 +39,7 @@ import {
   type ActiveZoomControls,
   type ZoomContextValue,
 } from './lightbox-zoom-context';
-import { useZoomAnimation } from './use-zoom-animation';
+import { PoseController, type ZoomPose } from './pose-controller';
 import { useZoomGestures, type ZoomGestureActions, type ZoomGestureConfig } from './use-zoom-gestures';
 
 // ---------------------------------------------------------------------------
@@ -193,10 +193,42 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
     // active; a standalone Zoom (no item context) is always the active one.
     const isActive = itemContext ? itemContext.active : true;
 
-    // ----- State -----
-    const [zoom, setZoom] = React.useState(minZoom);
-    const [offsetX, setOffsetX] = React.useState(0);
-    const [offsetY, setOffsetY] = React.useState(0);
+    // ----- Pose engine (single owner of style.transform) -----
+    const reducedMotionPan =
+      typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const controllerRef = React.useRef<PoseController | null>(null);
+    if (controllerRef.current == null) {
+      controllerRef.current = new PoseController(
+        { zoom: minZoom, offsetX: 0, offsetY: 0 },
+        { reducedMotion: reducedMotionPan, defaultDiscreteDuration: DEFAULT_ANIMATION_DURATION },
+      );
+    }
+    const controller = controllerRef.current;
+
+    // Commit-store snapshot for React UI (phase boundaries / animation ends).
+    // Hot pan/pinch does NOT notify this — no re-render per pointermove.
+    const poseSnap = React.useSyncExternalStore(
+      controller.subscribeCommit,
+      controller.getSnapshot,
+      controller.getSnapshot,
+    );
+    const zoom = poseSnap.zoom;
+    const offsetX = poseSnap.offsetX;
+    const offsetY = poseSnap.offsetY;
+
+    // Eager pose mirrors for same-turn gesture math (pinch arming, release bake).
+    const zoomRef = React.useRef(minZoom);
+    const offsetXRef = React.useRef(0);
+    const offsetYRef = React.useRef(0);
+    const syncPoseRefs = React.useCallback((p: ZoomPose) => {
+      zoomRef.current = p.zoom;
+      offsetXRef.current = p.offsetX;
+      offsetYRef.current = p.offsetY;
+    }, []);
+    React.useEffect(() => {
+      syncPoseRefs(controller.getPose());
+    });
+
     const [dragging, setDragging] = React.useState(false);
     // Frame-scoped layout cache storage — declared early so gesture-boundary
     // actions can invalidate it; populated by `measureStageLayout` below.
@@ -210,19 +242,35 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
     // Sync mirror for rAF ticks (zoom snap-back) that must know, mid-frame,
     // whether a finger currently owns the offsets.
     const draggingRef = React.useRef(false);
-    const setDraggingAction = React.useCallback((value: boolean) => {
-      draggingRef.current = value;
-      setDragging(value);
-      // Gesture boundary — re-measure on the next geometry read. Redundant
-      // with the per-frame rAF invalidation in browsers; load-bearing in test
-      // environments that never tick rAF between synchronous gestures.
-      layoutCacheRef.current = null;
-    }, []);
+    const setDraggingAction = React.useCallback(
+      (value: boolean) => {
+        draggingRef.current = value;
+        if (value) {
+          const live = controller.beginTracking();
+          syncPoseRefs(live);
+        } else {
+          controller.endTracking();
+        }
+        setDragging(value);
+        // Gesture boundary — re-measure on the next geometry read. Redundant
+        // with the per-frame rAF invalidation in browsers; load-bearing in test
+        // environments that never tick rAF between synchronous gestures.
+        layoutCacheRef.current = null;
+      },
+      [controller, syncPoseRefs],
+    );
     const [imageDimensions, setImageDimensions] = React.useState<{ w: number; h: number } | null>(null);
     const [containerSize, setContainerSize] = React.useState<{ w: number; h: number } | null>(null);
 
     const containerRef = React.useRef<HTMLDivElement | null>(null);
     const wrapperRef = React.useRef<HTMLDivElement | null>(null);
+    const setWrapperRef = React.useCallback(
+      (node: HTMLDivElement | null) => {
+        wrapperRef.current = node;
+        controller.attach(node);
+      },
+      [controller],
+    );
 
     const onZoomChangeRef = React.useRef(onZoomChange);
     onZoomChangeRef.current = onZoomChange;
@@ -322,13 +370,11 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
     // ----- Reset on slide change -----
     React.useEffect(() => {
       stopZoomSnap();
-      setZoom(minZoom);
-      setOffsetX(0);
-      setOffsetY(0);
+      controller.replacePose({ zoom: minZoom, offsetX: 0, offsetY: 0 });
       setImageDimensions(null);
-    }, [activeIndex, minZoom, stopZoomSnap]);
+    }, [activeIndex, minZoom, stopZoomSnap, controller]);
 
-    // ----- Fire callback on zoom change -----
+    // ----- Fire callback on zoom change (commit epochs only) -----
     React.useEffect(() => {
       onZoomChangeRef.current?.(zoom);
     }, [zoom]);
@@ -431,16 +477,22 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
       [measurePanGeometry, minZoom],
     );
 
-    // ----- Core actions -----
-    const {
-      captureStart: captureStartRaw,
-      cancel: cancelZoomAnimationRaw,
-      isAnimating,
-      animatesZoom,
-      getIsDiscreteAnimating,
-      getLiveAnimatedZoom,
-    } = useZoomAnimation(zoom, offsetX, offsetY, wrapperRef, DEFAULT_ANIMATION_DURATION);
+    // Raw (unclamped) offsets during elastic drag. The elastic formula
+    // is applied to these to compute the displayed value, so resistance
+    // is based on total overshoot rather than compounding.
+    const rawOffsetX = React.useRef(0);
+    const rawOffsetY = React.useRef(0);
+    const isElasticDrag = React.useRef(false);
 
+    const writeHotPose = React.useCallback(
+      (p: ZoomPose) => {
+        syncPoseRefs(p);
+        controller.setPose(p);
+      },
+      [controller, syncPoseRefs],
+    );
+
+    // ----- Core actions -----
     // Queue follow-up double-taps until the current discrete WAAPI settles.
     const zoomAnimSettleWaitersRef = React.useRef<Array<() => void>>([]);
     const flushZoomAnimSettleWaiters = React.useCallback(() => {
@@ -449,85 +501,50 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
       for (const waiter of waiters) waiter();
     }, []);
 
-    const captureStart = React.useCallback(
-      (opts?: Parameters<typeof captureStartRaw>[0]) => {
-        const userOnFinish = opts?.onFinish;
-        captureStartRaw({
-          ...opts,
-          onFinish: () => {
-            userOnFinish?.();
-            flushZoomAnimSettleWaiters();
-          },
-        });
-      },
-      [captureStartRaw, flushZoomAnimSettleWaiters],
-    );
+    const getIsDiscreteAnimating = React.useCallback(() => controller.isDiscreteAnimating(), [controller]);
 
     const cancelZoomAnimation = React.useCallback(() => {
       // Drop queued double-taps — a live pinch/pan took over; don't fire them
       // after cancel (that would start a new discrete zoom mid-gesture).
       zoomAnimSettleWaitersRef.current = [];
-      const live = cancelZoomAnimationRaw();
+      if (controller.getPhase() === 'idle' || controller.getPhase() === 'tracking') return;
+      const live = controller.cancel();
       if (live) {
-        // A gesture interrupted a mid-flight WAAPI — commit the frozen visual
-        // pose so the takeover continues from what's on screen instead of
-        // teleporting to the animation's target. Refs sync eagerly so
-        // same-turn readers (pan geometry, pinch arming) see the live pose.
-        const liveZoom = round(live.zoom, 5);
-        zoomRef.current = liveZoom;
-        offsetXRef.current = live.offsetX;
-        offsetYRef.current = live.offsetY;
+        syncPoseRefs(live);
         isElasticDrag.current = false;
-        setZoom(liveZoom);
-        setOffsetX(live.offsetX);
-        setOffsetY(live.offsetY);
       }
-    }, [cancelZoomAnimationRaw]);
+    }, [controller, syncPoseRefs]);
 
     const whenZoomAnimationSettled = React.useCallback(
       (cb: () => void) => {
-        // Only *discrete* zooms defer follow-ups. A baked settle (coast /
-        // snap-back) is interruptible: run now — the callback's captureStart
-        // samples the live mid-settle pose and takes over continuously.
-        if (!getIsDiscreteAnimating()) {
+        // Only *discrete* zooms defer follow-ups. A baked settle is interruptible.
+        if (!controller.isDiscreteAnimating()) {
           cb();
           return;
         }
-        // Latest follow-up wins — don't stack toggles behind one anim.
         zoomAnimSettleWaitersRef.current = [cb];
       },
-      [getIsDiscreteAnimating],
+      [controller],
     );
 
-    const reducedMotionPan =
-      typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
     /**
-     * Catch a baked settle animation (coast / bounce / bound snap-back) at its
-     * live pose — like putting a finger on a coasting scroll view. Discrete
-     * zoom transitions are NOT caught here; gesture gates defer input while
-     * those play.
+     * Catch a baked settle at its live pose — like putting a finger on a
+     * coasting scroll view. Discrete transitions are NOT caught here.
      */
     const catchSettle = React.useCallback(() => {
-      if (!getIsDiscreteAnimating()) cancelZoomAnimation();
-    }, [getIsDiscreteAnimating, cancelZoomAnimation]);
+      if (!controller.isDiscreteAnimating()) {
+        if (controller.isSettling()) {
+          const live = controller.catch();
+          if (live) syncPoseRefs(live);
+        }
+      }
+    }, [controller, syncPoseRefs]);
 
     React.useEffect(() => () => stopZoomSnap(), [stopZoomSnap]);
 
     // ----- Sync data-zoomed + --lightbox-zoom-progress on Content -----
-    // Only the active slide writes these, so they have a single writer and
-    // never fight with preloaded (inactive) siblings.
-    //
-    // Continuous gestures (pinch/scroll) update React `zoom` every frame — publish
-    // from that. Discrete zooms (double-tap) commit `zoom` immediately while WAAPI
-    // animates the transform, so while `isAnimating` we sample the live scale from
-    // the wrapper each frame and publish that — sibling filter/blur stays locked
-    // to what the user sees. Progress hits 1 after +1× above minZoom.
-    //
-    // `holdZoomedChromeRef`: once progress has been > 0, keep `data-zoomed` through
-    // the rest of a zoom-out WAAPI so chrome doesn’t flash early. Do *not* set it
-    // for every animation — under-min / pan snap-back also animate and must leave
-    // chrome visible.
+    // Visual subscription: updates on every pose write (pinch) without React
+    // re-renders. Zoom-static settles skip the sampling loop — scale is fixed.
     const holdZoomedChromeRef = React.useRef(false);
     React.useEffect(() => {
       if (!isActive) {
@@ -538,27 +555,26 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
       if (!el) return;
       const progressVar = LightboxContentCssVars.zoomProgress;
 
-      // No-op write guards: `data-zoomed` and the progress var live on the
-      // dialog root, so every write invalidates style for the whole dialog
-      // subtree (siblings bind the var to filter/blur). During a sampling
-      // loop the values are often unchanged frame-to-frame — skip those.
       let writtenZoomed: boolean | null = null;
       let writtenProgress: string | null | undefined;
 
-      const publish = (scale: number) => {
+      const publish = (scale: number, phaseAnimatingZoom: boolean) => {
+        // Visual scale drives progress. Committed snapshot covers discrete
+        // zoom-in (target committed early while WAAPI still starts at 1×).
+        // Hold keeps data-zoomed through discrete zoom-out until finish.
         const progress = zoomProgressFromScale(scale, minZoom, maxZoom);
-        // Discrete zoomTo commits React `zoom` before WAAPI moves the wrapper.
-        // Treat committed zoom as zoomed too so `data-zoomed` doesn’t clear on
-        // the first animated frames of a zoom-in (live scale still ≈ minZoom).
-        const committedProgress = zoomProgressFromScale(zoom, minZoom, maxZoom);
+        const committedProgress = zoomProgressFromScale(
+          controller.getSnapshot().zoom,
+          minZoom,
+          maxZoom,
+        );
         let zoomed: boolean;
         let progressValue: string | null;
         if (progress > 0 || committedProgress > 0) {
           holdZoomedChromeRef.current = true;
           zoomed = true;
-          progressValue = String(progress);
-        } else if (isAnimating && holdZoomedChromeRef.current) {
-          // Finishing a real zoom-out — keep chrome hidden until settle.
+          progressValue = String(Math.max(progress, committedProgress));
+        } else if (phaseAnimatingZoom && holdZoomedChromeRef.current) {
           zoomed = true;
           progressValue = '0';
         } else {
@@ -578,66 +594,57 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
         }
       };
 
-      // Zoom-static settles (pure momentum pan) never change the visual
-      // scale — publishing the committed zoom once is exact, and skipping the
-      // rAF loop keeps the compositor animation free of per-frame style
-      // recalcs on the main thread (the root cause of choppy coasting,
-      // especially under iOS Low Power Mode's 30fps rAF throttle).
-      if (!isAnimating || !animatesZoom) {
-        publish(zoom);
-        return;
-      }
-
-      // Publish committed zoom immediately — RAF sampling of the live WAAPI
-      // transform starts on the next frame, which is too late for sync callers
-      // (and would leave `data-zoomed` unset for a frame on zoom-in).
-      publish(zoom);
-
       let raf = 0;
+      const zoomAnimates = () => {
+        const phase = controller.getPhase();
+        return (
+          (phase === 'settling' || phase === 'discrete') && controller.getAnimatesZoom()
+        );
+      };
       const tick = () => {
-        // Keyframed settles expose their zoom analytically — free to sample.
-        // Two-pose discrete zooms fall back to the computed transform.
-        let live = getLiveAnimatedZoom();
+        if (!zoomAnimates()) {
+          publish(controller.getPose().zoom, false);
+          return;
+        }
+        let live = controller.getLiveAnimatedZoom();
         if (live == null) {
           const wrapper = wrapperRef.current;
           live = wrapper
             ? uniformScaleFromTransform(getComputedStyle(wrapper).transform)
             : null;
         }
-        publish(live ?? zoom);
+        publish(live ?? controller.getPose().zoom, true);
         raf = requestAnimationFrame(tick);
       };
-      raf = requestAnimationFrame(tick);
-      return () => cancelAnimationFrame(raf);
-    }, [
-      isActive,
-      zoom,
-      minZoom,
-      maxZoom,
-      isAnimating,
-      animatesZoom,
-      dialogElementRef,
-      getLiveAnimatedZoom,
-    ]);
 
-    const offsetXRef = React.useRef(offsetX);
-    offsetXRef.current = offsetX;
-    const offsetYRef = React.useRef(offsetY);
-    offsetYRef.current = offsetY;
+      const onVisual = () => {
+        cancelAnimationFrame(raf);
+        if (zoomAnimates()) {
+          tick();
+          return;
+        }
+        publish(controller.getPose().zoom, false);
+      };
 
-    // Raw (unclamped) offsets during elastic drag. The elastic formula
-    // is applied to these to compute the displayed value, so resistance
-    // is based on total overshoot rather than compounding.
-    const rawOffsetX = React.useRef(0);
-    const rawOffsetY = React.useRef(0);
-    const isElasticDrag = React.useRef(false);
+      onVisual();
+      const unsub = controller.subscribeVisual(onVisual);
+      return () => {
+        unsub();
+        cancelAnimationFrame(raf);
+      };
+    }, [isActive, minZoom, maxZoom, dialogElementRef, controller]);
 
     const changeOffsetsAction = React.useCallback(
       (dx: number, dy: number, overscroll?: boolean, overflowAxesOnly?: boolean) => {
-        // Live pan takes over any in-flight WAAPI (settle or discrete) at the
-        // live pose.
-        cancelZoomAnimation();
-        const z = zoomRef.current;
+        // Live pan takes over any in-flight settle at the live pose.
+        if (controller.isSettling()) {
+          const caught = controller.catch();
+          if (caught) syncPoseRefs(caught);
+        } else if (controller.isDiscreteAnimating()) return;
+
+        const live = controller.getPose();
+        syncPoseRefs(live);
+        const z = live.zoom;
         const geo = measurePanGeometry(z);
         if (!geo) return;
         const { x, y } = geo;
@@ -646,23 +653,17 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
           // Touch (`overflowAxesOnly`): only pan axes that overflow — letterbox
           // stays put. Mouse: both axes rubber-band even when the item fits
           // (min===max rest → pure overshoot that snaps back).
-          //
-          // UIScrollView formula in offset space. Dimension is a fraction of
-          // viewport/zoom — same screen-space feel at every zoom, but a shorter
-          // leash than Apple's full-viewport scroll-view asymptote.
           const allowX = !overflowAxesOnly || x.overflows;
           const allowY = !overflowAxesOnly || y.overflows;
           if (!allowX && !allowY) return;
 
           if (!isElasticDrag.current) {
             isElasticDrag.current = true;
-            rawOffsetX.current = offsetXRef.current;
-            rawOffsetY.current = offsetYRef.current;
+            rawOffsetX.current = live.offsetX;
+            rawOffsetY.current = live.offsetY;
           }
           if (allowX) rawOffsetX.current -= dx;
           if (allowY) rawOffsetY.current -= dy;
-          // Touch keeps the longer leash; mouse uses a shorter asymptote so
-          // precise dragging can't yank the image as far past the edge.
           const dimFactor = overflowAxesOnly
             ? RUBBER_BAND_DIMENSION_FACTOR
             : RUBBER_BAND_DIMENSION_FACTOR_MOUSE;
@@ -670,127 +671,127 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
           const dimY = rubberBandPanDimension(geo.viewport.height, z, dimFactor);
           const nextX = allowX
             ? rubberBandClamp(rawOffsetX.current, x.min, x.max, dimX)
-            : offsetXRef.current;
+            : live.offsetX;
           const nextY = allowY
             ? rubberBandClamp(rawOffsetY.current, y.min, y.max, dimY)
-            : offsetYRef.current;
-          // Eager ref sync: same-task readers (release snap, pinch arming)
-          // must see this move even before React commits the state.
-          offsetXRef.current = nextX;
-          offsetYRef.current = nextY;
-          setOffsetX(nextX);
-          setOffsetY(nextY);
+            : live.offsetY;
+          writeHotPose({ zoom: z, offsetX: nextX, offsetY: nextY });
         } else {
-          // Hard-clamp path (keyboard / wheel): keep letterbox stable — no
-          // pan on an axis that doesn't overflow. Offsets change outside the
-          // elastic accumulator, so drop the latch — a later elastic drag must
-          // re-anchor to the offsets it actually starts from.
           isElasticDrag.current = false;
           if (!x.overflows && !y.overflows) return;
-          const nextX = x.overflows ? offsetXRef.current - dx : offsetXRef.current;
-          const nextY = y.overflows ? offsetYRef.current - dy : offsetYRef.current;
+          const nextX = x.overflows ? live.offsetX - dx : live.offsetX;
+          const nextY = y.overflows ? live.offsetY - dy : live.offsetY;
           const clamped = clampOffsets(nextX, nextY, z);
-          const finalX = x.overflows ? clamped.x : offsetXRef.current;
-          const finalY = y.overflows ? clamped.y : offsetYRef.current;
-          offsetXRef.current = finalX;
-          offsetYRef.current = finalY;
-          setOffsetX(finalX);
-          setOffsetY(finalY);
+          writeHotPose({
+            zoom: z,
+            offsetX: x.overflows ? clamped.x : live.offsetX,
+            offsetY: y.overflows ? clamped.y : live.offsetY,
+          });
         }
       },
-      [clampOffsets, measurePanGeometry, cancelZoomAnimation],
+      [clampOffsets, measurePanGeometry, controller, syncPoseRefs, writeHotPose],
     );
 
     const changeZoomAction = React.useCallback(
       (target: number, rapid: boolean, dx?: number, dy?: number, overscroll?: boolean) => {
-        // A live pinch / wheel / discrete zoom takes zoom ownership from any
-        // in-flight bound snap-back.
         stopZoomSnap();
-        // Zoom rewrites offsets (focal projection / clamp) outside the elastic
-        // pan accumulator. Drop the latch so a pan resuming after this zoom
-        // (e.g. pinch 2→1 handoff) re-anchors to the current offsets instead
-        // of teleporting back to stale pre-zoom raw values.
         isElasticDrag.current = false;
         const nextZoom = round(
           overscroll ? elasticClamp(target, minZoom, maxZoom) : clamp(target, minZoom, maxZoom),
           5,
         );
 
-        // Discrete zooms arm WAAPI; rapid pinch/wheel must cancel any in-flight
-        // discrete animation so the live transform isn't composited on top.
-        if (rapid) cancelZoomAnimation();
-        else captureStart();
-
-        const currentZoom = zoomRef.current;
+        const current = controller.getPose();
+        let to: ZoomPose;
         if (dx !== undefined && dy !== undefined) {
-          // Project onto the feasible pan set at nextZoom so scale always
-          // advances even when the cursor sits past a cover edge.
           const geo = measurePanGeometry(nextZoom);
           if (geo) {
             const projected = projectFocalZoom(
-              currentZoom,
-              offsetXRef.current,
-              offsetYRef.current,
+              current.zoom,
+              current.offsetX,
+              current.offsetY,
               nextZoom,
               dx,
               dy,
               geo.x,
               geo.y,
             );
-            // Eager ref sync — a same-task release (coalesced pinch move + up)
-            // must see the elastic zoom, or its out-of-bounds snap won't fire.
-            zoomRef.current = projected.zoom;
-            offsetXRef.current = projected.offsetX;
-            offsetYRef.current = projected.offsetY;
-            setOffsetX(projected.offsetX);
-            setOffsetY(projected.offsetY);
-            setZoom(projected.zoom);
-            return;
+            to = {
+              zoom: projected.zoom,
+              offsetX: projected.offsetX,
+              offsetY: projected.offsetY,
+            };
+          } else {
+            const offsets = clampOffsets(current.offsetX, current.offsetY, nextZoom);
+            to = { zoom: nextZoom, offsetX: offsets.x, offsetY: offsets.y };
           }
+        } else {
+          const offsets = clampOffsets(current.offsetX, current.offsetY, nextZoom);
+          to = { zoom: nextZoom, offsetX: offsets.x, offsetY: offsets.y };
         }
 
-        const offsets = clampOffsets(offsetXRef.current, offsetYRef.current, nextZoom);
-        zoomRef.current = nextZoom;
-        offsetXRef.current = offsets.x;
-        offsetYRef.current = offsets.y;
-        setOffsetX(offsets.x);
-        setOffsetY(offsets.y);
-        setZoom(nextZoom);
+        if (rapid) {
+          // Pinch/wheel: direct writes, no WAAPI.
+          if (controller.isSettling() || controller.isDiscreteAnimating()) controller.cancel();
+          writeHotPose(to);
+          return;
+        }
+
+        // Discrete: WAAPI from current pose → target. Commit notify on arm.
+        controller.discrete({
+          to,
+          onFinish: () => {
+            syncPoseRefs(to);
+            flushZoomAnimSettleWaiters();
+          },
+        });
+        syncPoseRefs(to);
       },
       [
         minZoom,
         maxZoom,
         clampOffsets,
-        captureStart,
-        cancelZoomAnimation,
         measurePanGeometry,
         stopZoomSnap,
+        controller,
+        writeHotPose,
+        syncPoseRefs,
+        flushZoomAnimSettleWaiters,
       ],
     );
 
     const zoomInAction = React.useCallback(() => {
-      const target = zoom * zoomStep;
-      changeZoomAction(zoom < 1 && target > 1 ? 1 : target, false);
-    }, [zoom, zoomStep, changeZoomAction]);
+      const z = controller.getPose().zoom;
+      const target = z * zoomStep;
+      changeZoomAction(z < 1 && target > 1 ? 1 : target, false);
+    }, [zoomStep, changeZoomAction, controller]);
 
     const zoomOutAction = React.useCallback(() => {
-      const target = zoom / zoomStep;
-      changeZoomAction(zoom > 1 && target < 1 ? 1 : target, false);
-    }, [zoom, zoomStep, changeZoomAction]);
+      const z = controller.getPose().zoom;
+      const target = z / zoomStep;
+      changeZoomAction(z > 1 && target < 1 ? 1 : target, false);
+    }, [zoomStep, changeZoomAction, controller]);
 
     const resetAction = React.useCallback(
       (rapid = false) => {
         stopZoomSnap();
-        if (!rapid) captureStart();
         isElasticDrag.current = false;
-        zoomRef.current = minZoom;
-        offsetXRef.current = 0;
-        offsetYRef.current = 0;
-        setZoom(minZoom);
-        setOffsetX(0);
-        setOffsetY(0);
+        const to = { zoom: minZoom, offsetX: 0, offsetY: 0 };
+        if (rapid) {
+          controller.replacePose(to);
+          syncPoseRefs(to);
+          return;
+        }
+        controller.discrete({
+          to,
+          onFinish: () => {
+            syncPoseRefs(to);
+            flushZoomAnimSettleWaiters();
+          },
+        });
+        syncPoseRefs(to);
       },
-      [minZoom, captureStart, stopZoomSnap],
+      [minZoom, stopZoomSnap, controller, syncPoseRefs, flushZoomAnimSettleWaiters],
     );
 
     /**
@@ -849,30 +850,29 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
           }
         }
 
-        // Absorb a live rAF zoom snap — carry its spring velocity into the
-        // bake so the value animation continues without a kink.
+        // Absorb a live rAF zoom snap — carry its spring velocity into the bake.
         let vz: number | undefined;
         if (snappingLive) {
           vz = zoomSnapVelRef.current;
           stopZoomSnap();
         }
-        // Commit the live pose of any in-flight WAAPI so the bake starts from
-        // exactly what's on screen.
-        cancelZoomAnimation();
+        // Catch any in-flight WAAPI so the bake starts from what's on screen.
+        if (controller.isSettling() || controller.isDiscreteAnimating()) {
+          controller.cancel();
+        }
         isElasticDrag.current = false;
 
-        const z = zoomRef.current;
+        const fromPose = controller.getPose();
+        syncPoseRefs(fromPose);
+        const z = fromPose.zoom;
         const bound = clamp(z, minZoom, maxZoom);
         const freshZoomReturn = vz === undefined && Math.abs(z - bound) > 1e-6;
 
         if (reducedMotionPan) {
-          const rest = restOffsetsAt(bound, offsetXRef.current, offsetYRef.current);
-          zoomRef.current = bound;
-          offsetXRef.current = rest.x;
-          offsetYRef.current = rest.y;
-          setZoom(bound);
-          setOffsetX(rest.x);
-          setOffsetY(rest.y);
+          const rest = restOffsetsAt(bound, fromPose.offsetX, fromPose.offsetY);
+          const to = { zoom: bound, offsetX: rest.x, offsetY: rest.y };
+          controller.replacePose(to);
+          syncPoseRefs(to);
           return true;
         }
 
@@ -881,52 +881,38 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
           minZoom,
           maxZoom,
           vz,
-          offsetX: offsetXRef.current,
-          offsetY: offsetYRef.current,
+          offsetX: fromPose.offsetX,
+          offsetY: fromPose.offsetY,
           vx,
           vy,
           panSpring: spring,
           geometryAt,
           restOffsetsAt,
         });
-        // Nothing left to animate — the live pose (already committed) is rest.
         if (!baked) return false;
 
-        // Mirror iOS's light rubber-band tick as the scale starts returning —
-        // unless carried from the live rAF snap, which ticked at the breakup.
         if (freshZoomReturn) triggerHaptic('snap');
 
-        captureStart({
-          kind: 'settle',
+        // WAAPI in this turn from the pose already on the element — zero React
+        // commit until finish (the release-frame discontinuity root fix).
+        const to = { zoom: baked.zoom, offsetX: baked.offsetX, offsetY: baked.offsetY };
+        const started = controller.settle({
           path: baked.path,
-          // Decimated trajectories keep true timing via explicit offsets.
           pathOffsets: baked.offsets,
-          // Refs hold the exact visual pose here (cancelZoomAnimation synced
-          // them) — passing it skips captureStart's getComputedStyle, a forced
-          // style recalc that eats into the release frame budget.
-          fromPose: { zoom: z, offsetX: offsetXRef.current, offsetY: offsetYRef.current },
-          // Zoom-static coasts let chrome skip its per-frame live-scale
-          // sampling loop entirely.
+          to,
+          durationMs: baked.durationMs,
           zoomChanges: vz !== undefined || Math.abs(z - bound) > 1e-6,
-          duration: baked.durationMs,
+          onFinish: () => syncPoseRefs(to),
         });
-        // Commit the rest pose; WAAPI plays the trajectory over it. Eager ref
-        // sync keeps same-turn readers (pinch arming, wheel) on the rest pose.
-        zoomRef.current = baked.zoom;
-        offsetXRef.current = baked.offsetX;
-        offsetYRef.current = baked.offsetY;
-        setZoom(baked.zoom);
-        setOffsetX(baked.offsetX);
-        setOffsetY(baked.offsetY);
-        return true;
+        return started;
       },
       [
         minZoom,
         maxZoom,
         measureStageLayout,
         stopZoomSnap,
-        cancelZoomAnimation,
-        captureStart,
+        controller,
+        syncPoseRefs,
         reducedMotionPan,
       ],
     );
@@ -958,13 +944,9 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
       [startPanPhysicsAction],
     );
 
-    // ----- Gesture hook -----
-    const zoomRef = React.useRef(zoom);
-    zoomRef.current = zoom;
-
     // Stable, always-fresh zoom reader for the active-zoom bridge (consumed by
     // Content's pull-to-dismiss and keyboard handlers).
-    const getLiveZoom = React.useCallback(() => zoomRef.current, []);
+    const getLiveZoom = React.useCallback(() => controller.getPose().zoom, [controller]);
 
     /**
      * iOS-style zoom rubber-band return: a rAF spring on the zoom *value*
@@ -979,7 +961,7 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
      * @returns `true` when zoom was out of bounds and a snap-back started.
      */
     const startZoomSnapAction = React.useCallback((): boolean => {
-      const from = zoomRef.current;
+      const from = controller.getPose().zoom;
       const target = clamp(from, minZoom, maxZoom);
       if (Math.abs(target - from) < 1e-6) return false;
       stopZoomSnap();
@@ -989,14 +971,10 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
       triggerHaptic('snap');
 
       if (reducedMotionPan) {
-        const offsets = clampOffsets(offsetXRef.current, offsetYRef.current, target);
+        const live = controller.getPose();
+        const offsets = clampOffsets(live.offsetX, live.offsetY, target);
         isElasticDrag.current = false;
-        zoomRef.current = target;
-        offsetXRef.current = offsets.x;
-        offsetYRef.current = offsets.y;
-        setZoom(target);
-        setOffsetX(offsets.x);
-        setOffsetY(offsets.y);
+        writeHotPose({ zoom: target, offsetX: offsets.x, offsetY: offsets.y });
         return true;
       }
 
@@ -1011,7 +989,8 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
         let dt = prev > 0 ? (ts - prev) / 1000 : 1 / 60;
         if (dt > 0.048) dt = 1 / 60;
 
-        const z = zoomRef.current;
+        const live = controller.getPose();
+        const z = live.zoom;
         const bound = clamp(z, minZoom, maxZoom);
         const step = stepPanPhysicsAxis(
           { position: z, velocity: zoomSnapVelRef.current, min: bound, max: bound, canCoast: false },
@@ -1031,23 +1010,20 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
         // their clamped rest pose at the bound by the fraction of remaining
         // zoom distance this frame covered — both settle together, as one
         // motion. The rest pose is re-derived per frame so it can't go stale.
+        let nextX = live.offsetX;
+        let nextY = live.offsetY;
         const offsetsOwned = draggingRef.current;
         if (!offsetsOwned) {
-          const rest = clampOffsets(offsetXRef.current, offsetYRef.current, bound);
-          if (rest.x !== offsetXRef.current || rest.y !== offsetYRef.current) {
+          const rest = clampOffsets(live.offsetX, live.offsetY, bound);
+          if (rest.x !== live.offsetX || rest.y !== live.offsetY) {
             const denom = z - bound;
             const f = denom !== 0 ? Math.min(1, Math.max(0, (z - nextZ) / denom)) : 1;
-            const nextX = offsetXRef.current + (rest.x - offsetXRef.current) * f;
-            const nextY = offsetYRef.current + (rest.y - offsetYRef.current) * f;
-            offsetXRef.current = nextX;
-            offsetYRef.current = nextY;
-            setOffsetX(nextX);
-            setOffsetY(nextY);
+            nextX = live.offsetX + (rest.x - live.offsetX) * f;
+            nextY = live.offsetY + (rest.y - live.offsetY) * f;
           }
         }
 
-        zoomRef.current = nextZ;
-        setZoom(nextZ);
+        writeHotPose({ zoom: nextZ, offsetX: nextX, offsetY: nextY });
 
         if (step.settled) {
           zoomSnapRafRef.current = null;
@@ -1074,6 +1050,8 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
       clampOffsets,
       reducedMotionPan,
       snapOffsetsToBoundsAction,
+      controller,
+      writeHotPose,
     ]);
 
     const gestureConfig = React.useMemo<ZoomGestureConfig>(
@@ -1091,8 +1069,11 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
 
     const gestureActions = React.useMemo<ZoomGestureActions>(
       () => ({
-        getZoom: () => zoomRef.current,
-        getOffsets: () => ({ x: offsetXRef.current, y: offsetYRef.current }),
+        getZoom: () => controller.getPose().zoom,
+        getOffsets: () => {
+          const p = controller.getPose();
+          return { x: p.offsetX, y: p.offsetY };
+        },
         zoomIn: zoomInAction,
         zoomOut: zoomOutAction,
         changeZoom: changeZoomAction,
@@ -1110,6 +1091,7 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
         whenZoomAnimationSettled,
       }),
       [
+        controller,
         zoomInAction,
         zoomOutAction,
         changeZoomAction,
@@ -1143,19 +1125,27 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
     );
 
     // ----- Imperative ref -----
+    // Live getters — pan/pinch never commit to React, so closed-over snapshot
+    // values would lag the visual pose.
     React.useImperativeHandle(
       forwardedRef,
       () => ({
-        zoom,
+        get zoom() {
+          return controller.getPose().zoom;
+        },
         maxZoom,
-        offsetX,
-        offsetY,
+        get offsetX() {
+          return controller.getPose().offsetX;
+        },
+        get offsetY() {
+          return controller.getPose().offsetY;
+        },
         zoomIn: zoomInAction,
         zoomOut: zoomOutAction,
         zoomTo: (target, opts) => changeZoomAction(target, opts?.rapid ?? false, opts?.dx, opts?.dy),
         reset: resetAction,
       }),
-      [zoom, maxZoom, offsetX, offsetY, zoomInAction, zoomOutAction, changeZoomAction, resetAction],
+      [maxZoom, zoomInAction, zoomOutAction, changeZoomAction, resetAction, controller],
     );
 
     // ----- Context value -----
@@ -1216,9 +1206,10 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
     // The transform wrapper is an internal implementation detail: it centers
     // and scales the content. Consumers style the outer element (via `render`/
     // `className`) and pass their content as `children`.
+    // Transform is owned by PoseController (direct style / WAAPI) — never React.
     const wrapper = (
       <div
-        ref={wrapperRef}
+        ref={setWrapperRef}
         style={{
           width: '100%',
           height: '100%',
@@ -1226,8 +1217,7 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
           alignItems: 'center',
           justifyContent: 'center',
           transformOrigin: 'center center',
-          transform: `scale(${zoom}) translate(${offsetX}px, ${offsetY}px)`,
-          willChange: zoom > 1 ? 'transform' : undefined,
+          willChange: zoom > 1 || poseSnap.phase !== 'idle' ? 'transform' : undefined,
         }}
       >
         {resolvedChildren}

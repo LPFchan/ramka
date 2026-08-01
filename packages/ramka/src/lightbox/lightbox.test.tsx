@@ -3645,20 +3645,24 @@ describe('Lightbox', () => {
             };
           }
           Element.prototype.animate = vi.fn(() => {
+            let onfinish: (() => void) | null = null;
             const anim = {
               finished: Promise.resolve(),
               cancel: vi.fn(),
               play: vi.fn(),
               pause: vi.fn(),
-              onfinish: null as (() => void) | null,
               oncancel: null as (() => void) | null,
               commitStyles: vi.fn(),
+              get onfinish() {
+                return onfinish;
+              },
+              // Finish when assigned — `act()` does not reliably flush
+              // queueMicrotask, and settle commits rest only on finish.
+              set onfinish(fn: (() => void) | null) {
+                onfinish = fn;
+                if (fn) fn();
+              },
             };
-            // Finish synchronously after the caller assigns `onfinish` so
-            // `isZoomAnimating` is cleared before subsequent pointer acts.
-            queueMicrotask(() => {
-              anim.onfinish?.();
-            });
             return anim;
           }) as unknown as typeof Element.prototype.animate;
         });
@@ -3694,8 +3698,9 @@ describe('Lightbox', () => {
         }
 
         /**
-         * Install a sync rAF queue, run `release`, then pump frames until the
-         * physics sim settles (or the frame budget is hit).
+         * Install a sync rAF queue, run `release`, pump frames until the
+         * physics sim settles, then flush WAAPI `onfinish` microtasks so the
+         * pose store commits rest (settle no longer commits on release).
          */
         function withPanPhysicsFlush(release: () => void, frames = 120) {
           const queue: FrameRequestCallback[] = [];
@@ -3718,6 +3723,9 @@ describe('Lightbox', () => {
                 cb(now);
               }
             });
+            // Default mock finishes settle when `onfinish` is assigned; this
+            // drains any leftover React commit from that landing.
+            act(() => {});
           } finally {
             globalThis.requestAnimationFrame = origRaf;
             globalThis.cancelAnimationFrame = origCancel;
@@ -4652,7 +4660,8 @@ describe('Lightbox', () => {
             expect(elastic).toBeLessThan(1);
 
             // Release both fingers: the snap-back bakes into a compositor
-            // settle animation and the rest pose (1×) commits immediately.
+            // settle. Rest commits on WAAPI finish — live pose stays under-min
+            // at t=0 so a follow-up pinch can catch mid-trajectory.
             act(() => {
               dispatchPointer(img, 'pointerup', {
                 clientX: 180,
@@ -4667,9 +4676,10 @@ describe('Lightbox', () => {
                 pointerType: 'touch',
               });
             });
-            expect(ref.current!.zoom).toBe(1);
+            expect(held.length).toBeGreaterThan(0);
             const settleAnim = held[held.length - 1]!;
             expect(settleAnim.duration).toBeGreaterThan(0);
+            expect(ref.current!.zoom).toBeLessThan(1);
 
             // Scrub the settle mid-flight, then pinch again — the downs must
             // catch it at the LIVE pose recovered from the baked trajectory
@@ -4726,6 +4736,31 @@ describe('Lightbox', () => {
   // ---------------------------------------------------------------------------
 
   describe('global zoom controls', () => {
+    const origAnimate = Element.prototype.animate;
+    beforeEach(() => {
+      Element.prototype.animate = vi.fn(() => {
+        let onfinish: (() => void) | null = null;
+        return {
+          finished: Promise.resolve(),
+          cancel: vi.fn(),
+          play: vi.fn(),
+          pause: vi.fn(),
+          oncancel: null,
+          commitStyles: vi.fn(),
+          get onfinish() {
+            return onfinish;
+          },
+          set onfinish(fn: (() => void) | null) {
+            onfinish = fn;
+            if (fn) fn();
+          },
+        } as unknown as Animation;
+      }) as unknown as typeof Element.prototype.animate;
+    });
+    afterEach(() => {
+      Element.prototype.animate = origAnimate;
+    });
+
     function GlobalZoomLightbox({
       refs,
       maxZoom = 4,
