@@ -1,6 +1,12 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 
-import { PoseController, poseTransform, livePoseOnPath } from './pose-controller';
+import {
+  PoseController,
+  poseTransform,
+  poseMatrix,
+  lerpPoseMatrix,
+  livePoseOnPath,
+} from './pose-controller';
 
 function makeEl() {
   const el = document.createElement('div');
@@ -217,6 +223,11 @@ describe('PoseController', () => {
     expect(c.getPose().zoom).toBe(2);
     expect(c.getSnapshot().zoom).toBe(2);
 
+    // Matrix keyframes so WAAPI matrix-lerps (focal-stable double-tap).
+    const keyframes = (Element.prototype.animate as ReturnType<typeof vi.fn>).mock.calls[0]![0] as Keyframe[];
+    expect(keyframes[0]!.transform).toBe(poseMatrix({ zoom: 1, offsetX: 0, offsetY: 0 }));
+    expect(keyframes[1]!.transform).toBe(poseMatrix({ zoom: 2, offsetX: 0, offsetY: 0 }));
+
     const anim = (el as unknown as { __anim: { onfinish: (() => void) | null } }).__anim;
     anim.onfinish?.();
     expect(c.isDiscreteAnimating()).toBe(false);
@@ -266,5 +277,20 @@ describe('livePoseOnPath', () => {
       25,
     );
     expect(pose!.offsetX).toBeCloseTo(100, 5);
+  });
+
+  it('matrixInterp mid-zoom matches focal-stable matrix lerp (not component lerp)', () => {
+    // Zoom 1→2 with end offset -50 (focal 100). Component lerp at t=0.5 is -25;
+    // matrix lerp is -50/1.5 ≈ -33.33 (keeps the tap point fixed).
+    const from = { zoom: 1, offsetX: 0, offsetY: 0 };
+    const to = { zoom: 2, offsetX: -50, offsetY: 0 };
+    const mid = livePoseOnPath(
+      { poses: [from, to], offsets: [0, 1], duration: 100, matrixInterp: true },
+      50,
+    );
+    expect(mid!.zoom).toBeCloseTo(1.5, 5);
+    expect(mid!.offsetX).toBeCloseTo(-50 / 1.5, 5);
+    expect(mid!.offsetX).not.toBeCloseTo(-25, 5);
+    expect(lerpPoseMatrix(from, to, 0.5).offsetX).toBeCloseTo(mid!.offsetX, 10);
   });
 });

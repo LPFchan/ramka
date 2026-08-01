@@ -42,12 +42,38 @@ interface RunningPathInfo {
   poses: ZoomPose[];
   offsets?: number[];
   duration: number;
+  /**
+   * Discrete zooms use matrix keyframes so WAAPI matrix-lerps (keeps the
+   * focal point stable). Settle keeps component `scale()+translate()` lerp
+   * matching the baked physics samples.
+   */
+  matrixInterp?: boolean;
 }
 
 type Listener = () => void;
 
 export function poseTransform(p: ZoomPose): string {
   return `scale(${p.zoom}) translate(${p.offsetX}px, ${p.offsetY}px)`;
+}
+
+/**
+ * `scale(z) translate(x,y)` as a matrix. Discrete WAAPI must animate matrix
+ * form: matching `scale()+translate()` lists interpolate args component-wise,
+ * which slides the focal point mid-zoom. Matrix lerp matches the pre-pose-
+ * engine path (from=`getComputedStyle` matrix → to=scale/translate).
+ */
+export function poseMatrix(p: ZoomPose): string {
+  const z = p.zoom;
+  return `matrix(${z}, 0, 0, ${z}, ${z * p.offsetX}, ${z * p.offsetY})`;
+}
+
+/** Lerp two poses the way CSS matrix-interpolates `scale() translate()`. */
+export function lerpPoseMatrix(a: ZoomPose, b: ZoomPose, t: number): ZoomPose {
+  const z = a.zoom + (b.zoom - a.zoom) * t;
+  if (!(z > 0)) return { ...b };
+  const e = a.zoom * a.offsetX + (b.zoom * b.offsetX - a.zoom * a.offsetX) * t;
+  const f = a.zoom * a.offsetY + (b.zoom * b.offsetY - a.zoom * a.offsetY) * t;
+  return { zoom: z, offsetX: e / z, offsetY: f / z };
 }
 
 /**
@@ -76,6 +102,7 @@ export function livePoseOnPath(info: RunningPathInfo, currentTime: unknown): Zoo
   }
   const a = info.poses[i]!;
   const b = info.poses[i + 1]!;
+  if (info.matrixInterp) return lerpPoseMatrix(a, b, f);
   return {
     zoom: a.zoom + (b.zoom - a.zoom) * f,
     offsetX: a.offsetX + (b.offsetX - a.offsetX) * f,
@@ -368,8 +395,11 @@ export class PoseController {
     if (this.anim) this.catchInternal();
 
     const fromPose = { ...this.pose };
-    const from = poseTransform(fromPose);
-    const to = poseTransform(spec.to);
+    // Matrix keyframes → WAAPI matrix-lerps (focal-stable). Component
+    // scale()+translate() lists would lerp offset linearly and feel wrong.
+    const from = poseMatrix(fromPose);
+    const to = poseMatrix(spec.to);
+    const toInline = poseTransform(spec.to);
     if (from === to) {
       this.phase = 'idle';
       spec.onFinish?.();
@@ -389,7 +419,9 @@ export class PoseController {
     }
 
     try {
-      el.style.transform = from;
+      if (el.style.transform !== from) {
+        el.style.transform = from;
+      }
       const anim = el.animate(
         [
           { transform: from, easing: spec.easing ?? 'ease-in-out' },
@@ -402,6 +434,7 @@ export class PoseController {
         poses: [fromPose, spec.to],
         offsets: [0, 1],
         duration,
+        matrixInterp: true,
       };
       this.phase = 'discrete';
       this.animatesZoom = fromPose.zoom !== spec.to.zoom;
@@ -413,7 +446,7 @@ export class PoseController {
       this.notifyVisual();
 
       const land = () => {
-        el.style.transform = to;
+        el.style.transform = toInline;
       };
 
       anim.onfinish = () => {
