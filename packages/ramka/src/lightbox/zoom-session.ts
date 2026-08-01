@@ -411,11 +411,24 @@ export function createZoomSession(getDeps: () => ZoomSessionDeps): ZoomSession {
   const momentumPan = (vx: number, vy: number, touch = false): boolean =>
     startPanPhysics(vx, vy, touch ? PAN_PHYSICS_SPRING_TOUCH : PAN_PHYSICS_SPRING_MOUSE);
 
+  /**
+   * Concurrent zoom rubber-band (2→1 only): rAF spring on the zoom *value*
+   * while a surviving finger still owns offsets. WAAPI cannot share
+   * `transform` with a live pan, so this path exists solely for that overlap.
+   * Full release / trackpad end must use {@link startPanPhysics} (baked WAAPI)
+   * instead — call sites skip this when no finger remains.
+   */
   const startZoomSnap = (): boolean => {
     const { controller, minZoom, maxZoom, clampOffsets, reducedMotion, isDragging } = getDeps();
     const from = controller.getPose().zoom;
     const target = clamp(from, minZoom, maxZoom);
     if (Math.abs(target - from) < 1e-6) return false;
+
+    // No concurrent pan author — prefer compositor WAAPI (same bake as release).
+    if (!isDragging()) {
+      return startPanPhysics(0, 0);
+    }
+
     stopZoomSnap();
     cancelZoomAnimation();
     triggerHaptic('snap');
@@ -455,7 +468,8 @@ export function createZoomSession(getDeps: () => ZoomSessionDeps): ZoomSession {
         ZOOM_SNAP_STOP_DISTANCE,
       );
       zoomSnapVel.current = step.velocity;
-      const nextZ = step.settled ? bound : step.position;
+      // Never teleport onto `bound` — exact rest is the release bake / land.
+      const nextZ = step.position;
 
       let nextX = live.offsetX;
       let nextY = live.offsetY;
@@ -475,7 +489,12 @@ export function createZoomSession(getDeps: () => ZoomSessionDeps): ZoomSession {
         zoomSnapRaf.current = null;
         zoomSnapLastTs.current = 0;
         zoomSnapVel.current = 0;
+        // Finger may have lifted mid-snap — finish via WAAPI (absorbs micro-gap).
         if (!isDragging()) snapOffsetsToBounds();
+        else if (Math.abs(nextZ - bound) > 1e-6) {
+          // Still dragging: micro-land zoom only (gap is ≤ stop distance).
+          writeHotPose({ zoom: bound, offsetX: nextX, offsetY: nextY });
+        }
         return;
       }
       zoomSnapRaf.current = requestAnimationFrame(tick);

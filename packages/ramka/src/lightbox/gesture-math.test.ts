@@ -801,7 +801,14 @@ describe('bakeSettlePath', () => {
       prev = pose.zoom;
     }
     // Crisp: visually settled in well under half a second of frames.
-    expect(baked!.path.length).toBeLessThan(30);
+    expect(baked!.path.length).toBeLessThan(40);
+    // No settle-frame teleport onto the bound (was a 2–4px edge hitch).
+    const last = baked!.path[baked!.path.length - 1]!;
+    expect(Math.abs(last.zoom - baked!.zoom)).toBeLessThan(0.002);
+    if (baked!.path.length >= 2) {
+      const penultimate = baked!.path[baked!.path.length - 2]!;
+      expect(Math.abs(penultimate.zoom - last.zoom)).toBeLessThan(0.05);
+    }
   });
 
   it('glides out-of-range offsets to rest together with the zoom return', () => {
@@ -812,6 +819,16 @@ describe('bakeSettlePath', () => {
     expect(baked!.offsetX).toBe(400);
     const last = baked!.path[baked!.path.length - 1]!;
     expect(last.offsetX).toBeCloseTo(400, 0);
+  });
+
+  it('rubber-band snap does not teleport the last few offset pixels', () => {
+    // Past +max (200 at zoom 2). The stop threshold used to snap ~0.6
+    // offset-px (= ~2.4 screen px at 4×) in one frame — a visible hitch.
+    const baked = bakeSettlePath({ ...base, zoom: 2, offsetX: 280, offsetY: 0 });
+    expect(baked).not.toBeNull();
+    expect(baked!.offsetX).toBe(200);
+    const last = baked!.path[baked!.path.length - 1]!;
+    expect(Math.abs(last.offsetX - baked!.offsetX)).toBeLessThan(0.1);
   });
 
   it('bakes a flick coast that slows under friction and stays in range', () => {
@@ -879,9 +896,9 @@ describe('bakeSettlePath', () => {
     // Long trajectory: duration far exceeds keyframe count at uniform 60Hz —
     // only explicit offsets can represent it.
     expect(baked!.durationMs).toBeGreaterThan((baked!.path.length + 1) * (1000 / 60));
-    // The final kept pose is the last sim frame, just before the rest pose.
+    // Final sim frame is within a sub-pixel of rest (no stop-threshold teleport).
     const last = baked!.path[baked!.path.length - 1]!;
-    expect(Math.abs(last.offsetX - baked!.offsetX)).toBeLessThan(2);
+    expect(Math.abs(last.offsetX - baked!.offsetX)).toBeLessThan(0.15);
     // Friction ordering survives decimation: early gaps outpace late gaps in
     // position-per-unit-time.
     const o = baked!.offsets;

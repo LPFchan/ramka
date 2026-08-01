@@ -527,13 +527,11 @@ function useZoomGestures(
       // Already finalized (e.g. document capture ran before the element bubble).
       if (!pointers.some((p) => p.pointerId === event.pointerId)) return;
 
-      // Pinch pair breaking (2→1 or 2→0): iOS starts the zoom rubber-band
-      // return the moment the pinch breaks. startZoomSnap is a rAF spring on
-      // the zoom *value* (never a WAAPI transform racing the pointer) that
-      // zooms out uniformly about the stage center — and it composes with
-      // the surviving finger's pan, which resumes after a single rebase
-      // sample. Finger owns offsets, spring owns zoom: the gesture never
-      // locks up, and the snap never warps toward the finger.
+      // Pinch pair breaking: iOS starts the zoom rubber-band the moment the
+      // pinch breaks. When one finger remains (2→1), that return must be a
+      // rAF spring on the zoom *value* — WAAPI would own the whole transform
+      // and fight the surviving finger's pan. On 2→0, skip rAF and let the
+      // full-release path below bake a WAAPI settle (compositor-owned).
       const leavingPinch =
         pointers.length >= 2 && pointers.some((p) => p.pointerId === event.pointerId);
       if (leavingPinch) {
@@ -542,10 +540,10 @@ function useZoomGestures(
         velocityTracker.current.length = 0;
       }
       clearPointer(event.pointerId);
-      if (leavingPinch) {
+      if (leavingPinch && activePointers.current.length === 1) {
         actionsRef.current.startZoomSnap();
         // Remaining finger can pan immediately after one rebase sample.
-        rebasePanAfterPinch.current = activePointers.current.length === 1;
+        rebasePanAfterPinch.current = true;
       }
 
       if (activePointers.current.length === 0) {

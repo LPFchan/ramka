@@ -5380,54 +5380,30 @@ describe('Lightbox', () => {
       expect(ref.current!.zoom).toBeLessThan(1);
       expect(content).not.toHaveAttribute('data-zoomed');
 
-      // The under-min return is a rAF spring (starts on the 2→1 breakup) —
-      // pump frames until it settles back at 1×. `data-zoomed` must stay off
-      // the whole way: the user never actually zoomed in.
-      {
-        const queue: FrameRequestCallback[] = [];
-        let now = 0;
-        const origRaf = globalThis.requestAnimationFrame;
-        const origCancel = globalThis.cancelAnimationFrame;
-        globalThis.requestAnimationFrame = ((cb: FrameRequestCallback) => {
-          queue.push(cb);
-          return queue.length;
-        }) as typeof requestAnimationFrame;
-        globalThis.cancelAnimationFrame = (() => {}) as typeof cancelAnimationFrame;
-        try {
-          act(() => {
-            dispatchPointer(img, 'pointerup', {
-              clientX: 190,
-              clientY: 200,
-              pointerId: 1,
-              pointerType: 'touch',
-            });
-            dispatchPointer(img, 'pointerup', {
-              clientX: 210,
-              clientY: 200,
-              pointerId: 2,
-              pointerType: 'touch',
-            });
-          });
-          act(() => {
-            for (let i = 0; i < 200 && queue.length > 0; i++) {
-              const cb = queue.shift()!;
-              now += 1000 / 60;
-              cb(now);
-            }
-          });
-        } finally {
-          globalThis.requestAnimationFrame = origRaf;
-          globalThis.cancelAnimationFrame = origCancel;
-        }
-      }
+      // 2→0 full release bakes a WAAPI settle (rAF zoom-snap is only for 2→1
+      // while a finger still pans). `data-zoomed` must stay off the whole way:
+      // the user never actually zoomed in.
+      act(() => {
+        dispatchPointer(img, 'pointerup', {
+          clientX: 190,
+          clientY: 200,
+          pointerId: 1,
+          pointerType: 'touch',
+        });
+        dispatchPointer(img, 'pointerup', {
+          clientX: 210,
+          clientY: 200,
+          pointerId: 2,
+          pointerType: 'touch',
+        });
+      });
+      expect(content).not.toHaveAttribute('data-zoomed');
+      expect(latest).toBeDefined();
+      act(() => {
+        latest?.onfinish?.call(latest as unknown as Animation, {} as AnimationPlaybackEvent);
+      });
 
       expect(ref.current!.zoom).toBe(1);
-      expect(content).not.toHaveAttribute('data-zoomed');
-      if (latest) {
-        act(() => {
-          latest?.onfinish?.call(latest as unknown as Animation, {} as AnimationPlaybackEvent);
-        });
-      }
       expect(content).not.toHaveAttribute('data-zoomed');
 
       if (hadAnimate) {

@@ -564,15 +564,14 @@ export function zoomSnapSeedVelocity(from: number, target: number): number {
   return (target - from) * Math.sqrt(ZOOM_SNAP_SPRING.stiffness);
 }
 /**
- * Settle thresholds — deliberately loose. Gestures are deferred while the
- * snap runs, so a strict tail is a felt input freeze: with tight thresholds
- * the spring was visually done ~80ms before it formally settled. These cut
- * the tail to ~0 at the cost of a ≤1% zoom-unit correction on the settle
- * frame (imperceptible — ~0.2% of scale at a typical 4× bound).
+ * Zoom-axis settle thresholds. Keep the distance tight: forcing the last
+ * sample onto the bound used to jump ~0.01 zoom units in one frame, which on
+ * a typical image edge is a visible 2–4px hitch. Pan can run concurrently
+ * with the live rAF snap, so a slightly longer spring tail is fine.
  */
-export const ZOOM_SNAP_STOP_SPEED = 0.25;
+export const ZOOM_SNAP_STOP_SPEED = 0.08;
 /** Settle when within this distance of the bound (zoom units). */
-export const ZOOM_SNAP_STOP_DISTANCE = 0.01;
+export const ZOOM_SNAP_STOP_DISTANCE = 0.001;
 
 // ---------------------------------------------------------------------------
 // Release-settle baking
@@ -705,7 +704,10 @@ export function bakeSettlePath(input: BakeSettleInput): BakedSettle | null {
         ZOOM_SNAP_STOP_DISTANCE,
       );
       vz = step.velocity;
-      z = step.settled ? bound : step.position;
+      // Keep the stepped pose — do not teleport to `bound`. Exact rest is the
+      // WAAPI final keyframe; snapping here made the last ~0.01 zoom units
+      // (often 2–4 screen px at the content edge) feel like a hard cut.
+      z = step.position;
       if (step.settled) {
         zoomActive = false;
         vz = 0;
@@ -731,9 +733,9 @@ export function bakeSettlePath(input: BakeSettleInput): BakedSettle | null {
       vx = next.vx;
       vy = next.vy;
       if (next.settled) {
-        const rest = restOffsetsAt(z, x, y);
-        x = rest.x;
-        y = rest.y;
+        // Leave (x, y) at the last integrated pose. Exact rest is the WAAPI
+        // final keyframe (`offsetX`/`offsetY` below) — overwriting here with
+        // rest duplicated the stop-threshold teleport into the path.
         panActive = false;
       }
     } else if (zPrev !== z) {
@@ -787,8 +789,12 @@ export const PAN_PHYSICS_STIFFNESS = PAN_PHYSICS_SPRING_MOUSE.stiffness;
 export const PAN_PHYSICS_DAMPING = PAN_PHYSICS_SPRING_MOUSE.damping;
 /** Settle when |velocity| is below this (offset px/s). */
 export const PAN_PHYSICS_STOP_SPEED = 12;
-/** Settle when within this distance of the bound while slow (offset px). */
-export const PAN_PHYSICS_STOP_DISTANCE = 0.6;
+/**
+ * Settle when within this distance of the bound while slow (offset-space px).
+ * Kept small: at 4× zoom, 0.6 offset-px was ~2.4px on screen — the spring
+ * looked smooth then jumped the last few pixels when the bake snapped to rest.
+ */
+export const PAN_PHYSICS_STOP_DISTANCE = 0.08;
 
 /**
  * Release velocity from recent pointer samples, in **offset-space** px/s.
@@ -888,7 +894,10 @@ export function stepPanPhysicsAxis(
     }
     const dist = Math.abs(x - target);
     if (Math.abs(v) < stopSpeed && dist < stopDistance) {
-      return { position: target, velocity: 0, settled: true };
+      // Keep the stepped pose — do not teleport to `target`. The bake's final
+      // WAAPI keyframe lands on exact rest; snapping here made the last
+      // 2–4 screen px (stopDistance × zoom) feel like a hard cut.
+      return { position: x, velocity: 0, settled: true };
     }
     return { position: x, velocity: v, settled: false };
   }
