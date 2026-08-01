@@ -1,10 +1,11 @@
 /**
- * Single owner of the zoom/pan visual transform.
+ * PoseEngine — single owner of the zoom/pan visual transform.
  *
  * React never writes `style.transform` while this controller is attached.
  * Tracking uses direct style writes; settle/discrete use WAAPI. Phase
  * transitions are explicit so gesture code cannot accidentally dual-drive
- * the same pixels.
+ * the same pixels. Commit/visual buses notify React chrome at safe boundaries
+ * only (not on every pointermove / release-before-settle).
  */
 
 export type PosePhase = 'idle' | 'tracking' | 'settling' | 'discrete';
