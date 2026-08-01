@@ -4,6 +4,7 @@ import { mergeProps, useRender } from '@base-ui/react';
 import * as React from 'react';
 
 import {
+  bakeSettlePath,
   clamp,
   clampOffsetToViewport,
   computeMaxZoom,
@@ -19,11 +20,12 @@ import {
   RUBBER_BAND_DIMENSION_FACTOR_MOUSE,
   rubberBandClamp,
   rubberBandPanDimension,
-  stepPanPhysics2D,
+  SETTLE_BAKE_DT,
   stepPanPhysicsAxis,
   ZOOM_SNAP_SPRING,
   ZOOM_SNAP_STOP_DISTANCE,
   ZOOM_SNAP_STOP_SPEED,
+  zoomSnapSeedVelocity,
   type PanPhysicsSpring,
 } from './gesture-math';
 import { triggerHaptic } from './haptics';
@@ -144,14 +146,6 @@ const DEFAULT_WHEEL_SENSITIVITY = 100;
 const DEFAULT_KEYBOARD_PAN = 50;
 const DEFAULT_DOUBLE_CLICK_DELAY = 300;
 const DEFAULT_ANIMATION_DURATION = 300;
-// Releasing a pinch past a zoom bound rubber-bands the scale back into range.
-// A firm, no-overshoot decelerate — matching the pull-to-dismiss snap-back's
-// serious, no-overflow feel. There is no release velocity to carry on a pinch,
-// so a strong ease-out is equivalent to a critically-damped spring here. An
-// overshoot would spring the scale *past* the min/max bound (a zoom overflow),
-// which is exactly what we avoid.
-const ZOOM_SNAP_OPTS = { duration: 260, easing: 'cubic-bezier(0.22, 1, 0.36, 1)' } as const;
-
 /** Uniform scale from a computed `transform` (WAAPI mid-flight or resting). */
 function uniformScaleFromTransform(transform: string): number | null {
   if (!transform || transform === 'none') return null;
@@ -396,7 +390,7 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
       captureStart: captureStartRaw,
       cancel: cancelZoomAnimationRaw,
       isAnimating,
-      getIsAnimating,
+      getIsDiscreteAnimating,
     } = useZoomAnimation(zoom, offsetX, offsetY, wrapperRef, DEFAULT_ANIMATION_DURATION);
 
     // Queue follow-up double-taps until the current discrete WAAPI settles.
@@ -444,39 +438,33 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
 
     const whenZoomAnimationSettled = React.useCallback(
       (cb: () => void) => {
-        if (!getIsAnimating()) {
+        // Only *discrete* zooms defer follow-ups. A baked settle (coast /
+        // snap-back) is interruptible: run now — the callback's captureStart
+        // samples the live mid-settle pose and takes over continuously.
+        if (!getIsDiscreteAnimating()) {
           cb();
           return;
         }
         // Latest follow-up wins — don't stack toggles behind one anim.
         zoomAnimSettleWaitersRef.current = [cb];
       },
-      [getIsAnimating],
+      [getIsDiscreteAnimating],
     );
 
-    // rAF 2D scroll physics (friction coast + spring bounce). Not WAAPI.
-    const panPhysicsRafRef = React.useRef<number | null>(null);
-    const panPhysicsLastTsRef = React.useRef(0);
-    const panVelRef = React.useRef({ vx: 0, vy: 0 });
     const reducedMotionPan =
       typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-    const stopPanPhysics = React.useCallback(() => {
-      if (panPhysicsRafRef.current != null) {
-        cancelAnimationFrame(panPhysicsRafRef.current);
-        panPhysicsRafRef.current = null;
-      }
-      panPhysicsLastTsRef.current = 0;
-      panVelRef.current = { vx: 0, vy: 0 };
-    }, []);
+    /**
+     * Catch a baked settle animation (coast / bounce / bound snap-back) at its
+     * live pose — like putting a finger on a coasting scroll view. Discrete
+     * zoom transitions are NOT caught here; gesture gates defer input while
+     * those play.
+     */
+    const catchSettle = React.useCallback(() => {
+      if (!getIsDiscreteAnimating()) cancelZoomAnimation();
+    }, [getIsDiscreteAnimating, cancelZoomAnimation]);
 
-    React.useEffect(
-      () => () => {
-        stopPanPhysics();
-        stopZoomSnap();
-      },
-      [stopPanPhysics, stopZoomSnap],
-    );
+    React.useEffect(() => () => stopZoomSnap(), [stopZoomSnap]);
 
     // ----- Sync data-zoomed + --lightbox-zoom-progress on Content -----
     // Only the active slide writes these, so they have a single writer and
@@ -560,8 +548,8 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
 
     const changeOffsetsAction = React.useCallback(
       (dx: number, dy: number, overscroll?: boolean, overflowAxesOnly?: boolean) => {
-        stopPanPhysics();
-        // Live pan takes over any discrete zoom WAAPI.
+        // Live pan takes over any in-flight WAAPI (settle or discrete) at the
+        // live pose.
         cancelZoomAnimation();
         const z = zoomRef.current;
         const geo = measurePanGeometry(z);
@@ -624,12 +612,11 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
           setOffsetY(finalY);
         }
       },
-      [clampOffsets, measurePanGeometry, stopPanPhysics, cancelZoomAnimation],
+      [clampOffsets, measurePanGeometry, cancelZoomAnimation],
     );
 
     const changeZoomAction = React.useCallback(
       (target: number, rapid: boolean, dx?: number, dy?: number, overscroll?: boolean) => {
-        stopPanPhysics();
         // A live pinch / wheel / discrete zoom takes zoom ownership from any
         // in-flight bound snap-back.
         stopZoomSnap();
@@ -691,7 +678,6 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
         captureStart,
         cancelZoomAnimation,
         measurePanGeometry,
-        stopPanPhysics,
         stopZoomSnap,
       ],
     );
@@ -721,128 +707,153 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
       [minZoom, captureStart, stopZoomSnap],
     );
 
-    const snapToBoundsAction = React.useCallback(() => {
-      // The rAF snap-back is already carrying zoom to the bound (and composes
-      // with any live pan) — starting a WAAPI on the same transform would
-      // fight it. Let it finish.
-      if (zoomSnapRafRef.current != null) return;
-      const currentZoom = zoomRef.current;
-      if (currentZoom >= minZoom && currentZoom <= maxZoom) return;
-      // Offsets are re-clamped below — invalidate the elastic pan accumulator.
-      isElasticDrag.current = false;
-      // The gesture was released past a zoom bound — mirror iOS's light
-      // rubber-band tick as the scale snaps back into range.
-      triggerHaptic('snap');
-      captureStart(ZOOM_SNAP_OPTS);
-      const snapped = clamp(currentZoom, minZoom, maxZoom);
-      const offsets = clampOffsets(offsetXRef.current, offsetYRef.current, snapped);
-      // Keep the sync reader aligned before later same-turn callers (e.g.
-      // pinch-release momentum) read getZoom().
-      zoomRef.current = snapped;
-      offsetXRef.current = offsets.x;
-      offsetYRef.current = offsets.y;
-      setZoom(snapped);
-      setOffsetX(offsets.x);
-      setOffsetY(offsets.y);
-    }, [minZoom, maxZoom, clampOffsets, captureStart]);
-
     /**
-     * Native-like 2D scroll physics: friction coast inside bounds, spring bounce
-     * past edges. Driven by rAF — not WAAPI keyframes.
+     * Release-settle: bake the entire remaining trajectory — flick coast, edge
+     * bounce, zoom bound snap-back and offset glide, jointly — and play it as
+     * linear WAAPI keyframes on the compositor. This is what keeps post-release
+     * motion smooth under a busy main thread and in iOS Low Power Mode, which
+     * throttles rAF to ~30fps while compositor animations keep native refresh.
+     *
+     * An in-flight rAF zoom snap (started at a 2→1 pinch breakup, composing
+     * with the live finger) is absorbed: its current spring velocity carries
+     * into the bake, so the handoff at final release is seamless. The result
+     * is fully interruptible — a new gesture cancels the WAAPI and takes over
+     * at the exact live pose recovered from the baked trajectory.
      *
      * @param vx Offset-space px/s
      * @param vy Offset-space px/s
      * @param spring Mouse vs touch return feel (touch is softer).
-     * @returns `true` when a simulation was started (or instantly settled).
+     * @returns `true` when a settle started (or instantly committed).
      */
     const startPanPhysicsAction = React.useCallback(
       (vx: number, vy: number, spring: PanPhysicsSpring = PAN_PHYSICS_SPRING_MOUSE): boolean => {
-        stopPanPhysics();
+        // Measure once — the settle plays on a static layout, so geometry is
+        // pure math over cached rects for the whole bake.
+        const stage = containerRef.current?.getBoundingClientRect() ?? null;
+        if (!stage) return false;
+        const panViewportEl = stageElementRef.current ?? dialogElementRef.current;
+        const viewport = panViewportEl?.getBoundingClientRect() ?? stage;
+        const { w: contentW, h: contentH } = resolveContentSize(stage);
+        const cx = stage.left + stage.width / 2;
+        const cy = stage.top + stage.height / 2;
+        const geometryAt = (z: number) => ({
+          x: panOffsetRange(contentW, z, viewport.left, viewport.right, cx, minZoom),
+          y: panOffsetRange(contentH, z, viewport.top, viewport.bottom, cy, minZoom),
+        });
+        const restOffsetsAt = (z: number, ox: number, oy: number) =>
+          clampOffsetToViewport(ox, oy, contentW, contentH, z, viewport, stage, minZoom);
+
+        // Quick reject on the committed pose. Important: a release with
+        // nothing to simulate (pinch release with v≈0, everything in range)
+        // must NOT cancel a settle WAAPI that may still be flying.
+        const snappingLive = zoomSnapRafRef.current != null;
+        {
+          const z0 = zoomRef.current;
+          const g0 = geometryAt(z0);
+          const zoomAtRest = z0 >= minZoom && z0 <= maxZoom;
+          const outX = offsetXRef.current < g0.x.min || offsetXRef.current > g0.x.max;
+          const outY = offsetYRef.current < g0.y.min || offsetYRef.current > g0.y.max;
+          // Letterboxed axes don't coast — only spring home if already out.
+          const speed = Math.hypot(
+            g0.x.overflows || outX ? vx : 0,
+            g0.y.overflows || outY ? vy : 0,
+          );
+          if (!snappingLive && zoomAtRest && !outX && !outY && speed < PAN_PHYSICS_STOP_SPEED) {
+            return false;
+          }
+        }
+
+        // Absorb a live rAF zoom snap — carry its spring velocity into the
+        // bake so the value animation continues without a kink.
+        let vz: number | undefined;
+        if (snappingLive) {
+          vz = zoomSnapVelRef.current;
+          stopZoomSnap();
+        }
+        // Commit the live pose of any in-flight WAAPI so the bake starts from
+        // exactly what's on screen.
+        cancelZoomAnimation();
         isElasticDrag.current = false;
 
         const z = zoomRef.current;
-        const geo = measurePanGeometry(z);
-        if (!geo) return false;
-
-        let x = offsetXRef.current;
-        let y = offsetYRef.current;
-        let velX = vx;
-        let velY = vy;
-        const outX = x < geo.x.min || x > geo.x.max;
-        const outY = y < geo.y.min || y > geo.y.max;
-        // Letterboxed axes don't coast — only spring home if already past rest.
-        if (!geo.x.overflows && !outX) velX = 0;
-        if (!geo.y.overflows && !outY) velY = 0;
-
-        const speed = Math.hypot(velX, velY);
-        // Important: do not cancel an in-flight zoom snap WAAPI when there is
-        // nothing to simulate (common after pinch-release with v≈0 in-bounds).
-        if (!outX && !outY && speed < PAN_PHYSICS_STOP_SPEED) return false;
-
-        cancelZoomAnimation();
+        const bound = clamp(z, minZoom, maxZoom);
+        const freshZoomReturn = vz === undefined && Math.abs(z - bound) > 1e-6;
 
         if (reducedMotionPan) {
-          const clamped = clampOffsets(x, y, z);
-          setOffsetX(clamped.x);
-          setOffsetY(clamped.y);
+          const rest = restOffsetsAt(bound, offsetXRef.current, offsetYRef.current);
+          zoomRef.current = bound;
+          offsetXRef.current = rest.x;
+          offsetYRef.current = rest.y;
+          setZoom(bound);
+          setOffsetX(rest.x);
+          setOffsetY(rest.y);
           return true;
         }
 
-        panVelRef.current = { vx: velX, vy: velY };
+        const baked = bakeSettlePath({
+          zoom: z,
+          minZoom,
+          maxZoom,
+          vz,
+          offsetX: offsetXRef.current,
+          offsetY: offsetYRef.current,
+          vx,
+          vy,
+          panSpring: spring,
+          geometryAt,
+          restOffsetsAt,
+        });
+        // Nothing left to animate — the live pose (already committed) is rest.
+        if (!baked) return false;
 
-        const tick = (ts: number) => {
-          const prev = panPhysicsLastTsRef.current;
-          panPhysicsLastTsRef.current = ts;
-          let dt = prev > 0 ? (ts - prev) / 1000 : 1 / 60;
-          if (dt > 0.048) dt = 1 / 60;
+        // Mirror iOS's light rubber-band tick as the scale starts returning —
+        // unless carried from the live rAF snap, which ticked at the breakup.
+        if (freshZoomReturn) triggerHaptic('snap');
 
-          const g = measurePanGeometry(zoomRef.current);
-          if (!g) {
-            panPhysicsRafRef.current = null;
-            return;
-          }
-
-          const next = stepPanPhysics2D(
-            {
-              x: offsetXRef.current,
-              y: offsetYRef.current,
-              vx: panVelRef.current.vx,
-              vy: panVelRef.current.vy,
-            },
-            g.x,
-            g.y,
-            g.x.overflows,
-            g.y.overflows,
-            dt,
-            spring,
-          );
-          panVelRef.current = { vx: next.vx, vy: next.vy };
-          offsetXRef.current = next.x;
-          offsetYRef.current = next.y;
-          setOffsetX(next.x);
-          setOffsetY(next.y);
-
-          if (next.settled) {
-            const clamped = clampOffsets(next.x, next.y, zoomRef.current);
-            offsetXRef.current = clamped.x;
-            offsetYRef.current = clamped.y;
-            setOffsetX(clamped.x);
-            setOffsetY(clamped.y);
-            panPhysicsRafRef.current = null;
-            panPhysicsLastTsRef.current = 0;
-            panVelRef.current = { vx: 0, vy: 0 };
-            return;
-          }
-
-          panPhysicsRafRef.current = requestAnimationFrame(tick);
-        };
-
-        panPhysicsLastTsRef.current = 0;
-        panPhysicsRafRef.current = requestAnimationFrame(tick);
+        captureStart({
+          kind: 'settle',
+          path: baked.path,
+          // Keyframes: captured live pose + path + committed rest pose, one
+          // fixed bake step per interval.
+          duration: (baked.path.length + 1) * SETTLE_BAKE_DT * 1000,
+        });
+        // Commit the rest pose; WAAPI plays the trajectory over it. Eager ref
+        // sync keeps same-turn readers (pinch arming, wheel) on the rest pose.
+        zoomRef.current = baked.zoom;
+        offsetXRef.current = baked.offsetX;
+        offsetYRef.current = baked.offsetY;
+        setZoom(baked.zoom);
+        setOffsetX(baked.offsetX);
+        setOffsetY(baked.offsetY);
         return true;
       },
-      [stopPanPhysics, cancelZoomAnimation, measurePanGeometry, clampOffsets, reducedMotionPan],
+      [
+        minZoom,
+        maxZoom,
+        resolveContentSize,
+        dialogElementRef,
+        stageElementRef,
+        stopZoomSnap,
+        cancelZoomAnimation,
+        captureStart,
+        reducedMotionPan,
+      ],
     );
+
+    /**
+     * Return an out-of-bounds zoom to range. While a finger still composes the
+     * live rAF snap (2→1 pan), let it run — the final release upgrades it to a
+     * baked settle. Otherwise route through the settle baker so zoom and
+     * offsets land together on the compositor.
+     */
+    const snapToBoundsAction = React.useCallback(() => {
+      if (zoomSnapRafRef.current != null && draggingRef.current) return;
+      const currentZoom = zoomRef.current;
+      if (zoomSnapRafRef.current == null && currentZoom >= minZoom && currentZoom <= maxZoom) {
+        return;
+      }
+      startPanPhysicsAction(0, 0);
+    }, [minZoom, maxZoom, startPanPhysicsAction]);
 
     /** @returns `true` when offsets were past bounds and a spring-back started. */
     const snapOffsetsToBoundsAction = React.useCallback((): boolean => {
@@ -898,7 +909,10 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
         return true;
       }
 
-      zoomSnapVelRef.current = 0;
+      // Seed at -ω·x₀ so the critically damped spring becomes pure exponential
+      // decay — max velocity at release (crisp, iOS ease-out), no overshoot.
+      // From rest the same spring eases in for ~40ms, which reads as lazy.
+      zoomSnapVelRef.current = zoomSnapSeedVelocity(from, target);
 
       const tick = (ts: number) => {
         const prev = zoomSnapLastTsRef.current;
@@ -920,14 +934,13 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
         zoomSnapVelRef.current = step.velocity;
         const nextZ = step.settled ? bound : step.position;
 
-        // Offsets: hands off while a finger drags or pan physics coasts —
-        // those already handle ranges at the animating zoom (rubber-band /
-        // per-tick re-measure), and a held overscroll is legit gesture state.
-        // Otherwise glide offsets toward their clamped rest pose at the
-        // bound by the fraction of remaining zoom distance this frame
-        // covered — both settle together, as one motion. The rest pose is
-        // re-derived per frame so it can never go stale.
-        const offsetsOwned = draggingRef.current || panPhysicsRafRef.current != null;
+        // Offsets: hands off while a finger drags — the finger owns them
+        // (rubber-band handles ranges at the animating zoom), and a held
+        // overscroll is legit gesture state. Otherwise glide offsets toward
+        // their clamped rest pose at the bound by the fraction of remaining
+        // zoom distance this frame covered — both settle together, as one
+        // motion. The rest pose is re-derived per frame so it can't go stale.
+        const offsetsOwned = draggingRef.current;
         if (!offsetsOwned) {
           const rest = clampOffsets(offsetXRef.current, offsetYRef.current, bound);
           if (rest.x !== offsetXRef.current || rest.y !== offsetYRef.current) {
@@ -950,8 +963,8 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
           zoomSnapLastTsRef.current = 0;
           zoomSnapVelRef.current = 0;
           // Safety: land offsets in range at the final zoom, unless a live
-          // finger or coast owns them (their own release/settle re-clamps).
-          if (!draggingRef.current && panPhysicsRafRef.current == null) {
+          // finger owns them (its own release re-clamps).
+          if (!draggingRef.current) {
             snapOffsetsToBoundsAction();
           }
           return;
@@ -1000,9 +1013,9 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
         startZoomSnap: startZoomSnapAction,
         stopZoomSnap,
         isZoomSnapActive,
-        stopPanPhysics,
+        catchSettle,
         cancelZoomAnimation,
-        isZoomAnimating: getIsAnimating,
+        isZoomAnimating: getIsDiscreteAnimating,
         whenZoomAnimationSettled,
       }),
       [
@@ -1017,9 +1030,9 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
         startZoomSnapAction,
         stopZoomSnap,
         isZoomSnapActive,
-        stopPanPhysics,
+        catchSettle,
         cancelZoomAnimation,
-        getIsAnimating,
+        getIsDiscreteAnimating,
         whenZoomAnimationSettled,
       ],
     );

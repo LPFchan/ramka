@@ -4587,12 +4587,37 @@ describe('Lightbox', () => {
           });
         });
 
-        it('lets a new pinch take over the under-min snap-back mid-flight (no freeze between pinch-ins)', () => {
+        it('lets a new pinch take over the under-min settle mid-flight (no freeze between pinch-ins)', () => {
           withViewport(() => {
             const ref = React.createRef<LightboxZoomRef>();
             renderZoomPan(ref);
             const img = screen.getByTestId('zoom-img');
             setupOverflowGeometry(img);
+
+            // Hold the baked settle WAAPI open with a scrubbable clock.
+            const held: Array<{
+              cancel: ReturnType<typeof vi.fn>;
+              onfinish: (() => void) | null;
+              currentTime: number;
+              duration: number;
+            }> = [];
+            Element.prototype.animate = vi.fn(
+              (_keyframes: unknown, opts?: number | KeyframeAnimationOptions) => {
+                const anim = {
+                  finished: new Promise<void>(() => {}),
+                  cancel: vi.fn(),
+                  play: vi.fn(),
+                  pause: vi.fn(),
+                  onfinish: null as (() => void) | null,
+                  oncancel: null as (() => void) | null,
+                  commitStyles: vi.fn(),
+                  currentTime: 0,
+                  duration: typeof opts === 'object' ? Number(opts?.duration ?? 0) : Number(opts ?? 0),
+                };
+                held.push(anim);
+                return anim;
+              },
+            ) as unknown as typeof Element.prototype.animate;
 
             // Pinch in past minZoom (elastic under-zoom).
             act(() => {
@@ -4626,9 +4651,9 @@ describe('Lightbox', () => {
             const elastic = ref.current!.zoom;
             expect(elastic).toBeLessThan(1);
 
-            // Release both fingers, then pump only a few frames — the rAF
-            // spring is mid-flight, carrying zoom back up toward 1×.
-            withPanPhysicsFlush(() => {
+            // Release both fingers: the snap-back bakes into a compositor
+            // settle animation and the rest pose (1×) commits immediately.
+            act(() => {
               dispatchPointer(img, 'pointerup', {
                 clientX: 180,
                 clientY: 200,
@@ -4641,14 +4666,15 @@ describe('Lightbox', () => {
                 pointerId: 2,
                 pointerType: 'touch',
               });
-            }, 4);
-            const mid = ref.current!.zoom;
-            expect(mid).toBeGreaterThan(elastic);
-            expect(mid).toBeLessThan(1);
+            });
+            expect(ref.current!.zoom).toBe(1);
+            const settleAnim = held[held.length - 1]!;
+            expect(settleAnim.duration).toBeGreaterThan(0);
 
-            // Immediate second pinch while the snap-back is still in flight —
-            // it must take zoom ownership at the mid-snap value: no jump to
-            // 1× on the downs, and the pinch scales from `mid`, not from 1.
+            // Scrub the settle mid-flight, then pinch again — the downs must
+            // catch it at the LIVE pose recovered from the baked trajectory
+            // (no jump to 1×), and the pinch scales from there.
+            settleAnim.currentTime = settleAnim.duration / 2;
             act(() => {
               dispatchPointer(img, 'pointerdown', {
                 clientX: 100,
@@ -4665,7 +4691,9 @@ describe('Lightbox', () => {
                 isPrimary: false,
               });
             });
-            expect(ref.current!.zoom).toBeCloseTo(mid, 5);
+            const mid = ref.current!.zoom;
+            expect(mid).toBeGreaterThan(elastic);
+            expect(mid).toBeLessThan(1);
 
             act(() => {
               dispatchPointer(img, 'pointermove', {

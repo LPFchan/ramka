@@ -5,6 +5,7 @@ import {
   ELASTIC_FACTOR,
   RUBBER_BAND_CONSTANT,
   RUBBER_BAND_DIMENSION_FACTOR,
+  bakeSettlePath,
   clamp,
   clampOffset,
   clampOffsetToViewport,
@@ -760,5 +761,80 @@ describe('springEasingLinear', () => {
 
   it('honors the requested sample count', () => {
     expect(parseLinearStops(springEasingLinear(0, 1, 6, 24))).toHaveLength(24);
+  });
+});
+
+describe('bakeSettlePath', () => {
+  // Content overflows the viewport by ±100px on x, letterboxed on y.
+  const geometryAt = (zoom: number) => ({
+    x: { min: -100 * zoom, max: 100 * zoom, overflows: true },
+    y: { min: 0, max: 0, overflows: false },
+  });
+  const restOffsetsAt = (zoom: number, x: number, y: number) => {
+    const g = geometryAt(zoom);
+    return { x: clamp(x, g.x.min, g.x.max), y: clamp(y, g.y.min, g.y.max) };
+  };
+  const base = {
+    minZoom: 1,
+    maxZoom: 4,
+    vx: 0,
+    vy: 0,
+    panSpring: { stiffness: 480, damping: 44 },
+    geometryAt,
+    restOffsetsAt,
+  };
+
+  it('returns null when everything is at rest', () => {
+    expect(bakeSettlePath({ ...base, zoom: 2, offsetX: 50, offsetY: 0 })).toBeNull();
+  });
+
+  it('bakes an out-of-bounds zoom monotonically back to the bound', () => {
+    const baked = bakeSettlePath({ ...base, zoom: 6, offsetX: 0, offsetY: 0 });
+    expect(baked).not.toBeNull();
+    expect(baked!.zoom).toBe(4);
+    expect(baked!.path.length).toBeGreaterThan(3);
+    // Ease-out exponential: strictly decreasing, never dipping below the bound.
+    let prev = 6;
+    for (const pose of baked!.path) {
+      expect(pose.zoom).toBeLessThan(prev);
+      expect(pose.zoom).toBeGreaterThanOrEqual(4 - 1e-6);
+      prev = pose.zoom;
+    }
+    // Crisp: visually settled in well under half a second of frames.
+    expect(baked!.path.length).toBeLessThan(30);
+  });
+
+  it('glides out-of-range offsets to rest together with the zoom return', () => {
+    // At 6× offsets up to 600 are legal; at the 4× bound only 400 is. The
+    // held overscroll must glide home as the scale returns — one motion.
+    const baked = bakeSettlePath({ ...base, zoom: 6, offsetX: 600, offsetY: 0 });
+    expect(baked).not.toBeNull();
+    expect(baked!.offsetX).toBe(400);
+    const last = baked!.path[baked!.path.length - 1]!;
+    expect(last.offsetX).toBeCloseTo(400, 0);
+  });
+
+  it('bakes a flick coast that slows under friction and stays in range', () => {
+    const baked = bakeSettlePath({ ...base, zoom: 2, offsetX: 0, offsetY: 0, vx: 800 });
+    expect(baked).not.toBeNull();
+    // Coasts in the flick direction and lands clamped.
+    expect(baked!.offsetX).toBeGreaterThan(0);
+    expect(baked!.offsetX).toBeLessThanOrEqual(200);
+    // Per-frame deltas shrink over time (friction), ignoring the settle snap.
+    const deltas = baked!.path.slice(1).map((p, i) => p.offsetX - baked!.path[i]!.offsetX);
+    expect(deltas[0]!).toBeGreaterThan(deltas[Math.floor(deltas.length / 2)]!);
+  });
+
+  it('carries an injected zoom velocity instead of re-seeding', () => {
+    // A near-zero carried velocity (interrupted rAF snap at its start) must
+    // ease in from that state, not restart at the full exponential seed.
+    const carried = bakeSettlePath({ ...base, zoom: 6, offsetX: 0, offsetY: 0, vz: -1 });
+    const seeded = bakeSettlePath({ ...base, zoom: 6, offsetX: 0, offsetY: 0 });
+    expect(carried!.path[0]!.zoom).toBeGreaterThan(seeded!.path[0]!.zoom);
+  });
+
+  it('does not coast a letterboxed axis', () => {
+    const baked = bakeSettlePath({ ...base, zoom: 2, offsetX: 0, offsetY: 0, vy: 900 });
+    expect(baked).toBeNull();
   });
 });

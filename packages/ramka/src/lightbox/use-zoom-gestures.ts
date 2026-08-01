@@ -41,13 +41,19 @@ interface ZoomGestureActions {
    */
   changeOffsets: (dx: number, dy: number, overscroll?: boolean, overflowAxesOnly?: boolean) => void;
   setDragging: (dragging: boolean) => void;
+  /**
+   * Return an out-of-bounds zoom to range as a baked compositor settle.
+   * No-ops while the live rAF snap still composes with a dragging finger
+   * (the final release upgrades it), and when everything is at rest.
+   */
   snapToBounds: () => void;
-  /** Spring pan offsets into range (rAF physics). Returns `true` when started. */
+  /** Settle pan offsets into range (baked WAAPI). Returns `true` when started. */
   snapOffsetsToBounds: () => boolean;
   /**
-   * Start 2D coast/bounce physics from release velocity (offset-space px/s).
-   * Also springs home when already past bounds with near-zero velocity.
-   * `touch` selects the softer mobile overscroll spring.
+   * Release settle from flick velocity (offset-space px/s): coast, edge
+   * bounce, zoom bound snap-back and offset glide baked jointly into
+   * compositor keyframes. Absorbs an in-flight rAF zoom snap (velocity
+   * carries over). `touch` selects the softer mobile overscroll spring.
    */
   momentumPan: (vx: number, vy: number, touch?: boolean) => boolean;
   /**
@@ -64,11 +70,15 @@ interface ZoomGestureActions {
   stopZoomSnap: () => void;
   /** True while the rAF zoom snap-back is carrying zoom to a bound. */
   isZoomSnapActive: () => boolean;
-  /** Cancel in-flight pan physics (e.g. new pointer down). */
-  stopPanPhysics: () => void;
+  /**
+   * Catch a baked settle animation (coast / bounce / snap-back) at its live
+   * pose — a finger landing on a coasting image stops it, like iOS. No-ops
+   * while a discrete zoom plays (those defer gestures instead).
+   */
+  catchSettle: () => void;
   /** Cancel in-flight discrete zoom WAAPI so a live pinch/pan can take over. */
   cancelZoomAnimation: () => void;
-  /** True while a discrete zoom WAAPI (double-tap / bound snap) is playing. */
+  /** True while a *discrete* zoom WAAPI (double-tap / keyboard) is playing. */
   isZoomAnimating: () => boolean;
   /**
    * Run `cb` now if idle; otherwise after the current discrete WAAPI settles.
@@ -203,8 +213,8 @@ function useZoomGestures(
     // Elastic overshoot can outlive the pinch flags (held through a 2→1 pan
     // handoff) — if the gesture is stolen while zoom is out of bounds, snap
     // now; the final pointerup that would normally do it may never arrive.
-    // (When the rAF zoom snap-back is already running, snapToBounds no-ops
-    // and the snap simply finishes on its own.)
+    // (A running rAF zoom snap-back is upgraded to the baked settle by
+    // snapToBounds once dragging is cleared below.)
     const { minZoom, maxZoom } = configRef.current;
     const currentZoom = actionsRef.current.getZoom();
     const zoomOutOfBounds = currentZoom < minZoom || currentZoom > maxZoom;
@@ -223,12 +233,15 @@ function useZoomGestures(
     lastTapPos.current = null;
     lastPointerDown.current = 0;
     velocityTracker.current.length = 0;
-    if (needsSnap) {
-      actionsRef.current.snapToBounds();
-    }
+    // Clear dragging BEFORE snapping — snapToBounds lets a live rAF snap keep
+    // running under a dragging finger, but this gesture is dead: the snap must
+    // upgrade to a baked settle now.
     if (hadZoomGesture) {
       actionsRef.current.setDragging(false);
       setZooming(false);
+    }
+    if (needsSnap) {
+      actionsRef.current.snapToBounds();
     }
   }, [setZooming]);
 
@@ -299,7 +312,10 @@ function useZoomGestures(
 
       if (zoom > 1) {
         event.stopPropagation();
-        actionsRef.current.stopPanPhysics();
+        // A finger landing on a coasting/settling image catches it at the
+        // live pose (iOS behavior). Discrete zooms are not caught — gates
+        // below defer input while those play.
+        actionsRef.current.catchSettle();
         actionsRef.current.setDragging(true);
         setZooming(true);
       }
@@ -350,11 +366,13 @@ function useZoomGestures(
         tapStartPos.current = null;
         pendingDoubleTap.current = false;
         doubleTapFocal.current = null;
-        // A discrete zoom WAAPI (double-tap / bound snap / reset) owns the
+        // A discrete zoom WAAPI (double-tap / keyboard / reset) owns the
         // transform — never arm a pinch against it mid-flight: tearing the
         // animation reads as a jump. Queue the arm instead — if both fingers
         // are still down when the animation settles, the pinch starts then,
         // anchored at the settled zoom and the fingers' fresh positions.
+        // (Baked release settles are not discrete: cancelZoomAnimation below
+        // catches them at the live pose and the pinch arms immediately.)
         if (actionsRef.current.isZoomAnimating()) {
           actionsRef.current.whenZoomAnimationSettled(() => {
             const pts = activePointers.current;
@@ -582,39 +600,34 @@ function useZoomGestures(
         tapCandidate.current = false;
         tapStartPos.current = null;
         actionsRef.current.setDragging(false);
-        // Final-release zoom snap. Usually the rAF snap-back from the 2→1
-        // breakup is already carrying zoom home (snapToBounds no-ops while it
-        // runs). Zoom can still be out of bounds here WITHOUT the rAF snap —
-        // e.g. a pan froze a discrete bound-snap WAAPI at a still-elastic
-        // pose — so snap on release either way; safe no-op when in range.
+        // Final release: everything left is deterministic physics. momentumPan
+        // bakes the WHOLE settle — flick coast, edge bounce, zoom bound
+        // snap-back and offset glide, jointly — into compositor keyframes,
+        // absorbing an in-flight rAF zoom snap (its spring velocity carries
+        // over). Pure pinch release (no post-pinch pan handoff) keeps wasPinch
+        // and must not seed a flick from pinch finger motion; after a 2→1 pan,
+        // hadPinch was cleared so tracker velocity is used and the flick
+        // glides while the scale returns — one baked motion, like iOS.
+        hadPinch.current = false;
         const { minZoom, maxZoom } = configRef.current;
-        const preSnapZoom = actionsRef.current.getZoom();
-        const zoomOutOfBounds = preSnapZoom < minZoom || preSnapZoom > maxZoom;
-        if (wasPinch || zoomOutOfBounds) {
-          hadPinch.current = false;
-          actionsRef.current.snapToBounds();
-        }
-        // Pan release: one rAF physics sim — friction coast, spring bounce at
-        // edges, and overscroll spring-back (including zero-velocity release).
-        // Pure pinch release (no post-pinch pan handoff) keeps wasPinch and
-        // skips coast — only spring home if past bounds. After a 2→1 pan,
-        // hadPinch was cleared so flick velocity from the tracker is used.
-        // Suppress flick only when a WAAPI bound snap just fired (momentum
-        // would cancel it) — the rAF zoom snap composes with pan coast, so a
-        // flick released mid-snap still glides while the scale returns.
-        const snappingZoom = actionsRef.current.isZoomSnapActive();
+        const releaseZoom = actionsRef.current.getZoom();
+        const zoomOutOfBounds = releaseZoom < minZoom || releaseZoom > maxZoom;
         const tracker = velocityTracker.current;
-        const zoom = actionsRef.current.getZoom();
-        if (zoom > 1) {
+        if (releaseZoom > 1 || zoomOutOfBounds) {
           const touch = event.pointerType === 'touch';
-          const vel = wasPinch || (zoomOutOfBounds && !snappingZoom)
+          const vel = wasPinch
             ? null
-            : computeMomentumVelocity(tracker, zoom, MOMENTUM_THRESHOLD);
+            : computeMomentumVelocity(tracker, releaseZoom, MOMENTUM_THRESHOLD);
           if (actionsRef.current.momentumPan(vel?.vx ?? 0, vel?.vy ?? 0, touch)) {
             tracker.length = 0;
             setZooming(false);
             return;
           }
+        }
+        // Safety net for the no-motion cases momentumPan rejected (e.g. an
+        // out-of-bounds pose without velocity) — no-op when at rest.
+        if (wasPinch || zoomOutOfBounds) {
+          actionsRef.current.snapToBounds();
         }
         tracker.length = 0;
         // Clear zooming flag (delayed to cover snap-back animation)
@@ -646,10 +659,12 @@ function useZoomGestures(
       const { getZoom, changeZoom, changeOffsets } = actionsRef.current;
       const zoom = getZoom();
 
-      // A discrete zoom WAAPI (double-click zoom / bound snap) owns the
+      // A discrete zoom WAAPI (double-click / keyboard zoom) owns the
       // transform — wheel zoom or pan against it would cancel it at a stale
       // base and read as a freeze/jump. Swallow all wheel input until it
-      // settles. Only preventDefault when the listener is non-passive (see
+      // settles. (Baked release settles are NOT gated here: wheel input
+      // catches those at the live pose via changeZoom/changeOffsets.) Only
+      // preventDefault when the listener is non-passive (see
       // needsNonPassiveWheel) to avoid Safari passive-listener warnings.
       if (actionsRef.current.isZoomAnimating()) {
         if (!hasSafariGesturesRef.current || zoom > 1 || scrollToZoom) {

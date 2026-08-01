@@ -539,13 +539,30 @@ export const PAN_PHYSICS_SPRING_TOUCH: PanPhysicsSpring = {
  * Zoom bound snap-back spring (rAF-stepped, in zoom units). Runs as a *value*
  * animation on zoom that composes with a live pan on the surviving finger —
  * never a WAAPI transform racing the pointer. Stiffer than the touch pan
- * spring: iOS's pinch rubber-band return is brisk (~300ms) even while the
+ * spring: iOS's pinch rubber-band return is brisk (~200ms) even while the
  * remaining finger keeps panning.
+ *
+ * The snap seeds its initial velocity at -ω·x₀ (see zoomSnapSeedVelocity),
+ * which turns the critically damped response into pure exponential decay
+ * x(t) = x₀·e^(-ωt) — an ease-OUT: fastest exactly at release, asymptotic
+ * landing, and overshoot is impossible (velocity never changes sign). From
+ * rest the same spring is an ease-in-out — velocity peaks only at t = 1/ω
+ * (~40ms), a visible hesitation right at release that reads as lazy.
  */
 export const ZOOM_SNAP_SPRING: PanPhysicsSpring = {
-  stiffness: 480,
-  damping: 44, // ≈ critical: 2 * sqrt(480)
+  stiffness: 600,
+  damping: 49, // ≈ critical: 2 * sqrt(600)
 };
+
+/**
+ * Initial zoom velocity (zoom units/s) for the bound snap-back, given the
+ * overshoot displacement `from - target`. Exactly -ω·x₀ for the critically
+ * damped ZOOM_SNAP_SPRING, collapsing it to pure exponential decay — the
+ * iOS rubber-band return character (see ZOOM_SNAP_SPRING).
+ */
+export function zoomSnapSeedVelocity(from: number, target: number): number {
+  return (target - from) * Math.sqrt(ZOOM_SNAP_SPRING.stiffness);
+}
 /**
  * Settle thresholds — deliberately loose. Gestures are deferred while the
  * snap runs, so a strict tail is a felt input freeze: with tight thresholds
@@ -556,6 +573,170 @@ export const ZOOM_SNAP_SPRING: PanPhysicsSpring = {
 export const ZOOM_SNAP_STOP_SPEED = 0.25;
 /** Settle when within this distance of the bound (zoom units). */
 export const ZOOM_SNAP_STOP_DISTANCE = 0.01;
+
+// ---------------------------------------------------------------------------
+// Release-settle baking
+//
+// The moment the last input ends, the remaining motion is fully deterministic:
+// current pose + velocities evolving under the physics above, with nothing
+// left to compose against. So instead of stepping it live on a rAF loop —
+// main-thread bound, and throttled to ~30fps by iOS Safari in Low Power Mode —
+// we integrate the WHOLE trajectory synchronously at a fixed 60Hz step and
+// hand the resulting keyframes to WAAPI. The compositor plays them at native
+// refresh, immune to rAF throttling and main-thread jank, with exactly the
+// same physics feel. rAF stepping remains only while a finger is down (the
+// 2→1 zoom snap composing with a live pan), where per-frame composition with
+// pointer input is unavoidable.
+// ---------------------------------------------------------------------------
+
+/** Fixed integration step for baked settle trajectories (seconds). */
+export const SETTLE_BAKE_DT = 1 / 60;
+/** Hard cap on baked trajectory length (frames) — 12s of coast is a bug. */
+const SETTLE_BAKE_MAX_FRAMES = 720;
+
+export interface SettlePose {
+  zoom: number;
+  offsetX: number;
+  offsetY: number;
+}
+
+export interface SettleAxisGeometry {
+  min: number;
+  max: number;
+  overflows: boolean;
+}
+
+export interface BakeSettleInput {
+  zoom: number;
+  minZoom: number;
+  maxZoom: number;
+  /**
+   * Zoom-axis velocity carried from an interrupted live snap (zoom units/s).
+   * When omitted and zoom is out of bounds, the exponential-decay seed is
+   * used (see zoomSnapSeedVelocity).
+   */
+  vz?: number;
+  offsetX: number;
+  offsetY: number;
+  /** Release velocities in offset-space px/s. */
+  vx: number;
+  vy: number;
+  panSpring: PanPhysicsSpring;
+  /** Pan ranges at a given zoom — pure math over cached layout rects. */
+  geometryAt: (zoom: number) => { x: SettleAxisGeometry; y: SettleAxisGeometry } | null;
+  /** Clamped rest offsets at a given zoom (viewport-aware). */
+  restOffsetsAt: (zoom: number, x: number, y: number) => { x: number; y: number };
+}
+
+export interface BakedSettle {
+  /** Intermediate poses at SETTLE_BAKE_DT steps (final rest pose excluded). */
+  path: SettlePose[];
+  /** Exact rest pose to commit as state / final keyframe. */
+  zoom: number;
+  offsetX: number;
+  offsetY: number;
+}
+
+/**
+ * Integrate the full release-settle trajectory — zoom bound snap-back, offset
+ * glide, friction coast, and edge bounce, all composed exactly like the live
+ * rAF steppers — into a keyframe path for compositor playback.
+ *
+ * Returns `null` when there is nothing to animate (pose at rest, no speed).
+ */
+export function bakeSettlePath(input: BakeSettleInput): BakedSettle | null {
+  const { minZoom, maxZoom, panSpring, geometryAt, restOffsetsAt } = input;
+
+  let z = input.zoom;
+  const bound = clamp(z, minZoom, maxZoom);
+  let zoomActive = Math.abs(z - bound) > 1e-6;
+  let vz = input.vz ?? (zoomActive ? zoomSnapSeedVelocity(z, bound) : 0);
+  if (!zoomActive) vz = 0;
+
+  let x = input.offsetX;
+  let y = input.offsetY;
+  let vx = input.vx;
+  let vy = input.vy;
+
+  // Pan arming decision — mirror the live path: letterboxed axes don't coast,
+  // they only spring home if already past rest.
+  const geo = geometryAt(z);
+  if (!geo) return null;
+  const outX = x < geo.x.min || x > geo.x.max;
+  const outY = y < geo.y.min || y > geo.y.max;
+  if (!geo.x.overflows && !outX) vx = 0;
+  if (!geo.y.overflows && !outY) vy = 0;
+  let panActive = outX || outY || Math.hypot(vx, vy) >= PAN_PHYSICS_STOP_SPEED;
+
+  if (!zoomActive && !panActive) return null;
+
+  const path: SettlePose[] = [];
+  let frames = 0;
+  while ((zoomActive || panActive) && frames < SETTLE_BAKE_MAX_FRAMES) {
+    frames += 1;
+    const zPrev = z;
+
+    if (zoomActive) {
+      const step = stepPanPhysicsAxis(
+        { position: z, velocity: vz, min: bound, max: bound, canCoast: false },
+        SETTLE_BAKE_DT,
+        PAN_PHYSICS_FRICTION,
+        ZOOM_SNAP_SPRING.stiffness,
+        ZOOM_SNAP_SPRING.damping,
+        ZOOM_SNAP_STOP_SPEED,
+        ZOOM_SNAP_STOP_DISTANCE,
+      );
+      vz = step.velocity;
+      z = step.settled ? bound : step.position;
+      if (step.settled) {
+        zoomActive = false;
+        vz = 0;
+      }
+    }
+
+    if (panActive) {
+      // Coast / bounce with ranges re-derived at the animating zoom, exactly
+      // like the live per-tick re-measure.
+      const g = geometryAt(z);
+      if (!g) break;
+      const next = stepPanPhysics2D(
+        { x, y, vx, vy },
+        g.x,
+        g.y,
+        g.x.overflows,
+        g.y.overflows,
+        SETTLE_BAKE_DT,
+        panSpring,
+      );
+      x = next.x;
+      y = next.y;
+      vx = next.vx;
+      vy = next.vy;
+      if (next.settled) {
+        const rest = restOffsetsAt(z, x, y);
+        x = rest.x;
+        y = rest.y;
+        panActive = false;
+      }
+    } else if (zPrev !== z) {
+      // No pan of its own — glide offsets toward their rest pose at the bound
+      // by the fraction of remaining zoom distance this step covered, so zoom
+      // and offsets settle together as one motion.
+      const rest = restOffsetsAt(bound, x, y);
+      if (rest.x !== x || rest.y !== y) {
+        const denom = zPrev - bound;
+        const f = denom !== 0 ? Math.min(1, Math.max(0, (zPrev - z) / denom)) : 1;
+        x += (rest.x - x) * f;
+        y += (rest.y - y) * f;
+      }
+    }
+
+    path.push({ zoom: z, offsetX: x, offsetY: y });
+  }
+
+  const rest = restOffsetsAt(bound, x, y);
+  return { path, zoom: bound, offsetX: rest.x, offsetY: rest.y };
+}
 
 /** @deprecated Prefer {@link PAN_PHYSICS_SPRING_MOUSE}. */
 export const PAN_PHYSICS_STIFFNESS = PAN_PHYSICS_SPRING_MOUSE.stiffness;

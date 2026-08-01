@@ -21,12 +21,62 @@ interface CaptureOptions {
   easing?: string;
   /** Fired when the WAAPI transition finishes (not when cancelled). */
   onFinish?: () => void;
+  /**
+   * `discrete` (default): a deliberate zoom transition (double-tap, keyboard,
+   * buttons) — gestures are deferred until it settles.
+   * `settle`: baked release physics (coast, bounce, bound snap-back) — fully
+   * interruptible; a new gesture cancels it and takes over at the live pose.
+   */
+  kind?: 'discrete' | 'settle';
+  /**
+   * Baked physics trajectory: intermediate poses at a fixed timestep, played
+   * as linear WAAPI keyframes on the compositor (immune to rAF throttling —
+   * e.g. iOS Low Power Mode caps rAF at ~30fps while compositor animations
+   * keep native refresh). The final keyframe is the committed React pose.
+   * When set, `easing` is ignored — the physics IS the easing.
+   */
+  path?: ZoomPose[];
 }
 
 interface ZoomPose {
   zoom: number;
   offsetX: number;
   offsetY: number;
+}
+
+interface RunningPathInfo {
+  /** All poses incl. start and end — keyframes at uniform time offsets. */
+  poses: ZoomPose[];
+  duration: number;
+}
+
+function poseTransform(p: ZoomPose): string {
+  return `scale(${p.zoom}) translate(${p.offsetX}px, ${p.offsetY}px)`;
+}
+
+/**
+ * Exact live pose of a keyframed settle animation at `currentTime`. Keyframes
+ * sit at uniform offsets and interpolate linearly, and CSS interpolates a
+ * matching `scale() translate()` pair per-function numerically — so lerping
+ * the two bracketing poses reproduces the composited transform exactly,
+ * without trusting `getComputedStyle` mid-WAAPI (inconsistent in Safari).
+ */
+function livePoseOnPath(info: RunningPathInfo, currentTime: unknown): ZoomPose | null {
+  const n = info.poses.length;
+  if (n === 0) return null;
+  if (n === 1 || info.duration <= 0) return info.poses[n - 1]!;
+  const ct = typeof currentTime === 'number' ? currentTime : 0;
+  const p = Math.min(1, Math.max(0, ct / info.duration));
+  const seg = p * (n - 1);
+  const i = Math.min(n - 2, Math.floor(seg));
+  const f = seg - i;
+  const a = info.poses[i]!;
+  const b = info.poses[i + 1]!;
+  return {
+    zoom: a.zoom + (b.zoom - a.zoom) * f,
+    offsetX: a.offsetX + (b.offsetX - a.offsetX) * f,
+    offsetY: a.offsetY + (b.offsetY - a.offsetY) * f,
+  };
 }
 
 /**
@@ -58,6 +108,10 @@ function useZoomAnimation(
   const runningAnimation = React.useRef<Animation | undefined>(undefined);
   const startTransform = React.useRef<string | undefined>(undefined);
   const overrideOpts = React.useRef<CaptureOptions | undefined>(undefined);
+  // Kind of the armed/running transition — gates read this synchronously.
+  const runningKind = React.useRef<'discrete' | 'settle' | undefined>(undefined);
+  // Numeric trajectory of a keyframed settle — for exact cancel recovery.
+  const runningPath = React.useRef<RunningPathInfo | undefined>(undefined);
   // Sync flag for gesture gates — React state can lag a frame behind WAAPI
   // settle, and pointer handlers must not read a stale `true`.
   const animatingRef = React.useRef(false);
@@ -87,9 +141,12 @@ function useZoomAnimation(
 
     runningAnimation.current?.cancel();
     runningAnimation.current = undefined;
+    runningPath.current = undefined;
 
-    const to = `scale(${zoom}) translate(${offsetX}px, ${offsetY}px)`;
+    const toPose: ZoomPose = { zoom, offsetX, offsetY };
+    const to = poseTransform(toPose);
     if (from === to) {
+      runningKind.current = undefined;
       setAnimating(false);
       onFinish?.();
       return;
@@ -100,17 +157,26 @@ function useZoomAnimation(
       // paint so we don't flash the end pose for a frame, then let WAAPI own
       // the composite until settle.
       el.style.transform = from;
-      const anim = el.animate(
-        [
-          { transform: from, easing: opts?.easing ?? 'ease-in-out' },
-          { transform: to },
-        ],
-        {
-          duration: reducedMotion ? 0 : (opts?.duration ?? duration),
-          fill: 'forwards',
-        },
-      );
+      const path = opts?.path;
+      const animDuration = reducedMotion ? 0 : (opts?.duration ?? duration);
+      const keyframes: Keyframe[] =
+        path && path.length > 0
+          ? // Baked physics: uniform linear keyframes ending on the committed
+            // pose. Per-keyframe easing defaults to linear — the trajectory
+            // itself carries the physics curve.
+            [{ transform: from }, ...path.map((p) => ({ transform: poseTransform(p) })), { transform: to }]
+          : [{ transform: from, easing: opts?.easing ?? 'ease-in-out' }, { transform: to }];
+      const anim = el.animate(keyframes, {
+        duration: animDuration,
+        fill: 'forwards',
+      });
       runningAnimation.current = anim;
+      if (path && path.length > 0) {
+        // The `from` keyframe is the live computed transform; its numeric pose
+        // is one bake step behind path[0] — close enough that starting the
+        // recovery trajectory at path[0] is exact for every practical cancel.
+        runningPath.current = { poses: [path[0]!, ...path, toPose], duration: animDuration };
+      }
       setAnimating(true);
 
       const settleInlineToTarget = () => {
@@ -122,6 +188,8 @@ function useZoomAnimation(
       anim.onfinish = () => {
         if (runningAnimation.current !== anim) return;
         runningAnimation.current = undefined;
+        runningPath.current = undefined;
+        runningKind.current = undefined;
         anim.onfinish = null;
         anim.oncancel = null;
         try {
@@ -137,12 +205,15 @@ function useZoomAnimation(
       anim.oncancel = () => {
         if (runningAnimation.current !== anim) return;
         runningAnimation.current = undefined;
+        runningPath.current = undefined;
+        runningKind.current = undefined;
         settleInlineToTarget();
         setAnimating(false);
       };
     } catch {
       // WAAPI not supported — silent fallback to instant state
       el.style.transform = to;
+      runningKind.current = undefined;
       setAnimating(false);
       onFinish?.();
     }
@@ -164,6 +235,7 @@ function useZoomAnimation(
     const el = wrapperRef.current;
     startTransform.current = el ? getComputedStyle(el).transform : undefined;
     overrideOpts.current = opts;
+    runningKind.current = opts?.kind ?? 'discrete';
     setAnimating(true);
   }, [wrapperRef, setAnimating]);
 
@@ -179,7 +251,10 @@ function useZoomAnimation(
    */
   const cancel = React.useCallback((): ZoomPose | null => {
     const anim = runningAnimation.current;
+    const pathInfo = runningPath.current;
     runningAnimation.current = undefined;
+    runningPath.current = undefined;
+    runningKind.current = undefined;
     startTransform.current = undefined;
     overrideOpts.current = undefined;
     if (!anim) {
@@ -189,12 +264,18 @@ function useZoomAnimation(
     anim.onfinish = null;
     anim.oncancel = null;
     const el = wrapperRef.current;
-    // Sample BEFORE cancel — cancelling drops the WAAPI style layer.
-    const live = el ? poseFromComputedTransform(getComputedStyle(el).transform) : null;
+    // Keyframed settles recover their pose analytically from the baked
+    // trajectory (exact); two-pose transitions sample the computed transform
+    // BEFORE cancel — cancelling drops the WAAPI style layer.
+    const live = pathInfo
+      ? livePoseOnPath(pathInfo, anim.currentTime)
+      : el
+        ? poseFromComputedTransform(getComputedStyle(el).transform)
+        : null;
     anim.cancel();
     if (el) {
       el.style.transform = live
-        ? `scale(${live.zoom}) translate(${live.offsetX}px, ${live.offsetY}px)`
+        ? poseTransform(live)
         : // Pose unrecoverable — fall back to the committed React pose (play()
           // may have pinned `from` on the inline style; never leave that).
           `scale(${zoom}) translate(${offsetX}px, ${offsetY}px)`;
@@ -205,7 +286,17 @@ function useZoomAnimation(
 
   const getIsAnimating = React.useCallback(() => animatingRef.current, []);
 
-  return { captureStart, cancel, isAnimating, getIsAnimating };
+  /**
+   * True only while a *discrete* zoom transition plays (double-tap, keyboard,
+   * buttons). Gesture gates key off this — baked settle physics must NOT
+   * block input; a touch catches it (cancel + live-pose takeover) instead.
+   */
+  const getIsDiscreteAnimating = React.useCallback(
+    () => animatingRef.current && runningKind.current === 'discrete',
+    [],
+  );
+
+  return { captureStart, cancel, isAnimating, getIsAnimating, getIsDiscreteAnimating };
 }
 
 export { useZoomAnimation };
