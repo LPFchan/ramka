@@ -4529,7 +4529,7 @@ describe('Lightbox', () => {
       expect(ref.current!.zoom).toBeGreaterThan(1);
     });
 
-    it('ignores further taps while the double-tap zoom WAAPI is in flight', () => {
+    it('queues a follow-up double-tap until the in-flight zoom WAAPI settles', () => {
       type AnimStub = {
         finished: Promise<void>;
         cancel: ReturnType<typeof vi.fn>;
@@ -4542,7 +4542,7 @@ describe('Lightbox', () => {
       let latest: AnimStub | undefined;
       const animateImpl = vi.fn(() => {
         const stub: AnimStub = {
-          finished: Promise.resolve(),
+          finished: new Promise<void>(() => {}),
           cancel: vi.fn(),
           play: vi.fn(),
           pause: vi.fn(),
@@ -4585,8 +4585,7 @@ describe('Lightbox', () => {
       expect(animateImpl).toHaveBeenCalled();
       const animAfterDoubleTap = latest;
 
-      // Rapid third/fourth taps while WAAPI is still playing must not start a
-      // new discrete zoom (which would cancel the in-flight animation).
+      // Rapid third/fourth taps while WAAPI plays: queue zoom-out, don't cancel.
       act(() => {
         dispatchPointer(img, 'pointerdown', {
           clientX: 200,
@@ -4609,6 +4608,16 @@ describe('Lightbox', () => {
       expect(ref.current!.zoom).toBe(zoomAfterDoubleTap);
       expect(latest).toBe(animAfterDoubleTap);
       expect(animAfterDoubleTap?.cancel).not.toHaveBeenCalled();
+
+      // On settle, queued double-tap runs immediately (zoom back out).
+      act(() => {
+        animAfterDoubleTap?.onfinish?.call(
+          animAfterDoubleTap as unknown as Animation,
+          {} as AnimationPlaybackEvent,
+        );
+      });
+      expect(ref.current!.zoom).toBe(1);
+      expect(animateImpl.mock.calls.length).toBeGreaterThan(1);
 
       if (hadAnimate) {
         Element.prototype.animate = previousAnimate;

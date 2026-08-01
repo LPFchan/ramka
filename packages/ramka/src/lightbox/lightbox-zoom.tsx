@@ -359,11 +359,50 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
 
     // ----- Core actions -----
     const {
-      captureStart,
-      cancel: cancelZoomAnimation,
+      captureStart: captureStartRaw,
+      cancel: cancelZoomAnimationRaw,
       isAnimating,
       getIsAnimating,
     } = useZoomAnimation(zoom, offsetX, offsetY, wrapperRef, DEFAULT_ANIMATION_DURATION);
+
+    // Gestures (e.g. a second double-tap) can queue work until the current
+    // discrete WAAPI settles — fire with no gap after onfinish/cancel.
+    const zoomAnimSettleWaitersRef = React.useRef<Array<() => void>>([]);
+    const flushZoomAnimSettleWaiters = React.useCallback(() => {
+      const waiters = zoomAnimSettleWaitersRef.current;
+      zoomAnimSettleWaitersRef.current = [];
+      for (const waiter of waiters) waiter();
+    }, []);
+
+    const captureStart = React.useCallback(
+      (opts?: Parameters<typeof captureStartRaw>[0]) => {
+        const userOnFinish = opts?.onFinish;
+        captureStartRaw({
+          ...opts,
+          onFinish: () => {
+            userOnFinish?.();
+            flushZoomAnimSettleWaiters();
+          },
+        });
+      },
+      [captureStartRaw, flushZoomAnimSettleWaiters],
+    );
+
+    const cancelZoomAnimation = React.useCallback(() => {
+      cancelZoomAnimationRaw();
+      flushZoomAnimSettleWaiters();
+    }, [cancelZoomAnimationRaw, flushZoomAnimSettleWaiters]);
+
+    const whenZoomAnimationSettled = React.useCallback(
+      (cb: () => void) => {
+        if (!getIsAnimating()) {
+          cb();
+          return;
+        }
+        zoomAnimSettleWaitersRef.current.push(cb);
+      },
+      [getIsAnimating],
+    );
 
     // rAF 2D scroll physics (friction coast + spring bounce). Not WAAPI.
     const panPhysicsRafRef = React.useRef<number | null>(null);
@@ -594,6 +633,11 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
       captureStart(ZOOM_SNAP_OPTS);
       const snapped = clamp(currentZoom, minZoom, maxZoom);
       const offsets = clampOffsets(offsetXRef.current, offsetYRef.current, snapped);
+      // Keep the sync reader aligned before later same-turn callers (e.g.
+      // pinch-release momentum) read getZoom().
+      zoomRef.current = snapped;
+      offsetXRef.current = offsets.x;
+      offsetYRef.current = offsets.y;
       setZoom(snapped);
       setOffsetX(offsets.x);
       setOffsetY(offsets.y);
@@ -611,7 +655,6 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
     const startPanPhysicsAction = React.useCallback(
       (vx: number, vy: number, spring: PanPhysicsSpring = PAN_PHYSICS_SPRING_MOUSE): boolean => {
         stopPanPhysics();
-        cancelZoomAnimation();
         isElasticDrag.current = false;
 
         const z = zoomRef.current;
@@ -629,7 +672,11 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
         if (!geo.y.overflows && !outY) velY = 0;
 
         const speed = Math.hypot(velX, velY);
+        // Important: do not cancel an in-flight zoom snap WAAPI when there is
+        // nothing to simulate (common after pinch-release with v≈0 in-bounds).
         if (!outX && !outY && speed < PAN_PHYSICS_STOP_SPEED) return false;
+
+        cancelZoomAnimation();
 
         if (reducedMotionPan) {
           const clamped = clampOffsets(x, y, z);
@@ -741,6 +788,7 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
         momentumPan: momentumPanAction,
         stopPanPhysics,
         isZoomAnimating: getIsAnimating,
+        whenZoomAnimationSettled,
       }),
       [
         zoomInAction,
@@ -752,6 +800,7 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
         momentumPanAction,
         stopPanPhysics,
         getIsAnimating,
+        whenZoomAnimationSettled,
       ],
     );
 

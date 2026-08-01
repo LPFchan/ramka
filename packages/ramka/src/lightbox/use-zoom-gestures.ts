@@ -54,6 +54,11 @@ interface ZoomGestureActions {
   stopPanPhysics: () => void;
   /** True while a discrete zoom WAAPI (double-tap / button / snap) is playing. */
   isZoomAnimating: () => boolean;
+  /**
+   * Run `cb` now if no discrete zoom WAAPI is playing; otherwise right after
+   * it settles. Used to queue a follow-up double-tap without a post-anim gap.
+   */
+  whenZoomAnimationSettled: (cb: () => void) => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -213,15 +218,14 @@ function useZoomGestures(
         abortZoomInteraction();
         return;
       }
-      // Discrete zoom WAAPI in flight (double-tap / snap) — ignore all pointer
-      // input so a rapid third tap can't cancel the animation mid-flight.
-      if (actionsRef.current.isZoomAnimating()) {
-        return;
-      }
       const pointers = activePointers.current;
       const { doubleClickDelay } = configRef.current;
       const { getZoom } = actionsRef.current;
       const zoom = getZoom();
+      // Discrete zoom WAAPI (double-tap / bound snap) — still track the pointer
+      // so a finger that lands during snap can pan once the animation ends.
+      // Block only zoom-changing arms (double-tap / pinch) below.
+      const zoomAnimating = actionsRef.current.isZoomAnimating();
 
       if (
         (event.pointerType === 'mouse' && event.button !== 0) ||
@@ -295,6 +299,8 @@ function useZoomGestures(
       const now = event.timeStamp;
       const prevTap = lastTapPos.current;
       const tapDist = prevTap ? Math.hypot(event.clientX - prevTap.x, event.clientY - prevTap.y) : 0;
+      // Allow arming a follow-up double-tap while WAAPI plays — commit queues
+      // until settle so rapid zoom-in → zoom-out has no post-anim freeze.
       pendingDoubleTap.current =
         pointers.length === 0 &&
         lastWasTap.current &&
@@ -304,7 +310,8 @@ function useZoomGestures(
 
       lastPointerDown.current = now;
 
-      // Start tap candidate tracking for this new single-finger interaction
+      // Always track taps during discrete zoom WAAPI so a quick second double-tap
+      // can be recognized and queued (pinch is still blocked below).
       if (pointers.length === 0) {
         tapCandidate.current = true;
         tapStartPos.current = { x: event.clientX, y: event.clientY };
@@ -315,6 +322,9 @@ function useZoomGestures(
       }
 
       replacePointer(event);
+
+      // Don't arm a pinch on top of an in-flight discrete zoom animation.
+      if (zoomAnimating) return;
 
       if (pointers.length === 2) {
         // Scroll may have locked between the two downs (racy first scroll event).
@@ -354,9 +364,6 @@ function useZoomGestures(
         abortZoomInteraction();
         return;
       }
-      if (actionsRef.current.isZoomAnimating()) {
-        return;
-      }
       if (contentElementRef?.current?.hasAttribute('data-pulling')) {
         abortZoomInteraction();
         return;
@@ -365,8 +372,11 @@ function useZoomGestures(
       const pointers = activePointers.current;
       const { getZoom, changeZoom, changeOffsets } = actionsRef.current;
       const zoom = getZoom();
+      const existing = pointers.find((p) => p.pointerId === event.pointerId);
+      const zoomAnimating = actionsRef.current.isZoomAnimating();
 
-      // Invalidate tap candidate if finger moved beyond threshold
+      // Invalidate tap candidate if finger moved beyond threshold — including
+      // during discrete WAAPI, so a drag mid-animation can't count as tap 2.
       if (tapCandidate.current && tapStartPos.current) {
         const dx = event.clientX - tapStartPos.current.x;
         const dy = event.clientY - tapStartPos.current.y;
@@ -377,14 +387,26 @@ function useZoomGestures(
           // second finger can't pair into a pinch mid-swipe (before scroll
           // events flip navigationLockedRef). Never do this during/after a
           // pinch — elastic under-min zoom is still a pinch until snap.
-          if (zoom <= 1 && pointers.length <= 1 && !hadPinch.current && !pinchState.current) {
+          if (
+            !zoomAnimating &&
+            zoom <= 1 &&
+            pointers.length <= 1 &&
+            !hadPinch.current &&
+            !pinchState.current
+          ) {
             pointers.length = 0;
             return;
           }
         }
       }
 
-      const existing = pointers.find((p) => p.pointerId === event.pointerId);
+      // During discrete zoom WAAPI, keep the baseline glued to the finger so
+      // pan can resume cleanly when the animation ends (no backlog jump).
+      // Pinch/pan stay locked — follow-up double-taps are queued on pointerup.
+      if (zoomAnimating) {
+        if (existing) replacePointer(event);
+        return;
+      }
 
       // Pinch zoom (2 pointers) — overscroll allows elastic bounce past bounds
       if (pointers.length === 2 && pinchState.current) {
@@ -440,15 +462,6 @@ function useZoomGestures(
 
   const handlePointerUp = React.useCallback(
     (event: PointerEvent) => {
-      // Animation started after this pointer went down (e.g. double-tap commit
-      // on a prior up) — drop any leftover tracking without starting a pan.
-      if (actionsRef.current.isZoomAnimating()) {
-        clearPointer(event.pointerId);
-        if (activePointers.current.length === 0) {
-          actionsRef.current.setDragging(false);
-        }
-        return;
-      }
       const pointers = activePointers.current;
       // Already finalized (e.g. document capture ran before the element bubble).
       if (!pointers.some((p) => p.pointerId === event.pointerId)) return;
@@ -485,7 +498,9 @@ function useZoomGestures(
 
         // Commit a deferred double-tap only if this second touch actually
         // ended as a stationary tap (not a swipe/flick, which clears
-        // tapCandidate on move) and wasn't part of a pinch.
+        // tapCandidate on move) and wasn't part of a pinch. If a discrete
+        // WAAPI is still playing, queue the toggle and run it on settle —
+        // never cancel the in-flight anim, and never leave a dead gap after.
         if (pendingDoubleTap.current && wasTap && !wasPinch) {
           pendingDoubleTap.current = false;
           const focal = doubleTapFocal.current;
@@ -500,18 +515,20 @@ function useZoomGestures(
           const { minZoom, maxZoom, zoomStep } = configRef.current;
           const zoom = actionsRef.current.getZoom();
           const targetZoom = doubleTapTargetZoom(zoom, minZoom, maxZoom, zoomStep);
-          // Flag the zoom in flight, then schedule its delayed removal (covers
-          // the zoom animation). Both halves matter: without the `false` the
-          // `data-zooming` flag stays stuck on the content element and blocks
-          // the next pull-to-dismiss (which bails while zooming). This mirrors
-          // the set-on-pointerdown / clear-on-pointerup split of the old path.
-          setZooming(true);
-          if (focal) {
-            actionsRef.current.changeZoom(targetZoom, false, focal[0], focal[1]);
-          } else {
-            actionsRef.current.changeZoom(targetZoom, false);
-          }
-          setZooming(false);
+          const runDoubleTap = () => {
+            // Flag the zoom in flight, then schedule its delayed removal (covers
+            // the zoom animation). Both halves matter: without the `false` the
+            // `data-zooming` flag stays stuck on the content element and blocks
+            // the next pull-to-dismiss (which bails while zooming).
+            setZooming(true);
+            if (focal) {
+              actionsRef.current.changeZoom(targetZoom, false, focal[0], focal[1]);
+            } else {
+              actionsRef.current.changeZoom(targetZoom, false);
+            }
+            setZooming(false);
+          };
+          actionsRef.current.whenZoomAnimationSettled(runDoubleTap);
           return;
         }
         pendingDoubleTap.current = false;
