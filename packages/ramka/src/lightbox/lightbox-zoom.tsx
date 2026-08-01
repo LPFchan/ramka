@@ -365,8 +365,7 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
       getIsAnimating,
     } = useZoomAnimation(zoom, offsetX, offsetY, wrapperRef, DEFAULT_ANIMATION_DURATION);
 
-    // Gestures (e.g. a second double-tap) can queue work until the current
-    // discrete WAAPI settles — fire with no gap after onfinish/cancel.
+    // Queue follow-up double-taps until the current discrete WAAPI settles.
     const zoomAnimSettleWaitersRef = React.useRef<Array<() => void>>([]);
     const flushZoomAnimSettleWaiters = React.useCallback(() => {
       const waiters = zoomAnimSettleWaitersRef.current;
@@ -389,9 +388,11 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
     );
 
     const cancelZoomAnimation = React.useCallback(() => {
+      // Drop queued double-taps — a live pinch/pan took over; don't fire them
+      // after cancel (that would start a new discrete zoom mid-gesture).
+      zoomAnimSettleWaitersRef.current = [];
       cancelZoomAnimationRaw();
-      flushZoomAnimSettleWaiters();
-    }, [cancelZoomAnimationRaw, flushZoomAnimSettleWaiters]);
+    }, [cancelZoomAnimationRaw]);
 
     const whenZoomAnimationSettled = React.useCallback(
       (cb: () => void) => {
@@ -399,7 +400,8 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
           cb();
           return;
         }
-        zoomAnimSettleWaitersRef.current.push(cb);
+        // Latest follow-up wins — don't stack toggles behind one anim.
+        zoomAnimSettleWaitersRef.current = [cb];
       },
       [getIsAnimating],
     );
@@ -505,6 +507,8 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
     const changeOffsetsAction = React.useCallback(
       (dx: number, dy: number, overscroll?: boolean, overflowAxesOnly?: boolean) => {
         stopPanPhysics();
+        // Live pan takes over any discrete zoom WAAPI.
+        cancelZoomAnimation();
         const z = zoomRef.current;
         const geo = measurePanGeometry(z);
         if (!geo) return;
@@ -549,7 +553,7 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
           setOffsetY(y.overflows ? clamped.y : offsetYRef.current);
         }
       },
-      [clampOffsets, measurePanGeometry, stopPanPhysics],
+      [clampOffsets, measurePanGeometry, stopPanPhysics, cancelZoomAnimation],
     );
 
     const changeZoomAction = React.useCallback(
@@ -787,6 +791,7 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
         snapOffsetsToBounds: snapOffsetsToBoundsAction,
         momentumPan: momentumPanAction,
         stopPanPhysics,
+        cancelZoomAnimation,
         isZoomAnimating: getIsAnimating,
         whenZoomAnimationSettled,
       }),
@@ -799,6 +804,7 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
         snapOffsetsToBoundsAction,
         momentumPanAction,
         stopPanPhysics,
+        cancelZoomAnimation,
         getIsAnimating,
         whenZoomAnimationSettled,
       ],

@@ -3996,7 +3996,7 @@ describe('Lightbox', () => {
           }
         });
 
-        it('does not pan while a finger remains after pinch (suppress until full release)', () => {
+        it('hands off to pan on the remaining finger after pinch 2→1 (rebase then pan)', () => {
           withViewport(() => {
             const ref = React.createRef<LightboxZoomRef>();
             renderZoomPan(ref);
@@ -4038,8 +4038,8 @@ describe('Lightbox', () => {
               y: ref.current!.offsetY,
             };
 
-            // Lift finger 1 — remaining finger can move a lot; must not pan.
             act(() => {
+              // Lift finger 1 — first remaining move rebases (no pan jump).
               dispatchPointer(img, 'pointerup', {
                 clientX: 100,
                 clientY: 200,
@@ -4047,15 +4047,137 @@ describe('Lightbox', () => {
                 pointerType: 'touch',
               });
               dispatchPointer(img, 'pointermove', {
+                clientX: 310,
+                clientY: 210,
+                pointerId: 2,
+                pointerType: 'touch',
+              });
+            });
+            expect(ref.current!.offsetX).toBeCloseTo(zoomedOffsets.x, 5);
+            expect(ref.current!.offsetY).toBeCloseTo(zoomedOffsets.y, 5);
+
+            // Further moves with the remaining finger pan.
+            act(() => {
+              dispatchPointer(img, 'pointermove', {
                 clientX: 360,
                 clientY: 240,
                 pointerId: 2,
                 pointerType: 'touch',
               });
             });
+            expect(ref.current!.offsetX).not.toBeCloseTo(zoomedOffsets.x, 5);
+          });
+        });
 
-            expect(ref.current!.offsetX).toBeCloseTo(zoomedOffsets.x, 5);
-            expect(ref.current!.offsetY).toBeCloseTo(zoomedOffsets.y, 5);
+        it('lets a new pinch interrupt under-min snap WAAPI (no freeze between pinch-outs)', () => {
+          withViewport(() => {
+            const ref = React.createRef<LightboxZoomRef>();
+            renderZoomPan(ref);
+            const img = screen.getByTestId('zoom-img');
+            setupOverflowGeometry(img);
+
+            // Hold bound-snap WAAPI so a follow-up pinch can race it.
+            const held: Array<{
+              cancel: ReturnType<typeof vi.fn>;
+              onfinish: (() => void) | null;
+            }> = [];
+            Element.prototype.animate = vi.fn(() => {
+              const anim = {
+                finished: new Promise<void>(() => {}),
+                cancel: vi.fn(),
+                play: vi.fn(),
+                pause: vi.fn(),
+                onfinish: null as (() => void) | null,
+                oncancel: null as (() => void) | null,
+                commitStyles: vi.fn(),
+              };
+              held.push(anim);
+              return anim;
+            }) as unknown as typeof Element.prototype.animate;
+
+            // Pinch in past minZoom (elastic under-zoom).
+            act(() => {
+              dispatchPointer(img, 'pointerdown', {
+                clientX: 100,
+                clientY: 200,
+                pointerId: 1,
+                pointerType: 'touch',
+                isPrimary: true,
+              });
+              dispatchPointer(img, 'pointerdown', {
+                clientX: 300,
+                clientY: 200,
+                pointerId: 2,
+                pointerType: 'touch',
+                isPrimary: false,
+              });
+              dispatchPointer(img, 'pointermove', {
+                clientX: 180,
+                clientY: 200,
+                pointerId: 1,
+                pointerType: 'touch',
+              });
+              dispatchPointer(img, 'pointermove', {
+                clientX: 220,
+                clientY: 200,
+                pointerId: 2,
+                pointerType: 'touch',
+              });
+            });
+            expect(ref.current!.zoom).toBeLessThan(1);
+
+            // Release → bound snap arms WAAPI back to 1×.
+            act(() => {
+              dispatchPointer(img, 'pointerup', {
+                clientX: 180,
+                clientY: 200,
+                pointerId: 1,
+                pointerType: 'touch',
+              });
+              dispatchPointer(img, 'pointerup', {
+                clientX: 220,
+                clientY: 200,
+                pointerId: 2,
+                pointerType: 'touch',
+              });
+            });
+            expect(ref.current!.zoom).toBe(1);
+            expect(held.length).toBeGreaterThan(0);
+            const snapAnim = held[held.length - 1]!;
+
+            // Immediate second pinch-out while snap WAAPI is still playing —
+            // must take over (cancel snap) and go under-min again.
+            act(() => {
+              dispatchPointer(img, 'pointerdown', {
+                clientX: 100,
+                clientY: 200,
+                pointerId: 3,
+                pointerType: 'touch',
+                isPrimary: true,
+              });
+              dispatchPointer(img, 'pointerdown', {
+                clientX: 300,
+                clientY: 200,
+                pointerId: 4,
+                pointerType: 'touch',
+                isPrimary: false,
+              });
+              dispatchPointer(img, 'pointermove', {
+                clientX: 170,
+                clientY: 200,
+                pointerId: 3,
+                pointerType: 'touch',
+              });
+              dispatchPointer(img, 'pointermove', {
+                clientX: 230,
+                clientY: 200,
+                pointerId: 4,
+                pointerType: 'touch',
+              });
+            });
+
+            expect(snapAnim.cancel).toHaveBeenCalled();
+            expect(ref.current!.zoom).toBeLessThan(1);
           });
         });
       });
@@ -4585,7 +4707,7 @@ describe('Lightbox', () => {
       expect(animateImpl).toHaveBeenCalled();
       const animAfterDoubleTap = latest;
 
-      // Rapid third/fourth taps while WAAPI plays: queue zoom-out, don't cancel.
+      // Rapid third/fourth taps while WAAPI plays: queue zoom-out, don't cut it.
       act(() => {
         dispatchPointer(img, 'pointerdown', {
           clientX: 200,
@@ -4609,7 +4731,7 @@ describe('Lightbox', () => {
       expect(latest).toBe(animAfterDoubleTap);
       expect(animAfterDoubleTap?.cancel).not.toHaveBeenCalled();
 
-      // On settle, queued double-tap runs immediately (zoom back out).
+      // On settle, queued double-tap runs (zoom back out).
       act(() => {
         animAfterDoubleTap?.onfinish?.call(
           animAfterDoubleTap as unknown as Animation,
