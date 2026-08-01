@@ -4286,15 +4286,18 @@ describe('Lightbox', () => {
           });
         });
 
-        it('touch pan taking over a discrete zoom WAAPI freezes at the live pose', () => {
+        it('blocks pan while a discrete zoom WAAPI is in flight and resumes after it settles', () => {
           withViewport(() => {
             const ref = React.createRef<LightboxZoomRef>();
             renderZoomPan(ref);
             const img = screen.getByTestId('zoom-img');
             setupOverflowGeometry(img);
 
-            // Hold the discrete zoom WAAPI so a new pan can take it over mid-flight.
-            const held: Array<{ cancel: ReturnType<typeof vi.fn> }> = [];
+            // Hold the discrete zoom WAAPI mid-flight.
+            const held: Array<{
+              cancel: ReturnType<typeof vi.fn>;
+              onfinish: (() => void) | null;
+            }> = [];
             Element.prototype.animate = vi.fn(() => {
               const anim = {
                 finished: new Promise<void>(() => {}),
@@ -4309,68 +4312,142 @@ describe('Lightbox', () => {
               return anim;
             }) as unknown as typeof Element.prototype.animate;
 
-            // jsdom has no DOMMatrixReadOnly — provide one that parses the
-            // inline `scale() translate()` pose the cancel path reads back
-            // (`scale(z) translate(x, y)` → matrix(z, 0, 0, z, z·x, z·y)).
-            const g = globalThis as Record<string, unknown>;
-            const origMatrix = g.DOMMatrixReadOnly;
-            class FakeDOMMatrixReadOnly {
-              a = 1;
-              b = 0;
-              c = 0;
-              d = 1;
-              e = 0;
-              f = 0;
-              constructor(transform: string) {
-                const scale = /scale\(([^)]+)\)/.exec(transform);
-                const translate = /translate\((-?[\d.]+)px,\s*(-?[\d.]+)px\)/.exec(transform);
-                if (!scale && !translate) throw new Error(`unsupported transform: ${transform}`);
-                const s = scale ? parseFloat(scale[1]) : 1;
-                this.a = s;
-                this.d = s;
-                this.e = s * (translate ? parseFloat(translate[1]) : 0);
-                this.f = s * (translate ? parseFloat(translate[2]) : 0);
-              }
-            }
-            g.DOMMatrixReadOnly = FakeDOMMatrixReadOnly;
+            act(() => ref.current!.zoomTo(2, { rapid: true }));
+            act(() => ref.current!.zoomTo(4));
+            expect(ref.current!.zoom).toBe(4);
+            expect(held.length).toBeGreaterThan(0);
+            const zoomAnim = held[held.length - 1]!;
 
-            try {
-              // Commit 2× instantly, then start a discrete (animated) zoom to
-              // 4× — the WAAPI is held mid-flight with `from` pinned at the
-              // committed 2× pose (jsdom's stand-in for the live transform).
-              act(() => ref.current!.zoomTo(2, { rapid: true }));
-              act(() => ref.current!.zoomTo(4));
-              expect(ref.current!.zoom).toBe(4);
-              expect(held.length).toBeGreaterThan(0);
-              const zoomAnim = held[held.length - 1]!;
-
-              // A touch pan takes over mid-animation: it must cancel the WAAPI
-              // and freeze at the LIVE visual pose — not teleport to the
-              // animation's target.
-              act(() => {
-                dispatchPointer(img, 'pointerdown', {
-                  clientX: 200,
-                  clientY: 200,
-                  pointerId: 3,
-                  pointerType: 'touch',
-                  isPrimary: true,
-                });
-                dispatchPointer(img, 'pointermove', {
-                  clientX: 215,
-                  clientY: 215,
-                  pointerId: 3,
-                  pointerType: 'touch',
-                });
+            // Pan attempt mid-animation: absorbed. The WAAPI is never torn
+            // and the pose stays at the animation's committed target.
+            act(() => {
+              dispatchPointer(img, 'pointerdown', {
+                clientX: 200,
+                clientY: 200,
+                pointerId: 3,
+                pointerType: 'touch',
+                isPrimary: true,
               });
-              expect(zoomAnim.cancel).toHaveBeenCalled();
-              expect(ref.current!.zoom).toBeCloseTo(2, 5);
-            } finally {
-              if (origMatrix === undefined) {
-                delete g.DOMMatrixReadOnly;
-              } else {
-                g.DOMMatrixReadOnly = origMatrix;
-              }
-            }
+              dispatchPointer(img, 'pointermove', {
+                clientX: 215,
+                clientY: 215,
+                pointerId: 3,
+                pointerType: 'touch',
+              });
+              dispatchPointer(img, 'pointermove', {
+                clientX: 230,
+                clientY: 230,
+                pointerId: 3,
+                pointerType: 'touch',
+              });
+            });
+            expect(zoomAnim.cancel).not.toHaveBeenCalled();
+            expect(ref.current!.zoom).toBe(4);
+            expect(ref.current!.offsetX).toBe(0);
+            expect(ref.current!.offsetY).toBe(0);
+
+            // Animation settles → the very next move pans from the latest
+            // absorbed sample (fresh origin, no jump, no dead window).
+            act(() => {
+              zoomAnim.onfinish?.();
+            });
+            act(() => {
+              dispatchPointer(img, 'pointermove', {
+                clientX: 245,
+                clientY: 245,
+                pointerId: 3,
+                pointerType: 'touch',
+              });
+            });
+            expect(ref.current!.offsetX).not.toBe(0);
+            expect(ref.current!.zoom).toBe(4);
+          });
+        });
+
+        it('defers pinch arming until the discrete zoom WAAPI settles', () => {
+          withViewport(() => {
+            const ref = React.createRef<LightboxZoomRef>();
+            renderZoomPan(ref);
+            const img = screen.getByTestId('zoom-img');
+            setupOverflowGeometry(img);
+
+            const held: Array<{
+              cancel: ReturnType<typeof vi.fn>;
+              onfinish: (() => void) | null;
+            }> = [];
+            Element.prototype.animate = vi.fn(() => {
+              const anim = {
+                finished: new Promise<void>(() => {}),
+                cancel: vi.fn(),
+                play: vi.fn(),
+                pause: vi.fn(),
+                onfinish: null as (() => void) | null,
+                oncancel: null as (() => void) | null,
+                commitStyles: vi.fn(),
+              };
+              held.push(anim);
+              return anim;
+            }) as unknown as typeof Element.prototype.animate;
+
+            act(() => ref.current!.zoomTo(2, { rapid: true }));
+            act(() => ref.current!.zoomTo(4));
+            expect(ref.current!.zoom).toBe(4);
+            const zoomAnim = held[held.length - 1]!;
+
+            // Two fingers land mid-animation and move: no pinch arms, the
+            // WAAPI is never torn, zoom stays at the committed target.
+            act(() => {
+              dispatchPointer(img, 'pointerdown', {
+                clientX: 100,
+                clientY: 200,
+                pointerId: 1,
+                pointerType: 'touch',
+                isPrimary: true,
+              });
+              dispatchPointer(img, 'pointerdown', {
+                clientX: 300,
+                clientY: 200,
+                pointerId: 2,
+                pointerType: 'touch',
+                isPrimary: false,
+              });
+              dispatchPointer(img, 'pointermove', {
+                clientX: 140,
+                clientY: 200,
+                pointerId: 1,
+                pointerType: 'touch',
+              });
+              dispatchPointer(img, 'pointermove', {
+                clientX: 260,
+                clientY: 200,
+                pointerId: 2,
+                pointerType: 'touch',
+              });
+            });
+            expect(zoomAnim.cancel).not.toHaveBeenCalled();
+            expect(ref.current!.zoom).toBe(4);
+
+            // Settle → the queued arm fires with the fingers' FRESH positions
+            // (distance 120) and the settled 4× zoom. Pinching in to distance
+            // 60 must halve the zoom — continuous from the settled state.
+            act(() => {
+              zoomAnim.onfinish?.();
+            });
+            act(() => {
+              dispatchPointer(img, 'pointermove', {
+                clientX: 170,
+                clientY: 200,
+                pointerId: 1,
+                pointerType: 'touch',
+              });
+              dispatchPointer(img, 'pointermove', {
+                clientX: 230,
+                clientY: 200,
+                pointerId: 2,
+                pointerType: 'touch',
+              });
+            });
+            expect(ref.current!.zoom).toBeCloseTo(2, 5);
           });
         });
 

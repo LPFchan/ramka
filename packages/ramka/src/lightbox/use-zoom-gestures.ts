@@ -344,18 +344,39 @@ function useZoomGestures(
           abortZoomInteraction();
           return;
         }
-        // Live pinch takes over any discrete zoom WAAPI and any in-flight
-        // rAF zoom snap-back — initialZoom must anchor to the current
-        // (possibly mid-snap) value, not keep animating under the pinch.
-        actionsRef.current.cancelZoomAnimation();
-        actionsRef.current.stopZoomSnap();
-        setZooming(true);
         // A pinch invalidates both tap tracking and double-tap timing
         lastPointerDown.current = 0;
         tapCandidate.current = false;
         tapStartPos.current = null;
         pendingDoubleTap.current = false;
         doubleTapFocal.current = null;
+        // A discrete zoom WAAPI (double-tap / bound snap / reset) owns the
+        // transform — never arm a pinch against it mid-flight: tearing the
+        // animation reads as a jump. Queue the arm instead — if both fingers
+        // are still down when the animation settles, the pinch starts then,
+        // anchored at the settled zoom and the fingers' fresh positions.
+        if (actionsRef.current.isZoomAnimating()) {
+          actionsRef.current.whenZoomAnimationSettled(() => {
+            const pts = activePointers.current;
+            if (pts.length !== 2 || pinchState.current || isScrollingRef?.current) return;
+            actionsRef.current.stopZoomSnap();
+            setZooming(true);
+            const d = distance(pts[0].clientX, pts[0].clientY, pts[1].clientX, pts[1].clientY);
+            pinchState.current = {
+              initialDistance: Math.max(d, 1),
+              initialZoom: actionsRef.current.getZoom(),
+            };
+            hadPinch.current = true;
+            rebasePanAfterPinch.current = false;
+          });
+          return;
+        }
+        // Live pinch takes over any in-flight rAF zoom snap-back —
+        // initialZoom must anchor to the current (possibly mid-snap) value,
+        // not keep animating under the pinch.
+        actionsRef.current.cancelZoomAnimation();
+        actionsRef.current.stopZoomSnap();
+        setZooming(true);
         const dist = distance(pointers[0].clientX, pointers[0].clientY, pointers[1].clientX, pointers[1].clientY);
         pinchState.current = {
           initialDistance: Math.max(dist, 1),
@@ -434,6 +455,14 @@ function useZoomGestures(
       if (zoom > 1 && existing) {
         event.stopPropagation();
         if (pointers.length === 1) {
+          // A discrete zoom WAAPI (double-tap / bound snap / reset) owns the
+          // transform — don't pan against it (changeOffsets would tear it,
+          // which reads as a jump). Absorb samples so the pan origin stays
+          // fresh and panning resumes seamlessly the moment it settles.
+          if (actionsRef.current.isZoomAnimating()) {
+            replacePointer(event);
+            return;
+          }
           if (rebasePanAfterPinch.current) {
             // Pinch just broke to one finger — glue the pan origin to this
             // sample so lift jitter isn't applied as a delta, then pan.
