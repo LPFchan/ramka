@@ -28,8 +28,8 @@ describe('PoseController', () => {
     Element.prototype.animate = previousAnimate;
   });
 
-  it('setPose writes transform without commit notify by default', () => {
-    const c = new PoseController({ zoom: 1, offsetX: 0, offsetY: 0 });
+  it('setPose pan-only writes transform without commit notify', () => {
+    const c = new PoseController({ zoom: 2, offsetX: 0, offsetY: 0 });
     c.attach(el);
     const commits: number[] = [];
     const visuals: number[] = [];
@@ -41,6 +41,17 @@ describe('PoseController', () => {
     expect(c.getPose()).toEqual({ zoom: 2, offsetX: 10, offsetY: 0 });
     expect(visuals.length).toBe(1);
     expect(commits.length).toBe(0);
+  });
+
+  it('setPose commits when zoom changes so button state can sync', () => {
+    const c = new PoseController({ zoom: 1, offsetX: 0, offsetY: 0 });
+    c.attach(el);
+    const commits: number[] = [];
+    c.subscribeCommit(() => commits.push(1));
+
+    c.setPose({ zoom: 2, offsetX: 0, offsetY: 0 });
+    expect(commits.length).toBe(1);
+    expect(c.getSnapshot().zoom).toBe(2);
   });
 
   it('settle starts from the exact last setPose and finishes at rest', () => {
@@ -145,10 +156,11 @@ describe('PoseController', () => {
     expect(commits[0]).toEqual({ zoom: 2, offsetX: 80, phase: 'idle' });
   });
 
-  it('endTracking defaults to no commit; commitSnapshot syncs at rest', () => {
-    const c = new PoseController({ zoom: 1, offsetX: 0, offsetY: 0 });
+  it('endTracking defaults to no commit; commitSnapshot syncs pan-only at rest', () => {
+    const c = new PoseController({ zoom: 2, offsetX: 0, offsetY: 0 });
     c.attach(el);
     c.beginTracking();
+    // Pan-only: no commit on setPose (zoom unchanged).
     c.setPose({ zoom: 2, offsetX: 30, offsetY: 0 });
     const commits: number[] = [];
     c.subscribeCommit(() => commits.push(1));

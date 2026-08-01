@@ -242,8 +242,9 @@ export class PoseController {
 
   /**
    * Direct pose write (finger pan / pinch / zoom-snap ticks).
-   * Hot path: DOM write + visual notify; React commit store unchanged unless
-   * `commit` is true.
+   * Pan-only moves: DOM + visual notify, no React commit (release seam).
+   * Zoom changes (pinch/wheel): also notifyCommit so canZoomIn/Out buttons
+   * and public snapshot stay in sync — without forcing a commit on every pan.
    */
   setPose(next: ZoomPose, opts?: { commit?: boolean }): void {
     if (this.phase === 'settling') this.catchInternal();
@@ -255,6 +256,7 @@ export class PoseController {
     // Do not promote idle → tracking: zoom-snap ticks and other hot writes
     // must not leave a stale tracking phase after the gesture ends.
 
+    const zoomChanged = next.zoom !== this.pose.zoom;
     this.pose = {
       zoom: next.zoom,
       offsetX: next.offsetX,
@@ -262,7 +264,7 @@ export class PoseController {
     };
     this.writeTransform();
     this.notifyVisual();
-    if (opts?.commit) this.notifyCommit();
+    if (opts?.commit || zoomChanged) this.notifyCommit();
   }
 
   /**
