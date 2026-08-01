@@ -413,6 +413,9 @@ function useZoomGestures(
             // Pinch just broke to one finger — glue the pan origin to this
             // sample so lift jitter isn't applied as a delta, then pan.
             rebasePanAfterPinch.current = false;
+            // Further motion is a pan gesture — allow momentum on release
+            // (wasPinch would otherwise force v=0 on the final pointerup).
+            hadPinch.current = false;
             replacePointer(event);
             return;
           }
@@ -529,8 +532,9 @@ function useZoomGestures(
         }
         // Pan release: one rAF physics sim — friction coast, spring bounce at
         // edges, and overscroll spring-back (including zero-velocity release).
-        // After a pinch, never coast with residual finger velocity — only spring
-        // home if pan ended past bounds.
+        // Pure pinch release (no post-pinch pan handoff) keeps wasPinch and
+        // skips coast — only spring home if past bounds. After 2→1 pan,
+        // hadPinch was cleared so flick velocity from the tracker is used.
         const tracker = velocityTracker.current;
         const zoom = actionsRef.current.getZoom();
         if (zoom > 1) {
