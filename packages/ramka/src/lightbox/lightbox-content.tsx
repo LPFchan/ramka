@@ -3,11 +3,32 @@
 import { mergeProps } from '@base-ui/react';
 import * as React from 'react';
 
+import { LightboxContentCssVars } from './lightbox-css-vars';
 import { LightboxContentDataAttributes } from './lightbox-data-attributes';
 import { useLightboxContext } from './lightbox-context';
 import { useLightboxPortalContext } from './lightbox-portal';
 import { useLightboxZoomPublish } from './lightbox-zoom-context';
 import { usePullToDismiss } from './use-pull-to-dismiss';
+
+/** Imperative chrome vars (pull / zoom) — React style reconciliation must not wipe them. */
+const CONTENT_CHROME_STYLE_VARS = [
+  LightboxContentCssVars.pullProgress,
+  LightboxContentCssVars.pullSnapDuration,
+  LightboxContentCssVars.pullSnapEasing,
+  LightboxContentCssVars.zoomProgress,
+] as const;
+
+function readPreservedChromeStyle(el: HTMLElement | null): React.CSSProperties | null {
+  if (!el) return null;
+  let preserved: React.CSSProperties | null = null;
+  for (const name of CONTENT_CHROME_STYLE_VARS) {
+    const value = el.style.getPropertyValue(name);
+    if (!value) continue;
+    if (!preserved) preserved = {};
+    (preserved as Record<string, string>)[name] = value;
+  }
+  return preserved;
+}
 
 const useLayoutEffect = typeof window !== 'undefined' ? React.useLayoutEffect : React.useEffect;
 
@@ -475,6 +496,9 @@ const LightboxContent = React.forwardRef<HTMLDivElement, LightboxContentProps>(
           // Library consumers will have to explicitly mark selectable elements in their implementations.
           userSelect: 'none',
           WebkitUserSelect: 'none',
+          // Pull/zoom chrome sets these imperatively; keep them across React
+          // style updates (otherwise discrete zoom-in loses --lightbox-zoom-progress).
+          ...readPreservedChromeStyle(contentRef.current),
           ...style,
           ...(preparing || parked ? { visibility: 'hidden' as const } : null),
           ...(parked ? { pointerEvents: 'none' as const } : null),

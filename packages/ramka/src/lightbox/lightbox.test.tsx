@@ -3316,6 +3316,115 @@ describe('Lightbox', () => {
       expect(contentEl).toHaveAttribute('data-zoomed');
     });
 
+    it('fades --lightbox-zoom-progress with live discrete zoom-in (not committed target)', () => {
+      // Regression: discrete zoom-in commits the target before paint. Using that
+      // committed zoom for --lightbox-zoom-progress snapped snug dim/blur to
+      // fully-on. Progress must track the live WAAPI scale so the fade runs.
+      type AnimStub = {
+        finished: Promise<void>;
+        cancel: ReturnType<typeof vi.fn>;
+        play: ReturnType<typeof vi.fn>;
+        pause: ReturnType<typeof vi.fn>;
+        onfinish: ((this: Animation, ev: AnimationPlaybackEvent) => void) | null;
+        oncancel: ((this: Animation, ev: AnimationPlaybackEvent) => void) | null;
+        commitStyles: ReturnType<typeof vi.fn>;
+        currentTime: number;
+        duration: number;
+      };
+      let latest: AnimStub | undefined;
+      const animateImpl = vi.fn((_kf: unknown, opts?: number | KeyframeAnimationOptions) => {
+        const stub: AnimStub = {
+          finished: new Promise<void>(() => {}),
+          cancel: vi.fn(),
+          play: vi.fn(),
+          pause: vi.fn(),
+          onfinish: null,
+          oncancel: null,
+          commitStyles: vi.fn(),
+          currentTime: 0,
+          duration: typeof opts === 'object' ? Number(opts?.duration ?? 0) : Number(opts ?? 0),
+        };
+        latest = stub;
+        return stub as unknown as Animation;
+      });
+      const hadAnimate = 'animate' in Element.prototype;
+      const previousAnimate = Element.prototype.animate;
+      Element.prototype.animate = animateImpl as unknown as typeof Element.prototype.animate;
+
+      const queue: FrameRequestCallback[] = [];
+      const origRaf = globalThis.requestAnimationFrame;
+      const origCancel = globalThis.cancelAnimationFrame;
+      globalThis.requestAnimationFrame = ((cb: FrameRequestCallback) => {
+        queue.push(cb);
+        return queue.length;
+      }) as typeof requestAnimationFrame;
+      globalThis.cancelAnimationFrame = ((id: number) => {
+        queue[id - 1] = () => {};
+      }) as typeof cancelAnimationFrame;
+
+      const pump = () => {
+        act(() => {
+          // Drain only the currently queued frames; leave the next tick that
+          // `bindZoomChrome` reschedules for the following pump.
+          const pending = queue.splice(0, queue.length);
+          for (const cb of pending) cb(performance.now());
+        });
+      };
+
+      const ref = React.createRef<LightboxZoomRef>();
+      render(
+        <LightboxRoot defaultOpen>
+          <LightboxPortal>
+            <LightboxContent data-testid="content" aria-label="Zoom-in live progress test">
+              <LightboxItemGroup>
+                <LightboxItem index={0}>
+                  <LightboxZoom ref={ref} maxZoom={4}>
+                    <img src="test.jpg" alt="test" />
+                  </LightboxZoom>
+                </LightboxItem>
+              </LightboxItemGroup>
+              <LightboxZoomIn data-testid="zoom-in">+</LightboxZoomIn>
+              <LightboxZoomOut data-testid="zoom-out">-</LightboxZoomOut>
+            </LightboxContent>
+          </LightboxPortal>
+        </LightboxRoot>,
+      );
+      const contentEl = screen.getByTestId('content');
+
+      try {
+        act(() => ref.current!.zoomTo(2));
+        expect(latest).toBeDefined();
+        expect(ref.current!.zoom).toBe(2);
+        // data-zoomed arms from the committed target; progress stays at the
+        // live 1× start so snug items can fade in with the WAAPI.
+        expect(contentEl).toHaveAttribute('data-zoomed');
+        pump();
+        expect(Number(contentEl.style.getPropertyValue('--lightbox-zoom-progress') || 0)).toBe(0);
+
+        latest!.currentTime = latest!.duration / 2;
+        pump();
+        const mid = Number(contentEl.style.getPropertyValue('--lightbox-zoom-progress'));
+        expect(mid).toBeGreaterThan(0);
+        expect(mid).toBeLessThan(1);
+
+        // Content style wipe must not stick — next tick restores live progress.
+        contentEl.style.removeProperty('--lightbox-zoom-progress');
+        pump();
+        expect(Number(contentEl.style.getPropertyValue('--lightbox-zoom-progress'))).toBeCloseTo(
+          mid,
+          5,
+        );
+      } finally {
+        globalThis.requestAnimationFrame = origRaf;
+        globalThis.cancelAnimationFrame = origCancel;
+        if (hadAnimate) {
+          Element.prototype.animate = previousAnimate;
+        } else {
+          delete (Element.prototype as { animate?: typeof Element.prototype.animate }).animate;
+        }
+      }
+    });
+
     it('publishes --lightbox-zoom-progress on Content while zoomed', () => {
       const ref = React.createRef<LightboxZoomRef>();
       render(

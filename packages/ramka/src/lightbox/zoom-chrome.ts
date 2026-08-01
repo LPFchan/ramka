@@ -51,8 +51,10 @@ export function bindZoomChrome(opts: BindZoomChromeOptions): () => void {
   let raf = 0;
 
   const publish = (scale: number, phaseAnimatingZoom: boolean) => {
-    // Visual scale drives progress. Committed snapshot covers discrete
-    // zoom-in (target committed early while WAAPI still starts at 1×).
+    // Progress follows the *visual* scale so snug dim/blur fades with the
+    // discrete WAAPI (rAF-sampled). Committed snapshot only arms data-zoomed:
+    // discrete zoom-in commits the target before paint while the transform is
+    // still at 1× — using that for progress snapped the fade to fully-on.
     // Hold keeps data-zoomed through discrete zoom-out until finish.
     const progress = zoomProgressFromScale(scale, minZoom, maxZoom);
     const committedProgress = zoomProgressFromScale(
@@ -65,7 +67,7 @@ export function bindZoomChrome(opts: BindZoomChromeOptions): () => void {
     if (progress > 0 || committedProgress > 0) {
       holdZoomed = true;
       zoomed = true;
-      progressValue = String(Math.max(progress, committedProgress));
+      progressValue = String(progress);
     } else if (phaseAnimatingZoom && holdZoomed) {
       zoomed = true;
       progressValue = '0';
@@ -79,10 +81,19 @@ export function bindZoomChrome(opts: BindZoomChromeOptions): () => void {
       if (zoomed) el.setAttribute('data-zoomed', '');
       else el.removeAttribute('data-zoomed');
     }
-    if (progressValue !== writtenProgress) {
+    // Always sync the CSS var to the live DOM value — not just our last write.
+    // Content's React `style={{...}}` re-render wipes unknown inline props;
+    // discrete zoom-in keeps progress at `"1"` for the whole WAAPI, so a
+    // writtenProgress short-circuit would never restore the wiped var
+    // (zoom-out still "worked" because live progress changes every frame).
+    const applied = el.style.getPropertyValue(progressVar);
+    const desired = progressValue ?? '';
+    if (desired !== applied) {
       writtenProgress = progressValue;
       if (progressValue == null) el.style.removeProperty(progressVar);
       else el.style.setProperty(progressVar, progressValue);
+    } else {
+      writtenProgress = progressValue;
     }
   };
 
@@ -103,7 +114,9 @@ export function bindZoomChrome(opts: BindZoomChromeOptions): () => void {
         ? uniformScaleFromTransform(getComputedStyle(wrapper).transform)
         : null;
     }
-    publish(live ?? controller.getPose().zoom, true);
+    // Discrete commits the target pose early — never use getPose() as the
+    // visual fallback mid-flight or zoom-in progress snaps to fully-on.
+    publish(live ?? minZoom, true);
     raf = requestAnimationFrame(tick);
   };
 
