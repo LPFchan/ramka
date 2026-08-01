@@ -36,6 +36,19 @@ interface CaptureOptions {
    * When set, `easing` is ignored — the physics IS the easing.
    */
   path?: ZoomPose[];
+  /**
+   * Exact numeric start pose. When provided, captureStart skips the
+   * `getComputedStyle` sample — a forced style recalc that costs real frames
+   * in the release hot path. Only valid when the caller KNOWS the visual pose
+   * (e.g. right after cancelling any in-flight animation committed it).
+   */
+  fromPose?: ZoomPose;
+  /**
+   * Whether this transition changes the zoom scale (default true). Zoom-static
+   * settles (pure momentum pan) let chrome skip its per-frame live-scale
+   * sampling loop — the committed zoom is already the visual truth.
+   */
+  zoomChanges?: boolean;
 }
 
 interface ZoomPose {
@@ -112,6 +125,10 @@ function useZoomAnimation(
   const runningKind = React.useRef<'discrete' | 'settle' | undefined>(undefined);
   // Numeric trajectory of a keyframed settle — for exact cancel recovery.
   const runningPath = React.useRef<RunningPathInfo | undefined>(undefined);
+  // Whether the armed/running transition animates the zoom scale. State (not
+  // a ref) so the chrome publisher effect re-evaluates when a new animation
+  // arms in the same batch as another ends (isAnimating never flips then).
+  const [animatesZoom, setAnimatesZoom] = React.useState(true);
   // Sync flag for gesture gates — React state can lag a frame behind WAAPI
   // settle, and pointer handlers must not read a stale `true`.
   const animatingRef = React.useRef(false);
@@ -172,10 +189,14 @@ function useZoomAnimation(
       });
       runningAnimation.current = anim;
       if (path && path.length > 0) {
-        // The `from` keyframe is the live computed transform; its numeric pose
-        // is one bake step behind path[0] — close enough that starting the
-        // recovery trajectory at path[0] is exact for every practical cancel.
-        runningPath.current = { poses: [path[0]!, ...path, toPose], duration: animDuration };
+        // Prefer the exact numeric start pose when the caller provided one;
+        // otherwise the `from` keyframe is the live computed transform, whose
+        // numeric pose is one bake step behind path[0] — close enough that
+        // starting the recovery trajectory there is exact for practical use.
+        runningPath.current = {
+          poses: [opts?.fromPose ?? path[0]!, ...path, toPose],
+          duration: animDuration,
+        };
       }
       setAnimating(true);
 
@@ -232,10 +253,17 @@ function useZoomAnimation(
    * effect starts the WAAPI animation.
    */
   const captureStart = React.useCallback((opts?: CaptureOptions) => {
-    const el = wrapperRef.current;
-    startTransform.current = el ? getComputedStyle(el).transform : undefined;
+    if (opts?.fromPose) {
+      // Known start pose — skip the getComputedStyle sample (a forced style
+      // recalc that costs real frames in the release hot path).
+      startTransform.current = poseTransform(opts.fromPose);
+    } else {
+      const el = wrapperRef.current;
+      startTransform.current = el ? getComputedStyle(el).transform : undefined;
+    }
     overrideOpts.current = opts;
     runningKind.current = opts?.kind ?? 'discrete';
+    setAnimatesZoom(opts?.zoomChanges ?? true);
     setAnimating(true);
   }, [wrapperRef, setAnimating]);
 
@@ -296,7 +324,28 @@ function useZoomAnimation(
     [],
   );
 
-  return { captureStart, cancel, isAnimating, getIsAnimating, getIsDiscreteAnimating };
+  /**
+   * Live animated zoom of a keyframed settle, computed analytically from the
+   * baked trajectory — no `getComputedStyle`, so sampling it per frame costs
+   * no style recalc. Returns `null` when no keyframed animation is running.
+   */
+  const getLiveAnimatedZoom = React.useCallback((): number | null => {
+    const anim = runningAnimation.current;
+    const info = runningPath.current;
+    if (!anim || !info) return null;
+    return livePoseOnPath(info, anim.currentTime)?.zoom ?? null;
+  }, []);
+
+  return {
+    captureStart,
+    cancel,
+    isAnimating,
+    /** Whether the armed/running transition animates the zoom scale. */
+    animatesZoom,
+    getIsAnimating,
+    getIsDiscreteAnimating,
+    getLiveAnimatedZoom,
+  };
 }
 
 export { useZoomAnimation };

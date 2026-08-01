@@ -390,7 +390,9 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
       captureStart: captureStartRaw,
       cancel: cancelZoomAnimationRaw,
       isAnimating,
+      animatesZoom,
       getIsDiscreteAnimating,
+      getLiveAnimatedZoom,
     } = useZoomAnimation(zoom, offsetX, offsetY, wrapperRef, DEFAULT_ANIMATION_DURATION);
 
     // Queue follow-up double-taps until the current discrete WAAPI settles.
@@ -490,28 +492,52 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
       if (!el) return;
       const progressVar = LightboxContentCssVars.zoomProgress;
 
+      // No-op write guards: `data-zoomed` and the progress var live on the
+      // dialog root, so every write invalidates style for the whole dialog
+      // subtree (siblings bind the var to filter/blur). During a sampling
+      // loop the values are often unchanged frame-to-frame — skip those.
+      let writtenZoomed: boolean | null = null;
+      let writtenProgress: string | null | undefined;
+
       const publish = (scale: number) => {
         const progress = zoomProgressFromScale(scale, minZoom, maxZoom);
         // Discrete zoomTo commits React `zoom` before WAAPI moves the wrapper.
         // Treat committed zoom as zoomed too so `data-zoomed` doesn’t clear on
         // the first animated frames of a zoom-in (live scale still ≈ minZoom).
         const committedProgress = zoomProgressFromScale(zoom, minZoom, maxZoom);
+        let zoomed: boolean;
+        let progressValue: string | null;
         if (progress > 0 || committedProgress > 0) {
           holdZoomedChromeRef.current = true;
-          el.setAttribute('data-zoomed', '');
-          el.style.setProperty(progressVar, String(progress));
+          zoomed = true;
+          progressValue = String(progress);
         } else if (isAnimating && holdZoomedChromeRef.current) {
           // Finishing a real zoom-out — keep chrome hidden until settle.
-          el.setAttribute('data-zoomed', '');
-          el.style.setProperty(progressVar, '0');
+          zoomed = true;
+          progressValue = '0';
         } else {
           holdZoomedChromeRef.current = false;
-          el.removeAttribute('data-zoomed');
-          el.style.removeProperty(progressVar);
+          zoomed = false;
+          progressValue = null;
+        }
+        if (zoomed !== writtenZoomed) {
+          writtenZoomed = zoomed;
+          if (zoomed) el.setAttribute('data-zoomed', '');
+          else el.removeAttribute('data-zoomed');
+        }
+        if (progressValue !== writtenProgress) {
+          writtenProgress = progressValue;
+          if (progressValue == null) el.style.removeProperty(progressVar);
+          else el.style.setProperty(progressVar, progressValue);
         }
       };
 
-      if (!isAnimating) {
+      // Zoom-static settles (pure momentum pan) never change the visual
+      // scale — publishing the committed zoom once is exact, and skipping the
+      // rAF loop keeps the compositor animation free of per-frame style
+      // recalcs on the main thread (the root cause of choppy coasting,
+      // especially under iOS Low Power Mode's 30fps rAF throttle).
+      if (!isAnimating || !animatesZoom) {
         publish(zoom);
         return;
       }
@@ -523,16 +549,30 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
 
       let raf = 0;
       const tick = () => {
-        const wrapper = wrapperRef.current;
-        const live = wrapper
-          ? uniformScaleFromTransform(getComputedStyle(wrapper).transform)
-          : null;
+        // Keyframed settles expose their zoom analytically — free to sample.
+        // Two-pose discrete zooms fall back to the computed transform.
+        let live = getLiveAnimatedZoom();
+        if (live == null) {
+          const wrapper = wrapperRef.current;
+          live = wrapper
+            ? uniformScaleFromTransform(getComputedStyle(wrapper).transform)
+            : null;
+        }
         publish(live ?? zoom);
         raf = requestAnimationFrame(tick);
       };
       raf = requestAnimationFrame(tick);
       return () => cancelAnimationFrame(raf);
-    }, [isActive, zoom, minZoom, maxZoom, isAnimating, dialogElementRef]);
+    }, [
+      isActive,
+      zoom,
+      minZoom,
+      maxZoom,
+      isAnimating,
+      animatesZoom,
+      dialogElementRef,
+      getLiveAnimatedZoom,
+    ]);
 
     const offsetXRef = React.useRef(offsetX);
     offsetXRef.current = offsetX;
@@ -813,6 +853,13 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
         captureStart({
           kind: 'settle',
           path: baked.path,
+          // Refs hold the exact visual pose here (cancelZoomAnimation synced
+          // them) — passing it skips captureStart's getComputedStyle, a forced
+          // style recalc that eats into the release frame budget.
+          fromPose: { zoom: z, offsetX: offsetXRef.current, offsetY: offsetYRef.current },
+          // Zoom-static coasts let chrome skip its per-frame live-scale
+          // sampling loop entirely.
+          zoomChanges: vz !== undefined || Math.abs(z - bound) > 1e-6,
           // Keyframes: captured live pose + path + committed rest pose, one
           // fixed bake step per interval.
           duration: (baked.path.length + 1) * SETTLE_BAKE_DT * 1000,
