@@ -1737,6 +1737,32 @@ describe('Lightbox', () => {
       }
     });
 
+    it('pads from zero when body has no inline paddingRight (skips getComputedStyle)', () => {
+      const origInnerWidth = Object.getOwnPropertyDescriptor(window, 'innerWidth');
+      const origClientWidth = Object.getOwnPropertyDescriptor(document.documentElement, 'clientWidth');
+      Object.defineProperty(window, 'innerWidth', { configurable: true, get: () => 1020 });
+      Object.defineProperty(document.documentElement, 'clientWidth', {
+        configurable: true,
+        get: () => 1000,
+      });
+      document.body.style.paddingRight = '';
+
+      try {
+        render(<TestLightbox />);
+        fireEvent.click(screen.getByTestId('trigger-0'));
+        expect(document.body.style.paddingRight).toBe('20px');
+      } finally {
+        document.body.style.paddingRight = '';
+        if (origInnerWidth) Object.defineProperty(window, 'innerWidth', origInnerWidth);
+        else delete (window as unknown as { innerWidth?: number }).innerWidth;
+        if (origClientWidth) {
+          Object.defineProperty(document.documentElement, 'clientWidth', origClientWidth);
+        } else {
+          delete (document.documentElement as unknown as { clientWidth?: number }).clientWidth;
+        }
+      }
+    });
+
     it('disables document text selection while open, then restores it on close', async () => {
       // Regression: iOS Safari tap→pan while zoomed selected the page behind
       // the lightbox. The scroll lock sets user-select on <html> for the

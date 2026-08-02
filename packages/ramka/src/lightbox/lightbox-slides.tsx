@@ -270,13 +270,19 @@ const LightboxSlides = React.forwardRef<HTMLDivElement, LightboxSlidesProps>(
       notifySlidesViewport();
 
       // ResizeObserver fires an initial callback on `observe()` with the current
-      // size. In a real browser we already measured the same values in the
-      // layout effect above, so re-centering from that initial callback is a
-      // redundant scroll write landing *during the open commit* (it dirties
-      // layout, forcing the next read to reflow). Only re-center when geometry
-      // actually changed — genuine resizes still work, and the no-op initial
-      // callback is skipped. See LIGHTBOX_PERF.md.
+      // size. We already measured in this layout effect, so skip that first
+      // callback entirely — even a no-op equality check still runs
+      // `measureSlidesGeometry` (`clientWidth` / `offset*`) and forces style+
+      // layout during the open `flushSync(commitPrepare)`. Genuine later
+      // resizes still re-center. See LIGHTBOX_PERF.md.
+      let skipInitialRo = true;
       const observer = new ResizeObserver(() => {
+        // First delivery after `observe()` — layout effect already measured.
+        if (skipInitialRo) {
+          skipInitialRo = false;
+          return;
+        }
+
         const prev = geometryRef.current;
         const next = measureSlidesGeometry(viewport);
         geometryRef.current = next;

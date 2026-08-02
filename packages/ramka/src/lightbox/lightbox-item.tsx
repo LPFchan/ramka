@@ -352,10 +352,15 @@ const LightboxItem = React.forwardRef<HTMLDivElement, LightboxItemProps>(
     // `commitPrepare` flushSync — before the View Transition captures the "new"
     // snapshot — so the placeholder is part of the morph end state. Only touches
     // the image when the consumer opted in via `imageRef` (or Media auto-wired it).
+    //
+    // While an open transition is in flight, only the *active* (morph) item
+    // paints — preload neighbors would each force getComputedStyle / clientWidth
+    // / canvas work during prepare for slides the VT never captures.
     React.useLayoutEffect(() => {
       const img = imageNodeRef.current;
       if (!img) return;
       if (img.complete && img.naturalWidth > 0) return; // already decoded
+      if (openTransitionPendingRef.current && !isActive) return;
 
       const clicked =
         openingTriggerIndexRef.current === index ? openingTriggerImageRef.current : null;

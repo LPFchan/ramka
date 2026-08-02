@@ -71,6 +71,10 @@ function setupGeometry(viewport: HTMLElement, count: number) {
     Object.defineProperty(slide, 'offsetLeft', { configurable: true, get: () => i * WIDTH });
     Object.defineProperty(slide, 'offsetWidth', { configurable: true, get: () => WIDTH });
   });
+  // Slides skips the ResizeObserver's initial delivery (layout effect already
+  // measured). The first flush consumes that skip; the second applies stubbed
+  // geometry (jsdom mount measured zeros).
+  flushResizeObservers();
   flushResizeObservers();
 }
 

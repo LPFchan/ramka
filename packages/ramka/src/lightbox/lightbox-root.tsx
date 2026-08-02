@@ -462,7 +462,11 @@ function LightboxRoot(props: LightboxRootProps) {
       html.style.userSelect = 'none';
       html.style.setProperty('-webkit-user-select', 'none');
       if (scrollbarWidth > 0) {
-        const currentPadding = parseFloat(window.getComputedStyle(body).paddingRight) || 0;
+        // Prefer the inline value — skipping getComputedStyle avoids a forced
+        // style recalc at reveal when the body has no author padding (common).
+        const inlinePadding = body.style.paddingRight;
+        const currentPadding =
+          inlinePadding === '' ? 0 : parseFloat(inlinePadding) || 0;
         body.style.paddingRight = `${currentPadding + scrollbarWidth}px`;
       }
       scrollLockCleanupRef.current = () => {

@@ -205,6 +205,8 @@ const LightboxThumbnailStrip = React.forwardRef<HTMLDivElement, LightboxThumbnai
     } = props;
 
     const {
+      open,
+      preparing,
       slidesViewportRef,
       slidesGeometryRef,
       subscribeSlidesViewport,
@@ -388,6 +390,12 @@ const LightboxThumbnailStrip = React.forwardRef<HTMLDivElement, LightboxThumbnai
     }, [slidesViewportRef, slidesGeometryRef]);
 
     React.useLayoutEffect(() => {
+      // Skip measure / ScrollTimeline / JS scroll-link during VT prepare (and
+      // while closed). Those layout reads force style+layout on the freshly
+      // mounted tree inside `flushSync(commitPrepare)` and are unused by the
+      // morph. Re-runs on reveal (`preparing → false`, `open`) for one attach.
+      if (!open || preparing) return;
+
       let ro: ResizeObserver | undefined;
       let scrollSlides: HTMLElement | null = null;
       let onScroll: (() => void) | undefined;
@@ -492,6 +500,8 @@ const LightboxThumbnailStrip = React.forwardRef<HTMLDivElement, LightboxThumbnai
         }
       };
     }, [
+      open,
+      preparing,
       subscribeSlidesViewport,
       slidesViewportRef,
       measureThumbs,

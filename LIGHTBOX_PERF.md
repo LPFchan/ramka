@@ -58,10 +58,11 @@ because it runs *inside React's `flushSync`* while the just-mounted DOM is dirty
 
 ## Fixes applied (correct forced-reflow hygiene; all 240 tests green)
 
-- [x] **F1 — skip the ResizeObserver's redundant initial re-center**
-  (`lightbox-slides.tsx`). The observer's first callback re-measured identical
-  geometry and issued a scroll write *during the open commit* (dirtying layout
-  for the next read). Now it only re-centers when geometry actually changed.
+- [x] **F1 — skip the ResizeObserver's initial measure entirely**
+  (`lightbox-slides.tsx`). The observer's first callback after `observe()` is
+  ignored (layout effect already measured) so open doesn't pay a second
+  `clientWidth`/`offset*` pass. Later callbacks still equality-check before
+  re-centering.
 - [x] **F2 — batch the morph's `getComputedStyle` reads**
   (`use-view-transition-morph.ts`). Read the trigger's `border-radius` *before*
   any writes (clean style, no forced reflow) and the item's radius once right
@@ -78,6 +79,15 @@ Net: the fixes remove three specific forced reflows from the open commit. They
 don't shrink the 20× headline much because that number is gated by React
 reconciliation + style recalc (see above), but they are unambiguous wins under
 the profiler and eliminate avoidable synchronous layout.
+
+## Follow-up hygiene (applied)
+
+- [x] **Gate ThumbnailStrip attach while `preparing`** — no thumb
+  `offset*` / ScrollTimeline work inside `flushSync(commitPrepare)`.
+- [x] **Active-only placeholder canvas during open** — preload neighbors skip
+  `getComputedStyle` / canvas paint while `openTransitionPendingRef` is true.
+- [x] **Scroll-lock: skip `getComputedStyle(body)`** when inline
+  `paddingRight` is empty.
 
 ## What would move the needle further (not done — higher risk)
 

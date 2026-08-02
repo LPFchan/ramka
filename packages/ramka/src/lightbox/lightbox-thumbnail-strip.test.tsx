@@ -3,6 +3,7 @@ import * as React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 import { LightboxContent } from './lightbox-content';
+import { LightboxThumbnailStripCssVars } from './lightbox-css-vars';
 import { LightboxThumbnailStrip } from './lightbox-thumbnail-strip';
 import { LightboxThumbnailStripTrack } from './lightbox-thumbnail-strip-track';
 import { LightboxItem } from './lightbox-item';
@@ -68,6 +69,10 @@ function setupSlidesGeometry(viewport: HTMLElement, count: number) {
     Object.defineProperty(slide, 'offsetLeft', { configurable: true, get: () => i * WIDTH });
     Object.defineProperty(slide, 'offsetWidth', { configurable: true, get: () => WIDTH });
   });
+  // Slides skips the ResizeObserver's initial delivery (layout effect already
+  // measured). The first flush consumes that skip; the second applies stubbed
+  // geometry (jsdom mount measured zeros).
+  flushResizeObservers();
   flushResizeObservers();
 }
 
@@ -284,6 +289,65 @@ describe('Lightbox.ThumbnailStrip', () => {
     expect(track).toHaveAttribute('data-ramka-thumbnail-strip-track');
     expect(track).toHaveAttribute('role', 'tablist');
     expect(screen.getByText('item 0').closest('[role="tabpanel"]')).toBeTruthy();
+  });
+
+  it('skips thumb measure during VT prepare, then attaches on reveal', () => {
+    let travelDuringPrepare = 'unset';
+    let travelAfterReveal = 'unset';
+    Object.defineProperty(document, 'startViewTransition', {
+      value: (callback: () => void | Promise<void>) => {
+        // prepare already ran; reveal has not — strip must not have measured.
+        travelDuringPrepare = screen
+          .getByTestId('thumbnail-strip-track')
+          .style.getPropertyValue(LightboxThumbnailStripCssVars.travel);
+        const result = callback();
+        if (result && typeof (result as Promise<void>).then === 'function') {
+          (result as Promise<void>).catch(vi.fn());
+        }
+        travelAfterReveal = screen
+          .getByTestId('thumbnail-strip-track')
+          .style.getPropertyValue(LightboxThumbnailStripCssVars.travel);
+        return { finished: Promise.resolve() };
+      },
+      writable: true,
+      configurable: true,
+    });
+
+    try {
+      render(
+        <LightboxRoot viewTransition awaitImageDecode={false}>
+          <LightboxTrigger index={0} data-testid="trigger">
+            open
+          </LightboxTrigger>
+          <LightboxPortal>
+            <LightboxContent aria-label="ThumbnailStrip prepare test">
+              <LightboxSlides data-testid="slides" aria-label="Slides">
+                <LightboxSlide>
+                  <LightboxItem index={0}>item 0</LightboxItem>
+                </LightboxSlide>
+                <LightboxSlide>
+                  <LightboxItem index={1}>item 1</LightboxItem>
+                </LightboxSlide>
+              </LightboxSlides>
+              <LightboxThumbnailStrip data-testid="thumbnail-strip">
+                <LightboxThumbnailStripTrack data-testid="thumbnail-strip-track" aria-label="Thumbs">
+                  <LightboxThumbnail index={0}>t0</LightboxThumbnail>
+                  <LightboxThumbnail index={1}>t1</LightboxThumbnail>
+                </LightboxThumbnailStripTrack>
+              </LightboxThumbnailStrip>
+            </LightboxContent>
+          </LightboxPortal>
+        </LightboxRoot>,
+      );
+
+      fireEvent.click(screen.getByTestId('trigger'));
+
+      expect(travelDuringPrepare).toBe('');
+      // Reveal flips preparing→false / open→true; attach writes travel (even 0px in jsdom).
+      expect(travelAfterReveal).not.toBe('');
+    } finally {
+      delete (document as unknown as Record<string, unknown>).startViewTransition;
+    }
   });
 
   it('JS fallback mirrors Slides scrollLeft onto the track transform', () => {

@@ -213,6 +213,40 @@ describe('render-fn placeholder wiring (Trigger imageRef -> Item imageRef)', () 
     expect(img.style.backgroundImage).toBe('');
   });
 
+  it('skips placeholder paint on non-active preload neighbors during open', () => {
+    mockViewTransitionAPI();
+
+    render(
+      <LightboxRoot viewTransition awaitImageDecode={false}>
+        <LightboxTrigger index={0} data-testid="trigger-0">
+          {({ imageRef }) => <img ref={imageRef} src="/thumb-0.jpg" alt="thumb 0" />}
+        </LightboxTrigger>
+        <LightboxTrigger index={1} data-testid="trigger-1">
+          {({ imageRef }) => <img ref={imageRef} src="/thumb-1.jpg" alt="thumb 1" />}
+        </LightboxTrigger>
+        <LightboxPortal>
+          <LightboxContent aria-label="viewer">
+            <LightboxItemGroup preload={1}>
+              <LightboxItem index={0} data-testid="item-0">
+                {({ imageRef }) => <img ref={imageRef} src="/full-0.jpg" alt="full 0" />}
+              </LightboxItem>
+              <LightboxItem index={1} data-testid="item-1">
+                {({ imageRef }) => <img ref={imageRef} src="/full-1.jpg" alt="full 1" />}
+              </LightboxItem>
+            </LightboxItemGroup>
+          </LightboxContent>
+        </LightboxPortal>
+      </LightboxRoot>,
+    );
+
+    clickTrigger('trigger-0');
+
+    const activeImg = document.querySelector<HTMLImageElement>('[data-testid="item-0"] img')!;
+    const neighborImg = document.querySelector<HTMLImageElement>('[data-testid="item-1"] img')!;
+    expect(activeImg.style.backgroundImage).toContain('/thumb-0.jpg');
+    expect(neighborImg.style.backgroundImage).toBe('');
+  });
+
   it('holds the placeholder until the open transition finishes, even after the image paints', async () => {
     const { resolveFinished } = mockViewTransitionAPI();
 
