@@ -783,6 +783,139 @@ export function bakeSettlePath(input: BakeSettleInput): BakedSettle | null {
   return { path: keptPath, offsets, durationMs, zoom: bound, offsetX: rest.x, offsetY: rest.y };
 }
 
+// ---------------------------------------------------------------------------
+// Discrete zoom baking (buttons / keyboard / double-tap)
+//
+// Discrete zoom used to be a raw 2-keyframe ease-in-out WAAPI tween. That
+// tween restarted from zero velocity whenever a new step interrupted the
+// previous one — rapid button presses stuttered — and its live pose could not
+// be sampled accurately mid-flight (the analytic path helpers lerp linearly
+// and know nothing about CSS easing). Instead we bake the SAME 300ms
+// ease-in-out curve into explicit keyframes (compositor playback, exactly
+// like the release settle above), which makes the live pose and velocity
+// analytically recoverable at any interrupt point. A press that lands
+// mid-flight then bakes a fresh curve whose initial slope matches the carried
+// velocity (a cubic Hermite), so hammering the button reads as one continuous
+// motion — while a single uninterrupted press feels identical to before.
+// ---------------------------------------------------------------------------
+
+/**
+ * CSS `ease-in-out` control points — cubic-bezier(0.42, 0, 0.58, 1). The
+ * from-rest discrete zoom bake reproduces this exact curve so the single-press
+ * feel is unchanged from the raw eased tween it replaced.
+ */
+export const DISCRETE_ZOOM_EASE = { x1: 0.42, y1: 0, x2: 0.58, y2: 1 };
+/** Keyframe samples per baked discrete zoom curve. */
+export const DISCRETE_ZOOM_BAKE_SAMPLES = 32;
+/**
+ * Cap on the carried-velocity tangent (normalized progress units). Bounds the
+ * Hermite overshoot when an extreme velocity is carried into a small step.
+ */
+export const DISCRETE_ZOOM_MAX_CARRY_TANGENT = 4;
+/** Carried tangents below this are treated as rest (use the ease curve). */
+const DISCRETE_ZOOM_MIN_CARRY_TANGENT = 0.02;
+
+export interface BakeDiscreteZoomInput {
+  from: SettlePose;
+  to: SettlePose;
+  /**
+   * Zoom velocity carried from an interrupted animation (zoom units/s).
+   * Omit / 0 when starting from rest.
+   */
+  vZoom?: number;
+  /** Curve duration in milliseconds (the discrete animation duration). */
+  durationMs: number;
+}
+
+export interface BakedDiscreteZoom {
+  /** Intermediate poses (final target excluded), aligned 1:1 with `offsets`. */
+  path: SettlePose[];
+  /** Fractional keyframe time (0..1, exclusive) for each pose in `path`. */
+  offsets: number[];
+  /** Total trajectory duration in milliseconds. */
+  durationMs: number;
+}
+
+/**
+ * Lerp two poses the way CSS matrix-interpolates `scale() translate()` —
+ * mirror of `lerpPoseMatrix` in pose-controller (kept local so gesture math
+ * stays a leaf module). Extrapolates for t outside [0, 1] (overshoot).
+ */
+function lerpSettlePoseMatrix(a: SettlePose, b: SettlePose, t: number): SettlePose {
+  const z = a.zoom + (b.zoom - a.zoom) * t;
+  if (!(z > 0)) return { ...b };
+  const e = a.zoom * a.offsetX + (b.zoom * b.offsetX - a.zoom * a.offsetX) * t;
+  const f = a.zoom * a.offsetY + (b.zoom * b.offsetY - a.zoom * a.offsetY) * t;
+  return { zoom: z, offsetX: e / z, offsetY: f / z };
+}
+
+/**
+ * Bake a discrete zoom step into a keyframe path for compositor playback.
+ * Poses ride the matrix-lerp line between `from` and `to` (the same
+ * focal-stable path WAAPI matrix interpolation takes); only the progress
+ * parameterization differs by case:
+ *
+ * - From rest: the exact CSS ease-in-out curve, sampled parametrically —
+ *   keyframe offsets carry the bezier's x (time) and progress its y — so the
+ *   uninterrupted feel is identical to the raw eased tween.
+ * - With carried velocity: a cubic Hermite over the same duration whose
+ *   initial slope matches the carried velocity and whose end slope is zero,
+ *   giving the same soft landing. A large carried velocity may slightly
+ *   overshoot the target mid-curve and ease back — the elastic interrupt feel.
+ *
+ * Returns `null` for a degenerate zero zoom delta (pure-offset moves fall
+ * back to the plain 2-keyframe tween) or a non-positive duration.
+ */
+export function bakeDiscreteZoomPath(input: BakeDiscreteZoomInput): BakedDiscreteZoom | null {
+  const { from, to, durationMs } = input;
+  if (!(from.zoom > 0) || !(to.zoom > 0) || !(durationMs > 0)) return null;
+
+  const zoomDelta = to.zoom - from.zoom;
+  // Degenerate: no zoom delta to drive progress against. Callers fall back
+  // to the plain 2-keyframe tween for pure-offset moves.
+  if (Math.abs(zoomDelta) < 1e-9) return null;
+
+  // Carried velocity as the initial slope of normalized progress s(τ),
+  // τ = time / duration: ds/dτ = v · D / Δz.
+  const rawTangent = ((input.vZoom ?? 0) * (durationMs / 1000)) / zoomDelta;
+  const m0 = clamp(rawTangent, -DISCRETE_ZOOM_MAX_CARRY_TANGENT, DISCRETE_ZOOM_MAX_CARRY_TANGENT);
+
+  const n = DISCRETE_ZOOM_BAKE_SAMPLES;
+  const path: SettlePose[] = [];
+  const offsets: number[] = [];
+
+  if (Math.abs(m0) < DISCRETE_ZOOM_MIN_CARRY_TANGENT) {
+    // From rest: sample the bezier parametrically. Each parameter step yields
+    // an (x=time, y=progress) pair; x becomes the explicit keyframe offset, so
+    // playback timing matches the true curve with no root solving.
+    const { x1, y1, x2, y2 } = DISCRETE_ZOOM_EASE;
+    for (let i = 1; i < n; i++) {
+      const t = i / n;
+      const omt = 1 - t;
+      const b1 = 3 * omt * omt * t;
+      const b2 = 3 * omt * t * t;
+      const t3 = t * t * t;
+      const x = b1 * x1 + b2 * x2 + t3;
+      const y = b1 * y1 + b2 * y2 + t3;
+      offsets.push(x);
+      path.push(lerpSettlePoseMatrix(from, to, y));
+    }
+  } else {
+    // Carried velocity: cubic Hermite s(τ) with s(0)=0, s'(0)=m0, s(1)=1,
+    // s'(1)=0 — velocity-continuous pickup, same soft landing as the ease.
+    for (let i = 1; i < n; i++) {
+      const t = i / n;
+      const t2 = t * t;
+      const t3 = t2 * t;
+      const s = m0 * (t3 - 2 * t2 + t) + (3 * t2 - 2 * t3);
+      offsets.push(t);
+      path.push(lerpSettlePoseMatrix(from, to, s));
+    }
+  }
+
+  return { path, offsets, durationMs };
+}
+
 /** @deprecated Prefer {@link PAN_PHYSICS_SPRING_MOUSE}. */
 export const PAN_PHYSICS_STIFFNESS = PAN_PHYSICS_SPRING_MOUSE.stiffness;
 /** @deprecated Prefer {@link PAN_PHYSICS_SPRING_MOUSE}. */
