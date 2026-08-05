@@ -64,6 +64,8 @@ const trailer = {
   posterWidth: 500,
   posterHeight: 707,
   video: 'https://download.blender.org/peach/trailer/trailer_iphone.m4v',
+  videoWidth: 480,
+  videoHeight: 270,
 };
 
 /** Initials chips → portraits (non-image morph source). */
@@ -225,10 +227,12 @@ function CloseDemo() {
         className={`group block w-40 bg-transparent p-0 ${triggerFocusClass}`}
       >
         {({ morphRef }) => (
-          // Radius on the morph target itself — the VT reads getComputedStyle(morphRef).
-          <div className={`relative overflow-hidden rounded-xl ${morphHideClass}`}>
+          // morphRef + morphHideClass on the same node (radius for VT + open hide).
+          <div
+            ref={morphRef}
+            className={`relative overflow-hidden rounded-xl ${morphHideClass}`}
+          >
             <img
-              ref={morphRef}
               width={trailer.posterWidth}
               height={trailer.posterHeight}
               src={trailer.poster}
@@ -251,17 +255,20 @@ function CloseDemo() {
             thumb: trailer.poster,
             alt: trailer.title,
             caption: trailer.title,
+            width: trailer.videoWidth,
+            height: trailer.videoHeight,
           },
         ]}
         ariaLabel={trailer.title}
         thumbnails="never"
         zoomControls={false}
-        renderItem={(_item, _i, { morphRef }) => (
+        renderItem={() => (
           <CloseDemoVideo
             src={trailer.video}
             poster={trailer.poster}
             ready={readyToPlay}
-            morphRef={morphRef}
+            width={trailer.videoWidth}
+            height={trailer.videoHeight}
           />
         )}
       />
@@ -273,22 +280,16 @@ function CloseDemoVideo({
   src,
   poster,
   ready,
-  morphRef,
+  width,
+  height,
 }: {
   src: string;
   poster: string;
   ready: boolean;
-  morphRef: (node: HTMLElement | null) => void;
+  width: number;
+  height: number;
 }) {
   const videoRef = React.useRef<HTMLVideoElement>(null);
-
-  const setRef = React.useCallback(
-    (node: HTMLVideoElement | null) => {
-      videoRef.current = node;
-      morphRef(node);
-    },
-    [morphRef],
-  );
 
   React.useEffect(() => {
     const el = videoRef.current;
@@ -302,16 +303,22 @@ function CloseDemoVideo({
   }, [ready]);
 
   return (
-    <video
-      ref={setRef}
-      src={src}
-      poster={poster}
-      controls
-      playsInline
-      muted
-      preload="metadata"
-      className="size-full bg-black object-contain"
-    />
+    <Lightbox.Zoom>
+      <Lightbox.Media width={width} height={height} className="overflow-hidden rounded-xl">
+        <video
+          ref={videoRef}
+          src={src}
+          poster={poster}
+          width={width}
+          height={height}
+          controls
+          playsInline
+          muted
+          preload="metadata"
+          className="object-cover"
+        />
+      </Lightbox.Media>
+    </Lightbox.Zoom>
   );
 }
 
