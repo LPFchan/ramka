@@ -1,0 +1,440 @@
+/**
+ * Dialog lightbox skin — ships with lightbox.tsx as the design-system package.
+ *
+ * Minimal macOS-style modal: translucent panel, hairline shadows, push
+ * buttons. No slides, zoom, caption, or thumbnail styles — this skin uses the
+ * Lightbox purely as a morphing dialog.
+ *
+ * Package boundary: only styles for the styled Lightbox primitives + Dialog
+ * pieces. App/demo layout (page cards, icons, avatar lists) does NOT belong
+ * here — those live in the consuming app (see demo.tsx in docs).
+ *
+ * Prefix: `lbd-`. Document-level view-transition rules are required for morph.
+ */
+
+/* ── Tokens (scoped to skin host — not :root) ───────────────────────────── */
+
+.lbd-portal {
+  --lbd-ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --lbd-ease-vt-morph: cubic-bezier(0.32, 0.72, 0, 1);
+  --lbd-duration-open: 340ms;
+  /* Library morph contract — promoted onto documentElement during VT. */
+  --lightbox-vt-duration: var(--lbd-duration-open);
+  --lightbox-vt-easing: var(--lbd-ease-vt-morph);
+  --lightbox-vt-root-easing: var(--lbd-ease-out-expo);
+}
+
+/* ── Trigger ────────────────────────────────────────────────────────────── */
+
+.lbd-trigger {
+  /* Outside Portal — local copies of skin tokens for morph-hide transitions. */
+  --lbd-ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --lbd-duration-open: 340ms;
+  font: inherit;
+  color: inherit;
+  appearance: none;
+  cursor: pointer;
+}
+
+.lbd-trigger:focus {
+  outline: none;
+}
+
+.lbd-trigger:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+/*
+ * Morph hide — library sets `data-morph-target` on the resolved morph element
+ * (Trigger root, or the `morphRef` node). Scoped to this skin's triggers.
+ */
+.lbd-trigger[data-morph-target],
+.lbd-trigger [data-morph-target] {
+  opacity: 0;
+  transition: opacity 200ms var(--lbd-ease-out-expo);
+}
+
+:root[data-ramka-view-transition] .lbd-trigger[data-morph-target],
+:root[data-ramka-view-transition] .lbd-trigger [data-morph-target] {
+  transition: none;
+}
+
+/* ── Backdrop / Content open-close + pull ───────────────────────────────── */
+
+.lbd-backdrop {
+  position: fixed;
+  inset: 0;
+  opacity: 0;
+  background-color: rgb(0 0 0 / 0.22);
+  /* Snap vars make a cancelled pull spring back on the item's exact curve. */
+  transition: opacity var(--lightbox-pull-snap-duration, var(--lbd-duration-open))
+    var(--lightbox-pull-snap-easing, var(--lbd-ease-out-expo));
+}
+
+:is(.dark, [data-theme='dark']) .lbd-backdrop,
+html.dark .lbd-backdrop {
+  background-color: rgb(0 0 0 / 0.45);
+}
+
+@starting-style {
+  .lbd-backdrop[data-open] {
+    opacity: 0;
+  }
+}
+
+/* Dim with the pull (0 at rest → 1 at the dismiss threshold). */
+.lbd-backdrop[data-open] {
+  opacity: calc(1 - var(--lightbox-pull-progress, 0) * 0.7);
+}
+
+/* 1:1 finger tracking while pulling — no transition lag. */
+.lbd-backdrop[data-pulling] {
+  transition: none;
+}
+
+.lbd-content {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: calc(1.25rem + env(safe-area-inset-top, 0px)) 1.25rem
+    calc(1.25rem + env(safe-area-inset-bottom, 0px));
+  overscroll-behavior: contain;
+  outline: none;
+  opacity: 0;
+  transition: opacity var(--lbd-duration-open) var(--lbd-ease-out-expo);
+}
+
+.lbd-content[data-open] {
+  opacity: 1;
+}
+
+@starting-style {
+  .lbd-content[data-open] {
+    opacity: 0;
+  }
+}
+
+/* ── Item / panel ───────────────────────────────────────────────────────── */
+
+/* Shrink-wraps the panel; clicks outside land on Content (backdrop dismiss). */
+.lbd-item {
+  display: grid;
+  max-width: 100%;
+  max-height: 100%;
+  min-width: 0;
+  min-height: 0;
+}
+
+/* macOS material: translucent blur, hairline ring, layered soft shadow. */
+.lbd-panel {
+  position: relative;
+  width: min(24rem, calc(100vw - 2.5rem));
+  max-height: 100%;
+  overflow: auto;
+  border-radius: 0.875rem;
+  background: rgb(250 250 250 / 0.88);
+  color: #1d1d1f;
+  -webkit-backdrop-filter: blur(40px) saturate(1.8);
+  backdrop-filter: blur(40px) saturate(1.8);
+  box-shadow:
+    0 0 0 0.5px rgb(0 0 0 / 0.12),
+    0 10px 24px rgb(0 0 0 / 0.08),
+    0 32px 80px rgb(0 0 0 / 0.22);
+  -webkit-font-smoothing: antialiased;
+}
+
+:is(.dark, [data-theme='dark']) .lbd-panel,
+html.dark .lbd-panel {
+  background: rgb(44 44 46 / 0.9);
+  color: #f5f5f7;
+  box-shadow:
+    inset 0 0.5px 0 rgb(255 255 255 / 0.14),
+    0 0 0 0.5px rgb(0 0 0 / 0.65),
+    0 10px 24px rgb(0 0 0 / 0.3),
+    0 32px 80px rgb(0 0 0 / 0.5);
+}
+
+/* Narrow alert width (macOS alert proportions). */
+.lbd-panel-sm {
+  width: min(17.5rem, calc(100vw - 2.5rem));
+}
+
+/* ── Typography ─────────────────────────────────────────────────────────── */
+
+.lbd-title {
+  margin: 0;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.35;
+  color: inherit;
+}
+
+.lbd-description {
+  margin: 0;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: rgb(0 0 0 / 0.55);
+}
+
+:is(.dark, [data-theme='dark']) .lbd-description,
+html.dark .lbd-description {
+  color: rgb(255 255 255 / 0.55);
+}
+
+/* ── Actions / buttons ──────────────────────────────────────────────────── */
+
+.lbd-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+/* macOS alert style: full-width buttons stacked, primary on top. */
+.lbd-actions-stack {
+  flex-direction: column;
+}
+
+.lbd-actions-stack .lbd-button {
+  width: 100%;
+}
+
+/* macOS push button */
+.lbd-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 1.875rem;
+  padding-inline: 0.875rem;
+  border: none;
+  border-radius: 0.4375rem;
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+  background: #fff;
+  color: #1d1d1f;
+  box-shadow:
+    0 0 0 0.5px rgb(0 0 0 / 0.16),
+    0 1px 2px rgb(0 0 0 / 0.08);
+  cursor: pointer;
+  transition:
+    filter 120ms ease-out,
+    box-shadow 120ms ease-out;
+}
+
+.lbd-button:hover {
+  filter: brightness(0.98);
+}
+
+.lbd-button:active {
+  filter: brightness(0.94);
+}
+
+.lbd-button:focus {
+  outline: none;
+}
+
+.lbd-button:focus-visible {
+  box-shadow:
+    0 0 0 3px rgb(10 110 253 / 0.4),
+    0 0 0 0.5px rgb(0 0 0 / 0.16),
+    0 1px 2px rgb(0 0 0 / 0.08);
+}
+
+:is(.dark, [data-theme='dark']) .lbd-button,
+html.dark .lbd-button {
+  background: rgb(255 255 255 / 0.14);
+  color: #f5f5f7;
+  box-shadow:
+    inset 0 0.5px 0 rgb(255 255 255 / 0.16),
+    0 0 0 0.5px rgb(0 0 0 / 0.5),
+    0 1px 2px rgb(0 0 0 / 0.25);
+}
+
+:is(.dark, [data-theme='dark']) .lbd-button:hover,
+html.dark .lbd-button:hover {
+  filter: brightness(1.1);
+}
+
+:is(.dark, [data-theme='dark']) .lbd-button:active,
+html.dark .lbd-button:active {
+  filter: brightness(1.2);
+}
+
+.lbd-button-primary {
+  background: linear-gradient(to bottom, #3f92fd, #0a6efd);
+  color: #fff;
+  box-shadow:
+    0 0 0 0.5px rgb(0 60 180 / 0.55),
+    inset 0 0.5px 0 rgb(255 255 255 / 0.35),
+    0 1px 2px rgb(10 110 253 / 0.35);
+}
+
+.lbd-button-destructive {
+  background: linear-gradient(to bottom, #ff5b52, #ec3f37);
+  color: #fff;
+  box-shadow:
+    0 0 0 0.5px rgb(170 20 15 / 0.55),
+    inset 0 0.5px 0 rgb(255 255 255 / 0.3),
+    0 1px 2px rgb(236 63 55 / 0.35);
+}
+
+:is(.dark, [data-theme='dark']) .lbd-button-primary,
+html.dark .lbd-button-primary,
+:is(.dark, [data-theme='dark']) .lbd-button-destructive,
+html.dark .lbd-button-destructive {
+  color: #fff;
+}
+
+/* ── View transitions (document-level; required for morph) ────────────────
+   Structural block uses only `--lightbox-vt-*` contract vars (identical across
+   skins). Keep this block in sync with other presets / lightbox-demo. */
+
+:root[data-ramka-view-transition] * {
+  view-transition-name: none !important;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  :root[data-ramka-view-transition]::view-transition-old(root),
+  :root[data-ramka-view-transition]::view-transition-new(root) {
+    animation-duration: var(--lightbox-vt-duration, 340ms);
+    animation-timing-function: var(--lightbox-vt-root-easing, cubic-bezier(0.16, 1, 0.3, 1));
+  }
+
+  @keyframes lightbox-morph-border-radius {
+    to {
+      border-radius: var(--lightbox-morph-border-radius-to, 0px);
+    }
+  }
+
+  ::view-transition-group(lightbox-morph) {
+    overflow: hidden;
+    border-radius: var(--lightbox-morph-border-radius-from, 0px);
+    animation-name: -ua-view-transition-group-anim-lightbox-morph, lightbox-morph-border-radius;
+    animation-duration: var(--lightbox-vt-duration, 340ms);
+    animation-timing-function: var(--lightbox-vt-easing, cubic-bezier(0.32, 0.72, 0, 1));
+    animation-fill-mode: both;
+    z-index: 2;
+  }
+
+  /* Hard-cut default (Trigger omits crossfade). */
+  ::view-transition-old(lightbox-morph),
+  ::view-transition-new(lightbox-morph) {
+    object-fit: cover;
+    width: 100%;
+    height: 100%;
+    animation: none !important;
+    mix-blend-mode: normal;
+  }
+
+  ::view-transition-old(lightbox-morph) {
+    opacity: var(--lightbox-morph-old-opacity, 1);
+  }
+
+  ::view-transition-new(lightbox-morph) {
+    opacity: var(--lightbox-morph-new-opacity, 0);
+  }
+
+  /* Dissolve path — positive attribute only, no :not. */
+  :root[data-ramka-crossfade]::view-transition-old(lightbox-morph),
+  :root[data-ramka-crossfade]::view-transition-new(lightbox-morph) {
+    object-fit: fill;
+    mix-blend-mode: plus-lighter;
+    animation: revert !important;
+    opacity: revert;
+  }
+}
+
+/* ── Morph shadow (skin-specific; not part of the structural block) ───────
+   The panel's box-shadow is ink overflow — it paints outside the border box,
+   so the structural `overflow: hidden` on the morph group (needed for the
+   animated border-radius clip) would swallow it for the whole transition and
+   the shadow would pop in only when the live panel is revealed. Instead:
+
+     1. paint the shadow on the group pseudo itself (a group's own box-shadow
+        is not clipped by its own overflow and follows the animated size +
+        border-radius, so the shadow grows/shrinks with the morphing box), and
+     2. suppress the panel's own shadow while `data-ramka-view-transition` is
+        on <html> — the library sets it before the snapshots are captured and
+        clears it as the transition finishes, so the handoff to the live
+        panel's shadow is seamless (and the snapshot itself stays shadow-free).
+
+   `:has(.lbd-panel)` scopes the group shadow to this skin's dialog morphs. */
+
+@media (prefers-reduced-motion: no-preference) {
+  :root[data-ramka-view-transition]:has(.lbd-panel) {
+    /* Keep in sync with .lbd-panel box-shadow (outer layers only — inset
+       hairlines would paint beneath the snapshot images anyway). */
+    --lbd-morph-shadow:
+      0 0 0 0.5px rgb(0 0 0 / 0.12),
+      0 10px 24px rgb(0 0 0 / 0.08),
+      0 32px 80px rgb(0 0 0 / 0.22);
+  }
+
+  :root[data-ramka-view-transition]:is(.dark, [data-theme='dark']):has(.lbd-panel) {
+    --lbd-morph-shadow:
+      0 0 0 0.5px rgb(0 0 0 / 0.65),
+      0 10px 24px rgb(0 0 0 / 0.3),
+      0 32px 80px rgb(0 0 0 / 0.5);
+  }
+
+  :root[data-ramka-view-transition]:has(.lbd-panel)::view-transition-group(lightbox-morph) {
+    box-shadow: var(--lbd-morph-shadow);
+  }
+
+  :root[data-ramka-view-transition] .lbd-panel {
+    box-shadow: none;
+  }
+}
+
+/* ── Open crossfade (skin-specific) ───────────────────────────────────────
+   The structural crossfade path reverts to the UA fade animations: a linear
+   dissolve over the full morph duration, blended with `plus-lighter`. Two
+   problems for a button → dialog morph:
+
+     1. Duration — the button snapshot stays visible almost to the end.
+     2. `plus-lighter` ADDS the snapshots' pixels, which is right for
+        dissolving two crops of the same photo but makes the button's light
+        pixels glow through the panel (glaring on the dark panel) even at low
+        opacity.
+
+   So for the opening phase of this skin's dialog morphs, replace the whole
+   dissolve: normal blending (the dialog simply covers the button as it fades
+   in on top) and explicit front-loaded keyframes — button gone by ~35% of the
+   morph, dialog opaque by ~55%, the rest a pure morph of the opaque panel.
+   Full `animation` + `mix-blend-mode` overrides (not longhands against
+   `animation: revert !important`) so this holds in every engine. Close keeps
+   the default symmetric dissolve. */
+
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes lbd-morph-old-fade-out {
+    from {
+      opacity: 1;
+    }
+    to {
+      opacity: 0;
+    }
+  }
+
+  @keyframes lbd-morph-new-fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  :root[data-ramka-view-transition='opening'][data-ramka-crossfade]:has(.lbd-panel)::view-transition-old(lightbox-morph) {
+    mix-blend-mode: normal !important;
+    animation: lbd-morph-old-fade-out calc(var(--lightbox-vt-duration, 340ms) * 0.35) ease-out both !important;
+  }
+
+  :root[data-ramka-view-transition='opening'][data-ramka-crossfade]:has(.lbd-panel)::view-transition-new(lightbox-morph) {
+    mix-blend-mode: normal !important;
+    animation: lbd-morph-new-fade-in calc(var(--lightbox-vt-duration, 340ms) * 0.55) ease-out both !important;
+  }
+}

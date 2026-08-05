@@ -10,4 +10,9 @@ export const lightboxPresets = [
     title: 'Twitter',
     description: 'Split media + thread sidebar with translucent backdrop and edge nav',
   },
+  {
+    href: '/presets/dialog',
+    title: 'Dialog',
+    description: 'Button-to-dialog morph — a minimal macOS-style modal with no slides or zoom',
+  },
 ];
