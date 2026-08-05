@@ -18,6 +18,10 @@ import {
  *
  * Each film is its own `Lightbox.Root` (no shared gallery) so opening one is a
  * single poster → fullscreen video morph.
+ *
+ * Media is sized to the *video* aspect (landscape), not the poster — so the
+ * playing frame fills the fit-box without letterboxing. The open morph still
+ * starts from the portrait poster (`crossfade="close"` hard-cuts into video).
  */
 const films = [
   {
@@ -30,6 +34,8 @@ const films = [
     posterWidth: 500,
     posterHeight: 707,
     video: 'https://download.blender.org/peach/trailer/trailer_iphone.m4v',
+    videoWidth: 480,
+    videoHeight: 270,
   },
   {
     id: 'ed',
@@ -41,6 +47,8 @@ const films = [
     posterWidth: 500,
     posterHeight: 707,
     video: 'https://archive.org/download/ElephantsDream/ed_1024_512kb.mp4',
+    videoWidth: 426,
+    videoHeight: 240,
   },
   {
     id: 'sintel',
@@ -52,6 +60,8 @@ const films = [
     posterWidth: 500,
     posterHeight: 707,
     video: 'https://download.blender.org/durian/trailer/sintel_trailer-720p.mp4',
+    videoWidth: 1280,
+    videoHeight: 720,
   },
   {
     id: 'tos',
@@ -63,6 +73,9 @@ const films = [
     posterWidth: 500,
     posterHeight: 741,
     video: 'https://archive.org/download/Tears-of-Steel/tears_of_steel_720p.mp4',
+    // Scope encode from the file (~2.39:1), not 16:9.
+    videoWidth: 862,
+    videoHeight: 360,
   },
 ];
 
@@ -98,20 +111,18 @@ function LightboxVideo({
   return (
     <Lightbox.Zoom>
       {/* Media morphs + bridges the poster; video fills the sized host. */}
-      <Lightbox.Media
-        width={width}
-        height={height}
-        className="overflow-hidden rounded-xl"
-      >
+      <Lightbox.Media width={width} height={height} className="overflow-hidden rounded-xl">
         <video
           ref={videoRef}
           src={src}
           poster={poster}
+          width={width}
+          height={height}
           controls
           playsInline
           muted
           preload="metadata"
-          className="bg-black object-contain"
+          className="object-cover"
         />
       </Lightbox.Media>
     </Lightbox.Zoom>
@@ -138,10 +149,12 @@ function FilmLightbox({ film }: { film: (typeof films)[number] }) {
       >
         {({ morphRef }) => (
           <>
-            {/* Only the poster morphs / hides — title + meta stay put. */}
-            <div className={`relative overflow-hidden rounded-xl ${morphHideClass}`}>
+            {/* morphRef + morphHideClass on the same node (poster + play affordance). */}
+            <div
+              ref={morphRef}
+              className={`relative overflow-hidden rounded-xl ${morphHideClass}`}
+            >
               <img
-                ref={morphRef}
                 width={film.posterWidth}
                 height={film.posterHeight}
                 src={film.poster}
@@ -173,6 +186,8 @@ function FilmLightbox({ film }: { film: (typeof films)[number] }) {
             thumb: film.poster,
             alt: film.title,
             caption: film.title,
+            width: film.videoWidth,
+            height: film.videoHeight,
           },
         ]}
         ariaLabel={film.title}
@@ -183,8 +198,8 @@ function FilmLightbox({ film }: { film: (typeof films)[number] }) {
             src={film.video}
             poster={film.poster}
             readyToPlay={readyToPlay}
-            width={film.posterWidth}
-            height={film.posterHeight}
+            width={film.videoWidth}
+            height={film.videoHeight}
           />
         )}
       />
