@@ -599,7 +599,7 @@ describe('Lightbox.Media (morph + placeholder host)', () => {
 
     // One author rule stretches every direct media child (img / video / canvas).
     expect(css).toBe(
-      `#${id} > img:not([data-ramka-media-poster]),#${id} > video,#${id} > canvas{width:100%;height:100%;}`,
+      `#${id} > img:not([data-ramka-media-poster]),#${id} > video,#${id} > canvas{width:100%;height:100%;min-width:0;min-height:0;}`,
     );
 
     // Child is a direct Media descendant so the `#id > ${tag}` rule applies.
