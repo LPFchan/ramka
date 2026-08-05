@@ -5,7 +5,10 @@ import { flushSync } from 'react-dom';
 
 import { VIEW_TRANSITION_NAME, findItemMorphTarget, findTriggerMorphTarget } from './lightbox-context';
 import { LightboxDocumentCssVars } from './lightbox-css-vars';
-import { LightboxDocumentDataAttributes } from './lightbox-data-attributes';
+import {
+  LightboxDocumentDataAttributes,
+  LightboxSlideDataAttributes,
+} from './lightbox-data-attributes';
 
 // ---------------------------------------------------------------------------
 // View Transition helpers
@@ -420,6 +423,106 @@ function promoteVtMotionTokens(docEl: HTMLElement, tokenHost: HTMLElement | null
   if (rootEasing) docEl.style.setProperty(LightboxDocumentCssVars.vtRootEasing, rootEasing);
 }
 
+/** Flush threshold (CSS px) for treating a box edge as viewport-flush. */
+const FULL_BLEED_EPS_PX = 0.5;
+/**
+ * Temporary padding added on the Slide for Firefox full-bleed VT capture.
+ * Matches the consumer workaround (slide padding fixes the bug); 1px is enough
+ * to break viewport-edge equality without a visible jump.
+ */
+const FIREFOX_FULL_BLEED_CAPTURE_INSET_PX = 1;
+
+function isGeckoVtEngine(): boolean {
+  return typeof navigator !== 'undefined' && /Firefox\//.test(navigator.userAgent);
+}
+
+interface FullBleedAxes {
+  horizontal: boolean;
+  vertical: boolean;
+}
+
+/**
+ * Which axes of the element's **layout** box fill the layout viewport.
+ *
+ * Uses `offsetWidth` / `offsetHeight` (pre-transform), not
+ * `getBoundingClientRect()`. Pull-to-dismiss leaves `scale()` on the Item;
+ * the transformed rect looks inset so a visual check would skip this
+ * workaround — but layout is still full-bleed, and that is what Firefox's VT
+ * capture mishandles (same as a 1px Slide border/padding fixing pull-dismiss).
+ * Letterboxed axes (layout smaller than the viewport) do not hit this path.
+ */
+function getFullBleedAxes(el: HTMLElement): FullBleedAxes {
+  const w = el.offsetWidth;
+  const h = el.offsetHeight;
+  if (!(w > 0 && h > 0)) {
+    return { horizontal: false, vertical: false };
+  }
+  const viewportW = document.documentElement.clientWidth;
+  const viewportH = document.documentElement.clientHeight;
+  return {
+    horizontal: w >= viewportW - FULL_BLEED_EPS_PX,
+    vertical: h >= viewportH - FULL_BLEED_EPS_PX,
+  };
+}
+
+function isHorizontallyFullBleed(el: HTMLElement): boolean {
+  return getFullBleedAxes(el).horizontal;
+}
+
+function isVerticallyFullBleed(el: HTMLElement): boolean {
+  return getFullBleedAxes(el).vertical;
+}
+
+type CaptureInsetRestore = () => void;
+
+/**
+ * Firefox-only capture workaround when the morph target is full-bleed on X
+ * and/or Y (both edges of that axis flush with the viewport).
+ *
+ * Why pad the Slide (not the morph target): Media sizes with `cqw`/`cqh`
+ * against Zoom, and Zoom fills the Slide content box. Shrinking Media alone
+ * leaves that size container viewport-flush — the same geometry Firefox
+ * mishandles. Padding the Slide (what manually fixes the bug) shrinks the
+ * content box → Zoom → fit-box Media as one coherent layout, so the named
+ * snapshot is no longer edge-to-edge on the affected axis.
+ *
+ * Close: call before `startViewTransition` (old snapshot).  
+ * Open: call inside the VT callback after reveal + naming (new snapshot).
+ */
+function applyFirefoxFullBleedCaptureInset(morphTarget: HTMLElement): CaptureInsetRestore | null {
+  if (!isGeckoVtEngine()) return null;
+  const axes = getFullBleedAxes(morphTarget);
+  if (!axes.horizontal && !axes.vertical) return null;
+
+  const slide =
+    morphTarget.closest<HTMLElement>(`[${LightboxSlideDataAttributes.slide}]`) ?? morphTarget;
+
+  const prevPaddingLeft = slide.style.paddingLeft;
+  const prevPaddingRight = slide.style.paddingRight;
+  const prevPaddingTop = slide.style.paddingTop;
+  const prevPaddingBottom = slide.style.paddingBottom;
+  const cs = getComputedStyle(slide);
+  const inset = FIREFOX_FULL_BLEED_CAPTURE_INSET_PX;
+
+  if (axes.horizontal) {
+    slide.style.paddingLeft = `${(parseFloat(cs.paddingLeft) || 0) + inset}px`;
+    slide.style.paddingRight = `${(parseFloat(cs.paddingRight) || 0) + inset}px`;
+  }
+  if (axes.vertical) {
+    slide.style.paddingTop = `${(parseFloat(cs.paddingTop) || 0) + inset}px`;
+    slide.style.paddingBottom = `${(parseFloat(cs.paddingBottom) || 0) + inset}px`;
+  }
+  // Ensure cqw/cqh / Media layout flush before VT capture reads geometry.
+  void morphTarget.offsetWidth;
+
+  return () => {
+    slide.style.paddingLeft = prevPaddingLeft;
+    slide.style.paddingRight = prevPaddingRight;
+    slide.style.paddingTop = prevPaddingTop;
+    slide.style.paddingBottom = prevPaddingBottom;
+  };
+}
+
 /**
  * Applies the document-level state that drives the morph CSS: the phase
  * attribute, optional `data-ramka-crossfade` (with hard-cut opacity vars when
@@ -775,6 +878,10 @@ function useViewTransitionMorph(config: ViewTransitionMorphConfig): ViewTransiti
       setMorphName(triggerTarget!);
     }
 
+    // Restored after the open morph; applied inside the VT callback so only the
+    // "new" (destination) snapshot sees the Firefox full-bleed inset.
+    let restoreFirefoxCaptureInset: CaptureInsetRestore | null = null;
+
     const transition = startViewTransition(() => {
       if (canMorph) {
         clearMorphName(triggerTarget!);
@@ -786,11 +893,14 @@ function useViewTransitionMorph(config: ViewTransitionMorphConfig): ViewTransiti
 
       // Pure writes only — no layout reads — so the browser can capture the new
       // snapshot without a forced reflow interrupting the transition.
+      // Exception: Firefox full-bleed capture inset (below) must measure + write
+      // before the new snapshot is taken.
       const itemEl = activeItemElementRef.current;
       if (canMorph) {
         const itemTarget = itemEl ? findItemMorphTarget(itemEl, itemMorphElementsRef.current) : null;
         if (itemTarget) {
           setMorphName(itemTarget);
+          restoreFirefoxCaptureInset = applyFirefoxFullBleedCaptureInset(itemTarget);
         }
       }
       if (itemEl) {
@@ -799,6 +909,8 @@ function useViewTransitionMorph(config: ViewTransitionMorphConfig): ViewTransiti
     });
 
     transition.finished.finally(() => {
+      restoreFirefoxCaptureInset?.();
+      restoreFirefoxCaptureInset = null;
       if (configRef.current.closeGenRef.current !== gen) return;
       const cfg = configRef.current;
       const itemEl = cfg.activeItemElementRef.current;
@@ -882,11 +994,17 @@ function useViewTransitionMorph(config: ViewTransitionMorphConfig): ViewTransiti
       toRadius,
       tokenHost: configRef.current.dialogElementRef.current,
     });
+    // Inset before startViewTransition so the "old" (item) snapshot is not
+    // captured edge-to-edge — Firefox full-bleed VT bug.
+    let restoreFirefoxCaptureInset: CaptureInsetRestore | null = null;
     if (canMorph) {
       setMorphName(itemTarget!);
+      restoreFirefoxCaptureInset = applyFirefoxFullBleedCaptureInset(itemTarget!);
     }
 
     const transition = startViewTransition(() => {
+      restoreFirefoxCaptureInset?.();
+      restoreFirefoxCaptureInset = null;
       if (canMorph) {
         clearMorphName(itemTarget!);
       }
@@ -901,6 +1019,8 @@ function useViewTransitionMorph(config: ViewTransitionMorphConfig): ViewTransiti
     });
 
     transition.finished.finally(() => {
+      restoreFirefoxCaptureInset?.();
+      restoreFirefoxCaptureInset = null;
       if (canMorph) {
         clearMorphName(triggerTarget!);
       }
@@ -921,6 +1041,10 @@ export {
   scrollTriggerEl,
   resolveTriggerIndex,
   resolveScrollTriggerOption,
+  getFullBleedAxes,
+  isHorizontallyFullBleed,
+  isVerticallyFullBleed,
+  applyFirefoxFullBleedCaptureInset,
   DEFAULT_DECODE_MAX_WAIT,
 };
 export type {
