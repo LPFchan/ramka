@@ -75,11 +75,16 @@ function DialogClose({ ...props }: DialogPrimitive.Close.Props) {
 
 function DialogOverlay({
   className,
+  ref,
   ...props
 }: DialogPrimitive.Backdrop.Props) {
+  // Registered with the morph so the backdrop blur renders during the view
+  // transition in Safari/Firefox (they drop backdrop-filter from snapshots).
+  const morph = React.useContext(DialogMorphContext)
   return (
     <DialogPrimitive.Backdrop
       data-slot="dialog-overlay"
+      ref={morph ? mergeRefs(ref, morph.overlayRef) : ref}
       className={cn(
         "fixed inset-0 isolate z-50 bg-black/10 duration-100 supports-backdrop-filter:backdrop-blur-xs data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0",
         className

@@ -21,6 +21,18 @@ import {
  * `view-transition-class` (not yet reliable cross-browser). */
 const MORPH_NAME = 'ramka-dialog-morph';
 
+/** view-transition-name for the dialog overlay/backdrop, when registered.
+ * Safari and Firefox don't paint `backdrop-filter` into view-transition
+ * snapshot layers (WebKit bug 293393, Gecko bug 1996597), so an overlay blur
+ * would pop in only after the transition finishes. Per the CSSWG resolution
+ * for csswg-drafts#9358, the fix is to move the backdrop-filter onto the
+ * element's `::view-transition-group()` pseudo — group pseudos are painted
+ * live every frame and blur whatever renders beneath them in the pseudo
+ * tree. The hook copies the overlay's computed backdrop-filter into
+ * `--ramka-dialog-morph-overlay-backdrop` and the injected CSS animates it
+ * on the group. */
+const OVERLAY_NAME = 'ramka-dialog-morph-overlay';
+
 /** `<html>` attribute carrying the morph phase (`opening` | `closing`). */
 const DOC_ATTR = 'data-ramka-dialog-morph';
 
@@ -41,6 +53,7 @@ const TARGET_EXITING_ATTR = 'data-ramka-dialog-morph-exiting';
 const VAR_RADIUS_FROM = '--ramka-dialog-morph-radius-from';
 const VAR_RADIUS_TO = '--ramka-dialog-morph-radius-to';
 const VAR_DURATION = '--ramka-dialog-morph-duration';
+const VAR_OVERLAY_BACKDROP = '--ramka-dialog-morph-overlay-backdrop';
 
 const STYLE_ELEMENT_ID = 'ramka-dialog-morph-styles';
 
@@ -127,6 +140,47 @@ const MORPH_CSS = /* css */ `
   :root[${DOC_ATTR}='closing']::view-transition-new(${MORPH_NAME}) {
     animation: ramka-dialog-morph-fade-in var(${VAR_DURATION}, 320ms) ease-out both;
   }
+
+  /* Overlay backdrop-filter — see OVERLAY_NAME. The filter lives on the
+     group pseudo (live-rendered, so it blurs the root layer beneath it even
+     in engines that drop backdrop-filter from snapshot captures) and is
+     animated so the blur ramps with the morph instead of popping. The
+     overlay's own snapshots (the tint) crossfade over the full duration. */
+  :root[${DOC_ATTR}]::view-transition-group(${OVERLAY_NAME}) {
+    z-index: 1;
+  }
+  :root[${DOC_ATTR}]::view-transition-old(${OVERLAY_NAME}),
+  :root[${DOC_ATTR}]::view-transition-new(${OVERLAY_NAME}) {
+    animation-duration: var(${VAR_DURATION}, 320ms);
+  }
+
+  @keyframes ramka-dialog-morph-backdrop-in {
+    from {
+      -webkit-backdrop-filter: none;
+      backdrop-filter: none;
+    }
+    to {
+      -webkit-backdrop-filter: var(${VAR_OVERLAY_BACKDROP}, none);
+      backdrop-filter: var(${VAR_OVERLAY_BACKDROP}, none);
+    }
+  }
+  @keyframes ramka-dialog-morph-backdrop-out {
+    from {
+      -webkit-backdrop-filter: var(${VAR_OVERLAY_BACKDROP}, none);
+      backdrop-filter: var(${VAR_OVERLAY_BACKDROP}, none);
+    }
+    to {
+      -webkit-backdrop-filter: none;
+      backdrop-filter: none;
+    }
+  }
+
+  :root[${DOC_ATTR}='opening']::view-transition-group(${OVERLAY_NAME}) {
+    animation: ramka-dialog-morph-backdrop-in var(${VAR_DURATION}, 320ms) ease-out both;
+  }
+  :root[${DOC_ATTR}='closing']::view-transition-group(${OVERLAY_NAME}) {
+    animation: ramka-dialog-morph-backdrop-out var(${VAR_DURATION}, 320ms) ease-out both;
+  }
 }
 `;
 
@@ -154,8 +208,8 @@ function supportsViewTransitions(): boolean {
 
 /** Inline `!important` so the isolation rule can't neutralize the morph
  * elements — mirrors the Lightbox morph naming. */
-function setMorphName(el: HTMLElement) {
-  el.style.setProperty('view-transition-name', MORPH_NAME, 'important');
+function setMorphName(el: HTMLElement, name: string = MORPH_NAME) {
+  el.style.setProperty('view-transition-name', name, 'important');
 }
 
 function clearMorphName(el: HTMLElement | null) {
@@ -176,10 +230,26 @@ function suppressAnimations(el: HTMLElement) {
   el.style.setProperty('animation', 'none', 'important');
 }
 
+/** Copies the overlay's computed backdrop-filter to a root var (consumed by
+ * the injected group-pseudo keyframes) and lifts the overlay into its own
+ * view-transition group — see OVERLAY_NAME for why. Reading the computed
+ * value keeps the primitive agnostic to how the consumer styles the blur. */
+function captureOverlayBackdrop(docEl: HTMLElement, overlay: HTMLElement) {
+  const style = getComputedStyle(overlay) as CSSStyleDeclaration & {
+    webkitBackdropFilter?: string;
+  };
+  const backdrop = style.backdropFilter || style.webkitBackdropFilter || 'none';
+  if (backdrop !== 'none') {
+    docEl.style.setProperty(VAR_OVERLAY_BACKDROP, backdrop);
+  }
+  setMorphName(overlay, OVERLAY_NAME);
+}
+
 function clearDocumentState(docEl: HTMLElement) {
   docEl.removeAttribute(DOC_ATTR);
   docEl.style.removeProperty(VAR_RADIUS_FROM);
   docEl.style.removeProperty(VAR_RADIUS_TO);
+  docEl.style.removeProperty(VAR_OVERLAY_BACKDROP);
 }
 
 // ---------------------------------------------------------------------------
@@ -221,6 +291,15 @@ interface DialogMorph {
   sourceRef: (el: HTMLElement | null) => void;
   /** Callback ref for the morph target (the dialog panel element). */
   targetRef: (el: HTMLElement | null) => void;
+  /**
+   * Optional callback ref for the dialog overlay/backdrop. Only needed when
+   * the overlay uses `backdrop-filter`: Safari and Firefox don't paint
+   * backdrop filters into view-transition snapshots, so an unregistered
+   * blurred overlay pops in only after the morph finishes. Registering it
+   * lets the hook re-create the blur on a live `::view-transition-group()`
+   * pseudo and ramp it with the morph.
+   */
+  overlayRef: (el: HTMLElement | null) => void;
   /** Echo of `options.enabled` — handy for conditional context values. */
   enabled: boolean;
 }
@@ -240,6 +319,7 @@ interface DialogMorph {
  *
  * <DialogPrimitive.Root open={morph.open} onOpenChange={morph.onOpenChange}>
  *   <DialogPrimitive.Trigger ref={morph.sourceRef} />
+ *   <DialogPrimitive.Backdrop ref={morph.overlayRef} />
  *   <DialogPrimitive.Popup ref={morph.targetRef} />
  * ```
  *
@@ -266,6 +346,7 @@ function useDialogMorph(options: UseDialogMorphOptions = {}): DialogMorph {
 
   const sourceElRef = React.useRef<HTMLElement | null>(null);
   const targetElRef = React.useRef<HTMLElement | null>(null);
+  const overlayElRef = React.useRef<HTMLElement | null>(null);
   /** Generation guard: a superseding transition owns cleanup from then on. */
   const genRef = React.useRef(0);
 
@@ -286,6 +367,11 @@ function useDialogMorph(options: UseDialogMorphOptions = {}): DialogMorph {
     targetElRef.current = el;
     // Defensive: if a dialog library ever reuses the panel element across
     // close/open cycles, it must not inherit the sticky exit state.
+    el?.removeAttribute(TARGET_EXITING_ATTR);
+  }, []);
+
+  const overlayRef = React.useCallback((el: HTMLElement | null) => {
+    overlayElRef.current = el;
     el?.removeAttribute(TARGET_EXITING_ATTR);
   }, []);
 
@@ -333,6 +419,11 @@ function useDialogMorph(options: UseDialogMorphOptions = {}): DialogMorph {
           flushSync(() => commit(true, meta));
           source!.setAttribute(SOURCE_HIDDEN_ATTR, '');
           const target = targetElRef.current;
+          const overlay = overlayElRef.current;
+          if (overlay) {
+            captureOverlayBackdrop(docEl, overlay);
+            suppressAnimations(overlay);
+          }
           if (target) {
             // Mounted inside the flush above — layout is clean, so this read
             // is the only reflow inside the callback and it's a small tree.
@@ -351,6 +442,9 @@ function useDialogMorph(options: UseDialogMorphOptions = {}): DialogMorph {
         transition.finished.finally(() => {
           if (genRef.current !== gen) return;
           clearMorphName(targetElRef.current);
+          // The overlay persists while open — its name must go so it can't
+          // leak into unrelated view transitions started elsewhere.
+          clearMorphName(overlayElRef.current);
           // Deliberately NOT restoring the panel's `animation` here — see
           // suppressAnimations. The suppression dies with the element.
           clearDocumentState(docEl);
@@ -363,6 +457,7 @@ function useDialogMorph(options: UseDialogMorphOptions = {}): DialogMorph {
         // ::view-transition-new(root) layer — the sticky exiting attribute
         // display:nones it until it unmounts.
         const target = targetElRef.current;
+        const overlay = overlayElRef.current;
         const canMorph = !!target && !!source;
 
         if (canMorph) {
@@ -377,22 +472,32 @@ function useDialogMorph(options: UseDialogMorphOptions = {}): DialogMorph {
           // root crossfade instead of an instant blink.
           docEl.setAttribute(DOC_ATTR, 'closing');
         }
+        // The overlay only exists in the OLD state on close — name it before
+        // capture so its blur animates out on the live group pseudo.
+        if (overlay) captureOverlayBackdrop(docEl, overlay);
 
         const transition = startViewTransition(() => {
           clearMorphName(target);
+          clearMorphName(overlay);
           flushSync(() => commit(false, meta));
           source?.removeAttribute(SOURCE_HIDDEN_ATTR);
           if (canMorph) {
             setMorphName(source!);
           }
+          // Same lingering-ghost treatment as the panel: the overlay also
+          // stays mounted through the library's exit animation.
           if (target?.isConnected) {
             target.setAttribute(TARGET_EXITING_ATTR, '');
+          }
+          if (overlay?.isConnected) {
+            overlay.setAttribute(TARGET_EXITING_ATTR, '');
           }
         });
 
         transition.finished.finally(() => {
           if (genRef.current !== gen) return;
           clearMorphName(sourceElRef.current);
+          clearMorphName(overlayElRef.current);
           clearDocumentState(docEl);
         });
       }
@@ -412,8 +517,8 @@ function useDialogMorph(options: UseDialogMorphOptions = {}): DialogMorph {
   }, [enabled, open]);
 
   return React.useMemo(
-    () => ({ open, onOpenChange: handleOpenChange, sourceRef, targetRef, enabled }),
-    [open, handleOpenChange, sourceRef, targetRef, enabled],
+    () => ({ open, onOpenChange: handleOpenChange, sourceRef, targetRef, overlayRef, enabled }),
+    [open, handleOpenChange, sourceRef, targetRef, overlayRef, enabled],
   );
 }
 
