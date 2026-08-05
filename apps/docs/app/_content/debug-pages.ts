@@ -25,6 +25,11 @@ export const debugPages = {
     title: 'Double-click open',
     description: 'Double-click preview + accessible Open trigger via createHandle().',
   },
+  morphShadcnDialog: {
+    href: '/debug/morph-shadcn-dialog',
+    title: 'Morph shadcn dialog',
+    description: 'useDialogMorph baked into the shadcn/Base UI dialog behind a `morph` prop.',
+  },
 } as const;
 
 export const debugPagesList = Object.values(debugPages);

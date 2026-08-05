@@ -2,17 +2,67 @@
 
 import * as React from "react"
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog"
+import { useDialogMorph, type DialogMorph } from "ramka"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { XIcon } from "lucide-react"
 
-function Dialog({ ...props }: DialogPrimitive.Root.Props) {
-  return <DialogPrimitive.Root data-slot="dialog" {...props} />
+/**
+ * Optional ramka view-transition morph, baked in behind the `morph` prop:
+ * `<Dialog morph>` makes the trigger morph into the panel (and back on
+ * close). The hook owns the open state and flips it inside
+ * `document.startViewTransition`; the context below carries its refs to
+ * DialogTrigger (morph source) and the Popup (morph target). With `morph`
+ * off (default) the hook is an inert passthrough and nothing changes.
+ */
+const DialogMorphContext = React.createContext<DialogMorph | null>(null)
+
+function mergeRefs<T>(
+  ...refs: Array<React.Ref<T> | undefined | null>
+): React.RefCallback<T> {
+  return (value) => {
+    for (const ref of refs) {
+      if (typeof ref === "function") ref(value)
+      else if (ref) (ref as React.MutableRefObject<T | null>).current = value
+    }
+  }
 }
 
-function DialogTrigger({ ...props }: DialogPrimitive.Trigger.Props) {
-  return <DialogPrimitive.Trigger data-slot="dialog-trigger" {...props} />
+function Dialog({
+  morph = false,
+  open,
+  defaultOpen,
+  onOpenChange,
+  ...props
+}: DialogPrimitive.Root.Props & { morph?: boolean }) {
+  const dialogMorph = useDialogMorph({
+    enabled: morph,
+    open,
+    defaultOpen,
+    onOpenChange,
+  })
+  return (
+    <DialogMorphContext.Provider value={morph ? dialogMorph : null}>
+      <DialogPrimitive.Root
+        data-slot="dialog"
+        open={dialogMorph.open}
+        onOpenChange={dialogMorph.onOpenChange}
+        {...props}
+      />
+    </DialogMorphContext.Provider>
+  )
+}
+
+function DialogTrigger({ ref, ...props }: DialogPrimitive.Trigger.Props) {
+  const morph = React.useContext(DialogMorphContext)
+  return (
+    <DialogPrimitive.Trigger
+      data-slot="dialog-trigger"
+      ref={morph ? mergeRefs(ref, morph.sourceRef) : ref}
+      {...props}
+    />
+  )
 }
 
 function DialogPortal({ ...props }: DialogPrimitive.Portal.Props) {
@@ -43,15 +93,18 @@ function DialogContent({
   className,
   children,
   showCloseButton = true,
+  ref,
   ...props
 }: DialogPrimitive.Popup.Props & {
   showCloseButton?: boolean
 }) {
+  const morph = React.useContext(DialogMorphContext)
   return (
     <DialogPortal>
       <DialogOverlay />
       <DialogPrimitive.Popup
         data-slot="dialog-content"
+        ref={morph ? mergeRefs(ref, morph.targetRef) : ref}
         className={cn(
           "fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl bg-popover p-4 text-sm text-popover-foreground ring-1 ring-foreground/10 duration-100 outline-none sm:max-w-sm data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
           className
