@@ -38,8 +38,9 @@ export default async function DialogLightboxPresetPage() {
           <code className="text-xs">crossfade=&quot;both&quot;</code> since button and dialog never
           share pixels). The{' '}
           <strong className="font-medium text-neutral-800 dark:text-neutral-200">Example</strong>{' '}
-          tab shows a share dialog and a macOS-style confirmation alert — it uses Tailwind for
-          layout and is not part of the skin.
+          tab shows a share dialog, a now-playing mini player, a calendar event, a payment-card
+          editor, and a macOS-style confirmation alert — it uses Tailwind for layout and is not
+          part of the skin.
         </>
       }
       docsHref="/docs/lightbox"

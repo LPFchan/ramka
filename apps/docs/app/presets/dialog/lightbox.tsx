@@ -15,12 +15,43 @@
  */
 
 import * as React from 'react';
+import { flushSync } from 'react-dom';
 import { Lightbox as RamkaLightbox } from 'ramka';
 
 import './lightbox.css';
 
 function cx(...parts: Array<string | false | null | undefined>) {
   return parts.filter(Boolean).join(' ');
+}
+
+/* ── Panel-to-panel morph ───────────────────────────────────────────────── */
+
+/**
+ * Morphs the open dialog into another one. Call with a state update that
+ * swaps the active index (controlled `Root value` + `Dialog count`); the
+ * update runs inside its own view transition, so the current panel morphs
+ * into the panel that replaces it — e.g. "Join call" turning event details
+ * into a call window.
+ *
+ * While the transition runs, `data-lbd-dialog-morph` is set on <html>;
+ * lightbox.css uses it to name the panel (`lbd-dialog-panel`) and style the
+ * morph. The attribute is scoped so the library's own open/close morphs are
+ * untouched. Falls back to an instant swap without the View Transitions API
+ * or when reduced motion is requested.
+ */
+export function morphDialog(update: () => void) {
+  const doc = document as Document & {
+    startViewTransition?: (callback: () => void) => { finished: Promise<void> };
+  };
+  if (!doc.startViewTransition || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    update();
+    return;
+  }
+  const docEl = document.documentElement;
+  docEl.setAttribute('data-lbd-dialog-morph', '');
+  const transition = doc.startViewTransition(() => flushSync(update));
+  const cleanup = () => docEl.removeAttribute('data-lbd-dialog-morph');
+  transition.finished.then(cleanup, cleanup);
 }
 
 /* ── Styled primitives (design-system re-exports) ───────────────────────── */
@@ -106,17 +137,32 @@ function DialogActions({
 /* ── Composed Dialog (product chrome) ───────────────────────────────────── */
 
 /**
- * Dialog chrome — Portal → Backdrop + Content → single Item whose `morphRef`
- * is the centered panel, so the opening trigger morphs into the dialog. No
+ * Dialog chrome — Portal → Backdrop + Content → Item(s) whose `morphRef` is
+ * the centered panel, so the opening trigger morphs into the dialog. No
  * slides, caption, or zoom. Clicking outside the panel, pressing Escape, or
  * any `Lightbox.Close` button closes it — and so does pulling the panel away
  * (touch drag or trackpad scroll); the backdrop dims with
  * `--lightbox-pull-progress` (see lightbox.css).
+ *
+ * Two forms:
+ *  - Static `children` — a single dialog for one Trigger (`index={0}`).
+ *  - Render-function `children` + `count` — one dialog per Trigger index
+ *    (0..count-1). Each index gets its own Item/panel so the open AND close
+ *    morphs target the trigger that owns the active index; only the active
+ *    panel is mounted (`ItemGroup preload={0}`).
+ *
+ * Indexes without a Trigger are allowed: pair a controlled `Root value` with
+ * `morphDialog()` to swap the open panel into one of them (the panels morph
+ * into each other); closing from such an index falls back to a plain fade.
+ * While such a child panel is active, set `onDismiss` so dismissal gestures
+ * morph back to the parent panel instead of closing everything.
  */
 function Dialog({
   ariaLabel,
   size = 'md',
   className,
+  count = 1,
+  onDismiss,
   children,
 }: {
   /** Accessible name for the dialog (`aria-label` on Content). */
@@ -125,31 +171,92 @@ function Dialog({
   size?: 'md' | 'sm';
   /** Extra classes for the panel (width overrides, etc.). */
   className?: string;
-  children: React.ReactNode;
+  /** Number of trigger indexes when `children` is a render function. */
+  count?: number;
+  /**
+   * Intercepts dismissal — Escape, backdrop click, and outside click call
+   * this instead of closing the lightbox. Set it while a child panel is
+   * active (e.g. `morphDialog` back to the parent panel); leave undefined
+   * for the default close. Pull-to-close is disabled while set: the pull
+   * gesture commits to a real close mid-flight and can't be redirected.
+   */
+  onDismiss?: () => void;
+  children: React.ReactNode | ((index: number) => React.ReactNode);
 }) {
+  /*
+   * Dismissal interception. Escape: runs before Content's own handler
+   * (consumer handlers compose rightmost-first) and Content defers when
+   * `defaultPrevented`. Clicks: Content/Backdrop close on plain bubble-phase
+   * handlers, so a capture-phase `stopPropagation` on the same element keeps
+   * them from firing; the scrim-press ref mirrors Content's own "press
+   * started on the scrim" guard so a drag out of the panel doesn't dismiss.
+   */
+  const pressOnScrimRef = React.useRef(false);
+  const interceptContentProps = onDismiss
+    ? {
+        onKeyDown: (event: React.KeyboardEvent) => {
+          if (event.key !== 'Escape' || event.defaultPrevented) return;
+          event.preventDefault();
+          onDismiss();
+        },
+        onPointerDown: (event: React.PointerEvent) => {
+          pressOnScrimRef.current = event.target === event.currentTarget;
+        },
+        onClickCapture: (event: React.MouseEvent) => {
+          if (!pressOnScrimRef.current || event.target !== event.currentTarget) return;
+          pressOnScrimRef.current = false;
+          event.stopPropagation();
+          onDismiss();
+        },
+      }
+    : undefined;
+  const interceptBackdropProps = onDismiss
+    ? {
+        onClickCapture: (event: React.MouseEvent) => {
+          event.stopPropagation();
+          onDismiss();
+        },
+      }
+    : undefined;
+  /*
+   * Each Item registers the morph destination for its index.
+   * `role="presentation"` drops the carousel/slide semantics — the panel is
+   * plain dialog content. Width/height auto (instead of the Item's default
+   * 100%) shrink-wraps the panel so clicks outside it land on Content and
+   * dismiss, matching native <dialog> backdrop behavior.
+   */
+  const renderItem = (index: number, content: React.ReactNode) => (
+    <RamkaLightbox.Item
+      key={index}
+      index={index}
+      role="presentation"
+      className="lbd-item"
+      style={{ width: 'auto', height: 'auto' }}
+    >
+      {({ morphRef }) => (
+        <div ref={morphRef} className={cx('lbd-panel', size === 'sm' && 'lbd-panel-sm', className)}>
+          {content}
+        </div>
+      )}
+    </RamkaLightbox.Item>
+  );
+
   return (
     <Portal>
-      <Backdrop />
-      <Content aria-label={ariaLabel}>
-        {/*
-         * A single Item registers the morph destination. `role="presentation"`
-         * drops the carousel-slide semantics — the panel is plain dialog
-         * content. Width/height auto (instead of the Item's default 100%)
-         * shrink-wraps the panel so clicks outside it land on Content and
-         * dismiss, matching native <dialog> backdrop behavior.
-         */}
-        <RamkaLightbox.Item
-          index={0}
-          role="presentation"
-          className="lbd-item"
-          style={{ width: 'auto', height: 'auto' }}
-        >
-          {({ morphRef }) => (
-            <div ref={morphRef} className={cx('lbd-panel', size === 'sm' && 'lbd-panel-sm', className)}>
-              {children}
-            </div>
-          )}
-        </RamkaLightbox.Item>
+      <Backdrop {...interceptBackdropProps} />
+      <Content aria-label={ariaLabel} pullToClose={!onDismiss} {...interceptContentProps}>
+        {typeof children === 'function' ? (
+          <RamkaLightbox.ItemGroup
+            preload={0}
+            role="presentation"
+            className="lbd-item"
+            style={{ width: 'auto', height: 'auto' }}
+          >
+            {Array.from({ length: count }, (_, i) => renderItem(i, children(i)))}
+          </RamkaLightbox.ItemGroup>
+        ) : (
+          renderItem(0, children)
+        )}
       </Content>
     </Portal>
   );

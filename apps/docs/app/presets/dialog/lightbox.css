@@ -365,7 +365,8 @@ html.dark .lbd-button-destructive {
    `:has(.lbd-panel)` scopes the group shadow to this skin's dialog morphs. */
 
 @media (prefers-reduced-motion: no-preference) {
-  :root[data-ramka-view-transition]:has(.lbd-panel) {
+  :root[data-ramka-view-transition]:has(.lbd-panel),
+  :root[data-lbd-dialog-morph] {
     /* Keep in sync with .lbd-panel box-shadow (outer layers only — inset
        hairlines would paint beneath the snapshot images anyway). */
     --lbd-morph-shadow:
@@ -374,7 +375,8 @@ html.dark .lbd-button-destructive {
       0 32px 80px rgb(0 0 0 / 0.22);
   }
 
-  :root[data-ramka-view-transition]:is(.dark, [data-theme='dark']):has(.lbd-panel) {
+  :root[data-ramka-view-transition]:is(.dark, [data-theme='dark']):has(.lbd-panel),
+  :root[data-lbd-dialog-morph]:is(.dark, [data-theme='dark']) {
     --lbd-morph-shadow:
       0 0 0 0.5px rgb(0 0 0 / 0.65),
       0 10px 24px rgb(0 0 0 / 0.3),
@@ -436,5 +438,42 @@ html.dark .lbd-button-destructive {
   :root[data-ramka-view-transition='opening'][data-ramka-crossfade]:has(.lbd-panel)::view-transition-new(lightbox-morph) {
     mix-blend-mode: normal !important;
     animation: lbd-morph-new-fade-in calc(var(--lightbox-vt-duration, 340ms) * 0.55) ease-out both !important;
+  }
+}
+
+/* ── Panel-to-panel morph (skin-specific) ─────────────────────────────────
+   `morphDialog()` (lightbox.tsx) swaps the active dialog index inside its own
+   view transition and holds `data-lbd-dialog-morph` on <html> while it runs.
+   The panel is only *named* under that attribute, so the library's open/close
+   morphs (which isolate all names via data-ramka-view-transition) never see
+   it. Same shadow strategy as above: the panels snapshot shadow-free and the
+   shadow paints on the group pseudo, following the morphing box. Snapshots
+   stretch to the box (`object-fit: fill`) and dissolve with the UA default
+   crossfade — both ends are the same panel material, so plus-lighter holds
+   luminance steady. */
+
+@media (prefers-reduced-motion: no-preference) {
+  :root[data-lbd-dialog-morph] .lbd-panel {
+    view-transition-name: lbd-dialog-panel;
+    box-shadow: none;
+  }
+
+  :root[data-lbd-dialog-morph]::view-transition-group(lbd-dialog-panel) {
+    overflow: hidden;
+    /* Both ends share .lbd-panel's radius — clip the stretched snapshots. */
+    border-radius: 0.875rem;
+    box-shadow: var(--lbd-morph-shadow);
+    /* Keep in sync with --lbd-duration-open / --lbd-ease-vt-morph (skin
+       tokens live on .lbd-portal and aren't promoted for this transition). */
+    animation-duration: 340ms;
+    animation-timing-function: cubic-bezier(0.32, 0.72, 0, 1);
+    z-index: 2;
+  }
+
+  :root[data-lbd-dialog-morph]::view-transition-old(lbd-dialog-panel),
+  :root[data-lbd-dialog-morph]::view-transition-new(lbd-dialog-panel) {
+    width: 100%;
+    height: 100%;
+    object-fit: fill;
   }
 }
