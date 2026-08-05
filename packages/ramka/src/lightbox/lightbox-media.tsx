@@ -72,12 +72,15 @@ function escapeCssIdent(value: string): string {
  * Structural fill for a direct media child. HTML `width`/`height` are
  * presentational hints that defeat Grid stretch; this author rule wins on
  * first paint (including SSR) without cloning children.
+ *
+ * `min-width/min-height: 0` overrides Grid’s default `min-*: auto` so a broken
+ * WebKit `<img>` (square content minimum) cannot overflow the fit-box.
  */
 function mediaChildFillCss(mediaId: string): string {
   const id = escapeCssIdent(mediaId);
   return (
     `#${id} > img:not([data-ramka-media-poster]),#${id} > video,#${id} > canvas{` +
-    `width:100%;height:100%;` +
+    `width:100%;height:100%;min-width:0;min-height:0;` +
     `}`
   );
 }
@@ -97,9 +100,10 @@ function mediaChildFillCss(mediaId: string): string {
  *
  * `width` / `height` are **structural** (correct morph box). Media is a CSS grid
  * and renders a scoped `<style>` so direct `<img>` / `<video>` / `<canvas>` children
- * fill the fit-box (HTML dimension attrs cannot pin intrinsic size). No consumer
- * `size-full` required. Prefer Slide padding for resting chrome insets (not
- * Zoom). Radius, colors, and `object-fit` remain consumer-owned.
+ * fill the fit-box (`width/height: 100%` plus `min-*: 0` so broken WebKit images
+ * cannot overflow via Grid’s automatic minimum). No consumer `size-full`
+ * required. Prefer Slide padding for resting chrome insets (not Zoom). Radius,
+ * colors, and `object-fit` remain consumer-owned.
  *
  * Discovers the primary `<img>` (direct child preferred) and wires Item's
  * `imageRef` for decode / thumbnail placeholder paint.
