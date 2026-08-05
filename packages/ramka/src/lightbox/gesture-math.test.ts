@@ -5,6 +5,7 @@ import {
   ELASTIC_FACTOR,
   RUBBER_BAND_CONSTANT,
   RUBBER_BAND_DIMENSION_FACTOR,
+  bakeDiscreteZoomPath,
   bakeSettlePath,
   clamp,
   clampOffset,
@@ -908,5 +909,119 @@ describe('bakeSettlePath', () => {
     const dtFirst = o[1]! - o[0]!;
     const dtLast = o[o.length - 1]! - o[o.length - 2]!;
     expect(speedFirst / dtFirst).toBeGreaterThan(speedLast / dtLast);
+  });
+});
+
+describe('bakeDiscreteZoomPath', () => {
+  const rest = { offsetX: 0, offsetY: 0 };
+  const durationMs = 300;
+
+  it('returns null for a degenerate zero zoom delta', () => {
+    expect(
+      bakeDiscreteZoomPath({ from: { zoom: 2, ...rest }, to: { zoom: 2, ...rest }, durationMs }),
+    ).toBeNull();
+    // Even with carried velocity — pure-offset moves fall back to the tween.
+    expect(
+      bakeDiscreteZoomPath({
+        from: { zoom: 2, ...rest },
+        to: { zoom: 2, offsetX: 10, offsetY: 0 },
+        vZoom: 1,
+        durationMs,
+      }),
+    ).toBeNull();
+  });
+
+  it('from rest: reproduces the exact CSS ease-in-out curve', () => {
+    const baked = bakeDiscreteZoomPath({
+      from: { zoom: 1, ...rest },
+      to: { zoom: 2, ...rest },
+      durationMs,
+    });
+    expect(baked).not.toBeNull();
+    expect(baked!.durationMs).toBe(durationMs);
+    let prev = 1;
+    for (const pose of baked!.path) {
+      // Eased from rest: strictly increasing, never past the target.
+      expect(pose.zoom).toBeGreaterThan(prev);
+      expect(pose.zoom).toBeLessThanOrEqual(2 + 1e-9);
+      prev = pose.zoom;
+    }
+    // cubic-bezier(0.42, 0, 0.58, 1) is symmetric: progress at half time is ½.
+    // The parametric sample at t=0.5 lands exactly on (x=0.5, y=0.5).
+    const midIdx = baked!.offsets.findIndex((o) => Math.abs(o - 0.5) < 1e-9);
+    expect(midIdx).toBeGreaterThan(-1);
+    expect(baked!.path[midIdx]!.zoom).toBeCloseTo(1.5, 9);
+    // Ease-in start: first sample has barely moved (slow-in, unlike a spring).
+    expect(baked!.path[0]!.zoom - 1).toBeLessThan(0.01);
+  });
+
+  it('zoom-out is the mirror motion', () => {
+    const zoomOut = bakeDiscreteZoomPath({
+      from: { zoom: 2, ...rest },
+      to: { zoom: 1, ...rest },
+      durationMs,
+    });
+    expect(zoomOut).not.toBeNull();
+    let prev = 2;
+    for (const pose of zoomOut!.path) {
+      expect(pose.zoom).toBeLessThan(prev);
+      prev = pose.zoom;
+    }
+  });
+
+  it('carried velocity makes early progress faster than a cold start', () => {
+    const from = { zoom: 1.4, ...rest };
+    const to = { zoom: 4, ...rest };
+    const cold = bakeDiscreteZoomPath({ from, to, durationMs });
+    const carried = bakeDiscreteZoomPath({ from, to, vZoom: 3, durationMs });
+    expect(carried!.path[0]!.zoom).toBeGreaterThan(cold!.path[0]!.zoom);
+  });
+
+  it('large carried velocity overshoots the target and eases back', () => {
+    const baked = bakeDiscreteZoomPath({
+      from: { zoom: 1.8, ...rest },
+      to: { zoom: 2, ...rest },
+      vZoom: 8,
+      durationMs,
+    });
+    const maxZoom = Math.max(...baked!.path.map((p) => p.zoom));
+    expect(maxZoom).toBeGreaterThan(2);
+    // ...but the overshoot is bounded by the tangent cap, and the curve
+    // returns to land at the target with zero slope.
+    expect(maxZoom).toBeLessThan(2.2);
+    const last = baked!.path[baked!.path.length - 1]!;
+    expect(Math.abs(last.zoom - 2)).toBeLessThan(0.01);
+  });
+
+  it('offsets ride the focal-stable matrix-lerp line between the poses', () => {
+    const from = { zoom: 1, offsetX: 0, offsetY: 0 };
+    const to = { zoom: 2, offsetX: -50, offsetY: 0 };
+    for (const vZoom of [0, 5]) {
+      const baked = bakeDiscreteZoomPath({ from, to, vZoom, durationMs });
+      for (const pose of baked!.path) {
+        // Matrix lerp: e = lerp(z_a·x_a, z_b·x_b, t) with t = (z − z_a)/(z_b − z_a),
+        // then x = e / z. Here e goes 0 → −100.
+        const t = (pose.zoom - from.zoom) / (to.zoom - from.zoom);
+        expect(pose.offsetX).toBeCloseTo((-100 * t) / pose.zoom, 6);
+      }
+    }
+  });
+
+  it('emits offsets aligned with the path, strictly increasing and < 1', () => {
+    for (const vZoom of [0, 3]) {
+      const baked = bakeDiscreteZoomPath({
+        from: { zoom: 1, ...rest },
+        to: { zoom: 4, ...rest },
+        vZoom,
+        durationMs,
+      });
+      expect(baked!.offsets.length).toBe(baked!.path.length);
+      let prev = 0;
+      for (const t of baked!.offsets) {
+        expect(t).toBeGreaterThan(prev);
+        expect(t).toBeLessThan(1);
+        prev = t;
+      }
+    }
   });
 });

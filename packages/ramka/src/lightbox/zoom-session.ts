@@ -4,6 +4,7 @@
  */
 
 import {
+  bakeDiscreteZoomPath,
   bakeSettlePath,
   clamp,
   clampOffsetToViewport,
@@ -209,6 +210,52 @@ export function createZoomSession(getDeps: () => ZoomSessionDeps): ZoomSession {
     }
   };
 
+  /**
+   * Start (or retarget) an animated discrete zoom toward `to` as a baked
+   * keyframe curve played by the controller. An uninterrupted step plays the
+   * same 300ms ease-in-out it always did; when an animation is already in
+   * flight the live zoom velocity is carried into the new bake, so rapid
+   * successive steps merge into one continuous motion instead of restarting
+   * the easing curve from zero on every press.
+   */
+  const startDiscreteZoom = (to: ZoomPose) => {
+    const { controller, reducedMotion } = getDeps();
+
+    // Carry momentum out of any in-flight animation, landing at the live pose.
+    let vZoom = 0;
+    if (controller.isDiscreteAnimating() || controller.isSettling()) {
+      const vz = controller.getLiveZoomVelocity();
+      const live = controller.cancel();
+      if (live) {
+        syncPoseRefs(live);
+        if (vz != null) vZoom = vz;
+      }
+    }
+
+    const from = controller.getPose();
+    const baked = reducedMotion
+      ? null
+      : bakeDiscreteZoomPath({
+          from,
+          to,
+          vZoom,
+          durationMs: controller.getDefaultDiscreteDuration(),
+        });
+    controller.discrete({
+      to,
+      // Null bake (pure-offset move / degenerate delta) falls back to the
+      // controller's 2-keyframe eased tween.
+      path: baked?.path,
+      pathOffsets: baked?.offsets,
+      duration: baked?.durationMs,
+      onFinish: () => {
+        syncPoseRefs(to);
+        flushDiscreteWaiters();
+      },
+    });
+    syncPoseRefs(to);
+  };
+
   const changeZoom = (
     target: number,
     rapid: boolean,
@@ -259,14 +306,7 @@ export function createZoomSession(getDeps: () => ZoomSessionDeps): ZoomSession {
       return;
     }
 
-    controller.discrete({
-      to,
-      onFinish: () => {
-        syncPoseRefs(to);
-        flushDiscreteWaiters();
-      },
-    });
-    syncPoseRefs(to);
+    startDiscreteZoom(to);
   };
 
   const zoomIn = () => {
@@ -293,14 +333,7 @@ export function createZoomSession(getDeps: () => ZoomSessionDeps): ZoomSession {
       syncPoseRefs(to);
       return;
     }
-    controller.discrete({
-      to,
-      onFinish: () => {
-        syncPoseRefs(to);
-        flushDiscreteWaiters();
-      },
-    });
-    syncPoseRefs(to);
+    startDiscreteZoom(to);
   };
 
   const startPanPhysics = (

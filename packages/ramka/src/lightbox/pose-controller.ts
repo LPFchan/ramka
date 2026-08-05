@@ -36,6 +36,14 @@ export interface DiscreteSpec {
   to: ZoomPose;
   duration?: number;
   easing?: string;
+  /**
+   * Pre-baked intermediate poses (spring trajectory). When present the
+   * animation plays these as matrix keyframes with linear easing — physics is
+   * already in the samples — instead of the 2-keyframe eased tween. Aligned
+   * 1:1 with `pathOffsets` (fractional times, 0..1 exclusive).
+   */
+  path?: ZoomPose[];
+  pathOffsets?: number[];
   onFinish?: () => void;
 }
 
@@ -175,6 +183,11 @@ export class PoseController {
     return this.phase;
   }
 
+  /** Duration used for discrete animations when a spec omits one (ms). */
+  getDefaultDiscreteDuration(): number {
+    return this.defaultDiscreteDuration;
+  }
+
   /** Stable snapshot for useSyncExternalStore (identity changes on commit notify). */
   getSnapshot = (): PoseSnapshot => this.snapshot;
 
@@ -209,6 +222,23 @@ export class PoseController {
   getLiveAnimatedZoom(): number | null {
     if (!this.anim || !this.pathInfo) return null;
     return livePoseOnPath(this.pathInfo, this.anim.currentTime)?.zoom ?? null;
+  }
+
+  /**
+   * Live zoom velocity (zoom units/s) while a keyframed settle/discrete path
+   * is running; else null. Finite difference over the last ~8ms of the path —
+   * used to carry momentum when a new discrete zoom retargets an in-flight one.
+   */
+  getLiveZoomVelocity(): number | null {
+    if (!this.anim || !this.pathInfo) return null;
+    const ct = this.anim.currentTime;
+    const t1 = typeof ct === 'number' ? ct : 0;
+    const dt = Math.min(8, t1);
+    if (dt <= 0) return 0;
+    const before = livePoseOnPath(this.pathInfo, t1 - dt);
+    const now = livePoseOnPath(this.pathInfo, t1);
+    if (!before || !now) return null;
+    return ((now.zoom - before.zoom) / dt) * 1000;
   }
 
   /**
@@ -389,7 +419,9 @@ export class PoseController {
   }
 
   /**
-   * Discrete 2-keyframe zoom (double-tap, buttons). Blocks tracking until done.
+   * Discrete keyframed zoom (double-tap, buttons). Blocks tracking until done.
+   * Plays a pre-baked spring `path` when provided; otherwise a 2-keyframe
+   * eased tween.
    */
   discrete(spec: DiscreteSpec): boolean {
     const el = this.el;
@@ -403,7 +435,8 @@ export class PoseController {
     const from = poseMatrix(fromPose);
     const to = poseMatrix(spec.to);
     const toInline = poseTransform(spec.to);
-    if (from === to) {
+    const path = spec.path && spec.path.length > 0 ? spec.path : null;
+    if (from === to && !path) {
       this.phase = 'idle';
       spec.onFinish?.();
       return false;
@@ -425,17 +458,26 @@ export class PoseController {
       if (el.style.transform !== from) {
         el.style.transform = from;
       }
-      const anim = el.animate(
-        [
-          { transform: from, easing: spec.easing ?? 'ease-in-out' },
-          { transform: to },
-        ],
-        { duration, fill: 'forwards' },
-      );
+      const pathOffsets = path ? (spec.pathOffsets ?? []) : [];
+      const keyframes: Keyframe[] = path
+        ? [
+            // Physics is baked into the samples — linear easing between them.
+            { transform: from, offset: 0 },
+            ...path.map((p, i) => ({
+              transform: poseMatrix(p),
+              offset: pathOffsets[i],
+            })),
+            { transform: to, offset: 1 },
+          ]
+        : [
+            { transform: from, easing: spec.easing ?? 'ease-in-out' },
+            { transform: to },
+          ];
+      const anim = el.animate(keyframes, { duration, fill: 'forwards' });
       this.anim = anim;
       this.pathInfo = {
-        poses: [fromPose, spec.to],
-        offsets: [0, 1],
+        poses: path ? [fromPose, ...path, spec.to] : [fromPose, spec.to],
+        offsets: path ? [0, ...pathOffsets, 1] : [0, 1],
         duration,
         matrixInterp: true,
       };

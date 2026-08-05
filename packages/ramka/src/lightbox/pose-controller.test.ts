@@ -246,6 +246,86 @@ describe('PoseController', () => {
     expect(c.getPose().zoom).toBe(2);
   });
 
+  it('discrete plays a baked path as matrix keyframes and samples it live', () => {
+    const held: Array<{ onfinish: (() => void) | null; currentTime: number }> = [];
+    Element.prototype.animate = vi.fn(() => {
+      const anim = {
+        cancel: vi.fn(),
+        play: vi.fn(),
+        pause: vi.fn(),
+        onfinish: null as (() => void) | null,
+        oncancel: null as (() => void) | null,
+        commitStyles: vi.fn(),
+        currentTime: 0,
+      };
+      held.push(anim);
+      return anim as unknown as Animation;
+    }) as unknown as typeof Element.prototype.animate;
+
+    const c = new PoseController({ zoom: 1, offsetX: 0, offsetY: 0 });
+    c.attach(el);
+    c.discrete({
+      to: { zoom: 2, offsetX: 0, offsetY: 0 },
+      path: [{ zoom: 1.5, offsetX: 0, offsetY: 0 }],
+      pathOffsets: [0.5],
+      duration: 100,
+    });
+    expect(c.getPhase()).toBe('discrete');
+
+    // from + path sample + to, all in matrix form (focal-stable lerp).
+    const keyframes = (Element.prototype.animate as ReturnType<typeof vi.fn>).mock
+      .calls[0]![0] as Keyframe[];
+    expect(keyframes).toHaveLength(3);
+    expect(keyframes[0]!.transform).toBe(poseMatrix({ zoom: 1, offsetX: 0, offsetY: 0 }));
+    expect(keyframes[1]!.transform).toBe(poseMatrix({ zoom: 1.5, offsetX: 0, offsetY: 0 }));
+    expect(keyframes[1]!.offset).toBe(0.5);
+    expect(keyframes[2]!.transform).toBe(poseMatrix({ zoom: 2, offsetX: 0, offsetY: 0 }));
+    // Physics is baked into the samples — no eased first keyframe.
+    expect(keyframes[0]!.easing).toBeUndefined();
+
+    // Live sampling walks the multi-sample path (chrome zoom progress).
+    held[0]!.currentTime = 25; // halfway into the 1 → 1.5 segment
+    expect(c.getLiveAnimatedZoom()).toBeCloseTo(1.25, 5);
+
+    held[0]!.onfinish?.();
+    expect(c.getPhase()).toBe('idle');
+    expect(c.getPose().zoom).toBe(2);
+  });
+
+  it('getLiveZoomVelocity reads the path slope mid-flight and null when idle', () => {
+    const held: Array<{ onfinish: (() => void) | null; currentTime: number }> = [];
+    Element.prototype.animate = vi.fn(() => {
+      const anim = {
+        cancel: vi.fn(),
+        play: vi.fn(),
+        pause: vi.fn(),
+        onfinish: null as (() => void) | null,
+        oncancel: null as (() => void) | null,
+        commitStyles: vi.fn(),
+        currentTime: 0,
+      };
+      held.push(anim);
+      return anim as unknown as Animation;
+    }) as unknown as typeof Element.prototype.animate;
+
+    const c = new PoseController({ zoom: 1, offsetX: 0, offsetY: 0 });
+    c.attach(el);
+    expect(c.getLiveZoomVelocity()).toBeNull();
+
+    c.discrete({
+      to: { zoom: 2, offsetX: 0, offsetY: 0 },
+      path: [{ zoom: 1.5, offsetX: 0, offsetY: 0 }],
+      pathOffsets: [0.5],
+      duration: 100,
+    });
+    // First segment covers zoom 1 → 1.5 over 50ms → 10 zoom units/s.
+    held[0]!.currentTime = 25;
+    expect(c.getLiveZoomVelocity()).toBeCloseTo(10, 5);
+
+    held[0]!.onfinish?.();
+    expect(c.getLiveZoomVelocity()).toBeNull();
+  });
+
   it('beginTracking catches settle', () => {
     Element.prototype.animate = vi.fn((_kf, opts) => {
       return {
