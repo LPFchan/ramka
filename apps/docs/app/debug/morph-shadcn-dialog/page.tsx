@@ -20,6 +20,30 @@ import { Label } from '@/components/ui/label';
 const inputClass =
   'h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none transition-[border-color,box-shadow] focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50';
 
+/** Stretches the morph 5× via `--ramka-dialog-morph-duration` on `:root`,
+ * the hook's public theming var — handy for studying the transition. */
+function SlowMoToggle() {
+  const [slowMo, setSlowMo] = React.useState(false);
+
+  React.useEffect(() => {
+    const docEl = document.documentElement;
+    if (slowMo) docEl.style.setProperty('--ramka-dialog-morph-duration', '1600ms');
+    else docEl.style.removeProperty('--ramka-dialog-morph-duration');
+    return () => docEl.style.removeProperty('--ramka-dialog-morph-duration');
+  }, [slowMo]);
+
+  return (
+    <label className="flex w-fit cursor-pointer items-center gap-2 rounded-xl border border-dashed border-amber-500/40 bg-amber-500/5 px-3 py-2 text-xs font-medium text-amber-700 select-none dark:text-amber-400">
+      <input
+        type="checkbox"
+        checked={slowMo}
+        onChange={(event) => setSlowMo(event.target.checked)}
+      />
+      Slow motion (1600ms)
+    </label>
+  );
+}
+
 /**
  * Dev-only: `useDialogMorph` (exported from ramka) baked into the local
  * shadcn/Base UI dialog behind an opt-in `morph` prop. No changes at usage
@@ -48,6 +72,8 @@ export default function MorphShadcnDialogDebugPage() {
           ), and every usage site opts in with <code className="text-sm">{'<Dialog morph>'}</code>.
         </p>
       </header>
+
+      <SlowMoToggle />
 
       <section className="space-y-3">
         <h2 className="text-sm font-medium text-neutral-900 dark:text-neutral-100">What to verify</h2>

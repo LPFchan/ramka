@@ -50,6 +50,13 @@ const SOURCE_HIDDEN_ATTR = 'data-ramka-dialog-morph-source';
  * Sticky until the element unmounts. */
 const TARGET_EXITING_ATTR = 'data-ramka-dialog-morph-exiting';
 
+/** Full-duration radius keyframes on the morph group. Its `animationend`
+ * (dispatched on the root with `pseudoElement` set) lands on the pseudo-tree
+ * teardown frame in every engine, unlike the `finished` promise which can
+ * resolve a paint later (notably in Safari) — so it doubles as the signal
+ * for restoring the live element's suppressed border-radius. */
+const RADIUS_ANIMATION = 'ramka-dialog-morph-radius';
+
 const VAR_RADIUS_FROM = '--ramka-dialog-morph-radius-from';
 const VAR_RADIUS_TO = '--ramka-dialog-morph-radius-to';
 const VAR_DURATION = '--ramka-dialog-morph-duration';
@@ -88,7 +95,7 @@ const MORPH_CSS = /* css */ `
     animation-timing-function: var(--ramka-dialog-morph-root-easing, cubic-bezier(0.16, 1, 0.3, 1));
   }
 
-  @keyframes ramka-dialog-morph-radius {
+  @keyframes ${RADIUS_ANIMATION} {
     to {
       border-radius: var(${VAR_RADIUS_TO}, 0px);
     }
@@ -97,7 +104,7 @@ const MORPH_CSS = /* css */ `
   :root[${DOC_ATTR}]::view-transition-group(${MORPH_NAME}) {
     overflow: hidden;
     border-radius: var(${VAR_RADIUS_FROM}, 0px);
-    animation-name: -ua-view-transition-group-anim-${MORPH_NAME}, ramka-dialog-morph-radius;
+    animation-name: -ua-view-transition-group-anim-${MORPH_NAME}, ${RADIUS_ANIMATION};
     animation-duration: var(${VAR_DURATION}, 320ms);
     animation-timing-function: var(--ramka-dialog-morph-easing, cubic-bezier(0.32, 0.72, 0, 1));
     animation-fill-mode: both;
@@ -228,6 +235,178 @@ function clearMorphName(el: HTMLElement | null) {
  * support, no trigger), since this is never called on those paths. */
 function suppressAnimations(el: HTMLElement) {
   el.style.setProperty('animation', 'none', 'important');
+}
+
+/** Squares the corners of the PANEL for the open morph — the only element
+ * that is ever squared. The geometry, from first principles: snapshots
+ * render WITH the element's border-radius baked in as transparent corners,
+ * then stretch to the group box. A snapshot scaled DOWN has baked corners
+ * smaller than the group's animated radius clip, so the clip owns the
+ * visible shape; a snapshot scaled UP has baked corners that grow past the
+ * clip and would define the silhouette themselves (the morph reads as a
+ * plain scale). The trigger is the scaled-up image on both legs:
+ *
+ * - OPEN: the trigger (old image) stretches up, but it fades out fast and
+ *   the panel behind it — the new image, live-rendered every frame — is
+ *   squared here so it backfills the trigger's growing corner gaps and the
+ *   clip owns the shape until it lands on the panel's real radius.
+ * - CLOSE: the trigger (new image) stretches early too, and squaring it
+ *   would be actively wrong: its border is painted along the squared
+ *   perimeter and the group's rounded clip chops it off at every corner,
+ *   which shows as a broken/discontinuous border on the trigger for the
+ *   whole close. Instead the close leg animates the LIVE trigger's
+ *   border-radius so its stretched rendering tracks the clip exactly — see
+ *   animateCloseRadiusCompensation.
+ *
+ * Squaring happens only inside the update callback — strictly while the
+ * pseudo tree covers the page — so the square state can never paint live. */
+function suppressRadius(el: HTMLElement) {
+  // Elements may carry CSS transitions with `transition-property: all` (the
+  // shadcn popup's `duration-100` does) — without this, the radius change
+  // would ANIMATE into the capture instead of being instantly square.
+  el.style.setProperty('transition', 'none', 'important');
+  el.style.setProperty('border-radius', '0px', 'important');
+}
+
+function restoreRadius(el: HTMLElement | null) {
+  if (!el) return;
+  el.style.removeProperty('border-radius');
+  // Flush the restored radius while transitions are still disabled, then
+  // re-enable them — otherwise the corners would visibly transition from
+  // square to rounded right after the morph.
+  void el.offsetWidth;
+  el.style.removeProperty('transition');
+}
+
+/** Restores a suppressed radius on the pseudo-tree teardown frame. The
+ * radius keyframes' `animationend` fires exactly there in Chromium, WebKit,
+ * and Gecko, while the `finished` promise can resolve a paint LATER (notably
+ * in Safari) — which would show one frame of square corners. Restoring at
+ * `animationend` is safe even if it lands a frame before teardown: by then
+ * the group clip has settled on the element's real radius and the
+ * live-rendered image is at natural scale, so square vs rounded snapshots
+ * are pixel-identical. `finished` stays as the fallback (skipped
+ * transitions, reduced motion mid-flight). */
+function scheduleRadiusRestore(getEl: () => HTMLElement | null, finished: Promise<unknown>) {
+  const docEl = document.documentElement;
+  const release = () => {
+    docEl.removeEventListener('animationend', onAnimationDone);
+    docEl.removeEventListener('animationcancel', onAnimationDone);
+    restoreRadius(getEl());
+  };
+  function onAnimationDone(event: AnimationEvent) {
+    if (event.animationName !== RADIUS_ANIMATION) return;
+    release();
+  }
+  docEl.addEventListener('animationend', onAnimationDone);
+  docEl.addEventListener('animationcancel', onAnimationDone);
+  finished.finally(release);
+}
+
+// Defaults mirrored from the injected CSS (`var(..., 320ms)` / the group's
+// easing fallback) — used when the consumer hasn't themed the root vars.
+const DEFAULT_DURATION_MS = 320;
+const DEFAULT_EASING: readonly [number, number, number, number] = [0.32, 0.72, 0, 1];
+
+function parseDurationMs(raw: string): number {
+  const value = raw.trim();
+  const num = Number.parseFloat(value);
+  if (!value || Number.isNaN(num)) return DEFAULT_DURATION_MS;
+  return value.endsWith('ms') ? num : value.endsWith('s') ? num * 1000 : num;
+}
+
+const EASING_KEYWORDS: Record<string, readonly [number, number, number, number]> = {
+  linear: [0, 0, 1, 1],
+  ease: [0.25, 0.1, 0.25, 1],
+  'ease-in': [0.42, 0, 1, 1],
+  'ease-out': [0, 0, 0.58, 1],
+  'ease-in-out': [0.42, 0, 0.58, 1],
+};
+
+function parseEasing(raw: string): readonly [number, number, number, number] {
+  const value = raw.trim();
+  if (!value) return DEFAULT_EASING;
+  const keyword = EASING_KEYWORDS[value];
+  if (keyword) return keyword;
+  const match = /cubic-bezier\(([^)]+)\)/.exec(value);
+  const nums = match?.[1]!.split(',').map((n) => Number.parseFloat(n));
+  if (!nums || nums.length !== 4 || nums.some(Number.isNaN)) return DEFAULT_EASING;
+  return nums as unknown as readonly [number, number, number, number];
+}
+
+/** y(x) for a CSS cubic-bezier timing function (bisection — robust and only
+ * run once per morph over ~30 samples). */
+function cubicBezierProgress(
+  [x1, y1, x2, y2]: readonly [number, number, number, number],
+  x: number,
+): number {
+  if (x <= 0) return 0;
+  if (x >= 1) return 1;
+  const sample = (a1: number, a2: number, t: number) =>
+    3 * a1 * t * (1 - t) * (1 - t) + 3 * a2 * t * t * (1 - t) + t * t * t;
+  let lo = 0;
+  let hi = 1;
+  let t = x;
+  for (let i = 0; i < 24; i++) {
+    const cx = sample(x1, x2, t);
+    if (Math.abs(cx - x) < 1e-4) break;
+    if (cx < x) lo = t;
+    else hi = t;
+    t = (lo + hi) / 2;
+  }
+  return sample(y1, y2, t);
+}
+
+/** Expands a resolved radius list ("8px" | "8px 12px" | …) to 4 corner
+ * values, following the CSS shorthand expansion. */
+function expandRadiusList(list: string): [number, number, number, number] {
+  const [a = 0, b = a, c = a, d = b] = list.split(' ').map((v) => Number.parseFloat(v) || 0);
+  return [a, b, c, d];
+}
+
+/** CLOSE-path counterpart of the open path's panel squaring. On close the
+ * trigger live-renders into the NEW image, which is captured at natural size
+ * and stretched — anisotropically — to the group box. Its baked corners
+ * therefore start as big ellipses (e.g. a card stretched to panel height is
+ * scaled ~5× vertically but barely horizontally) instead of following the
+ * group's animated radius clip. Squaring it instead would chop its border
+ * against the rounded clip (see suppressRadius).
+ *
+ * Because the new image re-renders the live element every frame, the live
+ * trigger's border-radius can be animated so that AFTER the stretch it
+ * equals the clip at every moment: per axis, radius(t) = clip(t) / scale(t).
+ * The group's size, the clip, and this compensation all follow the same
+ * duration + easing (baked into sampled keyframes, played linearly), so they
+ * stay in lockstep. The animation ends exactly on the trigger's natural
+ * radius, so pseudo-tree teardown needs no restore step — nothing to race,
+ * nothing to flash. Driven by WAAPI, which also outranks any CSS
+ * `transition: all` on the element. */
+function animateCloseRadiusCompensation(
+  el: HTMLElement,
+  fromRect: DOMRect,
+  toRect: DOMRect,
+  fromRadius: string,
+  toRadius: string,
+): Animation | null {
+  if (!(toRect.width > 0) || !(toRect.height > 0)) return null;
+  const docStyles = getComputedStyle(document.documentElement);
+  const duration = parseDurationMs(docStyles.getPropertyValue(VAR_DURATION));
+  const curve = parseEasing(docStyles.getPropertyValue('--ramka-dialog-morph-easing'));
+  const from = expandRadiusList(fromRadius);
+  const to = expandRadiusList(toRadius);
+
+  const STEPS = 30;
+  const keyframes: Keyframe[] = [];
+  for (let i = 0; i <= STEPS; i++) {
+    const p = cubicBezierProgress(curve, i / STEPS);
+    const sx = (fromRect.width + (toRect.width - fromRect.width) * p) / toRect.width;
+    const sy = (fromRect.height + (toRect.height - fromRect.height) * p) / toRect.height;
+    const corners = from.map((f, corner) => f + (to[corner]! - f) * p);
+    const rx = corners.map((r) => `${(r / sx).toFixed(2)}px`).join(' ');
+    const ry = corners.map((r) => `${(r / sy).toFixed(2)}px`).join(' ');
+    keyframes.push({ borderRadius: `${rx} / ${ry}`, offset: i / STEPS });
+  }
+  return el.animate(keyframes, { duration, easing: 'linear', fill: 'both' });
 }
 
 /** Copies the overlay's computed backdrop-filter to a root var (consumed by
@@ -429,6 +608,10 @@ function useDialogMorph(options: UseDialogMorphOptions = {}): DialogMorph {
             // is the only reflow inside the callback and it's a small tree.
             docEl.style.setProperty(VAR_RADIUS_TO, resolveMorphBorderRadius(target));
             suppressAnimations(target);
+            // The new image live-renders the panel every frame — square, so
+            // the group clip owns the corners until it lands on the panel's
+            // real radius (VAR_RADIUS_TO) at the end.
+            suppressRadius(target);
             setMorphName(target);
           } else if (process.env.NODE_ENV !== 'production') {
             // eslint-disable-next-line no-console
@@ -438,6 +621,10 @@ function useDialogMorph(options: UseDialogMorphOptions = {}): DialogMorph {
             );
           }
         });
+
+        // Panel radius comes back on the teardown frame, not on `finished`
+        // (which can lag a paint behind) — see scheduleRadiusRestore.
+        scheduleRadiusRestore(() => targetElRef.current, transition.finished);
 
         transition.finished.finally(() => {
           if (genRef.current !== gen) return;
@@ -459,14 +646,19 @@ function useDialogMorph(options: UseDialogMorphOptions = {}): DialogMorph {
         const target = targetElRef.current;
         const overlay = overlayElRef.current;
         const canMorph = !!target && !!source;
+        let startCompensation: (() => Animation | null) | null = null;
 
         if (canMorph) {
           const fromRadius = resolveMorphBorderRadius(target!);
           const toRadius = resolveMorphBorderRadius(source!);
+          const fromRect = target!.getBoundingClientRect();
+          const toRect = source!.getBoundingClientRect();
           docEl.setAttribute(DOC_ATTR, 'closing');
           docEl.style.setProperty(VAR_RADIUS_FROM, fromRadius);
           docEl.style.setProperty(VAR_RADIUS_TO, toRadius);
           setMorphName(target!);
+          startCompensation = () =>
+            animateCloseRadiusCompensation(source!, fromRect, toRect, fromRadius, toRadius);
         } else {
           // No morph ends — still a view transition, so the close is a clean
           // root crossfade instead of an instant blink.
@@ -482,6 +674,9 @@ function useDialogMorph(options: UseDialogMorphOptions = {}): DialogMorph {
           flushSync(() => commit(false, meta));
           source?.removeAttribute(SOURCE_HIDDEN_ATTR);
           if (canMorph) {
+            // Deliberately NOT squared (unlike the panel on open); its radius
+            // is compensation-animated instead — see suppressRadius and
+            // animateCloseRadiusCompensation for the geometry.
             setMorphName(source!);
           }
           // Same lingering-ghost treatment as the panel: the overlay also
@@ -494,7 +689,26 @@ function useDialogMorph(options: UseDialogMorphOptions = {}): DialogMorph {
           }
         });
 
+        // Kick the radius compensation off on `ready` — the same frame the
+        // pseudo-element animations start — so it stays in sync with the
+        // group's geometry/clip animations for the whole morph.
+        let radiusAnim: Animation | null = null;
+        if (startCompensation) {
+          const start = startCompensation;
+          const ready = (transition as { ready?: Promise<void> }).ready;
+          if (ready) {
+            ready.then(() => {
+              radiusAnim = start();
+            }, () => {});
+          } else {
+            radiusAnim = start();
+          }
+        }
+
         transition.finished.finally(() => {
+          // Safe at any time: the animation's last keyframe IS the trigger's
+          // natural radius, so cancelling is a pixel-identical no-op.
+          radiusAnim?.cancel();
           if (genRef.current !== gen) return;
           clearMorphName(sourceElRef.current);
           clearMorphName(overlayElRef.current);
