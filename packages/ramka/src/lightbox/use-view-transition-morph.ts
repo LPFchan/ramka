@@ -3,6 +3,7 @@
 import * as React from 'react';
 import { flushSync } from 'react-dom';
 
+import { isFirefox } from './is-firefox';
 import { VIEW_TRANSITION_NAME, findItemMorphTarget, findTriggerMorphTarget } from './lightbox-context';
 import { LightboxDocumentCssVars } from './lightbox-css-vars';
 import {
@@ -432,10 +433,6 @@ const FULL_BLEED_EPS_PX = 0.5;
  */
 const FIREFOX_FULL_BLEED_CAPTURE_INSET_PX = 1;
 
-function isGeckoVtEngine(): boolean {
-  return typeof navigator !== 'undefined' && /Firefox\//.test(navigator.userAgent);
-}
-
 interface FullBleedAxes {
   horizontal: boolean;
   vertical: boolean;
@@ -490,7 +487,7 @@ type CaptureInsetRestore = () => void;
  * Open: call inside the VT callback after reveal + naming (new snapshot).
  */
 function applyFirefoxFullBleedCaptureInset(morphTarget: HTMLElement): CaptureInsetRestore | null {
-  if (!isGeckoVtEngine()) return null;
+  if (!isFirefox()) return null;
   const axes = getFullBleedAxes(morphTarget);
   if (!axes.horizontal && !axes.vertical) return null;
 
@@ -680,6 +677,14 @@ interface ViewTransitionMorphConfig {
    * Receives the resolved trigger element so the caller can restore focus.
    */
   onCloseComplete: (triggerEl: HTMLElement | undefined) => void;
+  /**
+   * Active slide zoom controls. On Firefox close morph, calls `reset(true)`
+   * when zoomed so the old VT snapshot captures resting (unclipped) Media.
+   */
+  activeZoomRef: React.RefObject<{
+    reset: (rapid?: boolean) => void;
+    getZoom: () => number;
+  } | null>;
 }
 
 interface ViewTransitionMorph {
@@ -994,12 +999,26 @@ function useViewTransitionMorph(config: ViewTransitionMorphConfig): ViewTransiti
       toRadius,
       tokenHost: configRef.current.dialogElementRef.current,
     });
+
+    // Firefox: zoomed Media is painted under scale/pan and clipped by ancestor
+    // overflow into the named VT snapshot. Instant reset (replacePose) so the
+    // old snapshot is the resting, unclipped box. Chrome/Safari capture correctly
+    // while zoomed — leave their live pose alone. Animated reset() would leave
+    // capture mid-zoom.
+    if (isFirefox()) {
+      const activeZoom = configRef.current.activeZoomRef.current;
+      if (activeZoom && activeZoom.getZoom() > 1) {
+        activeZoom.reset(true);
+      }
+    }
+
     // Inset before startViewTransition so the "old" (item) snapshot is not
-    // captured edge-to-edge — Firefox full-bleed VT bug.
+    // captured edge-to-edge — Firefox full-bleed VT bug. Order: zoom reset →
+    // inset → morph name → capture.
     let restoreFirefoxCaptureInset: CaptureInsetRestore | null = null;
     if (canMorph) {
-      setMorphName(itemTarget!);
       restoreFirefoxCaptureInset = applyFirefoxFullBleedCaptureInset(itemTarget!);
+      setMorphName(itemTarget!);
     }
 
     const transition = startViewTransition(() => {

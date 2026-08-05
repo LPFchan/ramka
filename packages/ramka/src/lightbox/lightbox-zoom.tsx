@@ -481,7 +481,7 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
         canZoomOut,
         zoomIn: session.zoomIn,
         zoomOut: session.zoomOut,
-        reset: () => session.reset(),
+        reset: (rapid?: boolean) => session.reset(rapid),
         panBy: (dx: number, dy: number) => session.changeOffsets(dx, dy),
         keyboardPanDistance,
         getZoom: session.getLiveZoom,

@@ -1905,6 +1905,133 @@ describe('Lightbox', () => {
       await act(async () => resolveFinished());
     });
 
+    it('Firefox: resets zoom instantly before close view transition capture when zoomed', () => {
+      // Firefox clips zoomed Media into the named VT snapshot; reset(true) before
+      // startViewTransition. Chrome/Safari keep the live zoomed pose.
+      const originalUa = navigator.userAgent;
+      Object.defineProperty(navigator, 'userAgent', {
+        configurable: true,
+        value: 'Mozilla/5.0 (Macintosh; rv:153.0) Gecko/20100101 Firefox/153.0',
+      });
+
+      const zoomRef = React.createRef<LightboxZoomRef>();
+      let zoomAtOldSnapshot = -1;
+      const startViewTransition = vi.fn((callback: () => void | Promise<void>) => {
+        zoomAtOldSnapshot = zoomRef.current?.zoom ?? -1;
+        const result = callback();
+        if (result && typeof (result as Promise<void>).then === 'function') {
+          (result as Promise<void>).catch(vi.fn());
+        }
+        return { finished: Promise.resolve() };
+      });
+      Object.defineProperty(document, 'startViewTransition', {
+        value: startViewTransition,
+        writable: true,
+        configurable: true,
+      });
+
+      try {
+        render(
+          <LightboxRoot viewTransition defaultOpen awaitImageDecode={false}>
+            <LightboxTrigger index={0} data-testid="trigger-0">
+              Open
+            </LightboxTrigger>
+            <LightboxPortal>
+              <LightboxContent data-testid="content" aria-label="zoomed close morph">
+                <LightboxClose data-testid="close">Close</LightboxClose>
+                <LightboxItemGroup>
+                  <LightboxItem index={0} data-testid="item-0">
+                    <LightboxZoom ref={zoomRef} maxZoom={4}>
+                      <LightboxMedia data-testid="media">
+                        <img src="a.jpg" alt="a" />
+                      </LightboxMedia>
+                    </LightboxZoom>
+                  </LightboxItem>
+                </LightboxItemGroup>
+              </LightboxContent>
+            </LightboxPortal>
+          </LightboxRoot>,
+        );
+
+        act(() => zoomRef.current!.zoomTo(3, { rapid: true }));
+        expect(zoomRef.current!.zoom).toBeGreaterThan(1);
+
+        startViewTransition.mockClear();
+        fireEvent.click(screen.getByTestId('close'));
+
+        expect(startViewTransition).toHaveBeenCalledOnce();
+        // Captured before the VT callback unmounts Zoom — must already be resting.
+        expect(zoomAtOldSnapshot).toBe(1);
+      } finally {
+        Object.defineProperty(navigator, 'userAgent', {
+          configurable: true,
+          value: originalUa,
+        });
+      }
+    });
+
+    it('does not reset zoom before close view transition outside Firefox', () => {
+      const originalUa = navigator.userAgent;
+      Object.defineProperty(navigator, 'userAgent', {
+        configurable: true,
+        value: 'Mozilla/5.0 (Macintosh; Chrome/120.0.0.0)',
+      });
+
+      const zoomRef = React.createRef<LightboxZoomRef>();
+      let zoomAtOldSnapshot = -1;
+      const startViewTransition = vi.fn((callback: () => void | Promise<void>) => {
+        zoomAtOldSnapshot = zoomRef.current?.zoom ?? -1;
+        const result = callback();
+        if (result && typeof (result as Promise<void>).then === 'function') {
+          (result as Promise<void>).catch(vi.fn());
+        }
+        return { finished: Promise.resolve() };
+      });
+      Object.defineProperty(document, 'startViewTransition', {
+        value: startViewTransition,
+        writable: true,
+        configurable: true,
+      });
+
+      try {
+        render(
+          <LightboxRoot viewTransition defaultOpen awaitImageDecode={false}>
+            <LightboxTrigger index={0} data-testid="trigger-0">
+              Open
+            </LightboxTrigger>
+            <LightboxPortal>
+              <LightboxContent data-testid="content" aria-label="zoomed close chromelike">
+                <LightboxClose data-testid="close">Close</LightboxClose>
+                <LightboxItemGroup>
+                  <LightboxItem index={0} data-testid="item-0">
+                    <LightboxZoom ref={zoomRef} maxZoom={4}>
+                      <LightboxMedia data-testid="media">
+                        <img src="a.jpg" alt="a" />
+                      </LightboxMedia>
+                    </LightboxZoom>
+                  </LightboxItem>
+                </LightboxItemGroup>
+              </LightboxContent>
+            </LightboxPortal>
+          </LightboxRoot>,
+        );
+
+        act(() => zoomRef.current!.zoomTo(3, { rapid: true }));
+        expect(zoomRef.current!.zoom).toBe(3);
+
+        startViewTransition.mockClear();
+        fireEvent.click(screen.getByTestId('close'));
+
+        expect(startViewTransition).toHaveBeenCalledOnce();
+        expect(zoomAtOldSnapshot).toBe(3);
+      } finally {
+        Object.defineProperty(navigator, 'userAgent', {
+          configurable: true,
+          value: originalUa,
+        });
+      }
+    });
+
     it('close without a trigger falls back to root crossfade (no item morph name)', () => {
       // Controlled/defaultOpen with no Trigger: naming the item alone would lift
       // it out of the root snapshot so chrome fades while the photo sticks.

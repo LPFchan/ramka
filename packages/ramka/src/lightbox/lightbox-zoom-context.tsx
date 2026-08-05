@@ -82,8 +82,12 @@ interface ActiveZoomControls {
   canZoomOut: boolean;
   zoomIn: () => void;
   zoomOut: () => void;
-  /** Reset the active slide's zoom to its minimum (1x). */
-  reset: () => void;
+  /**
+   * Reset the active slide's zoom to its minimum (1x).
+   * Pass `true` for a synchronous pose replace (no WAAPI) — used by the
+   * Firefox zoomed-close VT workaround before old-snapshot capture.
+   */
+  reset: (rapid?: boolean) => void;
   /** Pan the active slide by the given deltas (content-space px). */
   panBy: (dx: number, dy: number) => void;
   /** The active slide's configured keyboard pan step, in px. */
