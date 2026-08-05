@@ -70,14 +70,14 @@ type ModelTile = {
 
 type Tile = ImageTile | VideoTile | ModelTile;
 
-/** Short vertical Mixkit clips — full-frame vivid color, portrait (720×1080). */
+/** Short vertical Mixkit clips — full-frame vivid color, portrait (720×1280). */
 const films = [
   {
     id: 'inks',
     title: 'Flowing colored inks',
     poster: 'https://assets.mixkit.co/videos/44793/44793-thumb-720-0.jpg',
     posterWidth: 720,
-    posterHeight: 1080,
+    posterHeight: 1280,
     video: 'https://assets.mixkit.co/videos/44793/44793-720.mp4',
   },
   {
@@ -85,7 +85,7 @@ const films = [
     title: 'Orange & teal plasticine',
     poster: 'https://assets.mixkit.co/videos/47332/47332-thumb-720-0.jpg',
     posterWidth: 720,
-    posterHeight: 1080,
+    posterHeight: 1280,
     video: 'https://assets.mixkit.co/videos/47332/47332-720.mp4',
   },
 ] as const;
@@ -212,7 +212,6 @@ function AutoplayMuteVideo({
   height,
   playing,
   className,
-  morphRef,
   videoRef: videoRefProp,
 }: {
   src: string;
@@ -222,7 +221,6 @@ function AutoplayMuteVideo({
   /** When false, pause (e.g. lightbox closed over this grid tile). */
   playing: boolean;
   className?: string;
-  morphRef?: (node: HTMLElement | null) => void;
   videoRef?: React.Ref<HTMLVideoElement | null>;
 }) {
   const videoRef = React.useRef<HTMLVideoElement | null>(null);
@@ -244,7 +242,6 @@ function AutoplayMuteVideo({
     <video
       ref={(node) => {
         videoRef.current = node;
-        morphRef?.(node);
         if (typeof videoRefProp === 'function') videoRefProp(node);
         else if (videoRefProp) videoRefProp.current = node;
       }}
@@ -307,7 +304,7 @@ function LightboxVideo({
           height={height}
           videoRef={videoElRef}
           playing={enabled && inView}
-          className="bg-neutral-100 object-contain dark:bg-neutral-900"
+          className="object-cover"
         />
       </Lightbox.Media>
     </Lightbox.Zoom>
@@ -411,22 +408,17 @@ export default function MoodboardSnugPage() {
                       key={tile.id}
                       index={index}
                       crossfade="close"
-                      className={`block w-full cursor-pointer overflow-hidden rounded-xl border-none bg-transparent p-0 ${triggerFocusClass}`}
+                      className={`block w-full cursor-pointer overflow-hidden rounded-xl border-none bg-transparent p-0 ${triggerMorphHideClass} ${triggerFocusClass}`}
                     >
-                      {({ morphRef }) => (
-                        <div className={`relative overflow-hidden rounded-xl ${morphHideClass}`}>
-                          <AutoplayMuteVideo
-                            morphRef={morphRef}
-                            src={tile.video}
-                            poster={tile.poster}
-                            width={tile.posterWidth}
-                            height={tile.posterHeight}
-                            // Keep the wall looping; pause only while this tile is open.
-                            playing={!open || activeIndex !== index}
-                            className="block w-full rounded-xl bg-neutral-100 object-cover transition duration-200 hover:opacity-90 dark:bg-neutral-800"
-                          />
-                        </div>
-                      )}
+                      <AutoplayMuteVideo
+                        src={tile.video}
+                        poster={tile.poster}
+                        width={tile.posterWidth}
+                        height={tile.posterHeight}
+                        // Keep the wall looping; pause only while this tile is open.
+                        playing={!open || activeIndex !== index}
+                        className="block w-full rounded-xl bg-neutral-100 object-cover transition duration-200 hover:opacity-90 dark:bg-neutral-800"
+                      />
                     </Lightbox.Trigger>
                   );
                 }
