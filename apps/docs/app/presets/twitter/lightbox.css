@@ -648,6 +648,7 @@
   view-transition-name: none !important;
 }
 
+
 @media (prefers-reduced-motion: no-preference) {
   :root[data-ramka-view-transition]::view-transition-old(root),
   :root[data-ramka-view-transition]::view-transition-new(root) {
