@@ -657,6 +657,7 @@ function LightboxRoot(props: LightboxRootProps) {
       commitClose,
       onOpenComplete: handleOpenComplete,
       onCloseComplete: handleCloseComplete,
+      activeZoomRef,
     });
 
     const setOpen = React.useCallback(
