@@ -71,8 +71,10 @@ interface LightboxContentProps extends React.ComponentPropsWithRef<'div'> {
   /** Dialog contents (close, slides/items, chrome). */
   children?: React.ReactNode;
   /**
-   * Enable pull-to-close on touch. Publishes `data-pulling`,
-   * `data-pull-dismissing`, and `--lightbox-pull-progress` while active.
+   * Enable pull-to-close on touch and trackpad wheel. Starts from anywhere in
+   * Stage (or Content when Stage is omitted), except interactive controls.
+   * Publishes `data-pulling`, `data-pull-dismissing`, and
+   * `--lightbox-pull-progress` while active.
    * @default true
    */
   pullToClose?: boolean;
@@ -95,7 +97,6 @@ const LightboxContent = React.forwardRef<HTMLDivElement, LightboxContentProps>(
       stageElementRef,
       backdropElementRef,
       activeItemElementRef,
-      itemMorphElementsRef,
       navigationLockedRef,
       baseId,
     } = useLightboxContext();
@@ -281,12 +282,8 @@ const LightboxContent = React.forwardRef<HTMLDivElement, LightboxContentProps>(
       // The wheel/trackpad pull path reads it directly instead of re-querying
       // the DOM for `[data-ramka-item][data-active]`.
       activeItemRef: activeItemElementRef,
-      // Optional Stage scopes wheel pull to the media pane; null → Content.
+      // Optional Stage scopes touch + wheel pull to the media pane; null → Content.
       stageRef: stageElementRef,
-      // The touch gate starts a pull only inside an item's registered content
-      // element (imageRef / morphRef) — the same element that morphs —
-      // rather than sniffing the DOM for an inner <img>/<video>.
-      itemContentElementsRef: itemMorphElementsRef,
       getZoom,
       onClose: stableSetOpen,
       disabled: !pullToClose || !mounted,

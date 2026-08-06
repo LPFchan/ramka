@@ -14,7 +14,8 @@ interface LightboxStageProps extends useRender.ComponentProps<'div', LightboxSta
  * Optional media interaction surface inside `Lightbox.Content`.
  *
  * When present, Stage is the host for:
- *   - trackpad wheel pull-to-dismiss (events whose target is outside Stage are ignored)
+ *   - touch and trackpad wheel pull-to-dismiss (events whose target is outside
+ *     Stage are ignored; interactive controls inside Stage still keep their press)
  *   - Zoom pan cover / viewport geometry (instead of the full Content dialog)
  *   - Arrow / Home / End gallery keyboard navigation (only while focus is inside Stage)
  *   - Zoom shortcuts (⌘/+/-/0) and pinch / ctrl+wheel zoom (pointer/focus in Stage)

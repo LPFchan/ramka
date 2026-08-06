@@ -153,7 +153,7 @@ export const generatedProps: Record<string, PropRow[]> = {
       name: "pullToClose",
       type: "boolean",
       default: "true",
-      description: "Enable pull-to-close on touch. Publishes `data-pulling`, `data-pull-dismissing`, and `--lightbox-pull-progress` while active.",
+      description: "Enable pull-to-close on touch and trackpad wheel. Starts from anywhere in Stage (or Content when Stage is omitted), except interactive controls. Publishes `data-pulling`, `data-pull-dismissing`, and `--lightbox-pull-progress` while active.",
     },
   ],
   "api-stage": [
