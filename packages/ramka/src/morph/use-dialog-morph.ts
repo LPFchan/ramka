@@ -71,12 +71,24 @@ const TARGET_EXITING_ATTR = 'data-ramka-dialog-morph-exiting';
  * `border-radius: 0`, letting `transition: all` ease the corners at teardown. */
 const TARGET_SQUARE_ATTR = 'data-ramka-dialog-morph-square';
 
+/** Set on source/target while their box-shadow / outline / ring are painted
+ * on the morph group instead. Ink that falls outside the border box is
+ * clipped by the group's `overflow: hidden` (needed for the radius clip),
+ * so we lift it onto the group pseudo — a group's own shadow/outline is
+ * NOT clipped by its overflow — and suppress it on the live element for
+ * the capture. Attribute + CSS so React style rewrites can't restore it. */
+const INK_ATTR = 'data-ramka-dialog-morph-ink';
+
 /** Full-duration radius keyframes on the morph group. Its `animationend`
  * (dispatched on the root with `pseudoElement` set) lands on the pseudo-tree
  * teardown frame in every engine, unlike the `finished` promise which can
  * resolve a paint later (notably in Safari) — so it doubles as the signal
  * for restoring the live element's suppressed border-radius. */
 const RADIUS_ANIMATION = 'ramka-dialog-morph-radius';
+
+/** Interpolates the lifted box-shadow / outline on the morph group from the
+ * trigger's ink to the panel's (and back on close). */
+const SHADOW_ANIMATION = 'ramka-dialog-morph-shadow';
 
 /** Dissolve keyframes name. */
 const FADE_OUT_ANIMATION = 'ramka-dialog-morph-fade-out';
@@ -96,6 +108,12 @@ const VAR_RADIUS_FROM = '--ramka-dialog-morph-radius-from';
 const VAR_RADIUS_TO = '--ramka-dialog-morph-radius-to';
 const VAR_DURATION = '--ramka-dialog-morph-duration';
 const VAR_OVERLAY_BACKDROP = '--ramka-dialog-morph-overlay-backdrop';
+const VAR_SHADOW_FROM = '--ramka-dialog-morph-shadow-from';
+const VAR_SHADOW_TO = '--ramka-dialog-morph-shadow-to';
+const VAR_OUTLINE_FROM = '--ramka-dialog-morph-outline-from';
+const VAR_OUTLINE_TO = '--ramka-dialog-morph-outline-to';
+const VAR_OUTLINE_OFFSET_FROM = '--ramka-dialog-morph-outline-offset-from';
+const VAR_OUTLINE_OFFSET_TO = '--ramka-dialog-morph-outline-offset-to';
 
 const STYLE_ELEMENT_ID = 'ramka-dialog-morph-styles';
 
@@ -120,6 +138,12 @@ const MORPH_CSS = /* css */ `
   transition: none !important;
 }
 
+/* Ink lives on the group during the morph — see INK_ATTR. */
+[${INK_ATTR}] {
+  box-shadow: none !important;
+  outline: none !important;
+}
+
 @media (prefers-reduced-motion: no-preference) {
   /* Isolation: while a dialog morph runs, no other element keeps a
      view-transition-name (the morph elements are named inline with
@@ -141,9 +165,24 @@ const MORPH_CSS = /* css */ `
     }
   }
 
+  /* Lifted ink (box-shadow / outline / Tailwind ring) — a group's own
+     decorations are not clipped by its overflow:hidden, so they ride the
+     morphing box + radius. Values come from the live elements' computed
+     styles; ring-* utilities compose into box-shadow. */
+  @keyframes ${SHADOW_ANIMATION} {
+    to {
+      box-shadow: var(${VAR_SHADOW_TO}, none);
+      outline: var(${VAR_OUTLINE_TO}, none);
+      outline-offset: var(${VAR_OUTLINE_OFFSET_TO}, 0px);
+    }
+  }
+
   :root[${DOC_ATTR}]::view-transition-group(${MORPH_NAME}) {
     overflow: hidden;
     border-radius: var(${VAR_RADIUS_FROM}, 0px);
+    box-shadow: var(${VAR_SHADOW_FROM}, none);
+    outline: var(${VAR_OUTLINE_FROM}, none);
+    outline-offset: var(${VAR_OUTLINE_OFFSET_FROM}, 0px);
     animation-duration: var(${VAR_DURATION}, 450ms);
     animation-timing-function: var(--ramka-dialog-morph-easing, cubic-bezier(0.32, 0.72, 0, 1));
     animation-fill-mode: both;
@@ -154,10 +193,10 @@ const MORPH_CSS = /* css */ `
      WebKit render its live image blank), so the UA gives it no geometry
      morph; it flies on the same injected keyframes as the trigger group. */
   :root[${DOC_ATTR}='opening']::view-transition-group(${MORPH_NAME}) {
-    animation-name: ${TRIGGER_GEOMETRY_ANIMATION}, ${RADIUS_ANIMATION};
+    animation-name: ${TRIGGER_GEOMETRY_ANIMATION}, ${RADIUS_ANIMATION}, ${SHADOW_ANIMATION};
   }
   :root[${DOC_ATTR}='closing']::view-transition-group(${MORPH_NAME}) {
-    animation-name: -ua-view-transition-group-anim-${MORPH_NAME}, ${RADIUS_ANIMATION};
+    animation-name: -ua-view-transition-group-anim-${MORPH_NAME}, ${RADIUS_ANIMATION}, ${SHADOW_ANIMATION};
   }
 
   /* Both snapshots stretch to the morphing box; the dissolve hides the
@@ -202,6 +241,11 @@ const MORPH_CSS = /* css */ `
   :root[${DOC_ATTR}='opening']::view-transition-group(${TRIGGER_NAME}) {
     overflow: hidden;
     border-radius: var(${VAR_RADIUS_FROM}, 0px);
+    /* Trigger keeps its own ink while it dissolves — the pair group
+       simultaneously animates toward the panel's shadow. */
+    box-shadow: var(${VAR_SHADOW_FROM}, none);
+    outline: var(${VAR_OUTLINE_FROM}, none);
+    outline-offset: var(${VAR_OUTLINE_OFFSET_FROM}, 0px);
     animation-name: ${TRIGGER_GEOMETRY_ANIMATION}, ${RADIUS_ANIMATION};
     animation-duration: var(${VAR_DURATION}, 450ms);
     animation-timing-function: var(--ramka-dialog-morph-easing, cubic-bezier(0.32, 0.72, 0, 1));
@@ -271,14 +315,18 @@ const MORPH_CSS = /* css */ `
 }
 `;
 
-/** Injects the morph stylesheet once per document (no-op on re-mounts). */
+/** Injects the morph stylesheet once per document. Rewrites the sheet when
+ * the CSS constant changes (HMR / package bump) so ink/radius rules stay
+ * current without a full reload. */
 function ensureMorphStyles() {
   if (typeof document === 'undefined') return;
-  if (document.getElementById(STYLE_ELEMENT_ID)) return;
-  const style = document.createElement('style');
-  style.id = STYLE_ELEMENT_ID;
-  style.textContent = MORPH_CSS;
-  document.head.appendChild(style);
+  let style = document.getElementById(STYLE_ELEMENT_ID) as HTMLStyleElement | null;
+  if (!style) {
+    style = document.createElement('style');
+    style.id = STYLE_ELEMENT_ID;
+    document.head.appendChild(style);
+  }
+  if (style.textContent !== MORPH_CSS) style.textContent = MORPH_CSS;
 }
 
 // ---------------------------------------------------------------------------
@@ -401,25 +449,30 @@ function scheduleRadiusRestore(
   getEl: () => HTMLElement | null,
   transition: { ready?: Promise<void>; finished: Promise<unknown> },
 ) {
+  const docEl = document.documentElement;
   let released = false;
+  let earlyTimer: ReturnType<typeof setTimeout> | undefined;
+
   const release = () => {
     if (released) return;
     released = true;
     clearTimeout(earlyTimer);
     docEl.removeEventListener('animationend', onAnimationDone);
     docEl.removeEventListener('animationcancel', onAnimationDone);
+    // Radius only. Ink stays suppressed until `finished` clears the morph
+    // name — restoring box-shadow while the element is still the live image
+    // inside `::view-transition-group` (overflow: hidden) makes WebKit keep
+    // a border-box clip after teardown, chopping the right/bottom ring and
+    // shadow. The group keeps painting ink until then.
     restoreRadius(getEl());
   };
 
-  const docEl = document.documentElement;
   function onAnimationDone(event: AnimationEvent) {
     if (event.animationName !== RADIUS_ANIMATION) return;
     release();
   }
   docEl.addEventListener('animationend', onAnimationDone);
   docEl.addEventListener('animationcancel', onAnimationDone);
-
-  let earlyTimer: ReturnType<typeof setTimeout> | undefined;
 
   const bindAnimationFinished = (): boolean => {
     try {
@@ -758,11 +811,58 @@ function captureOverlayBackdrop(docEl: HTMLElement, overlay: HTMLElement) {
   setMorphName(overlay, OVERLAY_NAME);
 }
 
+/** Outside-the-box decorations that `overflow: hidden` on the morph group
+ * would swallow — box-shadow (including Tailwind `ring-*` / `shadow-*`) and
+ * outline. Captured from computed styles so consumers keep their shadcn
+ * classes untouched. */
+interface MorphInk {
+  shadow: string;
+  outline: string;
+  outlineOffset: string;
+}
+
+function captureInk(el: HTMLElement): MorphInk {
+  const style = getComputedStyle(el);
+  const shadow = style.boxShadow;
+  const outline =
+    style.outlineStyle === 'none' || style.outlineWidth === '0px'
+      ? 'none'
+      : `${style.outlineWidth} ${style.outlineStyle} ${style.outlineColor}`;
+  return {
+    shadow: !shadow || shadow === 'none' ? 'none' : shadow,
+    outline,
+    outlineOffset: style.outlineOffset || '0px',
+  };
+}
+
+function setInkVars(docEl: HTMLElement, from: MorphInk, to: MorphInk) {
+  docEl.style.setProperty(VAR_SHADOW_FROM, from.shadow);
+  docEl.style.setProperty(VAR_SHADOW_TO, to.shadow);
+  docEl.style.setProperty(VAR_OUTLINE_FROM, from.outline);
+  docEl.style.setProperty(VAR_OUTLINE_TO, to.outline);
+  docEl.style.setProperty(VAR_OUTLINE_OFFSET_FROM, from.outlineOffset);
+  docEl.style.setProperty(VAR_OUTLINE_OFFSET_TO, to.outlineOffset);
+}
+
+function suppressInk(el: HTMLElement | null) {
+  el?.setAttribute(INK_ATTR, '');
+}
+
+function restoreInk(el: HTMLElement | null) {
+  el?.removeAttribute(INK_ATTR);
+}
+
 function clearDocumentState(docEl: HTMLElement) {
   docEl.removeAttribute(DOC_ATTR);
   docEl.style.removeProperty(VAR_RADIUS_FROM);
   docEl.style.removeProperty(VAR_RADIUS_TO);
   docEl.style.removeProperty(VAR_OVERLAY_BACKDROP);
+  docEl.style.removeProperty(VAR_SHADOW_FROM);
+  docEl.style.removeProperty(VAR_SHADOW_TO);
+  docEl.style.removeProperty(VAR_OUTLINE_FROM);
+  docEl.style.removeProperty(VAR_OUTLINE_TO);
+  docEl.style.removeProperty(VAR_OUTLINE_OFFSET_FROM);
+  docEl.style.removeProperty(VAR_OUTLINE_OFFSET_TO);
 }
 
 // ---------------------------------------------------------------------------
@@ -949,11 +1049,15 @@ function useDialogMorph(options: UseDialogMorphOptions = {}): DialogMorph {
         // happen before writes to avoid forced reflows mid-capture.
         const fromRadius = resolveMorphBorderRadius(source!);
         const fromRect = source!.getBoundingClientRect();
+        // Capture ink BEFORE suppressing it — the group paints these for
+        // the morph (shadow/ring/outline fall outside the overflow clip).
+        const fromInk = captureInk(source!);
         docEl.setAttribute(DOC_ATTR, 'opening');
         docEl.style.setProperty(VAR_RADIUS_FROM, fromRadius);
         // Kill `transition: all` before WAAPI radius compensation runs —
         // otherwise each keyframe is eased by CSS and the corners twitch.
         suppressTransitions(source!);
+        suppressInk(source!);
         setMorphName(source!, TRIGGER_NAME);
 
         // Measured inside the callback (the panel exists only then),
@@ -985,17 +1089,24 @@ function useDialogMorph(options: UseDialogMorphOptions = {}): DialogMorph {
             // toward a scaled-down endpoint while the UA morphs the pair to
             // the real one — the two boxes would drift apart mid-flight.
             suppressAnimations(target);
+            // Also kill `transition: all` / duration utilities so restoring
+            // ink at teardown can't ease box-shadow from none → full (reads
+            // as a clipped ring on the trailing edges).
+            suppressTransitions(target);
             // Wait for Floating UI to land before reading geometry /
             // naming the target. Centered dialogs resolve immediately.
             await waitForTargetRect(target);
             if (genRef.current !== gen || !target.isConnected) return;
-            // Radius read must precede the squaring below.
+            // Radius / ink reads must precede squaring + ink suppress.
             const toRadius = resolveMorphBorderRadius(target);
+            const toInk = captureInk(target);
             docEl.style.setProperty(VAR_RADIUS_TO, toRadius);
+            setInkVars(docEl, fromInk, toInk);
             // The pair's new image live-renders the panel every frame —
             // square, so the group clip owns the corners until it lands on
             // the panel's real radius (VAR_RADIUS_TO) at the end.
             suppressRadius(target);
+            suppressInk(target);
             const toRect = target.getBoundingClientRect();
             openTarget = { rect: toRect, radius: toRadius };
             setTriggerGeometryKeyframes(fromRect, toRect);
@@ -1061,14 +1172,26 @@ function useDialogMorph(options: UseDialogMorphOptions = {}): DialogMorph {
           // Fallback for skipped transitions (the timer may not have fired);
           // a no-op on the normal path.
           if (openRef.current) sourceElRef.current?.setAttribute(SOURCE_HIDDEN_ATTR, '');
-          restoreTransitions(sourceElRef.current);
+          const target = targetElRef.current;
+          // Drop VT participation BEFORE putting box-shadow back on the
+          // live panel. WebKit retains the group's overflow:hidden clip on
+          // the element when ink is restored while it is still named.
           clearMorphName(sourceElRef.current);
-          clearMorphName(targetElRef.current);
-          // The overlay persists while open — its name must go so it can't
-          // leak into unrelated view transitions started elsewhere.
+          clearMorphName(target);
           clearMorphName(overlayElRef.current);
+          // `restoreRadius` may already have cleared the inline transition
+          // pin on rAF — re-assert so ink doesn't ease from none → full.
+          if (target) target.style.setProperty('transition', 'none', 'important');
+          restoreInk(sourceElRef.current);
+          restoreInk(target);
+          if (target) void target.offsetWidth;
+          restoreTransitions(sourceElRef.current);
+          restoreTransitions(target);
           // Deliberately NOT restoring the panel's `animation` here — see
           // suppressAnimations. The suppression dies with the element.
+          // Clear group ink vars only after the live panel has its own —
+          // finished resolves after the pseudo tree is gone, so this is the
+          // handoff frame (no double-shadow, no gap under Chromium).
           clearDocumentState(docEl);
         });
       } else {
@@ -1086,21 +1209,32 @@ function useDialogMorph(options: UseDialogMorphOptions = {}): DialogMorph {
         // A close that interrupts a running open inherits its live state:
         // the trigger still carries the live-trigger name (it must stay in
         // the root's OLD capture here, not spawn a stale one-sided group)
-        // and the panel is still radius-squared (it must be read and
-        // captured with its real corners).
+        // and the panel is still radius-squared / ink-suppressed (both must
+        // be restored before we read + capture the real decorations).
         if (source) clearMorphName(source);
-        if (target) restoreRadius(target);
+        if (target) {
+          restoreRadius(target);
+          restoreInk(target);
+        }
+        restoreInk(source);
 
         if (canMorph) {
           const fromRadius = resolveMorphBorderRadius(target!);
           const toRadius = resolveMorphBorderRadius(source!);
           const fromRect = target!.getBoundingClientRect();
           const toRect = source!.getBoundingClientRect();
+          const fromInk = captureInk(target!);
+          const toInk = captureInk(source!);
           docEl.setAttribute(DOC_ATTR, 'closing');
           docEl.style.setProperty(VAR_RADIUS_FROM, fromRadius);
           docEl.style.setProperty(VAR_RADIUS_TO, toRadius);
+          setInkVars(docEl, fromInk, toInk);
           setMorphName(target!);
           suppressTransitions(source!);
+          // Suppress BEFORE the old snapshot so the panel's shadow isn't
+          // baked into the image (the group paints it instead).
+          suppressInk(target!);
+          suppressInk(source!);
           startCompensation = () =>
             animateLiveRadiusCompensation(source!, fromRect, toRect, fromRadius, toRadius, toRect);
         } else {
@@ -1158,6 +1292,7 @@ function useDialogMorph(options: UseDialogMorphOptions = {}): DialogMorph {
           morphingRef.current = false;
           if (liveRadiusAnimRef.current === radiusAnim) liveRadiusAnimRef.current = null;
           restoreTransitions(sourceElRef.current);
+          restoreInk(sourceElRef.current);
           clearMorphName(sourceElRef.current);
           clearMorphName(overlayElRef.current);
           clearDocumentState(docEl);
