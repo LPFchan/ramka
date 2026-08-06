@@ -199,9 +199,12 @@ const MORPH_CSS = /* css */ `
     animation-name: -ua-view-transition-group-anim-${MORPH_NAME}, ${RADIUS_ANIMATION}, ${SHADOW_ANIMATION};
   }
 
-  /* Both snapshots stretch to the morphing box; the dissolve hides the
-     stretch. Normal blending (not the UA's plus-lighter): a light trigger
-     must never glow through a dark panel or vice versa. */
+  /* Both snapshots stretch to the morphing box; the outgoing dissolve
+     hides the stretch. Normal blending (not the UA's plus-lighter): a
+     light trigger must never glow through a dark panel or vice versa.
+     Translucency is avoided by never crossfading two partial opacities —
+     the incoming snapshot stays opaque underneath while the outgoing one
+     dissolves on top (see open/close rules below). */
   :root[${DOC_ATTR}]::view-transition-old(${MORPH_NAME}),
   :root[${DOC_ATTR}]::view-transition-new(${MORPH_NAME}) {
     width: 100%;
@@ -219,18 +222,18 @@ const MORPH_CSS = /* css */ `
     to { opacity: 1; }
   }
 
-  /* Opening: the trigger rides just the first frames of the morph
-     (ease-in dissolve — so saturated triggers like a colored pill don't
-     wash out on frame two), is gone by ~15%, and the panel is opaque by
-     ~55% — the rest is a pure morph of the opaque panel. The trigger
-     group's old (static, stretched) snapshot is hidden: the trigger
-     renders LIVE via the group's new image instead. */
+  /* Opening: the panel group is opaque from frame 0 (new-only — no old
+     snapshot to crossfade with). The live-trigger group sits above it and
+     dissolves over the first ~15%; once it's gone the rest is a solid
+     panel morph. Fading the panel in from 0 stacked a second partial
+     opacity under the trigger and let the page show through. */
   :root[${DOC_ATTR}='opening']::view-transition-old(${TRIGGER_NAME}) {
     animation: none;
     opacity: 0;
   }
   :root[${DOC_ATTR}='opening']::view-transition-new(${MORPH_NAME}) {
-    animation: ramka-dialog-morph-fade-in calc(var(${VAR_DURATION}, 450ms) * 0.55) ease-out both;
+    animation: none;
+    opacity: 1;
   }
 
   /* The live-trigger group (open only). Rides the same injected geometry
@@ -257,19 +260,27 @@ const MORPH_CSS = /* css */ `
     height: 100%;
     object-fit: fill;
     mix-blend-mode: normal;
+    /* Ease-in: hangs near opaque, then drops out by the 15% mark. */
     animation: ${FADE_OUT_ANIMATION} calc(var(${VAR_DURATION}, 450ms) * 0.15)
       cubic-bezier(0.4, 0, 1, 1) both;
   }
 
-  /* Closing: the panel dissolves over the first 30% of the morph while the
-     trigger fades back in beneath it — the rest is a pure morph of the
-     trigger flying home. */
+  /* Closing: handoff starts ~mid-path (t=15% under the geometry ease-out).
+     Panel (old) on top — ease-out fade so it clears early (ease-in kept it
+     opaque until the end of the window). Trigger (new) underneath fades in
+     over a longer span; by the time the panel is gone the trigger is already
+     solid, so the page never shows through. */
   :root[${DOC_ATTR}='closing']::view-transition-old(${MORPH_NAME}) {
+    z-index: 1;
     animation: ${FADE_OUT_ANIMATION} calc(var(${VAR_DURATION}, 450ms) * 0.3)
-      cubic-bezier(0.4, 0, 1, 1) both;
+      cubic-bezier(0, 0, 0.2, 1) both;
+    animation-delay: calc(var(${VAR_DURATION}, 450ms) * 0.15);
   }
   :root[${DOC_ATTR}='closing']::view-transition-new(${MORPH_NAME}) {
-    animation: ramka-dialog-morph-fade-in var(${VAR_DURATION}, 450ms) ease-out both;
+    z-index: 0;
+    animation: ramka-dialog-morph-fade-in calc(var(${VAR_DURATION}, 450ms) * 0.45)
+      cubic-bezier(0, 0, 0.6, 1) both;
+    animation-delay: calc(var(${VAR_DURATION}, 450ms) * 0.15);
   }
 
   /* Overlay backdrop-filter — see OVERLAY_NAME. The filter lives on the
