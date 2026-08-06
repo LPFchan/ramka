@@ -41,8 +41,8 @@ export default function HomePage() {
             The lightbox for&nbsp;React.
           </h1>
           <p className="mx-auto mt-6 max-w-xl text-pretty text-lg leading-relaxed text-neutral-500 md:text-xl dark:text-neutral-400">
-            Unstyled, accessible primitives with view-transition morph, swipe, zoom, and
-            pull-to-dismiss. Compose your own UI. ramka does the rest.
+            Unstyled, accessible primitives built on native scrolling and view transitions.
+            Morph, swipe, zoom, and pull-to-dismiss, all out of the box.
           </p>
 
           <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
