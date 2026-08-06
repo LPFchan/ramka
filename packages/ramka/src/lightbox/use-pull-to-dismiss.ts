@@ -37,6 +37,37 @@ const MIN_SCALE = 0.85;
 const VELOCITY_SAMPLES = 5;
 
 /**
+ * Interactive / opt-out targets that must not start a touch pull. Matches the
+ * Stage-wide hit target: letterbox and empty Stage area can dismiss, but
+ * Close / Prev / Next / links / form controls keep their native press.
+ * Authors can mark custom chrome with `data-ramka-no-pull`.
+ */
+const PULL_IGNORED_TARGET_SELECTOR = [
+  'a[href]',
+  'button',
+  'input',
+  'select',
+  'textarea',
+  'label',
+  'summary',
+  '[contenteditable]:not([contenteditable="false"])',
+  '[role="button"]',
+  '[role="link"]',
+  '[role="menuitem"]',
+  '[role="option"]',
+  '[role="switch"]',
+  '[role="tab"]',
+  '[role="checkbox"]',
+  '[role="radio"]',
+  '[role="slider"]',
+  '[data-ramka-no-pull]',
+].join(',');
+
+function isPullIgnoredTarget(target: Element): boolean {
+  return Boolean(target.closest(PULL_IGNORED_TARGET_SELECTOR));
+}
+
+/**
  * CSS custom property exposing pull progress (0 at rest → 1 at the dismiss
  * threshold) on both the content and backdrop elements while a drag is in
  * flight. The library deliberately does NOT hardcode a backdrop opacity
@@ -78,20 +109,13 @@ interface PullToDismissOptions {
   /** The currently-active slide element, tracked in context by Lightbox.Item. */
   activeItemRef: React.RefObject<HTMLElement | null>;
   /**
-   * Optional `Lightbox.Stage` host. When set, trackpad wheel pull-to-dismiss
-   * only starts if the wheel target is inside Stage — so side panels outside
-   * Stage keep native scroll. When null/omitted, any wheel over Content can
-   * pull (Content itself is the stage).
+   * Optional `Lightbox.Stage` host. When set, touch and trackpad wheel
+   * pull-to-dismiss only start if the event target is inside Stage — so side
+   * panels outside Stage keep native scroll / their own gestures. When
+   * null/omitted, any touch or wheel over Content can pull (Content itself is
+   * the stage).
    */
   stageRef?: React.RefObject<HTMLElement | null>;
-  /**
-   * Item element → its registered content/morph element (the `<img>` marked via
-   * `imageRef`, or a `morphRef` override). The touch gate starts a pull
-   * only when the finger lands inside this element, so grabbing an item's
-   * letterbox padding or chrome never drags. Falls back to the whole item box
-   * when an item registered nothing.
-   */
-  itemContentElementsRef?: React.RefObject<WeakMap<HTMLElement, HTMLElement>>;
   getZoom: () => number;
   onClose: () => void;
   disabled?: boolean;
@@ -113,7 +137,6 @@ function usePullToDismiss({
   backdropRef,
   activeItemRef,
   stageRef,
-  itemContentElementsRef,
   getZoom,
   onClose,
   disabled = false,
@@ -310,20 +333,22 @@ function usePullToDismiss({
       // A Lightbox.Slides swipe/fling is in flight — don't start a pull.
       if (isScrollingRef?.current) return;
 
-      // Resolve the owning item from whatever was touched. `data-ramka-item`
-      // is the item's structural identity (also used by the wheel path and the
-      // morph registry), so this isn't a content-type guess.
       const target = event.target as HTMLElement | null;
-      const activeItem = target?.closest('[data-ramka-item]') as HTMLElement | null;
-      if (!activeItem) return;
+      if (!target) return;
 
-      // Only activate when touching the item's registered content element (the
-      // `Lightbox.Media` host, or an `imageRef` / `morphRef` — the same element
-      // that morphs), not chrome, backdrop, or the item's empty letterbox
-      // padding. When an item registered nothing, fall back to the whole item
-      // box so the gesture still works.
-      const contentEl = itemContentElementsRef?.current?.get(activeItem) ?? activeItem;
-      if (!target || !contentEl.contains(target)) return;
+      // Match wheel: when Stage is mounted, only touches inside it can start a
+      // pull — side panels outside Stage keep their own gestures.
+      const stage = stageRef?.current;
+      if (stage && !stage.contains(target)) return;
+
+      // Stage-wide hit target (letterbox, empty Stage, decorative chrome) —
+      // but don't steal presses on real controls.
+      if (isPullIgnoredTarget(target)) return;
+
+      // Always drag the active item (same as wheel), even if the finger landed
+      // on Stage padding rather than the media itself.
+      const activeItem = activeItemRef.current;
+      if (!activeItem) return;
 
       // Don't activate if zoomed or if zoom gestures are in progress
       if (getZoom() > 1) return;
@@ -591,7 +616,7 @@ function usePullToDismiss({
       }
       clearTransform();
     };
-  }, [disabled, contentRef, backdropRef, activeItemRef, itemContentElementsRef, getZoom, onClose, isScrollingRef, applyTransform, clearTransform, snapBack, cleanup, computeVelocity]);
+  }, [disabled, contentRef, backdropRef, activeItemRef, stageRef, getZoom, onClose, isScrollingRef, applyTransform, clearTransform, snapBack, cleanup, computeVelocity]);
 }
 
 export { usePullToDismiss };

@@ -5272,7 +5272,7 @@ describe('Lightbox', () => {
       expect(content).toHaveAttribute('data-pulling');
     });
 
-    it('pull starts on Media / img inside Media, not on absolute chrome siblings', () => {
+    it('touch pull starts from Stage-wide targets but not interactive controls', () => {
       render(
         <LightboxRoot defaultOpen>
           <LightboxPortal>
@@ -5282,6 +5282,9 @@ describe('Lightbox', () => {
                   <div data-testid="chrome" style={{ position: 'absolute', inset: 0 }}>
                     chrome
                   </div>
+                  <button type="button" data-testid="control">
+                    Close
+                  </button>
                   <LightboxMedia data-testid="media">
                     <img src="test.jpg" alt="test" />
                   </LightboxMedia>
@@ -5294,9 +5297,24 @@ describe('Lightbox', () => {
       const content = screen.getByTestId('content');
       const img = screen.getByAltText('test');
       const chrome = screen.getByTestId('chrome');
+      const control = screen.getByTestId('control');
 
+      // Decorative overlay / letterbox-like area can start a pull (Stage-wide).
       act(() => {
         dispatchPointer(chrome, 'pointerdown', { clientX: 200, clientY: 200 });
+        dispatchPointer(content, 'pointermove', { clientX: 200, clientY: 225 });
+      });
+      expect(content).toHaveAttribute('data-pulling');
+
+      // Release so the next down can start a fresh gesture.
+      act(() => {
+        dispatchPointer(content, 'pointerup', { clientX: 200, clientY: 225 });
+      });
+      expect(content).not.toHaveAttribute('data-pulling');
+
+      // Real controls keep their press — do not start a pull.
+      act(() => {
+        dispatchPointer(control, 'pointerdown', { clientX: 200, clientY: 200 });
         dispatchPointer(content, 'pointermove', { clientX: 200, clientY: 225 });
       });
       expect(content).not.toHaveAttribute('data-pulling');
@@ -5861,24 +5879,30 @@ describe('Lightbox', () => {
       content.removeAttribute('data-zooming');
     });
 
-    it('touch gate: pulls from the registered content element but not a sibling', () => {
+    it('touch gate: pulls from letterbox / Stage padding, not sidebar or no-pull chrome', () => {
       function WiredPullLightbox() {
         return (
           <LightboxRoot defaultOpen>
             <LightboxPortal>
               <LightboxContent data-testid="content" aria-label="Wired pull test">
-                <LightboxItemGroup>
-                  <LightboxItem index={0}>
-                    {({ imageRef }) => (
-                      <>
-                        {/* A non-registered sibling inside the item (e.g. the empty
-                                        letterbox area beside a contain-fit image). */}
-                        <div data-testid="letterbox" />
-                        <img ref={imageRef} data-testid="content-img" src="wired.jpg" alt="wired" />
-                      </>
-                    )}
-                  </LightboxItem>
-                </LightboxItemGroup>
+                <LightboxStage data-testid="stage">
+                  <LightboxItemGroup>
+                    <LightboxItem index={0}>
+                      {({ imageRef }) => (
+                        <>
+                          {/* Empty letterbox beside a contain-fit image — Stage-wide
+                              hit target, so this should start a pull. */}
+                          <div data-testid="letterbox" />
+                          <img ref={imageRef} data-testid="content-img" src="wired.jpg" alt="wired" />
+                        </>
+                      )}
+                    </LightboxItem>
+                  </LightboxItemGroup>
+                  <div data-testid="no-pull" data-ramka-no-pull="">
+                    overlay chrome
+                  </div>
+                </LightboxStage>
+                <aside data-testid="sidebar">Thread</aside>
               </LightboxContent>
             </LightboxPortal>
           </LightboxRoot>
@@ -5888,15 +5912,33 @@ describe('Lightbox', () => {
       render(<WiredPullLightbox />);
       const content = screen.getByTestId('content');
 
-      // Touching the non-registered sibling must NOT start a pull, even though
-      // it's inside the item — the gate is scoped to the registered content.
+      // Letterbox / empty Stage area starts a pull.
       act(() => {
         dispatchPointer(screen.getByTestId('letterbox'), 'pointerdown', { clientX: 200, clientY: 200 });
         dispatchPointer(content, 'pointermove', { clientX: 200, clientY: 250 });
       });
+      expect(content).toHaveAttribute('data-pulling');
+
+      act(() => {
+        dispatchPointer(content, 'pointerup', { clientX: 200, clientY: 250 });
+      });
       expect(content).not.toHaveAttribute('data-pulling');
 
-      // Touching the imageRef-registered image DOES start a pull.
+      // Side panels outside Stage do not start a pull.
+      act(() => {
+        dispatchPointer(screen.getByTestId('sidebar'), 'pointerdown', { clientX: 200, clientY: 200 });
+        dispatchPointer(content, 'pointermove', { clientX: 200, clientY: 250 });
+      });
+      expect(content).not.toHaveAttribute('data-pulling');
+
+      // Opt-out chrome keeps its press.
+      act(() => {
+        dispatchPointer(screen.getByTestId('no-pull'), 'pointerdown', { clientX: 200, clientY: 200 });
+        dispatchPointer(content, 'pointermove', { clientX: 200, clientY: 250 });
+      });
+      expect(content).not.toHaveAttribute('data-pulling');
+
+      // Media still starts a pull.
       act(() => {
         dispatchPointer(screen.getByTestId('content-img'), 'pointerdown', { clientX: 200, clientY: 200 });
         dispatchPointer(content, 'pointermove', { clientX: 200, clientY: 250 });

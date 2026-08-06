@@ -40,9 +40,10 @@ export default function LightboxGesturesPage() {
         </p>
         <ul className="list-disc space-y-2 pl-5">
           <li>
-            Hit target prefers the active item’s <code className="text-xs">Lightbox.Media</code> host (or{' '}
-            <code className="text-xs">imageRef</code> / <code className="text-xs">morphRef</code>) so chrome does not
-            steal the gesture.
+            Hit target is Stage-wide (or Content when Stage is omitted) — letterbox and empty Stage area can start a
+            pull, matching trackpad wheel. Interactive controls (buttons, links, inputs,{' '}
+            <code className="text-xs">[data-ramka-no-pull]</code>) keep their press. Side panels outside Stage do not
+            start a pull.
           </li>
           <li>Disabled while zoomed above 1× or while Slides reports an in-progress scroll (navigation lock).</li>
           <li>
