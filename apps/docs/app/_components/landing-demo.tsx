@@ -71,7 +71,11 @@ export function LandingDemo() {
           <Lightbox.Trigger
             key={img.src}
             index={i}
-            className={`mb-3 block w-full break-inside-avoid overflow-hidden rounded-xl bg-neutral-100 p-0 md:mb-4 md:rounded-2xl dark:bg-neutral-900 ${triggerMorphHideClass} ${triggerFocusClass}`}
+            // scroll-margin gives scrollTriggerIntoView breathing room: with
+            // `block: 'nearest'` the page scrolls minimally, which would leave
+            // the tile flush with the viewport edge — and the close morph
+            // starting right at the edge. This keeps it comfortably inset.
+            className={`mb-3 block w-full break-inside-avoid scroll-my-12 overflow-hidden rounded-xl bg-neutral-100 p-0 md:mb-4 md:rounded-2xl dark:bg-neutral-900 ${triggerMorphHideClass} ${triggerFocusClass}`}
           >
             {({ imageRef }) => (
               <img
