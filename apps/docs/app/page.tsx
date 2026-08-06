@@ -42,7 +42,7 @@ export default function HomePage() {
           </h1>
           <p className="mx-auto mt-6 max-w-xl text-pretty text-lg leading-relaxed text-neutral-500 md:text-xl dark:text-neutral-400">
             Unstyled, accessible primitives with view-transition morph, swipe, zoom, and
-            pull-to-dismiss. Compose your own UI — ramka does the rest.
+            pull-to-dismiss. Compose your own UI. ramka does the rest.
           </p>
 
           <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
@@ -70,7 +70,7 @@ export default function HomePage() {
 
         <section className="mx-auto w-full max-w-5xl px-6 pb-24 pt-16 md:pt-24">
           <p className="mb-6 text-center text-sm text-neutral-400 dark:text-neutral-600">
-            Click any image — swipe, pinch to zoom, pull to dismiss.
+            Click any image. Swipe, pinch to zoom, pull to dismiss.
           </p>
           <LandingDemo />
         </section>
@@ -79,7 +79,7 @@ export default function HomePage() {
       <footer className="border-t border-neutral-200 dark:border-neutral-800">
         <div className="mx-auto flex w-full max-w-5xl flex-wrap items-center justify-between gap-4 px-6 py-8 text-sm text-neutral-500 dark:text-neutral-400">
           <p>
-            MIT License. <span className="text-neutral-400 dark:text-neutral-600">ramka — Polish for “frame”.</span>
+            <span className="text-neutral-400 dark:text-neutral-600">ramka - Polish for “frame”.</span>
           </p>
           <nav className="flex items-center gap-5">
             <Link href="/docs" className="transition hover:text-neutral-900 dark:hover:text-neutral-100">
