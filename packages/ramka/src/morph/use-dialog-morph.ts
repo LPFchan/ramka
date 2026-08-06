@@ -64,6 +64,13 @@ const SOURCE_HIDDEN_ATTR = 'data-ramka-dialog-morph-source';
  * Sticky until the element unmounts. */
 const TARGET_EXITING_ATTR = 'data-ramka-dialog-morph-exiting';
 
+/** Set on the panel for the open morph so its corners stay square under the
+ * group clip. An attribute (with CSS `!important`) survives React re-renders
+ * that rewrite `style=""` — Floating UI / Base UI Positioner updates do that
+ * on anchored popovers mid-morph and would otherwise wipe an inline
+ * `border-radius: 0`, letting `transition: all` ease the corners at teardown. */
+const TARGET_SQUARE_ATTR = 'data-ramka-dialog-morph-square';
+
 /** Full-duration radius keyframes on the morph group. Its `animationend`
  * (dispatched on the root with `pseudoElement` set) lands on the pseudo-tree
  * teardown frame in every engine, unlike the `finished` promise which can
@@ -106,6 +113,11 @@ const MORPH_CSS = /* css */ `
 
 [${TARGET_EXITING_ATTR}] {
   display: none !important;
+}
+
+[${TARGET_SQUARE_ATTR}] {
+  border-radius: 0 !important;
+  transition: none !important;
 }
 
 @media (prefers-reduced-motion: no-preference) {
@@ -305,6 +317,17 @@ function suppressAnimations(el: HTMLElement) {
   el.style.setProperty('animation', 'none', 'important');
 }
 
+/** Triggers often carry `transition: all` (shadcn Button). While WAAPI
+ * compensates border-radius the CSS transition would interpolate toward
+ * each keyframe and fight the clip — visible as corner twitching. */
+function suppressTransitions(el: HTMLElement) {
+  el.style.setProperty('transition', 'none', 'important');
+}
+
+function restoreTransitions(el: HTMLElement | null) {
+  el?.style.removeProperty('transition');
+}
+
 /** Squares the corners of the PANEL for the open morph — the only element
  * that is ever squared. The geometry, from first principles: snapshots
  * render WITH the element's border-radius baked in as transparent corners,
@@ -330,46 +353,107 @@ function suppressAnimations(el: HTMLElement) {
  * Squaring happens only inside the update callback — strictly while the
  * pseudo tree covers the page — so the square state can never paint live. */
 function suppressRadius(el: HTMLElement) {
-  // Elements may carry CSS transitions with `transition-property: all` (the
-  // shadcn popup's `duration-100` does) — without this, the radius change
-  // would ANIMATE into the capture instead of being instantly square.
+  // Attribute rule is the source of truth (React-safe). Inline mirrors it
+  // for the capture frame itself.
+  el.setAttribute(TARGET_SQUARE_ATTR, '');
   el.style.setProperty('transition', 'none', 'important');
   el.style.setProperty('border-radius', '0px', 'important');
 }
 
 function restoreRadius(el: HTMLElement | null) {
   if (!el) return;
-  el.style.removeProperty('border-radius');
-  // Flush the restored radius while transitions are still disabled, then
-  // re-enable them — otherwise the corners would visibly transition from
-  // square to rounded right after the morph.
+  // 1) Force transitions off (re-assert — a React re-render may have wiped
+  //    the inline from suppressRadius).
+  // 2) Pin the real radius (stashed on :root as VAR_RADIUS_TO during open).
+  // 3) Drop the square attribute.
+  // 4) On the next frame, release the inline pins. Same-value → same-value
+  //    so shadcn's `transition: all` cannot ease 0 → rounded.
+  el.style.setProperty('transition', 'none', 'important');
+  const radius = document.documentElement.style.getPropertyValue(VAR_RADIUS_TO).trim();
+  if (radius) el.style.setProperty('border-radius', radius, 'important');
+  else el.style.removeProperty('border-radius');
+  el.removeAttribute(TARGET_SQUARE_ATTR);
   void el.offsetWidth;
-  el.style.removeProperty('transition');
+  requestAnimationFrame(() => {
+    el.style.removeProperty('transition');
+    if (radius) el.style.removeProperty('border-radius');
+  });
 }
 
-/** Restores a suppressed radius on the pseudo-tree teardown frame. The
- * radius keyframes' `animationend` fires exactly there in Chromium, WebKit,
- * and Gecko, while the `finished` promise can resolve a paint LATER (notably
- * in Safari) — which would show one frame of square corners. Restoring at
- * `animationend` is safe even if it lands a frame before teardown: by then
- * the group clip has settled on the element's real radius and the
- * live-rendered image is at natural scale, so square vs rounded snapshots
- * are pixel-identical. `finished` stays as the fallback (skipped
- * transitions, reduced motion mid-flight). */
-function scheduleRadiusRestore(getEl: () => HTMLElement | null, finished: Promise<unknown>) {
-  const docEl = document.documentElement;
+
+/**
+ * Restores a suppressed panel radius BEFORE the live element is revealed.
+ *
+ * `ViewTransition.finished` resolves a paint AFTER the pseudo tree is gone
+ * (Safari especially, Chromium too) — so restoring there flashes one frame
+ * of `border-radius: 0` on the real panel. Restore instead when the morph
+ * group's own radius animation finishes (same frame as teardown, or the
+ * one before), and as a belt-and-braces timer near the end of the duration
+ * while the clip still covers the page. Early restore is safe: by then the
+ * group clip has landed on the panel's real radius and the live image is
+ * at natural scale, so square vs rounded is pixel-identical under the clip.
+ *
+ * Timers/bindings start from `ready` (not from `startViewTransition`
+ * return): anchored popovers await Floating UI inside the update callback,
+ * so the morph clock starts later than the call.
+ */
+function scheduleRadiusRestore(
+  getEl: () => HTMLElement | null,
+  transition: { ready?: Promise<void>; finished: Promise<unknown> },
+) {
+  let released = false;
   const release = () => {
+    if (released) return;
+    released = true;
+    clearTimeout(earlyTimer);
     docEl.removeEventListener('animationend', onAnimationDone);
     docEl.removeEventListener('animationcancel', onAnimationDone);
     restoreRadius(getEl());
   };
+
+  const docEl = document.documentElement;
   function onAnimationDone(event: AnimationEvent) {
     if (event.animationName !== RADIUS_ANIMATION) return;
     release();
   }
   docEl.addEventListener('animationend', onAnimationDone);
   docEl.addEventListener('animationcancel', onAnimationDone);
-  finished.finally(release);
+
+  let earlyTimer: ReturnType<typeof setTimeout> | undefined;
+
+  const bindAnimationFinished = (): boolean => {
+    try {
+      for (const anim of document.documentElement.getAnimations({ subtree: true })) {
+        if ((anim as CSSAnimation).animationName !== RADIUS_ANIMATION) continue;
+        if (anim.playState !== 'running' && anim.playState !== 'finished') continue;
+        void anim.finished.then(release, release);
+        return true;
+      }
+    } catch {
+      // getAnimations may not surface pseudo animations everywhere.
+    }
+    return false;
+  };
+
+  const arm = () => {
+    const duration = parseDurationMs(getComputedStyle(docEl).getPropertyValue(VAR_DURATION));
+    // One frame early — still under the clip, never after teardown.
+    earlyTimer = setTimeout(release, Math.max(0, duration - 16));
+
+    if (bindAnimationFinished()) return;
+    let frames = 0;
+    const retry = () => {
+      if (released || bindAnimationFinished()) return;
+      if (++frames < 6) requestAnimationFrame(retry);
+    };
+    requestAnimationFrame(retry);
+  };
+
+  const ready = transition.ready;
+  if (ready) ready.then(arm, arm);
+  else arm();
+
+  transition.finished.finally(release);
 }
 
 // Defaults mirrored from the injected CSS (`var(..., 450ms)` / the group's
@@ -481,6 +565,87 @@ function animateLiveRadiusCompensation(
   return el.animate(keyframes, { duration, easing: 'linear', fill: 'both' });
 }
 
+/** Nearest absolute/fixed ancestor — Floating UI / Base UI Positioner wraps
+ * the popup and owns the translate/`top`/`left` that place it. */
+function findPositionedAncestor(el: HTMLElement): HTMLElement {
+  let node: HTMLElement | null = el.parentElement;
+  while (node && node !== document.documentElement) {
+    const position = getComputedStyle(node).position;
+    if (position === 'absolute' || position === 'fixed') return node;
+    node = node.parentElement;
+  }
+  return el;
+}
+
+/**
+ * Whether `el` has a usable morph destination box yet.
+ *
+ * Anchored popups (Base UI Popover/Menu via Floating UI) mount at an
+ * unpositioned origin — typically `position: fixed|absolute; top/left: 0`
+ * with `opacity: 0` until the first `computePosition` lands (`isPositioned`).
+ * Measuring during that frame sends the morph toward the top of the screen.
+ * Centered dialogs are ready immediately (no Positioner opacity gate).
+ */
+function isTargetLayoutReady(el: HTMLElement): boolean {
+  const rect = el.getBoundingClientRect();
+  if (rect.width <= 0 || rect.height <= 0) return false;
+
+  const host = findPositionedAncestor(el);
+  // Floating UI / Base UI: opacity stays 0 until `isPositioned` flips.
+  if (parseFloat(getComputedStyle(host).opacity) === 0) return false;
+
+  // Backup for libraries that don't gate on opacity: reject the classic
+  // unpositioned frame parked fully outside the viewport.
+  const vh = window.innerHeight;
+  const vw = window.innerWidth;
+  return rect.bottom > -8 && rect.top < vh + 8 && rect.right > -8 && rect.left < vw + 8;
+}
+
+/**
+ * Resolves with the target's layout box once Floating UI (or equivalent)
+ * has positioned it. The View Transitions update callback may return a
+ * Promise — the browser captures the new state only after it settles, so
+ * waiting here keeps the morph endpoint on the real panel, not the
+ * unpositioned origin. Already-ready targets (centered dialogs) resolve
+ * synchronously with no frame delay.
+ *
+ * Must NOT wait on `requestAnimationFrame`: during the VT update callback
+ * rendering is suppressed, so rAF never fires and the Promise deadlocks.
+ * Floating UI lands via async `computePosition` → React commit (inline
+ * style mutation on the Positioner) — observe that, with a setTimeout
+ * poll as a fallback.
+ */
+function waitForTargetRect(el: HTMLElement, maxWaitMs = 120): Promise<DOMRect> {
+  if (isTargetLayoutReady(el)) return Promise.resolve(el.getBoundingClientRect());
+
+  const host = findPositionedAncestor(el);
+
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      observer.disconnect();
+      clearInterval(poll);
+      clearTimeout(timer);
+      resolve(el.getBoundingClientRect());
+    };
+
+    const observer = new MutationObserver(() => {
+      if (isTargetLayoutReady(el)) finish();
+    });
+    observer.observe(host, { attributes: true, attributeFilter: ['style', 'class'] });
+
+    // Macrotask poll: React may commit the positioned styles between turns
+    // even if the MutationObserver misses a batched write.
+    const poll = setInterval(() => {
+      if (isTargetLayoutReady(el)) finish();
+    }, 0);
+
+    const timer = setTimeout(finish, maxWaitMs);
+  });
+}
+
 /** Open only: (re)writes the live-trigger group's geometry keyframes —
  * trigger rect → panel rect, the exact trajectory the UA morphs the pair's
  * group. Injected as CSS `@keyframes` (a dedicated style element, rewritten
@@ -511,34 +676,71 @@ function setTriggerGeometryKeyframes(fromRect: DOMRect, toRect: DOMRect) {
 `;
 }
 
-/** Best-effort alignment of a hook-driven WAAPI animation with the
- * transition's CSS pseudo animations. Animations created inside
- * `ready.then` get their start time resolved one rendering opportunity
- * AFTER the CSS animations (which start the frame the pseudo tree
- * appears), leaving the compensation a frame behind the geometry —
- * measurable as the live layer trailing the box. Copying the injected
- * radius animation's start time snaps them onto the same timeline
- * position. */
+/**
+ * Align a hook-driven WAAPI animation with the morph's CSS pseudo
+ * animations (geometry + radius clip).
+ *
+ * View-transition pseudo animations often report `startTime: null` for a
+ * frame after `transition.ready` — their timeline only resolves on the
+ * next rendering opportunity. Copying `document.timeline.currentTime` in
+ * that window parks the WAAPI ~1 frame AHEAD of the clip, so the live
+ * trigger's compensated corners twitch against the group for the whole
+ * morph. Hold the WAAPI paused at 0 until a running pseudo animation has
+ * a real startTime, then adopt it. rAF is safe here: we're outside the
+ * update callback; the transition is already running.
+ */
 function syncWithGroupAnimations(anims: (Animation | null)[]) {
-  let startTime: number | CSSNumberish | null = null;
-  try {
-    for (const anim of document.documentElement.getAnimations({ subtree: true })) {
-      if (
-        (anim as CSSAnimation).animationName === RADIUS_ANIMATION &&
-        anim.startTime !== null
-      ) {
-        startTime = anim.startTime;
-        break;
+  const targets = anims.filter((anim): anim is Animation => anim != null);
+  if (targets.length === 0) return;
+
+  for (const anim of targets) {
+    anim.pause();
+    anim.currentTime = 0;
+  }
+
+  const adoptReferenceStartTime = (): boolean => {
+    let startTime: number | CSSNumberish | null = null;
+    try {
+      for (const anim of document.documentElement.getAnimations({ subtree: true })) {
+        const name = (anim as CSSAnimation).animationName;
+        if (
+          anim.startTime === null ||
+          (anim.playState !== 'running' && anim.playState !== 'finished')
+        ) {
+          continue;
+        }
+        // Prefer geometry — it's the box the compensation is derived from.
+        if (name === TRIGGER_GEOMETRY_ANIMATION) {
+          startTime = anim.startTime;
+          break;
+        }
+        if (name === RADIUS_ANIMATION && startTime === null) {
+          startTime = anim.startTime;
+        }
       }
+    } catch {
+      // getAnimations may not surface pseudo animations everywhere.
     }
-  } catch {
-    // getAnimations may not surface pseudo animations everywhere.
-  }
-  if (startTime === null) startTime = document.timeline.currentTime;
-  if (startTime === null) return;
-  for (const anim of anims) {
-    if (anim) anim.startTime = startTime;
-  }
+    if (startTime === null) return false;
+    for (const anim of targets) {
+      anim.startTime = startTime;
+    }
+    return true;
+  };
+
+  if (adoptReferenceStartTime()) return;
+
+  let frames = 0;
+  const retry = () => {
+    if (adoptReferenceStartTime()) return;
+    if (++frames < 6) {
+      requestAnimationFrame(retry);
+      return;
+    }
+    // Last resort: play from "now" rather than leaving the radius frozen.
+    for (const anim of targets) anim.play();
+  };
+  requestAnimationFrame(retry);
 }
 
 /** Copies the overlay's computed backdrop-filter to a root var (consumed by
@@ -749,13 +951,20 @@ function useDialogMorph(options: UseDialogMorphOptions = {}): DialogMorph {
         const fromRect = source!.getBoundingClientRect();
         docEl.setAttribute(DOC_ATTR, 'opening');
         docEl.style.setProperty(VAR_RADIUS_FROM, fromRadius);
+        // Kill `transition: all` before WAAPI radius compensation runs —
+        // otherwise each keyframe is eased by CSS and the corners twitch.
+        suppressTransitions(source!);
         setMorphName(source!, TRIGGER_NAME);
 
         // Measured inside the callback (the panel exists only then),
         // consumed on `ready` by the trigger-group animations below.
         let openTarget: { rect: DOMRect; radius: string } | null = null;
 
-        const transition = startViewTransition(() => {
+        // Async update callback: the browser captures the new state only
+        // after the returned Promise settles. Anchored popups (Base UI
+        // Positioner / Floating UI) need one or two frames after mount
+        // before their box is real — see waitForTargetRect.
+        const transition = startViewTransition(async () => {
           flushSync(() => commit(true, meta));
           const target = targetElRef.current;
           const overlay = overlayElRef.current;
@@ -776,6 +985,10 @@ function useDialogMorph(options: UseDialogMorphOptions = {}): DialogMorph {
             // toward a scaled-down endpoint while the UA morphs the pair to
             // the real one — the two boxes would drift apart mid-flight.
             suppressAnimations(target);
+            // Wait for Floating UI to land before reading geometry /
+            // naming the target. Centered dialogs resolve immediately.
+            await waitForTargetRect(target);
+            if (genRef.current !== gen || !target.isConnected) return;
             // Radius read must precede the squaring below.
             const toRadius = resolveMorphBorderRadius(target);
             docEl.style.setProperty(VAR_RADIUS_TO, toRadius);
@@ -783,8 +996,9 @@ function useDialogMorph(options: UseDialogMorphOptions = {}): DialogMorph {
             // square, so the group clip owns the corners until it lands on
             // the panel's real radius (VAR_RADIUS_TO) at the end.
             suppressRadius(target);
-            openTarget = { rect: target.getBoundingClientRect(), radius: toRadius };
-            setTriggerGeometryKeyframes(fromRect, openTarget.rect);
+            const toRect = target.getBoundingClientRect();
+            openTarget = { rect: toRect, radius: toRadius };
+            setTriggerGeometryKeyframes(fromRect, toRect);
             setMorphName(target);
           } else {
             clearMorphName(source);
@@ -832,9 +1046,9 @@ function useDialogMorph(options: UseDialogMorphOptions = {}): DialogMorph {
         if (ready) ready.then(startTriggerAnims, () => {});
         else startTriggerAnims();
 
-        // Panel radius comes back on the teardown frame, not on `finished`
-        // (which can lag a paint behind) — see scheduleRadiusRestore.
-        scheduleRadiusRestore(() => targetElRef.current, transition.finished);
+        // Panel radius must come back BEFORE the pseudo tree drops —
+        // ViewTransition.finished is a paint too late (square flash).
+        scheduleRadiusRestore(() => targetElRef.current, transition);
 
         transition.finished.finally(() => {
           clearTimeout(hideTimer);
@@ -847,6 +1061,7 @@ function useDialogMorph(options: UseDialogMorphOptions = {}): DialogMorph {
           // Fallback for skipped transitions (the timer may not have fired);
           // a no-op on the normal path.
           if (openRef.current) sourceElRef.current?.setAttribute(SOURCE_HIDDEN_ATTR, '');
+          restoreTransitions(sourceElRef.current);
           clearMorphName(sourceElRef.current);
           clearMorphName(targetElRef.current);
           // The overlay persists while open — its name must go so it can't
@@ -885,6 +1100,7 @@ function useDialogMorph(options: UseDialogMorphOptions = {}): DialogMorph {
           docEl.style.setProperty(VAR_RADIUS_FROM, fromRadius);
           docEl.style.setProperty(VAR_RADIUS_TO, toRadius);
           setMorphName(target!);
+          suppressTransitions(source!);
           startCompensation = () =>
             animateLiveRadiusCompensation(source!, fromRect, toRect, fromRadius, toRadius, toRect);
         } else {
@@ -941,6 +1157,7 @@ function useDialogMorph(options: UseDialogMorphOptions = {}): DialogMorph {
           if (genRef.current !== gen) return;
           morphingRef.current = false;
           if (liveRadiusAnimRef.current === radiusAnim) liveRadiusAnimRef.current = null;
+          restoreTransitions(sourceElRef.current);
           clearMorphName(sourceElRef.current);
           clearMorphName(overlayElRef.current);
           clearDocumentState(docEl);

@@ -27,8 +27,9 @@ export const debugPages = {
   },
   morphShadcnDialog: {
     href: '/debug/morph-shadcn-dialog',
-    title: 'Morph shadcn dialog',
-    description: 'useDialogMorph baked into the shadcn/Base UI dialog behind a `morph` prop.',
+    title: 'Morph shadcn dialog & popover',
+    description:
+      'useDialogMorph baked into the shadcn/Base UI dialog and popover behind a `morph` prop.',
   },
 } as const;
 
