@@ -57,7 +57,15 @@ const images: LightboxGalleryItem[] = [
 /** Landing hero demo — masonry triggers + the full docs viewer chrome. */
 export function LandingDemo() {
   return (
-    <Lightbox.Root>
+    <Lightbox.Root
+      // Same pairing as the Photos app example: instant repositioning is
+      // invisible behind the solid backdrop, and the close morph always lands
+      // on an on-screen tile instead of jumping to one scrolled away.
+      scrollTriggerIntoView={[
+        { type: 'onChange', behavior: 'instant' },
+        { type: 'onOpenComplete', behavior: 'instant' },
+      ]}
+    >
       <div className="columns-2 gap-3 md:columns-3 md:gap-4">
         {images.map((img, i) => (
           <Lightbox.Trigger
@@ -79,7 +87,7 @@ export function LandingDemo() {
           </Lightbox.Trigger>
         ))}
       </div>
-      <LightboxGallery items={images} ariaLabel="ramka demo gallery" />
+      <LightboxGallery items={images} ariaLabel="ramka demo gallery" backdrop="solid" />
     </Lightbox.Root>
   );
 }
