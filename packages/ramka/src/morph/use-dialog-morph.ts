@@ -21,6 +21,20 @@ import {
  * `view-transition-class` (not yet reliable cross-browser). */
 const MORPH_NAME = 'ramka-dialog-morph';
 
+/** view-transition-name for the LIVE trigger during the open morph. On
+ * close the trigger is the morph pair's NEW image and therefore re-rendered
+ * live every frame — which is what lets animateLiveRadiusCompensation keep
+ * its corners glued to the group's animated clip. On open the trigger would
+ * be the pair's OLD image: a static snapshot with its corners baked in,
+ * stretched to the growing box, impossible to correct after capture. So on
+ * open the pair's old snapshot is hidden entirely and the trigger is
+ * renamed into this new-only group instead, which renders the trigger LIVE
+ * on top of the panel group (same stacking as close, where the trigger is
+ * the top image). The hook drives this group along the pair's exact
+ * geometry trajectory and clip, and compensates the live trigger's radius —
+ * so both layers share one shape at every frame, on both legs. */
+const TRIGGER_NAME = 'ramka-dialog-morph-trigger';
+
 /** view-transition-name for the dialog overlay/backdrop, when registered.
  * Safari and Firefox don't paint `backdrop-filter` into view-transition
  * snapshot layers (WebKit bug 293393, Gecko bug 1996597), so an overlay blur
@@ -57,6 +71,20 @@ const TARGET_EXITING_ATTR = 'data-ramka-dialog-morph-exiting';
  * for restoring the live element's suppressed border-radius. */
 const RADIUS_ANIMATION = 'ramka-dialog-morph-radius';
 
+/** Dissolve keyframes name. */
+const FADE_OUT_ANIMATION = 'ramka-dialog-morph-fade-out';
+
+/** Keyframes name for the live-trigger group's geometry on open. A new-only
+ * group gets no UA morph, so the hook injects per-transition keyframes
+ * (trigger rect → panel rect) under this name — see
+ * setTriggerGeometryKeyframes. Driven as a CSS animation rather than WAAPI
+ * so it starts on the exact frame the pseudo tree appears (in lockstep with
+ * the pair's UA animation and the radius clip) and works in engines without
+ * `pseudoElement` support in `element.animate()`. */
+const TRIGGER_GEOMETRY_ANIMATION = 'ramka-dialog-morph-trigger-geom';
+
+const GEOMETRY_STYLE_ELEMENT_ID = 'ramka-dialog-morph-trigger-geom-styles';
+
 const VAR_RADIUS_FROM = '--ramka-dialog-morph-radius-from';
 const VAR_RADIUS_TO = '--ramka-dialog-morph-radius-to';
 const VAR_DURATION = '--ramka-dialog-morph-duration';
@@ -91,7 +119,7 @@ const MORPH_CSS = /* css */ `
 
   :root[${DOC_ATTR}]::view-transition-old(root),
   :root[${DOC_ATTR}]::view-transition-new(root) {
-    animation-duration: var(${VAR_DURATION}, 320ms);
+    animation-duration: var(${VAR_DURATION}, 450ms);
     animation-timing-function: var(--ramka-dialog-morph-root-easing, cubic-bezier(0.16, 1, 0.3, 1));
   }
 
@@ -104,11 +132,20 @@ const MORPH_CSS = /* css */ `
   :root[${DOC_ATTR}]::view-transition-group(${MORPH_NAME}) {
     overflow: hidden;
     border-radius: var(${VAR_RADIUS_FROM}, 0px);
-    animation-name: -ua-view-transition-group-anim-${MORPH_NAME}, ${RADIUS_ANIMATION};
-    animation-duration: var(${VAR_DURATION}, 320ms);
+    animation-duration: var(${VAR_DURATION}, 450ms);
     animation-timing-function: var(--ramka-dialog-morph-easing, cubic-bezier(0.32, 0.72, 0, 1));
     animation-fill-mode: both;
     z-index: 2;
+  }
+  /* On open the panel's group is new-only (the trigger keeps its own name
+     through the capture — renaming an element inside the callback makes
+     WebKit render its live image blank), so the UA gives it no geometry
+     morph; it flies on the same injected keyframes as the trigger group. */
+  :root[${DOC_ATTR}='opening']::view-transition-group(${MORPH_NAME}) {
+    animation-name: ${TRIGGER_GEOMETRY_ANIMATION}, ${RADIUS_ANIMATION};
+  }
+  :root[${DOC_ATTR}='closing']::view-transition-group(${MORPH_NAME}) {
+    animation-name: -ua-view-transition-group-anim-${MORPH_NAME}, ${RADIUS_ANIMATION};
   }
 
   /* Both snapshots stretch to the morphing box; the dissolve hides the
@@ -122,7 +159,7 @@ const MORPH_CSS = /* css */ `
     mix-blend-mode: normal;
   }
 
-  @keyframes ramka-dialog-morph-fade-out {
+  @keyframes ${FADE_OUT_ANIMATION} {
     from { opacity: 1; }
     to { opacity: 0; }
   }
@@ -131,21 +168,52 @@ const MORPH_CSS = /* css */ `
     to { opacity: 1; }
   }
 
-  /* Opening is front-loaded: trigger gone by ~35% of the morph, panel opaque
-     by ~55% — the rest is a pure morph of the opaque panel. */
-  :root[${DOC_ATTR}='opening']::view-transition-old(${MORPH_NAME}) {
-    animation: ramka-dialog-morph-fade-out calc(var(${VAR_DURATION}, 320ms) * 0.35) ease-out both;
+  /* Opening: the trigger rides just the first frames of the morph
+     (ease-in dissolve — so saturated triggers like a colored pill don't
+     wash out on frame two), is gone by ~15%, and the panel is opaque by
+     ~55% — the rest is a pure morph of the opaque panel. The trigger
+     group's old (static, stretched) snapshot is hidden: the trigger
+     renders LIVE via the group's new image instead. */
+  :root[${DOC_ATTR}='opening']::view-transition-old(${TRIGGER_NAME}) {
+    animation: none;
+    opacity: 0;
   }
   :root[${DOC_ATTR}='opening']::view-transition-new(${MORPH_NAME}) {
-    animation: ramka-dialog-morph-fade-in calc(var(${VAR_DURATION}, 320ms) * 0.55) ease-out both;
+    animation: ramka-dialog-morph-fade-in calc(var(${VAR_DURATION}, 450ms) * 0.55) ease-out both;
   }
 
-  /* Closing mirrors it: panel holds while the trigger fades back in early. */
+  /* The live-trigger group (open only). Rides the same injected geometry
+     keyframes and radius clip as the panel's group — identical CSS
+     animations with one duration/easing, so the two groups' boxes and
+     corners coincide on every frame (the UA's own group animation, a no-op
+     trigger-to-trigger morph, is replaced by the animation-name here). */
+  :root[${DOC_ATTR}='opening']::view-transition-group(${TRIGGER_NAME}) {
+    overflow: hidden;
+    border-radius: var(${VAR_RADIUS_FROM}, 0px);
+    animation-name: ${TRIGGER_GEOMETRY_ANIMATION}, ${RADIUS_ANIMATION};
+    animation-duration: var(${VAR_DURATION}, 450ms);
+    animation-timing-function: var(--ramka-dialog-morph-easing, cubic-bezier(0.32, 0.72, 0, 1));
+    animation-fill-mode: both;
+    z-index: 3;
+  }
+  :root[${DOC_ATTR}='opening']::view-transition-new(${TRIGGER_NAME}) {
+    width: 100%;
+    height: 100%;
+    object-fit: fill;
+    mix-blend-mode: normal;
+    animation: ${FADE_OUT_ANIMATION} calc(var(${VAR_DURATION}, 450ms) * 0.15)
+      cubic-bezier(0.4, 0, 1, 1) both;
+  }
+
+  /* Closing: the panel dissolves over the first 30% of the morph while the
+     trigger fades back in beneath it — the rest is a pure morph of the
+     trigger flying home. */
   :root[${DOC_ATTR}='closing']::view-transition-old(${MORPH_NAME}) {
-    animation: ramka-dialog-morph-fade-out calc(var(${VAR_DURATION}, 320ms) * 0.55) ease-out both;
+    animation: ${FADE_OUT_ANIMATION} calc(var(${VAR_DURATION}, 450ms) * 0.3)
+      cubic-bezier(0.4, 0, 1, 1) both;
   }
   :root[${DOC_ATTR}='closing']::view-transition-new(${MORPH_NAME}) {
-    animation: ramka-dialog-morph-fade-in var(${VAR_DURATION}, 320ms) ease-out both;
+    animation: ramka-dialog-morph-fade-in var(${VAR_DURATION}, 450ms) ease-out both;
   }
 
   /* Overlay backdrop-filter — see OVERLAY_NAME. The filter lives on the
@@ -158,7 +226,7 @@ const MORPH_CSS = /* css */ `
   }
   :root[${DOC_ATTR}]::view-transition-old(${OVERLAY_NAME}),
   :root[${DOC_ATTR}]::view-transition-new(${OVERLAY_NAME}) {
-    animation-duration: var(${VAR_DURATION}, 320ms);
+    animation-duration: var(${VAR_DURATION}, 450ms);
   }
 
   @keyframes ramka-dialog-morph-backdrop-in {
@@ -183,10 +251,10 @@ const MORPH_CSS = /* css */ `
   }
 
   :root[${DOC_ATTR}='opening']::view-transition-group(${OVERLAY_NAME}) {
-    animation: ramka-dialog-morph-backdrop-in var(${VAR_DURATION}, 320ms) ease-out both;
+    animation: ramka-dialog-morph-backdrop-in var(${VAR_DURATION}, 450ms) ease-out both;
   }
   :root[${DOC_ATTR}='closing']::view-transition-group(${OVERLAY_NAME}) {
-    animation: ramka-dialog-morph-backdrop-out var(${VAR_DURATION}, 320ms) ease-out both;
+    animation: ramka-dialog-morph-backdrop-out var(${VAR_DURATION}, 450ms) ease-out both;
   }
 }
 `;
@@ -246,17 +314,18 @@ function suppressAnimations(el: HTMLElement) {
  * clip and would define the silhouette themselves (the morph reads as a
  * plain scale). The trigger is the scaled-up image on both legs:
  *
- * - OPEN: the trigger (old image) stretches up, but it fades out fast and
- *   the panel behind it — the new image, live-rendered every frame — is
- *   squared here so it backfills the trigger's growing corner gaps and the
- *   clip owns the shape until it lands on the panel's real radius.
- * - CLOSE: the trigger (new image) stretches early too, and squaring it
- *   would be actively wrong: its border is painted along the squared
- *   perimeter and the group's rounded clip chops it off at every corner,
- *   which shows as a broken/discontinuous border on the trigger for the
- *   whole close. Instead the close leg animates the LIVE trigger's
- *   border-radius so its stretched rendering tracks the clip exactly — see
- *   animateCloseRadiusCompensation.
+ * - OPEN: the panel — the pair's new image, live-rendered every frame — is
+ *   squared here so it always fills the box out to the clip (compressed
+ *   early on, its baked corners would fall short of the clip and leave
+ *   see-through corner gaps). The trigger renders LIVE in its own group on
+ *   top with its radius compensation-animated — see TRIGGER_NAME and
+ *   animateLiveRadiusCompensation.
+ * - CLOSE: the trigger (the pair's new image, live) stretches early, and
+ *   squaring it would be actively wrong: its border is painted along the
+ *   squared perimeter and the group's rounded clip chops it off at every
+ *   corner, which shows as a broken/discontinuous border on the trigger for
+ *   the whole close. Its radius is compensation-animated instead — see
+ *   animateLiveRadiusCompensation.
  *
  * Squaring happens only inside the update callback — strictly while the
  * pseudo tree covers the page — so the square state can never paint live. */
@@ -303,9 +372,9 @@ function scheduleRadiusRestore(getEl: () => HTMLElement | null, finished: Promis
   finished.finally(release);
 }
 
-// Defaults mirrored from the injected CSS (`var(..., 320ms)` / the group's
+// Defaults mirrored from the injected CSS (`var(..., 450ms)` / the group's
 // easing fallback) — used when the consumer hasn't themed the root vars.
-const DEFAULT_DURATION_MS = 320;
+const DEFAULT_DURATION_MS = 450;
 const DEFAULT_EASING: readonly [number, number, number, number] = [0.32, 0.72, 0, 1];
 
 function parseDurationMs(raw: string): number {
@@ -364,49 +433,112 @@ function expandRadiusList(list: string): [number, number, number, number] {
   return [a, b, c, d];
 }
 
-/** CLOSE-path counterpart of the open path's panel squaring. On close the
- * trigger live-renders into the NEW image, which is captured at natural size
- * and stretched — anisotropically — to the group box. Its baked corners
- * therefore start as big ellipses (e.g. a card stretched to panel height is
- * scaled ~5× vertically but barely horizontally) instead of following the
- * group's animated radius clip. Squaring it instead would chop its border
- * against the rounded clip (see suppressRadius).
+/** Keeps a LIVE-rendered trigger's corners glued to the group's animated
+ * radius clip, on both legs. The trigger's live render is captured at its
+ * natural size and stretched — anisotropically — to the group box, so its
+ * baked corners would otherwise render as big ellipses (e.g. a card
+ * stretched to panel height is scaled ~5× vertically but barely
+ * horizontally) that ignore the clip. Squaring it instead would chop its
+ * border against the rounded clip (see suppressRadius).
  *
- * Because the new image re-renders the live element every frame, the live
- * trigger's border-radius can be animated so that AFTER the stretch it
- * equals the clip at every moment: per axis, radius(t) = clip(t) / scale(t).
- * The group's size, the clip, and this compensation all follow the same
- * duration + easing (baked into sampled keyframes, played linearly), so they
- * stay in lockstep. The animation ends exactly on the trigger's natural
- * radius, so pseudo-tree teardown needs no restore step — nothing to race,
- * nothing to flash. Driven by WAAPI, which also outranks any CSS
+ * Because the image re-renders the live element every frame, the trigger's
+ * border-radius can be animated so that AFTER the stretch it equals the
+ * clip at every moment: per axis, radius(t) = clip(t) / scale(t), where
+ * scale is measured against `natural` (the trigger's own rect — the box's
+ * end on close, its start on open). The group's size, the clip, and this
+ * compensation all follow the same duration + easing (baked into sampled
+ * keyframes, played linearly), so they stay in lockstep. On close the last
+ * keyframe IS the trigger's natural radius, so teardown needs no restore
+ * step — nothing to race, nothing to flash; on open the trigger is hidden
+ * long before the end. Driven by WAAPI, which also outranks any CSS
  * `transition: all` on the element. */
-function animateCloseRadiusCompensation(
+function animateLiveRadiusCompensation(
   el: HTMLElement,
-  fromRect: DOMRect,
-  toRect: DOMRect,
-  fromRadius: string,
-  toRadius: string,
+  boxFrom: DOMRect,
+  boxTo: DOMRect,
+  radiusFrom: string,
+  radiusTo: string,
+  natural: DOMRect,
 ): Animation | null {
-  if (!(toRect.width > 0) || !(toRect.height > 0)) return null;
+  if (!(natural.width > 0) || !(natural.height > 0)) return null;
   const docStyles = getComputedStyle(document.documentElement);
   const duration = parseDurationMs(docStyles.getPropertyValue(VAR_DURATION));
   const curve = parseEasing(docStyles.getPropertyValue('--ramka-dialog-morph-easing'));
-  const from = expandRadiusList(fromRadius);
-  const to = expandRadiusList(toRadius);
+  const from = expandRadiusList(radiusFrom);
+  const to = expandRadiusList(radiusTo);
 
   const STEPS = 30;
   const keyframes: Keyframe[] = [];
   for (let i = 0; i <= STEPS; i++) {
     const p = cubicBezierProgress(curve, i / STEPS);
-    const sx = (fromRect.width + (toRect.width - fromRect.width) * p) / toRect.width;
-    const sy = (fromRect.height + (toRect.height - fromRect.height) * p) / toRect.height;
+    const sx = (boxFrom.width + (boxTo.width - boxFrom.width) * p) / natural.width;
+    const sy = (boxFrom.height + (boxTo.height - boxFrom.height) * p) / natural.height;
     const corners = from.map((f, corner) => f + (to[corner]! - f) * p);
     const rx = corners.map((r) => `${(r / sx).toFixed(2)}px`).join(' ');
     const ry = corners.map((r) => `${(r / sy).toFixed(2)}px`).join(' ');
     keyframes.push({ borderRadius: `${rx} / ${ry}`, offset: i / STEPS });
   }
   return el.animate(keyframes, { duration, easing: 'linear', fill: 'both' });
+}
+
+/** Open only: (re)writes the live-trigger group's geometry keyframes —
+ * trigger rect → panel rect, the exact trajectory the UA morphs the pair's
+ * group. Injected as CSS `@keyframes` (a dedicated style element, rewritten
+ * per transition) and referenced statically from the injected stylesheet,
+ * so the animation starts on the same frame as every other pseudo
+ * animation. Only one dialog morph runs at a time, so a single keyframes
+ * name is safe. */
+function setTriggerGeometryKeyframes(fromRect: DOMRect, toRect: DOMRect) {
+  let style = document.getElementById(GEOMETRY_STYLE_ELEMENT_ID) as HTMLStyleElement | null;
+  if (!style) {
+    style = document.createElement('style');
+    style.id = GEOMETRY_STYLE_ELEMENT_ID;
+    document.head.appendChild(style);
+  }
+  style.textContent = `
+@keyframes ${TRIGGER_GEOMETRY_ANIMATION} {
+  from {
+    width: ${fromRect.width}px;
+    height: ${fromRect.height}px;
+    transform: translate(${fromRect.left}px, ${fromRect.top}px);
+  }
+  to {
+    width: ${toRect.width}px;
+    height: ${toRect.height}px;
+    transform: translate(${toRect.left}px, ${toRect.top}px);
+  }
+}
+`;
+}
+
+/** Best-effort alignment of a hook-driven WAAPI animation with the
+ * transition's CSS pseudo animations. Animations created inside
+ * `ready.then` get their start time resolved one rendering opportunity
+ * AFTER the CSS animations (which start the frame the pseudo tree
+ * appears), leaving the compensation a frame behind the geometry —
+ * measurable as the live layer trailing the box. Copying the injected
+ * radius animation's start time snaps them onto the same timeline
+ * position. */
+function syncWithGroupAnimations(anims: (Animation | null)[]) {
+  let startTime: number | CSSNumberish | null = null;
+  try {
+    for (const anim of document.documentElement.getAnimations({ subtree: true })) {
+      if (
+        (anim as CSSAnimation).animationName === RADIUS_ANIMATION &&
+        anim.startTime !== null
+      ) {
+        startTime = anim.startTime;
+        break;
+      }
+    }
+  } catch {
+    // getAnimations may not surface pseudo animations everywhere.
+  }
+  if (startTime === null) startTime = document.timeline.currentTime;
+  if (startTime === null) return;
+  for (const anim of anims) {
+    if (anim) anim.startTime = startTime;
+  }
 }
 
 /** Copies the overlay's computed backdrop-filter to a root var (consumed by
@@ -528,6 +660,15 @@ function useDialogMorph(options: UseDialogMorphOptions = {}): DialogMorph {
   const overlayElRef = React.useRef<HTMLElement | null>(null);
   /** Generation guard: a superseding transition owns cleanup from then on. */
   const genRef = React.useRef(0);
+  /** True while a morph is in flight — gates the sync effect below so it
+   * can't hide the live trigger mid-open (it must stay visible in its
+   * pseudo group until its dissolve completes). */
+  const morphingRef = React.useRef(false);
+  /** The in-flight radius compensation on the live trigger. Tracked so a
+   * superseding transition can cancel it BEFORE reading geometry — a
+   * mid-morph interrupt would otherwise resolve the trigger's compensated
+   * (elliptical) radius as its real one and morph toward garbage. */
+  const liveRadiusAnimRef = React.useRef<Animation | null>(null);
 
   React.useEffect(() => {
     if (enabled) ensureMorphStyles();
@@ -537,7 +678,13 @@ function useDialogMorph(options: UseDialogMorphOptions = {}): DialogMorph {
     sourceElRef.current = el;
     // A source (re)mounted while open must be hidden immediately (e.g. a
     // list re-render swapping the trigger element behind the open dialog).
-    if (el && enabledRef.current && openRef.current) {
+    // NOT during a morph though: the open transition re-attaches this ref
+    // (the trigger re-renders with its expanded state inside the
+    // transition's flushSync, and consumers pass merged refs with fresh
+    // identities), and hiding here would blank the live trigger image for
+    // the whole morph — the transition hides it itself once its dissolve
+    // completes.
+    if (el && enabledRef.current && openRef.current && !morphingRef.current) {
       el.setAttribute(SOURCE_HIDDEN_ATTR, '');
     }
   }, []);
@@ -581,22 +728,35 @@ function useDialogMorph(options: UseDialogMorphOptions = {}): DialogMorph {
 
       genRef.current += 1;
       const gen = genRef.current;
+      morphingRef.current = true;
       const docEl = document.documentElement;
 
+      // Interrupt hygiene: a superseding transition can arrive mid-morph.
+      // Undo the previous leg's live radius override BEFORE any reads below,
+      // or they'd see the compensated value instead of the element's own.
+      liveRadiusAnimRef.current?.cancel();
+      liveRadiusAnimRef.current = null;
+
       if (next) {
-        // OPEN: old snapshot captures the named source; the callback flips
-        // state (mounting the dialog), then names the panel for the new
-        // snapshot. Reads (radius) happen before writes to avoid forced
-        // reflows mid-capture.
+        // OPEN: the source is named into its own group BEFORE the capture
+        // and keeps that name throughout — its group owns both the old
+        // snapshot (hidden) and the live new image. Never rename across the
+        // capture: WebKit renders the live image of a renamed element
+        // blank. The callback flips state (mounting the dialog) and names
+        // the panel, whose group is then new-only. Reads (radius, rect)
+        // happen before writes to avoid forced reflows mid-capture.
         const fromRadius = resolveMorphBorderRadius(source!);
+        const fromRect = source!.getBoundingClientRect();
         docEl.setAttribute(DOC_ATTR, 'opening');
         docEl.style.setProperty(VAR_RADIUS_FROM, fromRadius);
-        setMorphName(source!);
+        setMorphName(source!, TRIGGER_NAME);
+
+        // Measured inside the callback (the panel exists only then),
+        // consumed on `ready` by the trigger-group animations below.
+        let openTarget: { rect: DOMRect; radius: string } | null = null;
 
         const transition = startViewTransition(() => {
-          clearMorphName(source);
           flushSync(() => commit(true, meta));
-          source!.setAttribute(SOURCE_HIDDEN_ATTR, '');
           const target = targetElRef.current;
           const overlay = overlayElRef.current;
           if (overlay) {
@@ -604,30 +764,90 @@ function useDialogMorph(options: UseDialogMorphOptions = {}): DialogMorph {
             suppressAnimations(overlay);
           }
           if (target) {
-            // Mounted inside the flush above — layout is clean, so this read
-            // is the only reflow inside the callback and it's a small tree.
-            docEl.style.setProperty(VAR_RADIUS_TO, resolveMorphBorderRadius(target));
+            // The trigger stays LIVE in its group for the whole open morph,
+            // so it is NOT hidden here: while named, an element renders
+            // exclusively in the pseudo tree and can't peek out at its page
+            // position. It gets hidden mid-transition, after its dissolve
+            // completes — see the timer below.
+            //
+            // Suppress BEFORE measuring: the library's own entrance
+            // animation is on its first frame here (e.g. a 0.95 zoom-in),
+            // and a rect read taken through it would send the trigger group
+            // toward a scaled-down endpoint while the UA morphs the pair to
+            // the real one — the two boxes would drift apart mid-flight.
             suppressAnimations(target);
-            // The new image live-renders the panel every frame — square, so
-            // the group clip owns the corners until it lands on the panel's
-            // real radius (VAR_RADIUS_TO) at the end.
+            // Radius read must precede the squaring below.
+            const toRadius = resolveMorphBorderRadius(target);
+            docEl.style.setProperty(VAR_RADIUS_TO, toRadius);
+            // The pair's new image live-renders the panel every frame —
+            // square, so the group clip owns the corners until it lands on
+            // the panel's real radius (VAR_RADIUS_TO) at the end.
             suppressRadius(target);
+            openTarget = { rect: target.getBoundingClientRect(), radius: toRadius };
+            setTriggerGeometryKeyframes(fromRect, openTarget.rect);
             setMorphName(target);
-          } else if (process.env.NODE_ENV !== 'production') {
-            // eslint-disable-next-line no-console
-            console.warn(
-              '[ramka] useDialogMorph: no target element was registered when the ' +
-                'dialog opened. Attach `targetRef` to the dialog panel element.',
-            );
+          } else {
+            clearMorphName(source);
+            source!.setAttribute(SOURCE_HIDDEN_ATTR, '');
+            if (process.env.NODE_ENV !== 'production') {
+              // eslint-disable-next-line no-console
+              console.warn(
+                '[ramka] useDialogMorph: no target element was registered when the ' +
+                  'dialog opened. Attach `targetRef` to the dialog panel element.',
+              );
+            }
           }
         });
+
+        // Hide the trigger once its live image has finished dissolving (the
+        // fade ends at 15%; the timer at 35% leaves margin on both sides).
+        // Mid-transition, nowhere near teardown — so no finished-lag race
+        // can flash it at its page position when the pseudo tree collapses.
+        const duration = parseDurationMs(
+          getComputedStyle(docEl).getPropertyValue(VAR_DURATION),
+        );
+        const hideTimer = setTimeout(() => {
+          if (genRef.current !== gen) return;
+          sourceElRef.current?.setAttribute(SOURCE_HIDDEN_ATTR, '');
+        }, duration * 0.35);
+
+        // Start the live trigger's radius compensation on `ready` (the frame
+        // the pseudo animations start), then snap it onto their exact start
+        // time — see syncWithGroupAnimations.
+        let radiusAnim: Animation | null = null;
+        const startTriggerAnims = () => {
+          if (!openTarget) return;
+          radiusAnim = animateLiveRadiusCompensation(
+            source!,
+            fromRect,
+            openTarget.rect,
+            fromRadius,
+            openTarget.radius,
+            fromRect,
+          );
+          liveRadiusAnimRef.current = radiusAnim;
+          syncWithGroupAnimations([radiusAnim]);
+        };
+        const ready = (transition as { ready?: Promise<void> }).ready;
+        if (ready) ready.then(startTriggerAnims, () => {});
+        else startTriggerAnims();
 
         // Panel radius comes back on the teardown frame, not on `finished`
         // (which can lag a paint behind) — see scheduleRadiusRestore.
         scheduleRadiusRestore(() => targetElRef.current, transition.finished);
 
         transition.finished.finally(() => {
+          clearTimeout(hideTimer);
+          // Safe at any time: the trigger is opacity-0 hidden by now, so
+          // its radius returning to natural is invisible.
+          radiusAnim?.cancel();
           if (genRef.current !== gen) return;
+          morphingRef.current = false;
+          if (liveRadiusAnimRef.current === radiusAnim) liveRadiusAnimRef.current = null;
+          // Fallback for skipped transitions (the timer may not have fired);
+          // a no-op on the normal path.
+          if (openRef.current) sourceElRef.current?.setAttribute(SOURCE_HIDDEN_ATTR, '');
+          clearMorphName(sourceElRef.current);
           clearMorphName(targetElRef.current);
           // The overlay persists while open — its name must go so it can't
           // leak into unrelated view transitions started elsewhere.
@@ -648,6 +868,14 @@ function useDialogMorph(options: UseDialogMorphOptions = {}): DialogMorph {
         const canMorph = !!target && !!source;
         let startCompensation: (() => Animation | null) | null = null;
 
+        // A close that interrupts a running open inherits its live state:
+        // the trigger still carries the live-trigger name (it must stay in
+        // the root's OLD capture here, not spawn a stale one-sided group)
+        // and the panel is still radius-squared (it must be read and
+        // captured with its real corners).
+        if (source) clearMorphName(source);
+        if (target) restoreRadius(target);
+
         if (canMorph) {
           const fromRadius = resolveMorphBorderRadius(target!);
           const toRadius = resolveMorphBorderRadius(source!);
@@ -658,7 +886,7 @@ function useDialogMorph(options: UseDialogMorphOptions = {}): DialogMorph {
           docEl.style.setProperty(VAR_RADIUS_TO, toRadius);
           setMorphName(target!);
           startCompensation = () =>
-            animateCloseRadiusCompensation(source!, fromRect, toRect, fromRadius, toRadius);
+            animateLiveRadiusCompensation(source!, fromRect, toRect, fromRadius, toRadius, toRect);
         } else {
           // No morph ends — still a view transition, so the close is a clean
           // root crossfade instead of an instant blink.
@@ -676,7 +904,7 @@ function useDialogMorph(options: UseDialogMorphOptions = {}): DialogMorph {
           if (canMorph) {
             // Deliberately NOT squared (unlike the panel on open); its radius
             // is compensation-animated instead — see suppressRadius and
-            // animateCloseRadiusCompensation for the geometry.
+            // animateLiveRadiusCompensation for the geometry.
             setMorphName(source!);
           }
           // Same lingering-ghost treatment as the panel: the overlay also
@@ -689,20 +917,21 @@ function useDialogMorph(options: UseDialogMorphOptions = {}): DialogMorph {
           }
         });
 
-        // Kick the radius compensation off on `ready` — the same frame the
-        // pseudo-element animations start — so it stays in sync with the
-        // group's geometry/clip animations for the whole morph.
+        // Kick the radius compensation off on `ready` (the frame the pseudo
+        // animations start), then snap it onto their exact start time so it
+        // stays in lockstep with the group's geometry/clip for the whole
+        // morph — see syncWithGroupAnimations.
         let radiusAnim: Animation | null = null;
         if (startCompensation) {
           const start = startCompensation;
-          const ready = (transition as { ready?: Promise<void> }).ready;
-          if (ready) {
-            ready.then(() => {
-              radiusAnim = start();
-            }, () => {});
-          } else {
+          const kickOff = () => {
             radiusAnim = start();
-          }
+            liveRadiusAnimRef.current = radiusAnim;
+            syncWithGroupAnimations([radiusAnim]);
+          };
+          const ready = (transition as { ready?: Promise<void> }).ready;
+          if (ready) ready.then(kickOff, () => {});
+          else kickOff();
         }
 
         transition.finished.finally(() => {
@@ -710,6 +939,8 @@ function useDialogMorph(options: UseDialogMorphOptions = {}): DialogMorph {
           // natural radius, so cancelling is a pixel-identical no-op.
           radiusAnim?.cancel();
           if (genRef.current !== gen) return;
+          morphingRef.current = false;
+          if (liveRadiusAnimRef.current === radiusAnim) liveRadiusAnimRef.current = null;
           clearMorphName(sourceElRef.current);
           clearMorphName(overlayElRef.current);
           clearDocumentState(docEl);
@@ -725,7 +956,9 @@ function useDialogMorph(options: UseDialogMorphOptions = {}): DialogMorph {
   // handled the capture-critical timing; this is a no-op then.
   React.useEffect(() => {
     const source = sourceElRef.current;
-    if (!source) return;
+    // While a morph runs, the transition owns the attribute timing (on open
+    // the live trigger must stay visible until its dissolve ends at 15%).
+    if (!source || morphingRef.current) return;
     if (enabled && open) source.setAttribute(SOURCE_HIDDEN_ATTR, '');
     else source.removeAttribute(SOURCE_HIDDEN_ATTR);
   }, [enabled, open]);

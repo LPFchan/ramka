@@ -29,7 +29,9 @@ function SlowMoToggle() {
     const docEl = document.documentElement;
     if (slowMo) docEl.style.setProperty('--ramka-dialog-morph-duration', '1600ms');
     else docEl.style.removeProperty('--ramka-dialog-morph-duration');
-    return () => docEl.style.removeProperty('--ramka-dialog-morph-duration');
+    return () => {
+      docEl.style.removeProperty('--ramka-dialog-morph-duration');
+    };
   }, [slowMo]);
 
   return (
