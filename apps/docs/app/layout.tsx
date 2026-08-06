@@ -2,8 +2,6 @@ import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 import { Inter } from 'next/font/google';
 
-import { MobileNav } from './_components/mobile-nav';
-import { Sidebar } from './_components/sidebar';
 import { ThemeProvider } from './_components/theme-provider';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
@@ -55,15 +53,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           }}
         />
         <ThemeProvider>
-          <TooltipProvider delay={150}>
-            <div className="isolate flex min-h-screen">
-              <Sidebar />
-              <div className="flex min-w-0 flex-1 flex-col">
-                <MobileNav />
-                <main className="min-w-0 flex-1">{children}</main>
-              </div>
-            </div>
-          </TooltipProvider>
+          <TooltipProvider delay={150}>{children}</TooltipProvider>
         </ThemeProvider>
       </body>
     </html>

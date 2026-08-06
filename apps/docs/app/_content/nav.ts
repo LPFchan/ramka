@@ -1,5 +1,5 @@
 import { lightboxExamples, type ExampleLink } from '../_components/examples';
-import { lightboxPresets } from '../presets/presets';
+import { lightboxPresets } from '../(docs)/presets/presets';
 import { debugPagesList } from './debug-pages';
 import { lightboxDocsPages } from './lightbox/docs-pages';
 
@@ -32,7 +32,7 @@ function toExampleLink(ex: ExampleLink): NavLink {
 const baseNavSections: NavSection[] = [
   {
     title: 'Getting started',
-    links: [{ href: '/', title: 'Installation' }],
+    links: [{ href: '/docs', title: 'Installation' }],
   },
   {
     title: 'Lightbox',
