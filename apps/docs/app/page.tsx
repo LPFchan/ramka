@@ -1,6 +1,7 @@
 import Link from 'next/link';
 
 import { ApplesToApples } from './_components/apples-to-apples';
+import { EnvironmentBanner } from './_components/environment-banner';
 import { FooterWordplay } from './_components/footer-wordplay';
 import { InstallCommand } from './_components/install-command';
 import { LandingDemo } from './_components/landing-demo';
@@ -78,6 +79,8 @@ export default function HomePage() {
         </section>
 
         <ApplesToApples />
+
+        <EnvironmentBanner />
       </main>
 
       <footer className="border-t border-neutral-200 dark:border-neutral-800">
