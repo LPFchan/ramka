@@ -5,6 +5,8 @@ import { EnvironmentBanner } from './_components/environment-banner';
 import { FooterWordplay } from './_components/footer-wordplay';
 import { InstallCommand } from './_components/install-command';
 import { LandingDemo } from './_components/landing-demo';
+import { SponsorSection } from './_components/sponsor-section';
+import { SponsorsShowcase } from './_components/sponsors-showcase';
 import { ThemeToggle } from './_components/theme-toggle';
 
 const GITHUB_URL = 'https://github.com/arturbien/ramka';
@@ -81,6 +83,10 @@ export default function HomePage() {
         <ApplesToApples />
 
         <EnvironmentBanner />
+
+        <SponsorsShowcase />
+
+        <SponsorSection />
       </main>
 
       <footer className="border-t border-neutral-200 dark:border-neutral-800">
