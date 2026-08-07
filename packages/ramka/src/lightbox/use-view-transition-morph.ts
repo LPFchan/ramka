@@ -334,58 +334,73 @@ function splitCssList(value: string): string[] {
 }
 
 /**
- * Convert one border-radius corner token to a used px length, capped at half
- * the shorter side (the CSS used value for a full pill on that box).
+ * Stand-in px value for non-finite radii (`calc(infinity * 1px)`, i.e.
+ * Tailwind v4 `rounded-full`, or unparsable pill hacks). Large enough that the
+ * corner-overlap scaling in {@link resolveMorphBorderRadius} drives every
+ * other radius' share toward its true limit, small enough that
+ * `radius * factor` stays numerically exact.
  */
-function borderRadiusTokenToPx(
-  token: string,
-  el: HTMLElement,
-  width: number,
-  height: number,
-  cap: number,
-): number {
+const NON_FINITE_RADIUS_PX = 1e9;
+
+/**
+ * Convert one border-radius corner token to a computed px length (pre
+ * overlap-scaling). `percentBasis` is the box width — the basis for the
+ * horizontal radius component per spec, which is the component the morph
+ * animates.
+ */
+function borderRadiusTokenToPx(token: string, el: HTMLElement, percentBasis: number): number {
   const t = token.trim().toLowerCase();
   if (!t) return 0;
 
   // Tailwind v4 `rounded-full` / any non-finite calc.
-  if (/infinity/i.test(t)) return cap;
+  if (/infinity/i.test(t)) return NON_FINITE_RADIUS_PX;
 
   if (t.endsWith('%')) {
     const pct = Number.parseFloat(t);
-    if (!Number.isFinite(pct)) return cap;
-    // Approx: % radii resolve against the box; a 50% corner is a full pill.
-    return Math.min((Math.min(width, height) * pct) / 100, cap);
+    if (!Number.isFinite(pct)) return NON_FINITE_RADIUS_PX;
+    return Math.max(0, (percentBasis * pct) / 100);
   }
 
   const n = Number.parseFloat(t);
-  if (!Number.isFinite(n)) return cap;
+  // Unparsable token — treat like a pill hack, same as non-finite.
+  if (!Number.isFinite(n)) return NON_FINITE_RADIUS_PX;
 
   if (t.endsWith('rem')) {
     const rootFs = Number.parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
-    return Math.min(n * rootFs, cap);
+    return Math.max(0, n * rootFs);
   }
   if (t.endsWith('em')) {
     const fs = Number.parseFloat(getComputedStyle(el).fontSize) || 16;
-    return Math.min(n * fs, cap);
+    return Math.max(0, n * fs);
   }
 
   // px, or other absolute units already serialized as px by getComputedStyle.
-  // Radii larger than half the short side render as a full pill — same as cap.
-  return Math.min(n, cap);
+  return Math.max(0, n);
+}
+
+/** Round a px value for CSS serialization (avoids 63.99999997px noise). */
+function roundRadiusPx(v: number): number {
+  return Math.round(v * 100) / 100;
 }
 
 /**
- * Resolve an element's border-radius into px values the VT group can
- * interpolate.
+ * Resolve an element's border-radius into the **used** px values the VT group
+ * can interpolate — matching what the browser actually renders.
  *
  * Tailwind v4 `rounded-full` is `border-radius: calc(infinity * 1px)`. CSS
  * cannot interpolate `infinity` → `8px`, so the morph group's radius animation
  * would stick or jump. Percentages, `rem`/`em`, and the old `9999px` full-pill
  * trick have the same problem relative to a fixed px destination.
  *
- * Each corner is resolved independently (so
- * `calc(infinity * 1px) 4px 4px 4px` becomes `32px 4px 4px 4px` on a 64×64
- * box) and capped at half the shorter side — the used pill radius.
+ * Corner radii are resolved per the CSS corner-overlap rule
+ * (css-backgrounds-3 §5.5): when the sum of adjacent radii overflows an edge,
+ * ALL radii are multiplied by the same factor
+ * `f = min(1, edge / sum-of-adjacent-radii)` taken over all four edges.
+ * Capping each corner independently at half the shorter side (the used pill
+ * radius) is only equivalent for uniform radii — for asymmetric radii like
+ * `16px 16px 160px 160px` on a wide box it undershoots the large corners, so
+ * the close morph would animate toward a flatter shape than the live trigger
+ * and visibly snap on the last frame.
  *
  * Note: `getComputedStyle` usually already returns px for `rem`/`em`; we still
  * resolve those units for engines that leave them as specified.
@@ -396,16 +411,50 @@ export function resolveMorphBorderRadius(el: HTMLElement): string {
 
   const { width, height } = el.getBoundingClientRect();
   if (!(width > 0 && height > 0)) return '0px';
-  const cap = Math.min(width, height) / 2;
 
-  // Drop elliptical `/` second list — the morph clip animates a single list.
+  // Drop elliptical `/` second list — the morph clip animates a single list
+  // (the horizontal component).
   const horizontal = raw.split('/')[0]!.trim();
   const tokens = splitCssList(horizontal);
   if (tokens.length === 0) return '0px';
 
-  const px = tokens.map((token) => borderRadiusTokenToPx(token, el, width, height, cap));
-  if (px.every((v) => v === px[0])) return `${px[0]}px`;
-  return px.map((v) => `${v}px`).join(' ');
+  // Expand the 1–4 token shorthand to per-corner values [tl, tr, br, bl].
+  const [a, b = a, c = a, d = b] = tokens;
+  const [tl, tr, br, bl] = [a, b, c, d].map((token) =>
+    borderRadiusTokenToPx(token!, el, width),
+  ) as [number, number, number, number];
+
+  // CSS corner-overlap rule: one uniform scale factor across all corners,
+  // constrained by every edge. Zero sums divide to Infinity, which min()
+  // ignores in favor of 1.
+  const f = Math.min(
+    1,
+    width / (tl + tr),
+    width / (bl + br),
+    height / (tr + br),
+    height / (tl + bl),
+  );
+
+  const used = [tl, tr, br, bl].map((r) => roundRadiusPx(r * f)) as [
+    number,
+    number,
+    number,
+    number,
+  ];
+
+  // Serialize back to the minimal shorthand.
+  const [utl, utr, ubr, ubl] = used;
+  let list: number[];
+  if (ubl === utr) {
+    if (ubr === utl) {
+      list = utr === utl ? [utl] : [utl, utr];
+    } else {
+      list = [utl, utr, ubr];
+    }
+  } else {
+    list = [utl, utr, ubr, ubl];
+  }
+  return list.map((v) => `${v}px`).join(' ');
 }
 
 /**
