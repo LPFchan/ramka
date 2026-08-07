@@ -20,10 +20,12 @@ import {
  * own column math regardless of the source dimensions:
  *
  *   mobile, 2 cols of 3:  0.75 + 1.25 + 1.0 = 1.0 + 0.7 + 1.3  (balanced)
- *   md+, 3 cols of 2:     2.0 | 2.4 | 2.0  (middle column sticks out)
+ *   md+, 3 cols of 2:     1.25 + 0.75 | 1.4 + 1.0 | 1.2 + 0.8
+ *                         = 2.0 | 2.4 | 2.0  (middle column sticks out)
  *
- * Only the fourth tile changes shape between breakpoints (square → 5/7) to
- * satisfy both equations.
+ * The md+ shapes deliberately invert each source's orientation (landscape
+ * photos get portrait tiles and vice versa) so every open morphs across
+ * aspect ratios instead of just scaling up.
  */
 const images: (LightboxGalleryItem & { tileClass: string })[] = [
   {
@@ -31,42 +33,42 @@ const images: (LightboxGalleryItem & { tileClass: string })[] = [
     thumb: 'https://picsum.photos/seed/ramka-a/800/533',
     alt: 'Person standing in a sunlit meadow at golden hour',
     caption: 'Golden hour in the meadow',
-    tileClass: 'aspect-[4/3]',
+    tileClass: 'aspect-[4/3] md:aspect-[4/5]',
   },
   {
     src: 'https://picsum.photos/seed/ramka-b/1200/1500',
     thumb: 'https://picsum.photos/seed/ramka-b/800/1000',
     alt: 'Seashells scattered along the shoreline',
     caption: 'Seashells on the shore',
-    tileClass: 'aspect-[4/5]',
+    tileClass: 'aspect-[4/5] md:aspect-[4/3]',
   },
   {
     src: 'https://picsum.photos/seed/ramka-c/1400/1400',
     thumb: 'https://picsum.photos/seed/ramka-c/800/800',
     alt: 'Curved building facade in black and white',
     caption: 'Curved facade, in monochrome',
-    tileClass: 'aspect-square',
+    tileClass: 'aspect-square md:aspect-[5/7]',
   },
   {
     src: 'https://picsum.photos/seed/ramka-d/1200/1600',
     thumb: 'https://picsum.photos/seed/ramka-d/800/1067',
     alt: 'Airplane crossing a purple sky above the clouds',
     caption: 'Above the clouds at dusk',
-    tileClass: 'aspect-square md:aspect-[5/7]',
+    tileClass: 'aspect-square',
   },
   {
     src: 'https://picsum.photos/seed/ramka-e/1600/1000',
     thumb: 'https://picsum.photos/seed/ramka-e/800/500',
     alt: 'Fog rolling over dark hills',
     caption: 'Fog rolling over the valley',
-    tileClass: 'aspect-[10/7]',
+    tileClass: 'aspect-[10/7] md:aspect-[5/6]',
   },
   {
     src: 'https://picsum.photos/seed/ramka-f/1300/1600',
     thumb: 'https://picsum.photos/seed/ramka-f/800/985',
     alt: 'Aerial view of a road entering twin forest tunnels',
     caption: 'Twin tunnels from above',
-    tileClass: 'aspect-[10/13]',
+    tileClass: 'aspect-[10/13] md:aspect-[5/4]',
   },
 ];
 
