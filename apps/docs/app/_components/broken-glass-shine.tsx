@@ -22,6 +22,13 @@ import * as React from 'react';
  * get no fill at all — no tint, no sheen — just the raw matte showing
  * through and a bright exposed-edge rim that catches the light hard. The
  * hole is what makes the remaining glass read as glass.
+ *
+ * The pane starts intact — one flat sheet with a soft sheen following the
+ * cursor — and shatters on click. The shatter is authored once around the
+ * impact point (63,34); on click every coordinate is remapped through a
+ * piecewise-linear warp that moves that point to the click position while
+ * pinning the pane edges, so the radial cracks still run out to the
+ * borders wherever the pane is struck.
  */
 
 /** Radial cracks running from the impact point (63,34) to the pane edges. */
@@ -111,35 +118,94 @@ const SHARDS: Shard[] = [
   { points: '63,34 48,26 28,18 0,10 0,0 72,0 70,8 66,18', alpha: 0.07 },
 ];
 
+/** Where the shatter pattern above was authored. */
+const ORIGIN = { x: 63, y: 34 };
+
+/**
+ * Remaps one coordinate so `from` lands on `to` while 0 and 100 (the pane
+ * edges) stay fixed: linear below the impact, linear above it. Cracks
+ * authored to end on a border still end on that border after the warp.
+ */
+function warp(value: number, from: number, to: number): number {
+  const mapped =
+    value <= from
+      ? (value * to) / from
+      : to + ((value - from) * (100 - to)) / (100 - from);
+  return Math.round(mapped * 100) / 100;
+}
+
+function warpPoints(points: string, impact: { x: number; y: number }): string {
+  return points
+    .split(' ')
+    .map((pair) => {
+      const [x = 0, y = 0] = pair.split(',').map(Number);
+      return `${warp(x, ORIGIN.x, impact.x)},${warp(y, ORIGIN.y, impact.y)}`;
+    })
+    .join(' ');
+}
+
 export function BrokenGlassShine({ className }: { className?: string }) {
   const filterId = React.useId();
   const filterRef = React.useRef<SVGFilterElement>(null);
   const paneRef = React.useRef<HTMLDivElement>(null);
   const mouse = React.useRef({ x: 0, y: 0 });
 
-  React.useEffect(() => {
+  /** Impact point in viewBox (0-100) coordinates; null while intact. */
+  const [impact, setImpact] = React.useState<{ x: number; y: number } | null>(
+    null,
+  );
+
+  const setLightTo = React.useCallback((clientX: number, clientY: number) => {
     const pane = paneRef.current;
     const light = filterRef.current?.querySelector('fePointLight');
     if (!pane || !light) return;
+    const box = pane.getBoundingClientRect();
+    light.setAttribute('x', String(clientX - box.left));
+    light.setAttribute('y', String(clientY - box.top));
+  }, []);
 
-    const moveLight = () => {
-      const box = pane.getBoundingClientRect();
-      light.setAttribute('x', String(mouse.current.x - box.left));
-      light.setAttribute('y', String(mouse.current.y - box.top));
-    };
-
+  React.useEffect(() => {
     const onPointerMove = (event: PointerEvent) => {
       mouse.current = { x: event.clientX, y: event.clientY };
-      moveLight();
+      setLightTo(event.clientX, event.clientY);
     };
+    const onScroll = () => setLightTo(mouse.current.x, mouse.current.y);
 
     document.addEventListener('pointermove', onPointerMove);
-    document.addEventListener('scroll', moveLight, true);
+    document.addEventListener('scroll', onScroll, true);
     return () => {
       document.removeEventListener('pointermove', onPointerMove);
-      document.removeEventListener('scroll', moveLight, true);
+      document.removeEventListener('scroll', onScroll, true);
     };
-  }, []);
+  }, [setLightTo]);
+
+  const shatter = (event: React.MouseEvent<HTMLDivElement>) => {
+    const box = event.currentTarget.getBoundingClientRect();
+    // Clamp so the impact never sits on an edge, which would squash one
+    // side of the pattern into nothing.
+    const clamp = (v: number) => Math.min(88, Math.max(12, v));
+    setImpact({
+      x: clamp(((event.clientX - box.left) / box.width) * 100),
+      y: clamp(((event.clientY - box.top) / box.height) * 100),
+    });
+    // On touch there is no pointermove trail, so put the light at the
+    // impact for the first lit frame.
+    setLightTo(event.clientX, event.clientY);
+  };
+
+  /** The shatter geometry, warped so the impact sits under the click. */
+  const geo = React.useMemo(() => {
+    if (!impact) return null;
+    const w = (points: string) => warpPoints(points, impact);
+    return {
+      primaryCracks: PRIMARY_CRACKS.map(w),
+      secondaryCracks: SECONDARY_CRACKS.map(w),
+      facets: FACETS.map(w),
+      fallenBits: FALLEN_BITS.map(w),
+      fallenBitRims: FALLEN_BIT_RIMS.map(w),
+      shards: SHARDS.map((shard) => ({ ...shard, points: w(shard.points) })),
+    };
+  }, [impact]);
 
   return (
     <div aria-hidden className={`pointer-events-none ${className ?? ''}`}>
@@ -181,9 +247,12 @@ export function BrokenGlassShine({ className }: { className?: string }) {
         </filter>
       </svg>
 
+      {/* While intact, the pane itself takes the click that breaks it; once
+          broken it goes inert so the buttons underneath work again. */}
       <div
         ref={paneRef}
-        className="absolute inset-0"
+        onClick={geo ? undefined : shatter}
+        className={`absolute inset-0 ${geo ? '' : 'pointer-events-auto cursor-pointer'}`}
         style={{ filter: `url(#${filterId})`, isolation: 'isolate' }}
       >
         <svg
@@ -191,81 +260,102 @@ export function BrokenGlassShine({ className }: { className?: string }) {
           viewBox="0 0 100 100"
           preserveAspectRatio="none"
         >
-          <defs>
-            {/* Knocks the fallen bits out of everything painted below:
-                fills, facets, and any cracks crossing them. */}
-            <mask
-              id={`${filterId}-holes`}
-              maskUnits="userSpaceOnUse"
-              x="0"
-              y="0"
-              width="100"
-              height="100"
-            >
-              <rect x="0" y="0" width="100" height="100" fill="#fff" />
-              {FALLEN_BITS.map((points) => (
-                <polygon key={points} points={points} fill="#000" />
+          {geo === null ? (
+            /* The intact sheet: one flat plate, so the light plays a soft
+               sheen across the whole pane and nothing else. */
+            <rect x="0" y="0" width="100" height="100" fill="rgba(255,255,255,0.07)" />
+          ) : (
+            <>
+              <defs>
+                {/* Knocks the fallen bits out of everything painted below:
+                    fills, facets, and any cracks crossing them. */}
+                <mask
+                  id={`${filterId}-holes`}
+                  maskUnits="userSpaceOnUse"
+                  x="0"
+                  y="0"
+                  width="100"
+                  height="100"
+                >
+                  <rect x="0" y="0" width="100" height="100" fill="#fff" />
+                  {geo.fallenBits.map((points) => (
+                    <polygon key={points} points={points} fill="#000" />
+                  ))}
+                </mask>
+              </defs>
+
+              <g mask={`url(#${filterId}-holes)`}>
+                {/* Surviving glass plates: flat fills at slightly different
+                    heights. Fallen pieces render nothing — bare matte. */}
+                {geo.shards
+                  .filter((s) => !s.fallen)
+                  .map(({ points, alpha }) => (
+                    <polygon
+                      key={points}
+                      points={points}
+                      fill={`rgba(255,255,255,${alpha})`}
+                    />
+                  ))}
+                {/* Exposed glass edges around the holes: the brightest lines
+                    in the pane, they catch the light hard as it passes. */}
+                {geo.shards
+                  .filter((s) => s.fallen)
+                  .map(({ points }) => (
+                    <polygon
+                      key={points}
+                      points={points}
+                      fill="none"
+                      stroke="rgba(245,248,255,0.4)"
+                      strokeWidth="1.4"
+                      vectorEffect="non-scaling-stroke"
+                    />
+                  ))}
+                {geo.facets.map((points) => (
+                  <polygon key={points} points={points} fill="rgba(255,255,255,0.06)" />
+                ))}
+                {geo.primaryCracks.map((points) => (
+                  <polyline
+                    key={points}
+                    points={points}
+                    fill="none"
+                    stroke="rgba(235,240,255,0.18)"
+                    strokeWidth="1.1"
+                    vectorEffect="non-scaling-stroke"
+                  />
+                ))}
+                {geo.secondaryCracks.map((points) => (
+                  <polyline
+                    key={points}
+                    points={points}
+                    fill="none"
+                    stroke="rgba(235,240,255,0.12)"
+                    strokeWidth="0.7"
+                    vectorEffect="non-scaling-stroke"
+                  />
+                ))}
+              </g>
+
+              {/* Exposed edges of the fallen bits, outside the mask so they
+                  stay visible around the tiny holes. */}
+              {geo.fallenBitRims.map((points) => (
+                <polygon
+                  key={points}
+                  points={points}
+                  fill="none"
+                  stroke="rgba(245,248,255,0.35)"
+                  strokeWidth="0.8"
+                  vectorEffect="non-scaling-stroke"
+                />
               ))}
-            </mask>
-          </defs>
-
-          <g mask={`url(#${filterId}-holes)`}>
-            {/* Surviving glass plates: flat fills at slightly different
-                heights. Fallen pieces render nothing — bare matte. */}
-            {SHARDS.filter((s) => !s.fallen).map(({ points, alpha }) => (
-              <polygon key={points} points={points} fill={`rgba(255,255,255,${alpha})`} />
-            ))}
-            {/* Exposed glass edges around the holes: the brightest lines in
-                the pane, they catch the light hard as it passes. */}
-            {SHARDS.filter((s) => s.fallen).map(({ points }) => (
-              <polygon
-                key={points}
-                points={points}
-                fill="none"
-                stroke="rgba(245,248,255,0.4)"
-                strokeWidth="1.4"
-                vectorEffect="non-scaling-stroke"
+              {/* The impact crater itself: a bright speck that stays lit. */}
+              <circle
+                cx={impact?.x}
+                cy={impact?.y}
+                r="0.6"
+                fill="rgba(255,255,255,0.5)"
               />
-            ))}
-            {FACETS.map((points) => (
-              <polygon key={points} points={points} fill="rgba(255,255,255,0.06)" />
-            ))}
-            {PRIMARY_CRACKS.map((points) => (
-              <polyline
-                key={points}
-                points={points}
-                fill="none"
-                stroke="rgba(235,240,255,0.18)"
-                strokeWidth="1.1"
-                vectorEffect="non-scaling-stroke"
-              />
-            ))}
-            {SECONDARY_CRACKS.map((points) => (
-              <polyline
-                key={points}
-                points={points}
-                fill="none"
-                stroke="rgba(235,240,255,0.12)"
-                strokeWidth="0.7"
-                vectorEffect="non-scaling-stroke"
-              />
-            ))}
-          </g>
-
-          {/* Exposed edges of the fallen bits, outside the mask so they
-              stay visible around the tiny holes. */}
-          {FALLEN_BIT_RIMS.map((points) => (
-            <polygon
-              key={points}
-              points={points}
-              fill="none"
-              stroke="rgba(245,248,255,0.35)"
-              strokeWidth="0.8"
-              vectorEffect="non-scaling-stroke"
-            />
-          ))}
-          {/* The impact crater itself: a bright speck that stays lit. */}
-          <circle cx="63" cy="34" r="0.6" fill="rgba(255,255,255,0.5)" />
+            </>
+          )}
         </svg>
       </div>
     </div>
