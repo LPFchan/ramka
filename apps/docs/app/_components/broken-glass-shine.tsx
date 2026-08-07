@@ -122,6 +122,15 @@ const SHARDS: Shard[] = [
 const ORIGIN = { x: 63, y: 34 };
 
 /**
+ * When the click that breaks the glass lands on a link, navigation is held
+ * back this long so the user sees the pane crack before the new tab steals
+ * focus. 500ms: enough to register the shatter, short enough that the link
+ * still feels responsive. Well within the browser's transient-activation
+ * window, so the delayed open is not popup-blocked.
+ */
+const LINK_DELAY_MS = 500;
+
+/**
  * Remaps one coordinate so `from` lands on `to` while 0 and 100 (the pane
  * edges) stay fixed: linear below the impact, linear above it. Cracks
  * authored to end on a border still end on that border after the warp.
@@ -179,19 +188,59 @@ export function BrokenGlassShine({ className }: { className?: string }) {
     };
   }, [setLightTo]);
 
-  const shatter = (event: React.MouseEvent<HTMLDivElement>) => {
-    const box = event.currentTarget.getBoundingClientRect();
-    // Clamp so the impact never sits on an edge, which would squash one
-    // side of the pattern into nothing.
-    const clamp = (v: number) => Math.min(88, Math.max(12, v));
-    setImpact({
-      x: clamp(((event.clientX - box.left) / box.width) * 100),
-      y: clamp(((event.clientY - box.top) / box.height) * 100),
-    });
-    // On touch there is no pointermove trail, so put the light at the
-    // impact for the first lit frame.
-    setLightTo(event.clientX, event.clientY);
-  };
+  // While intact, listen for clicks on the host element (the frame that
+  // contains this overlay) rather than on the overlay itself. The overlay
+  // stays pointer-events-none the whole time, so the buttons underneath
+  // always work; a click on a button both follows the link and cracks the
+  // pane around it. The frame is two levels up: pane -> overlay root ->
+  // frame; the overlay root is pointer-events-none, so clicks on the
+  // frame's content never pass through it — they bubble from the content
+  // to the frame directly.
+  React.useEffect(() => {
+    if (impact) return;
+    const pane = paneRef.current;
+    const host = pane?.parentElement?.parentElement;
+    if (!pane || !host) return;
+
+    const shatter = (event: MouseEvent) => {
+      const box = pane.getBoundingClientRect();
+      // Clamp so the impact never sits on an edge, which would squash one
+      // side of the pattern into nothing.
+      const clamp = (v: number) => Math.min(88, Math.max(12, v));
+      setImpact({
+        x: clamp(((event.clientX - box.left) / box.width) * 100),
+        y: clamp(((event.clientY - box.top) / box.height) * 100),
+      });
+      // On touch there is no pointermove trail, so put the light at the
+      // impact for the first lit frame.
+      setLightTo(event.clientX, event.clientY);
+
+      // If this click was on a link, hold the navigation briefly so the
+      // shatter is seen before a new tab takes over. Modified clicks
+      // (cmd/ctrl/shift, middle button) open in the background anyway, so
+      // they pass through untouched.
+      const link =
+        event.target instanceof Element
+          ? event.target.closest<HTMLAnchorElement>('a[href]')
+          : null;
+      const plainClick =
+        event.button === 0 &&
+        !event.metaKey &&
+        !event.ctrlKey &&
+        !event.shiftKey &&
+        !event.altKey;
+      if (link && host.contains(link) && plainClick) {
+        event.preventDefault();
+        const { href } = link;
+        window.setTimeout(() => {
+          window.open(href, '_blank', 'noopener,noreferrer');
+        }, LINK_DELAY_MS);
+      }
+    };
+
+    host.addEventListener('click', shatter);
+    return () => host.removeEventListener('click', shatter);
+  }, [impact, setLightTo]);
 
   /** The shatter geometry, warped so the impact sits under the click. */
   const geo = React.useMemo(() => {
@@ -247,12 +296,9 @@ export function BrokenGlassShine({ className }: { className?: string }) {
         </filter>
       </svg>
 
-      {/* While intact, the pane itself takes the click that breaks it; once
-          broken it goes inert so the buttons underneath work again. */}
       <div
         ref={paneRef}
-        onClick={geo ? undefined : shatter}
-        className={`absolute inset-0 ${geo ? '' : 'pointer-events-auto cursor-pointer'}`}
+        className="absolute inset-0"
         style={{ filter: `url(#${filterId})`, isolation: 'isolate' }}
       >
         <svg
