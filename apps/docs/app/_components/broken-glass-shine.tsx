@@ -37,23 +37,43 @@ const PRIMARY_CRACKS = [
   '63,34 57,44 40,64 28,84 22,100',
 ];
 
-/** Shorter cracks: concentric rings near the impact and stray branches.
+/** Shorter cracks: concentric rings near the impact and branches forking
+    off the radials. Every branch starts ON a radial — a floating segment
+    reads as a splinter lying on top of the pane, not a crack in it. One
+    end may peter out into the field: crack tips do terminate.
     (No strays inside the fallen-out regions — there is no glass there.) */
 const SECONDARY_CRACKS = [
   '70,25 73,30 71,37 66,42 58,42 53,37',
-  '80,20 86,28',
-  '58,28 60,24 65,22',
+  '78,22 86,28',
+  '55,30 60,24 65,22',
   '28,18 24,10',
   '76,71 84,76',
 ];
 
 /** Translucent facets near the impact, where shards tilt out of plane. */
-const FACETS = [
-  '63,34 66,42 58,42',
+const FACETS = ['63,34 58,28 60,24', '63,34 75,38 71,37'];
+
+/**
+ * Tiny pieces near the impact that fell out of the pane: punched out of the
+ * lit layer with a mask, so inside them there is no tint, no facet, no
+ * crack — just bare matte and an exposed-edge rim. Upper right, two
+ * adjacent blades fell out together (inner pinwheel piece plus the piece
+ * beyond the ring); below the impact, one blade bounded exactly by two
+ * radials and the ring, so its rim lands on existing crack lines.
+ */
+const FALLEN_BITS = [
   '63,34 70,25 73,30',
-  '63,34 58,28 60,24',
-  '63,34 75,38 71,37',
+  '70,25 78,22 73,30',
+  '63,34 66,42 58,42',
 ];
+
+/**
+ * Rim outlines for the holes above. Kept separate from FALLEN_BITS because
+ * adjacent bits merge into one hole: the rim traces the merged outline, so
+ * no edge gets drawn through the middle of a hole (a line floating inside
+ * a hole reads as a stray sliver of glass).
+ */
+const FALLEN_BIT_RIMS = ['63,34 70,25 78,22 73,30', '63,34 66,42 58,42'];
 
 /**
  * The pane tessellated into shards between adjacent radial cracks (each
@@ -171,43 +191,76 @@ export function BrokenGlassShine({ className }: { className?: string }) {
           viewBox="0 0 100 100"
           preserveAspectRatio="none"
         >
-          {/* Surviving glass plates: flat fills at slightly different
-              heights. Fallen pieces render nothing — bare matte. */}
-          {SHARDS.filter((s) => !s.fallen).map(({ points, alpha }) => (
-            <polygon key={points} points={points} fill={`rgba(255,255,255,${alpha})`} />
-          ))}
-          {/* Exposed glass edges around the holes: the brightest lines in
-              the pane, they catch the light hard as it passes. */}
-          {SHARDS.filter((s) => s.fallen).map(({ points }) => (
+          <defs>
+            {/* Knocks the fallen bits out of everything painted below:
+                fills, facets, and any cracks crossing them. */}
+            <mask
+              id={`${filterId}-holes`}
+              maskUnits="userSpaceOnUse"
+              x="0"
+              y="0"
+              width="100"
+              height="100"
+            >
+              <rect x="0" y="0" width="100" height="100" fill="#fff" />
+              {FALLEN_BITS.map((points) => (
+                <polygon key={points} points={points} fill="#000" />
+              ))}
+            </mask>
+          </defs>
+
+          <g mask={`url(#${filterId}-holes)`}>
+            {/* Surviving glass plates: flat fills at slightly different
+                heights. Fallen pieces render nothing — bare matte. */}
+            {SHARDS.filter((s) => !s.fallen).map(({ points, alpha }) => (
+              <polygon key={points} points={points} fill={`rgba(255,255,255,${alpha})`} />
+            ))}
+            {/* Exposed glass edges around the holes: the brightest lines in
+                the pane, they catch the light hard as it passes. */}
+            {SHARDS.filter((s) => s.fallen).map(({ points }) => (
+              <polygon
+                key={points}
+                points={points}
+                fill="none"
+                stroke="rgba(245,248,255,0.4)"
+                strokeWidth="1.4"
+                vectorEffect="non-scaling-stroke"
+              />
+            ))}
+            {FACETS.map((points) => (
+              <polygon key={points} points={points} fill="rgba(255,255,255,0.06)" />
+            ))}
+            {PRIMARY_CRACKS.map((points) => (
+              <polyline
+                key={points}
+                points={points}
+                fill="none"
+                stroke="rgba(235,240,255,0.18)"
+                strokeWidth="1.1"
+                vectorEffect="non-scaling-stroke"
+              />
+            ))}
+            {SECONDARY_CRACKS.map((points) => (
+              <polyline
+                key={points}
+                points={points}
+                fill="none"
+                stroke="rgba(235,240,255,0.12)"
+                strokeWidth="0.7"
+                vectorEffect="non-scaling-stroke"
+              />
+            ))}
+          </g>
+
+          {/* Exposed edges of the fallen bits, outside the mask so they
+              stay visible around the tiny holes. */}
+          {FALLEN_BIT_RIMS.map((points) => (
             <polygon
               key={points}
               points={points}
               fill="none"
-              stroke="rgba(245,248,255,0.4)"
-              strokeWidth="1.4"
-              vectorEffect="non-scaling-stroke"
-            />
-          ))}
-          {FACETS.map((points) => (
-            <polygon key={points} points={points} fill="rgba(255,255,255,0.06)" />
-          ))}
-          {PRIMARY_CRACKS.map((points) => (
-            <polyline
-              key={points}
-              points={points}
-              fill="none"
-              stroke="rgba(235,240,255,0.18)"
-              strokeWidth="1.1"
-              vectorEffect="non-scaling-stroke"
-            />
-          ))}
-          {SECONDARY_CRACKS.map((points) => (
-            <polyline
-              key={points}
-              points={points}
-              fill="none"
-              stroke="rgba(235,240,255,0.12)"
-              strokeWidth="0.7"
+              stroke="rgba(245,248,255,0.35)"
+              strokeWidth="0.8"
               vectorEffect="non-scaling-stroke"
             />
           ))}
