@@ -11,9 +11,9 @@ const X_URL = 'https://x.com/artur_bien';
  * Sponsor placement showcase. The maintainer's testimonial hangs in a
  * skeuomorphic gilded picture frame — a wink at the library's name (ramka is
  * Polish for "frame") — built entirely from CSS gradients and inset shadows:
- * gold molding, a thin dark lip, a warm matte board, and the attribution
- * engraved on a brass gallery plaque. The matte keeps fixed warm colors in
- * both schemes, like a real object would. Below it, the sponsor slots (one
+ * gold molding, a thin dark lip, and a warm matte board. The matte keeps
+ * fixed warm colors in both schemes, like a real object would. Below it,
+ * the sponsor slots (one
  * featured banner plus a grid of logo spots) sit flat on the page and link
  * to GitHub Sponsors until real logos replace them.
  */
@@ -114,11 +114,13 @@ export function SponsorsShowcase() {
           same on a light wall or a dark one. The matte is dark on purpose —
           the glass glints are additive white light and need a dark surface
           to be visible. */}
-      <div className="mx-auto max-w-2xl">
+      {/* A traditional landscape frame on desktop: 4:3, wide enough that the
+          quote breathes, not so wide it dwarfs the content column. */}
+      <div className="mx-auto max-w-3xl">
         {/* The SVG molding as border-image. Two shadows ground it: a tight
             contact shadow and a broad soft one, like a frame on a wall. */}
         <div
-          className="relative border-22 bg-[#1a1915] shadow-[0_2px_6px_rgba(0,0,0,0.25),0_32px_64px_-16px_rgba(0,0,0,0.4)] md:border-28"
+          className="relative border-22 bg-[#1a1915] shadow-[0_2px_6px_rgba(0,0,0,0.25),0_32px_64px_-16px_rgba(0,0,0,0.4)] md:aspect-4/3 md:border-28"
           style={frameStyle}
         >
           {/* Cracked glass pane over the matte ("I'd rather eat glass"), with
@@ -134,7 +136,9 @@ export function SponsorsShowcase() {
           />
           {/* Matte board: warm charcoal with a beveled cut edge under the
               frame's rabbet. */}
-          <div className="bg-[#1a1915] px-5 py-10 text-center shadow-[inset_0_2px_6px_rgba(0,0,0,0.6),inset_0_0_0_1px_rgba(255,255,255,0.05)] md:px-10 md:py-14">
+          {/* On desktop the frame is a fixed 4:3, so the matte fills it and
+              centers the content in the extra vertical room. */}
+          <div className="bg-[#1a1915] px-5 py-12 text-center shadow-[inset_0_2px_6px_rgba(0,0,0,0.6),inset_0_0_0_1px_rgba(255,255,255,0.05)] md:flex md:h-full md:flex-col md:items-center md:justify-center md:px-8 md:py-14">
               <img
                 src="https://github.com/arturbien.png?size=192"
                 alt="Artur, creator of ramka"
@@ -147,12 +151,14 @@ export function SponsorsShowcase() {
                 &ldquo;I&rsquo;d rather eat glass than build this again.&rdquo;
               </h2>
 
-              {/* Attribution as an engraved brass gallery plaque. */}
-              <p className="mt-5 inline-block rounded-[3px] bg-[linear-gradient(180deg,#e7cd82_0%,#cfab48_55%,#b8923a_100%)] px-3.5 py-1.5 text-[11px] font-medium uppercase tracking-[0.14em] text-[#4a3a10] shadow-[inset_0_1px_1px_rgba(255,255,255,0.5),inset_0_-1px_1px_rgba(0,0,0,0.25),0_1px_2px_rgba(0,0,0,0.15)] [text-shadow:0_1px_0_rgba(255,255,255,0.35)]">
+              {/* Attribution: tight under the quote, a step smaller and
+                  dimmer than the pitch, so it groups with the quote instead
+                  of reading as another paragraph. */}
+              <p className="mt-4 text-sm text-[#7c7a70]">
                 Artur Bie&#324; &middot; the guy who built this
               </p>
 
-              <p className="mx-auto mt-6 max-w-xl text-pretty text-[#a8a69d]">
+              <p className="mx-auto mt-10 max-w-xl text-pretty text-[#a8a69d]">
                 ramka exists so nobody at your company has to. Sponsors keep
                 it maintained, and get their logo here, in front of React
                 developers who care about polish.
