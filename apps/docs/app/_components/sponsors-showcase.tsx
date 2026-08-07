@@ -120,7 +120,7 @@ export function SponsorsShowcase() {
         {/* The SVG molding as border-image. Two shadows ground it: a tight
             contact shadow and a broad soft one, like a frame on a wall. */}
         <div
-          className="relative border-22 bg-[#1a1915] shadow-[0_2px_6px_rgba(0,0,0,0.25),0_32px_64px_-16px_rgba(0,0,0,0.4)] md:aspect-4/3 md:border-28"
+          className="relative border-16 bg-[#1a1915] shadow-[0_2px_6px_rgba(0,0,0,0.25),0_32px_64px_-16px_rgba(0,0,0,0.4)] md:aspect-4/3 md:border-28"
           style={frameStyle}
         >
           {/* Cracked glass pane over the matte ("I'd rather eat glass"), with
@@ -131,46 +131,49 @@ export function SponsorsShowcase() {
               molding, which sits outside the padding box. */}
           <div
             aria-hidden
-            className="pointer-events-none absolute -inset-5.5 opacity-40 mix-blend-soft-light md:-inset-7"
+            className="pointer-events-none absolute -inset-4 opacity-40 mix-blend-soft-light md:-inset-7"
             style={noiseStyle}
           />
           {/* Matte board: warm charcoal with a beveled cut edge under the
               frame's rabbet. */}
           {/* On desktop the frame is a fixed 4:3, so the matte fills it and
               centers the content in the extra vertical room. */}
-          <div className="bg-[#1a1915] px-5 py-12 text-center shadow-[inset_0_2px_6px_rgba(0,0,0,0.6),inset_0_0_0_1px_rgba(255,255,255,0.05)] md:flex md:h-full md:flex-col md:items-center md:justify-center md:px-8 md:py-14">
+          {/* Everything inside steps down one size on mobile — avatar, type
+              scale, and spacing — so the frame stays a plausible portrait
+              instead of a 1:2 tower on phones. */}
+          <div className="bg-[#1a1915] px-5 py-9 text-center shadow-[inset_0_2px_6px_rgba(0,0,0,0.6),inset_0_0_0_1px_rgba(255,255,255,0.05)] md:flex md:h-full md:flex-col md:items-center md:justify-center md:px-8 md:py-14">
               <img
                 src="https://github.com/arturbien.png?size=192"
                 alt="Artur, creator of ramka"
                 width={96}
                 height={96}
                 loading="lazy"
-                className="mx-auto mb-7 size-20 rounded-full ring-1 ring-white/15 md:size-24"
+                className="mx-auto mb-5 size-16 rounded-full ring-1 ring-white/15 md:mb-7 md:size-24"
               />
-              <h2 className="text-balance text-3xl font-semibold tracking-tight text-[#f5f3ec] md:text-4xl">
+              <h2 className="text-balance text-2xl font-semibold tracking-tight text-[#f5f3ec] md:text-4xl">
                 &ldquo;I&rsquo;d rather eat glass than build this again.&rdquo;
               </h2>
 
               {/* Attribution: tight under the quote, a step smaller and
                   dimmer than the pitch, so it groups with the quote instead
                   of reading as another paragraph. */}
-              <p className="mt-4 text-sm text-[#7c7a70]">
+              <p className="mt-3 text-xs text-[#7c7a70] md:mt-4 md:text-sm">
                 Artur Bie&#324; &middot; the guy who built this
               </p>
 
-              <p className="mx-auto mt-10 max-w-xl text-pretty text-[#a8a69d]">
+              <p className="mx-auto mt-6 max-w-xl text-pretty text-sm text-[#a8a69d] md:mt-10 md:text-base">
                 ramka exists so nobody at your company has to. Sponsors keep
                 it maintained, and get their logo here, in front of React
                 developers who care about polish.
               </p>
 
               {/* Buttons keep fixed colors tuned for the dark matte. */}
-              <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+              <div className="mt-6 flex flex-wrap items-center justify-center gap-2.5 md:mt-8 md:gap-3">
                 <a
                   href={SPONSOR_URL}
                   target="_blank"
                   rel="noreferrer"
-                  className="inline-flex h-11 items-center gap-2 rounded-full bg-[#f5f3ec] px-6 text-sm font-medium text-neutral-900 transition hover:bg-[#dedcd2]"
+                  className="inline-flex h-10 items-center gap-2 rounded-full bg-[#f5f3ec] px-5 text-sm font-medium text-neutral-900 transition hover:bg-[#dedcd2] md:h-11 md:px-6"
                 >
                   <Heart aria-hidden className="h-4 w-4 fill-pink-500 text-pink-500" />
                   Become a sponsor
@@ -179,7 +182,7 @@ export function SponsorsShowcase() {
                   href={X_URL}
                   target="_blank"
                   rel="noreferrer"
-                  className="inline-flex h-11 items-center gap-2 rounded-full border border-white/20 px-6 text-sm font-medium text-[#f5f3ec] transition hover:bg-white/10"
+                  className="inline-flex h-10 items-center gap-2 rounded-full border border-white/20 px-5 text-sm font-medium text-[#f5f3ec] transition hover:bg-white/10 md:h-11 md:px-6"
                 >
                   <XLogo className="h-3.5 w-3.5" />
                   Find me on X
