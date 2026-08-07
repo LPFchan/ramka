@@ -1,7 +1,6 @@
 import Link from 'next/link';
 
 import { ApplesToApples } from './_components/apples-to-apples';
-import { EnvironmentBanner } from './_components/environment-banner';
 import { FooterWordplay } from './_components/footer-wordplay';
 import { InstallCommand } from './_components/install-command';
 import { LandingDemo } from './_components/landing-demo';
@@ -80,11 +79,9 @@ export default function HomePage() {
           <LandingDemo />
         </section>
 
-        <ApplesToApples />
-
-        <EnvironmentBanner />
-
         <SponsorsShowcase />
+
+        <ApplesToApples />
 
         <SponsorSection />
       </main>

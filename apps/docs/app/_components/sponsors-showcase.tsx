@@ -4,7 +4,8 @@ const SPONSOR_URL = 'https://github.com/sponsors/arturbien';
  * Sponsor placement showcase: one featured banner slot and a grid of logo
  * slots, all rendered as intentional, premium-looking empty states that link
  * to GitHub Sponsors. When sponsors sign up, slots get replaced with real
- * logos. "Put your logo in the frame" trades on ramka meaning "frame".
+ * logos. The headline quote is deliberately unattributed — it reads as the
+ * maintainer speaking from experience, which is the pitch.
  */
 
 const LOGO_SLOTS = 4;
@@ -14,12 +15,12 @@ export function SponsorsShowcase() {
     <section className="mx-auto w-full max-w-5xl px-6 pb-24 md:pb-32">
       <div className="mx-auto max-w-3xl text-center">
         <h2 className="text-balance text-3xl font-semibold tracking-tight text-neutral-950 md:text-4xl dark:text-neutral-50">
-          Put your logo in the frame.
+          &ldquo;I&rsquo;d rather eat glass than build this again.&rdquo;
         </h2>
         <p className="mx-auto mt-4 max-w-xl text-pretty text-neutral-500 dark:text-neutral-400">
-          Sponsors get their brand here, in front of React developers who care
-          about polish. One featured spot, a handful of logo spots, all of
-          them currently very available.
+          ramka exists so nobody at your company has to. Sponsors keep it
+          maintained, and get their logo here, in front of React developers
+          who care about polish.
         </p>
       </div>
 
@@ -53,12 +54,18 @@ export function SponsorsShowcase() {
             </a>
           ))}
         </div>
-      </div>
 
-      <p className="mt-6 text-center text-xs text-neutral-400 dark:text-neutral-600">
-        Logos are displayed at their native aspect ratio. It&rsquo;s kind of
-        our thing.
-      </p>
+        <p className="mt-6 text-center text-sm">
+          <a
+            href={SPONSOR_URL}
+            target="_blank"
+            rel="noreferrer"
+            className="text-neutral-500 underline-offset-4 transition hover:text-neutral-900 hover:underline dark:text-neutral-400 dark:hover:text-neutral-100"
+          >
+            Become a sponsor &rarr;
+          </a>
+        </p>
+      </div>
     </section>
   );
 }

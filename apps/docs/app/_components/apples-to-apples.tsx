@@ -1,10 +1,10 @@
 import { Check } from 'lucide-react';
 
 /**
- * Landing page comparison section, styled after Apple's product-compare
- * pages: airy columns, hairline rules, checkmarks. The joke is in the copy —
- * the rows are a legitimate feature list, the competing columns just answer
- * honestly. Static content, so this stays a server component.
+ * Landing page comparison section: airy columns, hairline rules, checkmarks.
+ * The rows are a legitimate feature list; the humor is confined to the
+ * competing columns answering honestly. Static content, so this stays a
+ * server component.
  */
 
 type Row = {
@@ -23,7 +23,6 @@ const ROWS: Row[] = [
   { feature: 'View transitions', ramka: true, diy: 'weekend project', plugin: 'fade()' },
   { feature: 'Respects reduced motion', ramka: true, diy: 'oops', plugin: '\u2014' },
   { feature: 'Accessible out of the box', ramka: true, diy: 'TODO', plugin: '\u2014' },
-  { feature: 'Apples, compared to', ramka: 'apples', diy: 'apples', plugin: 'oranges' },
 ];
 
 function Cell({ value }: { value: true | string }) {
@@ -37,7 +36,7 @@ export function ApplesToApples() {
   return (
     <section className="mx-auto w-full max-w-3xl px-6 pb-24">
       <h2 className="text-balance text-center text-3xl font-semibold tracking-tight text-neutral-950 md:text-4xl dark:text-neutral-50">
-        Apples to apples.
+        How it compares.
       </h2>
       <p className="mx-auto mt-4 max-w-md text-pretty text-center text-neutral-500 dark:text-neutral-400">
         Every lightbox claims it feels native. Here is a fair comparison. Mostly.
@@ -90,9 +89,6 @@ export function ApplesToApples() {
         </tbody>
       </table>
 
-      <p className="mt-6 text-center text-xs text-neutral-400 dark:text-neutral-600">
-        Comparison conducted under laboratory conditions. No oranges were harmed.
-      </p>
     </section>
   );
 }
