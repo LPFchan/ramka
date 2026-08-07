@@ -4,16 +4,27 @@
  */
 
 .lightbox-demo-content {
-  --lightbox-inset-top: calc(3.5rem + env(safe-area-inset-top, 0px));
-  /* Mobile: no thumbnail-strip → shorter bottom. md+ matches thumbnail-strip row. */
-  --lightbox-inset-bottom: calc(3.5rem + env(safe-area-inset-bottom, 0px));
+  /*
+   * Mobile: equal top/bottom so the media is perfectly vertically centered.
+   * 4rem clears the close button row above and the caption + counter cluster
+   * below (no thumbnail-strip on mobile).
+   */
+  --lightbox-inset-top: calc(4rem + env(safe-area-inset-top, 0px));
+  --lightbox-inset-bottom: calc(4rem + env(safe-area-inset-bottom, 0px));
   --lightbox-inset-inline: 0px;
 }
 
 @media (min-width: 768px) {
   .lightbox-demo-content {
+    /*
+     * Roomier desktop letterbox. Bottom = thumbnail-strip row (4rem) +
+     * one-line info bar (~1.75rem incl. gap) + the same optical gap the
+     * media keeps to the corner controls above, so the letterbox reads
+     * symmetric.
+     */
+    --lightbox-inset-top: calc(4.5rem + env(safe-area-inset-top, 0px));
     --lightbox-inset-bottom: calc(7.5rem + env(safe-area-inset-bottom, 0px));
-    --lightbox-inset-inline: 2rem;
+    --lightbox-inset-inline: 3rem;
   }
 }
 

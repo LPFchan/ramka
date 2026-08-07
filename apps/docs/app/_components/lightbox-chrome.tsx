@@ -269,12 +269,6 @@ export function LightboxGallery({
           can’t win when a sibling slide creates a higher stacking context.
         */}
         <div
-          className={`lightbox-demo-chrome-top lightbox-demo-chrome-hide absolute left-3 top-[calc(0.75rem+env(safe-area-inset-top,0px))] z-30`}
-        >
-          <Lightbox.Counter className="min-w-[3.5rem] font-mono text-sm tabular-nums text-black/70 dark:text-white/70" />
-        </div>
-
-        <div
           className={`lightbox-demo-chrome-top lightbox-demo-chrome-hide absolute right-3 top-[calc(0.75rem+env(safe-area-inset-top,0px))] z-30 flex gap-2`}
         >
           {zoomControls ? (
@@ -295,8 +289,18 @@ export function LightboxGallery({
         <div
           className={`lightbox-demo-chrome-bottom lightbox-demo-chrome-hide pointer-events-none absolute inset-x-0 bottom-0 z-30 flex flex-col items-center gap-3 px-3 pb-[calc(1rem+env(safe-area-inset-bottom,0px))]`}
         >
-          <Lightbox.Caption className="pointer-events-auto block min-h-[1.25rem] max-w-full truncate px-6 text-center text-sm text-black/70 dark:text-white/80" />
-
+          {/*
+            Caption under the media, placard-style, on every breakpoint. The
+            counter is visible on mobile where there's no strip to show
+            position; on md+ the strip covers that, so the counter collapses
+            to sr-only and keeps only its aria-live announcement role.
+          */}
+          <div className="flex max-w-full flex-col items-center text-center">
+            <Lightbox.Caption className="block max-w-full truncate text-[13px] font-medium leading-tight text-neutral-900 dark:text-neutral-50" />
+            <Lightbox.Counter className="text-[11px] leading-tight tabular-nums text-neutral-500 dark:text-neutral-400 md:sr-only">
+              {({ current, total }) => `${current} of ${total}`}
+            </Lightbox.Counter>
+          </div>
           {thumbnails !== 'never' ? (
             <GalleryThumbnailStrip items={items} className={thumbClass} />
           ) : null}
