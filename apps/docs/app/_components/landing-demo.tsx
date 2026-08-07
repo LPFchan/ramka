@@ -11,71 +11,115 @@ import {
 } from './lightbox-chrome';
 
 /**
- * Mixed aspect ratios on purpose — the masonry grid reads like a real photo
- * wall, and the open morph is more impressive when the thumb and the slide
- * have different shapes.
+ * Landing gallery. Three morph flavors on one clean wall:
  *
- * Tile shapes are forced with CSS `aspect-ratio` + `object-cover` (the morph
- * bridges a cropped trigger to the full image), so each breakpoint gets its
- * own column math regardless of the source dimensions:
+ * - Most photo tiles keep their natural aspect ratio on md+ (no important
+ *   pixels cropped away) and open with the plain image morph.
+ * - The plane tile is the cross-aspect showcase: a portrait 3:4 source shown
+ *   as a wide cinematic tile (sky crops beautifully), so opening it morphs
+ *   wide -> tall.
+ * - The last tile is a "+2" stack: two more photos hide behind it, and
+ *   `crossfade="both"` dissolves the overlaid tile into the clean photo
+ *   instead of stretching the "+2" badge (morphTo="closest" on Root brings
+ *   closes from hidden items back to this tile).
  *
- *   mobile, 2 cols of 3:  0.75 + 1.25 + 1.0 = 1.0 + 0.7 + 1.3  (balanced)
- *   md+, 3 cols of 2:     1.25 + 0.75 | 1.4 + 1.0 | 1.2 + 0.8
- *                         = 2.0 | 2.4 | 2.0  (middle column sticks out)
+ * Column math (height ratios): desktop is 2-3-2 with the middle column
+ * sticking out — 0.67+1.25 | 1.0+0.6+0.63 | 1.23+0.63 = 1.92 | 2.23 | 1.86.
+ * Mobile is 3+4 with mild aspect nudges (never inverting orientation):
+ * 0.75+1.25+1.0 = 3.0 | 0.6+0.7+1.1+0.63 = 3.03.
  *
- * The md+ shapes deliberately invert each source's orientation (landscape
- * photos get portrait tiles and vice versa) so every open morphs across
- * aspect ratios instead of just scaling up.
+ * Every tile carries an explicit `aspect-ratio`, and the column split is
+ * forced with `break-before: column` per breakpoint (`breakClass`) —
+ * Safari's column balancer deals tiles unevenly when left to its own devices.
  */
-const images: (LightboxGalleryItem & { tileClass: string })[] = [
+const visibleImages: (LightboxGalleryItem & { tileClass: string; breakClass: string })[] = [
   {
     src: 'https://picsum.photos/seed/ramka-a/1600/1067',
     thumb: 'https://picsum.photos/seed/ramka-a/800/533',
     alt: 'Person standing in a sunlit meadow at golden hour',
     caption: 'Golden hour in the meadow',
-    tileClass: 'aspect-[4/3] md:aspect-[4/5]',
+    tileClass: 'aspect-[4/3] md:aspect-[3/2]',
+    breakClass: '',
   },
   {
     src: 'https://picsum.photos/seed/ramka-b/1200/1500',
     thumb: 'https://picsum.photos/seed/ramka-b/800/1000',
     alt: 'Seashells scattered along the shoreline',
     caption: 'Seashells on the shore',
-    tileClass: 'aspect-[4/5] md:aspect-[4/3]',
+    tileClass: 'aspect-[4/5]',
+    breakClass: '',
   },
   {
     src: 'https://picsum.photos/seed/ramka-c/1400/1400',
     thumb: 'https://picsum.photos/seed/ramka-c/800/800',
     alt: 'Curved building facade in black and white',
     caption: 'Curved facade, in monochrome',
-    tileClass: 'aspect-square md:aspect-[5/7]',
+    tileClass: 'aspect-square',
+    breakClass: 'md:break-before-column',
   },
   {
     src: 'https://picsum.photos/seed/ramka-d/1200/1600',
     thumb: 'https://picsum.photos/seed/ramka-d/800/1067',
     alt: 'Airplane crossing a purple sky above the clouds',
     caption: 'Above the clouds at dusk',
-    tileClass: 'aspect-square',
+    // Cross-aspect showcase: portrait 3:4 source in a wide 5:3 tile. The sky
+    // survives the crop, and the open morphs wide -> tall.
+    tileClass: 'aspect-[5/3]',
+    breakClass: 'break-before-column md:break-before-auto',
   },
   {
     src: 'https://picsum.photos/seed/ramka-e/1600/1000',
     thumb: 'https://picsum.photos/seed/ramka-e/800/500',
     alt: 'Fog rolling over dark hills',
     caption: 'Fog rolling over the valley',
-    tileClass: 'aspect-[10/7] md:aspect-[5/6]',
+    tileClass: 'aspect-[10/7] md:aspect-[8/5]',
+    breakClass: '',
   },
   {
     src: 'https://picsum.photos/seed/ramka-f/1300/1600',
     thumb: 'https://picsum.photos/seed/ramka-f/800/985',
     alt: 'Aerial view of a road entering twin forest tunnels',
     caption: 'Twin tunnels from above',
-    tileClass: 'aspect-[10/13] md:aspect-[5/4]',
+    tileClass: 'aspect-[10/11] md:aspect-[13/16]',
+    breakClass: 'md:break-before-column',
+  },
+  {
+    src: 'https://picsum.photos/seed/ramka-g/1600/1000',
+    thumb: 'https://picsum.photos/seed/ramka-g/800/500',
+    alt: 'Bride seen through the windows of a vintage car',
+    caption: 'Through the wedding car window',
+    tileClass: 'aspect-[8/5]',
+    breakClass: '',
   },
 ];
 
-/** Landing hero demo — masonry triggers + the full docs viewer chrome. */
+/** Behind the "+2" tile — no triggers of their own. */
+const hiddenImages: LightboxGalleryItem[] = [
+  {
+    src: 'https://picsum.photos/seed/ramka-h/1200/1500',
+    thumb: 'https://picsum.photos/seed/ramka-h/800/1000',
+    alt: 'Sandstone hoodoos under a summer sky',
+    caption: 'Hoodoos under a summer sky — Bryce Canyon',
+  },
+  {
+    src: 'https://picsum.photos/seed/ramka-i/1600/1600',
+    thumb: 'https://picsum.photos/seed/ramka-i/800/800',
+    alt: 'The Leaning Tower of Pisa at dusk',
+    caption: 'The leaning arches of Pisa',
+  },
+];
+
+const allImages: LightboxGalleryItem[] = [...visibleImages, ...hiddenImages];
+
+/** Landing hero demo — masonry triggers + a +N stack + the docs viewer chrome. */
 export function LandingDemo() {
+  const lastIndex = visibleImages.length - 1;
+
   return (
     <Lightbox.Root
+      // Closing from a hidden item (no trigger of its own) morphs back to
+      // the nearest registered trigger — the "+2" stack tile.
+      morphTo="closest"
       // Same pairing as the Photos app example: instant repositioning is
       // invisible behind the solid backdrop, and the close morph always lands
       // on an on-screen tile instead of jumping to one scrolled away.
@@ -85,31 +129,54 @@ export function LandingDemo() {
       ]}
     >
       <div className="columns-2 gap-3 md:columns-3 md:gap-4">
-        {images.map((img, i) => (
-          <Lightbox.Trigger
-            key={img.src}
-            index={i}
-            // scroll-margin gives scrollTriggerIntoView breathing room: with
-            // `block: 'nearest'` the page scrolls minimally, which would leave
-            // the tile flush with the viewport edge — and the close morph
-            // starting right at the edge. This keeps it comfortably inset.
-            className={`mb-3 block w-full break-inside-avoid scroll-my-12 overflow-hidden rounded-xl bg-neutral-100 p-0 md:mb-4 md:rounded-2xl dark:bg-neutral-900 ${triggerMorphHideClass} ${triggerFocusClass}`}
-          >
-            {({ imageRef }) => (
-              <img
-                ref={imageRef}
-                {...imgDims(img.thumb)}
-                src={img.thumb}
-                alt={img.alt}
-                loading="eager"
-                draggable={false}
-                className={`block h-auto w-full select-none object-cover transition-transform duration-300 ease-out hover:scale-[1.02] ${img.tileClass}`}
-              />
-            )}
-          </Lightbox.Trigger>
-        ))}
+        {visibleImages.map((img, i) => {
+          const isStack = i === lastIndex;
+          return (
+            <Lightbox.Trigger
+              key={img.src}
+              index={i}
+              // The stack tile's content (photo + "+2" scrim) doesn't match
+              // the clean slide, so dissolve both ways instead of morphing.
+              crossfade={isStack ? 'both' : undefined}
+              aria-label={isStack ? `Show ${hiddenImages.length} more photos` : undefined}
+              // scroll-margin gives scrollTriggerIntoView breathing room: with
+              // `block: 'nearest'` the page scrolls minimally, which would leave
+              // the tile flush with the viewport edge — and the close morph
+              // starting right at the edge. This keeps it comfortably inset.
+              // Overlays (the "+2" scrim and the ::after hairline) are stacked
+              // via grid cells, not position:absolute — abspos children of
+              // multicol items don't paint reliably in Safari.
+              // The ::after draws an Apple-style 0.5px inset outline so dark
+              // photos don't bleed into the dark-mode background (and bright
+              // ones into light mode).
+              className={`mb-3 grid w-full break-inside-avoid scroll-my-12 overflow-hidden rounded-xl bg-neutral-100 p-0 after:pointer-events-none after:z-20 after:col-start-1 after:row-start-1 after:rounded-[inherit] after:shadow-[inset_0_0_0_0.5px_rgba(0,0,0,0.1)] after:content-[''] md:mb-4 md:rounded-2xl dark:bg-neutral-900 dark:after:shadow-[inset_0_0_0_0.5px_rgba(255,255,255,0.12)] ${img.breakClass} ${triggerMorphHideClass} ${triggerFocusClass}`}
+            >
+              {({ imageRef }) => (
+                <>
+                  <img
+                    ref={imageRef}
+                    {...imgDims(img.thumb)}
+                    src={img.thumb}
+                    alt={img.alt}
+                    loading="eager"
+                    draggable={false}
+                    className={`col-start-1 row-start-1 block h-full w-full select-none object-cover ${img.tileClass}`}
+                  />
+                  {isStack ? (
+                    <span
+                      aria-hidden
+                      className="z-10 col-start-1 row-start-1 flex items-center justify-center bg-black/40 text-2xl font-medium tracking-tight text-white"
+                    >
+                      +{hiddenImages.length}
+                    </span>
+                  ) : null}
+                </>
+              )}
+            </Lightbox.Trigger>
+          );
+        })}
       </div>
-      <LightboxGallery items={images} ariaLabel="ramka demo gallery" backdrop="solid" />
+      <LightboxGallery items={allImages} ariaLabel="ramka demo gallery" backdrop="solid" />
     </Lightbox.Root>
   );
 }
