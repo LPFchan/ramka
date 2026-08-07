@@ -1,5 +1,6 @@
 import Link from 'next/link';
 
+import { FooterWordplay } from './_components/footer-wordplay';
 import { InstallCommand } from './_components/install-command';
 import { LandingDemo } from './_components/landing-demo';
 import { ThemeToggle } from './_components/theme-toggle';
@@ -78,9 +79,7 @@ export default function HomePage() {
 
       <footer className="border-t border-neutral-200 dark:border-neutral-800">
         <div className="mx-auto flex w-full max-w-5xl flex-wrap items-center justify-between gap-4 px-6 py-8 text-sm text-neutral-500 dark:text-neutral-400">
-          <p>
-            <span className="text-neutral-400 dark:text-neutral-600">ramka - Polish for “frame”.</span>
-          </p>
+          <FooterWordplay />
           <nav className="flex items-center gap-5">
             <Link href="/docs" className="transition hover:text-neutral-900 dark:hover:text-neutral-100">
               Docs
