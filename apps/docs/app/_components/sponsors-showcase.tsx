@@ -163,9 +163,11 @@ export function SponsorsShowcase() {
               </p>
 
               <p className="mx-auto mt-6 max-w-xl text-pretty text-sm text-[#a8a69d] md:mt-10 md:text-base">
-                ramka exists so nobody at your company has to. Sponsors keep
-                it maintained, and get their logo here, in front of React
-                developers who care about polish.
+                Exhibit A: what building a lightbox does to a person. Sponsors
+                keep{' '}
+                <span className="font-medium text-[#e9e7de]">ramka</span>{' '}
+                maintained, and their logo hangs in this gallery, in front of
+                React developers who care about polish.
               </p>
 
               {/* Buttons keep fixed colors tuned for the dark matte. */}
@@ -174,7 +176,7 @@ export function SponsorsShowcase() {
                   href={SPONSOR_URL}
                   target="_blank"
                   rel="noreferrer"
-                  className="inline-flex h-10 items-center gap-2 rounded-full bg-[#f5f3ec] px-5 text-sm font-medium text-neutral-900 transition hover:bg-[#dedcd2] md:h-11 md:px-6"
+                  className="inline-flex h-10 items-center gap-2 rounded-full bg-[#f5f3ec] pl-3 pr-5 text-sm font-medium text-neutral-900 transition hover:bg-[#dedcd2] md:h-11 md:pl-3.5 md:pr-6"
                 >
                   <Heart aria-hidden className="h-4 w-4 fill-pink-500 text-pink-500" />
                   Become a sponsor
@@ -183,10 +185,10 @@ export function SponsorsShowcase() {
                   href={X_URL}
                   target="_blank"
                   rel="noreferrer"
-                  className="inline-flex h-10 items-center gap-2 rounded-full border border-white/20 px-5 text-sm font-medium text-[#f5f3ec] transition hover:bg-white/10 md:h-11 md:px-6"
+                  className="inline-flex h-10 items-center gap-2 rounded-full border border-white/20 pl-3 pr-5 text-sm font-medium text-[#f5f3ec] transition hover:bg-white/10 md:h-11 md:pl-3.5 md:pr-6"
                 >
                   <XLogo className="h-3.5 w-3.5" />
-                  Find me on X
+                  Find me
                 </a>
               </div>
           </div>
