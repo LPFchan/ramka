@@ -33,6 +33,19 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         sit above page content without competing with in-app z-index values.
       */}
       <body className="relative min-h-screen bg-background text-foreground antialiased">
+        {/* View Transition debugging (see ramka's vt-debug.ts and
+            vt-composited-morph.ts): append ?vtdebug to stream per-frame morph
+            traces to /api/vt-log. The experimental transform-only compositor
+            morph is ON by default; append ?vtstock to fall back to the stock
+            UA morph for A/B comparison. Inline so the flags are set before
+            any user interaction can start a transition. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              'if(/[?&]vtdebug/.test(location.search))window.__RAMKA_VT_DEBUG__=true;' +
+              'if(/[?&]vtstock/.test(location.search))window.__RAMKA_VT_COMPOSITED__=false;',
+          }}
+        />
         <ThemeProvider>
           <TooltipProvider delay={150}>
             <div className="isolate flex min-h-screen">

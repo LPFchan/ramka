@@ -4,6 +4,8 @@ import * as React from 'react';
 import { flushSync } from 'react-dom';
 
 import { isFirefox } from './is-firefox';
+import { maybeTraceViewTransition } from './vt-debug';
+import { maybeUpgradeToCompositedMorph } from './vt-composited-morph';
 import { VIEW_TRANSITION_NAME, findItemMorphTarget, findTriggerMorphTarget } from './lightbox-context';
 import { LightboxDocumentCssVars } from './lightbox-css-vars';
 import {
@@ -22,10 +24,13 @@ import {
  */
 function startViewTransition(
   callback: () => void | Promise<void>,
-): { finished: Promise<void> } {
+): { finished: Promise<void>; ready?: Promise<void> } {
   return (
     document as Document & {
-      startViewTransition: (cb: () => void | Promise<void>) => { finished: Promise<void> };
+      startViewTransition: (cb: () => void | Promise<void>) => {
+        finished: Promise<void>;
+        ready?: Promise<void>;
+      };
     }
   ).startViewTransition(callback);
 }
@@ -961,6 +966,10 @@ function useViewTransitionMorph(config: ViewTransitionMorphConfig): ViewTransiti
         itemEl.setAttribute('data-skip-fade', '');
       }
     });
+    maybeTraceViewTransition(transition, 'opening');
+    if (canMorph) {
+      maybeUpgradeToCompositedMorph(transition);
+    }
 
     transition.finished.finally(() => {
       restoreFirefoxCaptureInset?.();
@@ -1085,6 +1094,10 @@ function useViewTransitionMorph(config: ViewTransitionMorphConfig): ViewTransiti
         setMorphName(triggerTarget!);
       }
     });
+    maybeTraceViewTransition(transition, 'closing');
+    if (canMorph) {
+      maybeUpgradeToCompositedMorph(transition);
+    }
 
     transition.finished.finally(() => {
       restoreFirefoxCaptureInset?.();
