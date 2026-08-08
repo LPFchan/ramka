@@ -34,10 +34,11 @@ import * as React from 'react';
  * A live SVG filter on an element is re-evaluated whenever the browser
  * re-rasterizes that layer — notably every View Transition snapshot, which
  * the lightbox takes constantly. Instead the whole pane (geometry + filter)
- * is serialized into a standalone SVG data URI and set as background-image:
- * the browser rasterizes the image once per size, caches the bitmap, and
- * everything after that is plain texture compositing. The filter runs only
- * when the URI changes: mount, debounced resize, and once on shatter.
+ * is serialized into a standalone SVG document, rasterized once through an
+ * offscreen canvas into a PNG, and set as background-image: everything
+ * after that is plain texture compositing of a cached bitmap. The filter
+ * runs only when the pane changes: mount, debounced resize, and once on
+ * shatter.
  */
 
 /** Radial cracks running from the impact point (63,34) to the pane edges. */
@@ -68,6 +69,27 @@ const SECONDARY_CRACKS = [
 
 /** Translucent facets near the impact, where shards tilt out of plane. */
 const FACETS = ['63,34 58,28 60,24', '63,34 75,38 71,37'];
+
+/**
+ * The crushed zone: dense micro-cracks within a few units of the impact,
+ * where the glass pulverized. Radiating stubs plus a few tangential hops;
+ * drawn as the finest hairlines and frosted over by a radial gradient.
+ */
+const MICRO_CRACKS = [
+  '63,34 60.2,31.4',
+  '63,34 61.4,37.6',
+  '63,34 66.8,35.8',
+  '63,34 64.9,30.2',
+  '63,34 59.6,34.9',
+  '63,34 66.3,31.7',
+  '63,34 61.1,30.1',
+  '63,34 65.7,37.1',
+  '60.2,31.4 59,30.8',
+  '66.8,35.8 68,36.6',
+  '61.4,37.6 60.6,39',
+  '64.9,30.2 65.6,28.8',
+  '59.6,34.9 58.2,35.4',
+];
 
 /**
  * Tiny pieces near the impact that fell out of the pane: punched out of the
@@ -164,43 +186,103 @@ function warpPoints(points: string, impact: { x: number; y: number }): string {
 
 /**
  * Serializes the pane — crack geometry plus the lighting filter — into a
- * standalone SVG document sized to the pane's CSS pixels. Pixel sizing
- * matters: the filter primitives (blur radius, light position and height)
- * are pixel quantities, so they live on the outer SVG, while the authored
- * 0-100 geometry sits in a nested <svg> stretched over it. Strokes use
+ * standalone SVG document sized to the pane's pixels. Pixel sizing
+ * matters: the filter primitives (blur radius, surface scale) are pixel
+ * quantities, so they live on the outer SVG, while the authored 0-100
+ * geometry sits in a nested <svg> stretched over it. Strokes use
  * vector-effect="non-scaling-stroke" so they stay at their authored pixel
- * widths despite the stretch. The browser rasterizes the image at device
- * resolution, so it stays crisp on retina displays.
+ * widths despite the stretch.
+ *
+ * `scale` supersamples the document: intrinsic size, stroke widths, and
+ * filter pixel quantities are all multiplied, and background-size squeezes
+ * it back down. Chrome rasterizes SVG backgrounds at device resolution
+ * anyway, but WebKit rasterizes filtered SVG content at the intrinsic 1x
+ * size and upscales — which reads as thick, soft cracks on retina. Baking
+ * the 2x in makes both engines sample the same detail.
  */
 function buildPaneSvg(
-  width: number,
-  height: number,
+  cssWidth: number,
+  cssHeight: number,
   impact: { x: number; y: number } | null,
+  scale: number,
 ): string {
+  const width = Math.round(cssWidth * scale);
+  const height = Math.round(cssHeight * scale);
+
   const fill = (tag: 'polygon' | 'rect', attrs: string, color: string) =>
     `<${tag} ${attrs} fill="${color}"/>`;
+  // Stroke widths are given in CSS pixels and scaled here: non-scaling
+  // strokes resolve against the outer (supersampled) viewport.
   const stroke = (
     tag: 'polygon' | 'polyline',
     points: string,
     color: string,
     px: number,
   ) =>
-    `<${tag} points="${points}" fill="none" stroke="${color}" stroke-width="${px}" vector-effect="non-scaling-stroke"/>`;
+    `<${tag} points="${points}" fill="none" stroke="${color}" stroke-width="${px * scale}" vector-effect="non-scaling-stroke"/>`;
+
+  const nested = (inner: string) =>
+    `<svg width="${width}" height="${height}" viewBox="0 0 100 100" preserveAspectRatio="none">${inner}</svg>`;
 
   let content: string;
+  // Shadow work drawn UNDER the lit pane, outside the filter: crack far
+  // edges and hole shading must not glint, they are where light is lost.
+  let underContent = '';
   if (impact === null) {
     // The intact sheet: one flat plate, so the light plays a soft sheen
     // across the whole pane and nothing else.
     content = fill('rect', 'width="100" height="100"', 'rgba(255,255,255,0.07)');
   } else {
     const w = (points: string) => warpPoints(points, impact);
+
+    // Every hole in the pane: the two fallen wedges plus the merged
+    // fallen-bit outlines.
+    const holes = [
+      ...SHARDS.filter((s) => s.fallen).map((s) => w(s.points)),
+      ...FALLEN_BIT_RIMS.map(w),
+    ];
+
+    underContent =
+      `<defs>` +
+      holes
+        .map((p, i) => `<clipPath id="hole${i}"><polygon points="${p}"/></clipPath>`)
+        .join('') +
+      `</defs>` +
+      // Recessed holes: the matte sits behind the glass plane, so it gets a
+      // slight overall dim plus an inner shadow hugging the rims (clipped to
+      // the hole so the shadow band never bleeds onto the glass).
+      holes
+        .map(
+          (p, i) =>
+            `<g clip-path="url(#hole${i})">` +
+            fill('polygon', `points="${p}"`, 'rgba(0,0,0,0.14)') +
+            `<polygon points="${p}" fill="none" stroke="rgba(0,0,0,0.32)" stroke-width="${5 * scale}" vector-effect="non-scaling-stroke"/>` +
+            `</g>`,
+        )
+        .join('') +
+      // Pane thickness: each crack's far edge is in shadow, so a dark line
+      // hugs every bright hairline, offset away from the light (top-left).
+      `<g transform="translate(0.18,0.18)">` +
+      PRIMARY_CRACKS.map((p) => stroke('polyline', w(p), 'rgba(8,10,14,0.32)', 2.2)).join('') +
+      SECONDARY_CRACKS.map((p) => stroke('polyline', w(p), 'rgba(8,10,14,0.22)', 1.3)).join('') +
+      `</g>`;
+
     content =
       // The mask knocks the fallen bits out of everything painted below:
       // fills, facets, and any cracks crossing them.
       `<defs><mask id="holes" maskUnits="userSpaceOnUse" x="0" y="0" width="100" height="100">` +
       fill('rect', 'width="100" height="100"', '#fff') +
       FALLEN_BITS.map((p) => fill('polygon', `points="${w(p)}"`, '#000')).join('') +
-      `</mask></defs>` +
+      `</mask>` +
+      // The crushed zone's frost: a tight core that dies off fast. Kept
+      // small and steep — a wide, even gradient reads as a soft glow blob,
+      // not pulverized glass; the micro-cracks carry most of the effect.
+      `<radialGradient id="crush" gradientUnits="userSpaceOnUse" cx="${impact.x}" cy="${impact.y}" r="3.5">` +
+      `<stop offset="0" stop-color="#fff" stop-opacity="0.18"/>` +
+      `<stop offset="0.3" stop-color="#fff" stop-opacity="0.05"/>` +
+      `<stop offset="1" stop-color="#fff" stop-opacity="0"/>` +
+      `</radialGradient>` +
+      `</defs>` +
       `<g mask="url(#holes)">` +
       // Surviving glass plates: flat fills at slightly different heights.
       // Fallen pieces render nothing — bare matte.
@@ -213,6 +295,10 @@ function buildPaneSvg(
         .map((s) => stroke('polygon', w(s.points), 'rgba(245,248,255,0.4)', 1.4))
         .join('') +
       FACETS.map((p) => fill('polygon', `points="${w(p)}"`, 'rgba(255,255,255,0.06)')).join('') +
+      // Crushed zone: frost plus pulverized micro-cracks, right where the
+      // pane was struck. Lives in the lit layer so it sparkles.
+      `<circle cx="${impact.x}" cy="${impact.y}" r="3.5" fill="url(#crush)"/>` +
+      MICRO_CRACKS.map((p) => stroke('polyline', w(p), 'rgba(235,240,255,0.14)', 0.5)).join('') +
       PRIMARY_CRACKS.map((p) => stroke('polyline', w(p), 'rgba(235,240,255,0.18)', 1.1)).join('') +
       SECONDARY_CRACKS.map((p) => stroke('polyline', w(p), 'rgba(235,240,255,0.12)', 0.7)).join('') +
       `</g>` +
@@ -220,7 +306,7 @@ function buildPaneSvg(
       // visible around the tiny holes.
       FALLEN_BIT_RIMS.map((p) => stroke('polygon', w(p), 'rgba(245,248,255,0.35)', 0.8)).join('') +
       // The impact crater itself: a bright speck that stays lit.
-      `<circle cx="${impact.x}" cy="${impact.y}" r="0.6" fill="rgba(255,255,255,0.5)"/>`;
+      `<circle cx="${impact.x}" cy="${impact.y}" r="0.7" fill="rgba(255,255,255,0.55)"/>`;
   }
 
   return (
@@ -232,24 +318,25 @@ function buildPaneSvg(
     // Small blur: shard plateaus stay flat (glass plates), and the alpha
     // steps at cracks and hole rims become thin sharp ridges. A big blur
     // here reads as embossed fabric, not glass.
-    `<feGaussianBlur in="boost" stdDeviation="0.8" result="bump"/>` +
+    `<feGaussianBlur in="boost" stdDeviation="${0.8 * scale}" result="bump"/>` +
     // A distant (parallel) light instead of a point light: no local hotspot
     // blob — every crack ridge angled toward the light glints uniformly
     // across the whole pane, like window light hitting beveled glass. From
     // the top-left (azimuth 225, y-down), grazing low (elevation 28) so the
     // ridges rake bright while the flats stay dark; the constant is raised
     // to compensate for the shallower angle.
-    `<feSpecularLighting in="bump" result="light" surfaceScale="6" specularConstant="1.7" specularExponent="30" lighting-color="#ffffff">` +
+    // surfaceScale is a pixel height: at 2x the alpha ramps spread over
+    // twice the pixels, so the height doubles too to keep the same slopes.
+    `<feSpecularLighting in="bump" result="light" surfaceScale="${6 * scale}" specularConstant="1.7" specularExponent="30" lighting-color="#ffffff">` +
     `<feDistantLight azimuth="225" elevation="28"/>` +
     `</feSpecularLighting>` +
     // Clip glints to the pane, then add them over the source.
     `<feComposite in="light" in2="bump" operator="in" result="glints"/>` +
     `<feComposite in="SourceGraphic" in2="glints" operator="arithmetic" k1="0" k2="1" k3="1" k4="0"/>` +
     `</filter>` +
+    (underContent ? nested(underContent) : '') +
     `<g filter="url(#f)">` +
-    `<svg width="${width}" height="${height}" viewBox="0 0 100 100" preserveAspectRatio="none">` +
-    content +
-    `</svg>` +
+    nested(content) +
     `</g>` +
     `</svg>`
   );
@@ -319,6 +406,19 @@ export function BrokenGlassShine({ className }: { className?: string }) {
         y: clamp(((event.clientY - box.top) / box.height) * 100),
       });
 
+      // A blink of white as the pane lets go: breaking glass is an event,
+      // not a state change. Barely-there — it should register as a flicker
+      // of light, not a camera flash. Skipped under reduced motion.
+      if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        pane.animate(
+          [
+            { backgroundColor: 'rgba(255,255,255,0.12)' },
+            { backgroundColor: 'rgba(255,255,255,0)' },
+          ],
+          { duration: 110, easing: 'ease-out' },
+        );
+      }
+
       // If this click was on a link, hold the navigation briefly so the
       // shatter is seen before a new tab takes over. Modified clicks
       // (cmd/ctrl/shift, middle button) open in the background anyway, so
@@ -346,10 +446,38 @@ export function BrokenGlassShine({ className }: { className?: string }) {
     return () => host.removeEventListener('click', shatter);
   }, [impact]);
 
-  const backgroundImage = React.useMemo(() => {
-    if (!size) return undefined;
-    const svg = buildPaneSvg(size.width, size.height, impact);
-    return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
+  // Rasterize the pane ourselves instead of handing the SVG data URI
+  // straight to background-image. WebKit evaluates SVG filters inside
+  // *image documents* into a low-resolution buffer regardless of the
+  // image's intrinsic size, so on Safari the cracks came out thick and
+  // soft on retina displays. Drawing the SVG onto a canvas at its exact
+  // supersampled pixel size — a 1:1 draw, no scaling anywhere — forces
+  // every engine to run the filter into real pixels; the resulting PNG
+  // is then just a bitmap and renders identically everywhere.
+  const [backgroundImage, setBackgroundImage] = React.useState<string>();
+  React.useEffect(() => {
+    if (!size) return;
+    // Supersample at the device ratio (capped at 2x: past that the extra
+    // filter work buys nothing visible).
+    const scale = Math.min(window.devicePixelRatio || 1, 2);
+    const svg = buildPaneSvg(size.width, size.height, impact, scale);
+
+    let cancelled = false;
+    const image = new Image();
+    image.onload = () => {
+      if (cancelled) return;
+      const canvas = document.createElement('canvas');
+      canvas.width = image.width;
+      canvas.height = image.height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+      ctx.drawImage(image, 0, 0);
+      setBackgroundImage(`url("${canvas.toDataURL('image/png')}")`);
+    };
+    image.src = `data:image/svg+xml,${encodeURIComponent(svg)}`;
+    return () => {
+      cancelled = true;
+    };
   }, [size, impact]);
 
   return (
