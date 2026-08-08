@@ -43,8 +43,11 @@ import { LightboxDocumentCssVars } from './lightbox-css-vars';
 //
 // The upgrade validates everything it needs BEFORE touching any state and
 // bails (leaving the stock UA morph) on: crossfade mode, missing
-// `transition.ready`/`getAnimations` support, rotated/skewed endpoint
-// transforms, or an easing it can't parse.
+// `transition.ready`/`getAnimations` support, or rotated/skewed endpoint
+// transforms.
+//
+// Timing is the morph's own (see MORPH_TIMING_DEFAULT) — identical in every
+// browser and independent of the page's view-transition CSS.
 // ---------------------------------------------------------------------------
 
 interface UpgradeableTransition {
@@ -55,6 +58,18 @@ interface UpgradeableTransition {
 /** Root attribute that activates the injected pseudo-element overrides. */
 const COMPOSITED_ATTR = 'data-ramka-vt-composited';
 
+/**
+ * Root attribute for the WebKit CSS-animation path. Separate from
+ * {@link COMPOSITED_ATTR} because the static injected sheet forces
+ * `animation: none` under that attribute — the CSS path instead carries its
+ * geometry overrides AND its generated animations in one per-transition
+ * stylesheet.
+ */
+const COMPOSITED_CSS_ATTR = 'data-ramka-vt-composited-css';
+
+/** Unique suffix for per-transition @keyframes names (forces fresh starts). */
+let cssAnimationSeq = 0;
+
 const GROUP_PSEUDO = `::view-transition-group(${VIEW_TRANSITION_NAME})`;
 const OLD_PSEUDO = `::view-transition-old(${VIEW_TRANSITION_NAME})`;
 const NEW_PSEUDO = `::view-transition-new(${VIEW_TRANSITION_NAME})`;
@@ -64,6 +79,34 @@ function isCompositedMorphEnabled(): boolean {
     typeof window !== 'undefined' &&
     (window as unknown as Record<string, unknown>).__RAMKA_VT_COMPOSITED__ !== false
   );
+}
+
+/**
+ * Safari/WebKit detection (GestureEvent has only ever shipped in WebKit).
+ *
+ * WebKit gets the replacement animations as generated CSS instead of WAAPI,
+ * and with its own timing: accelerated animations on a fresh view-transition
+ * layer tree fast-forward by Core Animation's multi-frame commit latency
+ * (iPhone screen recordings showed the first *displayed* frame ~100ms into
+ * the curve), and no anchoring trick moves that — the WebKit branch in
+ * `upgrade` documents everything that was tried. The chosen fix is a longer,
+ * softer curve that hides the skip (see MORPH_TIMING_DEFAULT).
+ */
+function isWebKit(): boolean {
+  return typeof window !== 'undefined' && 'GestureEvent' in window;
+}
+
+/** Serialize sampled keyframes into a CSS @keyframes rule. */
+function keyframesCss(
+  name: string,
+  frames: Keyframe[],
+  prop: 'transform' | 'borderRadius',
+): string {
+  const cssProp = prop === 'borderRadius' ? 'border-radius' : 'transform';
+  const body = frames
+    .map((f) => `${((f.offset as number) * 100).toFixed(3)}% { ${cssProp}: ${String(f[prop])}; }`)
+    .join('\n');
+  return `@keyframes ${name} {\n${body}\n}`;
 }
 
 /**
@@ -213,40 +256,184 @@ function cubicBezierEasing(x1: number, y1: number, x2: number, y2: number): Easi
   };
 }
 
-const KEYWORD_EASINGS: Record<string, [number, number, number, number]> = {
-  ease: [0.25, 0.1, 0.25, 1],
-  'ease-in': [0.42, 0, 1, 1],
-  'ease-out': [0, 0, 0.58, 1],
-  'ease-in-out': [0.42, 0, 0.58, 1],
-};
-
-function parseEasing(value: unknown): EasingFn | null {
-  if (typeof value !== 'string') return null;
-  const v = value.trim();
-  if (v === 'linear') return (t) => t;
-  const keyword = KEYWORD_EASINGS[v];
-  if (keyword) return cubicBezierEasing(...keyword);
-  const m = /^cubic-bezier\(([^)]+)\)$/.exec(v);
-  if (m) {
-    const parts = m[1]!.split(',').map((p) => Number.parseFloat(p));
-    if (parts.length === 4 && parts.every((n) => Number.isFinite(n))) {
-      return cubicBezierEasing(parts[0]!, parts[1]!, parts[2]!, parts[3]!);
-    }
-  }
-  return null;
+/**
+ * Apple-style protected ease-out: a brief low-travel wind-up followed by a
+ * cubic ease-out entered at PEAK velocity, C1-continuous at the junction.
+ *
+ * Why not a plain bezier: Apple motion has no perceptible ease-in — it moves
+ * at full speed immediately and spends most of its duration decelerating.
+ * But on iOS, accelerated animations on a fresh view-transition layer tree
+ * fast-forward past Core Animation's multi-frame first commit: the first
+ * *displayed* frame lands ~100ms into the curve, and no anchoring trick
+ * moves that (see the WebKit branch in `upgrade`). A true ease-out would
+ * teleport its fastest stretch. So the curve protects exactly that window:
+ *
+ *   - wind-up `[0..a]`: `q·(p/a)^k` — near-still, carrying only `q` of the
+ *     travel, with `k` chosen so velocity is continuous into the next phase.
+ *   - settle `[a..1]`: cubic ease-out over the remaining `1-q` travel.
+ *
+ * On iOS the swallowed leading edge IS the wind-up, so visible motion begins
+ * at maximum velocity and settles long — the Apple signature. Elsewhere the
+ * wind-up reads as a short natural gather before the launch.
+ *
+ * `a` (wind-up fraction of duration) should cover the skip (~100ms); `q`
+ * (wind-up travel) trades skip invisibility against desktop responsiveness.
+ */
+function protectedEaseOut(a: number, q: number): EasingFn {
+  const k = (3 * (1 - q) * a) / (q * (1 - a));
+  return (p) => {
+    if (p <= 0) return 0;
+    if (p >= 1) return 1;
+    if (p < a) return q * Math.pow(p / a, k);
+    const u = (p - a) / (1 - a);
+    return q + (1 - q) * (1 - Math.pow(1 - u, 3));
+  };
 }
 
-/** First top-level comma-separated entry of a CSS list (easing functions
- * contain commas, so a plain `split(',')` won't do). */
-function firstTimingFunction(list: string): string {
-  let depth = 0;
-  for (let i = 0; i < list.length; i++) {
-    const ch = list[i];
-    if (ch === '(') depth += 1;
-    else if (ch === ')') depth = Math.max(0, depth - 1);
-    else if (ch === ',' && depth === 0) return list.slice(0, i).trim();
+/**
+ * Damped-spring step response normalized to play out over the duration —
+ * what UIKit actually runs for Photos-style zoom transitions
+ * (`usingSpringWithDamping:`) and the iOS 18 fluid zoom. `zeta` is the
+ * damping ratio: 1 = critically damped (no overshoot), <1 overshoots
+ * slightly (0.8 is the widely documented Photos-zoom value). The decay
+ * constant is fixed so the spring has visually settled at p=1, and the
+ * output is normalized to end exactly at 1.
+ */
+function springEase(zeta: number): EasingFn {
+  const z = Math.min(Math.max(zeta, 0.2), 1);
+  if (z >= 1) {
+    // Critical: y = 1 - (1 + A·p)·e^(-A·p); A picked so y(1) ≈ 0.999.
+    const A = 9.2;
+    const end = 1 - (1 + A) * Math.exp(-A);
+    return (p) =>
+      p <= 0 ? 0 : p >= 1 ? 1 : (1 - (1 + A * p) * Math.exp(-A * p)) / end;
   }
-  return list.trim();
+  // Underdamped: envelope e^(-α·p) with α = ζω; α picked so it has decayed
+  // to ~0.1% at p=1.
+  const alpha = 6.9;
+  const omega = alpha / z;
+  const wd = omega * Math.sqrt(1 - z * z);
+  const f = (p: number) => Math.exp(-alpha * p) * (Math.cos(wd * p) + (alpha / wd) * Math.sin(wd * p));
+  const end = 1 - f(1);
+  return (p) => (p <= 0 ? 0 : p >= 1 ? 1 : (1 - f(p)) / end);
+}
+
+/**
+ * Spring with a protected launch: a gentle quadratic wind-up covering the
+ * iOS commit-skip window (`a` fraction of duration, `q` of the travel),
+ * handing its exit velocity INTO the spring as initial velocity — the same
+ * trick Apple's interruptible transitions use to inject gesture velocity
+ * into a spring. On iOS the swallowed leading edge is the wind-up, so the
+ * visible motion is a pure Photos-style spring settle.
+ */
+function protectedSpring(zeta: number, a: number, q: number): EasingFn {
+  const z = Math.min(Math.max(zeta, 0.2), 1);
+  // Wind-up exit velocity (dy/du in spring-segment time units).
+  const vSeg = ((2 * q) / a) * (1 - a);
+  const v = vSeg / (1 - q);
+  let seg: (u: number) => number;
+  if (z >= 1) {
+    const A = 9.2;
+    const C = A - v; // y'(0) continuity
+    const f = (u: number) => Math.exp(-A * u) * (1 + C * u);
+    const end = 1 - f(1);
+    seg = (u) => (1 - f(u)) / end;
+  } else {
+    const alpha = 6.9;
+    const omega = alpha / z;
+    const wd = omega * Math.sqrt(1 - z * z);
+    const B = (alpha - v) / wd;
+    const f = (u: number) => Math.exp(-alpha * u) * (Math.cos(wd * u) + B * Math.sin(wd * u));
+    const end = 1 - f(1);
+    seg = (u) => (1 - f(u)) / end;
+  }
+  return (p) => {
+    if (p <= 0) return 0;
+    if (p >= 1) return 1;
+    if (p < a) return q * Math.pow(p / a, 2);
+    return q + (1 - q) * seg((p - a) / (1 - a));
+  };
+}
+
+/**
+ * The morph's timing: duration (ms) + easing, identical in every browser.
+ * The composited morph deliberately does NOT inherit the page's
+ * view-transition duration/easing — it owns its motion design (see
+ * `protectedEaseOut` for the curve's rationale).
+ *
+ * Live-tunable without rebuilds via `window.__RAMKA_VT_TIMING__` (docs wire
+ * this to `?vttiming=...`), four formats:
+ *   - `'duration,out,a,q'` — protected ease-out, e.g. `350,out,.28,.1`
+ *   - `'duration,spring,zeta'` — UIKit-style spring, e.g. `500,spring,.8`
+ *   - `'duration,pspring,zeta,a,q'` — spring with protected launch,
+ *     e.g. `500,pspring,.8,.2,.08`
+ *   - `'duration,x1,y1,x2,y2'` — plain cubic-bezier, e.g. `350,.5,0,.2,1`
+ */
+const MORPH_TIMING_DEFAULT = {
+  duration: 350,
+  windup: 0.28, // ≈98ms — sized to cover the iOS commit skip
+  windupTravel: 0.1,
+};
+
+function morphTiming(): { duration: number; ease: EasingFn; label: string } {
+  const raw = (window as unknown as Record<string, unknown>).__RAMKA_VT_TIMING__;
+  if (typeof raw === 'string') {
+    const parts = raw.split(',').map((p) => p.trim());
+    const nums = parts.map((p) => Number.parseFloat(p));
+    if (parts.length === 5 && nums.every((n) => Number.isFinite(n)) && nums[0]! > 0) {
+      return {
+        duration: nums[0]!,
+        ease: cubicBezierEasing(nums[1]!, nums[2]!, nums[3]!, nums[4]!),
+        label: `${nums[0]}ms cubic-bezier(${parts.slice(1).join(',')})`,
+      };
+    }
+    if (
+      parts.length === 4 &&
+      parts[1] === 'out' &&
+      Number.isFinite(nums[0]) &&
+      nums[0]! > 0 &&
+      Number.isFinite(nums[2]) &&
+      Number.isFinite(nums[3])
+    ) {
+      return {
+        duration: nums[0]!,
+        ease: protectedEaseOut(nums[2]!, nums[3]!),
+        label: `${nums[0]}ms protected-out(${nums[2]},${nums[3]})`,
+      };
+    }
+    if (
+      parts.length === 3 &&
+      parts[1] === 'spring' &&
+      Number.isFinite(nums[0]) &&
+      nums[0]! > 0 &&
+      Number.isFinite(nums[2])
+    ) {
+      return {
+        duration: nums[0]!,
+        ease: springEase(nums[2]!),
+        label: `${nums[0]}ms spring(${nums[2]})`,
+      };
+    }
+    if (
+      parts.length === 5 &&
+      parts[1] === 'pspring' &&
+      Number.isFinite(nums[0]) &&
+      nums[0]! > 0 &&
+      [nums[2], nums[3], nums[4]].every((n) => Number.isFinite(n))
+    ) {
+      return {
+        duration: nums[0]!,
+        ease: protectedSpring(nums[2]!, nums[3]!, nums[4]!),
+        label: `${nums[0]}ms protected-spring(${nums[2]},${nums[3]},${nums[4]})`,
+      };
+    }
+  }
+  const { duration, windup, windupTravel } = MORPH_TIMING_DEFAULT;
+  return {
+    duration,
+    ease: protectedEaseOut(windup, windupTravel),
+    label: `${duration}ms protected-out(${windup},${windupTravel})`,
+  };
 }
 
 /**
@@ -341,41 +528,16 @@ function upgrade(transition: UpgradeableTransition): void {
     return;
   }
 
-  // Easing sources, most to least specific. Per spec the CSS
-  // `animation-timing-function` maps to per-KEYFRAME easing (Chrome/Gecko
-  // report it there), but WebKit reports keyframe easing as `linear` and
-  // keeps the real curve elsewhere — sampling a straight line then silently
-  // plays the wrong (more aggressive) motion. The pseudo's computed
-  // `animation-timing-function` is the ground truth fallback; a `linear`
-  // candidate is only trusted when no later source disagrees.
-  const easingCandidates = [
-    fromFrame.easing,
-    effect.getTiming().easing,
-    firstTimingFunction(getComputedStyle(docEl, GROUP_PSEUDO).animationTimingFunction),
-  ];
-  let ease: EasingFn | null = null;
-  let easingUsed = 'linear';
-  for (const candidate of easingCandidates) {
-    if (typeof candidate !== 'string' || candidate.trim() === 'linear') continue;
-    const parsed = parseEasing(candidate);
-    if (!parsed) {
-      // Non-linear but unparsable (steps / linear(...)): playing the wrong
-      // curve is worse than the stock morph.
-      debugLog('bail: unparsable easing', candidate);
-      return;
-    }
-    ease = parsed;
-    easingUsed = candidate;
-    break;
-  }
-  if (!ease) ease = (t) => t; // every source says linear — honor it
-
-  const timing = effect.getComputedTiming();
-  const duration = typeof timing.duration === 'number' ? timing.duration : NaN;
-  if (!Number.isFinite(duration) || duration <= 0) {
-    debugLog('bail: no finite duration', String(timing.duration));
+  const uaTiming = effect.getComputedTiming();
+  const uaDuration = typeof uaTiming.duration === 'number' ? uaTiming.duration : NaN;
+  if (!Number.isFinite(uaDuration) || uaDuration <= 0) {
+    debugLog('bail: no finite duration', String(uaTiming.duration));
     return;
   }
+
+  // The morph's own motion design — same duration and easing in every
+  // browser, independent of the page's view-transition CSS.
+  const { duration, ease, label: timingLabel } = morphTiming();
 
   // Capture how far the UA animation has ACTUALLY progressed before touching
   // it. The replacements resume from this elapsed time below, so the swap is
@@ -387,7 +549,7 @@ function upgrade(transition: UpgradeableTransition): void {
   const uaElapsedRaw = uaAnim.currentTime;
   const uaElapsed =
     typeof uaElapsedRaw === 'number' && Number.isFinite(uaElapsedRaw)
-      ? Math.max(0, Math.min(uaElapsedRaw, duration))
+      ? Math.max(0, Math.min(uaElapsedRaw, uaDuration))
       : 0;
 
   // End geometry = the group's base style (UA sets it to the new element's
@@ -396,7 +558,7 @@ function upgrade(transition: UpgradeableTransition): void {
   // Everything here happens inside the `ready` microtask, before the first
   // frame is presented, so no intermediate state can paint.
   uaAnim.pause();
-  uaAnim.currentTime = duration;
+  uaAnim.currentTime = uaDuration;
   const endStyle = getComputedStyle(docEl, GROUP_PSEUDO);
   const toT = parseScaleTranslate(endStyle.transform);
   const w1 = parsePx(endStyle.width);
@@ -419,10 +581,24 @@ function upgrade(transition: UpgradeableTransition): void {
   const fx = Number.isFinite(originParts[0]) ? originParts[0]! / w1 : 0.5;
   const fy = Number.isFinite(originParts[1]) ? originParts[1]! / h1 : 0.5;
 
-  // --- Commit: kill CSS animations, add compositor-friendly WAAPI tracks ---
+  // Neutralize the UA group animation explicitly. Style-based cancellation
+  // (`animation: none` from the injected sheet) is not reliable cross-engine:
+  // Gecko keeps an API-paused CSS animation alive despite it, and a forever-
+  // paused animation holds the transition's `finished` promise hostage — the
+  // pseudo tree never tears down. Cancelling drops the animation entirely;
+  // the group's base style IS the end geometry (that's where endStyle was
+  // read from), so the frozen box the replacement tracks assume stays put.
+  uaAnim.cancel();
 
-  ensureStyleInjected();
-  docEl.setAttribute(COMPOSITED_ATTR, '');
+  // --- Commit: kill CSS animations, add compositor-friendly replacements ---
+
+  // WebKit gets CSS animations instead of WAAPI (see COMPOSITED_CSS_ATTR);
+  // its geometry overrides ship inside the per-transition stylesheet.
+  const useCssAnimations = isWebKit();
+  if (!useCssAnimations) {
+    ensureStyleInjected();
+    docEl.setAttribute(COMPOSITED_ATTR, '');
+  }
 
   const rootStyle = getComputedStyle(docEl);
   const rFrom = parseRadiusList(
@@ -441,12 +617,12 @@ function upgrade(transition: UpgradeableTransition): void {
 
   const lerp = (a: number, b: number, q: number) => a + (b - a) * q;
 
-  for (let i = 0; i <= steps; i++) {
-    const offset = i / steps;
-    const q = ease(offset);
-
-    // UA-interpolated state at progress q: box (w, h) under an axis-aligned
-    // matrix (sxm, sym, tx, ty) applied at origin (fx·w, fy·h).
+  /**
+   * Track values at eased progress q: box (w, h) under an axis-aligned matrix
+   * (sxm, sym, tx, ty) applied at origin (fx·w, fy·h) — the UA-interpolated
+   * state — re-expressed against the frozen (w1, h1) group box.
+   */
+  const sampleAt = (q: number) => {
     const w = lerp(w0, w1, q);
     const h = lerp(h0, h1, q);
     const sxm = lerp(fromT.sx, toT.sx, q);
@@ -460,38 +636,41 @@ function upgrade(transition: UpgradeableTransition): void {
     const left = tx + fx * w * (1 - sxm);
     const top = ty + fy * h * (1 - sym);
 
-    groupFrames.push({
-      offset,
-      transform: `translate(${fmt(left)}px, ${fmt(top)}px) scale(${fmt(renderedW / w1)}, ${fmt(renderedH / h1)})`,
-    });
-
+    // Radius r(q) lives in the UA box's coordinate space; our frozen box is
+    // (w1, h1) scaled by (renderedW/w1, renderedH/h1), so the local radius
+    // that renders identically is r·w1/w (H) and r·h1/h (V).
+    let radius: string | null = null;
     if (hasRadius) {
-      // Radius r(q) lives in the UA box's coordinate space; our frozen box
-      // is (w1, h1) scaled by (renderedW/w1, renderedH/h1), so the local
-      // radius that renders identically is r·w1/w (H) and r·h1/h (V).
       const rH = rFrom.map((r, c) => fmt((lerp(r, rTo[c]!, q) * w1) / w));
       const rV = rFrom.map((r, c) => fmt((lerp(r, rTo[c]!, q) * h1) / h));
-      radiusFrames.push({
-        offset,
-        borderRadius: `${rH.map((r) => `${r}px`).join(' ')} / ${rV.map((r) => `${r}px`).join(' ')}`,
-      });
+      radius = `${rH.map((r) => `${r}px`).join(' ')} / ${rV.map((r) => `${r}px`).join(' ')}`;
     }
 
     // Counter-transform per snapshot: `object-fit: cover` fits the intrinsic
     // (wi, hi) capture into the UA box (w, h); expressed in our group-local
     // coordinates that is a factor w1/w (X) and h1/h (Y).
-    for (const [frames, wi, hi] of [
-      [oldFrames, w0, h0],
-      [newFrames, w1, h1],
-    ] as const) {
+    const counter = (wi: number, hi: number) => {
       const k = Math.max(w / wi, h / hi);
       const dx = (((w - k * wi) / 2) * w1) / w;
       const dy = (((h - k * hi) / 2) * h1) / h;
-      frames.push({
-        offset,
-        transform: `translate(${fmt(dx)}px, ${fmt(dy)}px) scale(${fmt((k * w1) / w)}, ${fmt((k * h1) / h)})`,
-      });
-    }
+      return `translate(${fmt(dx)}px, ${fmt(dy)}px) scale(${fmt((k * w1) / w)}, ${fmt((k * h1) / h)})`;
+    };
+
+    return {
+      group: `translate(${fmt(left)}px, ${fmt(top)}px) scale(${fmt(renderedW / w1)}, ${fmt(renderedH / h1)})`,
+      radius,
+      old: counter(w0, h0),
+      new: counter(w1, h1),
+    };
+  };
+
+  for (let i = 0; i <= steps; i++) {
+    const offset = i / steps;
+    const s = sampleAt(ease(offset));
+    groupFrames.push({ offset, transform: s.group });
+    if (hasRadius) radiusFrames.push({ offset, borderRadius: s.radius! });
+    oldFrames.push({ offset, transform: s.old });
+    newFrames.push({ offset, transform: s.new });
   }
 
   const options = (pseudoElement: string): KeyframeAnimationOptions => ({
@@ -501,33 +680,90 @@ function upgrade(transition: UpgradeableTransition): void {
     pseudoElement,
   });
 
-  const created: Animation[] = [];
-  try {
-    created.push(docEl.animate(groupFrames, options(GROUP_PSEUDO)));
-    if (hasRadius) {
-      // Separate animation: mixing a paint property into the transform
-      // effect would demote the whole effect off the compositor (Blink rule).
-      created.push(docEl.animate(radiusFrames, options(GROUP_PSEUDO)));
-    }
-    created.push(docEl.animate(oldFrames, options(OLD_PSEUDO)));
-    created.push(docEl.animate(newFrames, options(NEW_PSEUDO)));
-  } catch (error) {
-    // Pseudo missing or engine refuses pseudo-element WAAPI — roll back to
-    // the stock morph.
-    for (const a of created) a.cancel();
-    docEl.removeAttribute(COMPOSITED_ATTR);
-    uaAnim.currentTime = 0;
-    uaAnim.play();
-    debugLog('bail: animate() failed, rolled back', String(error));
-    return;
-  }
+  let created: Animation[] = [];
+  let styleEl: HTMLStyleElement | null = null;
+  let handover = 'natural';
 
-  // Seamless handover: resume from the UA animation's painted progress (~0
-  // on healthy devices). See the `uaElapsed` capture above for why this is
-  // progress-based rather than startTime-based.
-  if (uaElapsed > 0) {
-    for (const a of created) {
-      a.currentTime = uaElapsed;
+  if (useCssAnimations) {
+    // WebKit path: deliver the replacement as real CSS animations (WAAPI on
+    // pseudos ignores every anchoring trick) and keep them transform-only so
+    // they run fully accelerated — 60fps even in Low Power Mode, where the
+    // main thread ticks at 30Hz.
+    //
+    // Accelerated animations on a fresh view-transition layer tree START LATE
+    // by Core Animation's multi-frame first commit and fast-forward past it;
+    // nothing moves that anchor (tried: startTime leads, pause/replay,
+    // recreation on a warm tree, main-thread sync-forcing via width/height
+    // co-animation, and a sync-launch/async-cruise split — each either kept
+    // the skip or gave up compositor smoothness). The morph's soft slow-start
+    // timing (see MORPH_TIMING_DEFAULT) accommodates the skip instead:
+    // near-zero travel sits in the swallowed leading edge. The replacement
+    // animations keep the transition (and its pseudo tree) alive until they
+    // finish.
+    const id = ++cssAnimationSeq;
+    const gName = `ramka-vtg-${id}`;
+    const rName = `ramka-vtr-${id}`;
+    const oName = `ramka-vto-${id}`;
+    const nName = `ramka-vtn-${id}`;
+    const track = (name: string) => `${name} ${duration}ms linear ${-uaElapsed}ms both`;
+    const groupTracks = hasRadius ? `${track(gName)}, ${track(rName)}` : track(gName);
+
+    styleEl = document.createElement('style');
+    styleEl.setAttribute('data-ramka-vt-composited-css', '');
+    styleEl.textContent = `
+${keyframesCss(gName, groupFrames, 'transform')}
+${hasRadius ? keyframesCss(rName, radiusFrames, 'borderRadius') : ''}
+${keyframesCss(oName, oldFrames, 'transform')}
+${keyframesCss(nName, newFrames, 'transform')}
+:root[${COMPOSITED_CSS_ATTR}]${GROUP_PSEUDO} {
+  transform-origin: 0 0 !important;
+  animation: ${groupTracks} !important;
+}
+:root[${COMPOSITED_CSS_ATTR}]${OLD_PSEUDO} {
+  width: ${fmt(w0)}px;
+  height: ${fmt(h0)}px;
+  transform-origin: 0 0 !important;
+  animation: ${track(oName)} !important;
+}
+:root[${COMPOSITED_CSS_ATTR}]${NEW_PSEUDO} {
+  width: ${fmt(w1)}px;
+  height: ${fmt(h1)}px;
+  transform-origin: 0 0 !important;
+  animation: ${track(nName)} !important;
+}
+`;
+    document.head.appendChild(styleEl);
+    docEl.setAttribute(COMPOSITED_CSS_ATTR, '');
+    handover = 'webkit-css';
+  } else {
+    try {
+      created.push(docEl.animate(groupFrames, options(GROUP_PSEUDO)));
+      if (hasRadius) {
+        // Separate animation: mixing a paint property into the transform
+        // effect would demote the whole effect off the compositor (Blink rule).
+        created.push(docEl.animate(radiusFrames, options(GROUP_PSEUDO)));
+      }
+      created.push(docEl.animate(oldFrames, options(OLD_PSEUDO)));
+      created.push(docEl.animate(newFrames, options(NEW_PSEUDO)));
+    } catch (error) {
+      // Pseudo missing or engine refuses pseudo-element WAAPI — roll back to
+      // the stock morph.
+      for (const a of created) a.cancel();
+      docEl.removeAttribute(COMPOSITED_ATTR);
+      uaAnim.currentTime = 0;
+      uaAnim.play();
+      debugLog('bail: animate() failed, rolled back', String(error));
+      return;
+    }
+
+    // Seamless handover: resume from the UA animation's painted progress (~0
+    // on healthy devices). See the `uaElapsed` capture above for why this is
+    // progress-based rather than startTime-based.
+    if (uaElapsed > 0) {
+      handover = `resume(${uaElapsed})`;
+      for (const a of created) {
+        a.currentTime = uaElapsed;
+      }
     }
   }
 
@@ -535,16 +771,18 @@ function upgrade(transition: UpgradeableTransition): void {
     from: { ...fromT, w: w0, h: h0 },
     to: { ...toT, w: w1, h: h1 },
     origin: { fx: fmt(fx), fy: fmt(fy) },
-    duration,
+    timing: timingLabel,
+    uaDuration,
     steps,
     hasRadius,
-    easing: easingUsed,
-    easingCandidates: easingCandidates.map(String),
+    handover,
   });
 
   transition.finished.finally(() => {
     for (const a of created) a.cancel();
     docEl.removeAttribute(COMPOSITED_ATTR);
+    docEl.removeAttribute(COMPOSITED_CSS_ATTR);
+    styleEl?.remove();
   });
 }
 

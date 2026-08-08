@@ -43,7 +43,15 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           dangerouslySetInnerHTML={{
             __html:
               'if(/[?&]vtdebug/.test(location.search))window.__RAMKA_VT_DEBUG__=true;' +
-              'if(/[?&]vtstock/.test(location.search))window.__RAMKA_VT_COMPOSITED__=false;',
+              'if(/[?&]vtstock/.test(location.search))window.__RAMKA_VT_COMPOSITED__=false;' +
+              // Blind A/B: ?vtab=q7 and ?vtab=k2 map to the two morph engines
+              // without revealing which is which (see vt-composited-morph.ts).
+              'if(/[?&]vtab=q7/.test(location.search))window.__RAMKA_VT_COMPOSITED__=false;' +
+              'if(/[?&]vtab=k2/.test(location.search))window.__RAMKA_VT_COMPOSITED__=true;' +
+              // Live-tune the composited morph timing (all browsers) without
+              // rebuilds: ?vttiming=duration,x1,y1,x2,y2 (e.g. 400,.5,0,.15,1).
+              'var vtt=/[?&]vttiming=([^&]+)/.exec(location.search);' +
+              'if(vtt)window.__RAMKA_VT_TIMING__=decodeURIComponent(vtt[1]);',
           }}
         />
         <ThemeProvider>
