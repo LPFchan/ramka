@@ -9,7 +9,6 @@ import {
   LightboxTriggerGrid,
   LightboxTriggerImage,
   triggerFocusClass,
-  triggerMorphHideClass,
 } from '../../_components/lightbox-chrome';
 
 const btnClass =
@@ -71,7 +70,7 @@ export function CreateHandleDemo() {
             handle={lightbox}
             id={`photo-${i}`}
             index={i}
-            className={`block overflow-hidden rounded-2xl ${triggerMorphHideClass} ${triggerFocusClass}`}
+            className={`block overflow-hidden rounded-2xl ${triggerFocusClass}`}
           >
             <LightboxTriggerImage src={img.src} alt={img.alt} />
           </Lightbox.Trigger>
@@ -123,7 +122,7 @@ export function LifecycleCallbacksDemo() {
             <Lightbox.Trigger
               key={img.id}
               index={i}
-              className={`block overflow-hidden rounded-2xl ${triggerMorphHideClass} ${triggerFocusClass}`}
+              className={`block overflow-hidden rounded-2xl ${triggerFocusClass}`}
             >
               <LightboxTriggerImage src={img.src} alt={img.alt} />
             </Lightbox.Trigger>

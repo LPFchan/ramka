@@ -8,7 +8,6 @@ import { ExampleShell } from '../../../_components/example-shell';
 import {
   LightboxCloseButton,
   LightboxOverlay,
-  morphHideClass,
   triggerFocusClass,
 } from '../../../_components/lightbox-chrome';
 
@@ -165,7 +164,7 @@ export default function GoogleMapsExamplePage() {
               <>
                 <div
                   ref={morphRef}
-                  className={`relative aspect-[4/3] w-full overflow-hidden rounded-t-2xl ${morphHideClass}`}
+                  className={`relative aspect-[4/3] w-full overflow-hidden rounded-t-2xl`}
                 >
                   <MapFrame
                     zoom={WROCLAW.previewZoom}

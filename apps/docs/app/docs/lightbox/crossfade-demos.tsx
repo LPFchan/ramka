@@ -8,9 +8,7 @@ import { Separator } from '@/components/ui/separator';
 import {
   imgDims,
   LightboxGallery,
-  morphHideClass,
   triggerFocusClass,
-  triggerMorphHideClass,
 } from '../../_components/lightbox-chrome';
 
 /** Matching 3∶2 sources — element boxes in the demos may still differ. */
@@ -119,7 +117,7 @@ function SameImageDemo() {
           <Lightbox.Trigger
             key={img.src}
             index={i}
-            className={`block aspect-square overflow-hidden rounded-lg bg-transparent p-0 ${triggerMorphHideClass} ${triggerFocusClass}`}
+            className={`block aspect-square overflow-hidden rounded-lg bg-transparent p-0 ${triggerFocusClass}`}
           >
             {({ imageRef }) => (
               <img
@@ -155,7 +153,7 @@ function BothDemo() {
               key={img.src}
               index={i}
               crossfade={isOverlay ? 'both' : undefined}
-              className={`block bg-transparent p-0 overflow-hidden ${triggerMorphHideClass} ${triggerFocusClass} ${corner}`}
+              className={`block bg-transparent p-0 overflow-hidden ${triggerFocusClass} ${corner}`}
             >
               {({ imageRef }) => (
                 <div className="relative overflow-hidden">
@@ -194,7 +192,7 @@ function AnyElementDemo() {
               className={`rounded-full size-16 overflow-hidden bg-transparent p-0 ${triggerFocusClass}`}
             >
               <div
-                className={`flex size-full items-center justify-center text-sm font-semibold tracking-wide text-white ${morphHideClass}`}
+                className={`flex size-full items-center justify-center text-sm font-semibold tracking-wide text-white`}
                 style={{ background: person.color }}
               >
                 {person.initials}
@@ -227,10 +225,10 @@ function CloseDemo() {
         className={`group block w-40 bg-transparent p-0 ${triggerFocusClass}`}
       >
         {({ morphRef }) => (
-          // morphRef + morphHideClass on the same node (radius for VT + open hide).
+          // morphRef on the rounded node (radius for VT; library hides it during morphs).
           <div
             ref={morphRef}
-            className={`relative overflow-hidden rounded-xl ${morphHideClass}`}
+            className={`relative overflow-hidden rounded-xl`}
           >
             <img
               width={trailer.posterWidth}

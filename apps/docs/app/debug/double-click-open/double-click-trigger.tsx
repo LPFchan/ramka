@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { Lightbox, type LightboxHandle, type LightboxTriggerRenderState } from 'ramka';
 
-import { imgDims, morphHideClass, triggerFocusClass } from '../../_components/lightbox-chrome';
+import { imgDims, triggerFocusClass } from '../../_components/lightbox-chrome';
 
 type Photo = {
   /** Matches demo `LightboxGalleryItem.id` (optional string | number). */
@@ -18,8 +18,8 @@ type Photo = {
  * - Preview: double-click opens via `handle.open` (pointer convenience).
  * - `Lightbox.Trigger`: explicit single-pointer control (WCAG 2.5.1) with
  *   native button semantics, keyboard (Enter/Space), and focus return.
- * - `morphRef` targets the preview; `morphHideClass` on that node hides it
- *   while `data-morph-target` is set; `imageRef` keeps placeholder bridging.
+ * - `morphRef` targets the preview; the library-injected `data-morph-target`
+ *   hide covers it during morphs; `imageRef` keeps placeholder bridging.
  */
 export function AccessibleDoubleClickTile({
   handle,
@@ -46,7 +46,7 @@ export function AccessibleDoubleClickTile({
         id={previewId}
         role="group"
         aria-labelledby={`${previewId}-label ${hintId}`}
-        className={`relative overflow-hidden rounded-2xl bg-neutral-100 ${morphHideClass} dark:bg-neutral-900`}
+        className={`relative overflow-hidden rounded-2xl bg-neutral-100 dark:bg-neutral-900`}
         onDoubleClick={open}
       >
         <p id={`${previewId}-label`} className="sr-only">

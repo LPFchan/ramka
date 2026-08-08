@@ -7,7 +7,6 @@ import { Play } from 'lucide-react';
 import { ExampleShell } from '../../../_components/example-shell';
 import {
   LightboxGallery,
-  morphHideClass,
   triggerFocusClass,
 } from '../../../_components/lightbox-chrome';
 
@@ -149,10 +148,10 @@ function FilmLightbox({ film }: { film: (typeof films)[number] }) {
       >
         {({ morphRef }) => (
           <>
-            {/* morphRef + morphHideClass on the same node (poster + play affordance). */}
+            {/* morphRef on the wrapper so poster + play affordance morph together. */}
             <div
               ref={morphRef}
-              className={`relative overflow-hidden rounded-xl ${morphHideClass}`}
+              className={`relative overflow-hidden rounded-xl`}
             >
               <img
                 width={film.posterWidth}

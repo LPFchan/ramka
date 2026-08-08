@@ -5,7 +5,6 @@ import { Lightbox } from 'ramka';
 import { ExampleShell } from '../../../_components/example-shell';
 import {
   LightboxGallery,
-  morphHideClass,
   triggerFocusClass,
 } from '../../../_components/lightbox-chrome';
 
@@ -67,7 +66,7 @@ export default function ColorPalettePage() {
                     {/* Only the swatch morphs / hides — name + hex stay put. */}
                     <div
                       ref={morphRef}
-                      className={`aspect-[3/2] w-full rounded-xl ${morphHideClass}`}
+                      className={`aspect-[3/2] w-full rounded-xl`}
                       style={{ background: color.hex }}
                     />
                     <div className="px-1 py-2">

@@ -7,7 +7,6 @@ import {
   imgDims,
   LightboxGallery,
   triggerFocusClass,
-  triggerMorphHideClass,
 } from '../../../_components/lightbox-chrome';
 
 const messageImages = [
@@ -62,7 +61,7 @@ export default function TextMessagePage() {
             <Lightbox.Trigger
               index={0}
               crossfade="close"
-              className={`relative block h-80 w-[260px] cursor-pointer rounded-2xl border-none bg-transparent p-0 ${triggerMorphHideClass} ${triggerFocusClass}`}
+              className={`relative block h-80 w-[260px] cursor-pointer rounded-2xl border-none bg-transparent p-0 ${triggerFocusClass}`}
             >
               {({ morphRef, imageRef }) => (
                 <div className="absolute -inset-5">

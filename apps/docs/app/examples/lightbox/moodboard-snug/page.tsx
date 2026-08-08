@@ -7,9 +7,7 @@ import { ExampleShell } from '../../../_components/example-shell';
 import {
   LightboxGallery,
   type LightboxGalleryItem,
-  morphHideClass,
   triggerFocusClass,
-  triggerMorphHideClass,
 } from '../../../_components/lightbox-chrome';
 import {
   FRAME_SIZE,
@@ -385,7 +383,7 @@ export default function MoodboardSnugPage() {
                     <Lightbox.Trigger
                       key={tile.id}
                       index={index}
-                      className={`block w-full cursor-pointer overflow-hidden rounded-xl border-none bg-transparent p-0 ${triggerMorphHideClass} ${triggerFocusClass}`}
+                      className={`block w-full cursor-pointer overflow-hidden rounded-xl border-none bg-transparent p-0 ${triggerFocusClass}`}
                     >
                       {({ imageRef }) => (
                         <img
@@ -408,7 +406,7 @@ export default function MoodboardSnugPage() {
                       key={tile.id}
                       index={index}
                       crossfade="close"
-                      className={`block w-full cursor-pointer overflow-hidden rounded-xl border-none bg-transparent p-0 ${triggerMorphHideClass} ${triggerFocusClass}`}
+                      className={`block w-full cursor-pointer overflow-hidden rounded-xl border-none bg-transparent p-0 ${triggerFocusClass}`}
                     >
                       <AutoplayMuteVideo
                         src={tile.video}
@@ -434,7 +432,7 @@ export default function MoodboardSnugPage() {
                     {({ morphRef }) => (
                       <div
                         ref={morphRef}
-                        className={`relative aspect-square w-full overflow-hidden rounded-xl bg-transparent ${morphHideClass}`}
+                        className={`relative aspect-square w-full overflow-hidden rounded-xl bg-transparent`}
                       >
                         <TriggerScene
                           product={tile.product}

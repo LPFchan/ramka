@@ -6,9 +6,7 @@ import { Lightbox } from 'ramka';
 
 import {
   LightboxGallery,
-  morphHideClass,
   triggerFocusClass,
-  triggerMorphHideClass,
 } from '../../_components/lightbox-chrome';
 /** Unsplash — 1200×800. */
 import photoA from './_assets/nextjs-image-do.jpg';
@@ -74,7 +72,7 @@ function NextImageDemo({ kind }: { kind: DemoKind }) {
     <Lightbox.Root awaitImageDecode={false}>
       <Lightbox.Trigger
         index={0}
-        className={`block aspect-square w-40 cursor-pointer overflow-hidden rounded-xl bg-transparent p-0 ${triggerMorphHideClass} ${triggerFocusClass}`}
+        className={`block aspect-square w-40 cursor-pointer overflow-hidden rounded-xl bg-transparent p-0 ${triggerFocusClass}`}
       >
         {({ imageRef }) => (
           <Image
@@ -141,7 +139,7 @@ export function NextjsImagePlusNDemo() {
                 key={item.id}
                 index={i}
                 crossfade={isOverlay ? 'both' : undefined}
-                className={`block cursor-pointer overflow-hidden bg-transparent p-0 ${triggerMorphHideClass} ${triggerFocusClass} ${corner}`}
+                className={`block cursor-pointer overflow-hidden bg-transparent p-0 ${triggerFocusClass} ${corner}`}
               >
                 {({ imageRef }) => (
                   <div className="relative">
@@ -224,7 +222,7 @@ export function NextjsImageNonImageTriggerDemo() {
                 className={`size-16 cursor-pointer overflow-hidden rounded-full bg-transparent p-0 ${triggerFocusClass}`}
               >
                 <div
-                  className={`flex size-full items-center justify-center text-sm font-semibold tracking-wide text-white ${morphHideClass}`}
+                  className={`flex size-full items-center justify-center text-sm font-semibold tracking-wide text-white`}
                   style={{ background: person.color }}
                 >
                   {person.initials}

@@ -41,9 +41,9 @@ Demo CSS lives under [`app/lightbox-demo/`](../../../lightbox-demo/) and is impo
 **Region** — inside any `lightbox-demo/*.css` file:
 
 ```css
-/* @docs-excerpt-start morph-border-radius */
-/* @docs-excerpt-title Morph border-radius */
-::view-transition-group(lightbox-morph) { … }
+/* @docs-excerpt-start item-fade */
+/* @docs-excerpt-title Item fade-in */
+[data-ramka-item][data-active] { … }
 /* @docs-excerpt-end */
 ```
 

@@ -38,10 +38,6 @@ export default function VtMotionDebugPage() {
         </a>
       </div>
 
-      {/* Hide the live trigger while it's the morph target so recordings see
-          exactly one copy of the photo during transitions. */}
-      <style>{'img[data-morph-target]{opacity:0}'}</style>
-
       <Lightbox.Root viewTransition>
         <Lightbox.Trigger index={0}>
           {({ imageRef }) => (

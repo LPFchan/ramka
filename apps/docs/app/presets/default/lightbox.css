@@ -5,7 +5,7 @@
  * App/demo layout (grids, user cards, section labels, page chrome) does NOT
  * belong here — those live in the consuming app (see demo.tsx in docs).
  *
- * Prefix: `lb-`. Document-level view-transition rules are required for morph.
+ * Prefix: `lb-`. Document-level view-transition CSS is injected by the library.
  */
 
 /* ── Tokens (scoped to skin host — not :root) ───────────────────────────── */
@@ -21,9 +21,6 @@
 /* ── Trigger ────────────────────────────────────────────────────────────── */
 
 .lb-trigger {
-  /* Outside Portal — local copies of skin tokens for morph-hide transitions. */
-  --lb-ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
-  --lb-duration-open: 340ms;
   font: inherit;
   color: inherit;
   appearance: none;
@@ -39,20 +36,7 @@
   outline-offset: 2px;
 }
 
-/*
- * Morph hide — library sets `data-morph-target` on the resolved morph element
- * (Trigger root, or the `morphRef` node). Scoped to this skin's triggers.
- */
-.lb-trigger[data-morph-target],
-.lb-trigger [data-morph-target] {
-  opacity: 0;
-  transition: opacity 200ms var(--lb-ease-out-expo);
-}
-
-:root[data-ramka-view-transition] .lb-trigger[data-morph-target],
-:root[data-ramka-view-transition] .lb-trigger [data-morph-target] {
-  transition: none;
-}
+/* Morph hide (`data-morph-target`) is injected by the library. */
 
 /* ── Backdrop / Content open-close + pull ───────────────────────────────── */
 
@@ -602,80 +586,6 @@ html.dark .lb-thumbnail-strip-indicator {
   border-color: #fff;
 }
 
-/* Thumb-jump slides crossfade (element-scoped VT from ThumbnailStrip). */
-.lb-slides::view-transition-group(root) {
-  animation-duration: var(--lightbox-select-vt-duration, 0.4s);
-  animation-timing-function: var(
-    --lightbox-select-vt-easing,
-    cubic-bezier(0.22, 1, 0.36, 1)
-  );
-}
-
-.lb-slides::view-transition-old(root),
-.lb-slides::view-transition-new(root) {
-  mix-blend-mode: normal;
-  height: 100%;
-  overflow: clip;
-}
-
-/* ── View transitions (document-level; required for morph) ────────────────
-   Structural block uses only `--lightbox-vt-*` contract vars (identical across
-   skins). Keep this block in sync with other presets / lightbox-demo. */
-
-:root[data-ramka-view-transition] * {
-  view-transition-name: none !important;
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  :root[data-ramka-view-transition]::view-transition-old(root),
-  :root[data-ramka-view-transition]::view-transition-new(root) {
-    animation-duration: var(--lightbox-vt-duration, 360ms);
-    animation-timing-function: var(--lightbox-vt-root-easing, cubic-bezier(0.16, 1, 0.3, 1));
-  }
-
-  @keyframes lightbox-morph-border-radius {
-    to {
-      border-radius: var(--lightbox-morph-border-radius-to, 0px);
-    }
-  }
-
-  ::view-transition-group(lightbox-morph) {
-    overflow: hidden;
-    border-radius: var(--lightbox-morph-border-radius-from, 0px);
-    animation-name: -ua-view-transition-group-anim-lightbox-morph, lightbox-morph-border-radius;
-    animation-duration: var(--lightbox-vt-duration, 360ms);
-    animation-timing-function: var(--lightbox-vt-easing, cubic-bezier(0.44, 0.58, 0, 1));
-    animation-fill-mode: both;
-    z-index: 2;
-  }
-
-  /* Hard-cut default (Trigger omits crossfade). */
-  ::view-transition-old(lightbox-morph),
-  ::view-transition-new(lightbox-morph) {
-    object-fit: cover;
-    width: 100%;
-    height: 100%;
-    animation: none !important;
-    mix-blend-mode: normal;
-  }
-
-  ::view-transition-old(lightbox-morph) {
-    opacity: var(--lightbox-morph-old-opacity, 1);
-  }
-
-  ::view-transition-new(lightbox-morph) {
-    opacity: var(--lightbox-morph-new-opacity, 0);
-  }
-
-  /* Dissolve path — positive attribute only, no :not. Re-time the UA fade to
-     the preset vars so the dissolve matches the morph's clock/curve. */
-  :root[data-ramka-crossfade]::view-transition-old(lightbox-morph),
-  :root[data-ramka-crossfade]::view-transition-new(lightbox-morph) {
-    object-fit: fill;
-    mix-blend-mode: plus-lighter;
-    animation: revert !important;
-    animation-duration: var(--lightbox-vt-duration, 360ms) !important;
-    animation-timing-function: var(--lightbox-vt-easing, cubic-bezier(0.44, 0.58, 0, 1)) !important;
-    opacity: revert;
-  }
-}
+/* Document-level view-transition CSS (isolation, morph group/snapshots,
+   crossfade, thumb-jump slides crossfade) is injected by the library —
+   skins ship none of it. */

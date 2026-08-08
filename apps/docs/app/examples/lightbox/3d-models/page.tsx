@@ -10,7 +10,6 @@ import { Lightbox } from 'ramka';
 import { ExampleShell } from '../../../_components/example-shell';
 import {
   LightboxGallery,
-  morphHideClass,
   triggerFocusClass,
 } from '../../../_components/lightbox-chrome';
 
@@ -635,7 +634,7 @@ function ProductLightbox({ product }: { product: Product }) {
           <>
             <div
               ref={morphRef}
-              className={`relative aspect-square w-full overflow-hidden rounded-xl bg-transparent ${morphHideClass}`}
+              className={`relative aspect-square w-full overflow-hidden rounded-xl bg-transparent`}
             >
               {/* Pause grid spin while this lightbox is open. */}
               <TriggerScene product={product} autoRotate={!open} />

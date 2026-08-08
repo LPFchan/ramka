@@ -35,6 +35,7 @@ import {
   type ScrollTriggerIntoView,
 } from './use-view-transition-morph';
 import type { LightboxViewTransitionPreset } from './vt-timing';
+import { ensureVtStructuralStyles } from './vt-structural-styles';
 
 interface LightboxRootProps {
   /** Lightbox parts and page content (triggers typically live as children of Root). */
@@ -813,6 +814,13 @@ function LightboxRoot(props: LightboxRootProps) {
       return () => unlockScroll();
       // Mount/unmount only — subsequent opens lock via commitOpen/commitReveal.
       // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    // Inject the structural view-transition stylesheet (isolation, morph
+    // group/snapshot mechanics, morph-target hide, slides-select crossfade)
+    // once per document — consumers write no view-transition CSS.
+    React.useEffect(() => {
+      ensureVtStructuralStyles();
     }, []);
 
     const performOpen = React.useCallback(

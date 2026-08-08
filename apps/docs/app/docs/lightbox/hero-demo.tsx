@@ -6,7 +6,6 @@ import {
   imgDims,
   LightboxGallery,
   triggerFocusClass,
-  triggerMorphHideClass,
 } from '../../_components/lightbox-chrome';
 
 const images = [
@@ -36,7 +35,7 @@ export function LightboxHeroDemo() {
           <Lightbox.Trigger
             key={img.src}
             index={i}
-            className={`block aspect-square overflow-hidden rounded-lg bg-transparent p-0 ${triggerMorphHideClass} ${triggerFocusClass}`}
+            className={`block aspect-square overflow-hidden rounded-lg bg-transparent p-0 ${triggerFocusClass}`}
           >
             {({ imageRef }) => (
               <img

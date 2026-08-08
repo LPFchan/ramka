@@ -94,21 +94,5 @@
   border-color: #fff;
 }
 
-/**
- * Thumb-jump slides crossfade — ThumbnailStrip starts element-scoped VT
- * (`selectViewTransition`); tune with `--lightbox-select-vt-*` on Slides.
- */
-.lightbox-demo-slides::view-transition-group(root) {
-  animation-duration: var(--lightbox-select-vt-duration, 0.4s);
-  animation-timing-function: var(
-    --lightbox-select-vt-easing,
-    cubic-bezier(0.22, 1, 0.36, 1)
-  );
-}
-
-.lightbox-demo-slides::view-transition-old(root),
-.lightbox-demo-slides::view-transition-new(root) {
-  mix-blend-mode: normal;
-  height: 100%;
-  overflow: clip;
-}
+/* Thumb-jump slides crossfade CSS is injected by the library — tune with
+   `--lightbox-select-vt-*` on Slides (or a parent). */
