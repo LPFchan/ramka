@@ -2,6 +2,7 @@
 
 import { Lightbox } from 'ramka';
 
+import { setGlassShinePaused } from './broken-glass-shine';
 import {
   imgDims,
   LightboxGallery,
@@ -127,6 +128,18 @@ export function LandingDemo() {
         { type: 'onChange', behavior: 'instant' },
         { type: 'onOpenComplete', behavior: 'instant' },
       ]}
+      // The sponsor frame's glass lighting redraws its canvas while the
+      // cursor moves, and every redraw during a View Transition forces a
+      // fresh layer snapshot. Pause it the moment the viewer opens and
+      // resume only after the close transition fully lands (a close
+      // interrupted by a reopen never fires the complete callback, so the
+      // lighting stays paused through the whole session).
+      onOpenChange={(open: boolean) => {
+        if (open) setGlassShinePaused(true);
+      }}
+      onOpenChangeComplete={(open: boolean) => {
+        if (!open) setGlassShinePaused(false);
+      }}
     >
       <div className="columns-2 gap-3 md:columns-3 md:gap-4">
         {visibleImages.map((img, i) => {

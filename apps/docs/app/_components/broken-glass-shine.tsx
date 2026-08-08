@@ -221,6 +221,22 @@ const LIGHT_AXIS = { x: -Math.SQRT1_2, y: -Math.SQRT1_2 };
 type Vec3 = [number, number, number];
 type Point = { x: number; y: number };
 
+// Global pause switch for the dynamic lighting. While the lightbox is
+// open, View Transitions snapshot layers constantly and every glass
+// redraw would force the canvas layer to re-upload — so the gallery pauses
+// the sheen loop for the whole open-to-close-complete window. A module
+// switch (not props) because the pane and the gallery live in unrelated
+// sections of the page.
+let shinePaused = false;
+const pauseListeners = new Set<(paused: boolean) => void>();
+
+/** Pause or resume the cursor-driven lighting on every glass pane. */
+export function setGlassShinePaused(paused: boolean): void {
+  if (shinePaused === paused) return;
+  shinePaused = paused;
+  for (const listener of pauseListeners) listener(paused);
+}
+
 /** Direction TO a distant light, SVG feDistantLight convention (y-down). */
 function lightVector(azimuthDeg: number, elevationDeg: number): Vec3 {
   const az = (azimuthDeg * Math.PI) / 180;
@@ -950,6 +966,12 @@ export function BrokenGlassShine({ className }: { className?: string }) {
     };
 
     const step = () => {
+      // Paused mid-glide (a lightbox just opened): freeze in place. The
+      // loop is re-kicked on resume and eases on from where it stopped.
+      if (shinePaused) {
+        state.raf = 0;
+        return;
+      }
       const target = targetPosition();
       const { position } = state;
       position.x += (target.x - position.x) * 0.09;
@@ -976,7 +998,7 @@ export function BrokenGlassShine({ className }: { className?: string }) {
     };
 
     const kick = () => {
-      if (!state.raf) state.raf = requestAnimationFrame(step);
+      if (!shinePaused && !state.raf) state.raf = requestAnimationFrame(step);
     };
     const onMove = (event: PointerEvent) => {
       state.pointer = { x: event.clientX, y: event.clientY };
@@ -986,12 +1008,22 @@ export function BrokenGlassShine({ className }: { className?: string }) {
       state.pointer = null;
       kick();
     };
+    const onPauseChange = (paused: boolean) => {
+      if (paused) {
+        if (state.raf) cancelAnimationFrame(state.raf);
+        state.raf = 0;
+      } else {
+        kick();
+      }
+    };
 
     window.addEventListener('pointermove', onMove, { passive: true });
     document.documentElement.addEventListener('pointerleave', onLeave);
+    pauseListeners.add(onPauseChange);
     return () => {
       window.removeEventListener('pointermove', onMove);
       document.documentElement.removeEventListener('pointerleave', onLeave);
+      pauseListeners.delete(onPauseChange);
       if (state.raf) cancelAnimationFrame(state.raf);
       state.raf = 0;
     };
