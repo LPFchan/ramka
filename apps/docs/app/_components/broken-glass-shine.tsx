@@ -34,10 +34,18 @@ import * as React from 'react';
  * debounced resize, shatter) into three textures — the visible "ink"
  * layer, the under-layer shadow work, and a boosted+blurred height map —
  * and each frame the shader recomputes only the Blinn-Phong specular term
- * (the same math feSpecularLighting does) against a light-direction
- * uniform. That makes the light dynamic again: it leans toward the cursor,
- * and a redraw costs one fullscreen-quad draw call, issued only while the
- * light is actually moving. Idle cost is zero, and View Transitions
+ * (the same math feSpecularLighting does) each frame.
+ *
+ * THE LIGHT DOES NOT MOVE. Rotating a directional light over faceted
+ * geometry makes individual crack ridges surge and die as they cross the
+ * narrow specular lobe — aggressive flicker, no matter how damped the
+ * rotation. Instead the cursor drives a SHEEN FIELD: a broad, soft
+ * spatial gain (a wide gaussian) that eases toward the pointer and
+ * gently brightens whatever glints it passes over — like a reflection
+ * drifting across glass as you shift your head. Every glint's brightness
+ * changes smoothly with distance, never with alignment, so nothing can
+ * pop. A redraw costs one fullscreen-quad draw call, issued only while
+ * the sheen is actually moving. Idle cost is zero, and View Transitions
  * snapshot the canvas as a plain bitmap layer — no filter re-evaluation.
  * This also sidesteps WebKit's low-resolution rasterization of SVG filters
  * inside image documents, which made the cracks look soft on Safari.
@@ -165,19 +173,30 @@ const ORIGIN = { x: 63, y: 34 };
  */
 const LINK_DELAY_MS = 500;
 
-/** Lighting constants, matching the SVG filter this replaced:
-    feSpecularLighting surfaceScale=6 (per CSS px), constant 1.7, exp 30. */
+/** Lighting constants. Tuned for an ambient, understated sheen: a modest
+    specular constant so nothing ever flares, and a moderate exponent so
+    highlights spread softly along the crack ridges instead of sparkling. */
 const SURFACE_SCALE = 6;
-const SPECULAR_CONSTANT = 1.7;
-const SPECULAR_EXPONENT = 30;
+const SPECULAR_CONSTANT = 0.9;
+const SPECULAR_EXPONENT = 24;
 /** Alpha boost applied before blurring into the height map. */
 const ALPHA_BOOST = 6;
 /** Height-map blur sigma in CSS px. */
 const BLUR_SIGMA = 0.8;
-/** Resting light: from the top-left (azimuth 225 in y-down coords),
+/** The light: fixed, from the top-left (azimuth 225 in y-down coords),
     grazing low so crack ridges rake bright while the flats stay dark. */
 const DEFAULT_AZIMUTH = 225;
 const DEFAULT_ELEVATION = 28;
+
+/** The cursor-driven sheen field: glint gain ranges from SHEEN_FLOOR far
+    from the sheen center up to SHEEN_FLOOR + SHEEN_GAIN at it, falling
+    off over SHEEN_RADIUS (in pane-height units). Wide enough to read as
+    light breathing across the pane rather than a spotlight chasing the
+    mouse, but with real contrast between the near and far glints so the
+    drift is unmistakable. */
+const SHEEN_FLOOR = 0.55;
+const SHEEN_GAIN = 1.1;
+const SHEEN_RADIUS = 0.5;
 
 type Vec3 = [number, number, number];
 type Point = { x: number; y: number };
@@ -446,10 +465,15 @@ void main() {
 
 /**
  * The feSpecularLighting / feComposite chain, reimplemented per-fragment:
- * normal from the height map's gradient, Blinn-Phong specular against the
- * light-direction uniform, glints clipped to the bump alpha and added over
+ * normal from the height map's gradient, Blinn-Phong specular against a
+ * FIXED light direction, glints clipped to the bump alpha and added over
  * the lit layer, the whole thing source-over the under layer. All textures
  * are premultiplied; the canvas composites premultiplied output.
+ *
+ * The only dynamic input is uSheen, the sheen field's center in uv space:
+ * a wide gaussian gain on the specular term. Distance-based and
+ * low-frequency, so glints brighten and fade smoothly as the field drifts
+ * over them — the light itself never rotates, so no edge can pop.
  */
 const FRAGMENT_SHADER = `
 precision mediump float;
@@ -460,6 +484,8 @@ uniform sampler2D uHeight;
 uniform vec2 uTexel;
 uniform vec3 uLight;
 uniform float uSurface;
+uniform vec2 uSheen;
+uniform float uAspect;
 void main() {
   float hl = texture2D(uHeight, vUv - vec2(uTexel.x, 0.0)).r;
   float hr = texture2D(uHeight, vUv + vec2(uTexel.x, 0.0)).r;
@@ -475,7 +501,11 @@ void main() {
   vec3 halfway = normalize(uLight + vec3(0.0, 0.0, 1.0));
   float spec = ${SPECULAR_CONSTANT.toFixed(2)} *
     pow(max(dot(normal, halfway), 0.0), ${SPECULAR_EXPONENT.toFixed(1)});
-  spec = min(spec, 1.0);
+
+  vec2 offset = (vUv - uSheen) * vec2(uAspect, 1.0);
+  float gain = ${SHEEN_FLOOR.toFixed(2)} + ${SHEEN_GAIN.toFixed(2)} *
+    exp(-dot(offset, offset) / ${(2 * SHEEN_RADIUS * SHEEN_RADIUS).toFixed(3)});
+  spec = min(spec * gain, 1.0);
 
   vec4 src = texture2D(uLit, vUv);
   vec4 lit = clamp(src + vec4(spec) * h, 0.0, 1.0);
@@ -485,7 +515,7 @@ void main() {
 
 type Renderer = {
   gl: WebGLRenderingContext;
-  render: (light: Vec3) => void;
+  render: (sheen: Point) => void;
   /** Uploads new pane textures and updates the viewport. */
   setScene: (
     lit: TexImageSource,
@@ -550,8 +580,13 @@ function createRenderer(canvas: HTMLCanvasElement): Renderer | null {
   gl.uniform1i(gl.getUniformLocation(program, 'uUnder'), 1);
   gl.uniform1i(gl.getUniformLocation(program, 'uHeight'), 2);
   const uTexel = gl.getUniformLocation(program, 'uTexel');
-  const uLight = gl.getUniformLocation(program, 'uLight');
   const uSurface = gl.getUniformLocation(program, 'uSurface');
+  const uSheen = gl.getUniformLocation(program, 'uSheen');
+  const uAspect = gl.getUniformLocation(program, 'uAspect');
+
+  // The light is constant for the renderer's whole life.
+  const light = lightVector(DEFAULT_AZIMUTH, DEFAULT_ELEVATION);
+  gl.uniform3f(gl.getUniformLocation(program, 'uLight'), light[0], light[1], light[2]);
 
   gl.disable(gl.BLEND);
   gl.clearColor(0, 0, 0, 0);
@@ -590,11 +625,12 @@ function createRenderer(canvas: HTMLCanvasElement): Renderer | null {
       gl.viewport(0, 0, width, height);
       gl.uniform2f(uTexel, 1 / width, 1 / height);
       gl.uniform1f(uSurface, surfaceScale);
+      gl.uniform1f(uAspect, width / height);
       ready = true;
     },
-    render(light) {
+    render(sheen) {
       if (!ready) return;
-      gl.uniform3f(uLight, light[0], light[1], light[2]);
+      gl.uniform2f(uSheen, sheen.x, sheen.y);
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     },
     dispose() {
@@ -620,11 +656,12 @@ export function BrokenGlassShine({ className }: { className?: string }) {
     null,
   );
 
-  // Light state lives in refs: it changes every pointer frame and must not
-  // re-render React. `current` eases toward `target` in a rAF loop that
-  // only runs while they differ.
-  const lightRef = React.useRef({
-    current: lightVector(DEFAULT_AZIMUTH, DEFAULT_ELEVATION),
+  // Sheen state lives in refs: it changes every pointer frame and must
+  // not re-render React. The field's center (pane uv coordinates) eases
+  // toward the cursor in a rAF loop that only runs while they differ;
+  // with no cursor it rests just up-light of center.
+  const sheenRef = React.useRef({
+    position: { x: 0.5, y: 0.4 } as Point,
     pointer: null as Point | null,
     raf: 0,
   });
@@ -800,7 +837,7 @@ export function BrokenGlassShine({ className }: { className?: string }) {
         height,
         SURFACE_SCALE * scale,
       );
-      renderer.render(lightRef.current.current);
+      renderer.render(sheenRef.current.position);
     };
 
     void run();
@@ -809,50 +846,40 @@ export function BrokenGlassShine({ className }: { className?: string }) {
     };
   }, [size, impact]);
 
-  // Dynamic light: the direction eases toward the cursor, so glints sweep
-  // across the crack ridges as the pointer moves — a distant light steered
-  // by the pointer, not a point light, so there is never a hotspot blob.
-  // Each step is one cheap draw call, and the loop stops as soon as the
-  // light settles. Mouse-only, and skipped under reduced motion.
+  // The sheen field follows the cursor: its center eases toward the
+  // pointer's position in pane uv space (clamped just past the pane, so a
+  // far-away cursor parks the field at the nearest edge instead of
+  // dragging it into the void). Each step is one cheap draw call, and the
+  // loop stops as soon as the field settles. Mouse-only, and skipped
+  // under reduced motion.
   React.useEffect(() => {
     if (!window.matchMedia('(hover: hover) and (pointer: fine)').matches) return;
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const state = lightRef.current;
+    const state = sheenRef.current;
 
-    const targetLight = (): Vec3 => {
-      if (!state.pointer) return lightVector(DEFAULT_AZIMUTH, DEFAULT_ELEVATION);
+    const targetPosition = (): Point => {
+      if (!state.pointer) return { x: 0.5, y: 0.4 };
       const box = canvas.getBoundingClientRect();
-      const dx = state.pointer.x - (box.left + box.width / 2);
-      const dy = state.pointer.y - (box.top + box.height / 2);
-      const azimuth = (Math.atan2(dy, dx) * 180) / Math.PI;
-      // Elevation rises as the cursor closes in on the pane: nearly-grazing
-      // light from far away, a higher, softer angle up close. Capped well
-      // below overhead — at high elevations the flat plates blow out.
-      const reach = Math.hypot(window.innerWidth, window.innerHeight) / 2;
-      const proximity = 1 - Math.min(1, Math.hypot(dx, dy) / reach);
-      const elevation = 22 + 20 * proximity;
-      return lightVector(azimuth, elevation);
+      const clamp = (v: number) => Math.min(1.3, Math.max(-0.3, v));
+      return {
+        x: clamp((state.pointer.x - box.left) / box.width),
+        y: clamp((state.pointer.y - box.top) / box.height),
+      };
     };
 
     const step = () => {
-      const target = targetLight();
-      const current = state.current;
-      const eased: Vec3 = [
-        current[0] + (target[0] - current[0]) * 0.14,
-        current[1] + (target[1] - current[1]) * 0.14,
-        current[2] + (target[2] - current[2]) * 0.14,
-      ];
-      const length = Math.hypot(eased[0], eased[1], eased[2]) || 1;
-      state.current = [eased[0] / length, eased[1] / length, eased[2] / length];
-      rendererRef.current?.render(state.current);
+      const target = targetPosition();
+      const { position } = state;
+      position.x += (target.x - position.x) * 0.07;
+      position.y += (target.y - position.y) * 0.07;
+      rendererRef.current?.render(position);
 
       const settled =
-        Math.abs(target[0] - state.current[0]) < 0.001 &&
-        Math.abs(target[1] - state.current[1]) < 0.001 &&
-        Math.abs(target[2] - state.current[2]) < 0.001;
+        Math.abs(target.x - position.x) < 0.001 &&
+        Math.abs(target.y - position.y) < 0.001;
       state.raf = settled ? 0 : requestAnimationFrame(step);
     };
 
