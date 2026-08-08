@@ -508,6 +508,7 @@ uniform float uSurface;
 uniform vec2 uSheen;
 uniform float uBand;
 uniform float uAspect;
+uniform float uFlash;
 void main() {
   float hl = texture2D(uHeight, vUv - vec2(uTexel.x, 0.0)).r;
   float hr = texture2D(uHeight, vUv + vec2(uTexel.x, 0.0)).r;
@@ -551,12 +552,17 @@ void main() {
   vec4 src = texture2D(uLit, vUv);
   vec4 lit = clamp(src + vec4(spec) * h, 0.0, 1.0);
   vec4 under = texture2D(uUnder, vUv);
-  gl_FragColor = lit + under * (1.0 - lit.a);
+  // uFlash: the impact blink, decayed per-frame in JS. Rendered here in
+  // the shader rather than as a DOM background animation — animating
+  // background-color on a WebGL canvas forces Chrome to re-rasterize the
+  // layer, which composites as a solid white frame until tiles are ready.
+  vec4 color = lit + under * (1.0 - lit.a);
+  gl_FragColor = min(color + vec4(uFlash), vec4(1.0));
 }`;
 
 type Renderer = {
   gl: WebGLRenderingContext;
-  render: (sheen: Point, band: number) => void;
+  render: (sheen: Point, band: number, flash: number) => void;
   /** Uploads new pane textures and updates the viewport. */
   setScene: (
     lit: TexImageSource,
@@ -625,6 +631,8 @@ function createRenderer(canvas: HTMLCanvasElement): Renderer | null {
   const uSheen = gl.getUniformLocation(program, 'uSheen');
   const uBand = gl.getUniformLocation(program, 'uBand');
   const uAspect = gl.getUniformLocation(program, 'uAspect');
+  const uFlash = gl.getUniformLocation(program, 'uFlash');
+  gl.uniform1f(uFlash, 0);
 
   // The light is constant for the renderer's whole life.
   const light = lightVector(DEFAULT_AZIMUTH, DEFAULT_ELEVATION);
@@ -670,10 +678,11 @@ function createRenderer(canvas: HTMLCanvasElement): Renderer | null {
       gl.uniform1f(uAspect, width / height);
       ready = true;
     },
-    render(sheen, band) {
+    render(sheen, band, flash) {
       if (!ready) return;
       gl.uniform2f(uSheen, sheen.x, sheen.y);
       gl.uniform1f(uBand, band);
+      gl.uniform1f(uFlash, flash);
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     },
     dispose() {
@@ -709,6 +718,8 @@ export function BrokenGlassShine({ className }: { className?: string }) {
     position: { x: 0.5, y: 0.4 } as Point,
     band: -0.75,
     bandVelocity: 0,
+    /** Impact blink level, decayed by its own short rAF loop on shatter. */
+    flash: 0,
     pointer: null as Point | null,
     raf: 0,
   });
@@ -766,15 +777,23 @@ export function BrokenGlassShine({ className }: { className?: string }) {
 
       // A blink of white as the pane lets go: breaking glass is an event,
       // not a state change. Barely-there — it should register as a flicker
-      // of light, not a camera flash. Skipped under reduced motion.
+      // of light, not a camera flash. Rendered through the shader's flash
+      // uniform and decayed by a short rAF loop; the first flashed frame
+      // draws the still-intact pane, the shattered scene lands mid-decay.
+      // (Never a DOM background animation: that forces Chrome to
+      // re-rasterize the canvas layer, which paints solid white until the
+      // tiles are ready.) Skipped under reduced motion.
       if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-        pane.animate(
-          [
-            { backgroundColor: 'rgba(255,255,255,0.12)' },
-            { backgroundColor: 'rgba(255,255,255,0)' },
-          ],
-          { duration: 110, easing: 'ease-out' },
-        );
+        const state = sheenRef.current;
+        const start = performance.now();
+        const decay = (now: number) => {
+          const progress = Math.min(1, (now - start) / 110);
+          const remaining = 1 - progress;
+          state.flash = 0.12 * remaining * remaining;
+          rendererRef.current?.render(state.position, state.band, state.flash);
+          if (progress < 1) requestAnimationFrame(decay);
+        };
+        requestAnimationFrame(decay);
       }
 
       // If this click was on a link, hold the navigation briefly so the
@@ -820,6 +839,16 @@ export function BrokenGlassShine({ className }: { className?: string }) {
 
     let cancelled = false;
 
+    // Assigning canvas width/height — even to the value it already has —
+    // discards the drawing buffer, and Chrome can composite the freshly
+    // allocated layer as solid white for a frame before the next draw
+    // lands. On shatter the size hasn't changed, so skipping the no-op
+    // assignment keeps the old frame on screen until the new one is ready.
+    const ensureCanvasSize = () => {
+      if (canvas.width !== width) canvas.width = width;
+      if (canvas.height !== height) canvas.height = height;
+    };
+
     const run = async () => {
       if (!rendererRef.current && !rendererFailedRef.current) {
         rendererRef.current = createRenderer(canvas);
@@ -833,8 +862,7 @@ export function BrokenGlassShine({ className }: { className?: string }) {
           buildStaticPaneSvg(width, height, impact, scale),
         );
         if (cancelled) return;
-        canvas.width = width;
-        canvas.height = height;
+        ensureCanvasSize();
         canvas.getContext('2d')?.drawImage(image, 0, 0);
         return;
       }
@@ -863,8 +891,7 @@ export function BrokenGlassShine({ className }: { className?: string }) {
         BLUR_SIGMA * scale,
       );
 
-      canvas.width = width;
-      canvas.height = height;
+      ensureCanvasSize();
 
       let underSource: TexImageSource | null = null;
       const litSource = scratch;
@@ -884,7 +911,11 @@ export function BrokenGlassShine({ className }: { className?: string }) {
         height,
         SURFACE_SCALE * scale,
       );
-      renderer.render(sheenRef.current.position, sheenRef.current.band);
+      renderer.render(
+        sheenRef.current.position,
+        sheenRef.current.band,
+        sheenRef.current.flash,
+      );
     };
 
     void run();
@@ -934,7 +965,7 @@ export function BrokenGlassShine({ className }: { className?: string }) {
       state.bandVelocity *= BAND_DAMPING;
       state.band += state.bandVelocity;
 
-      rendererRef.current?.render(position, state.band);
+      rendererRef.current?.render(position, state.band, state.flash);
 
       const settled =
         Math.abs(target.x - position.x) < 0.001 &&
