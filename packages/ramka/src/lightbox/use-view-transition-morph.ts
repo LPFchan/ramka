@@ -4,6 +4,7 @@ import * as React from 'react';
 import { flushSync } from 'react-dom';
 
 import { isFirefox } from './is-firefox';
+import { abortActiveFlipMorph, isFlipMorphEnabled, tryFlipClose, tryFlipOpen } from './flip-morph';
 import { maybeTraceViewTransition } from './vt-debug';
 import { maybeUpgradeToCompositedMorph } from './vt-composited-morph';
 import { isViewTransitionPreset, resolveViewTransitionTiming } from './vt-timing';
@@ -763,6 +764,14 @@ interface ViewTransitionMorphConfig {
   commitAbortPrepare: () => void;
   /** flushSync body that flips React state to the closed/unmounted state. */
   commitClose: () => void;
+  /**
+   * flushSync body for the FLIP close (see flip-morph.ts): flips open to
+   * false — chrome/backdrop start their exit fades — but KEEPS the tree
+   * mounted, because the ghost animates real pixels over the fading viewer.
+   */
+  commitSoftClose: () => void;
+  /** flushSync body unmounting the tree once a FLIP close's ghost lands. */
+  commitUnmount: () => void;
   /** Fired once the open morph settles (and its generation is still current). */
   onOpenComplete: () => void;
   /**
@@ -820,6 +829,11 @@ function useViewTransitionMorph(config: ViewTransitionMorphConfig): ViewTransiti
 
     const docEl = document.documentElement;
     const gen = closeGenRef.current;
+
+    // A superseded FLIP ghost (see flip-morph.ts) must be gone before any
+    // geometry below is measured. When one was mid-flight (reopen during a
+    // FLIP close), its pose is the retarget start for this open's morph.
+    const interruptedFlipPose = abortActiveFlipMorph();
 
     // Fresh controller for this open attempt; Root aborts it when gen bumps.
     const beforeOpenAbort = new AbortController();
@@ -967,6 +981,46 @@ function useViewTransitionMorph(config: ViewTransitionMorphConfig): ViewTransiti
       preset: configRef.current.transitionPreset,
     });
 
+    // EXPERIMENTAL FLIP engine (`window.__RAMKA_VT_FLIP__`, docs `?vtflip`):
+    // drive the hard-cut morph with a real ghost element + WAAPI instead of a
+    // View Transition. Hard-cut only — the crossfade dissolve and every
+    // fallback stay on the VT engine. `tryFlipOpen` validates its own
+    // preconditions before touching anything, so a `false` return falls
+    // through to the VT path with no state to undo (the morph doc state
+    // above is shared by both engines).
+    if (canMorph && !useCrossfade && isFlipMorphEnabled()) {
+      const handled = tryFlipOpen({
+        triggerTarget: triggerTarget!,
+        itemTarget: itemTargetPrep!,
+        itemEl: itemElPrep,
+        fromRadius,
+        toRadius,
+        fromPose: interruptedFlipPose,
+        reveal: () => flushSync(commitReveal),
+        onDone: () => {
+          if (configRef.current.closeGenRef.current !== gen) return;
+          const cfg = configRef.current;
+          clearMorphState(docEl, morphStateToken);
+          // Same invisible trigger reposition as the VT open finalizer.
+          const openCompleteScroll = resolveScrollTriggerOption(
+            cfg.scrollTriggerIntoView,
+            'onOpenComplete',
+          );
+          if (openCompleteScroll) {
+            const idx = resolveTriggerIndex(
+              cfg.activeIndexRef.current,
+              cfg.morphTo,
+              cfg.openingTriggerIndexRef.current,
+              cfg.triggerElementsRef.current,
+            );
+            scrollTriggerEl(cfg.triggerElementsRef.current.get(idx), openCompleteScroll);
+          }
+          cfg.onOpenComplete();
+        },
+      });
+      if (handled) return;
+    }
+
     if (canMorph) {
       // Inline `!important` so the document-level isolation rule (which sets
       // `view-transition-name: none !important` on every element during the
@@ -1062,6 +1116,12 @@ function useViewTransitionMorph(config: ViewTransitionMorphConfig): ViewTransiti
     const docEl = document.documentElement;
     const gen = closeGenRef.current;
 
+    // A superseded FLIP ghost must be gone before measuring close geometry.
+    // When one was mid-flight (Esc during a FLIP open), its pose is the
+    // retarget start: the close morph shrinks back from wherever the picture
+    // currently is instead of snapping to the settled item box.
+    const interruptedFlipPose = abortActiveFlipMorph();
+
     const itemEl = activeItemElementRef.current;
     const itemTarget = itemEl ? findItemMorphTarget(itemEl, itemMorphElementsRef.current) : null;
     const triggerIdx = resolveTriggerIndex(
@@ -1096,6 +1156,36 @@ function useViewTransitionMorph(config: ViewTransitionMorphConfig): ViewTransiti
       toRadius,
       preset: configRef.current.transitionPreset,
     });
+
+    // EXPERIMENTAL FLIP engine (see the open path for the flag contract).
+    // Zoomed-in items keep the VT engine: the ghost cannot reproduce the
+    // live crop the zoom pose paints under ancestor overflow.
+    const flipZoomedIn = (configRef.current.activeZoomRef.current?.getZoom() ?? 1) > 1.001;
+    if (canMorph && !useCrossfade && !flipZoomedIn && isFlipMorphEnabled()) {
+      const handled = tryFlipClose({
+        itemTarget: itemTarget!,
+        triggerTarget: triggerTarget!,
+        fromRadius,
+        toRadius,
+        fromPose: interruptedFlipPose,
+        softClose: () => flushSync(configRef.current.commitSoftClose),
+        scrollTrigger: () => {
+          const closeScroll = resolveScrollTriggerOption(scrollTriggerIntoView, 'onClose');
+          if (closeScroll) {
+            scrollTriggerEl(triggerEl, closeScroll);
+          }
+        },
+        onDone: () => {
+          clearMorphState(docEl, morphStateToken);
+          if (configRef.current.closeGenRef.current !== gen) return;
+          // The soft close kept the tree mounted under the ghost; unmount
+          // now that the ghost has landed on the trigger.
+          flushSync(configRef.current.commitUnmount);
+          configRef.current.onCloseComplete(triggerEl);
+        },
+      });
+      if (handled) return;
+    }
 
     // Firefox: zoomed Media is painted under scale/pan and clipped by ancestor
     // overflow into the named VT snapshot. Instant reset (replacePose) so the

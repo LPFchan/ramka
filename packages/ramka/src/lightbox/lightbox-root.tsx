@@ -634,6 +634,21 @@ function LightboxRoot(props: LightboxRootProps) {
       setMounted(false);
     }, [isControlledOpen]);
 
+    // FLIP close pair (see flip-morph.ts). The ghost animates real pixels
+    // over the viewer, so closing splits into: flip `open` to false now —
+    // chrome/backdrop run their exit fades under the ghost — and unmount
+    // only once the ghost lands on the trigger.
+    const commitSoftClose = React.useCallback(() => {
+      if (!isControlledOpen) {
+        setUncontrolledOpen(false);
+      }
+      onOpenChangeRef.current?.(false);
+    }, [isControlledOpen]);
+
+    const commitUnmount = React.useCallback(() => {
+      setMounted(false);
+    }, []);
+
     const handleOpenComplete = React.useCallback(() => {
       settleOpenTransition();
       onOpenChangeCompleteRef.current?.(true);
@@ -669,6 +684,8 @@ function LightboxRoot(props: LightboxRootProps) {
       commitReveal,
       commitAbortPrepare,
       commitClose,
+      commitSoftClose,
+      commitUnmount,
       onOpenComplete: handleOpenComplete,
       onCloseComplete: handleCloseComplete,
       activeZoomRef,

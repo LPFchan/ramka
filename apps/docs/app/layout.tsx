@@ -44,6 +44,9 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             __html:
               'if(/[?&]vtdebug/.test(location.search))window.__RAMKA_VT_DEBUG__=true;' +
               'if(/[?&]vtstock/.test(location.search))window.__RAMKA_VT_COMPOSITED__=false;' +
+              // Experimental FLIP engine (flip-morph.ts): drive the hard-cut
+              // morph with a real ghost element + WAAPI, no View Transition.
+              'if(/[?&]vtflip/.test(location.search))window.__RAMKA_VT_FLIP__=true;' +
               // Blind A/B: ?vtab=q7 and ?vtab=k2 map to the two morph engines
               // without revealing which is which (see vt-composited-morph.ts).
               'if(/[?&]vtab=q7/.test(location.search))window.__RAMKA_VT_COMPOSITED__=false;' +
