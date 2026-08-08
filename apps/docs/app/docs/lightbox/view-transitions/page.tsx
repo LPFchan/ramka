@@ -16,7 +16,7 @@ const toc: DocsTocItem[] = [
   { id: 'scroll-trigger', title: 'scrollTriggerIntoView' },
   { id: 'programmatic', title: 'Programmatic open' },
   { id: 'styling', title: 'Styling' },
-  { id: 'motion-tokens', title: 'Motion tokens' },
+  { id: 'timing-presets', title: 'Timing presets' },
   { id: 'styling-recipe', title: 'Structural recipe' },
   { id: 'multi-skin', title: 'Multiple skins' },
 ];
@@ -233,10 +233,11 @@ export default function LightboxViewTransitionsPage() {
             <code className="text-xs">--lightbox-morph-old/new-opacity</code>
           </li>
           <li>
+            <code className="text-xs">data-ramka-vt-preset</code>,{' '}
             <code className="text-xs">--lightbox-vt-duration</code>,{' '}
             <code className="text-xs">--lightbox-vt-easing</code>,{' '}
-            <code className="text-xs">--lightbox-vt-root-easing</code> — motion contract (see{' '}
-            <DocsLink href="#motion-tokens">Motion tokens</DocsLink>)
+            <code className="text-xs">--lightbox-vt-root-easing</code> — the active timing preset,
+            written by the library (see <DocsLink href="#timing-presets">Timing presets</DocsLink>)
           </li>
           <li>
             <DocsLink href={lightboxApiHref.trigger}>Trigger</DocsLink>{' '}
@@ -247,12 +248,12 @@ export default function LightboxViewTransitionsPage() {
           </li>
         </ul>
         <p>
-          Split motion into <strong className="font-medium text-neutral-800 dark:text-neutral-200">tokens</strong>{' '}
-          (duration/easing on a Portal host) and{' '}
+          Split motion into <strong className="font-medium text-neutral-800 dark:text-neutral-200">timing</strong>{' '}
+          (a preset picked on Root — see below) and{' '}
           <strong className="font-medium text-neutral-800 dark:text-neutral-200">structure</strong>{' '}
           (the <code className="text-xs">::view-transition-*</code> recipe below). Do not hard-code
-          skin-specific timings on <code className="text-xs">::view-transition-group(lightbox-morph)</code> —
-          read the contract vars instead. Full file:{' '}
+          timings on <code className="text-xs">::view-transition-group(lightbox-morph)</code> — read
+          the library-written contract vars instead. Full file:{' '}
           <code className="text-xs">app/lightbox-demo/view-transitions.css</code> (same block as the{' '}
           <DocsLink href="/presets/default">Default</DocsLink> /{' '}
           <DocsLink href="/presets/twitter">Twitter</DocsLink> presets). Gate under{' '}
@@ -260,39 +261,50 @@ export default function LightboxViewTransitionsPage() {
         </p>
       </DocsSection>
 
-      <DocsSection id="motion-tokens" title="Motion tokens">
+      <DocsSection id="timing-presets" title="Timing presets">
         <p>
-          <code className="text-xs">::view-transition-*</code> pseudos are document-level — they cannot
-          inherit from Portal or Content. Put the contract vars on a skin host that wraps Backdrop +
-          Content (typically <DocsLink href={lightboxApiHref.portal}>Portal</DocsLink>), and Ramka
-          promotes the computed values onto <code className="text-xs">documentElement</code> for the
-          morph, then clears them when it ends.
+          Morph duration and easing are chosen with the{' '}
+          <code className="text-xs">viewTransition</code> prop on{' '}
+          <DocsLink href={lightboxApiHref.root}>Root</DocsLink> — pass a preset name instead of{' '}
+          <code className="text-xs">true</code>:
         </p>
+        <ul className="list-disc space-y-2 pl-5">
+          <li>
+            <code className="text-xs">&quot;default&quot;</code> — 360ms, sheet curve with a tamed
+            launch (what <code className="text-xs">true</code> runs)
+          </li>
+          <li>
+            <code className="text-xs">&quot;snappy&quot;</code> — 340ms, hotter launch; reads quicker
+          </li>
+          <li>
+            <code className="text-xs">&quot;relaxed&quot;</code> — 400ms, softer launch and longer
+            settle
+          </li>
+          <li>
+            <code className="text-xs">&quot;spring&quot;</code> — 450ms, critically damped spring;
+            Photos-style settle
+          </li>
+        </ul>
         <CodeBlock
-          code={`<Lightbox.Portal className="my-lightbox">
-  <Lightbox.Backdrop />
-  <Lightbox.Content>{/* … */}</Lightbox.Content>
-</Lightbox.Portal>`}
-          title="Portal skin host"
+          code={`<Lightbox.Root viewTransition="spring">{/* … */}</Lightbox.Root>`}
+          title="Picking a preset"
           lang="tsx"
         />
-        <CodeBlock
-          code={`/* Tokens on the Portal host — not :root */
-.my-lightbox {
-  --lightbox-vt-duration: 340ms;
-  /* Dedicated morph curve (not easeOutExpo) — named VT groups are CPU-rasterized on WebKit */
-  --lightbox-vt-easing: cubic-bezier(0.32, 0.72, 0, 1);
-  --lightbox-vt-root-easing: cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-/* Structure reads only the contract (literal fallbacks for copy-paste) */
-::view-transition-group(lightbox-morph) {
-  animation-duration: var(--lightbox-vt-duration, 340ms);
-  animation-timing-function: var(--lightbox-vt-easing, cubic-bezier(0.32, 0.72, 0, 1));
-}`}
-          title="Motion contract"
-          lang="css"
-        />
+        <p>
+          Timing is preset-based rather than free-form CSS on purpose: each preset is vetted
+          on-device to stay smooth and skip-safe on iOS Safari (including Low Power Mode) and
+          Android, where arbitrary curves stutter or teleport. During a morph the library writes the
+          active preset onto <code className="text-xs">documentElement</code> —{' '}
+          <code className="text-xs">data-ramka-vt-preset</code> plus{' '}
+          <code className="text-xs">--lightbox-vt-duration</code> /{' '}
+          <code className="text-xs">--lightbox-vt-easing</code> /{' '}
+          <code className="text-xs">--lightbox-vt-root-easing</code> — and clears them when it ends.
+          Read those vars in your own CSS to keep skin fades in lockstep with the morph (e.g.{' '}
+          <code className="text-xs">
+            transition: opacity var(--lightbox-vt-duration, 340ms) ease-out
+          </code>{' '}
+          on Backdrop/Content); do not set them yourself.
+        </p>
         <p>
           Scope cosmetic attribute rules under your trigger class (e.g.{' '}
           <code className="text-xs">.my-trigger[data-morph-target]</code>) — avoid bare{' '}
@@ -391,12 +403,14 @@ export default function LightboxViewTransitionsPage() {
 
       <DocsSection id="multi-skin" title="Multiple skins">
         <p>
-          Follow <DocsLink href="#motion-tokens">Motion tokens</DocsLink> + the{' '}
-          <DocsLink href="#styling-recipe">structural recipe</DocsLink> in every skin file. If skins
-          hard-code different timings on <code className="text-xs">::view-transition-group(lightbox-morph)</code>,
-          the last stylesheet loaded retunes <em>every</em> lightbox on the page. Keep structural blocks
-          byte-identical (contract vars only); put per-skin duration/easing on each Portal host so
-          promotion picks the active lightbox.
+          Follow the <DocsLink href="#styling-recipe">structural recipe</DocsLink> in every skin
+          file. If skins hard-code different timings on{' '}
+          <code className="text-xs">::view-transition-group(lightbox-morph)</code>, the last
+          stylesheet loaded retunes <em>every</em> lightbox on the page. Keep structural blocks
+          byte-identical (contract vars only); per-lightbox timing comes from each Root&apos;s{' '}
+          <code className="text-xs">viewTransition</code> preset (see{' '}
+          <DocsLink href="#timing-presets">Timing presets</DocsLink>), which the library writes to
+          the document for the active morph.
         </p>
       </DocsSection>
 

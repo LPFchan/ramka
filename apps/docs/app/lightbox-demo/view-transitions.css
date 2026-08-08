@@ -2,10 +2,11 @@
    Targeted with CSS only (cannot use Tailwind utilities).
    Documented under View transitions → Styling.
 
-   Motion uses the library contract vars (`--lightbox-vt-*`). Skins set those
-   on a host (Portal/Content); Ramka promotes the active host's computed values
-   onto `documentElement` for the morph. Keep this structural block identical
-   across skins so cascade order cannot retune every lightbox on the page. */
+   Motion uses the library contract vars (`--lightbox-vt-*`). Ramka WRITES
+   them onto `documentElement` for each morph from the Root's `viewTransition`
+   timing preset — CSS here only reads them (fallbacks mirror the `default`
+   preset). Keep this structural block identical across skins so cascade order
+   cannot retune every lightbox on the page. */
 
 /* @docs-excerpt-start vt-isolate-names */
 /* @docs-excerpt-title Isolate other view-transition names */
@@ -41,7 +42,7 @@
      root snapshot. */
   :root[data-ramka-view-transition]::view-transition-old(root),
   :root[data-ramka-view-transition]::view-transition-new(root) {
-    animation-duration: var(--lightbox-vt-duration, 340ms);
+    animation-duration: var(--lightbox-vt-duration, 360ms);
     animation-timing-function: var(--lightbox-vt-root-easing, cubic-bezier(0.16, 1, 0.3, 1));
   }
   /* @docs-excerpt-end */
@@ -62,8 +63,8 @@
     overflow: hidden;
     border-radius: var(--lightbox-morph-border-radius-from, 0px);
     animation-name: -ua-view-transition-group-anim-lightbox-morph, lightbox-morph-border-radius;
-    animation-duration: var(--lightbox-vt-duration, 340ms);
-    animation-timing-function: var(--lightbox-vt-easing, cubic-bezier(0.32, 0.72, 0, 1));
+    animation-duration: var(--lightbox-vt-duration, 360ms);
+    animation-timing-function: var(--lightbox-vt-easing, cubic-bezier(0.44, 0.58, 0, 1));
     animation-fill-mode: both;
     z-index: 2;
   }
@@ -95,12 +96,16 @@
   /* @docs-excerpt-title Crossfade morph */
   /* Dissolve path (`data-ramka-crossfade`): restore UA fade, plus-lighter blend,
      fill so circular triggers don't balloon under cover — the group's
-     border-radius is the visible shape. */
+     border-radius is the visible shape. Re-time the UA fade to the promoted
+     preset vars so the dissolve runs on the same clock/curve as the morph
+     (the UA default would end at 250ms, mid-morph). */
   :root[data-ramka-crossfade]::view-transition-old(lightbox-morph),
   :root[data-ramka-crossfade]::view-transition-new(lightbox-morph) {
     object-fit: fill;
     mix-blend-mode: plus-lighter;
     animation: revert !important;
+    animation-duration: var(--lightbox-vt-duration, 360ms) !important;
+    animation-timing-function: var(--lightbox-vt-easing, cubic-bezier(0.44, 0.58, 0, 1)) !important;
     opacity: revert;
   }
   /* @docs-excerpt-end */

@@ -1,5 +1,6 @@
 import { VIEW_TRANSITION_NAME } from './lightbox-context';
 import { LightboxDocumentCssVars } from './lightbox-css-vars';
+import { morphTiming } from './vt-timing';
 
 // ---------------------------------------------------------------------------
 // Composited (transform-only) morph upgrade — EXPERIMENTAL, on by default.
@@ -46,8 +47,8 @@ import { LightboxDocumentCssVars } from './lightbox-css-vars';
 // `transition.ready`/`getAnimations` support, or rotated/skewed endpoint
 // transforms.
 //
-// Timing is the morph's own (see MORPH_TIMING_DEFAULT) — identical in every
-// browser and independent of the page's view-transition CSS.
+// Timing comes from the Root's `viewTransition` preset (see vt-timing.ts) —
+// identical in every browser and independent of the page's CSS.
 // ---------------------------------------------------------------------------
 
 interface UpgradeableTransition {
@@ -90,7 +91,7 @@ function isCompositedMorphEnabled(): boolean {
  * (iPhone screen recordings showed the first *displayed* frame ~100ms into
  * the curve), and no anchoring trick moves that — the WebKit branch in
  * `upgrade` documents everything that was tried. The chosen fix is a longer,
- * softer curve that hides the skip (see MORPH_TIMING_DEFAULT).
+ * softer curve that hides the skip (see the preset table in vt-timing.ts).
  */
 function isWebKit(): boolean {
   return typeof window !== 'undefined' && 'GestureEvent' in window;
@@ -233,213 +234,8 @@ function parsePx(value: unknown): number | null {
   return Number.isFinite(n) && n > 0 ? n : null;
 }
 
-type EasingFn = (t: number) => number;
-
-/** Numeric cubic-bezier evaluator (bisection on the x polynomial). */
-function cubicBezierEasing(x1: number, y1: number, x2: number, y2: number): EasingFn {
-  const sample = (t: number, p1: number, p2: number) =>
-    ((1 - 3 * p2 + 3 * p1) * t * t * t) + ((3 * p2 - 6 * p1) * t * t) + (3 * p1 * t);
-  return (x: number) => {
-    if (x <= 0) return 0;
-    if (x >= 1) return 1;
-    let lo = 0;
-    let hi = 1;
-    let t = x;
-    for (let i = 0; i < 32; i++) {
-      const cx = sample(t, x1, x2);
-      if (Math.abs(cx - x) < 1e-6) break;
-      if (cx < x) lo = t;
-      else hi = t;
-      t = (lo + hi) / 2;
-    }
-    return sample(t, y1, y2);
-  };
-}
-
-/**
- * Apple-style protected ease-out: a brief low-travel wind-up followed by a
- * cubic ease-out entered at PEAK velocity, C1-continuous at the junction.
- *
- * Why not a plain bezier: Apple motion has no perceptible ease-in — it moves
- * at full speed immediately and spends most of its duration decelerating.
- * But on iOS, accelerated animations on a fresh view-transition layer tree
- * fast-forward past Core Animation's multi-frame first commit: the first
- * *displayed* frame lands ~100ms into the curve, and no anchoring trick
- * moves that (see the WebKit branch in `upgrade`). A true ease-out would
- * teleport its fastest stretch. So the curve protects exactly that window:
- *
- *   - wind-up `[0..a]`: `q·(p/a)^k` — near-still, carrying only `q` of the
- *     travel, with `k` chosen so velocity is continuous into the next phase.
- *   - settle `[a..1]`: cubic ease-out over the remaining `1-q` travel.
- *
- * On iOS the swallowed leading edge IS the wind-up, so visible motion begins
- * at maximum velocity and settles long — the Apple signature. Elsewhere the
- * wind-up reads as a short natural gather before the launch.
- *
- * `a` (wind-up fraction of duration) should cover the skip (~100ms); `q`
- * (wind-up travel) trades skip invisibility against desktop responsiveness.
- */
-function protectedEaseOut(a: number, q: number): EasingFn {
-  const k = (3 * (1 - q) * a) / (q * (1 - a));
-  return (p) => {
-    if (p <= 0) return 0;
-    if (p >= 1) return 1;
-    if (p < a) return q * Math.pow(p / a, k);
-    const u = (p - a) / (1 - a);
-    return q + (1 - q) * (1 - Math.pow(1 - u, 3));
-  };
-}
-
-/**
- * Damped-spring step response normalized to play out over the duration —
- * what UIKit actually runs for Photos-style zoom transitions
- * (`usingSpringWithDamping:`) and the iOS 18 fluid zoom. `zeta` is the
- * damping ratio: 1 = critically damped (no overshoot), <1 overshoots
- * slightly (0.8 is the widely documented Photos-zoom value). The decay
- * constant is fixed so the spring has visually settled at p=1, and the
- * output is normalized to end exactly at 1.
- */
-function springEase(zeta: number): EasingFn {
-  const z = Math.min(Math.max(zeta, 0.2), 1);
-  if (z >= 1) {
-    // Critical: y = 1 - (1 + A·p)·e^(-A·p); A picked so y(1) ≈ 0.999.
-    const A = 9.2;
-    const end = 1 - (1 + A) * Math.exp(-A);
-    return (p) =>
-      p <= 0 ? 0 : p >= 1 ? 1 : (1 - (1 + A * p) * Math.exp(-A * p)) / end;
-  }
-  // Underdamped: envelope e^(-α·p) with α = ζω; α picked so it has decayed
-  // to ~0.1% at p=1.
-  const alpha = 6.9;
-  const omega = alpha / z;
-  const wd = omega * Math.sqrt(1 - z * z);
-  const f = (p: number) => Math.exp(-alpha * p) * (Math.cos(wd * p) + (alpha / wd) * Math.sin(wd * p));
-  const end = 1 - f(1);
-  return (p) => (p <= 0 ? 0 : p >= 1 ? 1 : (1 - f(p)) / end);
-}
-
-/**
- * Spring with a protected launch: a gentle quadratic wind-up covering the
- * iOS commit-skip window (`a` fraction of duration, `q` of the travel),
- * handing its exit velocity INTO the spring as initial velocity — the same
- * trick Apple's interruptible transitions use to inject gesture velocity
- * into a spring. On iOS the swallowed leading edge is the wind-up, so the
- * visible motion is a pure Photos-style spring settle.
- */
-function protectedSpring(zeta: number, a: number, q: number): EasingFn {
-  const z = Math.min(Math.max(zeta, 0.2), 1);
-  // Wind-up exit velocity (dy/du in spring-segment time units).
-  const vSeg = ((2 * q) / a) * (1 - a);
-  const v = vSeg / (1 - q);
-  let seg: (u: number) => number;
-  if (z >= 1) {
-    const A = 9.2;
-    const C = A - v; // y'(0) continuity
-    const f = (u: number) => Math.exp(-A * u) * (1 + C * u);
-    const end = 1 - f(1);
-    seg = (u) => (1 - f(u)) / end;
-  } else {
-    const alpha = 6.9;
-    const omega = alpha / z;
-    const wd = omega * Math.sqrt(1 - z * z);
-    const B = (alpha - v) / wd;
-    const f = (u: number) => Math.exp(-alpha * u) * (Math.cos(wd * u) + B * Math.sin(wd * u));
-    const end = 1 - f(1);
-    seg = (u) => (1 - f(u)) / end;
-  }
-  return (p) => {
-    if (p <= 0) return 0;
-    if (p >= 1) return 1;
-    if (p < a) return q * Math.pow(p / a, 2);
-    return q + (1 - q) * seg((p - a) / (1 - a));
-  };
-}
-
-/**
- * The morph's timing: duration (ms) + easing, identical in every browser.
- * The composited morph deliberately does NOT inherit the page's
- * view-transition duration/easing — it owns its motion design.
- *
- * The default was chosen by on-device A/B testing (iPhone, including Low
- * Power Mode) against the pre-composited-morph timing (340ms sheet curve,
- * cubic-bezier(.32,.72,0,1)): the same family of curve with the launch
- * velocity tamed — enough travel moved out of WebKit's swallowed first
- * ~100ms (see the WebKit branch in `upgrade`) that the start doesn't
- * teleport, while keeping the sheet curve's fast middle and long settle.
- *
- * Live-tunable without rebuilds via `window.__RAMKA_VT_TIMING__` (docs wire
- * this to `?vttiming=...`), four formats:
- *   - `'duration,x1,y1,x2,y2'` — plain cubic-bezier, e.g. `360,.44,.58,0,1`
- *   - `'duration,out,a,q'` — protected ease-out, e.g. `350,out,.28,.1`
- *   - `'duration,spring,zeta'` — UIKit-style spring, e.g. `500,spring,.8`
- *   - `'duration,pspring,zeta,a,q'` — spring with protected launch,
- *     e.g. `500,pspring,.8,.2,.08`
- */
-const MORPH_TIMING_DEFAULT = {
-  duration: 360,
-  bezier: [0.44, 0.58, 0, 1] as const,
-};
-
-function morphTiming(): { duration: number; ease: EasingFn; label: string } {
-  const raw = (window as unknown as Record<string, unknown>).__RAMKA_VT_TIMING__;
-  if (typeof raw === 'string') {
-    const parts = raw.split(',').map((p) => p.trim());
-    const nums = parts.map((p) => Number.parseFloat(p));
-    if (parts.length === 5 && nums.every((n) => Number.isFinite(n)) && nums[0]! > 0) {
-      return {
-        duration: nums[0]!,
-        ease: cubicBezierEasing(nums[1]!, nums[2]!, nums[3]!, nums[4]!),
-        label: `${nums[0]}ms cubic-bezier(${parts.slice(1).join(',')})`,
-      };
-    }
-    if (
-      parts.length === 4 &&
-      parts[1] === 'out' &&
-      Number.isFinite(nums[0]) &&
-      nums[0]! > 0 &&
-      Number.isFinite(nums[2]) &&
-      Number.isFinite(nums[3])
-    ) {
-      return {
-        duration: nums[0]!,
-        ease: protectedEaseOut(nums[2]!, nums[3]!),
-        label: `${nums[0]}ms protected-out(${nums[2]},${nums[3]})`,
-      };
-    }
-    if (
-      parts.length === 3 &&
-      parts[1] === 'spring' &&
-      Number.isFinite(nums[0]) &&
-      nums[0]! > 0 &&
-      Number.isFinite(nums[2])
-    ) {
-      return {
-        duration: nums[0]!,
-        ease: springEase(nums[2]!),
-        label: `${nums[0]}ms spring(${nums[2]})`,
-      };
-    }
-    if (
-      parts.length === 5 &&
-      parts[1] === 'pspring' &&
-      Number.isFinite(nums[0]) &&
-      nums[0]! > 0 &&
-      [nums[2], nums[3], nums[4]].every((n) => Number.isFinite(n))
-    ) {
-      return {
-        duration: nums[0]!,
-        ease: protectedSpring(nums[2]!, nums[3]!, nums[4]!),
-        label: `${nums[0]}ms protected-spring(${nums[2]},${nums[3]},${nums[4]})`,
-      };
-    }
-  }
-  const { duration, bezier } = MORPH_TIMING_DEFAULT;
-  return {
-    duration,
-    ease: cubicBezierEasing(...bezier),
-    label: `${duration}ms cubic-bezier(${bezier.join(',')})`,
-  };
-}
+// Easing math and timing presets live in vt-timing.ts (shared with the Root,
+// which promotes the active preset's timing to documentElement).
 
 /**
  * Parse a morph radius var (`12px`, `16px 16px 160px 160px`, or empty) into
@@ -701,7 +497,7 @@ function upgrade(transition: UpgradeableTransition): void {
     // recreation on a warm tree, main-thread sync-forcing via width/height
     // co-animation, and a sync-launch/async-cruise split — each either kept
     // the skip or gave up compositor smoothness). The morph's soft slow-start
-    // timing (see MORPH_TIMING_DEFAULT) accommodates the skip instead:
+    // timing (see the preset table in vt-timing.ts) accommodates the skip:
     // near-zero travel sits in the swallowed leading edge. The replacement
     // animations keep the transition (and its pseudo tree) alive until they
     // finish.

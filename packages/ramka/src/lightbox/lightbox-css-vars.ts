@@ -78,23 +78,25 @@ export enum LightboxDocumentCssVars {
    */
   morphNewOpacity = '--lightbox-morph-new-opacity',
   /**
-   * Morph group + root-snapshot duration. Set on your skin host (e.g. Portal);
-   * the library promotes the computed value onto `documentElement` for the
-   * morph so document-level `::view-transition-*` rules can read it.
+   * Morph + root-snapshot duration. WRITTEN BY THE LIBRARY onto
+   * `documentElement` during a morph from the Root's `viewTransition` timing
+   * preset — read it in document-level `::view-transition-*` rules (e.g.
+   * `calc(var(--lightbox-vt-duration) * 0.5)` for a derived track); do not
+   * set it yourself. Timing is chosen via the `viewTransition` prop.
    * @type string
    */
   vtDuration = '--lightbox-vt-duration',
   /**
-   * Easing for `::view-transition-group(lightbox-morph)`. Prefer a dedicated
-   * morph curve (not easeOutExpo) — named VT groups are CPU-rasterized on
-   * WebKit. Promoted from the skin host like `--lightbox-vt-duration`.
+   * Easing for `::view-transition-group(lightbox-morph)` and the crossfade
+   * dissolve. Written by the library from the `viewTransition` preset, like
+   * `--lightbox-vt-duration`.
    * @type string
    */
   vtEasing = '--lightbox-vt-easing',
   /**
    * Easing for the root snapshot cross-fade
-   * (`::view-transition-old/new(root)`). Promoted from the skin host like
-   * `--lightbox-vt-duration`.
+   * (`::view-transition-old/new(root)`). Written by the library from the
+   * `viewTransition` preset, like `--lightbox-vt-duration`.
    * @type string
    */
   vtRootEasing = '--lightbox-vt-root-easing',

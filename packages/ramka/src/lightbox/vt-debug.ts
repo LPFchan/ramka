@@ -73,6 +73,7 @@ function maybeTraceViewTransition(
         href: location.href,
         composited:
           (window as unknown as Record<string, unknown>).__RAMKA_VT_COMPOSITED__ !== false,
+        preset: docEl.getAttribute('data-ramka-vt-preset'),
         groupTransformOrigin: getComputedStyle(docEl, groupPseudo).transformOrigin,
         dpr: window.devicePixelRatio,
         screen: [window.screen.width, window.screen.height],

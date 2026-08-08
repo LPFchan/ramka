@@ -9,15 +9,13 @@
 
 .xlb-portal {
   --xlb-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
-  --xlb-ease-vt-morph: cubic-bezier(0.32, 0.72, 0, 1);
+  /* Non-VT fallback duration. Morph timing is preset-driven (`viewTransition`
+     prop on Lightbox.Root); during a morph the library writes
+     `--lightbox-vt-*` onto documentElement and the fades below read it. */
   --xlb-duration-open: 340ms;
   --xlb-thread-width: 22.5rem;
   /* Clear media plane — dimming comes from `.xlb-backdrop` (mobile solid, desktop 0.5). */
   --xlb-media-bg: transparent;
-  /* Library morph contract — promoted onto documentElement during VT. */
-  --lightbox-vt-duration: var(--xlb-duration-open);
-  --lightbox-vt-easing: var(--xlb-ease-vt-morph);
-  --lightbox-vt-root-easing: var(--xlb-ease-out);
 }
 
 /* ── Trigger ────────────────────────────────────────────────────────────── */
@@ -61,7 +59,8 @@
   opacity: 0;
   /* Mobile: solid black. Desktop overrides background alpha below. */
   background: #000;
-  transition: opacity var(--lightbox-pull-snap-duration, var(--xlb-duration-open))
+  transition: opacity
+    var(--lightbox-pull-snap-duration, var(--lightbox-vt-duration, var(--xlb-duration-open)))
     var(--lightbox-pull-snap-easing, var(--xlb-ease-out));
 }
 
@@ -95,7 +94,7 @@
   overflow: hidden;
   outline: none;
   opacity: 0;
-  transition: opacity var(--xlb-duration-open) var(--xlb-ease-out);
+  transition: opacity var(--lightbox-vt-duration, var(--xlb-duration-open)) var(--xlb-ease-out);
 }
 
 .xlb-content[data-open] {
@@ -652,7 +651,7 @@
 @media (prefers-reduced-motion: no-preference) {
   :root[data-ramka-view-transition]::view-transition-old(root),
   :root[data-ramka-view-transition]::view-transition-new(root) {
-    animation-duration: var(--lightbox-vt-duration, 340ms);
+    animation-duration: var(--lightbox-vt-duration, 360ms);
     animation-timing-function: var(--lightbox-vt-root-easing, cubic-bezier(0.16, 1, 0.3, 1));
   }
 
@@ -666,8 +665,8 @@
     overflow: hidden;
     border-radius: var(--lightbox-morph-border-radius-from, 0px);
     animation-name: -ua-view-transition-group-anim-lightbox-morph, lightbox-morph-border-radius;
-    animation-duration: var(--lightbox-vt-duration, 340ms);
-    animation-timing-function: var(--lightbox-vt-easing, cubic-bezier(0.32, 0.72, 0, 1));
+    animation-duration: var(--lightbox-vt-duration, 360ms);
+    animation-timing-function: var(--lightbox-vt-easing, cubic-bezier(0.44, 0.58, 0, 1));
     animation-fill-mode: both;
     z-index: 2;
   }
@@ -689,11 +688,14 @@
     opacity: var(--lightbox-morph-new-opacity, 0);
   }
 
+  /* Re-time the UA dissolve to the preset vars so it matches the morph. */
   :root[data-ramka-crossfade]::view-transition-old(lightbox-morph),
   :root[data-ramka-crossfade]::view-transition-new(lightbox-morph) {
     object-fit: fill;
     mix-blend-mode: plus-lighter;
     animation: revert !important;
+    animation-duration: var(--lightbox-vt-duration, 360ms) !important;
+    animation-timing-function: var(--lightbox-vt-easing, cubic-bezier(0.44, 0.58, 0, 1)) !important;
     opacity: revert;
   }
 }

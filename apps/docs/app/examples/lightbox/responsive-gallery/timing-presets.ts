@@ -2,8 +2,9 @@
 // Morph-timing lab archive.
 //
 // Every preset explored while picking the composited morph's default timing
-// (now baked into MORPH_TIMING_DEFAULT in ramka's vt-composited-morph.ts as
-// `360,.44,.58,0,1` — "launch tamed more"). Each value is a
+// (now the `default` entry of VIEW_TRANSITION_PRESETS in ramka's vt-timing.ts,
+// `360,.44,.58,0,1` — "launch tamed more"; consumers pick presets via the
+// `viewTransition` prop on Lightbox.Root). Each value is a
 // `window.__RAMKA_VT_TIMING__` string, applied live per open/close:
 //   - `duration,x1,y1,x2,y2`         plain cubic-bezier
 //   - `duration,out,windup,travel`   protected ease-out

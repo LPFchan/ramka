@@ -1784,6 +1784,7 @@ describe('Lightbox', () => {
       delete (document as unknown as Record<string, unknown>).startViewTransition;
       document.documentElement.removeAttribute('data-ramka-view-transition');
       document.documentElement.removeAttribute('data-ramka-crossfade');
+      document.documentElement.removeAttribute('data-ramka-vt-preset');
       document.documentElement.style.removeProperty('--lightbox-morph-border-radius-from');
       document.documentElement.style.removeProperty('--lightbox-morph-border-radius-to');
       document.documentElement.style.removeProperty('--lightbox-morph-old-opacity');
@@ -1841,25 +1842,37 @@ describe('Lightbox', () => {
       expect(docStyle.getPropertyValue('--lightbox-vt-root-easing')).toBe('');
     });
 
-    it('promotes --lightbox-vt-* tokens from Content onto documentElement during morph', async () => {
+    it('writes the default timing preset onto documentElement during morph', async () => {
+      const { resolveFinished } = mockViewTransitionAPI();
+      render(<TestLightbox viewTransition />);
+
+      fireEvent.click(screen.getByTestId('trigger-0'));
+      const docEl = document.documentElement;
+      expect(docEl).toHaveAttribute('data-ramka-vt-preset', 'default');
+      expect(docEl.style.getPropertyValue('--lightbox-vt-duration')).toBe('360ms');
+      expect(docEl.style.getPropertyValue('--lightbox-vt-easing')).toBe(
+        'cubic-bezier(0.44, 0.58, 0, 1)',
+      );
+      expect(docEl.style.getPropertyValue('--lightbox-vt-root-easing')).toBe(
+        'cubic-bezier(0.16, 1, 0.3, 1)',
+      );
+
+      await act(async () => resolveFinished());
+      expect(docEl).not.toHaveAttribute('data-ramka-vt-preset');
+      expect(docEl.style.getPropertyValue('--lightbox-vt-duration')).toBe('');
+      expect(docEl.style.getPropertyValue('--lightbox-vt-easing')).toBe('');
+      expect(docEl.style.getPropertyValue('--lightbox-vt-root-easing')).toBe('');
+    });
+
+    it('writes a named timing preset (viewTransition="spring") onto documentElement', async () => {
       const { resolveFinished } = mockViewTransitionAPI();
       render(
-        <LightboxRoot viewTransition>
+        <LightboxRoot viewTransition="spring">
           <LightboxTrigger index={0} data-testid="trigger-0">
             {({ imageRef }) => <img ref={imageRef} src="thumb.jpg" alt="thumb" />}
           </LightboxTrigger>
           <LightboxPortal>
-            <LightboxContent
-              data-testid="content"
-              aria-label="vt token test"
-              style={
-                {
-                  ['--lightbox-vt-duration' as string]: '500ms',
-                  ['--lightbox-vt-easing' as string]: 'linear',
-                  ['--lightbox-vt-root-easing' as string]: 'ease-in',
-                } as React.CSSProperties
-              }
-            >
+            <LightboxContent data-testid="content" aria-label="vt preset test">
               <LightboxItemGroup>
                 <LightboxItem index={0}>
                   {({ imageRef }) => <img ref={imageRef} src="full.jpg" alt="full" />}
@@ -1872,15 +1885,13 @@ describe('Lightbox', () => {
       );
 
       fireEvent.click(screen.getByTestId('trigger-0'));
-      const docStyle = document.documentElement.style;
-      expect(docStyle.getPropertyValue('--lightbox-vt-duration')).toBe('500ms');
-      expect(docStyle.getPropertyValue('--lightbox-vt-easing')).toBe('linear');
-      expect(docStyle.getPropertyValue('--lightbox-vt-root-easing')).toBe('ease-in');
+      const docEl = document.documentElement;
+      expect(docEl).toHaveAttribute('data-ramka-vt-preset', 'spring');
+      expect(docEl.style.getPropertyValue('--lightbox-vt-duration')).toBe('450ms');
 
       await act(async () => resolveFinished());
-      expect(docStyle.getPropertyValue('--lightbox-vt-duration')).toBe('');
-      expect(docStyle.getPropertyValue('--lightbox-vt-easing')).toBe('');
-      expect(docStyle.getPropertyValue('--lightbox-vt-root-easing')).toBe('');
+      expect(docEl).not.toHaveAttribute('data-ramka-vt-preset');
+      expect(docEl.style.getPropertyValue('--lightbox-vt-duration')).toBe('');
     });
 
     it('fires onOpenChangeComplete(true) after VT open finishes', async () => {

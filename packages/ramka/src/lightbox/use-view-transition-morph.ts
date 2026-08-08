@@ -6,6 +6,8 @@ import { flushSync } from 'react-dom';
 import { isFirefox } from './is-firefox';
 import { maybeTraceViewTransition } from './vt-debug';
 import { maybeUpgradeToCompositedMorph } from './vt-composited-morph';
+import { isViewTransitionPreset, resolveViewTransitionTiming } from './vt-timing';
+import type { LightboxViewTransitionPreset } from './vt-timing';
 import { VIEW_TRANSITION_NAME, findItemMorphTarget, findTriggerMorphTarget } from './lightbox-context';
 import { LightboxDocumentCssVars } from './lightbox-css-vars';
 import {
@@ -463,19 +465,26 @@ export function resolveMorphBorderRadius(el: HTMLElement): string {
 }
 
 /**
- * Copy skin-host motion tokens onto `documentElement` so document-level
- * `::view-transition-*` rules (which cannot inherit from Content/Portal) see
- * the active lightbox's duration/easing for this morph only.
+ * Publish the Root's `viewTransition` timing preset onto `documentElement`
+ * for this morph only: the preset name as `data-ramka-vt-preset` (read by the
+ * composited morph) and its duration/easing as `--lightbox-vt-*` vars (read
+ * by document-level `::view-transition-*` rules — the stock group fallback,
+ * the crossfade dissolve and the root snapshot fade — which cannot inherit
+ * from Content/Portal). Timing is preset-driven, not consumer CSS: arbitrary
+ * curves teleport on iOS (see the preset table in vt-timing.ts).
  */
-function promoteVtMotionTokens(docEl: HTMLElement, tokenHost: HTMLElement | null | undefined) {
-  if (!tokenHost) return;
-  const styles = getComputedStyle(tokenHost);
-  const duration = styles.getPropertyValue(LightboxDocumentCssVars.vtDuration).trim();
-  const easing = styles.getPropertyValue(LightboxDocumentCssVars.vtEasing).trim();
-  const rootEasing = styles.getPropertyValue(LightboxDocumentCssVars.vtRootEasing).trim();
-  if (duration) docEl.style.setProperty(LightboxDocumentCssVars.vtDuration, duration);
-  if (easing) docEl.style.setProperty(LightboxDocumentCssVars.vtEasing, easing);
-  if (rootEasing) docEl.style.setProperty(LightboxDocumentCssVars.vtRootEasing, rootEasing);
+function promoteVtMotionTokens(
+  docEl: HTMLElement,
+  preset: boolean | LightboxViewTransitionPreset | undefined,
+) {
+  const spec = resolveViewTransitionTiming(preset);
+  docEl.setAttribute(
+    LightboxDocumentDataAttributes.viewTransitionPreset,
+    isViewTransitionPreset(preset) ? preset : 'default',
+  );
+  docEl.style.setProperty(LightboxDocumentCssVars.vtDuration, `${spec.duration}ms`);
+  docEl.style.setProperty(LightboxDocumentCssVars.vtEasing, spec.cssEasing);
+  docEl.style.setProperty(LightboxDocumentCssVars.vtRootEasing, spec.cssRootEasing);
 }
 
 /** Flush threshold (CSS px) for treating a box edge as viewport-flush. */
@@ -577,8 +586,8 @@ function applyFirefoxFullBleedCaptureInset(morphTarget: HTMLElement): CaptureIns
 /**
  * Applies the document-level state that drives the morph CSS: the phase
  * attribute, optional `data-ramka-crossfade` (with hard-cut opacity vars when
- * absent), from/to border-radius vars, and promoted `--lightbox-vt-*` motion
- * tokens from the active skin host. Only defined values are written.
+ * absent), from/to border-radius vars, and the `viewTransition` preset's
+ * timing (`data-ramka-vt-preset` + `--lightbox-vt-*` vars).
  */
 function applyMorphState(
   docEl: HTMLElement,
@@ -587,11 +596,11 @@ function applyMorphState(
     useCrossfade: boolean;
     fromRadius: string | null;
     toRadius: string | null;
-    tokenHost?: HTMLElement | null;
+    preset: boolean | LightboxViewTransitionPreset | undefined;
   },
 ) {
   docEl.setAttribute(LightboxDocumentDataAttributes.viewTransition, phase);
-  promoteVtMotionTokens(docEl, opts.tokenHost);
+  promoteVtMotionTokens(docEl, opts.preset);
   if (opts.useCrossfade) {
     docEl.setAttribute(LightboxDocumentDataAttributes.crossfade, '');
   } else {
@@ -657,6 +666,7 @@ function clearMorphName(el: HTMLElement) {
 function clearMorphState(docEl: HTMLElement) {
   docEl.removeAttribute(LightboxDocumentDataAttributes.viewTransition);
   docEl.removeAttribute(LightboxDocumentDataAttributes.crossfade);
+  docEl.removeAttribute(LightboxDocumentDataAttributes.viewTransitionPreset);
   docEl.style.removeProperty(LightboxDocumentCssVars.morphOldOpacity);
   docEl.style.removeProperty(LightboxDocumentCssVars.morphNewOpacity);
   docEl.style.removeProperty(LightboxDocumentCssVars.morphBorderRadiusFrom);
@@ -699,11 +709,10 @@ interface ViewTransitionMorphConfig {
   openingTriggerElementRef: React.RefObject<HTMLElement | null>;
   activeIndexRef: React.RefObject<number>;
   /**
-   * Skin token host (typically `Lightbox.Content`). Motion contract vars
-   * (`--lightbox-vt-*`) are read from here and promoted onto `documentElement`
-   * for the morph so document-level VT pseudos see the active skin's values.
+   * The Root's `viewTransition` prop value. Named presets select the morph
+   * timing (see vt-timing.ts); `true`/unknown values run the default preset.
    */
-  dialogElementRef: React.RefObject<HTMLElement | null>;
+  transitionPreset: boolean | LightboxViewTransitionPreset | undefined;
   closeGenRef: React.MutableRefObject<number>;
   /**
    * flushSync body that MOUNTS the viewer in a hidden ("preparing") state.
@@ -925,7 +934,7 @@ function useViewTransitionMorph(config: ViewTransitionMorphConfig): ViewTransiti
       useCrossfade: canMorph ? useCrossfade : true,
       fromRadius: canMorph ? fromRadius : null,
       toRadius,
-      tokenHost: configRef.current.dialogElementRef.current,
+      preset: configRef.current.transitionPreset,
     });
 
     if (canMorph) {
@@ -1055,7 +1064,7 @@ function useViewTransitionMorph(config: ViewTransitionMorphConfig): ViewTransiti
       useCrossfade,
       fromRadius,
       toRadius,
-      tokenHost: configRef.current.dialogElementRef.current,
+      preset: configRef.current.transitionPreset,
     });
 
     // Firefox: zoomed Media is painted under scale/pan and clipped by ancestor

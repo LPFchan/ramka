@@ -12,12 +12,10 @@
 
 .lb-portal {
   --lb-ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
-  --lb-ease-vt-morph: cubic-bezier(0.32, 0.72, 0, 1);
+  /* Non-VT fallback duration. Morph timing is preset-driven (`viewTransition`
+     prop on Lightbox.Root); during a morph the library writes
+     `--lightbox-vt-*` onto documentElement and the fades below read it. */
   --lb-duration-open: 340ms;
-  /* Library morph contract — promoted onto documentElement during VT. */
-  --lightbox-vt-duration: var(--lb-duration-open);
-  --lightbox-vt-easing: var(--lb-ease-vt-morph);
-  --lightbox-vt-root-easing: var(--lb-ease-out-expo);
 }
 
 /* ── Trigger ────────────────────────────────────────────────────────────── */
@@ -63,7 +61,8 @@
   inset: 0;
   opacity: 0;
   background-color: #fff;
-  transition: opacity var(--lightbox-pull-snap-duration, var(--lb-duration-open))
+  transition: opacity
+    var(--lightbox-pull-snap-duration, var(--lightbox-vt-duration, var(--lb-duration-open)))
     var(--lightbox-pull-snap-easing, var(--lb-ease-out-expo));
 }
 
@@ -94,7 +93,7 @@ html.dark .lb-backdrop {
   overscroll-behavior: contain;
   outline: none;
   opacity: 0;
-  transition: opacity var(--lb-duration-open) var(--lb-ease-out-expo);
+  transition: opacity var(--lightbox-vt-duration, var(--lb-duration-open)) var(--lb-ease-out-expo);
 
   --lightbox-inset-top: calc(3.5rem + env(safe-area-inset-top, 0px));
   --lightbox-inset-bottom: calc(3.5rem + env(safe-area-inset-bottom, 0px));
@@ -630,7 +629,7 @@ html.dark .lb-thumbnail-strip-indicator {
 @media (prefers-reduced-motion: no-preference) {
   :root[data-ramka-view-transition]::view-transition-old(root),
   :root[data-ramka-view-transition]::view-transition-new(root) {
-    animation-duration: var(--lightbox-vt-duration, 340ms);
+    animation-duration: var(--lightbox-vt-duration, 360ms);
     animation-timing-function: var(--lightbox-vt-root-easing, cubic-bezier(0.16, 1, 0.3, 1));
   }
 
@@ -644,8 +643,8 @@ html.dark .lb-thumbnail-strip-indicator {
     overflow: hidden;
     border-radius: var(--lightbox-morph-border-radius-from, 0px);
     animation-name: -ua-view-transition-group-anim-lightbox-morph, lightbox-morph-border-radius;
-    animation-duration: var(--lightbox-vt-duration, 340ms);
-    animation-timing-function: var(--lightbox-vt-easing, cubic-bezier(0.32, 0.72, 0, 1));
+    animation-duration: var(--lightbox-vt-duration, 360ms);
+    animation-timing-function: var(--lightbox-vt-easing, cubic-bezier(0.44, 0.58, 0, 1));
     animation-fill-mode: both;
     z-index: 2;
   }
@@ -668,12 +667,15 @@ html.dark .lb-thumbnail-strip-indicator {
     opacity: var(--lightbox-morph-new-opacity, 0);
   }
 
-  /* Dissolve path — positive attribute only, no :not. */
+  /* Dissolve path — positive attribute only, no :not. Re-time the UA fade to
+     the preset vars so the dissolve matches the morph's clock/curve. */
   :root[data-ramka-crossfade]::view-transition-old(lightbox-morph),
   :root[data-ramka-crossfade]::view-transition-new(lightbox-morph) {
     object-fit: fill;
     mix-blend-mode: plus-lighter;
     animation: revert !important;
+    animation-duration: var(--lightbox-vt-duration, 360ms) !important;
+    animation-timing-function: var(--lightbox-vt-easing, cubic-bezier(0.44, 0.58, 0, 1)) !important;
     opacity: revert;
   }
 }

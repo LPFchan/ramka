@@ -95,6 +95,7 @@ export { LightboxZoomIn as ZoomIn } from './lightbox-zoom-in';
 export { LightboxZoomOut as ZoomOut } from './lightbox-zoom-out';
 
 export type { LightboxRootProps, LightboxBeforeOpen, LightboxBeforeOpenContext } from './lightbox-root';
+export type { LightboxViewTransitionPreset } from './vt-timing';
 export type {
   LightboxTriggerProps,
   LightboxTriggerState,

@@ -209,6 +209,12 @@ export enum LightboxDocumentDataAttributes {
    * `crossfade` is active for this phase). Absent for the default hard-cut.
    */
   crossfade = 'data-ramka-crossfade',
+  /**
+   * Present during a morph. Value is the active `viewTransition` timing
+   * preset name (`default`, `snappy`, `relaxed`, `spring`) — read by the
+   * composited morph and available to skin CSS for per-preset styling.
+   */
+  viewTransitionPreset = 'data-ramka-vt-preset',
 }
 
 /**
