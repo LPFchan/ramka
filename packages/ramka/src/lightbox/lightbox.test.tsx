@@ -1894,6 +1894,77 @@ describe('Lightbox', () => {
       expect(docEl.style.getPropertyValue('--lightbox-vt-duration')).toBe('');
     });
 
+    it('a stale transition finalizer cannot wipe a newer morph state (interleaved Roots)', async () => {
+      // Per-transition finished promises — starting a new document transition
+      // skips the active one, whose finalizer then runs AFTER the new morph
+      // has promoted its state. The stale finalizer must be a no-op.
+      const resolvers: Array<() => void> = [];
+      Object.defineProperty(document, 'startViewTransition', {
+        value: vi.fn((callback: () => void | Promise<void>) => {
+          const finished = new Promise<void>((r) => resolvers.push(r));
+          const result = callback();
+          if (result && typeof (result as Promise<void>).then === 'function') {
+            (result as Promise<void>).catch(vi.fn());
+          }
+          return { finished };
+        }),
+        writable: true,
+        configurable: true,
+      });
+
+      const makeLightbox = (id: string, preset: 'snappy' | 'spring') => (
+        <LightboxRoot viewTransition={preset}>
+          <LightboxTrigger index={0} data-testid={`${id}-trigger`}>
+            {({ imageRef }) => <img ref={imageRef} src="thumb.jpg" alt="thumb" />}
+          </LightboxTrigger>
+          <LightboxPortal>
+            <LightboxContent aria-label={id}>
+              <LightboxItemGroup>
+                <LightboxItem index={0}>
+                  {({ imageRef }) => <img ref={imageRef} src="full.jpg" alt="full" />}
+                </LightboxItem>
+              </LightboxItemGroup>
+            </LightboxContent>
+          </LightboxPortal>
+        </LightboxRoot>
+      );
+
+      render(
+        <>
+          {makeLightbox('a', 'snappy')}
+          {makeLightbox('b', 'spring')}
+        </>,
+      );
+      const docEl = document.documentElement;
+
+      // Open A (transition #1), then B while A is still unfinished (#2).
+      fireEvent.click(screen.getByTestId('a-trigger'));
+      expect(docEl).toHaveAttribute('data-ramka-vt-preset', 'snappy');
+      fireEvent.click(screen.getByTestId('b-trigger'));
+      expect(docEl).toHaveAttribute('data-ramka-vt-preset', 'spring');
+
+      // A's transition settles late — B's promoted state must survive.
+      await act(async () => resolvers[0]!());
+      expect(docEl).toHaveAttribute('data-ramka-view-transition', 'opening');
+      expect(docEl).toHaveAttribute('data-ramka-vt-preset', 'spring');
+      expect(docEl.style.getPropertyValue('--lightbox-vt-duration')).toBe('450ms');
+
+      // B's own finalizer still cleans up normally.
+      await act(async () => resolvers[1]!());
+      expect(docEl).not.toHaveAttribute('data-ramka-view-transition');
+      expect(docEl).not.toHaveAttribute('data-ramka-vt-preset');
+      expect(docEl.style.getPropertyValue('--lightbox-vt-duration')).toBe('');
+
+      // Both Roots are left open, so their scroll locks overlap: each saved
+      // the other's `overflow` as its "original", and unmount restore order
+      // would leak `overflow: hidden` into later tests. Reset explicitly.
+      cleanup();
+      docEl.style.overflow = '';
+      docEl.style.userSelect = '';
+      docEl.style.removeProperty('-webkit-user-select');
+      document.body.style.paddingRight = '';
+    });
+
     it('fires onOpenChangeComplete(true) after VT open finishes', async () => {
       const { resolveFinished } = mockViewTransitionAPI();
       const completeSpy = vi.fn();

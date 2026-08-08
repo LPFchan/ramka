@@ -584,10 +584,34 @@ function applyFirefoxFullBleedCaptureInset(morphTarget: HTMLElement): CaptureIns
 }
 
 /**
+ * Identity of the morph that currently owns the document-level state.
+ *
+ * Document view transitions are exclusive, but their FINALIZERS are not:
+ * starting a new transition skips the active one, and the skipped
+ * transition's `finished.finally` runs a microtask later — after the new
+ * morph has already promoted its own state. That happens whenever two
+ * transitions interleave: open lightbox B while lightbox A's close morph is
+ * in flight (different Roots, possibly different `viewTransition` presets),
+ * or rapidly reopen the same lightbox mid-close. Without ownership tracking
+ * the stale finalizer wipes the live morph's attributes and vars — timing
+ * silently falls back to the default preset, name isolation turns off, and a
+ * hard-cut open loses `--lightbox-morph-new-opacity: 1` (CSS fallback 0), so
+ * the morphing image simply disappears.
+ *
+ * Module-level on purpose: the state lives on `documentElement`, which is
+ * shared by every Root on the page, so per-hook generation counters cannot
+ * see cross-Root interleaves.
+ */
+let morphStateOwner = 0;
+
+/**
  * Applies the document-level state that drives the morph CSS: the phase
  * attribute, optional `data-ramka-crossfade` (with hard-cut opacity vars when
  * absent), from/to border-radius vars, and the `viewTransition` preset's
  * timing (`data-ramka-vt-preset` + `--lightbox-vt-*` vars).
+ *
+ * Returns an ownership token; pass it to {@link clearMorphState} so a stale
+ * finalizer can never wipe a newer morph's state (see {@link morphStateOwner}).
  */
 function applyMorphState(
   docEl: HTMLElement,
@@ -598,7 +622,7 @@ function applyMorphState(
     toRadius: string | null;
     preset: boolean | LightboxViewTransitionPreset | undefined;
   },
-) {
+): number {
   docEl.setAttribute(LightboxDocumentDataAttributes.viewTransition, phase);
   promoteVtMotionTokens(docEl, opts.preset);
   if (opts.useCrossfade) {
@@ -637,6 +661,7 @@ function applyMorphState(
   if (opts.toRadius) {
     docEl.style.setProperty(LightboxDocumentCssVars.morphBorderRadiusTo, opts.toRadius);
   }
+  return ++morphStateOwner;
 }
 
 /**
@@ -662,8 +687,13 @@ function clearMorphName(el: HTMLElement) {
   el.style.removeProperty('view-transition-name');
 }
 
-/** Removes every document-level attribute/var set by {@link applyMorphState}. */
-function clearMorphState(docEl: HTMLElement) {
+/**
+ * Removes every document-level attribute/var set by {@link applyMorphState} —
+ * but only if `owner` still owns the state. A no-op when a newer morph has
+ * promoted its own state since (see {@link morphStateOwner}).
+ */
+function clearMorphState(docEl: HTMLElement, owner: number) {
+  if (owner !== morphStateOwner) return;
   docEl.removeAttribute(LightboxDocumentDataAttributes.viewTransition);
   docEl.removeAttribute(LightboxDocumentDataAttributes.crossfade);
   docEl.removeAttribute(LightboxDocumentDataAttributes.viewTransitionPreset);
@@ -930,7 +960,7 @@ function useViewTransitionMorph(config: ViewTransitionMorphConfig): ViewTransiti
 
     // In the fallback we force the root crossfade on (`data-ramka-crossfade`)
     // and set no morph name/radius, so the transition is a clean fade.
-    applyMorphState(docEl, 'opening', {
+    const morphStateToken = applyMorphState(docEl, 'opening', {
       useCrossfade: canMorph ? useCrossfade : true,
       fromRadius: canMorph ? fromRadius : null,
       toRadius,
@@ -992,7 +1022,7 @@ function useViewTransitionMorph(config: ViewTransitionMorphConfig): ViewTransiti
       if (itemTarget) {
         clearMorphName(itemTarget);
       }
-      clearMorphState(docEl);
+      clearMorphState(docEl, morphStateToken);
 
       // Reposition the active trigger while the viewer still covers the page
       // (and scroll is locked), so a later close morph lands on-screen with no
@@ -1060,7 +1090,7 @@ function useViewTransitionMorph(config: ViewTransitionMorphConfig): ViewTransiti
 
     // Writes — radii go to CSS vars; the VT group interpolates them (no live
     // border-radius mutation).
-    applyMorphState(docEl, 'closing', {
+    const morphStateToken = applyMorphState(docEl, 'closing', {
       useCrossfade,
       fromRadius,
       toRadius,
@@ -1114,7 +1144,7 @@ function useViewTransitionMorph(config: ViewTransitionMorphConfig): ViewTransiti
       if (canMorph) {
         clearMorphName(triggerTarget!);
       }
-      clearMorphState(docEl);
+      clearMorphState(docEl, morphStateToken);
       if (configRef.current.closeGenRef.current === gen) {
         configRef.current.onCloseComplete(triggerEl);
       }
