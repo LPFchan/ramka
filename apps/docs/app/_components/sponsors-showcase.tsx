@@ -203,7 +203,7 @@ export function SponsorsShowcase() {
           href={SPONSOR_URL}
           target="_blank"
           rel="noreferrer"
-          className={`${slotClass} min-h-40 flex-col gap-1.5 px-6 py-10 text-center md:min-h-48`}
+          className={`${slotClass} aspect-[3/1] flex-col gap-1.5 px-6 text-center md:aspect-[4/1]`}
         >
           <span className={`${slotTextClass} text-lg font-medium tracking-tight`}>
             Your banner here
@@ -220,7 +220,7 @@ export function SponsorsShowcase() {
               href={SPONSOR_URL}
               target="_blank"
               rel="noreferrer"
-              className={`${slotClass} min-h-24 px-4 py-8 md:min-h-28`}
+              className={`${slotClass} aspect-square px-4`}
             >
               <span className={`${slotTextClass} text-sm font-medium`}>Your logo</span>
             </a>
