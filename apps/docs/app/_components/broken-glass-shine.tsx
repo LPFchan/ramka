@@ -1029,6 +1029,67 @@ export function BrokenGlassShine({ className }: { className?: string }) {
     };
   }, []);
 
+  // Touch devices have no cursor, so scrolling drives the light instead:
+  // it travels from the LEFT edge of the screen to the RIGHT edge as the
+  // pane traverses the viewport. Horizontal, on purpose — vertical light
+  // movement is parallel to the scroll and gets lost in it, while a
+  // cross-axis sweep clearly reads as lighting. Deliberately NOT eased — the
+  // values are written 1:1 from the pane's viewport position each frame,
+  // so the light feels physically attached to the screen, like a lamp
+  // above a picture you're carrying past. Scroll events are coalesced to
+  // one draw per frame via rAF, which still runs in the same frame as
+  // the scroll, so there is no perceptible lag. Reading the pane's rect
+  // during scroll is cheap: scrolling doesn't dirty layout.
+  React.useEffect(() => {
+    if (window.matchMedia('(hover: hover) and (pointer: fine)').matches) return;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const state = sheenRef.current;
+    let pending = 0;
+
+    const update = () => {
+      pending = 0;
+      if (shinePaused) return;
+      const box = canvas.getBoundingClientRect();
+      if (!box.width || !box.height) return;
+      // Scroll progress of the pane through the viewport: 0 as its top
+      // edge enters at the bottom, 1 as its bottom edge leaves at the
+      // top. The light's x runs left-to-right across the screen with it;
+      // its y stays at the viewport's vertical center. Unclamped — past
+      // the edges the envelopes just fade out.
+      const viewHeight = window.innerHeight;
+      const progress = (viewHeight - box.top) / (viewHeight + box.height);
+      state.position.x = (progress * window.innerWidth - box.left) / box.width;
+      state.position.y = (viewHeight / 2 - box.top) / box.height;
+      state.band =
+        LIGHT_AXIS.x * state.position.x * (box.width / box.height) +
+        LIGHT_AXIS.y * state.position.y;
+      state.bandVelocity = 0;
+      rendererRef.current?.render(state.position, state.band, state.flash);
+    };
+
+    const schedule = () => {
+      if (!pending) pending = requestAnimationFrame(update);
+    };
+    const onPauseChange = (paused: boolean) => {
+      if (!paused) schedule();
+    };
+
+    // Reflect the current scroll position immediately on mount.
+    schedule();
+    window.addEventListener('scroll', schedule, { passive: true });
+    window.addEventListener('resize', schedule);
+    pauseListeners.add(onPauseChange);
+    return () => {
+      window.removeEventListener('scroll', schedule);
+      window.removeEventListener('resize', schedule);
+      pauseListeners.delete(onPauseChange);
+      if (pending) cancelAnimationFrame(pending);
+    };
+  }, []);
+
   // Tear the renderer down with the component.
   React.useEffect(
     () => () => {
