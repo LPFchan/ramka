@@ -39,7 +39,8 @@ export function ApplesToApples() {
         How it compares.
       </h2>
       <p className="mx-auto mt-4 max-w-md text-pretty text-center text-neutral-500 dark:text-neutral-400">
-        Every lightbox claims it feels native. Here is a fair comparison. Mostly.
+        Nobody chooses a lightbox. You inherit one from 2013, or you decide to
+        build your own. Here is how that goes.
       </p>
 
       <table className="mt-12 w-full border-collapse text-sm">
