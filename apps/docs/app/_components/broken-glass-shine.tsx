@@ -188,15 +188,35 @@ const BLUR_SIGMA = 0.8;
 const DEFAULT_AZIMUTH = 225;
 const DEFAULT_ELEVATION = 28;
 
-/** The cursor-driven sheen field: glint gain ranges from SHEEN_FLOOR far
-    from the sheen center up to SHEEN_FLOOR + SHEEN_GAIN at it, falling
-    off over SHEEN_RADIUS (in pane-height units). Wide enough to read as
-    light breathing across the pane rather than a spotlight chasing the
-    mouse, but with real contrast between the near and far glints so the
-    drift is unmistakable. */
-const SHEEN_FLOOR = 0.55;
-const SHEEN_GAIN = 1.1;
-const SHEEN_RADIUS = 0.5;
+/**
+ * The cursor-driven reflection. Three stacked terms, all smooth spatial
+ * envelopes over a FIXED light (so no edge can ever pop):
+ *
+ * - A diagonal BAND perpendicular to the light — the streak a pane shows
+ *   when you shift your head in front of it. The cursor's position,
+ *   projected onto the light axis, is where the band wants to be, and it
+ *   gets there on a spring: inertia and a hint of overshoot, so a flick
+ *   sends the reflection sweeping and it settles like it has mass.
+ * - A faint RADIAL glow at the cursor, keeping a locality cue.
+ * - SPARKLE: glitter cells that wink in and out of phase as the band
+ *   passes over them. Gated by the height-map gradient (edges only, never
+ *   the flats) and by the band envelope, so the twinkle rides inside the
+ *   moving streak and fades with it.
+ */
+const SHEEN_FLOOR = 0.6;
+const BAND_GAIN = 1.0;
+const BAND_SIGMA = 0.35;
+const RADIAL_GAIN = 0.35;
+const RADIAL_SIGMA = 0.5;
+const SPARKLE_GAIN = 0.32;
+/** Band spring: acceleration per unit of displacement, per-frame velocity
+    retention. Underdamped on purpose — the slight overshoot is the
+    "weight" you feel. */
+const BAND_STIFFNESS = 0.016;
+const BAND_DAMPING = 0.9;
+/** Unit vector of the light's ground direction (azimuth 225, y-down):
+    the band runs perpendicular to this and slides along it. */
+const LIGHT_AXIS = { x: -Math.SQRT1_2, y: -Math.SQRT1_2 };
 
 type Vec3 = [number, number, number];
 type Point = { x: number; y: number };
@@ -470,10 +490,11 @@ void main() {
  * the lit layer, the whole thing source-over the under layer. All textures
  * are premultiplied; the canvas composites premultiplied output.
  *
- * The only dynamic input is uSheen, the sheen field's center in uv space:
- * a wide gaussian gain on the specular term. Distance-based and
- * low-frequency, so glints brighten and fade smoothly as the field drifts
- * over them — the light itself never rotates, so no edge can pop.
+ * Dynamic inputs: uSheen (the radial glow's center in uv space) and
+ * uBand (the reflection band's position along the light axis). Both feed
+ * smooth spatial envelopes on the specular term — distance-based, never
+ * alignment-based, so glints brighten and fade gradually as the
+ * reflection travels and nothing can pop.
  */
 const FRAGMENT_SHADER = `
 precision mediump float;
@@ -485,6 +506,7 @@ uniform vec2 uTexel;
 uniform vec3 uLight;
 uniform float uSurface;
 uniform vec2 uSheen;
+uniform float uBand;
 uniform float uAspect;
 void main() {
   float hl = texture2D(uHeight, vUv - vec2(uTexel.x, 0.0)).r;
@@ -493,19 +515,38 @@ void main() {
   float hd = texture2D(uHeight, vUv + vec2(0.0, uTexel.y)).r;
   float h  = texture2D(uHeight, vUv).r;
 
-  vec3 normal = normalize(vec3(
-    -uSurface * (hr - hl) * 0.5,
-    -uSurface * (hd - hu) * 0.5,
-    1.0
-  ));
+  vec2 slope = vec2(hr - hl, hd - hu);
+  vec3 normal = normalize(vec3(-uSurface * slope * 0.5, 1.0));
   vec3 halfway = normalize(uLight + vec3(0.0, 0.0, 1.0));
   float spec = ${SPECULAR_CONSTANT.toFixed(2)} *
     pow(max(dot(normal, halfway), 0.0), ${SPECULAR_EXPONENT.toFixed(1)});
 
+  // The reflection band: distance from this fragment's projection on the
+  // light axis to the band's sprung position.
+  vec2 p = vec2(vUv.x * uAspect, vUv.y);
+  float along = dot(p, vec2(${LIGHT_AXIS.x.toFixed(5)}, ${LIGHT_AXIS.y.toFixed(5)}));
+  float bd = along - uBand;
+  float band = exp(-bd * bd / ${(2 * BAND_SIGMA * BAND_SIGMA).toFixed(4)});
+
+  // The radial locality glow around the cursor itself.
   vec2 offset = (vUv - uSheen) * vec2(uAspect, 1.0);
-  float gain = ${SHEEN_FLOOR.toFixed(2)} + ${SHEEN_GAIN.toFixed(2)} *
-    exp(-dot(offset, offset) / ${(2 * SHEEN_RADIUS * SHEEN_RADIUS).toFixed(3)});
-  spec = min(spec * gain, 1.0);
+  float radial = exp(-dot(offset, offset) / ${(2 * RADIAL_SIGMA * RADIAL_SIGMA).toFixed(4)});
+
+  float gain = ${SHEEN_FLOOR.toFixed(2)} +
+    ${BAND_GAIN.toFixed(2)} * band +
+    ${RADIAL_GAIN.toFixed(2)} * radial;
+
+  // Sparkle: hashed glitter cells, each pulsing at its own phase as the
+  // band position advances. Gated hard to crack edges (height gradient)
+  // and to the band envelope: glitter rides inside the moving streak.
+  float edge = smoothstep(0.02, 0.1, length(slope));
+  vec2 cell = floor(vUv / uTexel / 14.0);
+  float hash = fract(sin(dot(cell, vec2(12.9898, 78.233))) * 43758.5453);
+  float twinkle = 0.5 + 0.5 * cos(6.2831 * (hash + uBand * 1.6));
+  float sparkle = ${SPARKLE_GAIN.toFixed(2)} *
+    band * edge * smoothstep(0.55, 0.95, hash) * twinkle;
+
+  spec = min(spec * gain + sparkle, 1.0);
 
   vec4 src = texture2D(uLit, vUv);
   vec4 lit = clamp(src + vec4(spec) * h, 0.0, 1.0);
@@ -515,7 +556,7 @@ void main() {
 
 type Renderer = {
   gl: WebGLRenderingContext;
-  render: (sheen: Point) => void;
+  render: (sheen: Point, band: number) => void;
   /** Uploads new pane textures and updates the viewport. */
   setScene: (
     lit: TexImageSource,
@@ -582,6 +623,7 @@ function createRenderer(canvas: HTMLCanvasElement): Renderer | null {
   const uTexel = gl.getUniformLocation(program, 'uTexel');
   const uSurface = gl.getUniformLocation(program, 'uSurface');
   const uSheen = gl.getUniformLocation(program, 'uSheen');
+  const uBand = gl.getUniformLocation(program, 'uBand');
   const uAspect = gl.getUniformLocation(program, 'uAspect');
 
   // The light is constant for the renderer's whole life.
@@ -628,9 +670,10 @@ function createRenderer(canvas: HTMLCanvasElement): Renderer | null {
       gl.uniform1f(uAspect, width / height);
       ready = true;
     },
-    render(sheen) {
+    render(sheen, band) {
       if (!ready) return;
       gl.uniform2f(uSheen, sheen.x, sheen.y);
+      gl.uniform1f(uBand, band);
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     },
     dispose() {
@@ -656,12 +699,16 @@ export function BrokenGlassShine({ className }: { className?: string }) {
     null,
   );
 
-  // Sheen state lives in refs: it changes every pointer frame and must
-  // not re-render React. The field's center (pane uv coordinates) eases
-  // toward the cursor in a rAF loop that only runs while they differ;
-  // with no cursor it rests just up-light of center.
+  // Reflection state lives in refs: it changes every pointer frame and
+  // must not re-render React. The radial glow's center (pane uv) eases
+  // toward the cursor; the band's position along the light axis follows
+  // it on a spring. The rAF loop only runs while either is still moving;
+  // with no cursor everything rests just up-light of center. (The band's
+  // initial position is that resting projection for a typical aspect.)
   const sheenRef = React.useRef({
     position: { x: 0.5, y: 0.4 } as Point,
+    band: -0.75,
+    bandVelocity: 0,
     pointer: null as Point | null,
     raf: 0,
   });
@@ -837,7 +884,7 @@ export function BrokenGlassShine({ className }: { className?: string }) {
         height,
         SURFACE_SCALE * scale,
       );
-      renderer.render(sheenRef.current.position);
+      renderer.render(sheenRef.current.position, sheenRef.current.band);
     };
 
     void run();
@@ -846,12 +893,13 @@ export function BrokenGlassShine({ className }: { className?: string }) {
     };
   }, [size, impact]);
 
-  // The sheen field follows the cursor: its center eases toward the
-  // pointer's position in pane uv space (clamped just past the pane, so a
-  // far-away cursor parks the field at the nearest edge instead of
-  // dragging it into the void). Each step is one cheap draw call, and the
-  // loop stops as soon as the field settles. Mouse-only, and skipped
-  // under reduced motion.
+  // The reflection follows the cursor: the radial glow's center eases
+  // toward the pointer in pane uv space (clamped just past the pane, so a
+  // far-away cursor parks it at the nearest edge instead of dragging it
+  // into the void), and the band springs toward the cursor's projection
+  // on the light axis. Each step is one cheap draw call, and the loop
+  // stops as soon as everything settles. Mouse-only, and skipped under
+  // reduced motion.
   React.useEffect(() => {
     if (!window.matchMedia('(hover: hover) and (pointer: fine)').matches) return;
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
@@ -873,13 +921,26 @@ export function BrokenGlassShine({ className }: { className?: string }) {
     const step = () => {
       const target = targetPosition();
       const { position } = state;
-      position.x += (target.x - position.x) * 0.07;
-      position.y += (target.y - position.y) * 0.07;
-      rendererRef.current?.render(position);
+      position.x += (target.x - position.x) * 0.09;
+      position.y += (target.y - position.y) * 0.09;
+
+      // The band chases the target's projection on the light axis with a
+      // spring: stiffness pulls, damping bleeds velocity, and what's left
+      // over is the glide and the slight overshoot.
+      const aspect = canvas.clientWidth / Math.max(1, canvas.clientHeight);
+      const bandTarget =
+        LIGHT_AXIS.x * target.x * aspect + LIGHT_AXIS.y * target.y;
+      state.bandVelocity += (bandTarget - state.band) * BAND_STIFFNESS;
+      state.bandVelocity *= BAND_DAMPING;
+      state.band += state.bandVelocity;
+
+      rendererRef.current?.render(position, state.band);
 
       const settled =
         Math.abs(target.x - position.x) < 0.001 &&
-        Math.abs(target.y - position.y) < 0.001;
+        Math.abs(target.y - position.y) < 0.001 &&
+        Math.abs(bandTarget - state.band) < 0.001 &&
+        Math.abs(state.bandVelocity) < 0.0005;
       state.raf = settled ? 0 : requestAnimationFrame(step);
     };
 
