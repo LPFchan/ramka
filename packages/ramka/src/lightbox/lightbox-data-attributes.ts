@@ -215,6 +215,13 @@ export enum LightboxDocumentDataAttributes {
    * composited morph and available to skin CSS for per-preset styling.
    */
   viewTransitionPreset = 'data-ramka-vt-preset',
+  /**
+   * Present while the experimental FLIP engine's ghost drives the morph
+   * (instead of a View Transition). With no snapshot layer over the page,
+   * the live backdrop/content fades ARE the perceived transition — the
+   * structural styles re-pace them with the morph curve under this marker.
+   */
+  flipMorph = 'data-ramka-flip-morph',
 }
 
 /**

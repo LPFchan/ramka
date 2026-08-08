@@ -41,6 +41,8 @@ describe('vt-structural-styles', () => {
     expect(css).toContain('var(--lightbox-vt-duration');
     // Crossfade dissolve retimed to the preset.
     expect(css).toContain('data-ramka-crossfade');
+    // FLIP engine: backdrop/content fades re-paced to the morph curve.
+    expect(css).toContain('[data-ramka-flip-morph] [data-ramka-backdrop]');
     // Thumb-jump slides crossfade.
     expect(css).toContain('[data-ramka-slides]::view-transition-group(root)');
     // Everything animated is reduced-motion gated.

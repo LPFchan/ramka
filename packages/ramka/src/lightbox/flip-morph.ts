@@ -1,3 +1,4 @@
+import { LightboxDocumentDataAttributes } from './lightbox-data-attributes';
 import { morphTiming } from './vt-timing';
 
 // ---------------------------------------------------------------------------
@@ -27,14 +28,11 @@ import { morphTiming } from './vt-timing';
 //      morph in principle (pointer-events are only blocked by the normal
 //      modal machinery, not by a UA overlay).
 //
-// Start policy: the tracks start SYNCHRONOUSLY, committing with the same
-// frame that first paints the ghost — any deferred start (rAF chains, decode
-// races) costs full frames, which under a throttled main thread measured as
-// multi-hundred-ms lag behind the VT engine. Blank-frame protection is
-// `decoding="sync"` on the ghost image instead of an async decode wait.
-// WebKit's commit-skip is NOT defeated by any of this (accelerated
-// animations fast-forward past their first-commit latency); the soft-launch
-// preset curves mask it, exactly as on the VT engine.
+// Start policy is per-engine (see the comment above the start call in
+// runFlipMorph): Chromium/Firefox start the tracks synchronously with the
+// reveal frame; WebKit defers them past the reveal flush so they don't
+// fast-forward past the big first commit's latency. Blank-frame protection
+// is `decoding="sync"` on the ghost image instead of an async decode wait.
 //
 // Delivery matches the VT engine per browser: WebKit gets the tracks as
 // generated CSS animations (the path validated on the composited morph —
@@ -362,6 +360,10 @@ function runFlipMorph(opts: {
   if (tracks.hasRadius) {
     root.style.borderRadius = String(tracks.radius[0]!.borderRadius);
   }
+  // Mark the document while the ghost owns the morph: the structural styles
+  // re-pace the live backdrop/content fades to the morph curve under this
+  // marker (no snapshot layer exists to do it for us).
+  document.documentElement.setAttribute(LightboxDocumentDataAttributes.flipMorph, '');
   document.body.appendChild(root);
 
   let settled = false;
@@ -384,6 +386,7 @@ function runFlipMorph(opts: {
     styleEl?.remove();
     styleEl = null;
     root.remove();
+    document.documentElement.removeAttribute(LightboxDocumentDataAttributes.flipMorph);
   };
 
   /** Current eased progress of the morph (0 while holding frame 0). */
@@ -685,6 +688,16 @@ function tryFlipClose(opts: {
   }
 
   const restoreItem = hideLive(opts.itemTarget);
+  // The soft close flips `open` to false, which drops `data-morph-target`
+  // from the trigger — popping it to full opacity while the ghost is still
+  // flying. Keep the live trigger hidden until the ghost lands exactly on
+  // it (the VT engine gets this for free: its "new page" snapshot fades in
+  // as a whole, so the trigger never pops in isolation).
+  const restoreTrigger = hideLive(opts.triggerTarget);
+  const restore = () => {
+    restoreItem();
+    restoreTrigger();
+  };
   opts.softClose();
   // Scroll the trigger home BEFORE measuring the destination (mirrors the VT
   // close, which scrolls inside the transition callback).
@@ -702,9 +715,9 @@ function tryFlipClose(opts: {
     phase: 'closing',
     deferStart: !opts.fromPose,
   });
-  registerActiveFlip(handle, restoreItem);
+  registerActiveFlip(handle, restore);
   void handle.finished.then(() => {
-    restoreItem();
+    restore();
     opts.onDone();
   });
   return true;

@@ -1,6 +1,8 @@
 import { VIEW_TRANSITION_NAME } from './lightbox-context';
 import { LightboxDocumentCssVars, LightboxThumbnailStripCssVars } from './lightbox-css-vars';
 import {
+  LightboxBackdropDataAttributes,
+  LightboxContentDataAttributes,
   LightboxDocumentDataAttributes,
   LightboxSlidesDataAttributes,
   LightboxTriggerDataAttributes,
@@ -63,6 +65,18 @@ function buildCss(): string {
 
 :root[${vt}] [${morphTarget}] {
   transition: none;
+}
+
+/* FLIP engine (experimental): no snapshot layer covers the page, so the live
+   backdrop and Content-surface fades ARE the perceived transition. Re-pace
+   them with the morph's own clock and curve — a skin's typical front-loaded
+   fade (ease-out-expo) otherwise finishes well before the picture arrives.
+   The VT engine is untouched: there the root-snapshot crossfade layers over
+   these fades, and its tuned feel should not change. */
+:root[${vt}][${LightboxDocumentDataAttributes.flipMorph}] [${LightboxBackdropDataAttributes.backdrop}],
+:root[${vt}][${LightboxDocumentDataAttributes.flipMorph}] [${LightboxContentDataAttributes.content}] {
+  transition-duration: ${duration};
+  transition-timing-function: ${easing};
 }
 
 @media (prefers-reduced-motion: no-preference) {
