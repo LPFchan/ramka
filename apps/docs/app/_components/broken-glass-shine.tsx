@@ -572,8 +572,11 @@ void main() {
   // the shader rather than as a DOM background animation — animating
   // background-color on a WebGL canvas forces Chrome to re-rasterize the
   // layer, which composites as a solid white frame until tiles are ready.
+  // Weighted by the crack relief (h): the blink concentrates in the
+  // fractures instead of washing the whole pane white, which on phones
+  // spans the entire screen and reads as a harsh full-screen strobe.
   vec4 color = lit + under * (1.0 - lit.a);
-  gl_FragColor = min(color + vec4(uFlash), vec4(1.0));
+  gl_FragColor = min(color + vec4(uFlash * (0.25 + h)), vec4(1.0));
 }`;
 
 type Renderer = {
@@ -803,9 +806,9 @@ export function BrokenGlassShine({ className }: { className?: string }) {
         const state = sheenRef.current;
         const start = performance.now();
         const decay = (now: number) => {
-          const progress = Math.min(1, (now - start) / 110);
+          const progress = Math.min(1, (now - start) / 150);
           const remaining = 1 - progress;
-          state.flash = 0.12 * remaining * remaining;
+          state.flash = 0.09 * remaining * remaining;
           rendererRef.current?.render(state.position, state.band, state.flash);
           if (progress < 1) requestAnimationFrame(decay);
         };
