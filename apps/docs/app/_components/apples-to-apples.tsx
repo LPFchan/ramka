@@ -16,12 +16,12 @@ type Row = {
 };
 
 const ROWS: Row[] = [
-  { feature: 'Morph transitions', ramka: true, diy: 'FLIP, attempt three', plugin: 'fade()' },
-  { feature: 'Native scrolling', ramka: true, diy: 'translateX and hope', plugin: 'arrow buttons' },
+  { feature: 'Morph transitions', ramka: true, diy: 'FLIP, take 3', plugin: 'fade()' },
+  { feature: 'Native scrolling', ramka: true, diy: 'translateX', plugin: 'arrows' },
   { feature: 'Pinch, pan, flick', ramka: true, diy: 'sprint 14', plugin: 'mouse only' },
   { feature: 'Pull to dismiss', ramka: true, diy: 'in the backlog', plugin: 'Esc' },
   { feature: 'Keyboard, a11y', ramka: true, diy: 'TODO', plugin: '\u2014' },
-  { feature: 'Respects reduced motion', ramka: true, diy: 'oops', plugin: 'it never moved much' },
+  { feature: 'Respects reduced motion', ramka: true, diy: 'oops', plugin: 'always has' },
   { feature: 'Your design, not a theme', ramka: true, diy: 'to be fair, yes', plugin: 'skin.css' },
 ];
 
@@ -46,22 +46,22 @@ export function ApplesToApples() {
       <table className="mt-12 w-full border-collapse text-sm">
         <thead>
           <tr className="border-b border-neutral-200 dark:border-neutral-800">
-            <th className="w-[38%] md:w-[34%]" aria-hidden />
+            <th className="w-[34%]" aria-hidden />
             <th
               scope="col"
-              className="pb-3 text-center font-semibold tracking-tight text-neutral-950 dark:text-neutral-50"
+              className="px-1 pb-3 text-center align-bottom font-semibold tracking-tight text-neutral-950 md:px-2 dark:text-neutral-50"
             >
               ramka
             </th>
             <th
               scope="col"
-              className="pb-3 text-center font-normal text-neutral-400 dark:text-neutral-500"
+              className="px-1 pb-3 text-center align-bottom font-normal text-neutral-400 md:px-2 dark:text-neutral-500"
             >
               the one you&rsquo;d build
             </th>
             <th
               scope="col"
-              className="pb-3 text-center font-normal text-neutral-400 dark:text-neutral-500"
+              className="px-1 pb-3 text-center align-bottom font-normal text-neutral-400 md:px-2 dark:text-neutral-500"
             >
               that 2013 plugin
             </th>
@@ -72,17 +72,17 @@ export function ApplesToApples() {
             <tr key={row.feature}>
               <th
                 scope="row"
-                className="py-3.5 pr-4 text-left text-[13px] font-normal text-neutral-600 md:text-sm dark:text-neutral-300"
+                className="py-3.5 pr-3 text-left text-[13px] font-normal text-neutral-600 md:pr-4 md:text-sm dark:text-neutral-300"
               >
                 {row.feature}
               </th>
-              <td className="px-2 py-3.5 text-center text-[13px] md:text-sm">
+              <td className="px-1 py-3.5 text-center text-[13px] md:px-2 md:text-sm">
                 <Cell value={row.ramka} />
               </td>
-              <td className="px-2 py-3.5 text-center text-[13px] md:text-sm">
+              <td className="px-1 py-3.5 text-center text-[13px] md:px-2 md:text-sm">
                 <Cell value={row.diy} />
               </td>
-              <td className="px-2 py-3.5 text-center text-[13px] md:text-sm">
+              <td className="px-1 py-3.5 text-center text-[13px] md:px-2 md:text-sm">
                 <Cell value={row.plugin} />
               </td>
             </tr>
