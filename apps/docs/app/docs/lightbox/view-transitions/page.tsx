@@ -298,7 +298,7 @@ export default function LightboxViewTransitionsPage() {
           <code className="text-xs">--lightbox-vt-root-easing</code> — and clears them when it ends.
           Read those vars in your own CSS to keep skin fades in lockstep with the morph (e.g.{' '}
           <code className="text-xs">
-            transition: opacity var(--lightbox-vt-duration, 340ms) ease-out
+            transition: opacity var(--lightbox-vt-duration, 360ms) ease-out
           </code>{' '}
           on Backdrop/Content); do not set them yourself.
         </p>
