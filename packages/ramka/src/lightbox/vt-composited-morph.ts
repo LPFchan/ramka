@@ -193,15 +193,22 @@ const AXIS_EPS = 1e-3;
 
 /**
  * Parse a computed/serialized transform into axis-aligned scale + translate.
- * Handles `none`, `matrix(...)`, and 2D-compatible `matrix3d(...)` (Gecko
- * serializes group transforms as matrix3d). Returns `null` when the matrix
- * rotates/skews or scales non-positively — the compose math below assumes an
- * axis-aligned mapping.
+ * Handles `matrix(...)` and 2D-compatible `matrix3d(...)` (Gecko serializes
+ * group transforms as matrix3d). Returns `null` when the matrix rotates/skews
+ * or scales non-positively — the compose math below assumes an axis-aligned
+ * mapping.
+ *
+ * STRICT about `none`/empty: both callers read UA-authored group endpoints,
+ * which always carry an explicit matrix (the group is positioned via
+ * `transform`). A missing value therefore means the READ failed, not that the
+ * endpoint is at the origin — Safari 18.x returns an empty string from
+ * `getComputedStyle` on view-transition pseudos while animations run on
+ * them, and mapping that to identity sent the morph into the viewport's
+ * top-left corner (the destination degenerated to `translate(0, 0)`).
  */
 function parseScaleTranslate(value: unknown): ScaleTranslate | null {
   if (typeof value !== 'string') return null;
   const v = value.trim();
-  if (v === 'none' || v === '') return { sx: 1, sy: 1, tx: 0, ty: 0 };
 
   let m = /^matrix\(([^)]+)\)$/.exec(v);
   if (m) {
@@ -306,12 +313,13 @@ function upgrade(transition: UpgradeableTransition): void {
   // --- Validate everything BEFORE mutating any state -----------------------
 
   const effect = uaAnim.effect as KeyframeEffect;
-  let fromFrame: Record<string, unknown> | undefined;
+  let uaKeyframes: Record<string, unknown>[] = [];
   try {
-    fromFrame = effect.getKeyframes().find((kf) => (kf.computedOffset ?? kf.offset ?? 0) === 0);
+    uaKeyframes = effect.getKeyframes();
   } catch {
-    fromFrame = undefined;
+    uaKeyframes = [];
   }
+  const fromFrame = uaKeyframes.find((kf) => (kf.computedOffset ?? kf.offset ?? 0) === 0);
   if (!fromFrame) {
     debugLog('bail: no from keyframe');
     return;
@@ -353,42 +361,79 @@ function upgrade(transition: UpgradeableTransition): void {
       ? Math.max(0, Math.min(uaElapsedRaw, uaDuration))
       : 0;
 
-  // End geometry = the group's base style (UA sets it to the new element's
-  // box). Read it by jumping the paused UA animation to its end — fill mode
-  // is `both`, so computed style then reports the underlying base values.
+  // End geometry, in order of preference:
+  //
+  // 1. The UA keyframes' `to` frame. WebKit ships it with correct values,
+  //    and on Safari 18.x it is the ONLY reliable source: getComputedStyle
+  //    on a view-transition pseudo returns an empty transform while
+  //    animations run on it (the group carries our co-declared border-radius
+  //    animation throughout), which the old identity-mapping parse turned
+  //    into a `translate(0, 0)` destination — the morph flew to the
+  //    viewport's top-left corner and snapped into place at finish.
+  // 2. Fallback: the group's base style (UA sets it to the new element's
+  //    box), read by jumping the paused UA animation to its end — fill mode
+  //    is `both`, so computed style then reports the underlying base values.
+  //    Current Chromium/Gecko/WebKit all ship usable `to` frames, so this
+  //    only runs where the `to` frame is absent or carries `transform: none`
+  //    (older Blink did, see
+  //    https://github.com/WICG/view-transitions/issues/235).
+  //
   // Everything here happens inside the `ready` microtask, before the first
   // frame is presented, so no intermediate state can paint.
-  uaAnim.pause();
-  uaAnim.currentTime = uaDuration;
-  const endStyle = getComputedStyle(docEl, GROUP_PSEUDO);
-  const toT = parseScaleTranslate(endStyle.transform);
-  const w1 = parsePx(endStyle.width);
-  const h1 = parsePx(endStyle.height);
+  const toFrame = uaKeyframes.find((kf) => (kf.computedOffset ?? kf.offset) === 1);
+  let toT = toFrame ? parseScaleTranslate(toFrame.transform) : null;
+  let w1 = toFrame ? parsePx(toFrame.width) : null;
+  let h1 = toFrame ? parsePx(toFrame.height) : null;
+  let endGeometrySource = 'to-keyframe';
+  if (!toT || w1 == null || h1 == null) {
+    endGeometrySource = 'computed-end';
+    uaAnim.pause();
+    uaAnim.currentTime = uaDuration;
+    const endStyle = getComputedStyle(docEl, GROUP_PSEUDO);
+    toT = parseScaleTranslate(endStyle.transform);
+    w1 = parsePx(endStyle.width);
+    h1 = parsePx(endStyle.height);
+    if (!toT || w1 == null || h1 == null) {
+      // Restore the stock animation and bail.
+      uaAnim.currentTime = 0;
+      uaAnim.play();
+      debugLog('bail: unparsable end geometry', {
+        transform: endStyle.transform,
+        width: endStyle.width,
+        height: endStyle.height,
+      });
+      return;
+    }
+  }
   // Origin fractions for reconstructing rendered rects from scaled endpoint
   // matrices (the UA animation runs under the group's own transform-origin;
   // our replacement forces 0 0, so the intended rect must be computed here).
-  const originParts = endStyle.transformOrigin.split(' ').map((p) => Number.parseFloat(p));
-  if (!toT || w1 == null || h1 == null) {
-    // Restore the stock animation and bail.
-    uaAnim.currentTime = 0;
-    uaAnim.play();
-    debugLog('bail: unparsable end geometry', {
-      transform: endStyle.transform,
-      width: endStyle.width,
-      height: endStyle.height,
-    });
-    return;
-  }
-  const fx = Number.isFinite(originParts[0]) ? originParts[0]! / w1 : 0.5;
-  const fy = Number.isFinite(originParts[1]) ? originParts[1]! / h1 : 0.5;
+  // Normalized against the SAME snapshot's own box: transform-origin
+  // percentages resolve against whatever box the group currently has (from
+  // state on the keyframe path, end state on the jump path), so dividing by
+  // a fixed endpoint box would skew the fraction. May come back empty on
+  // Safari 18.x; the 0.5 fallbacks cover it (origin only matters for scaled
+  // endpoints, where sx/sy differ from 1).
+  const originStyle = getComputedStyle(docEl, GROUP_PSEUDO);
+  const originParts = originStyle.transformOrigin.split(' ').map((p) => Number.parseFloat(p));
+  const originBoxW = Number.parseFloat(originStyle.width);
+  const originBoxH = Number.parseFloat(originStyle.height);
+  const fx =
+    Number.isFinite(originParts[0]) && Number.isFinite(originBoxW) && originBoxW > 0
+      ? originParts[0]! / originBoxW
+      : 0.5;
+  const fy =
+    Number.isFinite(originParts[1]) && Number.isFinite(originBoxH) && originBoxH > 0
+      ? originParts[1]! / originBoxH
+      : 0.5;
 
   // Neutralize the UA group animation explicitly. Style-based cancellation
   // (`animation: none` from the injected sheet) is not reliable cross-engine:
   // Gecko keeps an API-paused CSS animation alive despite it, and a forever-
   // paused animation holds the transition's `finished` promise hostage — the
   // pseudo tree never tears down. Cancelling drops the animation entirely;
-  // the group's base style IS the end geometry (that's where endStyle was
-  // read from), so the frozen box the replacement tracks assume stays put.
+  // the group's base style IS the end geometry (the UA sets it to the new
+  // element's box), so the frozen box the replacement tracks assume stays put.
   uaAnim.cancel();
 
   // --- Commit: kill CSS animations, add compositor-friendly replacements ---
@@ -571,6 +616,7 @@ ${keyframesCss(nName, newFrames, 'transform')}
   debugLog('upgraded to composited morph', {
     from: { ...fromT, w: w0, h: h0 },
     to: { ...toT, w: w1, h: h1 },
+    endGeometrySource,
     origin: { fx: fmt(fx), fy: fmt(fy) },
     timing: timingLabel,
     uaDuration,
