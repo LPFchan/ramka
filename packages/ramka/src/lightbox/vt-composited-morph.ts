@@ -358,21 +358,26 @@ function protectedSpring(zeta: number, a: number, q: number): EasingFn {
 /**
  * The morph's timing: duration (ms) + easing, identical in every browser.
  * The composited morph deliberately does NOT inherit the page's
- * view-transition duration/easing — it owns its motion design (see
- * `protectedEaseOut` for the curve's rationale).
+ * view-transition duration/easing — it owns its motion design.
+ *
+ * The default was chosen by on-device A/B testing (iPhone, including Low
+ * Power Mode) against the pre-composited-morph timing (340ms sheet curve,
+ * cubic-bezier(.32,.72,0,1)): the same family of curve with the launch
+ * velocity tamed — enough travel moved out of WebKit's swallowed first
+ * ~100ms (see the WebKit branch in `upgrade`) that the start doesn't
+ * teleport, while keeping the sheet curve's fast middle and long settle.
  *
  * Live-tunable without rebuilds via `window.__RAMKA_VT_TIMING__` (docs wire
  * this to `?vttiming=...`), four formats:
+ *   - `'duration,x1,y1,x2,y2'` — plain cubic-bezier, e.g. `360,.44,.58,0,1`
  *   - `'duration,out,a,q'` — protected ease-out, e.g. `350,out,.28,.1`
  *   - `'duration,spring,zeta'` — UIKit-style spring, e.g. `500,spring,.8`
  *   - `'duration,pspring,zeta,a,q'` — spring with protected launch,
  *     e.g. `500,pspring,.8,.2,.08`
- *   - `'duration,x1,y1,x2,y2'` — plain cubic-bezier, e.g. `350,.5,0,.2,1`
  */
 const MORPH_TIMING_DEFAULT = {
-  duration: 350,
-  windup: 0.28, // ≈98ms — sized to cover the iOS commit skip
-  windupTravel: 0.1,
+  duration: 360,
+  bezier: [0.44, 0.58, 0, 1] as const,
 };
 
 function morphTiming(): { duration: number; ease: EasingFn; label: string } {
@@ -428,11 +433,11 @@ function morphTiming(): { duration: number; ease: EasingFn; label: string } {
       };
     }
   }
-  const { duration, windup, windupTravel } = MORPH_TIMING_DEFAULT;
+  const { duration, bezier } = MORPH_TIMING_DEFAULT;
   return {
     duration,
-    ease: protectedEaseOut(windup, windupTravel),
-    label: `${duration}ms protected-out(${windup},${windupTravel})`,
+    ease: cubicBezierEasing(...bezier),
+    label: `${duration}ms cubic-bezier(${bezier.join(',')})`,
   };
 }
 

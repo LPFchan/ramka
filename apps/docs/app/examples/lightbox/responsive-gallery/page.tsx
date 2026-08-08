@@ -245,67 +245,6 @@ function formatCount(n: number): string {
   return String(n);
 }
 
-// ---------------------------------------------------------------------------
-// TEMPORARY morph-timing lab (remove once a default is chosen).
-//
-// Each preset is a `__RAMKA_VT_TIMING__` string (see vt-composited-morph.ts):
-// `duration,out,windup,travel` = protected ease-out, `duration,x1,y1,x2,y2` =
-// plain cubic-bezier. Applied live — the morph re-reads the flag on every
-// open/close — and persisted to sessionStorage so reloads keep the choice.
-// ---------------------------------------------------------------------------
-
-const TIMING_PRESETS = [
-  { label: 'Protected out — current default', value: '350,out,.28,.1' },
-  { label: 'Main branch stock timing (sheet curve @ 340ms)', value: '340,.32,.72,0,1' },
-  { label: 'iOS sheet curve — long', value: '500,.32,.72,0,1' },
-  { label: 'Critically damped spring (iOS 18 fluid-zoom feel)', value: '450,spring,1' },
-  { label: 'Critical spring, protected launch', value: '450,pspring,1,.22,.08' },
-  { label: 'UIKit curveEaseOut (pre-spring Photos era)', value: '400,0,0,.58,1' },
-] as const;
-
-const TIMING_STORAGE_KEY = 'ramka-vt-timing-preset';
-
-function TimingPresetPicker() {
-  const [active, setActive] = React.useState<string>(TIMING_PRESETS[0].value);
-
-  React.useEffect(() => {
-    const stored = window.sessionStorage.getItem(TIMING_STORAGE_KEY);
-    if (stored && TIMING_PRESETS.some((p) => p.value === stored)) setActive(stored);
-  }, []);
-
-  React.useEffect(() => {
-    (window as unknown as Record<string, unknown>).__RAMKA_VT_TIMING__ = active;
-    window.sessionStorage.setItem(TIMING_STORAGE_KEY, active);
-  }, [active]);
-
-  return (
-    <fieldset className="mb-4 rounded-xl border border-dashed border-border p-4">
-      <legend className="px-2 text-sm font-semibold">Morph timing lab</legend>
-      <p className="mb-3 text-xs text-muted-foreground">
-        Applies instantly to every open/close on this page — no reload needed.
-      </p>
-      <div className="flex flex-col gap-1">
-        {TIMING_PRESETS.map((preset) => (
-          <label
-            key={preset.value}
-            className="flex cursor-pointer items-center gap-3 rounded-lg px-2 py-1.5 text-sm hover:bg-muted"
-          >
-            <input
-              type="radio"
-              name="vt-timing-preset"
-              value={preset.value}
-              checked={active === preset.value}
-              onChange={() => setActive(preset.value)}
-              className="size-4 accent-foreground"
-            />
-            <span className="flex-1">{preset.label}</span>
-            <code className="text-[10px] text-muted-foreground">{preset.value}</code>
-          </label>
-        ))}
-      </div>
-    </fieldset>
-  );
-}
 
 /**
  * Per-cell rounded-corner classes for the 1- to 4-cell grids. Inner edges
@@ -526,8 +465,6 @@ export default function ResponsiveGalleryPage() {
       }
     >
       <div className="mx-auto max-w-xl">
-        <TimingPresetPicker />
-
         <div className="border-b border-border py-4 pb-2">
           <h2 className="text-xl font-semibold tracking-tight">Home</h2>
         </div>
