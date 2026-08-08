@@ -124,8 +124,8 @@ export function SponsorsShowcase() {
           style={frameStyle}
         >
           {/* Glass pane over the matte ("I'd rather eat glass"): intact until
-              clicked, then shattered around the click, with static specular
-              glints along the cracks. */}
+              clicked, then shattered around the click. Specular glints along
+              the cracks follow the cursor (WebGL-lit). */}
           <BrokenGlassShine className="absolute inset-0 z-10" />
 
           {/* Grain overlay; negative inset stretches it over the border-image
