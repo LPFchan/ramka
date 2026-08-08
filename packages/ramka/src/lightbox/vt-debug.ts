@@ -36,8 +36,22 @@ function maybeTraceViewTransition(
   const sample = (t: number) => {
     const cs = getComputedStyle(docEl, groupPseudo);
     const vv = window.visualViewport;
+    // Painted animation time of the morph group's first animation this frame
+    // — reveals start-skipping (first painted ct >> 0) vs late starts.
+    let ct: number | null = null;
+    try {
+      const anim = document
+        .getAnimations()
+        .find((a) => (a.effect as KeyframeEffect | null)?.pseudoElement === groupPseudo);
+      if (anim && anim.currentTime != null) {
+        ct = Math.round(Number(anim.currentTime) * 10) / 10;
+      }
+    } catch {
+      // getAnimations unsupported — leave null.
+    }
     samples.push({
       t: Math.round(t * 100) / 100,
+      ct,
       transform: cs.transform,
       width: cs.width,
       height: cs.height,
@@ -58,7 +72,7 @@ function maybeTraceViewTransition(
         ua: navigator.userAgent,
         href: location.href,
         composited:
-          (window as unknown as Record<string, unknown>).__RAMKA_VT_COMPOSITED__ === true,
+          (window as unknown as Record<string, unknown>).__RAMKA_VT_COMPOSITED__ !== false,
         groupTransformOrigin: getComputedStyle(docEl, groupPseudo).transformOrigin,
         dpr: window.devicePixelRatio,
         screen: [window.screen.width, window.screen.height],

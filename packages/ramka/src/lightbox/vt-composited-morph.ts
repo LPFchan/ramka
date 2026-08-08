@@ -236,6 +236,19 @@ function parseEasing(value: unknown): EasingFn | null {
   return null;
 }
 
+/** First top-level comma-separated entry of a CSS list (easing functions
+ * contain commas, so a plain `split(',')` won't do). */
+function firstTimingFunction(list: string): string {
+  let depth = 0;
+  for (let i = 0; i < list.length; i++) {
+    const ch = list[i];
+    if (ch === '(') depth += 1;
+    else if (ch === ')') depth = Math.max(0, depth - 1);
+    else if (ch === ',' && depth === 0) return list.slice(0, i).trim();
+  }
+  return list.trim();
+}
+
 /**
  * Parse a morph radius var (`12px`, `16px 16px 160px 160px`, or empty) into
  * four per-corner px values [tl, tr, br, bl]. The vars are written by
@@ -328,11 +341,34 @@ function upgrade(transition: UpgradeableTransition): void {
     return;
   }
 
-  const ease = parseEasing(fromFrame.easing);
-  if (!ease) {
-    debugLog('bail: unparsable easing', String(fromFrame.easing));
-    return;
+  // Easing sources, most to least specific. Per spec the CSS
+  // `animation-timing-function` maps to per-KEYFRAME easing (Chrome/Gecko
+  // report it there), but WebKit reports keyframe easing as `linear` and
+  // keeps the real curve elsewhere — sampling a straight line then silently
+  // plays the wrong (more aggressive) motion. The pseudo's computed
+  // `animation-timing-function` is the ground truth fallback; a `linear`
+  // candidate is only trusted when no later source disagrees.
+  const easingCandidates = [
+    fromFrame.easing,
+    effect.getTiming().easing,
+    firstTimingFunction(getComputedStyle(docEl, GROUP_PSEUDO).animationTimingFunction),
+  ];
+  let ease: EasingFn | null = null;
+  let easingUsed = 'linear';
+  for (const candidate of easingCandidates) {
+    if (typeof candidate !== 'string' || candidate.trim() === 'linear') continue;
+    const parsed = parseEasing(candidate);
+    if (!parsed) {
+      // Non-linear but unparsable (steps / linear(...)): playing the wrong
+      // curve is worse than the stock morph.
+      debugLog('bail: unparsable easing', candidate);
+      return;
+    }
+    ease = parsed;
+    easingUsed = candidate;
+    break;
   }
+  if (!ease) ease = (t) => t; // every source says linear — honor it
 
   const timing = effect.getComputedTiming();
   const duration = typeof timing.duration === 'number' ? timing.duration : NaN;
@@ -340,6 +376,19 @@ function upgrade(transition: UpgradeableTransition): void {
     debugLog('bail: no finite duration', String(timing.duration));
     return;
   }
+
+  // Capture how far the UA animation has ACTUALLY progressed before touching
+  // it. The replacements resume from this elapsed time below, so the swap is
+  // seamless against what the stock morph has painted so far. Deliberately
+  // NOT aligned to `startTime`: on a throttled main thread (e.g. iPhone Low
+  // Power Mode, 30Hz rAF) this code runs several frames after the animation's
+  // nominal start, and back-dating to startTime would skip the first 30–70ms
+  // of the curve — a visible "fast/aggressive" kick at morph start.
+  const uaElapsedRaw = uaAnim.currentTime;
+  const uaElapsed =
+    typeof uaElapsedRaw === 'number' && Number.isFinite(uaElapsedRaw)
+      ? Math.max(0, Math.min(uaElapsedRaw, duration))
+      : 0;
 
   // End geometry = the group's base style (UA sets it to the new element's
   // box). Read it by jumping the paused UA animation to its end — fill mode
@@ -473,6 +522,15 @@ function upgrade(transition: UpgradeableTransition): void {
     return;
   }
 
+  // Seamless handover: resume from the UA animation's painted progress (~0
+  // on healthy devices). See the `uaElapsed` capture above for why this is
+  // progress-based rather than startTime-based.
+  if (uaElapsed > 0) {
+    for (const a of created) {
+      a.currentTime = uaElapsed;
+    }
+  }
+
   debugLog('upgraded to composited morph', {
     from: { ...fromT, w: w0, h: h0 },
     to: { ...toT, w: w1, h: h1 },
@@ -480,6 +538,8 @@ function upgrade(transition: UpgradeableTransition): void {
     duration,
     steps,
     hasRadius,
+    easing: easingUsed,
+    easingCandidates: easingCandidates.map(String),
   });
 
   transition.finished.finally(() => {
