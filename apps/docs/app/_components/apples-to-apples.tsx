@@ -16,13 +16,13 @@ type Row = {
 };
 
 const ROWS: Row[] = [
-  { feature: 'Built on native scrolling', ramka: true, diy: 'eventually', plugin: 'jQuery' },
-  { feature: 'Morphs across aspect ratios', ramka: true, diy: 'after the rewrite', plugin: '\u2014' },
-  { feature: 'Pinch to zoom', ramka: true, diy: 'sprint 14', plugin: 'double tap, sometimes' },
+  { feature: 'Morph transitions', ramka: true, diy: 'FLIP, attempt three', plugin: 'fade()' },
+  { feature: 'Native scrolling', ramka: true, diy: 'translateX and hope', plugin: 'arrow buttons' },
+  { feature: 'Pinch, pan, flick', ramka: true, diy: 'sprint 14', plugin: 'mouse only' },
   { feature: 'Pull to dismiss', ramka: true, diy: 'in the backlog', plugin: 'Esc' },
-  { feature: 'View transitions', ramka: true, diy: 'weekend project', plugin: 'fade()' },
-  { feature: 'Respects reduced motion', ramka: true, diy: 'oops', plugin: '\u2014' },
-  { feature: 'Accessible out of the box', ramka: true, diy: 'TODO', plugin: '\u2014' },
+  { feature: 'Keyboard, a11y', ramka: true, diy: 'TODO', plugin: '\u2014' },
+  { feature: 'Respects reduced motion', ramka: true, diy: 'oops', plugin: 'it never moved much' },
+  { feature: 'Your design, not a theme', ramka: true, diy: 'to be fair, yes', plugin: 'skin.css' },
 ];
 
 function Cell({ value }: { value: true | string }) {
@@ -46,7 +46,7 @@ export function ApplesToApples() {
       <table className="mt-12 w-full border-collapse text-sm">
         <thead>
           <tr className="border-b border-neutral-200 dark:border-neutral-800">
-            <th className="w-[34%]" aria-hidden />
+            <th className="w-[38%] md:w-[34%]" aria-hidden />
             <th
               scope="col"
               className="pb-3 text-center font-semibold tracking-tight text-neutral-950 dark:text-neutral-50"
