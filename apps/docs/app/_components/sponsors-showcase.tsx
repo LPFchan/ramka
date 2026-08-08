@@ -123,8 +123,9 @@ export function SponsorsShowcase() {
           className="relative border-16 bg-[#1a1915] shadow-[0_2px_6px_rgba(0,0,0,0.25),0_32px_64px_-16px_rgba(0,0,0,0.4)] md:aspect-4/3 md:border-28"
           style={frameStyle}
         >
-          {/* Cracked glass pane over the matte ("I'd rather eat glass"), with
-              cursor-tracking specular glints along the cracks. */}
+          {/* Glass pane over the matte ("I'd rather eat glass"): intact until
+              clicked, then shattered around the click, with static specular
+              glints along the cracks. */}
           <BrokenGlassShine className="absolute inset-0 z-10" />
 
           {/* Grain overlay; negative inset stretches it over the border-image

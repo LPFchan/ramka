@@ -3,14 +3,14 @@
 import * as React from 'react';
 
 /**
- * A pane of cracked glass with dynamic specular lighting, laid over the
- * framed testimonial ("I'd rather eat glass...").
+ * A pane of cracked glass with specular lighting, laid over the framed
+ * testimonial ("I'd rather eat glass...").
  *
  * The lighting technique is adapted from frosted-ui's Shine component
  * (https://github.com/whopio/frosted-ui): the element's alpha channel is
- * blurred into a height map, feSpecularLighting raises glints on it from an
- * fePointLight that tracks the cursor, and the glints are composited back
- * over the source.
+ * blurred into a height map, feSpecularLighting raises glints on it from a
+ * distant (parallel) light, and the glints are composited back over the
+ * source.
  *
  * The source is a hand-drawn shatter: radial cracks from an impact point,
  * connecting rings — and the whole pane tessellated into shard polygons
@@ -23,12 +23,21 @@ import * as React from 'react';
  * through and a bright exposed-edge rim that catches the light hard. The
  * hole is what makes the remaining glass read as glass.
  *
- * The pane starts intact — one flat sheet with a soft sheen following the
- * cursor — and shatters on click. The shatter is authored once around the
- * impact point (63,34); on click every coordinate is remapped through a
- * piecewise-linear warp that moves that point to the click position while
- * pinning the pane edges, so the radial cracks still run out to the
- * borders wherever the pane is struck.
+ * The pane starts intact — one flat sheet with a soft static sheen — and
+ * shatters on click. The shatter is authored once around the impact point
+ * (63,34); on click every coordinate is remapped through a piecewise-linear
+ * warp that moves that point to the click position while pinning the pane
+ * edges, so the radial cracks still run out to the borders wherever the
+ * pane is struck.
+ *
+ * PERFORMANCE: the pane is NOT rendered as live DOM with `filter: url()`.
+ * A live SVG filter on an element is re-evaluated whenever the browser
+ * re-rasterizes that layer — notably every View Transition snapshot, which
+ * the lightbox takes constantly. Instead the whole pane (geometry + filter)
+ * is serialized into a standalone SVG data URI and set as background-image:
+ * the browser rasterizes the image once per size, caches the bitmap, and
+ * everything after that is plain texture compositing. The filter runs only
+ * when the URI changes: mount, debounced resize, and once on shatter.
  */
 
 /** Radial cracks running from the impact point (63,34) to the pane edges. */
@@ -153,53 +162,151 @@ function warpPoints(points: string, impact: { x: number; y: number }): string {
     .join(' ');
 }
 
+/**
+ * Serializes the pane — crack geometry plus the lighting filter — into a
+ * standalone SVG document sized to the pane's CSS pixels. Pixel sizing
+ * matters: the filter primitives (blur radius, light position and height)
+ * are pixel quantities, so they live on the outer SVG, while the authored
+ * 0-100 geometry sits in a nested <svg> stretched over it. Strokes use
+ * vector-effect="non-scaling-stroke" so they stay at their authored pixel
+ * widths despite the stretch. The browser rasterizes the image at device
+ * resolution, so it stays crisp on retina displays.
+ */
+function buildPaneSvg(
+  width: number,
+  height: number,
+  impact: { x: number; y: number } | null,
+): string {
+  const fill = (tag: 'polygon' | 'rect', attrs: string, color: string) =>
+    `<${tag} ${attrs} fill="${color}"/>`;
+  const stroke = (
+    tag: 'polygon' | 'polyline',
+    points: string,
+    color: string,
+    px: number,
+  ) =>
+    `<${tag} points="${points}" fill="none" stroke="${color}" stroke-width="${px}" vector-effect="non-scaling-stroke"/>`;
+
+  let content: string;
+  if (impact === null) {
+    // The intact sheet: one flat plate, so the light plays a soft sheen
+    // across the whole pane and nothing else.
+    content = fill('rect', 'width="100" height="100"', 'rgba(255,255,255,0.07)');
+  } else {
+    const w = (points: string) => warpPoints(points, impact);
+    content =
+      // The mask knocks the fallen bits out of everything painted below:
+      // fills, facets, and any cracks crossing them.
+      `<defs><mask id="holes" maskUnits="userSpaceOnUse" x="0" y="0" width="100" height="100">` +
+      fill('rect', 'width="100" height="100"', '#fff') +
+      FALLEN_BITS.map((p) => fill('polygon', `points="${w(p)}"`, '#000')).join('') +
+      `</mask></defs>` +
+      `<g mask="url(#holes)">` +
+      // Surviving glass plates: flat fills at slightly different heights.
+      // Fallen pieces render nothing — bare matte.
+      SHARDS.filter((s) => !s.fallen)
+        .map((s) => fill('polygon', `points="${w(s.points)}"`, `rgba(255,255,255,${s.alpha})`))
+        .join('') +
+      // Exposed glass edges around the holes: the brightest lines in the
+      // pane, they catch the light hard.
+      SHARDS.filter((s) => s.fallen)
+        .map((s) => stroke('polygon', w(s.points), 'rgba(245,248,255,0.4)', 1.4))
+        .join('') +
+      FACETS.map((p) => fill('polygon', `points="${w(p)}"`, 'rgba(255,255,255,0.06)')).join('') +
+      PRIMARY_CRACKS.map((p) => stroke('polyline', w(p), 'rgba(235,240,255,0.18)', 1.1)).join('') +
+      SECONDARY_CRACKS.map((p) => stroke('polyline', w(p), 'rgba(235,240,255,0.12)', 0.7)).join('') +
+      `</g>` +
+      // Exposed edges of the fallen bits, outside the mask so they stay
+      // visible around the tiny holes.
+      FALLEN_BIT_RIMS.map((p) => stroke('polygon', w(p), 'rgba(245,248,255,0.35)', 0.8)).join('') +
+      // The impact crater itself: a bright speck that stays lit.
+      `<circle cx="${impact.x}" cy="${impact.y}" r="0.6" fill="rgba(255,255,255,0.5)"/>`;
+  }
+
+  return (
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}">` +
+    `<filter id="f" color-interpolation-filters="sRGB">` +
+    // Everything is drawn at low alpha, which would make both the height
+    // map and the clip mask nearly flat, so boost alpha first.
+    `<feComponentTransfer in="SourceAlpha" result="boost"><feFuncA type="linear" slope="6"/></feComponentTransfer>` +
+    // Small blur: shard plateaus stay flat (glass plates), and the alpha
+    // steps at cracks and hole rims become thin sharp ridges. A big blur
+    // here reads as embossed fabric, not glass.
+    `<feGaussianBlur in="boost" stdDeviation="0.8" result="bump"/>` +
+    // A distant (parallel) light instead of a point light: no local hotspot
+    // blob — every crack ridge angled toward the light glints uniformly
+    // across the whole pane, like window light hitting beveled glass. From
+    // the top-left (azimuth 225, y-down), grazing low (elevation 28) so the
+    // ridges rake bright while the flats stay dark; the constant is raised
+    // to compensate for the shallower angle.
+    `<feSpecularLighting in="bump" result="light" surfaceScale="6" specularConstant="1.7" specularExponent="30" lighting-color="#ffffff">` +
+    `<feDistantLight azimuth="225" elevation="28"/>` +
+    `</feSpecularLighting>` +
+    // Clip glints to the pane, then add them over the source.
+    `<feComposite in="light" in2="bump" operator="in" result="glints"/>` +
+    `<feComposite in="SourceGraphic" in2="glints" operator="arithmetic" k1="0" k2="1" k3="1" k4="0"/>` +
+    `</filter>` +
+    `<g filter="url(#f)">` +
+    `<svg width="${width}" height="${height}" viewBox="0 0 100 100" preserveAspectRatio="none">` +
+    content +
+    `</svg>` +
+    `</g>` +
+    `</svg>`
+  );
+}
+
 export function BrokenGlassShine({ className }: { className?: string }) {
-  const filterId = React.useId();
-  const filterRef = React.useRef<SVGFilterElement>(null);
   const paneRef = React.useRef<HTMLDivElement>(null);
-  const mouse = React.useRef({ x: 0, y: 0 });
 
   /** Impact point in viewBox (0-100) coordinates; null while intact. */
   const [impact, setImpact] = React.useState<{ x: number; y: number } | null>(
     null,
   );
 
-  const setLightTo = React.useCallback((clientX: number, clientY: number) => {
-    const pane = paneRef.current;
-    const light = filterRef.current?.querySelector('fePointLight');
-    if (!pane || !light) return;
-    const box = pane.getBoundingClientRect();
-    light.setAttribute('x', String(clientX - box.left));
-    light.setAttribute('y', String(clientY - box.top));
-  }, []);
+  /** Pane size in CSS pixels; the rasterization target. */
+  const [size, setSize] = React.useState<{ width: number; height: number } | null>(
+    null,
+  );
 
+  // Measure the pane and re-measure on resize. Debounced: every new size
+  // means one fresh rasterization of the background SVG, so don't churn
+  // through intermediate sizes mid-drag.
   React.useEffect(() => {
-    const onPointerMove = (event: PointerEvent) => {
-      mouse.current = { x: event.clientX, y: event.clientY };
-      setLightTo(event.clientX, event.clientY);
-    };
-    const onScroll = () => setLightTo(mouse.current.x, mouse.current.y);
+    const pane = paneRef.current;
+    if (!pane) return;
 
-    document.addEventListener('pointermove', onPointerMove);
-    document.addEventListener('scroll', onScroll, true);
+    let timer = 0;
+    const measure = () =>
+      setSize((prev) => {
+        const width = pane.clientWidth;
+        const height = pane.clientHeight;
+        return prev && prev.width === width && prev.height === height
+          ? prev
+          : { width, height };
+      });
+
+    measure();
+    const observer = new ResizeObserver(() => {
+      window.clearTimeout(timer);
+      timer = window.setTimeout(measure, 150);
+    });
+    observer.observe(pane);
     return () => {
-      document.removeEventListener('pointermove', onPointerMove);
-      document.removeEventListener('scroll', onScroll, true);
+      observer.disconnect();
+      window.clearTimeout(timer);
     };
-  }, [setLightTo]);
+  }, []);
 
   // While intact, listen for clicks on the host element (the frame that
   // contains this overlay) rather than on the overlay itself. The overlay
   // stays pointer-events-none the whole time, so the buttons underneath
   // always work; a click on a button both follows the link and cracks the
-  // pane around it. The frame is two levels up: pane -> overlay root ->
-  // frame; the overlay root is pointer-events-none, so clicks on the
-  // frame's content never pass through it — they bubble from the content
-  // to the frame directly.
+  // pane around it. (The overlay is pointer-events-none, so clicks on the
+  // frame's content bubble to the frame without ever touching it.)
   React.useEffect(() => {
     if (impact) return;
     const pane = paneRef.current;
-    const host = pane?.parentElement?.parentElement;
+    const host = pane?.parentElement;
     if (!pane || !host) return;
 
     const shatter = (event: MouseEvent) => {
@@ -211,9 +318,6 @@ export function BrokenGlassShine({ className }: { className?: string }) {
         x: clamp(((event.clientX - box.left) / box.width) * 100),
         y: clamp(((event.clientY - box.top) / box.height) * 100),
       });
-      // On touch there is no pointermove trail, so put the light at the
-      // impact for the first lit frame.
-      setLightTo(event.clientX, event.clientY);
 
       // If this click was on a link, hold the navigation briefly so the
       // shatter is seen before a new tab takes over. Modified clicks
@@ -240,170 +344,20 @@ export function BrokenGlassShine({ className }: { className?: string }) {
 
     host.addEventListener('click', shatter);
     return () => host.removeEventListener('click', shatter);
-  }, [impact, setLightTo]);
-
-  /** The shatter geometry, warped so the impact sits under the click. */
-  const geo = React.useMemo(() => {
-    if (!impact) return null;
-    const w = (points: string) => warpPoints(points, impact);
-    return {
-      primaryCracks: PRIMARY_CRACKS.map(w),
-      secondaryCracks: SECONDARY_CRACKS.map(w),
-      facets: FACETS.map(w),
-      fallenBits: FALLEN_BITS.map(w),
-      fallenBitRims: FALLEN_BIT_RIMS.map(w),
-      shards: SHARDS.map((shard) => ({ ...shard, points: w(shard.points) })),
-    };
   }, [impact]);
 
+  const backgroundImage = React.useMemo(() => {
+    if (!size) return undefined;
+    const svg = buildPaneSvg(size.width, size.height, impact);
+    return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
+  }, [size, impact]);
+
   return (
-    <div aria-hidden className={`pointer-events-none ${className ?? ''}`}>
-      <svg width="0" height="0" className="absolute">
-        <filter id={filterId} ref={filterRef} colorInterpolationFilters="sRGB">
-          {/* Everything is drawn at low alpha, which would make both the
-              height map and the clip mask nearly flat, so boost alpha first.
-              (frosted-ui skips this because it lights opaque children.) */}
-          <feComponentTransfer in="SourceAlpha" result="boost">
-            <feFuncA type="linear" slope="6" />
-          </feComponentTransfer>
-          {/* Small blur: shard plateaus stay flat (glass plates), and the
-              alpha steps at cracks and hole rims become thin sharp ridges.
-              A big blur here reads as embossed fabric, not glass. */}
-          <feGaussianBlur in="boost" stdDeviation="0.8" result="bump" />
-          <feSpecularLighting
-            in="bump"
-            result="light"
-            surfaceScale="6"
-            specularConstant="1.3"
-            specularExponent="30"
-            lightingColor="#ffffff"
-          >
-            {/* Initial position rests a soft glint near the impact point;
-                pointermove takes over from there. */}
-            <fePointLight x="380" y="170" z="100" />
-          </feSpecularLighting>
-          {/* Clip glints to the pane, then add them over the source. */}
-          <feComposite in="light" in2="bump" operator="in" result="glints" />
-          <feComposite
-            in="SourceGraphic"
-            in2="glints"
-            operator="arithmetic"
-            k1="0"
-            k2="1"
-            k3="1"
-            k4="0"
-          />
-        </filter>
-      </svg>
-
-      <div
-        ref={paneRef}
-        className="absolute inset-0"
-        style={{ filter: `url(#${filterId})`, isolation: 'isolate' }}
-      >
-        <svg
-          className="h-full w-full"
-          viewBox="0 0 100 100"
-          preserveAspectRatio="none"
-        >
-          {geo === null ? (
-            /* The intact sheet: one flat plate, so the light plays a soft
-               sheen across the whole pane and nothing else. */
-            <rect x="0" y="0" width="100" height="100" fill="rgba(255,255,255,0.07)" />
-          ) : (
-            <>
-              <defs>
-                {/* Knocks the fallen bits out of everything painted below:
-                    fills, facets, and any cracks crossing them. */}
-                <mask
-                  id={`${filterId}-holes`}
-                  maskUnits="userSpaceOnUse"
-                  x="0"
-                  y="0"
-                  width="100"
-                  height="100"
-                >
-                  <rect x="0" y="0" width="100" height="100" fill="#fff" />
-                  {geo.fallenBits.map((points) => (
-                    <polygon key={points} points={points} fill="#000" />
-                  ))}
-                </mask>
-              </defs>
-
-              <g mask={`url(#${filterId}-holes)`}>
-                {/* Surviving glass plates: flat fills at slightly different
-                    heights. Fallen pieces render nothing — bare matte. */}
-                {geo.shards
-                  .filter((s) => !s.fallen)
-                  .map(({ points, alpha }) => (
-                    <polygon
-                      key={points}
-                      points={points}
-                      fill={`rgba(255,255,255,${alpha})`}
-                    />
-                  ))}
-                {/* Exposed glass edges around the holes: the brightest lines
-                    in the pane, they catch the light hard as it passes. */}
-                {geo.shards
-                  .filter((s) => s.fallen)
-                  .map(({ points }) => (
-                    <polygon
-                      key={points}
-                      points={points}
-                      fill="none"
-                      stroke="rgba(245,248,255,0.4)"
-                      strokeWidth="1.4"
-                      vectorEffect="non-scaling-stroke"
-                    />
-                  ))}
-                {geo.facets.map((points) => (
-                  <polygon key={points} points={points} fill="rgba(255,255,255,0.06)" />
-                ))}
-                {geo.primaryCracks.map((points) => (
-                  <polyline
-                    key={points}
-                    points={points}
-                    fill="none"
-                    stroke="rgba(235,240,255,0.18)"
-                    strokeWidth="1.1"
-                    vectorEffect="non-scaling-stroke"
-                  />
-                ))}
-                {geo.secondaryCracks.map((points) => (
-                  <polyline
-                    key={points}
-                    points={points}
-                    fill="none"
-                    stroke="rgba(235,240,255,0.12)"
-                    strokeWidth="0.7"
-                    vectorEffect="non-scaling-stroke"
-                  />
-                ))}
-              </g>
-
-              {/* Exposed edges of the fallen bits, outside the mask so they
-                  stay visible around the tiny holes. */}
-              {geo.fallenBitRims.map((points) => (
-                <polygon
-                  key={points}
-                  points={points}
-                  fill="none"
-                  stroke="rgba(245,248,255,0.35)"
-                  strokeWidth="0.8"
-                  vectorEffect="non-scaling-stroke"
-                />
-              ))}
-              {/* The impact crater itself: a bright speck that stays lit. */}
-              <circle
-                cx={impact?.x}
-                cy={impact?.y}
-                r="0.6"
-                fill="rgba(255,255,255,0.5)"
-              />
-            </>
-          )}
-        </svg>
-      </div>
-    </div>
+    <div
+      ref={paneRef}
+      aria-hidden
+      className={`pointer-events-none ${className ?? ''}`}
+      style={{ backgroundImage, backgroundSize: '100% 100%' }}
+    />
   );
 }
