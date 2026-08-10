@@ -34,6 +34,8 @@ import {
   useViewTransitionMorph,
   type ScrollTriggerIntoView,
 } from './use-view-transition-morph';
+import type { LightboxViewTransitionPreset } from './vt-timing';
+import { ensureVtStructuralStyles } from './vt-structural-styles';
 
 interface LightboxRootProps {
   /** Lightbox parts and page content (triggers typically live as children of Root). */
@@ -72,9 +74,21 @@ interface LightboxRootProps {
    * close morphs back. Falls back to a plain fade when unsupported, when
    * prefers-reduced-motion is set, or on low-end devices. Pass `false` to
    * opt out.
+   *
+   * Pass a preset name to pick the morph's motion (duration + easing):
+   * - `"default"` — 360ms, sheet curve with a tamed launch (same as `true`)
+   * - `"snappy"` — 340ms, hotter launch; reads quicker
+   * - `"relaxed"` — 400ms, softer launch and longer settle
+   * - `"spring"` — 450ms, critically damped spring; Photos-style settle
+   *
+   * Timing is preset-based (not free-form CSS) on purpose: each preset is
+   * vetted on-device to stay smooth and skip-safe on iOS Safari (including
+   * Low Power Mode) and Android, where arbitrary curves stutter or teleport.
+   * The chosen timing drives the morph, the crossfade and the root fade
+   * together so they always stay in sync.
    * @default true
    */
-  viewTransition?: boolean;
+  viewTransition?: boolean | LightboxViewTransitionPreset;
   /**
    * Scroll the active trigger element into the viewport so close
    * animations land on-screen instead of animating off-viewport.
@@ -649,7 +663,7 @@ function LightboxRoot(props: LightboxRootProps) {
       openingTriggerIndexRef,
       openingTriggerElementRef,
       activeIndexRef,
-      dialogElementRef,
+      transitionPreset: viewTransition,
       closeGenRef,
       commitPrepare,
       commitReveal,
@@ -802,6 +816,13 @@ function LightboxRoot(props: LightboxRootProps) {
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
+    // Inject the structural view-transition stylesheet (isolation, morph
+    // group/snapshot mechanics, morph-target hide, slides-select crossfade)
+    // once per document — consumers write no view-transition CSS.
+    React.useEffect(() => {
+      ensureVtStructuralStyles();
+    }, []);
+
     const performOpen = React.useCallback(
       (index?: number, options?: LightboxHandleOpenOptions) => {
         let resolvedIndex = index;
@@ -932,7 +953,9 @@ function LightboxRoot(props: LightboxRootProps) {
         captionsRef,
         registerCaption,
         subscribeCaptions,
-        viewTransition,
+        // Context consumers only care whether the morph is enabled; the
+        // preset's timing is resolved by the morph hook itself.
+        viewTransition: viewTransition !== false,
         morphTo,
         triggerElementsRef,
         triggerMorphElementsRef,

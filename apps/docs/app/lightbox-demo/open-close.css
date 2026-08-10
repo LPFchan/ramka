@@ -9,11 +9,12 @@
 
 .lightbox-demo-backdrop {
   opacity: 0;
-  /* Open/close uses --duration-open easeOutExpo (the fallbacks). During a
-     pull-to-dismiss snap-back the library publishes --lightbox-pull-snap-
-     duration/-easing, so the fade springs back in lockstep with the item —
-     tweak the snap-back once and both stay matched. */
-  transition: opacity var(--lightbox-pull-snap-duration, var(--duration-open))
+  /* Fade duration cascade: pull snap-back vars while a dismiss springs back,
+     then the library-written --lightbox-vt-duration during a morph (tracks
+     the Root's `viewTransition` timing preset), then --duration-open for the
+     non-VT fallback path. */
+  transition: opacity
+    var(--lightbox-pull-snap-duration, var(--lightbox-vt-duration, var(--duration-open)))
     var(--lightbox-pull-snap-easing, var(--ease-out-expo));
 }
 
@@ -26,9 +27,10 @@
 
 .lightbox-demo-content {
   opacity: 0;
-  /* Shares --duration-open with the backdrop + morph so the surface, scrim and
-     image resolve together instead of the content settling ~60ms early. */
-  transition: opacity var(--duration-open) var(--ease-out-expo);
+  /* During a morph, --lightbox-vt-duration (library-written from the
+     `viewTransition` preset) keeps the surface, scrim and image resolving
+     together; --duration-open covers the non-VT fallback path. */
+  transition: opacity var(--lightbox-vt-duration, var(--duration-open)) var(--ease-out-expo);
 }
 
 .lightbox-demo-content[data-open] {

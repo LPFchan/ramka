@@ -106,10 +106,8 @@ export default function DoubleClickOpenDebugPage() {
         <ul className="list-disc space-y-1 pl-5 text-sm text-neutral-600 dark:text-neutral-400">
           <li>Single click on the photo preview does nothing</li>
           <li>
-            Preview carries <code className="text-xs">morphHideClass</code> so{' '}
-            <code className="text-xs">data-morph-target</code> fades the photo (not{' '}
-            <code className="text-xs">triggerMorphHideClass</code>, which only applies when the
-            trigger root is the morph element)
+            The preview hides while it carries <code className="text-xs">data-morph-target</code>{' '}
+            (library-injected hide — no consumer CSS needed)
           </li>
           <li>
             Each <strong className="font-medium text-neutral-800 dark:text-neutral-200">Open …</strong>{' '}
@@ -133,9 +131,9 @@ export default function DoubleClickOpenDebugPage() {
             decorative image is <code className="text-xs">aria-hidden</code>.
           </li>
           <li>
-            <code className="text-xs">morphRef</code> points at the visible preview; apply{' '}
-            <code className="text-xs">morphHideClass</code> on that node so it hides while{' '}
-            <code className="text-xs">data-morph-target</code> is set.
+            <code className="text-xs">morphRef</code> points at the visible preview; the library
+            sets <code className="text-xs">data-morph-target</code> there and hides it while the
+            morph runs.
           </li>
           <li>
             Default <code className="text-xs">Lightbox.Trigger</code> (single click) remains the

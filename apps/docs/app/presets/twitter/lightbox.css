@@ -9,23 +9,18 @@
 
 .xlb-portal {
   --xlb-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
-  --xlb-ease-vt-morph: cubic-bezier(0.32, 0.72, 0, 1);
+  /* Non-VT fallback duration. Morph timing is preset-driven (`viewTransition`
+     prop on Lightbox.Root); during a morph the library writes
+     `--lightbox-vt-*` onto documentElement and the fades below read it. */
   --xlb-duration-open: 340ms;
   --xlb-thread-width: 22.5rem;
   /* Clear media plane — dimming comes from `.xlb-backdrop` (mobile solid, desktop 0.5). */
   --xlb-media-bg: transparent;
-  /* Library morph contract — promoted onto documentElement during VT. */
-  --lightbox-vt-duration: var(--xlb-duration-open);
-  --lightbox-vt-easing: var(--xlb-ease-vt-morph);
-  --lightbox-vt-root-easing: var(--xlb-ease-out);
 }
 
 /* ── Trigger ────────────────────────────────────────────────────────────── */
 
 .xlb-trigger {
-  /* Outside Portal — local copies of skin tokens for morph-hide transitions. */
-  --xlb-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
-  --xlb-duration-open: 340ms;
   font: inherit;
   color: inherit;
   appearance: none;
@@ -41,17 +36,7 @@
   outline-offset: 2px;
 }
 
-/* Morph hide — scoped to this skin's triggers (not a bare [data-morph-target]). */
-.xlb-trigger[data-morph-target],
-.xlb-trigger [data-morph-target] {
-  opacity: 0;
-  transition: opacity 200ms var(--xlb-ease-out);
-}
-
-:root[data-ramka-view-transition] .xlb-trigger[data-morph-target],
-:root[data-ramka-view-transition] .xlb-trigger [data-morph-target] {
-  transition: none;
-}
+/* Morph hide (`data-morph-target`) is injected by the library. */
 
 /* ── Backdrop / Content ─────────────────────────────────────────────────── */
 
@@ -61,7 +46,8 @@
   opacity: 0;
   /* Mobile: solid black. Desktop overrides background alpha below. */
   background: #000;
-  transition: opacity var(--lightbox-pull-snap-duration, var(--xlb-duration-open))
+  transition: opacity
+    var(--lightbox-pull-snap-duration, var(--lightbox-vt-duration, var(--xlb-duration-open)))
     var(--lightbox-pull-snap-easing, var(--xlb-ease-out));
 }
 
@@ -95,7 +81,7 @@
   overflow: hidden;
   outline: none;
   opacity: 0;
-  transition: opacity var(--xlb-duration-open) var(--xlb-ease-out);
+  transition: opacity var(--lightbox-vt-duration, var(--xlb-duration-open)) var(--xlb-ease-out);
 }
 
 .xlb-content[data-open] {
@@ -640,60 +626,5 @@
   line-height: 1.35;
 }
 
-/* ── View transitions (document-level; required for morph) ────────────────
-   Structural block uses only `--lightbox-vt-*` contract vars (identical across
-   skins). Keep this block in sync with other presets / lightbox-demo. */
-
-:root[data-ramka-view-transition] * {
-  view-transition-name: none !important;
-}
-
-
-@media (prefers-reduced-motion: no-preference) {
-  :root[data-ramka-view-transition]::view-transition-old(root),
-  :root[data-ramka-view-transition]::view-transition-new(root) {
-    animation-duration: var(--lightbox-vt-duration, 340ms);
-    animation-timing-function: var(--lightbox-vt-root-easing, cubic-bezier(0.16, 1, 0.3, 1));
-  }
-
-  @keyframes lightbox-morph-border-radius {
-    to {
-      border-radius: var(--lightbox-morph-border-radius-to, 0px);
-    }
-  }
-
-  ::view-transition-group(lightbox-morph) {
-    overflow: hidden;
-    border-radius: var(--lightbox-morph-border-radius-from, 0px);
-    animation-name: -ua-view-transition-group-anim-lightbox-morph, lightbox-morph-border-radius;
-    animation-duration: var(--lightbox-vt-duration, 340ms);
-    animation-timing-function: var(--lightbox-vt-easing, cubic-bezier(0.32, 0.72, 0, 1));
-    animation-fill-mode: both;
-    z-index: 2;
-  }
-
-  ::view-transition-old(lightbox-morph),
-  ::view-transition-new(lightbox-morph) {
-    object-fit: cover;
-    width: 100%;
-    height: 100%;
-    animation: none !important;
-    mix-blend-mode: normal;
-  }
-
-  ::view-transition-old(lightbox-morph) {
-    opacity: var(--lightbox-morph-old-opacity, 1);
-  }
-
-  ::view-transition-new(lightbox-morph) {
-    opacity: var(--lightbox-morph-new-opacity, 0);
-  }
-
-  :root[data-ramka-crossfade]::view-transition-old(lightbox-morph),
-  :root[data-ramka-crossfade]::view-transition-new(lightbox-morph) {
-    object-fit: fill;
-    mix-blend-mode: plus-lighter;
-    animation: revert !important;
-    opacity: revert;
-  }
-}
+/* Document-level view-transition CSS (isolation, morph group/snapshots,
+   crossfade) is injected by the library — skins ship none of it. */

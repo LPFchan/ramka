@@ -57,11 +57,6 @@ export const lightboxExcerpts = {
     code: "import { Lightbox } from 'ramka';\n\n<Lightbox.Root morphTo=\"active\">\n  <Lightbox.Trigger index={0}>{({ imageRef }) => <img ref={imageRef} src={thumb} alt=\"\" />}</Lightbox.Trigger>\n\n  <Lightbox.Portal>\n    <Lightbox.Backdrop />\n    <Lightbox.Content>\n      <Lightbox.Slides>\n        <Lightbox.Slide>\n          <Lightbox.Item index={0}>\n            <Lightbox.Zoom>\n              <Lightbox.Media>\n                <img src={src} alt=\"\" />\n              </Lightbox.Media>\n            </Lightbox.Zoom>\n          </Lightbox.Item>\n        </Lightbox.Slide>\n      </Lightbox.Slides>\n    </Lightbox.Content>\n  </Lightbox.Portal>\n</Lightbox.Root>\n",
     source: "app/_content/lightbox/excerpts/sources/minimal-morph.tsx",
   },
-  "morph-border-radius": {
-    title: "Morph border-radius",
-    code: "/* Shape morph is CSS-only: JS writes --lightbox-morph-border-radius-from/to\n   on :root; this group owns clipping for the whole transition. The `from`\n   radius is the cascade base (not only a keyframe) so frame 0 can't flash\n   the 0px fallback before the animation applies. */\n@keyframes lightbox-morph-border-radius {\n  to {\n    border-radius: var(--lightbox-morph-border-radius-to, 0px);\n  }\n}\n\n::view-transition-group(lightbox-morph) {\n  overflow: hidden;\n  border-radius: var(--lightbox-morph-border-radius-from, 0px);\n  animation-name: -ua-view-transition-group-anim-lightbox-morph, lightbox-morph-border-radius;\n  animation-duration: var(--lightbox-vt-duration, 340ms);\n  animation-timing-function: var(--lightbox-vt-easing, cubic-bezier(0.32, 0.72, 0, 1));\n  animation-fill-mode: both;\n  z-index: 2;\n}\n",
-    source: "app/lightbox-demo/view-transitions.css",
-  },
   "morph-to-closest": {
     title: "morphTo=\"closest\"",
     code: "import { Lightbox } from 'ramka';\n\n<Lightbox.Root morphTo=\"closest\">\n  <Lightbox.Trigger index={0}>{/* first thumb */}</Lightbox.Trigger>\n  <Lightbox.Trigger index={1}>{/* +N tile */}</Lightbox.Trigger>\n  {/* items 2…n close to the nearest trigger */}\n  <Lightbox.Portal>\n    <Lightbox.Backdrop />\n    <Lightbox.Content>\n      <Lightbox.Slides>\n        <Lightbox.Slide>\n          <Lightbox.Item index={0} />\n        </Lightbox.Slide>\n        <Lightbox.Slide>\n          <Lightbox.Item index={1} />\n        </Lightbox.Slide>\n        <Lightbox.Slide>\n          <Lightbox.Item index={2} />\n        </Lightbox.Slide>\n      </Lightbox.Slides>\n    </Lightbox.Content>\n  </Lightbox.Portal>\n</Lightbox.Root>\n",
@@ -89,7 +84,7 @@ export const lightboxExcerpts = {
   },
   "open-close-css": {
     title: "Open / close CSS",
-    code: ".lightbox-demo-backdrop {\n  opacity: 0;\n  /* Open/close uses --duration-open easeOutExpo (the fallbacks). During a\n     pull-to-dismiss snap-back the library publishes --lightbox-pull-snap-\n     duration/-easing, so the fade springs back in lockstep with the item —\n     tweak the snap-back once and both stay matched. */\n  transition: opacity var(--lightbox-pull-snap-duration, var(--duration-open))\n    var(--lightbox-pull-snap-easing, var(--ease-out-expo));\n}\n\n/* First frame when `data-open` appears — then pull-progress.css owns open opacity. */\n@starting-style {\n  .lightbox-demo-backdrop[data-open] {\n    opacity: 0;\n  }\n}\n\n.lightbox-demo-content {\n  opacity: 0;\n  /* Shares --duration-open with the backdrop + morph so the surface, scrim and\n     image resolve together instead of the content settling ~60ms early. */\n  transition: opacity var(--duration-open) var(--ease-out-expo);\n}\n\n.lightbox-demo-content[data-open] {\n  opacity: 1;\n}\n\n@starting-style {\n  .lightbox-demo-content[data-open] {\n    opacity: 0;\n  }\n}\n",
+    code: ".lightbox-demo-backdrop {\n  opacity: 0;\n  /* Fade duration cascade: pull snap-back vars while a dismiss springs back,\n     then the library-written --lightbox-vt-duration during a morph (tracks\n     the Root's `viewTransition` timing preset), then --duration-open for the\n     non-VT fallback path. */\n  transition: opacity\n    var(--lightbox-pull-snap-duration, var(--lightbox-vt-duration, var(--duration-open)))\n    var(--lightbox-pull-snap-easing, var(--ease-out-expo));\n}\n\n/* First frame when `data-open` appears — then pull-progress.css owns open opacity. */\n@starting-style {\n  .lightbox-demo-backdrop[data-open] {\n    opacity: 0;\n  }\n}\n\n.lightbox-demo-content {\n  opacity: 0;\n  /* During a morph, --lightbox-vt-duration (library-written from the\n     `viewTransition` preset) keeps the surface, scrim and image resolving\n     together; --duration-open covers the non-VT fallback path. */\n  transition: opacity var(--lightbox-vt-duration, var(--duration-open)) var(--ease-out-expo);\n}\n\n.lightbox-demo-content[data-open] {\n  opacity: 1;\n}\n\n@starting-style {\n  .lightbox-demo-content[data-open] {\n    opacity: 0;\n  }\n}\n",
     source: "app/lightbox-demo/open-close.css",
   },
   "pull-progress-css": {
@@ -116,26 +111,6 @@ export const lightboxExcerpts = {
     title: "Slides + Slide nesting",
     code: "import { Lightbox } from 'ramka';\n\n<Lightbox.Root>\n  <Lightbox.Portal>\n    <Lightbox.Backdrop />\n    <Lightbox.Content>\n      <Lightbox.Slides preload={1}>\n        {items.map((item, i) => (\n          <Lightbox.Slide key={item.id}>\n            <Lightbox.Item index={i}>\n              <Lightbox.Zoom>\n                <Lightbox.Media>\n                  <img src={item.src} alt={item.alt} />\n                </Lightbox.Media>\n              </Lightbox.Zoom>\n            </Lightbox.Item>\n          </Lightbox.Slide>\n        ))}\n      </Lightbox.Slides>\n    </Lightbox.Content>\n  </Lightbox.Portal>\n</Lightbox.Root>\n",
     source: "app/_content/lightbox/excerpts/sources/slides-nesting.tsx",
-  },
-  "vt-crossfade": {
-    title: "Crossfade morph",
-    code: "/* Dissolve path (`data-ramka-crossfade`): restore UA fade, plus-lighter blend,\n   fill so circular triggers don't balloon under cover — the group's\n   border-radius is the visible shape. */\n:root[data-ramka-crossfade]::view-transition-old(lightbox-morph),\n:root[data-ramka-crossfade]::view-transition-new(lightbox-morph) {\n  object-fit: fill;\n  mix-blend-mode: plus-lighter;\n  animation: revert !important;\n  opacity: revert;\n}\n",
-    source: "app/lightbox-demo/view-transitions.css",
-  },
-  "vt-isolate-names": {
-    title: "Isolate other view-transition names",
-    code: "/* Isolate the lightbox morph from the rest of the page. `startViewTransition`\n   captures the WHOLE document, so any consumer element that carries its own\n   `view-transition-name` (e.g. a photo grid) would otherwise be lifted into a\n   separate transition group and painted on the VT layer *over* the backdrop\n   during open/close. Neutralizing every name while the morph runs collapses\n   those elements back into the root snapshot. The morph target re-declares its\n   own name with inline `!important`, which outranks this author-`!important`\n   rule (inline wins on specificity), so it stays the only captured group. */\n:root[data-ramka-view-transition] * {\n  view-transition-name: none !important;\n}\n",
-    source: "app/lightbox-demo/view-transitions.css",
-  },
-  "vt-morph-snapshots": {
-    title: "Morph snapshots (hard-cut default)",
-    code: "/* Default morph = hard-cut (Trigger omits crossfade). Cover keeps same-image\n   crops coherent; kill the UA dissolve and drive opacity from library vars. */\n::view-transition-old(lightbox-morph),\n::view-transition-new(lightbox-morph) {\n  object-fit: cover;\n  width: 100%;\n  height: 100%;\n  animation: none !important;\n  mix-blend-mode: normal;\n}\n\n::view-transition-old(lightbox-morph) {\n  opacity: var(--lightbox-morph-old-opacity, 1);\n}\n\n::view-transition-new(lightbox-morph) {\n  opacity: var(--lightbox-morph-new-opacity, 0);\n}\n",
-    source: "app/lightbox-demo/view-transitions.css",
-  },
-  "vt-root-snapshot": {
-    title: "Root snapshot timing",
-    code: "/* The root snapshot cross-fades between the old and new states, carrying the\n   unavoidable page-behind transition (e.g. the trigger grid receding as the\n   lightbox opens). It must stay a SINGLE root group: WebKit/Safari rasterizes\n   each *named* transition group on the CPU, so lifting the full-viewport\n   backdrop/content into their own groups (and the blur/backdrop-filter chrome\n   inside content) tanked Safari while barely helping elsewhere — the low-end\n   path already skips the VT entirely (see `isLowEndDevice`).\n\n   Crucially, the backdrop and chrome do NOT rely on this root cross-fade for\n   their own fade. They animate their own `opacity` via live CSS transitions\n   (a single GPU-composited layer each) instead of being pinned opaque and\n   crossfaded as full-viewport bitmaps. That plain-opacity path is measurably\n   smoother on mobile Safari — do not route element fades back through the\n   root snapshot. */\n:root[data-ramka-view-transition]::view-transition-old(root),\n:root[data-ramka-view-transition]::view-transition-new(root) {\n  animation-duration: var(--lightbox-vt-duration, 340ms);\n  animation-timing-function: var(--lightbox-vt-root-easing, cubic-bezier(0.16, 1, 0.3, 1));\n}\n",
-    source: "app/lightbox-demo/view-transitions.css",
   },
   "zoom-bridge": {
     title: "Active-zoom bridge",

@@ -1,7 +1,7 @@
-/* Docs-only lightbox skin/animation. Ramka ships no CSS — imported by globals.css. */
+/* Docs-only lightbox skin/animation. Structural view-transition CSS is
+   injected by the library itself — skins only style their own chrome. */
 @import './motion.css';
 @import './item-fade.css';
-@import './view-transitions.css';
 @import './open-close.css';
 @import './chrome-insets.css';
 @import './pull-progress.css';

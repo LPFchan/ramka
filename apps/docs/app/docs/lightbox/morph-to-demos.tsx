@@ -8,7 +8,6 @@ import {
   imgDims,
   LightboxGallery,
   triggerFocusClass,
-  triggerMorphHideClass,
 } from '../../_components/lightbox-chrome';
 
 const morphImages = [
@@ -46,7 +45,7 @@ function MorphDemo({
               key={img.src}
               index={i}
               crossfade={isCrossfade ? 'both' : undefined}
-              className={`block cursor-pointer rounded-lg border-none bg-transparent p-0 ${triggerMorphHideClass} ${triggerFocusClass}`}
+              className={`block cursor-pointer rounded-lg border-none bg-transparent p-0 ${triggerFocusClass}`}
             >
               <img
                 {...imgDims(img.thumb)}

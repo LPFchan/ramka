@@ -16,9 +16,8 @@ const toc: DocsTocItem[] = [
   { id: 'scroll-trigger', title: 'scrollTriggerIntoView' },
   { id: 'programmatic', title: 'Programmatic open' },
   { id: 'styling', title: 'Styling' },
-  { id: 'motion-tokens', title: 'Motion tokens' },
-  { id: 'styling-recipe', title: 'Structural recipe' },
-  { id: 'multi-skin', title: 'Multiple skins' },
+  { id: 'timing-presets', title: 'Timing presets' },
+  { id: 'injected-css', title: 'Injected CSS' },
 ];
 
 export default function LightboxViewTransitionsPage() {
@@ -213,10 +212,12 @@ export default function LightboxViewTransitionsPage() {
 
       <DocsSection id="styling" title="Styling">
         <p>
-          Ramka is cosmetically unstyled: it sets document hooks during a morph so <em>your</em> CSS can
-          drive <code className="text-xs">::view-transition-*</code> (and Media may apply a structural
-          fit-box via <code className="text-xs">width</code>/<code className="text-xs">height</code>).
-          Attribute / CSS-variable tables live under{' '}
+          You write <strong className="font-medium text-neutral-800 dark:text-neutral-200">zero</strong>{' '}
+          view-transition CSS: the library injects the structural{' '}
+          <code className="text-xs">::view-transition-*</code> rules itself (see{' '}
+          <DocsLink href="#injected-css">Injected CSS</DocsLink>) and writes document hooks during a
+          morph so your own skin CSS can react — e.g. keep Backdrop/Content fades on the morph&apos;s
+          clock. Attribute / CSS-variable tables live under{' '}
           <DocsLink href={lightboxApiHref.documentVt}>Document (view transitions)</DocsLink>. Hooks:
         </p>
         <ul className="list-disc space-y-2 pl-5">
@@ -233,10 +234,11 @@ export default function LightboxViewTransitionsPage() {
             <code className="text-xs">--lightbox-morph-old/new-opacity</code>
           </li>
           <li>
+            <code className="text-xs">data-ramka-vt-preset</code>,{' '}
             <code className="text-xs">--lightbox-vt-duration</code>,{' '}
             <code className="text-xs">--lightbox-vt-easing</code>,{' '}
-            <code className="text-xs">--lightbox-vt-root-easing</code> — motion contract (see{' '}
-            <DocsLink href="#motion-tokens">Motion tokens</DocsLink>)
+            <code className="text-xs">--lightbox-vt-root-easing</code> — the active timing preset,
+            written by the library (see <DocsLink href="#timing-presets">Timing presets</DocsLink>)
           </li>
           <li>
             <DocsLink href={lightboxApiHref.trigger}>Trigger</DocsLink>{' '}
@@ -247,136 +249,118 @@ export default function LightboxViewTransitionsPage() {
           </li>
         </ul>
         <p>
-          Split motion into <strong className="font-medium text-neutral-800 dark:text-neutral-200">tokens</strong>{' '}
-          (duration/easing on a Portal host) and{' '}
+          Motion splits into{' '}
+          <strong className="font-medium text-neutral-800 dark:text-neutral-200">timing</strong>{' '}
+          (a preset picked on Root — see below) and{' '}
           <strong className="font-medium text-neutral-800 dark:text-neutral-200">structure</strong>{' '}
-          (the <code className="text-xs">::view-transition-*</code> recipe below). Do not hard-code
-          skin-specific timings on <code className="text-xs">::view-transition-group(lightbox-morph)</code> —
-          read the contract vars instead. Full file:{' '}
-          <code className="text-xs">app/lightbox-demo/view-transitions.css</code> (same block as the{' '}
-          <DocsLink href="/presets/default">Default</DocsLink> /{' '}
-          <DocsLink href="/presets/twitter">Twitter</DocsLink> presets). Gate under{' '}
-          <code className="text-xs">prefers-reduced-motion: no-preference</code>.
+          (injected by the library). Your CSS only handles cosmetics — and reads the library-written
+          contract vars where it wants to stay in sync.
         </p>
       </DocsSection>
 
-      <DocsSection id="motion-tokens" title="Motion tokens">
+      <DocsSection id="timing-presets" title="Timing presets">
         <p>
-          <code className="text-xs">::view-transition-*</code> pseudos are document-level — they cannot
-          inherit from Portal or Content. Put the contract vars on a skin host that wraps Backdrop +
-          Content (typically <DocsLink href={lightboxApiHref.portal}>Portal</DocsLink>), and Ramka
-          promotes the computed values onto <code className="text-xs">documentElement</code> for the
-          morph, then clears them when it ends.
+          Morph duration and easing are chosen with the{' '}
+          <code className="text-xs">viewTransition</code> prop on{' '}
+          <DocsLink href={lightboxApiHref.root}>Root</DocsLink> — pass a preset name instead of{' '}
+          <code className="text-xs">true</code>:
         </p>
+        <ul className="list-disc space-y-2 pl-5">
+          <li>
+            <code className="text-xs">&quot;default&quot;</code> — 360ms, sheet curve with a tamed
+            launch (what <code className="text-xs">true</code> runs)
+          </li>
+          <li>
+            <code className="text-xs">&quot;snappy&quot;</code> — 340ms, hotter launch; reads quicker
+          </li>
+          <li>
+            <code className="text-xs">&quot;relaxed&quot;</code> — 400ms, softer launch and longer
+            settle
+          </li>
+          <li>
+            <code className="text-xs">&quot;spring&quot;</code> — 450ms, critically damped spring;
+            Photos-style settle
+          </li>
+        </ul>
         <CodeBlock
-          code={`<Lightbox.Portal className="my-lightbox">
-  <Lightbox.Backdrop />
-  <Lightbox.Content>{/* … */}</Lightbox.Content>
-</Lightbox.Portal>`}
-          title="Portal skin host"
+          code={`<Lightbox.Root viewTransition="spring">{/* … */}</Lightbox.Root>`}
+          title="Picking a preset"
           lang="tsx"
         />
-        <CodeBlock
-          code={`/* Tokens on the Portal host — not :root */
-.my-lightbox {
-  --lightbox-vt-duration: 340ms;
-  /* Dedicated morph curve (not easeOutExpo) — named VT groups are CPU-rasterized on WebKit */
-  --lightbox-vt-easing: cubic-bezier(0.32, 0.72, 0, 1);
-  --lightbox-vt-root-easing: cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-/* Structure reads only the contract (literal fallbacks for copy-paste) */
-::view-transition-group(lightbox-morph) {
-  animation-duration: var(--lightbox-vt-duration, 340ms);
-  animation-timing-function: var(--lightbox-vt-easing, cubic-bezier(0.32, 0.72, 0, 1));
-}`}
-          title="Motion contract"
-          lang="css"
-        />
         <p>
-          Scope cosmetic attribute rules under your trigger class (e.g.{' '}
-          <code className="text-xs">.my-trigger[data-morph-target]</code>) — avoid bare{' '}
-          <code className="text-xs">[data-morph-target]</code>.
+          Timing is preset-based rather than free-form CSS on purpose: each preset is vetted
+          on-device to stay smooth and skip-safe on iOS Safari (including Low Power Mode) and
+          Android, where arbitrary curves stutter or teleport. During a morph the library writes the
+          active preset onto <code className="text-xs">documentElement</code> —{' '}
+          <code className="text-xs">data-ramka-vt-preset</code> plus{' '}
+          <code className="text-xs">--lightbox-vt-duration</code> /{' '}
+          <code className="text-xs">--lightbox-vt-easing</code> /{' '}
+          <code className="text-xs">--lightbox-vt-root-easing</code> — and clears them when it ends.
+          Read those vars in your own CSS to keep skin fades in lockstep with the morph (e.g.{' '}
+          <code className="text-xs">
+            transition: opacity var(--lightbox-vt-duration, 360ms) ease-out
+          </code>{' '}
+          on Backdrop/Content); do not set them yourself.
         </p>
       </DocsSection>
 
-      <DocsSection id="styling-recipe" title="Structural recipe">
-        <h3 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
-          Isolate other view-transition names
-        </h3>
+      <DocsSection id="injected-css" title="Injected CSS">
         <p>
-          <code className="text-xs">startViewTransition</code> snapshots the whole document. If a page
-          element already has a <code className="text-xs">view-transition-name</code> (e.g. a photo grid),
-          it becomes a separate VT group and can paint <em>over</em> the lightbox. While{' '}
-          <code className="text-xs">data-ramka-view-transition</code> is set, clear every name; the morph
-          target re-applies its name inline with <code className="text-xs">!important</code> so it stays
-          the only captured group.
+          On first <DocsLink href={lightboxApiHref.root}>Root</DocsLink> mount the library injects one
+          stylesheet with everything a morph structurally needs — no copy-paste block to maintain, and
+          multiple skins on one page can never fight over it:
         </p>
-        <CodeBlock
-          code={lightboxExcerpts['vt-isolate-names'].code}
-          title={lightboxExcerpts['vt-isolate-names'].title}
-          lang="css"
-        />
-
-        <h3 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
-          Root snapshot timing
-        </h3>
+        <ul className="list-disc space-y-2 pl-5">
+          <li>
+            <strong className="font-medium text-neutral-800 dark:text-neutral-200">Name isolation</strong>{' '}
+            — <code className="text-xs">startViewTransition</code> snapshots the whole document, so any
+            page element with its own <code className="text-xs">view-transition-name</code> would paint{' '}
+            <em>over</em> the lightbox. Every name is cleared while{' '}
+            <code className="text-xs">data-ramka-view-transition</code> is set; the morph target
+            re-applies its name inline with <code className="text-xs">!important</code> and stays the
+            only captured group.
+          </li>
+          <li>
+            <strong className="font-medium text-neutral-800 dark:text-neutral-200">Morph group</strong>{' '}
+            — clipping + border-radius interpolation (put radius on the morph target element; JS writes{' '}
+            <code className="text-xs">--lightbox-morph-border-radius-from/to</code>), timed by the
+            active preset.
+          </li>
+          <li>
+            <strong className="font-medium text-neutral-800 dark:text-neutral-200">Snapshots</strong>{' '}
+            — hard-cut by default (<code className="text-xs">object-fit: cover</code>, no UA dissolve);
+            when Trigger <code className="text-xs">crossfade</code> sets{' '}
+            <code className="text-xs">data-ramka-crossfade</code>, the dissolve path (UA fade,{' '}
+            <code className="text-xs">plus-lighter</code>, <code className="text-xs">object-fit: fill</code>)
+            runs on the same preset clock.
+          </li>
+          <li>
+            <strong className="font-medium text-neutral-800 dark:text-neutral-200">Root snapshot</strong>{' '}
+            — the page-behind crossfade, kept as a <em>single</em> root group (promoting Backdrop /
+            Content into named groups tanks Safari). Fade scrim and chrome with live{' '}
+            <code className="text-xs">opacity</code> transitions instead.
+          </li>
+          <li>
+            <strong className="font-medium text-neutral-800 dark:text-neutral-200">Morph-target hide</strong>{' '}
+            — <code className="text-xs">[data-morph-target]</code> gets{' '}
+            <code className="text-xs">opacity: 0</code> with a 200ms fade-back (disabled during the
+            transition so it can&apos;t be captured mid-flight), so the live trigger never shows doubled
+            under the morphing snapshot.
+          </li>
+          <li>
+            <strong className="font-medium text-neutral-800 dark:text-neutral-200">Thumb-jump crossfade</strong>{' '}
+            — the element-scoped Slides transition started by ThumbnailStrip&apos;s{' '}
+            <code className="text-xs">selectViewTransition</code>, tunable via{' '}
+            <code className="text-xs">--lightbox-select-vt-duration/easing</code> on Slides.
+          </li>
+        </ul>
         <p>
-          Keep a <em>single</em> root group for the page-behind crossfade. Do not promote Backdrop /
-          Content into their own named groups — Safari pays heavily for that. Fade scrim and chrome with
-          live <code className="text-xs">opacity</code> transitions instead of the root VT snapshot.
+          Everything except name isolation is gated under{' '}
+          <code className="text-xs">prefers-reduced-motion: no-preference</code>. The stylesheet is
+          inserted at the <em>start</em> of <code className="text-xs">&lt;head&gt;</code>, so your own
+          stylesheets cascade after it — overriding any injected rule takes an ordinary declaration of
+          equal specificity, no <code className="text-xs">!important</code> needed.
         </p>
-        <CodeBlock
-          code={lightboxExcerpts['vt-root-snapshot'].code}
-          title={lightboxExcerpts['vt-root-snapshot'].title}
-          lang="css"
-        />
-
-        <h3 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
-          Morph border-radius
-        </h3>
-        <p>
-          Put radius on the morph target element. JS writes{' '}
-          <code className="text-xs">--lightbox-morph-border-radius-from/to</code>; the group clips and
-          interpolates shape for the whole transition.
-        </p>
-        <CodeBlock
-          code={lightboxExcerpts['morph-border-radius'].code}
-          title={lightboxExcerpts['morph-border-radius'].title}
-          lang="css"
-        />
-
-        <h3 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
-          Morph snapshots (hard-cut default)
-        </h3>
-        <p>
-          Default morph styles match the API default (Trigger omits{' '}
-          <code className="text-xs">crossfade</code>): <code className="text-xs">object-fit: cover</code>,
-          no UA dissolve, opacity from{' '}
-          <code className="text-xs">--lightbox-morph-old/new-opacity</code>. No{' '}
-          <code className="text-xs">:not()</code> — hard-cut is just the base rule.
-        </p>
-        <CodeBlock
-          code={lightboxExcerpts['vt-morph-snapshots'].code}
-          title={lightboxExcerpts['vt-morph-snapshots'].title}
-          lang="css"
-        />
-
-        <h3 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
-          Crossfade morph
-        </h3>
-        <p>
-          When ramka sets <code className="text-xs">data-ramka-crossfade</code>, override the base:
-          restore the UA fade (<code className="text-xs">animation: revert</code>),{' '}
-          <code className="text-xs">plus-lighter</code>, and <code className="text-xs">object-fit: fill</code>{' '}
-          so circular triggers don’t balloon under cover — the group’s border-radius is the visible shape.
-        </p>
-        <CodeBlock
-          code={lightboxExcerpts['vt-crossfade'].code}
-          title={lightboxExcerpts['vt-crossfade'].title}
-          lang="css"
-        />
-
         <p>
           Lifecycle timing for your own CSS: Content/Backdrop stay <code className="text-xs">mounted</code>{' '}
           through exit animations; while a VT open is preparing they may be{' '}
@@ -386,17 +370,6 @@ export default function LightboxViewTransitionsPage() {
             State & lifecycle → Lifecycle callbacks
           </DocsLink>
           .
-        </p>
-      </DocsSection>
-
-      <DocsSection id="multi-skin" title="Multiple skins">
-        <p>
-          Follow <DocsLink href="#motion-tokens">Motion tokens</DocsLink> + the{' '}
-          <DocsLink href="#styling-recipe">structural recipe</DocsLink> in every skin file. If skins
-          hard-code different timings on <code className="text-xs">::view-transition-group(lightbox-morph)</code>,
-          the last stylesheet loaded retunes <em>every</em> lightbox on the page. Keep structural blocks
-          byte-identical (contract vars only); put per-skin duration/easing on each Portal host so
-          promotion picks the active lightbox.
         </p>
       </DocsSection>
 

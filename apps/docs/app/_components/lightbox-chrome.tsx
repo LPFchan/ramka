@@ -16,8 +16,8 @@ import { ChevronLeft, ChevronRight, X, ZoomIn, ZoomOut } from 'lucide-react';
  *
  *   - backdrop opacity        --duration-open ease-out-expo
  *   - content opacity         --duration-open ease-out-expo
- *   - VT root + morph group   --duration-open (see view-transitions.css)
- *   - morph-target hide       200ms ease-out-expo (see triggerMorphHideClass)
+ *   - VT root + morph group   library-injected (viewTransition preset timing)
+ *   - morph-target hide       library-injected (200ms ease-out-expo)
  *   - active item fade-in     250ms ease-out (keyframe in globals.css)
  *
  * The open/close choreography (backdrop, content, VT root cross-fade, morph)
@@ -26,9 +26,8 @@ import { ChevronLeft, ChevronRight, X, ZoomIn, ZoomOut } from 'lucide-react';
  *
  * The `ease-out-expo` token and `animate-lightbox-item-fade-in` utility
  * are defined in `globals.css` via Tailwind v4's `@theme`. The View
- * Transition pseudo-elements (morph group, root cross-fade) are also
- * styled in globals.css since UA pseudo-elements aren't reachable from
- * className-based Tailwind utilities.
+ * Transition pseudo-elements (morph group, root cross-fade) and the
+ * morph-target hide are styled by the library's injected stylesheet.
  *
  * The backdrop and chrome fade via their own live opacity transitions —
  * never via the VT root-crossfade snapshot. Crossfading two full-viewport
@@ -425,24 +424,6 @@ export function StackedItemGroup({ children, className, ...rest }: React.Compone
  */
 export const stackedItemClass =
   'absolute inset-0 flex items-center justify-center aria-hidden:invisible data-[active]:visible';
-
-/**
- * Consumer-side hide for a trigger that *is* the morph element (image-only
- * tiles). Fades the whole trigger while it's `data-morph-target`, and kills
- * the transition during a View Transition so the fade isn't captured mid-flight
- * in the root snapshot. Prefer {@link morphHideClass} when only a child
- * designated via `morphRef` should disappear (e.g. a swatch + label card).
- */
-export const triggerMorphHideClass =
-  'transition-opacity duration-[200ms] ease-out-expo data-[morph-target]:opacity-0 [:root[data-ramka-view-transition]_&]:transition-none';
-
-/**
- * Consumer-side hide for the morph element. Prefer on the node that carries
- * `morphRef` (library sets `data-morph-target` there). `in-data-morph-target`
- * remains for older patterns where the attribute lived only on the Trigger.
- */
-export const morphHideClass =
-  'transition-opacity duration-[200ms] ease-out-expo data-[morph-target]:opacity-0 in-data-morph-target:opacity-0 [:root[data-ramka-view-transition]_&]:transition-none';
 
 /**
  * Keyboard focus ring for a `Lightbox.Trigger`. Purely a demo affordance — the

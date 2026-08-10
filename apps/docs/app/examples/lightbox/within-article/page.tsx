@@ -9,7 +9,6 @@ import {
   imgDims,
   LightboxGallery,
   triggerFocusClass,
-  triggerMorphHideClass,
 } from '../../../_components/lightbox-chrome';
 
 const articleImages = [
@@ -82,7 +81,7 @@ function ArticleFigure({
     <figure className={floatClass}>
       <Lightbox.Trigger
         index={index}
-        className={`block w-full cursor-pointer rounded-xl border-none bg-transparent p-0 ${triggerMorphHideClass} ${triggerFocusClass}`}
+        className={`block w-full cursor-pointer rounded-xl border-none bg-transparent p-0 ${triggerFocusClass}`}
       >
         <img {...imgDims(image.inline)} src={image.inline} alt={image.alt} className="block w-full rounded-xl" loading="lazy" />
       </Lightbox.Trigger>

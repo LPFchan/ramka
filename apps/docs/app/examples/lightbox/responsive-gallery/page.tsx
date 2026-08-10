@@ -12,7 +12,6 @@ import {
   imgDims,
   LightboxGallery,
   triggerFocusClass,
-  triggerMorphHideClass,
 } from '../../../_components/lightbox-chrome';
 
 /**
@@ -245,6 +244,7 @@ function formatCount(n: number): string {
   return String(n);
 }
 
+
 /**
  * Per-cell rounded-corner classes for the 1- to 4-cell grids. Inner edges
  * stay sharp; outer corners get the same rounding as the parent grid.
@@ -282,7 +282,7 @@ function ImageGrid({ imgs }: { imgs: GalleryImage[] }) {
   if (count === 1) {
     const only = imgs[0]!;
     return (
-      <Lightbox.Trigger index={0} className={`block w-full overflow-hidden rounded-xl bg-transparent p-0 ${triggerMorphHideClass} ${triggerFocusClass}`}>
+      <Lightbox.Trigger index={0} className={`block w-full overflow-hidden rounded-xl bg-transparent p-0 ${triggerFocusClass}`}>
         {({ imageRef }) => (
           <img ref={imageRef} {...imgDims(only.thumb)} src={only.thumb} alt={only.alt} className="block  w-full object-cover" />
         )}
@@ -297,7 +297,7 @@ function ImageGrid({ imgs }: { imgs: GalleryImage[] }) {
           <Lightbox.Trigger
             key={i}
             index={i}
-            className={`block overflow-hidden bg-transparent p-0 ${triggerMorphHideClass} ${triggerFocusClass} ${cornerClass(i, 2)}`}
+            className={`block overflow-hidden bg-transparent p-0 ${triggerFocusClass} ${cornerClass(i, 2)}`}
           >
             {({ imageRef }) => (
               <img
@@ -320,7 +320,7 @@ function ImageGrid({ imgs }: { imgs: GalleryImage[] }) {
       <div className="grid aspect-[3/2] grid-cols-2 grid-rows-2 gap-[2px] overflow-hidden rounded-xl">
         <Lightbox.Trigger
           index={0}
-          className={`row-span-2 block overflow-hidden bg-transparent p-0 ${triggerMorphHideClass} ${triggerFocusClass} ${cornerClass(0, 3)}`}
+          className={`row-span-2 block overflow-hidden bg-transparent p-0 ${triggerFocusClass} ${cornerClass(0, 3)}`}
         >
           {({ imageRef }) => (
             <img ref={imageRef} {...imgDims(first.thumb)} src={first.thumb} alt={first.alt} className="block size-full object-cover" />
@@ -332,7 +332,7 @@ function ImageGrid({ imgs }: { imgs: GalleryImage[] }) {
             <Lightbox.Trigger
               key={i}
               index={i}
-              className={`block overflow-hidden bg-transparent p-0 ${triggerMorphHideClass} ${triggerFocusClass} ${cornerClass(i, 3)}`}
+              className={`block overflow-hidden bg-transparent p-0 ${triggerFocusClass} ${cornerClass(i, 3)}`}
             >
               {({ imageRef }) => (
                 <img ref={imageRef} {...imgDims(img.thumb)} src={img.thumb} alt={img.alt} className="block size-full object-cover" />
@@ -354,7 +354,7 @@ function ImageGrid({ imgs }: { imgs: GalleryImage[] }) {
             key={i}
             index={i}
             crossfade={showOverlay ? 'both' : undefined}
-            className={`block overflow-hidden bg-transparent p-0 ${triggerMorphHideClass} ${triggerFocusClass} ${cornerClass(i, 4)}`}
+            className={`block overflow-hidden bg-transparent p-0 ${triggerFocusClass} ${cornerClass(i, 4)}`}
           >
             {({ imageRef }) => (
               // The whole tile morphs (overlay included) by default, but the

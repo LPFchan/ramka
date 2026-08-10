@@ -63,9 +63,9 @@ export const generatedProps: Record<string, PropRow[]> = {
     },
     {
       name: "viewTransition",
-      type: "boolean",
+      type: "boolean | LightboxViewTransitionPreset",
       default: "true",
-      description: "Morph between trigger and lightbox item via the View Transitions API. On by default: clicking a trigger morphs into the fullscreen item, and close morphs back. Falls back to a plain fade when unsupported, when prefers-reduced-motion is set, or on low-end devices. Pass `false` to opt out.",
+      description: "Morph between trigger and lightbox item via the View Transitions API. On by default: clicking a trigger morphs into the fullscreen item, and close morphs back. Falls back to a plain fade when unsupported, when prefers-reduced-motion is set, or on low-end devices. Pass `false` to opt out.\n\nPass a preset name to pick the morph's motion (duration + easing):\n\n- `\"default\"` — 360ms, sheet curve with a tamed launch (same as `true`)\n- `\"snappy\"` — 340ms, hotter launch; reads quicker\n- `\"relaxed\"` — 400ms, softer launch and longer settle\n- `\"spring\"` — 450ms, critically damped spring; Photos-style settle\n\nTiming is preset-based (not free-form CSS) on purpose: each preset is vetted on-device to stay smooth and skip-safe on iOS Safari (including Low Power Mode) and Android, where arbitrary curves stutter or teleport. The chosen timing drives the morph, the crossfade and the root fade together so they always stay in sync.",
     },
     {
       name: "scrollTriggerIntoView",
@@ -770,6 +770,10 @@ export const generatedAttributes: Record<string, AttrRow[]> = {
       name: "data-ramka-crossfade",
       description: "Present while the morph dissolves trigger↔item snapshots (Trigger `crossfade` is active for this phase). Absent for the default hard-cut.",
     },
+    {
+      name: "data-ramka-vt-preset",
+      description: "Present during a morph. Value is the active `viewTransition` timing preset name (`default`, `snappy`, `relaxed`, `spring`) — read by the composited morph and available to skin CSS for per-preset styling.",
+    },
   ],
   "api-use-trigger-context": [],
   "api-use-item-context": [],
@@ -864,15 +868,15 @@ export const generatedCssVariables: Record<string, CssVarRow[]> = {
     },
     {
       name: "--lightbox-vt-duration",
-      description: "Morph group + root-snapshot duration. Set on your skin host (e.g. Portal); the library promotes the computed value onto `documentElement` for the morph so document-level `::view-transition-*` rules can read it.",
+      description: "Morph + root-snapshot duration. WRITTEN BY THE LIBRARY onto `documentElement` during a morph from the Root's `viewTransition` timing preset — read it in document-level `::view-transition-*` rules (e.g. `calc(var(--lightbox-vt-duration) * 0.5)` for a derived track); do not set it yourself. Timing is chosen via the `viewTransition` prop.",
     },
     {
       name: "--lightbox-vt-easing",
-      description: "Easing for `::view-transition-group(lightbox-morph)`. Prefer a dedicated morph curve (not easeOutExpo) — named VT groups are CPU-rasterized on WebKit. Promoted from the skin host like `--lightbox-vt-duration`.",
+      description: "Easing for `::view-transition-group(lightbox-morph)` and the crossfade dissolve. Written by the library from the `viewTransition` preset, like `--lightbox-vt-duration`.",
     },
     {
       name: "--lightbox-vt-root-easing",
-      description: "Easing for the root snapshot cross-fade (`::view-transition-old/new(root)`). Promoted from the skin host like `--lightbox-vt-duration`.",
+      description: "Easing for the root snapshot cross-fade (`::view-transition-old/new(root)`). Written by the library from the `viewTransition` preset, like `--lightbox-vt-duration`.",
     },
   ],
   "api-use-trigger-context": [],

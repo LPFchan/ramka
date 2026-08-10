@@ -9,7 +9,6 @@ import {
   imgDims,
   lightboxChromeButton,
   triggerFocusClass,
-  triggerMorphHideClass,
 } from '../../_components/lightbox-chrome';
 
 import { AspectFrameStrip } from './aspect-frame-strip';
@@ -123,7 +122,7 @@ function DemoShell({
                 {...(imgDims(photo.thumb) ?? {})}
                 src={photo.thumb}
                 alt={photo.alt}
-                className={`h-full w-full object-cover ${triggerMorphHideClass}`}
+                className={`h-full w-full object-cover`}
                 draggable={false}
               />
             </Lightbox.Trigger>

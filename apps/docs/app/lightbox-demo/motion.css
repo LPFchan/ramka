@@ -2,25 +2,18 @@
 
 @theme {
   /* Snappy decelerating curve — "easeOutExpo". Used for the backdrop,
-     content, and (in demos) morph-target opacity transitions, plus the
-     View Transition root cross-fade. */
+     content, and (in demos) morph-target opacity transitions. Matches the
+     root cross-fade easing the library writes during a morph. */
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
 
-  /* iOS-style easing reserved for the View Transition morph group
-     (the bounding-box animation between trigger and lightbox item). */
-  --ease-vt-morph: cubic-bezier(0.32, 0.72, 0, 1);
-
-  /* Shared open/close choreography duration. The backdrop, content, View
-     Transition root cross-fade, and the morph group all read this, so the whole
-     open/close resolves as a single cohesive motion. Tweak once here and
-     everything stays in lockstep. */
+  /* Open/close choreography duration for the non-VT fallback path. During a
+     View Transition the backdrop/content fades read the library-written
+     `--lightbox-vt-duration` instead (see open-close.css), so they track the
+     Root's `viewTransition` timing preset automatically; this token only
+     covers reduced-motion / unsupported / low-end opens. Morph timing itself
+     is preset-driven (`viewTransition` prop on Lightbox.Root) — the old
+     `--lightbox-vt-*` skin mappings are no longer read by the library. */
   --duration-open: 340ms;
-
-  /* Library morph contract — docs demo maps theme tokens here. In your app,
-     set these on a Portal/skin host (not :root) so Ramka can promote them. */
-  --lightbox-vt-duration: var(--duration-open);
-  --lightbox-vt-easing: var(--ease-vt-morph);
-  --lightbox-vt-root-easing: var(--ease-out-expo);
 
   /* Item navigation fade-in (data-active item picks this up via
      `animate-lightbox-item-fade-in`). Skipped during VT — see item-fade.css. */

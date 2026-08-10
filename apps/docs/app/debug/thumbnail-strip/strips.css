@@ -8,22 +8,6 @@
  * Bottom chrome ≈ safe-area + footer pad + caption + gap + strip outer height.
  */
 
-/* Stage crossfade on thumb select (ThumbnailStrip selectViewTransition). */
-.lightbox-demo-slides::view-transition-group(root) {
-  animation-duration: var(--lightbox-select-vt-duration, 0.4s);
-  animation-timing-function: var(
-    --lightbox-select-vt-easing,
-    cubic-bezier(0.22, 1, 0.36, 1)
-  );
-}
-
-.lightbox-demo-slides::view-transition-old(root),
-.lightbox-demo-slides::view-transition-new(root) {
-  mix-blend-mode: normal;
-  height: 100%;
-  overflow: clip;
-}
-
 /* Shared track flex for every recipe */
 .ts-debug-strip[data-ramka-thumbnail-strip] {
   /*
