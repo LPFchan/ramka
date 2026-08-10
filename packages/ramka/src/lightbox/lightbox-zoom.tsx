@@ -395,17 +395,19 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
     // ----- Chrome (Content data-zoomed / progress) -----
     // useEffect (not layout): Content assigns dialogElementRef in its own
     // layout pass — layout here would see null and never subscribe.
+    // Elements resolve lazily inside the binding (per publish), so a
+    // late-mounted dialog still attaches without re-binding on hot zoom
+    // commits — deps stay cold (no per-frame effect teardown during pinch).
     React.useEffect(() => {
       return bindZoomChrome({
         controller,
-        dialogElement: dialogElementRef.current,
-        wrapperElement: wrapperRef.current,
+        getDialogElement: () => dialogElementRef.current,
+        getWrapperElement: () => wrapperRef.current,
         minZoom,
         maxZoom,
         isActive,
       });
-      // Re-bind after commit epochs so a late-mounted dialog still attaches.
-    }, [isActive, minZoom, maxZoom, dialogElementRef, controller, zoom]);
+    }, [isActive, minZoom, maxZoom, dialogElementRef, controller]);
 
     const gestureConfig = React.useMemo<ZoomGestureConfig>(
       () => ({
@@ -514,7 +516,13 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
           alignItems: 'center',
           justifyContent: 'center',
           transformOrigin: 'center center',
-          willChange: zoom > 1 || poseSnap.phase !== 'idle' ? 'transform' : undefined,
+          // Promote while the slide is active — BEFORE the first gesture
+          // frame. Gating on zoom/phase promoted one React commit too late:
+          // the first pinch frame wrote a transform onto an unpromoted
+          // element and paid layerization/raster on the gesture's first
+          // frame (the start-of-pinch hiccup). One extra compositor layer
+          // for the active slide's media is the cheap side of that trade.
+          willChange: isActive ? 'transform' : undefined,
         }}
       >
         {resolvedChildren}

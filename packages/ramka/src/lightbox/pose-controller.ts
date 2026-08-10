@@ -5,7 +5,8 @@
  * Tracking uses direct style writes; settle/discrete use WAAPI. Phase
  * transitions are explicit so gesture code cannot accidentally dual-drive
  * the same pixels. Commit/visual buses notify React chrome at safe boundaries
- * only (not on every pointermove / release-before-settle).
+ * only (not on every pointermove / release-before-settle); hot zoom writes
+ * coalesce their commit to one rAF tick per frame.
  */
 
 export type PosePhase = 'idle' | 'tracking' | 'settling' | 'discrete';
@@ -140,6 +141,8 @@ export class PoseController {
   private animatesZoom = false;
   private reducedMotion: boolean;
   private defaultDiscreteDuration: number;
+  /** Pending rAF for a coalesced hot-path commit (see scheduleCommit). */
+  private commitRaf: number | null = null;
 
   /** React / commit subscribers — phase boundaries and finished animations. */
   private commitListeners = new Set<Listener>();
@@ -162,6 +165,7 @@ export class PoseController {
   attach(el: HTMLElement | null): void {
     this.el = el;
     if (el) this.writeTransform();
+    else this.cancelScheduledCommit();
   }
 
   /**
@@ -273,8 +277,10 @@ export class PoseController {
   /**
    * Direct pose write (finger pan / pinch / zoom-snap ticks).
    * Pan-only moves: DOM + visual notify, no React commit (release seam).
-   * Zoom changes (pinch/wheel): also notifyCommit so canZoomIn/Out buttons
-   * and public snapshot stay in sync — without forcing a commit on every pan.
+   * Zoom changes (pinch/wheel): schedule a rAF-coalesced notifyCommit so
+   * canZoomIn/Out buttons and the public snapshot stay in sync at frame rate —
+   * without a synchronous React re-render on every input event (trackpad
+   * wheel / GestureEvent streams can outpace the display refresh).
    */
   setPose(next: ZoomPose, opts?: { commit?: boolean }): void {
     if (this.phase === 'settling') this.catchInternal();
@@ -294,7 +300,8 @@ export class PoseController {
     };
     this.writeTransform();
     this.notifyVisual();
-    if (opts?.commit || zoomChanged) this.notifyCommit();
+    if (opts?.commit) this.notifyCommit();
+    else if (zoomChanged) this.scheduleCommit();
   }
 
   /**
@@ -371,7 +378,10 @@ export class PoseController {
       this.phase = 'settling';
       this.animatesZoom = spec.zoomChanges ?? false;
       // Keep `this.pose` at the release pose; getPose() reads the live path.
-      // React commit store is NOT notified until finish — release frame stays free.
+      // React commit store is NOT notified until finish — release frame stays
+      // free. That includes a coalesced commit still pending from the last
+      // gesture frame: every settling exit (finish / catch / cancel) commits.
+      this.cancelScheduledCommit();
       this.notifyVisual();
 
       const land = () => {
@@ -600,7 +610,34 @@ export class PoseController {
     for (const l of this.visualListeners) l();
   }
 
+  /**
+   * Coalesce hot-path commits (pinch / wheel zoom frames) to at most one per
+   * animation frame. Input streams (120Hz+ trackpads, Safari GestureEvent)
+   * can deliver several zoom writes per display frame; committing each one
+   * synchronously re-renders the React shell on the input handler's critical
+   * path. Boundary commits (notifyCommit) supersede and cancel the pending tick.
+   */
+  private scheduleCommit(): void {
+    if (typeof requestAnimationFrame !== 'function') {
+      this.notifyCommit();
+      return;
+    }
+    if (this.commitRaf != null) return;
+    this.commitRaf = requestAnimationFrame(() => {
+      this.commitRaf = null;
+      this.notifyCommit();
+    });
+  }
+
+  private cancelScheduledCommit(): void {
+    if (this.commitRaf != null) {
+      cancelAnimationFrame(this.commitRaf);
+      this.commitRaf = null;
+    }
+  }
+
   private notifyCommit(): void {
+    this.cancelScheduledCommit();
     this.snapshot = this.makeSnapshot();
     for (const l of this.commitListeners) l();
   }

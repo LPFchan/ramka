@@ -28,9 +28,14 @@ export function zoomProgressFromScale(scale: number, minZoom: number, maxZoom: n
 
 export interface BindZoomChromeOptions {
   controller: PoseController;
-  dialogElement: HTMLElement | null;
+  /**
+   * Resolved lazily on every publish (not captured at bind time) so a dialog
+   * that mounts after this binding still attaches — the binding itself can
+   * then live on cold React deps instead of re-running per zoom commit.
+   */
+  getDialogElement: () => HTMLElement | null;
   /** Transform host — used only if live WAAPI zoom cannot be recovered analytically. */
-  wrapperElement?: HTMLElement | null;
+  getWrapperElement?: () => HTMLElement | null;
   minZoom: number;
   maxZoom: number;
   isActive: boolean;
@@ -38,19 +43,29 @@ export interface BindZoomChromeOptions {
 
 /**
  * Bind chrome attrs/vars to the pose engine. Returns an unsubscribe/cleanup.
- * No-op when inactive or dialog element is missing.
+ * No-op when inactive or while the dialog element is missing.
  */
 export function bindZoomChrome(opts: BindZoomChromeOptions): () => void {
-  const { controller, dialogElement: el, minZoom, maxZoom, isActive } = opts;
-  if (!isActive || !el) return () => {};
+  const { controller, getDialogElement, minZoom, maxZoom, isActive } = opts;
+  if (!isActive) return () => {};
 
   const progressVar = LightboxContentCssVars.zoomProgress;
+  let el: HTMLElement | null = null;
   let holdZoomed = false;
   let writtenZoomed: boolean | null = null;
   let writtenProgress: string | null | undefined;
   let raf = 0;
 
   const publish = (scale: number, phaseAnimatingZoom: boolean) => {
+    const next = getDialogElement();
+    if (next !== el) {
+      // Fresh element (late mount / remount) — drop write caches so state is
+      // fully re-applied to the new node.
+      el = next;
+      writtenZoomed = null;
+      writtenProgress = undefined;
+    }
+    if (!el) return;
     // Progress follows the *visual* scale so snug dim/blur fades with the
     // discrete WAAPI (rAF-sampled). Committed snapshot only arms data-zoomed:
     // discrete zoom-in commits the target before paint while the transform is
@@ -109,7 +124,7 @@ export function bindZoomChrome(opts: BindZoomChromeOptions): () => void {
     }
     let live = controller.getLiveAnimatedZoom();
     if (live == null) {
-      const wrapper = opts.wrapperElement ?? null;
+      const wrapper = opts.getWrapperElement?.() ?? null;
       live = wrapper
         ? uniformScaleFromTransform(getComputedStyle(wrapper).transform)
         : null;
@@ -130,9 +145,15 @@ export function bindZoomChrome(opts: BindZoomChromeOptions): () => void {
   };
 
   onVisual();
-  const unsub = controller.subscribeVisual(onVisual);
+  const unsubVisual = controller.subscribeVisual(onVisual);
+  // Commit epochs re-render React chrome, and Content's `style={{...}}` wipes
+  // the inline progress var — re-publish after each commit to heal it. (This
+  // replaces the old pattern of re-binding the whole chrome effect on every
+  // zoom commit.)
+  const unsubCommit = controller.subscribeCommit(onVisual);
   return () => {
-    unsub();
+    unsubVisual();
+    unsubCommit();
     cancelAnimationFrame(raf);
   };
 }

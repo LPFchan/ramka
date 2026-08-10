@@ -43,15 +43,38 @@ describe('PoseController', () => {
     expect(commits.length).toBe(0);
   });
 
-  it('setPose commits when zoom changes so button state can sync', () => {
+  it('setPose coalesces zoom-change commits to one per frame (button sync)', async () => {
+    const c = new PoseController({ zoom: 1, offsetX: 0, offsetY: 0 });
+    c.attach(el);
+    const commits: number[] = [];
+    c.subscribeCommit(() => commits.push(1));
+
+    // Hot zoom writes (pinch / wheel streams) must not commit synchronously —
+    // a 120Hz+ input stream would re-render React per event otherwise.
+    c.setPose({ zoom: 2, offsetX: 0, offsetY: 0 });
+    c.setPose({ zoom: 2.5, offsetX: 0, offsetY: 0 });
+    expect(commits.length).toBe(0);
+
+    await new Promise((resolve) => requestAnimationFrame(() => resolve(null)));
+    expect(commits.length).toBe(1);
+    expect(c.getSnapshot().zoom).toBe(2.5);
+  });
+
+  it('a boundary commit supersedes a pending coalesced zoom commit', async () => {
     const c = new PoseController({ zoom: 1, offsetX: 0, offsetY: 0 });
     c.attach(el);
     const commits: number[] = [];
     c.subscribeCommit(() => commits.push(1));
 
     c.setPose({ zoom: 2, offsetX: 0, offsetY: 0 });
+    expect(commits.length).toBe(0);
+    // Sync boundary (at-rest release path) commits now and cancels the tick.
+    c.commitSnapshot();
     expect(commits.length).toBe(1);
     expect(c.getSnapshot().zoom).toBe(2);
+
+    await new Promise((resolve) => requestAnimationFrame(() => resolve(null)));
+    expect(commits.length).toBe(1);
   });
 
   it('settle starts from the exact last setPose and finishes at rest', () => {

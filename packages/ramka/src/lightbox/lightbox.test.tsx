@@ -4541,9 +4541,13 @@ describe('Lightbox', () => {
             const pump = (frames: number) => {
               act(() => {
                 for (let i = 0; i < frames && queue.length > 0; i++) {
-                  const cb = queue.shift()!;
                   now += 1000 / 60;
-                  cb(now);
+                  // Real rAF semantics: run everything queued for THIS frame;
+                  // callbacks scheduled during it run on the next frame. The
+                  // snap spring shares the queue with coalesced pose commits,
+                  // so one-callback-per-frame would starve the spring.
+                  const pending = queue.splice(0, queue.length);
+                  for (const cb of pending) cb(now);
                 }
               });
             };
