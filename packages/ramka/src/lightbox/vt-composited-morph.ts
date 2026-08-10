@@ -1,5 +1,6 @@
 import { VIEW_TRANSITION_NAME } from './lightbox-context';
 import { LightboxDocumentCssVars } from './lightbox-css-vars';
+import { LightboxDocumentDataAttributes } from './lightbox-data-attributes';
 import { morphTiming } from './vt-timing';
 
 // ---------------------------------------------------------------------------
@@ -34,6 +35,15 @@ import { morphTiming } from './vt-timing';
 //      scale. This track still animates a paint property; under jank the
 //      corners may lag, but geometry no longer depends on the main thread.
 //
+// Crossfade morphs (Trigger `crossfade`) get steps 1, 2 and 4 only. Their
+// snapshot contract is `width/height: 100%` + `object-fit: fill` against the
+// group box (see vt-structural-styles.ts), and a snapshot filling the frozen
+// box tracks the group's scale for free — the rendered stretch each frame is
+// identical to the UA's animating box, so no counter-transforms are needed.
+// The UA opacity dissolve on the snapshots (revived and re-timed by the
+// structural sheet) is opacity-only, i.e. already compositor-friendly, and
+// keeps running untouched.
+//
 // Endpoint transforms may include scale on top of translation (Gecko folds
 // visual-viewport / ancestor scale into the group transform on Android, and
 // triggers can carry press-state scales). Those are supported; rotation or
@@ -43,9 +53,9 @@ import { morphTiming } from './vt-timing';
 // browser's by rounding.
 //
 // The upgrade validates everything it needs BEFORE touching any state and
-// bails (leaving the stock UA morph) on: crossfade mode, missing
-// `transition.ready`/`getAnimations` support, or rotated/skewed endpoint
-// transforms.
+// bails (leaving the stock UA morph) on: missing `transition.ready`/
+// `getAnimations` support, unparsable endpoint geometry, or rotated/skewed
+// endpoint transforms.
 //
 // Timing comes from the Root's `viewTransition` preset (see vt-timing.ts) —
 // identical in every browser and independent of the page's CSS.
@@ -152,10 +162,13 @@ let styleInjected = false;
  * - Group: CSS animations off (kills the UA group anim + the border-radius
  *   keyframes), `transform-origin: 0 0` so our scale math composes with the
  *   UA translate.
- * - Old/new: intrinsic (captured) size instead of the stretched
- *   `width/height: 100%` + `object-fit: cover` contract — the counter
- *   transform owns cover placement per frame, and pre-cropping to the final
- *   box would discard edge pixels the morph must reveal mid-flight.
+ * - Old/new (hard-cut morphs only): intrinsic (captured) size instead of the
+ *   stretched `width/height: 100%` + `object-fit: cover` contract — the
+ *   counter transform owns cover placement per frame, and pre-cropping to
+ *   the final box would discard edge pixels the morph must reveal
+ *   mid-flight. Crossfade morphs are excluded: their snapshots must keep the
+ *   structural sheet's `100%` + `object-fit: fill` contract (which tracks
+ *   the frozen box) and their UA opacity dissolve.
  */
 function ensureStyleInjected() {
   if (styleInjected || typeof document === 'undefined') return;
@@ -167,8 +180,8 @@ function ensureStyleInjected() {
   animation: none !important;
   transform-origin: 0 0 !important;
 }
-:root[${COMPOSITED_ATTR}]${OLD_PSEUDO},
-:root[${COMPOSITED_ATTR}]${NEW_PSEUDO} {
+:root[${COMPOSITED_ATTR}]:not([${LightboxDocumentDataAttributes.crossfade}])${OLD_PSEUDO},
+:root[${COMPOSITED_ATTR}]:not([${LightboxDocumentDataAttributes.crossfade}])${NEW_PSEUDO} {
   width: auto !important;
   height: auto !important;
   transform-origin: 0 0 !important;
@@ -287,12 +300,10 @@ function maybeUpgradeToCompositedMorph(transition: UpgradeableTransition): void 
 function upgrade(transition: UpgradeableTransition): void {
   const docEl = document.documentElement;
 
-  // The crossfade path relies on the UA dissolve + `object-fit: fill`
-  // against the animating box; not supported by this prototype.
-  if (docEl.hasAttribute('data-ramka-crossfade')) {
-    debugLog('bail: crossfade morph');
-    return;
-  }
+  // Crossfade morphs replace the group animation only: snapshots keep their
+  // `100%` + `object-fit: fill` contract (tracks the frozen box for free)
+  // and their compositor-friendly UA opacity dissolve. See module docblock.
+  const isCrossfade = docEl.hasAttribute(LightboxDocumentDataAttributes.crossfade);
   if (typeof document.getAnimations !== 'function') {
     debugLog('bail: getAnimations unsupported');
     return;
@@ -515,8 +526,12 @@ function upgrade(transition: UpgradeableTransition): void {
     const s = sampleAt(ease(offset));
     groupFrames.push({ offset, transform: s.group });
     if (hasRadius) radiusFrames.push({ offset, borderRadius: s.radius! });
-    oldFrames.push({ offset, transform: s.old });
-    newFrames.push({ offset, transform: s.new });
+    // Crossfade snapshots fill the frozen box (structural `100%` + `fill`)
+    // and stretch with the group's scale — no counter-transforms.
+    if (!isCrossfade) {
+      oldFrames.push({ offset, transform: s.old });
+      newFrames.push({ offset, transform: s.new });
+    }
   }
 
   const options = (pseudoElement: string): KeyframeAnimationOptions => ({
@@ -554,17 +569,13 @@ function upgrade(transition: UpgradeableTransition): void {
     const track = (name: string) => `${name} ${duration}ms linear ${-uaElapsed}ms both`;
     const groupTracks = hasRadius ? `${track(gName)}, ${track(rName)}` : track(gName);
 
-    styleEl = document.createElement('style');
-    styleEl.setAttribute('data-ramka-vt-composited-css', '');
-    styleEl.textContent = `
-${keyframesCss(gName, groupFrames, 'transform')}
-${hasRadius ? keyframesCss(rName, radiusFrames, 'borderRadius') : ''}
+    // Crossfade: group rules only — the snapshots keep their structural
+    // sizing and UA dissolve (see the sampling loop above).
+    const snapshotCss = isCrossfade
+      ? ''
+      : `
 ${keyframesCss(oName, oldFrames, 'transform')}
 ${keyframesCss(nName, newFrames, 'transform')}
-:root[${COMPOSITED_CSS_ATTR}]${GROUP_PSEUDO} {
-  transform-origin: 0 0 !important;
-  animation: ${groupTracks} !important;
-}
 :root[${COMPOSITED_CSS_ATTR}]${OLD_PSEUDO} {
   width: ${fmt(w0)}px;
   height: ${fmt(h0)}px;
@@ -578,6 +589,17 @@ ${keyframesCss(nName, newFrames, 'transform')}
   animation: ${track(nName)} !important;
 }
 `;
+
+    styleEl = document.createElement('style');
+    styleEl.setAttribute('data-ramka-vt-composited-css', '');
+    styleEl.textContent = `
+${keyframesCss(gName, groupFrames, 'transform')}
+${hasRadius ? keyframesCss(rName, radiusFrames, 'borderRadius') : ''}
+:root[${COMPOSITED_CSS_ATTR}]${GROUP_PSEUDO} {
+  transform-origin: 0 0 !important;
+  animation: ${groupTracks} !important;
+}
+${snapshotCss}`;
     document.head.appendChild(styleEl);
     docEl.setAttribute(COMPOSITED_CSS_ATTR, '');
     handover = 'webkit-css';
@@ -589,8 +611,10 @@ ${keyframesCss(nName, newFrames, 'transform')}
         // effect would demote the whole effect off the compositor (Blink rule).
         created.push(docEl.animate(radiusFrames, options(GROUP_PSEUDO)));
       }
-      created.push(docEl.animate(oldFrames, options(OLD_PSEUDO)));
-      created.push(docEl.animate(newFrames, options(NEW_PSEUDO)));
+      if (!isCrossfade) {
+        created.push(docEl.animate(oldFrames, options(OLD_PSEUDO)));
+        created.push(docEl.animate(newFrames, options(NEW_PSEUDO)));
+      }
     } catch (error) {
       // Pseudo missing or engine refuses pseudo-element WAAPI — roll back to
       // the stock morph.
@@ -616,6 +640,7 @@ ${keyframesCss(nName, newFrames, 'transform')}
   debugLog('upgraded to composited morph', {
     from: { ...fromT, w: w0, h: h0 },
     to: { ...toT, w: w1, h: h1 },
+    crossfade: isCrossfade,
     endGeometrySource,
     origin: { fx: fmt(fx), fy: fmt(fy) },
     timing: timingLabel,

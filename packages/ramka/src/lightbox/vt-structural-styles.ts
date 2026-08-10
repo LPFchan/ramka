@@ -115,7 +115,12 @@ function buildCss(): string {
   /* Dissolve path (Trigger crossfade): restore the UA fade, plus-lighter
      blend, fill so circular triggers don't balloon under cover. Re-timed to
      the preset vars so the dissolve runs on the morph's clock/curve (the UA
-     default would end at 250ms, mid-morph). */
+     default would end at 250ms, mid-morph). Fill-mode both: the UA fades run
+     with fill none, so a finished fade snaps the old snapshot back to its
+     base opacity of 1 — and the composited group replacement can outlive the
+     fades by a frame (its animations attach one style flush later), which
+     painted a fully-opaque trigger snapshot blended over the item for that
+     frame. Holding the end state closes the gap. */
   :root[${crossfade}]${oldPseudo},
   :root[${crossfade}]${newPseudo} {
     object-fit: fill;
@@ -123,6 +128,7 @@ function buildCss(): string {
     animation: revert !important;
     animation-duration: ${duration} !important;
     animation-timing-function: ${easing} !important;
+    animation-fill-mode: both !important;
     opacity: revert;
   }
 }
