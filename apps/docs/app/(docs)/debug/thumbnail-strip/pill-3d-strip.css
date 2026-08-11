@@ -1,0 +1,93 @@
+/**
+ * Debug page only — 3D pill (stadium) thumbnail carousel.
+ *
+ * The stage owns `perspective`; the scene (ThumbnailGroup) is a preserve-3d
+ * space tilted slightly toward the viewer and pushed back by the cap radius
+ * so the front straight sits at screen depth. Thumb transforms are written
+ * imperatively from JS (`pill-3d-strip.tsx`); `--ts-p3d-r` / `--ts-p3d-l`
+ * carry the measured stadium radius / straight length, `--p3d-shade` the
+ * per-thumb depth (0 front → 1 back).
+ */
+
+.lightbox-demo-content.ts-debug-content-pill3d {
+  --ts-inset-bottom: 13rem;
+  --lightbox-inset-bottom: calc(var(--ts-inset-bottom) + env(safe-area-inset-bottom, 0px));
+}
+
+.ts-p3d {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+}
+
+.ts-p3d-stage {
+  position: relative;
+  width: min(100%, 42rem);
+  height: 9.5rem;
+  perspective: 900px;
+  perspective-origin: 50% 32%;
+}
+
+/* Soft ground shadow — sells the floating pill. Sized from measured geometry. */
+.ts-p3d-stage::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 56%;
+  width: calc((var(--ts-p3d-l, 300) + 2 * var(--ts-p3d-r, 110) + 56) * 1px);
+  height: calc(var(--ts-p3d-r, 110) * 0.55px + 24px);
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgb(0 0 0 / 0.16), rgb(0 0 0 / 0));
+  pointer-events: none;
+}
+
+.ts-p3d-scene {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+  /* Push back by R (front row → screen depth), then tilt to reveal the oval. */
+  transform: translateZ(calc(var(--ts-p3d-r, 110) * -1px)) rotateX(12deg);
+}
+
+.ts-p3d-thumb {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 3.5rem;
+  height: 3.5rem;
+  margin: 0;
+  padding: 0;
+  border: 1px solid rgb(255 255 255 / 0.35);
+  border-radius: 0.625rem;
+  overflow: hidden;
+  cursor: pointer;
+  /* Card back — visible when the thumb faces away (image backface hidden). */
+  background:
+    linear-gradient(135deg, rgb(82 82 91), rgb(39 39 42) 60%),
+    rgb(39 39 42);
+  /* Depth dim — written per-frame from JS. */
+  filter: brightness(calc(1 - var(--p3d-shade, 0) * 0.62));
+  will-change: transform, filter;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.ts-p3d-thumb img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+.ts-p3d-thumb[data-active] {
+  outline: 2px solid rgb(255 255 255 / 0.95);
+  outline-offset: 2px;
+}
+
+.ts-p3d-thumb:focus-visible {
+  outline: 2px solid rgb(56 189 248);
+  outline-offset: 2px;
+}

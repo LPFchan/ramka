@@ -12,6 +12,7 @@ import {
 } from '../../../_components/lightbox-chrome';
 
 import { AspectFrameStrip } from './aspect-frame-strip';
+import { Pill3DStrip } from './pill-3d-strip';
 import './strips.css';
 
 type Photo = {
@@ -336,6 +337,13 @@ export default function ThumbnailStripDebugPage() {
         description="Hardcoded per-thumb aspects with a nine-slice midline frame that morphs width on swipe / select."
         contentClassName="ts-debug-content-aspect-frame"
         strip={<AspectFrameStrip photos={photos} />}
+      />
+
+      <DemoShell
+        title="7 · 3D pill"
+        description="Thumbnails ride a pill-shaped 3D path (two straights + semicircular caps) at equal arc spacing, rotating with perspective as you swipe. Loop wraps spin through the caps — the pill is a closed loop."
+        contentClassName="ts-debug-content-pill3d"
+        strip={<Pill3DStrip photos={photos} />}
       />
     </div>
   );
