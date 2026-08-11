@@ -331,6 +331,10 @@ function FeedPostGallery({ post }: { post: FeedPost }) {
       // Extras hidden behind the `+N` tile have no trigger of their own —
       // close to the nearest visible one instead of flashing.
       morphTo={post.images.length > 4 ? 'closest' : undefined}
+      // Thumbs are the same photos at lower res (same seed + aspect), so the
+      // placeholder bridge is seamless — skip the decode wait and start the
+      // morph immediately.
+      awaitImageDecode={false}
     >
       <article className="flex gap-3 px-4 py-3 text-left">
         <img src={author.avatar} alt="" className="size-10 shrink-0 rounded-full object-cover" draggable={false} />

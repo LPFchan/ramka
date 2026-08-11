@@ -69,6 +69,10 @@ export function EditorialPresetDemo() {
     <article className="w-full max-w-xl text-left">
       <Lightbox.Root
         loop
+        // Thumbs are the same photographs at lower res (same seed + aspect),
+        // so the placeholder bridge is seamless — skip the decode wait and
+        // start the morph immediately.
+        awaitImageDecode={false}
         // Figures are scattered through a scrolling article, so after swiping
         // to another photograph its trigger may be off-viewport. `onClose`
         // repositions it inside the close transition's update phase — between

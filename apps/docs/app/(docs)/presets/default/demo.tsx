@@ -126,7 +126,10 @@ function UserCardMorph() {
   const portrait = trip[0]!;
 
   return (
-    <Lightbox.Root>
+    // `awaitImageDecode={false}` throughout: every thumb is the same photo at
+    // lower res (same seed + aspect), so the placeholder bridge is seamless
+    // and the morph can start immediately instead of waiting on decode.
+    <Lightbox.Root awaitImageDecode={false}>
       <p className="mb-2 text-xs font-medium tracking-wide text-neutral-500 uppercase">
         Whole trigger morph
       </p>
@@ -169,7 +172,7 @@ function ListingCardMorph() {
   const listing = trip[1]!;
 
   return (
-    <Lightbox.Root>
+    <Lightbox.Root awaitImageDecode={false}>
       <p className="mb-2 text-xs font-medium tracking-wide text-neutral-500 uppercase">
         Child morph via morphRef
       </p>
@@ -233,7 +236,7 @@ function AlbumPlusNMorph() {
   const extra = trip.length - 4;
 
   return (
-    <Lightbox.Root morphTo="closest">
+    <Lightbox.Root morphTo="closest" awaitImageDecode={false}>
       <p className="mb-2 text-xs font-medium tracking-wide text-neutral-500 uppercase">
         +N overlay with crossfade
       </p>

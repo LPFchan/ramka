@@ -76,7 +76,14 @@ export function StorePresetDemo() {
 
   return (
     <div className="w-full max-w-2xl">
-      <Lightbox.Root loop onValueChange={(value) => setSelected(value)}>
+      <Lightbox.Root
+        loop
+        onValueChange={(value) => setSelected(value)}
+        // Thumbs are the same product shots at lower res (same seed + aspect),
+        // so the placeholder bridge is seamless — skip the decode wait and
+        // start the morph immediately.
+        awaitImageDecode={false}
+      >
         <div className="flex flex-col gap-6 md:flex-row md:items-start md:gap-8">
           {/* Gallery column */}
           <div className="min-w-0 flex-1">
