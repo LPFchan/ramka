@@ -3,6 +3,8 @@
 import * as React from 'react';
 import { Check, Copy } from 'lucide-react';
 
+import { copyText } from '@/lib/copy-text';
+
 const COMMAND = 'pnpm add ramka';
 
 /** Minimal one-line install snippet with copy-to-clipboard. */
@@ -10,15 +12,11 @@ export function InstallCommand() {
   const [copied, setCopied] = React.useState(false);
   const resetTimer = React.useRef<ReturnType<typeof setTimeout>>(undefined);
 
-  const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(COMMAND);
-      setCopied(true);
-      clearTimeout(resetTimer.current);
-      resetTimer.current = setTimeout(() => setCopied(false), 1600);
-    } catch {
-      // Clipboard unavailable (permissions / insecure context) — ignore.
-    }
+  const copy = () => {
+    if (!copyText(COMMAND)) return;
+    setCopied(true);
+    clearTimeout(resetTimer.current);
+    resetTimer.current = setTimeout(() => setCopied(false), 1600);
   };
 
   return (

@@ -4,6 +4,7 @@ import * as React from 'react';
 import { Check, Copy } from 'lucide-react';
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { copyText } from '@/lib/copy-text';
 import { cn } from '@/lib/utils';
 
 import type { SourceFile, SourceFileGroup } from './read-source-files';
@@ -82,15 +83,11 @@ export function ComponentSource({
     return sections;
   }, [files]);
 
-  async function copy() {
+  function copy() {
     if (!current) return;
-    try {
-      await navigator.clipboard.writeText(current.code);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 1500);
-    } catch {
-      // ignore
-    }
+    if (!copyText(current.code)) return;
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1500);
   }
 
   return (

@@ -3,17 +3,15 @@
 import * as React from 'react';
 import { Check, Copy } from 'lucide-react';
 
+import { copyText } from '@/lib/copy-text';
+
 export function CodeBlockCopy({ code }: { code: string }) {
   const [copied, setCopied] = React.useState(false);
 
-  async function copy() {
-    try {
-      await navigator.clipboard.writeText(code);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 1500);
-    } catch {
-      // ignore
-    }
+  function copy() {
+    if (!copyText(code)) return;
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1500);
   }
 
   return (
