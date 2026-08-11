@@ -1,14 +1,15 @@
 'use client';
 
+import { notFound } from 'next/navigation';
 import * as React from 'react';
 import { Lightbox } from 'ramka';
 
-import { ExampleShell } from '../../../../_components/example-shell';
+import { ExampleShell } from '../../../_components/example-shell';
 import {
   LightboxGallery,
   type LightboxGalleryItem,
   triggerFocusClass,
-} from '../../../../_components/lightbox-chrome';
+} from '../../../_components/lightbox-chrome';
 import {
   FRAME_SIZE,
   LightboxScene,
@@ -323,6 +324,10 @@ function useColumnCount() {
 }
 
 export default function MoodboardSnugPage() {
+  if (process.env.NODE_ENV === 'production') {
+    notFound();
+  }
+
   const cols = useColumnCount();
   const [activeIndex, setActiveIndex] = React.useState(0);
   const activeIndexRef = React.useRef(0);

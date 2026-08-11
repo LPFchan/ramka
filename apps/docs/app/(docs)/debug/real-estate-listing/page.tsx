@@ -1,17 +1,18 @@
 'use client';
 
+import { notFound } from 'next/navigation';
 import { Lightbox } from 'ramka';
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
-import { ExampleShell } from '../../../../_components/example-shell';
+import { ExampleShell } from '../../../_components/example-shell';
 import {
   imgDims,
   LightboxGallery,
   triggerFocusClass,
-} from '../../../../_components/lightbox-chrome';
+} from '../../../_components/lightbox-chrome';
 
 const propertyPhotos = [
   { id: 'prop-hero', src: 'https://picsum.photos/seed/prop-hero/1400/900', thumb: 'https://picsum.photos/seed/prop-hero/700/450', alt: 'Living room with floor-to-ceiling windows', label: 'Living Room', caption: 'Living Room — The Olive Grove Residence' },
@@ -137,6 +138,10 @@ function RemainingPhotosGrid() {
 }
 
 export default function RealEstateListingPage() {
+  if (process.env.NODE_ENV === 'production') {
+    notFound();
+  }
+
   return (
     <ExampleShell
       title="Real estate listing"

@@ -29,20 +29,9 @@ export const lightboxExamples: ExampleLink[] = [
       'Masonry wall of images with unknown dimensions (no width/height, no reserved aspect ratio) — stresses the morph size-resolution fallback and trigger-thumbnail placeholder.',
   },
   {
-    slug: 'moodboard-snug',
-    title: 'Moodboard (snug slides)',
-    description:
-      'Mixed-media masonry moodboard — photos, two colorful vertical clips, and three orbitable 3D models — with full-bleed slides and sibling dim/blur while zoomed.',
-  },
-  {
     slug: 'text-message',
     title: 'Text message',
     description: 'iMessage-style chat with a single morphTo="origin" trigger over a stack of attachments.',
-  },
-  {
-    slug: 'within-article',
-    title: 'Within article',
-    description: 'Lightbox triggers embedded in long-form article copy with float layouts.',
   },
   {
     slug: 'color-palette',
@@ -59,14 +48,6 @@ export const lightboxExamples: ExampleLink[] = [
     title: '3D models',
     description:
       'Three.js product grid with Lightbox.Slides — onBeforeOpen preheats GLBs before the morph; shared orbit with each trigger.',
-  },
-
-
-
-  {
-    slug: 'real-estate-listing',
-    title: 'Real estate listing',
-    description: 'Property page with hero grid + remaining photos; lightbox shows all photos in a swipeable Lightbox.Slides viewport.',
   },
   {
     slug: 'google-maps',

@@ -69,11 +69,10 @@ export default function LightboxCompositionPage() {
           <code className="text-xs">scroll-snap-stop: always</code>); you size each snap box. For a
           full-bleed carousel, use <code className="text-xs">flex: 0 0 100%</code> and{' '}
           <code className="text-xs">min-width: 100%</code> on each slide (see snippet below). Snug /
-          variable-width tracks use a different width formula — see{' '}
-          <DocsLink href="/presets/default">Default preset</DocsLink> or{' '}
-          <DocsLink href="/examples/lightbox/moodboard-snug">Moodboard (snug slides)</DocsLink>. Item
-          and Zoom fill the slide content box; size the stack so when Zoom scales past 1× the image can
-          cover the viewport and is not clipped by a shorter ancestor.
+          variable-width tracks use a different width formula — see the{' '}
+          <DocsLink href="/presets/default">Default preset</DocsLink>. Item and Zoom fill the slide
+          content box; size the stack so when Zoom scales past 1× the image can cover the viewport and
+          is not clipped by a shorter ancestor.
         </p>
         <ul className="list-disc space-y-2 pl-5">
           <li>
@@ -111,10 +110,10 @@ export default function LightboxCompositionPage() {
           <code className="text-xs">&lt;img&gt;</code> (from known pixel dims or CMS metadata) so the box and aspect
           ratio exist <em>before</em> pixels load. That avoids CLS, keeps the morph target sized on slow networks, and
           prevents an unloaded <code className="text-xs">size: auto</code> image from collapsing to 0×0 (which can skip
-          or weaken the open morph).           When dimensions are unknown, see{' '}
-          <DocsLink href="/examples/lightbox/moodboard">Moodboard</DocsLink>. For the mixed-media
-          masonry with sibling dim-on-zoom, see{' '}
-          <DocsLink href="/examples/lightbox/moodboard-snug">Moodboard (snug slides)</DocsLink>.
+          or weaken the open morph). When dimensions are unknown, see{' '}
+          <DocsLink href="/examples/lightbox/moodboard">Moodboard</DocsLink>. For mixed media (photos
+          plus WebGL) with <DocsLink href={lightboxApiHref.root}>onBeforeOpen</DocsLink> preheat, see{' '}
+          <DocsLink href="/examples/lightbox/3d-models">3D models</DocsLink>.
         </p>
         <p>
           To fill the maximum available space without distorting the source aspect ratio, nest Media under{' '}

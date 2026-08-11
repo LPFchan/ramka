@@ -25,6 +25,18 @@ export const debugPages = {
     title: 'Double-click open',
     description: 'Double-click preview + accessible Open trigger via createHandle().',
   },
+  moodboardSnug: {
+    href: '/debug/moodboard-snug',
+    title: 'Moodboard (snug slides)',
+    description:
+      'Mixed-media masonry moodboard — photos, vertical clips, and 3D models — with snug slides and sibling dim/blur while zoomed.',
+  },
+  realEstateListing: {
+    href: '/debug/real-estate-listing',
+    title: 'Real estate listing',
+    description:
+      'Property page with hero grid + remaining photos; lightbox shows all photos in a swipeable Lightbox.Slides viewport.',
+  },
 } as const;
 
 export const debugPagesList = Object.values(debugPages);
