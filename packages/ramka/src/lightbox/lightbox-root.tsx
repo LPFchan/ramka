@@ -549,6 +549,9 @@ function LightboxRoot(props: LightboxRootProps) {
     const notifySlidesViewport = React.useCallback(() => {
       slidesViewportListenersRef.current.forEach((listener) => listener());
     }, []);
+    const thumbnailStripSelectRef = React.useRef<
+      ((index: number, source: NavigationSource) => void) | null
+    >(null);
     const activeIndexRef = React.useRef(activeIndex);
     activeIndexRef.current = activeIndex;
     const openRef = React.useRef(open);
@@ -975,6 +978,7 @@ function LightboxRoot(props: LightboxRootProps) {
         slidesGeometryRef,
         subscribeSlidesViewport,
         notifySlidesViewport,
+        thumbnailStripSelectRef,
       }),
       [
         open,

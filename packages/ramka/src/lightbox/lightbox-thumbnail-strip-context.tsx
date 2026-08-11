@@ -2,17 +2,19 @@
 
 import * as React from 'react';
 
+import type { NavigationSource } from './lightbox-context';
+
 interface LightboxThumbnailStripContextValue {
   /** Register the transform target (tablist track element). */
   registerTrack: (node: HTMLElement | null) => void;
   /** Register a thumbnail element for midline / travel measurement. */
   registerThumb: (index: number, node: HTMLElement | null) => void;
   /**
-   * Pointer selection from a Thumbnail inside this ThumbnailStrip.
-   * Owns optional scrub motion; always respects `navigationLockedRef`.
-   * Keyboard navigation stays instant via ThumbnailGroup → setActiveIndex.
+   * Discrete selection into this ThumbnailStrip (pointer thumb, keyboard,
+   * Previous/Next). Owns optional scrub motion; always respects
+   * `navigationLockedRef`. Preserves `source` for `onValueChange`.
    */
-  selectIndex: (index: number) => void;
+  selectIndex: (index: number, source?: NavigationSource) => void;
 }
 
 const LightboxThumbnailStripContext = React.createContext<LightboxThumbnailStripContextValue | null>(null);

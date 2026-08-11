@@ -216,6 +216,15 @@ interface LightboxContextValue {
   subscribeSlidesViewport: (listener: () => void) => () => void;
   /** Notify `subscribeSlidesViewport` listeners (called by Slides). */
   notifySlidesViewport: () => void;
+  /**
+   * When a `Lightbox.ThumbnailStrip` is mounted, its discrete-nav entry point
+   * (WAAPI track scrub + index commit). Keyboard / Previous / Next call this
+   * instead of `setActiveIndex` so the strip transitions with the stage.
+   * `null` when no strip is mounted.
+   */
+  thumbnailStripSelectRef: React.MutableRefObject<
+    ((index: number, source: NavigationSource) => void) | null
+  >;
 }
 
 const LightboxContext = React.createContext<LightboxContextValue | undefined>(undefined);

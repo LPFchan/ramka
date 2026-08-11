@@ -28,8 +28,8 @@ const thumbnailStateAttributesMapping = {
  * Uses role="tab" within a ThumbnailGroup (role="tablist"),
  * with roving tabindex for keyboard navigation.
  *
- * Inside `Lightbox.ThumbnailStrip`, pointer selection goes through the thumbnail-strip so
- * taps can scrub the linked track; keyboard stays instant via ThumbnailGroup.
+ * Inside `Lightbox.ThumbnailStrip`, selection goes through the thumbnail-strip so
+ * taps (and ThumbnailGroup arrow keys) can scrub the linked track.
  * Outside a thumbnail-strip, clicks call `setActiveIndex` directly.
  */
 const LightboxThumbnail = React.forwardRef<HTMLButtonElement, LightboxThumbnailProps>(
