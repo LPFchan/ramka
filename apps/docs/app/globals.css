@@ -126,8 +126,11 @@
   body {
     @apply bg-background text-foreground;
   }
+  /* Explicit root background: Safari 26 derives its status/tool-bar tint from
+     sampled page colors (theme-color is ignored) and falls back body → html.
+     Declaring it on both keeps the tint deterministic. */
   html {
-    @apply font-sans;
+    @apply bg-background font-sans;
   }
 }
 

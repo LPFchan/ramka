@@ -30,19 +30,14 @@ export function MobileNav() {
 
   return (
     <>
-      {/* iOS 26 Safari ignores `theme-color` and tints the status bar from
-          fixed/sticky elements near the top. A thin solid strip gives it pure
-          white/black to sample; the nav surface lives on an absolute child. */}
-      
-      <header className="sticky top-0 z-40 md:hidden">
-      <div
-        aria-hidden
-        className="pointer-events-none fixed top-0 left-0 z-30 h-1 w-full bg-white dark:bg-black md:hidden"
-      />
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0 border-b border-neutral-200 bg-white dark:border-neutral-800 dark:bg-black"
-        />
+      {/* iOS 26 Safari ignores `theme-color` and instead tints the status bar
+          from the background-color of a fixed/sticky element at the top of
+          the viewport. Crucially, it live-tracks that element's color — but
+          only when the background sits directly on the sticky element itself
+          (absolute children are invisible to the sampler). This is the same
+          pattern radix-ui.com and ui.shadcn.com use, and it's why their
+          status bars follow theme changes. */}
+      <header className="sticky top-0 z-40 border-b border-neutral-200 bg-white md:hidden dark:border-neutral-800 dark:bg-black">
         {/* Same metrics as the landing page header on mobile (px-6, 32px
             buttons, py-3 ⇒ 56px tall) so the wordmark doesn't shift when
             navigating between the landing page and docs. */}

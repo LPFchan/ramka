@@ -1,16 +1,8 @@
 'use client';
 
 import * as React from 'react';
-import { flushSync } from 'react-dom';
 import { Moon, Sun } from 'lucide-react';
 import { useTheme } from 'next-themes';
-
-const supportsViewTransitions = () =>
-  typeof document !== 'undefined' &&
-  typeof (document as Document & { startViewTransition?: unknown }).startViewTransition === 'function';
-
-const prefersReducedMotion = () =>
-  typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 export function ThemeToggle({ variant = 'outline' }: { variant?: 'outline' | 'ghost' }) {
   const { resolvedTheme, setTheme } = useTheme();
@@ -22,29 +14,17 @@ export function ThemeToggle({ variant = 'outline' }: { variant?: 'outline' | 'gh
 
   const isDark = resolvedTheme === 'dark';
 
+  // Plain synchronous flip — deliberately no View Transition. iOS 26 Safari
+  // derives the status-bar tint from the live-observed body/html background,
+  // and the full-viewport ::view-transition overlay prevented it from
+  // re-sampling after the theme change.
   const toggleTheme = () => {
     const next = isDark ? 'light' : 'dark';
-
-    // next-themes applies the `class` attribute in a useEffect, which runs
-    // *after* the View Transition callback — so the new snapshot would miss
-    // the theme change. Apply the class synchronously here, then sync React
-    // state via setTheme (its effect becomes a no-op).
-    const apply = () => {
-      const root = document.documentElement;
-      root.classList.remove('light', 'dark');
-      root.classList.add(next);
-      root.style.colorScheme = next;
-      setTheme(next);
-    };
-
-    if (!supportsViewTransitions() || prefersReducedMotion()) {
-      apply();
-      return;
-    }
-
-    (
-      document as Document & { startViewTransition: (cb: () => void) => unknown }
-    ).startViewTransition(() => flushSync(apply));
+    const root = document.documentElement;
+    root.classList.remove('light', 'dark');
+    root.classList.add(next);
+    root.style.colorScheme = next;
+    setTheme(next);
   };
 
   return (
