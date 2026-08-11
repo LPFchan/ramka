@@ -48,6 +48,26 @@ function IconZoomOut() {
   );
 }
 
+/** Miniature of the snug layout — a centered card with the neighbouring
+ * slides peeking in from the edges. */
+function IconLayoutSnug() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.25} aria-hidden>
+      <rect x="8.5" y="7" width="7" height="10" rx="1.5" />
+      <path d="M4 9v6M20 9v6" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+/** Miniature of the bleed layout — one slide, edge to edge. */
+function IconLayoutBleed() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.25} aria-hidden>
+      <rect x="4" y="7" width="16" height="10" rx="1.5" />
+    </svg>
+  );
+}
+
 /** Item shape for `Lightbox.Gallery` — pass real intrinsic pixel size. */
 export type LightboxItem = {
   id?: string | number;
@@ -308,17 +328,23 @@ function Gallery({
         </Slides>
 
         <div className={cx('lb-top-right', 'lb-chrome-pull-hide')}>
+          {/* Layout toggle: the icon is a miniature of the layout you GET by
+              clicking — snug shows a card with neighbours, bleed one wide slide. */}
           <button
             type="button"
             className={cx('lb-control', 'lb-control-md', 'lb-control-layout')}
             aria-pressed={snug}
             aria-label={snug ? 'Switch to full-bleed slides' : 'Switch to snug slides'}
+            title={snug ? 'Full-bleed slides' : 'Snug slides'}
             onClick={toggleSlidesLayout}
           >
-            {snug ? 'Bleed' : 'Snug'}
+            {snug ? <IconLayoutBleed /> : <IconLayoutSnug />}
           </button>
-          <ZoomOut />
-          <ZoomIn />
+          {/* Zoom −/+ share one capsule with a hairline divider. */}
+          <div className={cx('lb-control-group', 'lb-control-md')}>
+            <ZoomOut />
+            <ZoomIn />
+          </div>
           <Close />
         </div>
 
