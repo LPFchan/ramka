@@ -43,7 +43,10 @@ export function MobileNav() {
           aria-hidden
           className="pointer-events-none absolute inset-0 border-b border-neutral-200 bg-white dark:border-neutral-800 dark:bg-black"
         />
-        <div className="relative flex h-14 items-center justify-between gap-2 px-4">
+        {/* Same metrics as the landing page header on mobile (px-6, 32px
+            buttons, py-3 ⇒ 56px tall) so the wordmark doesn't shift when
+            navigating between the landing page and docs. */}
+        <div className="relative flex h-14 items-center justify-between gap-2 px-6">
           <Link
             href="/"
             className="text-sm font-semibold tracking-tight text-neutral-900 hover:text-neutral-600 dark:text-neutral-50 dark:hover:text-neutral-300"

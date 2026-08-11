@@ -21,7 +21,9 @@ function GitHubIcon({ className }: { className?: string }) {
 export default function HomePage() {
   return (
     <div className="isolate flex min-h-screen flex-col">
-      <header className="mx-auto flex w-full max-w-5xl items-center justify-between px-6 py-5">
+      {/* Mobile vertical padding matches the docs mobile nav (56px row) so the
+          wordmark doesn't shift between pages. */}
+      <header className="mx-auto flex w-full max-w-5xl items-center justify-between px-6 py-3 md:py-5">
         <span className="text-sm font-semibold tracking-tight text-neutral-900 dark:text-neutral-50">
           ramka
         </span>
