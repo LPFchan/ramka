@@ -115,7 +115,7 @@ export default function WithinArticlePage() {
       }
     >
       <Lightbox.Root scrollTriggerIntoView={{ type: 'onChange', behavior: 'smooth' }}>
-        <article className="mx-auto max-w-2xl leading-relaxed text-neutral-700 dark:text-neutral-300">
+        <article className="max-w-2xl leading-relaxed text-neutral-700 dark:text-neutral-300">
           <h1 className="text-3xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-50">
             Lofoten: Where the Mountains Meet the Sea
           </h1>

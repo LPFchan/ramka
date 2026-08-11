@@ -12,7 +12,7 @@ const supportsViewTransitions = () =>
 const prefersReducedMotion = () =>
   typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-export function ThemeToggle() {
+export function ThemeToggle({ variant = 'outline' }: { variant?: 'outline' | 'ghost' }) {
   const { resolvedTheme, setTheme } = useTheme();
   const [mounted, setMounted] = React.useState(false);
 
@@ -52,7 +52,11 @@ export function ThemeToggle() {
       type="button"
       aria-label="Toggle theme"
       onClick={toggleTheme}
-      className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-neutral-200 bg-white text-neutral-700 transition hover:bg-neutral-100 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-800"
+      className={
+        variant === 'ghost'
+          ? 'inline-flex h-7 w-7 items-center justify-center rounded-full text-neutral-500 transition hover:bg-black/[0.05] hover:text-neutral-900 dark:text-neutral-400 dark:hover:bg-white/[0.08] dark:hover:text-neutral-100'
+          : 'inline-flex h-8 w-8 items-center justify-center rounded-md border border-neutral-200 bg-white text-neutral-700 transition hover:bg-neutral-100 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-800'
+      }
     >
       {/* Avoid a hydration mismatch: until mounted we don't know the resolved
           theme, so render a stable icon and swap once on the client. */}

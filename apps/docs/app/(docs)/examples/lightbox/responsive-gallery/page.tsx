@@ -463,7 +463,7 @@ export default function ResponsiveGalleryPage() {
         </>
       }
     >
-      <div className="mx-auto max-w-xl">
+      <div className="max-w-xl">
         <div className="border-b border-border py-4 pb-2">
           <h2 className="text-xl font-semibold tracking-tight">Home</h2>
         </div>

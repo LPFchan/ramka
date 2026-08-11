@@ -147,7 +147,7 @@ export default function GoogleMapsExamplePage() {
           })
         }
       >
-        <div className="mx-auto max-w-lg">
+        <div className="max-w-lg">
           <div className="mb-5">
             <h2 className="text-xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-50">Visit us</h2>
             <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">

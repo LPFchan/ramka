@@ -374,7 +374,7 @@ export default function MoodboardSnugPage() {
           setOrbitReady(nextOpen);
         }}
       >
-        <div className="mx-auto flex max-w-2xl gap-4">
+        <div className="flex max-w-2xl gap-4">
           {columns.map((column, ci) => (
             <div key={ci} className="flex min-w-0 flex-1 flex-col gap-4">
               {column.map(({ tile, index }) => {

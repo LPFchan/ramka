@@ -155,7 +155,7 @@ export default function RealEstateListingPage() {
         loop
         scrollTriggerIntoView={{ type: 'onClose', behavior: 'instant' }}
       >
-        <div className="mx-auto max-w-5xl py-4 pb-12">
+        <div className="max-w-5xl py-4 pb-12">
           <HeroGrid />
 
           <div className="mt-6 flex flex-wrap items-start justify-between gap-6">

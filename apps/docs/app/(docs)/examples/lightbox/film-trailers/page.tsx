@@ -224,7 +224,7 @@ export default function FilmTrailersPage() {
         </>
       }
     >
-      <div className="mx-auto max-w-3xl">
+      <div className="max-w-3xl">
         <div className="py-5">
           <div className="text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground">
             Now Streaming
