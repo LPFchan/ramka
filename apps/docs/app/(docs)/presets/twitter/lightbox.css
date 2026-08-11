@@ -1,8 +1,9 @@
 /**
  * Twitter / X-style lightbox skin — ships with lightbox.tsx.
  *
- * Split layout: dark translucent media pane (close + prev/next) and a white
- * thread sidebar. Prefix: `xlb-`.
+ * Split layout: dark translucent media pane (close + prev/next) and a thread
+ * sidebar (white in light mode, "lights out" black in dark mode — `.dark` or
+ * `[data-theme='dark']` on an ancestor). Prefix: `xlb-`.
  */
 
 /* ── Tokens (scoped to skin host — not :root) ───────────────────────────── */
@@ -625,6 +626,43 @@
   margin: 0.125rem 0 0;
   font-size: 0.9375rem;
   line-height: 1.35;
+}
+
+/* ── Dark mode ──────────────────────────────────────────────────────────── */
+
+/* Only the thread pane is theme-dependent — the media pane, backdrop, and
+   glass controls are dark in both themes (photos read best on black). Palette
+   matches X's "lights out": #e7e9ea text, #71767b secondary, #2f3336 rules. */
+
+:is(.dark, [data-theme='dark']) .xlb-thread-pane {
+  background: #000;
+  color: #e7e9ea;
+  border-left-color: #2f3336;
+}
+
+:is(.dark, [data-theme='dark'])
+  :is(.xlb-thread-header, .xlb-post-meta, .xlb-actions, .xlb-reply-box, .xlb-reply) {
+  border-bottom-color: #2f3336;
+}
+
+:is(.dark, [data-theme='dark']) .xlb-thread-back {
+  color: #e7e9ea;
+}
+
+:is(.dark, [data-theme='dark'])
+  :is(.xlb-author-handle, .xlb-post-time, .xlb-post-meta, .xlb-action, .xlb-reply-input) {
+  color: #71767b;
+}
+
+:is(.dark, [data-theme='dark']) .xlb-post-meta strong {
+  color: #e7e9ea;
+}
+
+/* X keeps the Follow button white-on-black in dark mode. */
+:is(.dark, [data-theme='dark']) .xlb-follow {
+  border-color: transparent;
+  background: #eff3f4;
+  color: #0f1419;
 }
 
 /* Document-level view-transition CSS (isolation, morph group/snapshots,
