@@ -44,7 +44,7 @@ function Figure({ index, className }: { index: number; className?: string }) {
   const item = figures[index]!;
   return (
     <figure className={className}>
-      <Lightbox.Trigger index={index} className="block w-full overflow-hidden rounded-lg bg-transparent p-0">
+      <Lightbox.Trigger index={index} className="block w-full overflow-hidden rounded-lg bg-transparent p-0 scroll-my-5">
         {({ imageRef }) => (
           <img
             ref={imageRef}
@@ -70,12 +70,14 @@ export function EditorialPresetDemo() {
       <Lightbox.Root
         loop
         // Figures are scattered through a scrolling article, so after swiping
-        // to another photograph its trigger may be off-viewport. Reposition it
-        // instantly while the viewer covers the page (invisible), so the close
-        // morph always lands on a visible, centered figure.
+        // to another photograph its trigger may be off-viewport. `onClose`
+        // repositions it inside the close transition's update phase — between
+        // snapshot captures — so the page jump is never painted as a live
+        // frame. (Scrolling earlier, e.g. `onChange`, makes iOS Safari
+        // re-rasterize the open viewer and flash black tiles over the media.)
         scrollTriggerIntoView={[
-          { type: 'onChange', behavior: 'instant', block: 'center' },
-          { type: 'onOpenComplete', behavior: 'instant', block: 'center' },
+          { type: 'onOpenComplete', behavior: 'instant', block: 'nearest' },
+          { type: 'onClose', behavior: 'instant', block: 'nearest' },
         ]}
       >
         <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-neutral-400">Dispatch</p>
