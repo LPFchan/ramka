@@ -52,11 +52,6 @@ export function ComponentPreview({
   );
 }
 
-const GROUP_LABEL: Record<SourceFileGroup, string> = {
-  package: 'Package',
-  example: 'Example',
-};
-
 /** Standalone source card — segmented file switcher + copy for the active file. */
 export function ComponentSource({
   files,
@@ -126,11 +121,6 @@ export function ComponentSource({
                         className="mx-1 h-4 w-px shrink-0 self-center bg-neutral-300 dark:bg-neutral-600"
                       />
                     ) : null}
-                    {section.group ? (
-                      <span className="shrink-0 self-center px-1 text-[10px] font-semibold tracking-wide text-neutral-400 uppercase dark:text-neutral-500">
-                        {GROUP_LABEL[section.group]}
-                      </span>
-                    ) : null}
                     {section.files.map((file) => (
                       <TabsTrigger key={file.name} value={file.name} className="px-2.5 text-xs">
                         {file.name}
@@ -150,7 +140,7 @@ export function ComponentSource({
               aria-label={current ? `Copy ${current.name}` : 'Copy code'}
             >
               {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
-              {copied ? 'Copied' : 'Copy'}
+              <span className="hidden sm:inline">{copied ? 'Copied' : 'Copy'}</span>
             </button>
           </div>
 
