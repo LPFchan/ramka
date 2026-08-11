@@ -28,11 +28,6 @@ export const lightboxExamples: ExampleLink[] = [
     description: 'iMessage-style chat with a single morphTo="origin" trigger over a stack of attachments.',
   },
   {
-    slug: 'color-palette',
-    title: 'Color palette',
-    description: 'Flat color swatches morph into full photographs dominated by that hue.',
-  },
-  {
     slug: 'film-trailers',
     title: 'Film trailers',
     description: 'Movie posters morph into a fullscreen <video> that auto-plays on becoming active.',
@@ -42,12 +37,6 @@ export const lightboxExamples: ExampleLink[] = [
     title: '3D models',
     description:
       'Three.js product grid with Lightbox.Slides — onBeforeOpen preheats GLBs before the morph; shared orbit with each trigger.',
-  },
-  {
-    slug: 'google-maps',
-    title: 'Google Maps',
-    description:
-      'Map preview of Wrocław morphs into a fullscreen Google Map — onBeforeOpen waits for the iframe to load; pull-to-dismiss off so pan/zoom stay with the map.',
   },
 ];
 

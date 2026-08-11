@@ -94,7 +94,7 @@ export default function LightboxStateLifecyclePage() {
           <code className="text-xs">awaitImageDecode={'{false}'}</code> and wait in{' '}
           <code className="text-xs">onBeforeOpen</code>. Bound your own timeout;{' '}
           <code className="text-xs">ctx.signal</code> aborts if a newer open/close wins. See{' '}
-          <DocsLink href="/examples/lightbox/google-maps">Google Maps</DocsLink>.
+          <DocsLink href="/examples/lightbox/3d-models">3D models</DocsLink>.
         </p>
       </DocsSection>
 
