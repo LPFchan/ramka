@@ -7,7 +7,6 @@ import {
   imgDims,
   LightboxGallery,
   triggerFocusClass,
-  triggerMorphHideClass,
   type LightboxGalleryItem,
 } from './lightbox-chrome';
 
@@ -162,7 +161,7 @@ export function LandingDemo() {
               // The ::after draws an Apple-style 0.5px inset outline so dark
               // photos don't bleed into the dark-mode background (and bright
               // ones into light mode).
-              className={`mb-3 grid w-full break-inside-avoid scroll-my-12 overflow-hidden rounded-xl bg-neutral-100 p-0 after:pointer-events-none after:z-20 after:col-start-1 after:row-start-1 after:rounded-[inherit] after:shadow-[inset_0_0_0_0.5px_rgba(0,0,0,0.1)] after:content-[''] md:mb-4 md:rounded-2xl dark:bg-neutral-900 dark:after:shadow-[inset_0_0_0_0.5px_rgba(255,255,255,0.12)] ${img.breakClass} ${triggerMorphHideClass} ${triggerFocusClass}`}
+              className={`mb-3 grid w-full break-inside-avoid scroll-my-12 overflow-hidden rounded-xl bg-neutral-100 p-0 after:pointer-events-none after:z-20 after:col-start-1 after:row-start-1 after:rounded-[inherit] after:shadow-[inset_0_0_0_0.5px_rgba(0,0,0,0.1)] after:content-[''] md:mb-4 md:rounded-2xl dark:bg-neutral-900 dark:after:shadow-[inset_0_0_0_0.5px_rgba(255,255,255,0.12)] ${img.breakClass} ${triggerFocusClass}`}
             >
               {({ imageRef }) => (
                 <>
