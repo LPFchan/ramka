@@ -552,6 +552,14 @@ function LightboxRoot(props: LightboxRootProps) {
     const thumbnailStripSelectRef = React.useRef<
       ((index: number, source: NavigationSource) => void) | null
     >(null);
+    const navigate = React.useCallback(
+      (index: number, source: NavigationSource) => {
+        const stripSelect = thumbnailStripSelectRef.current;
+        if (stripSelect) stripSelect(index, source);
+        else setActiveIndex(index, source);
+      },
+      [setActiveIndex],
+    );
     const activeIndexRef = React.useRef(activeIndex);
     activeIndexRef.current = activeIndex;
     const openRef = React.useRef(open);
@@ -979,6 +987,7 @@ function LightboxRoot(props: LightboxRootProps) {
         subscribeSlidesViewport,
         notifySlidesViewport,
         thumbnailStripSelectRef,
+        navigate,
       }),
       [
         open,
@@ -1000,6 +1009,7 @@ function LightboxRoot(props: LightboxRootProps) {
         morphTo,
         subscribeSlidesViewport,
         notifySlidesViewport,
+        navigate,
       ],
     );
 

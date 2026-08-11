@@ -307,7 +307,7 @@ export const generatedProps: Record<string, PropRow[]> = {
     {
       name: "selectViewTransition",
       type: "boolean",
-      description: "When true (default), pointer thumbnail selection runs an element-scoped View Transition on Slides around the active-index commit (stage crossfade). Falls back to a plain commit when unsupported or `prefers-reduced-motion`. Tune with `--lightbox-select-vt-duration` / `--lightbox-select-vt-easing` on Slides. Keyboard / Previous / Next keep an instant stage commit (strip still scrubs when `scrubOnSelect` is on).",
+      description: "When true (default), pointer thumbnail selection runs an element-scoped View Transition on Slides around the active-index commit (stage crossfade). Falls back to a plain commit when unsupported or `prefers-reduced-motion`. Tune with `--lightbox-select-vt-duration` / `--lightbox-select-vt-easing` on Slides. Keyboard and Previous / Next navigation always keep an instant stage commit (the strip still scrubs when `scrubOnSelect` is on).",
     },
     {
       name: "wrapSelectCommit",

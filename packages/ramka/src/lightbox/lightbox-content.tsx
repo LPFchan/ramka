@@ -90,7 +90,7 @@ const LightboxContent = React.forwardRef<HTMLDivElement, LightboxContentProps>(
       preparing,
       setOpen,
       activeIndex,
-      setActiveIndex,
+      navigate,
       itemCount,
       loop,
       dialogElementRef,
@@ -99,7 +99,6 @@ const LightboxContent = React.forwardRef<HTMLDivElement, LightboxContentProps>(
       activeItemElementRef,
       navigationLockedRef,
       baseId,
-      thumbnailStripSelectRef,
     } = useLightboxContext();
     const { keepMounted } = useLightboxPortalContext();
     // Present while open/animating, or parked closed when Portal.keepMounted.
@@ -415,13 +414,9 @@ const LightboxContent = React.forwardRef<HTMLDivElement, LightboxContentProps>(
 
         if (nextIndex !== null && nextIndex !== activeIndex) {
           event.preventDefault();
-          // Prefer ThumbnailStrip scrub when mounted so the strip transitions
-          // with discrete keyboard nav (same path as thumb pointer select).
-          if (thumbnailStripSelectRef.current) {
-            thumbnailStripSelectRef.current(nextIndex, 'keyboard');
-          } else {
-            setActiveIndex(nextIndex, 'keyboard');
-          }
+          // `navigate` routes through a mounted ThumbnailStrip so the strip
+          // scrubs with discrete keyboard nav (plain setActiveIndex otherwise).
+          navigate(nextIndex, 'keyboard');
         }
       },
       [
@@ -429,11 +424,10 @@ const LightboxContent = React.forwardRef<HTMLDivElement, LightboxContentProps>(
         activeIndex,
         itemCount,
         loop,
-        setActiveIndex,
+        navigate,
         setOpen,
         activeZoomRef,
         stageElementRef,
-        thumbnailStripSelectRef,
       ],
     );
 

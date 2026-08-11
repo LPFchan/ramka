@@ -7,7 +7,10 @@ import { flushSync } from 'react-dom';
 import { useLightboxContext, type NavigationSource } from './lightbox-context';
 import { LightboxThumbnailStripCssVars } from './lightbox-css-vars';
 import { LightboxThumbnailStripDataAttributes } from './lightbox-data-attributes';
-import { LightboxThumbnailStripContext } from './lightbox-thumbnail-strip-context';
+import {
+  LightboxThumbnailStripContext,
+  type LightboxThumbnailStripSelectOptions,
+} from './lightbox-thumbnail-strip-context';
 import { slidesGeometryIsUniform, slidesScrollProgress } from './lightbox-slides-geometry';
 
 interface LightboxThumbnailStripState extends Record<string, unknown> {
@@ -27,8 +30,9 @@ interface LightboxThumbnailStripProps extends useRender.ComponentProps<'div', Li
    * View Transition on Slides around the active-index commit (stage crossfade).
    * Falls back to a plain commit when unsupported or
    * `prefers-reduced-motion`. Tune with `--lightbox-select-vt-duration` /
-   * `--lightbox-select-vt-easing` on Slides. Keyboard / Previous / Next keep
-   * an instant stage commit (strip still scrubs when `scrubOnSelect` is on).
+   * `--lightbox-select-vt-easing` on Slides. Keyboard and Previous / Next
+   * navigation always keep an instant stage commit (the strip still scrubs
+   * when `scrubOnSelect` is on).
    */
   selectViewTransition?: boolean;
   /**
@@ -507,7 +511,8 @@ const LightboxThumbnailStrip = React.forwardRef<HTMLDivElement, LightboxThumbnai
     ]);
 
     const selectIndex = React.useCallback(
-      (index: number, source: NavigationSource = 'thumbnail') => {
+      (index: number, options?: LightboxThumbnailStripSelectOptions) => {
+        const { source = 'thumbnail', stageViewTransition = true } = options ?? {};
         if (index === activeIndexRef.current || navigationLockedRef.current) return;
 
         const track = trackRef.current;
@@ -631,9 +636,9 @@ const LightboxThumbnailStrip = React.forwardRef<HTMLDivElement, LightboxThumbnai
           setActiveIndex(index, source);
         };
 
-        // Stage VT is pointer-select only — keyboard / buttons keep an instant
-        // Slides jump while the strip still scrubs independently.
-        const useSelectVt = selectViewTransition && source === 'thumbnail';
+        // Stage VT is pointer-select only — keyboard / buttons pass
+        // `stageViewTransition: false` (instant Slides jump, strip still scrubs).
+        const useSelectVt = selectViewTransition && stageViewTransition;
 
         const commit = () => {
           const host = slides as SlidesVtHost | null;
@@ -670,17 +675,17 @@ const LightboxThumbnailStrip = React.forwardRef<HTMLDivElement, LightboxThumbnai
       ],
     );
 
-    // Publish so Content keyboard / Previous / Next (outside this subtree) can
-    // reuse the same scrub path as pointer thumb selection.
+    // Publish so Root's `navigate` (Content keyboard / Previous / Next) can
+    // reuse the scrub path. Those sources never run the stage view transition.
     const selectIndexRef = React.useRef(selectIndex);
     selectIndexRef.current = selectIndex;
     React.useLayoutEffect(() => {
-      const navigate = (index: number, source: NavigationSource) => {
-        selectIndexRef.current(index, source);
+      const stripSelect = (index: number, source: NavigationSource) => {
+        selectIndexRef.current(index, { source, stageViewTransition: false });
       };
-      thumbnailStripSelectRef.current = navigate;
+      thumbnailStripSelectRef.current = stripSelect;
       return () => {
-        if (thumbnailStripSelectRef.current === navigate) {
+        if (thumbnailStripSelectRef.current === stripSelect) {
           thumbnailStripSelectRef.current = null;
         }
       };
