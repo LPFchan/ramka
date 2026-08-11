@@ -32,10 +32,10 @@ function NavItem({
       href={href}
       onClick={onNavigate}
       className={cn(
-        'block rounded-md px-2 py-1.5 text-sm transition',
+        'block rounded-lg px-3 py-1.5 text-[13px] leading-6 transition-colors',
         active
-          ? 'bg-neutral-100 font-medium text-neutral-900 dark:bg-neutral-900 dark:text-neutral-50'
-          : 'text-neutral-700 hover:bg-neutral-100 hover:text-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-900 dark:hover:text-neutral-50',
+          ? 'bg-neutral-200/60 font-medium text-neutral-900 dark:bg-neutral-800/70 dark:text-neutral-50'
+          : 'text-neutral-600 hover:bg-neutral-200/40 hover:text-neutral-900 dark:text-neutral-400 dark:hover:bg-neutral-900 dark:hover:text-neutral-100',
       )}
       aria-current={active ? 'page' : undefined}
     >
@@ -52,14 +52,14 @@ export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
 
   return (
-    <nav className="space-y-6">
+    <nav className="space-y-7">
       {navSections.map((section) => (
         <div key={section.title}>
-          <div className="px-2 pb-2 text-[11px] font-semibold uppercase tracking-widest text-neutral-500">
+          <div className="px-3 pb-2 text-[11px] font-semibold uppercase tracking-[0.1em] text-neutral-400 dark:text-neutral-600">
             {section.title}
           </div>
           {section.links.length > 0 ? (
-            <ul className="flex flex-col gap-px">
+            <ul className="flex flex-col gap-0.5">
               {section.links.map((link) => (
                 <li key={link.href}>
                   <NavItem
@@ -75,10 +75,10 @@ export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
           ) : null}
           {section.groups?.map((group) => (
             <div key={group.title} className="mt-3 first:mt-0">
-              <div className="px-2 pb-1.5 text-[10px] font-medium uppercase tracking-wider text-neutral-400 dark:text-neutral-500">
+              <div className="px-3 pb-1.5 text-[10px] font-medium uppercase tracking-[0.08em] text-neutral-400 dark:text-neutral-600">
                 {group.title}
               </div>
-              <ul className="flex flex-col gap-px">
+              <ul className="flex flex-col gap-0.5">
                 {group.links.map((link) => (
                   <li key={link.href}>
                     <NavItem

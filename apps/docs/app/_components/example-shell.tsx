@@ -20,18 +20,18 @@ export function ExampleShell({
   children,
 }: ExampleShellProps) {
   return (
-    <div className="mx-auto w-full max-w-4xl px-6 py-12">
-      <header className="mb-8">
-        <h1 className="text-3xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-50">
+    <div className="mx-auto w-full max-w-4xl px-6 py-14 md:px-10 md:py-16">
+      <header className="mb-10">
+        <h1 className="text-balance text-4xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-50">
           {title}
         </h1>
         {description ? (
-          <div className="mt-3 max-w-2xl text-sm leading-relaxed text-neutral-600 dark:text-neutral-400">
+          <div className="mt-4 max-w-2xl text-pretty text-[15px] leading-7 text-neutral-500 dark:text-neutral-400">
             {description}
           </div>
         ) : null}
         {docsHref ? (
-          <p className="mt-3 text-sm text-neutral-500">
+          <p className="mt-4 text-[13px] text-neutral-500">
             See also:{' '}
             <Link href={docsHref} className={docsLinkClassName}>
               {docsLabel}

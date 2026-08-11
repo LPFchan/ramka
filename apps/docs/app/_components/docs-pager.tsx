@@ -16,7 +16,7 @@ export function DocsPager({
   return (
     <nav
       className={cn(
-        'mt-16 grid gap-3 border-t border-neutral-200 pt-8 dark:border-neutral-800',
+        'mt-20 grid gap-3 border-t border-neutral-200 pt-10 dark:border-neutral-800',
         prev && next ? 'sm:grid-cols-2' : 'grid-cols-1',
       )}
       aria-label="Docs pagination"
@@ -24,10 +24,10 @@ export function DocsPager({
       {prev ? (
         <Link
           href={prev.href}
-          className="rounded-xl border border-neutral-200 px-4 py-3 transition hover:border-neutral-300 hover:bg-neutral-50 dark:border-neutral-800 dark:hover:border-neutral-700 dark:hover:bg-neutral-900"
+          className="rounded-2xl border border-neutral-200 px-5 py-4 transition hover:border-neutral-300 hover:bg-neutral-50 dark:border-neutral-800 dark:hover:border-neutral-700 dark:hover:bg-neutral-900"
         >
-          <div className="text-[11px] font-medium uppercase tracking-wider text-neutral-500">Previous</div>
-          <div className="mt-1 text-sm font-semibold text-neutral-900 dark:text-neutral-50">{prev.title}</div>
+          <div className="text-[11px] font-medium uppercase tracking-[0.08em] text-neutral-400">Previous</div>
+          <div className="mt-1.5 text-sm font-semibold text-neutral-900 dark:text-neutral-50">{prev.title}</div>
         </Link>
       ) : (
         <div />
@@ -36,12 +36,12 @@ export function DocsPager({
         <Link
           href={next.href}
           className={cn(
-            'rounded-xl border border-neutral-200 px-4 py-3 transition hover:border-neutral-300 hover:bg-neutral-50 dark:border-neutral-800 dark:hover:border-neutral-700 dark:hover:bg-neutral-900',
+            'rounded-2xl border border-neutral-200 px-5 py-4 transition hover:border-neutral-300 hover:bg-neutral-50 dark:border-neutral-800 dark:hover:border-neutral-700 dark:hover:bg-neutral-900',
             prev ? 'sm:text-right' : undefined,
           )}
         >
-          <div className="text-[11px] font-medium uppercase tracking-wider text-neutral-500">Next</div>
-          <div className="mt-1 text-sm font-semibold text-neutral-900 dark:text-neutral-50">{next.title}</div>
+          <div className="text-[11px] font-medium uppercase tracking-[0.08em] text-neutral-400">Next</div>
+          <div className="mt-1.5 text-sm font-semibold text-neutral-900 dark:text-neutral-50">{next.title}</div>
         </Link>
       ) : null}
     </nav>

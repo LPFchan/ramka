@@ -17,32 +17,32 @@ interface DocsShellProps {
 
 export function DocsShell({ title, description, toc, children }: DocsShellProps) {
   return (
-    <div className="mx-auto flex w-full max-w-6xl gap-10 px-6 py-12">
+    <div className="mx-auto flex w-full max-w-6xl gap-12 px-6 py-14 md:px-10 md:py-16">
       <div className="min-w-0 flex-1">
-        <header className="mb-10">
-          <h1 className="text-3xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-50">
+        <header className="mb-12">
+          <h1 className="text-balance text-4xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-50">
             {title}
           </h1>
           {description ? (
-            <div className="mt-3 max-w-2xl text-base leading-relaxed text-neutral-600 dark:text-neutral-400">
+            <div className="mt-4 max-w-2xl text-pretty text-[17px] leading-7 text-neutral-500 dark:text-neutral-400">
               {description}
             </div>
           ) : null}
         </header>
-        <div className="docs-prose space-y-12">{children}</div>
+        <div className="docs-prose space-y-14">{children}</div>
       </div>
       {toc && toc.length > 0 ? (
-        <aside className="sticky top-8 hidden h-[calc(100vh-4rem)] w-52 shrink-0 overflow-y-auto xl:block">
-          <div className="text-[11px] font-semibold uppercase tracking-widest text-neutral-500">
+        <aside className="sticky top-12 hidden h-[calc(100vh-6rem)] w-56 shrink-0 overflow-y-auto xl:block">
+          <div className="text-[11px] font-semibold uppercase tracking-[0.1em] text-neutral-400 dark:text-neutral-600">
             On this page
           </div>
-          <ul className="mt-3 space-y-1 border-l border-neutral-200 dark:border-neutral-800">
+          <ul className="mt-4 space-y-0.5 border-l border-neutral-200 dark:border-neutral-800">
             {toc.map((item) => (
               <li key={item.id}>
                 <a
                   href={`#${item.id}`}
                   className={cn(
-                    'block border-l-2 border-transparent py-1 pl-3 text-sm text-neutral-600 transition',
+                    'block border-l-2 border-transparent py-1 pl-3.5 text-[13px] leading-6 text-neutral-500 transition-colors',
                     'hover:border-neutral-400 hover:text-neutral-900',
                     'dark:text-neutral-400 dark:hover:border-neutral-500 dark:hover:text-neutral-100',
                   )}
@@ -55,7 +55,7 @@ export function DocsShell({ title, description, toc, children }: DocsShellProps)
                       <li key={child.id}>
                         <a
                           href={`#${child.id}`}
-                          className="block py-0.5 pl-5 text-xs text-neutral-500 transition hover:text-neutral-800 dark:text-neutral-500 dark:hover:text-neutral-200"
+                          className="block py-0.5 pl-6 text-xs leading-5 text-neutral-400 transition-colors hover:text-neutral-800 dark:text-neutral-500 dark:hover:text-neutral-200"
                         >
                           {child.title}
                         </a>
@@ -90,8 +90,8 @@ export function DocsSection({
       <Heading
         className={
           level === 2
-            ? 'text-xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-50'
-            : 'text-base font-semibold tracking-tight text-neutral-900 dark:text-neutral-50'
+            ? 'text-2xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-50'
+            : 'text-[17px] font-semibold tracking-tight text-neutral-900 dark:text-neutral-50'
         }
       >
         {typeof title === 'string' ? (
@@ -102,7 +102,7 @@ export function DocsSection({
           title
         )}
       </Heading>
-      <div className="mt-4 space-y-4 text-sm leading-relaxed text-neutral-600 dark:text-neutral-400">
+      <div className="mt-4 space-y-4 text-[15px] leading-7 text-neutral-600 dark:text-neutral-400">
         {children}
       </div>
     </section>
