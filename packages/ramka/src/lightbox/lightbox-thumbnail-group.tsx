@@ -6,6 +6,7 @@ import * as React from 'react';
 import { LightboxThumbnailGroupDataAttributes } from './lightbox-data-attributes';
 import { useLightboxContext } from './lightbox-context';
 import { LightboxThumbnailGroupContext } from './lightbox-thumbnail-group-context';
+import { useLightboxThumbnailStripContextOptional } from './lightbox-thumbnail-strip-context';
 
 interface LightboxThumbnailGroupState extends Record<string, unknown> {
   focusWithin: boolean;
@@ -28,6 +29,7 @@ const LightboxThumbnailGroup = React.forwardRef<HTMLDivElement, LightboxThumbnai
     const { render, ...elementProps } = props;
     const { activeIndex, setActiveIndex, navigationLockedRef, itemCount, loop, registerTablist } =
       useLightboxContext();
+    const thumbnailStrip = useLightboxThumbnailStripContextOptional();
 
     const [focusWithin, setFocusWithin] = React.useState(false);
     const thumbsRef = React.useRef(new Map<number, HTMLElement>());
@@ -86,13 +88,22 @@ const LightboxThumbnailGroup = React.forwardRef<HTMLDivElement, LightboxThumbnai
         // Navigate relative to the *active* index (the source of truth), not the
         // currently-focused tab. A swipe moves `activeIndex` without moving focus,
         // so roving off `document.activeElement` would compute from a stale tab.
-        // Instant (no thumbnail-strip scrub) — pointer selection owns scrub motion.
+        // Inside ThumbnailStrip, reuse its scrub path so arrow keys match
+        // pointer motion — but keep the stage commit instant (no Slides view
+        // transition), consistent with all other keyboard navigation.
         if (nextIndex === activeIndex) return;
-        setActiveIndex(nextIndex, 'thumbnail');
+        if (thumbnailStrip) {
+          thumbnailStrip.selectIndex(nextIndex, {
+            source: 'thumbnail',
+            stageViewTransition: false,
+          });
+        } else {
+          setActiveIndex(nextIndex, 'thumbnail');
+        }
 
         getThumb(nextIndex)?.focus();
       },
-      [activeIndex, itemCount, loop, navigationLockedRef, setActiveIndex, getThumb],
+      [activeIndex, itemCount, loop, navigationLockedRef, setActiveIndex, getThumb, thumbnailStrip],
     );
 
     const state = React.useMemo<LightboxThumbnailGroupState>(() => ({ focusWithin }), [focusWithin]);

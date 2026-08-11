@@ -23,15 +23,15 @@ const stateAttributesMapping = {
 const LightboxNext = React.forwardRef<HTMLButtonElement, LightboxNextProps>(
   function LightboxNext(props, forwardedRef) {
     const { render, ...elementProps } = props;
-    const { activeIndex, setActiveIndex, itemCount, loop } = useLightboxContext();
+    const { activeIndex, navigate, itemCount, loop } = useLightboxContext();
 
     const disabled = !loop && activeIndex >= itemCount - 1;
 
     const handleClick = React.useCallback(() => {
       if (disabled) return;
       const nextIndex = loop ? (activeIndex + 1) % itemCount : Math.min(activeIndex + 1, itemCount - 1);
-      setActiveIndex(nextIndex, 'button');
-    }, [activeIndex, disabled, itemCount, loop, setActiveIndex]);
+      navigate(nextIndex, 'button');
+    }, [activeIndex, disabled, itemCount, loop, navigate]);
 
     const state = React.useMemo<LightboxNextState>(() => ({ disabled }), [disabled]);
 

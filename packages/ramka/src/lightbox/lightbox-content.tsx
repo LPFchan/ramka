@@ -90,7 +90,7 @@ const LightboxContent = React.forwardRef<HTMLDivElement, LightboxContentProps>(
       preparing,
       setOpen,
       activeIndex,
-      setActiveIndex,
+      navigate,
       itemCount,
       loop,
       dialogElementRef,
@@ -414,10 +414,21 @@ const LightboxContent = React.forwardRef<HTMLDivElement, LightboxContentProps>(
 
         if (nextIndex !== null && nextIndex !== activeIndex) {
           event.preventDefault();
-          setActiveIndex(nextIndex, 'keyboard');
+          // `navigate` routes through a mounted ThumbnailStrip so the strip
+          // scrubs with discrete keyboard nav (plain setActiveIndex otherwise).
+          navigate(nextIndex, 'keyboard');
         }
       },
-      [mounted, activeIndex, itemCount, loop, setActiveIndex, setOpen, activeZoomRef, stageElementRef],
+      [
+        mounted,
+        activeIndex,
+        itemCount,
+        loop,
+        navigate,
+        setOpen,
+        activeZoomRef,
+        stageElementRef,
+      ],
     );
 
     // Click on the content container itself (not children) closes the

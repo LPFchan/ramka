@@ -302,12 +302,12 @@ export const generatedProps: Record<string, PropRow[]> = {
     {
       name: "scrubOnSelect",
       type: "boolean",
-      description: "When true (default), pointer selection on a thumbnail WAAPI-scrubs the track to the target index. Keyboard / button navigation stays instant (follows the Slides jump via the scroll link).",
+      description: "When true (default), discrete navigation (thumbnail pointer, keyboard, Previous/Next) WAAPI-scrubs the track to the target index. When false, the strip follows the Slides jump via the scroll link.",
     },
     {
       name: "selectViewTransition",
       type: "boolean",
-      description: "When true (default), pointer selection runs an element-scoped View Transition on Slides around the active-index commit (stage crossfade). Falls back to a plain commit when unsupported or `prefers-reduced-motion`. Tune with `--lightbox-select-vt-duration` / `--lightbox-select-vt-easing` on Slides. Keyboard stays instant.",
+      description: "When true (default), pointer thumbnail selection runs an element-scoped View Transition on Slides around the active-index commit (stage crossfade). Falls back to a plain commit when unsupported or `prefers-reduced-motion`. Tune with `--lightbox-select-vt-duration` / `--lightbox-select-vt-easing` on Slides. Keyboard and Previous / Next navigation always keep an instant stage commit (the strip still scrubs when `scrubOnSelect` is on).",
     },
     {
       name: "wrapSelectCommit",
@@ -723,7 +723,7 @@ export const generatedAttributes: Record<string, AttrRow[]> = {
     },
     {
       name: "data-scrubbing",
-      description: "Present while a pointer thumb-select scrub animation is in flight.",
+      description: "Present while a discrete-nav scrub animation is in flight.",
     },
   ],
   "api-thumbnail-strip-track": [],

@@ -2,17 +2,32 @@
 
 import * as React from 'react';
 
+import type { NavigationSource } from './lightbox-context';
+
+interface LightboxThumbnailStripSelectOptions {
+  /** Reported to `onValueChange`. @default 'thumbnail' */
+  source?: NavigationSource;
+  /**
+   * Whether this selection may run the element-scoped Slides view transition
+   * (still gated by the strip's `selectViewTransition` prop). Pointer thumb
+   * selection passes `true` (default); keyboard / button navigation passes
+   * `false` so the stage commit stays instant while the strip scrubs.
+   * @default true
+   */
+  stageViewTransition?: boolean;
+}
+
 interface LightboxThumbnailStripContextValue {
   /** Register the transform target (tablist track element). */
   registerTrack: (node: HTMLElement | null) => void;
   /** Register a thumbnail element for midline / travel measurement. */
   registerThumb: (index: number, node: HTMLElement | null) => void;
   /**
-   * Pointer selection from a Thumbnail inside this ThumbnailStrip.
-   * Owns optional scrub motion; always respects `navigationLockedRef`.
-   * Keyboard navigation stays instant via ThumbnailGroup → setActiveIndex.
+   * Discrete selection into this ThumbnailStrip (pointer thumb, keyboard,
+   * Previous/Next). Owns optional scrub motion; always respects
+   * `navigationLockedRef`.
    */
-  selectIndex: (index: number) => void;
+  selectIndex: (index: number, options?: LightboxThumbnailStripSelectOptions) => void;
 }
 
 const LightboxThumbnailStripContext = React.createContext<LightboxThumbnailStripContextValue | null>(null);
@@ -35,4 +50,4 @@ export {
   useLightboxThumbnailStripContext,
   useLightboxThumbnailStripContextOptional,
 };
-export type { LightboxThumbnailStripContextValue };
+export type { LightboxThumbnailStripContextValue, LightboxThumbnailStripSelectOptions };

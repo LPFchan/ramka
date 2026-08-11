@@ -4,30 +4,35 @@ import { mergeProps, useRender } from '@base-ui/react';
 import * as React from 'react';
 import { flushSync } from 'react-dom';
 
-import { useLightboxContext } from './lightbox-context';
+import { useLightboxContext, type NavigationSource } from './lightbox-context';
 import { LightboxThumbnailStripCssVars } from './lightbox-css-vars';
 import { LightboxThumbnailStripDataAttributes } from './lightbox-data-attributes';
-import { LightboxThumbnailStripContext } from './lightbox-thumbnail-strip-context';
+import {
+  LightboxThumbnailStripContext,
+  type LightboxThumbnailStripSelectOptions,
+} from './lightbox-thumbnail-strip-context';
 import { slidesGeometryIsUniform, slidesScrollProgress } from './lightbox-slides-geometry';
 
 interface LightboxThumbnailStripState extends Record<string, unknown> {
-  /** True while a pointer thumb-select WAAPI scrub is in flight. */
+  /** True while a discrete-nav WAAPI scrub is in flight. */
   scrubbing: boolean;
 }
 
 interface LightboxThumbnailStripProps extends useRender.ComponentProps<'div', LightboxThumbnailStripState> {
   /**
-   * When true (default), pointer selection on a thumbnail WAAPI-scrubs the
-   * track to the target index. Keyboard / button navigation stays instant
-   * (follows the Slides jump via the scroll link).
+   * When true (default), discrete navigation (thumbnail pointer, keyboard,
+   * Previous/Next) WAAPI-scrubs the track to the target index. When false,
+   * the strip follows the Slides jump via the scroll link.
    */
   scrubOnSelect?: boolean;
   /**
-   * When true (default), pointer selection runs an element-scoped View
-   * Transition on Slides around the active-index commit (stage crossfade).
+   * When true (default), pointer thumbnail selection runs an element-scoped
+   * View Transition on Slides around the active-index commit (stage crossfade).
    * Falls back to a plain commit when unsupported or
    * `prefers-reduced-motion`. Tune with `--lightbox-select-vt-duration` /
-   * `--lightbox-select-vt-easing` on Slides. Keyboard stays instant.
+   * `--lightbox-select-vt-easing` on Slides. Keyboard and Previous / Next
+   * navigation always keep an instant stage commit (the strip still scrubs
+   * when `scrubOnSelect` is on).
    */
   selectViewTransition?: boolean;
   /**
@@ -40,7 +45,7 @@ interface LightboxThumbnailStripProps extends useRender.ComponentProps<'div', Li
   wrapSelectCommit?: (commit: () => void, slides: HTMLElement | null, index: number) => void;
 }
 
-/** Baked pointer-select scrub timing (not a public prop — keep the API lean). */
+/** Baked discrete-nav scrub timing (not a public prop — keep the API lean). */
 const SCRUB_DURATION_MS = 450;
 const SCRUB_EASING = 'cubic-bezier(0.22, 1, 0.36, 1)';
 
@@ -189,8 +194,9 @@ function readComputedTranslateX(el: HTMLElement): number {
  * Owns midline padding, overflow clip, Slides→track sync via native
  * `ScrollTimeline` + WAAPI (JS scroll→transform fallback when unavailable),
  * and (by default) an element-scoped Slides view transition on pointer select.
- * Consumers style flex/gap, thumb size, optional midline chrome, and VT look
- * via `--lightbox-select-vt-*` on Slides.
+ * Keyboard / Previous / Next reuse the track scrub when mounted. Consumers style
+ * flex/gap, thumb size, optional midline chrome, and VT look via
+ * `--lightbox-select-vt-*` on Slides.
  */
 const LightboxThumbnailStrip = React.forwardRef<HTMLDivElement, LightboxThumbnailStripProps>(
   function LightboxThumbnailStrip(props, forwardedRef) {
@@ -212,6 +218,7 @@ const LightboxThumbnailStrip = React.forwardRef<HTMLDivElement, LightboxThumbnai
       navigationLockedRef,
       itemCount,
       activeIndex,
+      thumbnailStripSelectRef,
     } = useLightboxContext();
 
     const rootRef = React.useRef<HTMLElement | null>(null);
@@ -504,7 +511,8 @@ const LightboxThumbnailStrip = React.forwardRef<HTMLDivElement, LightboxThumbnai
     ]);
 
     const selectIndex = React.useCallback(
-      (index: number) => {
+      (index: number, options?: LightboxThumbnailStripSelectOptions) => {
+        const { source = 'thumbnail', stageViewTransition = true } = options ?? {};
         if (index === activeIndexRef.current || navigationLockedRef.current) return;
 
         const track = trackRef.current;
@@ -625,13 +633,17 @@ const LightboxThumbnailStrip = React.forwardRef<HTMLDivElement, LightboxThumbnai
 
         const applyIndex = () => {
           activeIndexRef.current = index;
-          setActiveIndex(index, 'thumbnail');
+          setActiveIndex(index, source);
         };
+
+        // Stage VT is pointer-select only — keyboard / buttons pass
+        // `stageViewTransition: false` (instant Slides jump, strip still scrubs).
+        const useSelectVt = selectViewTransition && stageViewTransition;
 
         const commit = () => {
           const host = slides as SlidesVtHost | null;
           const startVt = host?.startViewTransition;
-          if (selectViewTransition && !reduceMotion && typeof startVt === 'function') {
+          if (useSelectVt && !reduceMotion && typeof startVt === 'function') {
             startVt.call(host, () => {
               flushSync(applyIndex);
             });
@@ -662,6 +674,22 @@ const LightboxThumbnailStrip = React.forwardRef<HTMLDivElement, LightboxThumbnai
         measureThumbs,
       ],
     );
+
+    // Publish so Root's `navigate` (Content keyboard / Previous / Next) can
+    // reuse the scrub path. Those sources never run the stage view transition.
+    const selectIndexRef = React.useRef(selectIndex);
+    selectIndexRef.current = selectIndex;
+    React.useLayoutEffect(() => {
+      const stripSelect = (index: number, source: NavigationSource) => {
+        selectIndexRef.current(index, { source, stageViewTransition: false });
+      };
+      thumbnailStripSelectRef.current = stripSelect;
+      return () => {
+        if (thumbnailStripSelectRef.current === stripSelect) {
+          thumbnailStripSelectRef.current = null;
+        }
+      };
+    }, [thumbnailStripSelectRef]);
 
     const thumbnailStripContext = React.useMemo(
       () => ({ registerTrack, registerThumb, selectIndex }),

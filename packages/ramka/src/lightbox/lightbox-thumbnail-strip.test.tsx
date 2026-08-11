@@ -6,7 +6,9 @@ import { LightboxContent } from './lightbox-content';
 import { LightboxThumbnailStrip } from './lightbox-thumbnail-strip';
 import { LightboxThumbnailStripTrack } from './lightbox-thumbnail-strip-track';
 import { LightboxItem } from './lightbox-item';
+import { LightboxNext } from './lightbox-next';
 import { LightboxPortal } from './lightbox-portal';
+import { LightboxPrevious } from './lightbox-previous';
 import { LightboxRoot } from './lightbox-root';
 import { LightboxSlide } from './lightbox-slide';
 import { LightboxSlides } from './lightbox-slides';
@@ -418,6 +420,197 @@ describe('Lightbox.ThumbnailStrip', () => {
     expect(linkCalls.length).toBeGreaterThan(linksBefore);
     expect(scrubCancel).toHaveBeenCalled();
     expect(track.style.transform).toBe('');
+  });
+
+  it('keyboard arrow nav scrubs the thumbnail strip like a thumb click', async () => {
+    enableScrollTimeline();
+
+    const scrubPlay = vi.fn();
+    const elementAnimate = vi.fn(() => {
+      const anim = {
+        pause: vi.fn(),
+        play: scrubPlay,
+        cancel: vi.fn(),
+        commitStyles: vi.fn(),
+        finished: Promise.resolve(),
+        currentTime: 0,
+      };
+      return anim as unknown as Animation;
+    });
+    Object.defineProperty(HTMLElement.prototype, 'animate', {
+      configurable: true,
+      writable: true,
+      value: elementAnimate,
+    });
+
+    render(<Gallery count={5} />);
+    const slides = screen.getByTestId('slides');
+    // Stage VT stays pointer-only: keyboard nav must not start it.
+    const startViewTransition = vi.fn((cb: () => void) => {
+      cb();
+      return { finished: Promise.resolve() };
+    });
+    Object.defineProperty(slides, 'startViewTransition', {
+      configurable: true,
+      value: startViewTransition,
+    });
+    setupSlidesGeometry(slides, 5);
+    const root = screen.getByTestId('thumbnail-strip');
+    const track = screen.getByTestId('thumbnail-strip-track');
+    setupThumbnailStripRoot(root);
+    setupThumbGeometry(track, 5);
+    endScroll(slides);
+
+    const link = linkCalls.at(-1);
+    expect(link).toBeTruthy();
+
+    vi.spyOn(window, 'getComputedStyle').mockReturnValue({
+      transform: 'none',
+    } as CSSStyleDeclaration);
+
+    await act(async () => {
+      fireEvent.keyDown(screen.getByRole('dialog'), { key: 'ArrowRight' });
+      await Promise.resolve();
+      await Promise.resolve();
+      flushRaf();
+      flushRaf();
+    });
+
+    expect(screen.getByTestId('thumb-1')).toHaveAttribute('data-active');
+    expect(link!.anim.cancel).toHaveBeenCalled();
+    expect(elementAnimate).toHaveBeenCalled();
+    expect(scrubPlay).toHaveBeenCalled();
+    expect(startViewTransition).not.toHaveBeenCalled();
+  });
+
+  it('tablist arrow keys scrub the strip without the Slides view transition', async () => {
+    enableScrollTimeline();
+
+    const scrubPlay = vi.fn();
+    const elementAnimate = vi.fn(() => {
+      const anim = {
+        pause: vi.fn(),
+        play: scrubPlay,
+        cancel: vi.fn(),
+        commitStyles: vi.fn(),
+        finished: Promise.resolve(),
+        currentTime: 0,
+      };
+      return anim as unknown as Animation;
+    });
+    Object.defineProperty(HTMLElement.prototype, 'animate', {
+      configurable: true,
+      writable: true,
+      value: elementAnimate,
+    });
+
+    render(<Gallery count={5} />);
+    const slides = screen.getByTestId('slides');
+    const startViewTransition = vi.fn((cb: () => void) => {
+      cb();
+      return { finished: Promise.resolve() };
+    });
+    Object.defineProperty(slides, 'startViewTransition', {
+      configurable: true,
+      value: startViewTransition,
+    });
+    setupSlidesGeometry(slides, 5);
+    const root = screen.getByTestId('thumbnail-strip');
+    const track = screen.getByTestId('thumbnail-strip-track');
+    setupThumbnailStripRoot(root);
+    setupThumbGeometry(track, 5);
+    endScroll(slides);
+
+    vi.spyOn(window, 'getComputedStyle').mockReturnValue({
+      transform: 'none',
+    } as CSSStyleDeclaration);
+
+    await act(async () => {
+      fireEvent.keyDown(track, { key: 'ArrowRight' });
+      await Promise.resolve();
+      await Promise.resolve();
+      flushRaf();
+      flushRaf();
+    });
+
+    expect(screen.getByTestId('thumb-1')).toHaveAttribute('data-active');
+    expect(elementAnimate).toHaveBeenCalled();
+    expect(scrubPlay).toHaveBeenCalled();
+    expect(startViewTransition).not.toHaveBeenCalled();
+  });
+
+  it('Next button scrubs the thumbnail strip', async () => {
+    enableScrollTimeline();
+
+    const scrubPlay = vi.fn();
+    const elementAnimate = vi.fn(() => {
+      const anim = {
+        pause: vi.fn(),
+        play: scrubPlay,
+        cancel: vi.fn(),
+        commitStyles: vi.fn(),
+        finished: Promise.resolve(),
+        currentTime: 0,
+      };
+      return anim as unknown as Animation;
+    });
+    Object.defineProperty(HTMLElement.prototype, 'animate', {
+      configurable: true,
+      writable: true,
+      value: elementAnimate,
+    });
+
+    render(
+      <LightboxRoot defaultOpen>
+        <LightboxTrigger index={0}>open</LightboxTrigger>
+        <LightboxPortal>
+          <LightboxContent aria-label="nav scrub test">
+            <LightboxSlides data-testid="slides" aria-label="Slides">
+              {Array.from({ length: 4 }, (_, i) => (
+                <LightboxSlide key={i}>
+                  <LightboxItem index={i}>item {i}</LightboxItem>
+                </LightboxSlide>
+              ))}
+            </LightboxSlides>
+            <LightboxPrevious data-testid="prev" />
+            <LightboxNext data-testid="next" />
+            <LightboxThumbnailStrip data-testid="thumbnail-strip">
+              <LightboxThumbnailStripTrack data-testid="thumbnail-strip-track" aria-label="Thumbs">
+                {Array.from({ length: 4 }, (_, i) => (
+                  <LightboxThumbnail key={i} index={i} data-testid={`thumb-${i}`}>
+                    t{i}
+                  </LightboxThumbnail>
+                ))}
+              </LightboxThumbnailStripTrack>
+            </LightboxThumbnailStrip>
+          </LightboxContent>
+        </LightboxPortal>
+      </LightboxRoot>,
+    );
+
+    const slides = screen.getByTestId('slides');
+    setupSlidesGeometry(slides, 4);
+    const root = screen.getByTestId('thumbnail-strip');
+    const track = screen.getByTestId('thumbnail-strip-track');
+    setupThumbnailStripRoot(root);
+    setupThumbGeometry(track, 4);
+    endScroll(slides);
+
+    vi.spyOn(window, 'getComputedStyle').mockReturnValue({
+      transform: 'none',
+    } as CSSStyleDeclaration);
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('next'));
+      await Promise.resolve();
+      await Promise.resolve();
+      flushRaf();
+      flushRaf();
+    });
+
+    expect(screen.getByTestId('thumb-1')).toHaveAttribute('data-active');
+    expect(elementAnimate).toHaveBeenCalled();
+    expect(scrubPlay).toHaveBeenCalled();
   });
 
   it('wrapSelectCommit can wrap the active-index commit', async () => {
