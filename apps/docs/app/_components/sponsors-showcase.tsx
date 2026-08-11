@@ -176,18 +176,18 @@ export function SponsorsShowcase() {
                   href={SPONSOR_URL}
                   target="_blank"
                   rel="noreferrer"
-                  className="inline-flex h-10 items-center gap-2 rounded-full bg-[#f5f3ec] pl-3 pr-5 text-sm font-medium text-neutral-900 transition hover:bg-[#dedcd2] md:h-11 md:pl-3.5 md:pr-6"
+                  className="inline-flex h-10 items-center gap-2 rounded-full bg-[#f5f3ec] pr-4 pl-3 text-sm font-medium text-neutral-900 transition hover:bg-[#dedcd2] md:h-11 md:pl-3.5"
                 >
-                  <Heart aria-hidden className="h-4 w-4 fill-pink-500 text-pink-500" />
+                  <Heart aria-hidden className="size-4 fill-pink-500 text-pink-500" />
                   Become a sponsor
                 </a>
                 <a
                   href={X_URL}
                   target="_blank"
                   rel="noreferrer"
-                  className="inline-flex h-10 items-center gap-2 rounded-full border border-white/20 pl-3 pr-5 text-sm font-medium text-[#f5f3ec] transition hover:bg-white/10 md:h-11 md:pl-3.5 md:pr-6"
+                  className="inline-flex h-10 items-center gap-2 rounded-full border border-white/20 pr-4 pl-3 text-sm font-medium text-[#f5f3ec] transition hover:bg-white/10 md:h-11 md:pl-3.5"
                 >
-                  <XLogo className="h-3.5 w-3.5" />
+                  <XLogo className="size-4" />
                   Find me
                 </a>
               </div>

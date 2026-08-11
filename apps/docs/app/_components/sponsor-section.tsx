@@ -25,16 +25,16 @@ export function SponsorSection() {
           href={SPONSOR_URL}
           target="_blank"
           rel="noreferrer"
-          className="inline-flex h-11 items-center gap-2 rounded-full bg-neutral-900 px-6 text-sm font-medium text-white transition hover:bg-neutral-700 dark:bg-neutral-50 dark:text-neutral-900 dark:hover:bg-neutral-300"
+          className="inline-flex h-11 items-center gap-2 rounded-full bg-neutral-900 pr-4 pl-3.5 text-sm font-medium text-white transition hover:bg-neutral-700 dark:bg-neutral-50 dark:text-neutral-900 dark:hover:bg-neutral-300"
         >
-          <Heart aria-hidden className="h-4 w-4 fill-pink-500 text-pink-500" />
+          <Heart aria-hidden className="size-4 fill-pink-500 text-pink-500" />
           Sponsor on GitHub
         </a>
         <a
           href={GITHUB_URL}
           target="_blank"
           rel="noreferrer"
-          className="inline-flex h-11 items-center rounded-full border border-neutral-200 px-6 text-sm font-medium text-neutral-900 transition hover:bg-neutral-100 dark:border-neutral-800 dark:text-neutral-50 dark:hover:bg-neutral-900"
+          className="inline-flex h-11 items-center rounded-full border border-neutral-200 px-4 text-sm font-medium text-neutral-900 transition hover:bg-neutral-100 dark:border-neutral-800 dark:text-neutral-50 dark:hover:bg-neutral-900"
         >
           Or leave a star. Stars are free.
         </a>
