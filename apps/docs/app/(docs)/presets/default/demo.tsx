@@ -107,16 +107,16 @@ const trip: LightboxItem[] = [
  * App-level demos only — not part of the copy-paste package.
  * Import the styled Lightbox from `./lightbox`, then compose triggers like this.
  *
- * 1. Whole-trigger morph + crossfade (card → photo)
+ * 1. +N overlay tile with `crossfade` + `morphTo="closest"`
  * 2. Child morph via `morphRef` (chrome stays put)
- * 3. +N overlay tile with `crossfade` + `morphTo="closest"`
+ * 3. Whole-trigger morph + crossfade (card → photo)
  */
 export function DefaultPresetDemo() {
   return (
     <div className="flex w-full max-w-md flex-col gap-8">
-      <UserCardMorph />
-      <ListingCardMorph />
       <AlbumPlusNMorph />
+      <ListingCardMorph />
+      <UserCardMorph />
     </div>
   );
 }

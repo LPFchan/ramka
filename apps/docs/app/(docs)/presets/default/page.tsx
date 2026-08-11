@@ -34,9 +34,9 @@ export default async function DefaultLightboxPresetPage() {
           triggers in your app. Gallery includes a top-right <strong className="font-medium text-neutral-800 dark:text-neutral-200">Bleed / Snug</strong>{' '}
           toggle (desktop) to switch between full-width and aspect-sized slide tracks. The{' '}
           <strong className="font-medium text-neutral-800 dark:text-neutral-200">Example</strong> tab
-          shows the live preview (whole-trigger morph, child{' '}
-          <code className="text-xs">morphRef</code>, <code className="text-xs">+N</code> crossfade) — it
-          uses Tailwind for layout and is not part of the skin.
+          shows the live preview (<code className="text-xs">+N</code> crossfade, child{' '}
+          <code className="text-xs">morphRef</code>, whole-trigger morph) — it uses Tailwind for
+          layout and is not part of the skin.
         </>
       }
       docsHref="/docs/lightbox"
