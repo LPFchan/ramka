@@ -41,7 +41,7 @@ export default async function EditorialLightboxPresetPage() {
       docsHref="/docs/lightbox"
       docsLabel="Lightbox overview"
     >
-      <ComponentPreview files={files}>
+      <ComponentPreview files={files} frame={false}>
         <EditorialPresetDemo />
       </ComponentPreview>
     </ExampleShell>

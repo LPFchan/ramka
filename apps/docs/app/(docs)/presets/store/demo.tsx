@@ -99,7 +99,7 @@ export function StorePresetDemo() {
                   alt={current.alt}
                   width={current.width}
                   height={current.height}
-                  className="block aspect-4/5 w-full object-cover"
+                  className="block aspect-square w-full object-cover"
                   draggable={false}
                 />
               )}

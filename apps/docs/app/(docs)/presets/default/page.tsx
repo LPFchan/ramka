@@ -42,7 +42,7 @@ export default async function DefaultLightboxPresetPage() {
       docsHref="/docs/lightbox"
       docsLabel="Lightbox overview"
     >
-      <ComponentPreview files={files}>
+      <ComponentPreview files={files} frame={false}>
         <DefaultPresetDemo />
       </ComponentPreview>
     </ExampleShell>

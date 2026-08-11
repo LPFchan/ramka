@@ -45,7 +45,7 @@ export default async function TwitterLightboxPresetPage() {
       docsHref="/docs/lightbox"
       docsLabel="Lightbox overview"
     >
-      <ComponentPreview files={files}>
+      <ComponentPreview files={files} frame={false}>
         <TwitterPresetDemo />
       </ComponentPreview>
     </ExampleShell>
