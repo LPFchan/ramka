@@ -32,3 +32,4 @@ export async function highlightCode(code: string, lang: CodeLang = 'tsx'): Promi
     defaultColor: false,
   });
 }
+

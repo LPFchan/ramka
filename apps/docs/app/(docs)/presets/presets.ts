@@ -10,4 +10,14 @@ export const lightboxPresets = [
     title: 'Twitter',
     description: 'Split media + thread sidebar with translucent backdrop and edge nav',
   },
+  {
+    href: '/presets/store',
+    title: 'Store',
+    description: 'Commerce viewer: thumbnail rail + buy panel with price, highlights, and CTA',
+  },
+  {
+    href: '/presets/editorial',
+    title: 'Editorial',
+    description: 'Newsroom article-figure viewer: near-black surface, caption + credit block',
+  },
 ];
