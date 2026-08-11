@@ -44,6 +44,7 @@
   position: fixed;
   inset: 0;
   opacity: 0;
+  /* Solid — the page underneath is fully covered while open. */
   background-color: #fff;
   transition: opacity
     var(--lightbox-pull-snap-duration, var(--lightbox-vt-duration, var(--lb-duration-open)))
@@ -79,19 +80,38 @@ html.dark .lb-backdrop {
   opacity: 0;
   transition: opacity var(--lightbox-vt-duration, var(--lb-duration-open)) var(--lb-ease-out-expo);
 
-  --lightbox-inset-top: calc(3.5rem + env(safe-area-inset-top, 0px));
-  --lightbox-inset-bottom: calc(3.5rem + env(safe-area-inset-bottom, 0px));
+  /*
+   * Mobile: equal top/bottom so the media is perfectly vertically centered.
+   * 4rem clears the close button row above and the caption + counter cluster
+   * below (no thumbnail-strip on mobile).
+   */
+  --lightbox-inset-top: calc(4rem + env(safe-area-inset-top, 0px));
+  --lightbox-inset-bottom: calc(4rem + env(safe-area-inset-bottom, 0px));
   --lightbox-inset-inline: 0px;
 }
 
 @media (min-width: 768px) {
   .lb-content {
+    /*
+     * Roomier desktop letterbox. Bottom = thumbnail-strip row (4rem) +
+     * one-line info bar (~1.75rem incl. gap) + the same optical gap the
+     * media keeps to the corner controls above, so the letterbox reads
+     * symmetric.
+     */
+    --lightbox-inset-top: calc(4.5rem + env(safe-area-inset-top, 0px));
     --lightbox-inset-bottom: calc(7.5rem + env(safe-area-inset-bottom, 0px));
+    --lightbox-inset-inline: 3rem;
   }
+}
 
-  /* Bleed: horizontal letterbox on Slide padding (snug uses the width formula instead). */
-  .lb-content:not(.lb-content-snug) {
-    --lightbox-inset-inline: 2rem;
+/*
+ * Solo (single item — no thumbnail strip): the desktop bottom band only holds
+ * the caption + counter placard, so shrink it to match the top inset and keep
+ * the letterbox symmetric. Mobile is already symmetric.
+ */
+@media (min-width: 768px) {
+  .lb-content-solo {
+    --lightbox-inset-bottom: calc(4.5rem + env(safe-area-inset-bottom, 0px));
   }
 }
 
@@ -143,12 +163,12 @@ html.dark .lb-backdrop {
   height: 100%;
   padding-top: var(--lightbox-inset-top);
   padding-bottom: var(--lightbox-inset-bottom);
+  padding-inline: var(--lightbox-inset-inline);
 }
 
-@media (min-width: 768px) {
-  .lb-content:not(.lb-content-snug) .lb-slide {
-    padding-inline: var(--lightbox-inset-inline);
-  }
+/* Snug: no horizontal pad on each card — gutter is the width formula only. */
+.lb-content-snug .lb-slide {
+  padding-inline: 0;
 }
 
 .lb-media {
@@ -280,20 +300,13 @@ html.dark .lb-backdrop {
 }
 
 @media (max-width: 767px) {
-  .lb-content[data-zoomed] :is(.lb-top-left, .lb-top-right).lb-chrome-pull-hide {
+  .lb-content[data-zoomed] .lb-top-right.lb-chrome-pull-hide {
     opacity: 0;
     visibility: hidden;
     transition:
       opacity 200ms,
       visibility 0s linear 200ms;
   }
-}
-
-.lb-top-left {
-  position: absolute;
-  left: 0.75rem;
-  top: calc(0.75rem + env(safe-area-inset-top, 0px));
-  z-index: 1;
 }
 
 .lb-top-right {
@@ -315,38 +328,26 @@ html.dark .lb-backdrop {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0;
-  min-height: var(--lightbox-inset-bottom);
+  gap: 0.75rem;
   padding-inline: 0.75rem;
   padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
 }
 
-/* Multi-item: grow the caption band and center text between image and strip. */
-.lb-bottom:not(.lb-bottom-solo) .lb-caption {
-  flex: 1;
-  display: flex;
-  min-height: 0;
-  align-items: center;
-  justify-content: center;
-}
-
-/* Single-item galleries hide the strip — center the caption in the bottom inset band. */
+/* Solo bottom band: center the placard between the media edge and the safe
+   area instead of pinning it to the viewport edge. */
 .lb-bottom-solo {
   justify-content: center;
-  padding-bottom: 0;
+  min-height: var(--lightbox-inset-bottom);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
-.lb-counter {
-  min-width: 3.5rem;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  font-size: 0.875rem;
-  font-variant-numeric: tabular-nums;
-  color: rgb(0 0 0 / 0.7);
-}
-
-:is(.dark, [data-theme='dark']) .lb-counter,
-html.dark .lb-counter {
-  color: rgb(255 255 255 / 0.7);
+/* Placard under the media: caption line with the counter beneath it. */
+.lb-caption-group {
+  display: flex;
+  max-width: 100%;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
 }
 
 .lb-caption {
@@ -354,20 +355,47 @@ html.dark .lb-counter {
   -webkit-user-select: text;
   user-select: text;
   display: block;
-  min-height: 1.25rem;
   max-width: 100%;
-  padding-inline: 1.5rem;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  text-align: center;
-  font-size: 0.875rem;
-  color: rgb(0 0 0 / 0.7);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  line-height: 1.25;
+  color: #171717;
 }
 
 :is(.dark, [data-theme='dark']) .lb-caption,
 html.dark .lb-caption {
-  color: rgb(255 255 255 / 0.8);
+  color: #fafafa;
+}
+
+.lb-counter {
+  font-size: 0.6875rem;
+  line-height: 1.25;
+  font-variant-numeric: tabular-nums;
+  color: #737373;
+}
+
+:is(.dark, [data-theme='dark']) .lb-counter,
+html.dark .lb-counter {
+  color: #a3a3a3;
+}
+
+/* md+: the thumbnail strip shows position, so the counter collapses to
+   sr-only and keeps only its aria-live announcement role. */
+@media (min-width: 768px) {
+  .lb-counter {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
 }
 
 /* iOS-style liquid-glass control */

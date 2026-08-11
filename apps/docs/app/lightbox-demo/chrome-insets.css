@@ -29,6 +29,28 @@
 }
 
 /*
+ * Solo (no thumbnail strip — single item or `thumbnails="never"`): the desktop
+ * bottom band only holds the caption + counter placard, so shrink it to match
+ * the top inset and keep the letterbox symmetric. Mobile is already symmetric.
+ */
+@media (min-width: 768px) {
+  .lightbox-demo-content-solo {
+    --lightbox-inset-bottom: calc(4.5rem + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+/*
+ * Solo bottom band: center the placard between the media edge and the safe
+ * area instead of pinning it to the viewport edge (overrides the Tailwind
+ * bottom padding on the chrome-bottom element).
+ */
+.lightbox-demo-chrome-bottom-solo {
+  justify-content: center;
+  min-height: var(--lightbox-inset-bottom);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/*
  * Snug uses the same bottom insets as bleed (thumbnail-strip desktop-only). Inline
  * token is a scrollport gutter for the md+ width formula — not per-slide padding.
  */

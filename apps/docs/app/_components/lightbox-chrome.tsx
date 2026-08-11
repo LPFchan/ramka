@@ -174,11 +174,12 @@ export function LightboxGallery({
 }) {
   // Viewport visibility only — linked layout/sync live in Lightbox.ThumbnailStrip.
   const thumbClass =
-    thumbnails === 'never'
-      ? 'hidden'
-      : thumbnails === 'always'
-        ? 'pointer-events-auto lightbox-demo-thumbnail-strip'
-        : 'pointer-events-auto hidden md:block lightbox-demo-thumbnail-strip';
+    thumbnails === 'always'
+      ? 'pointer-events-auto lightbox-demo-thumbnail-strip'
+      : 'pointer-events-auto hidden md:block lightbox-demo-thumbnail-strip';
+
+  // No strip → solo layout: tighter bottom band with the placard centered in it.
+  const showStrip = thumbnails !== 'never' && items.length > 1;
 
   const backdropTone = backdrop === 'solid' ? 'bg-white dark:bg-black' : 'lightbox-demo-backdrop-light';
   const snug = slidesLayout === 'snug';
@@ -196,7 +197,7 @@ export function LightboxGallery({
       <Lightbox.Content
         aria-label={ariaLabel}
         pullToClose={pullToClose}
-        className={`lightbox-demo-content fixed inset-0 flex flex-col overscroll-contain outline-none${snug ? ' lightbox-demo-content-snug' : ''}`}
+        className={`lightbox-demo-content fixed inset-0 flex flex-col overscroll-contain outline-none${snug ? ' lightbox-demo-content-snug' : ''}${showStrip ? '' : ' lightbox-demo-content-solo'}`}
       >
         <Lightbox.Slides
           aria-label="Full-size images"
@@ -287,7 +288,7 @@ export function LightboxGallery({
         </div>
 
         <div
-          className={`lightbox-demo-chrome-bottom lightbox-demo-chrome-hide pointer-events-none absolute inset-x-0 bottom-0 z-30 flex flex-col items-center gap-3 px-3 pb-[calc(1rem+env(safe-area-inset-bottom,0px))]`}
+          className={`lightbox-demo-chrome-bottom lightbox-demo-chrome-hide${showStrip ? '' : ' lightbox-demo-chrome-bottom-solo'} pointer-events-none absolute inset-x-0 bottom-0 z-30 flex flex-col items-center gap-3 px-3 pb-[calc(1rem+env(safe-area-inset-bottom,0px))]`}
         >
           {/*
             Caption under the media, placard-style, on every breakpoint. The
@@ -297,13 +298,14 @@ export function LightboxGallery({
           */}
           <div className="flex max-w-full flex-col items-center text-center">
             <Lightbox.Caption className="block max-w-full truncate text-[13px] font-medium leading-tight text-neutral-900 dark:text-neutral-50" />
-            <Lightbox.Counter className="text-[11px] leading-tight tabular-nums text-neutral-500 dark:text-neutral-400 md:sr-only">
-              {({ current, total }) => `${current} of ${total}`}
-            </Lightbox.Counter>
+            {/* "1 of 1" is noise — skip the counter for single-item galleries. */}
+            {items.length > 1 ? (
+              <Lightbox.Counter className="text-[11px] leading-tight tabular-nums text-neutral-500 dark:text-neutral-400 md:sr-only">
+                {({ current, total }) => `${current} of ${total}`}
+              </Lightbox.Counter>
+            ) : null}
           </div>
-          {thumbnails !== 'never' ? (
-            <GalleryThumbnailStrip items={items} className={thumbClass} />
-          ) : null}
+          {showStrip ? <GalleryThumbnailStrip items={items} className={thumbClass} /> : null}
         </div>
       </Lightbox.Content>
     </Lightbox.Portal>

@@ -212,8 +212,8 @@ function GalleryThumbnailStrip({ items }: { items: LightboxItem[] }) {
 }
 
 /**
- * Default product chrome — Portal → Backdrop + Content → Slides/Zoom + counter /
- * glass controls / caption / desktop ThumbnailStrip. Supports bleed (full-width)
+ * Default product chrome — Portal → Backdrop + Content → Slides/Zoom + glass
+ * controls / caption + counter placard / desktop ThumbnailStrip. Supports bleed (full-width)
  * and snug (aspect-sized cards) via the top-right layout toggle or `slidesLayout`.
  */
 function Gallery({
@@ -230,6 +230,8 @@ function Gallery({
   const [slidesLayoutInternal, setSlidesLayoutInternal] = React.useState<SlidesLayout>('bleed');
   const slidesLayout = slidesLayoutProp ?? slidesLayoutInternal;
   const snug = slidesLayout === 'snug';
+  // Single item → no thumbnail strip → solo layout (tighter, centered bottom band).
+  const solo = items.length <= 1;
 
   const setSlidesLayout = React.useCallback(
     (next: SlidesLayout) => {
@@ -258,7 +260,7 @@ function Gallery({
       <Backdrop />
       <Content
         aria-label={ariaLabel}
-        className={snug ? 'lb-content-snug' : undefined}
+        className={cx(snug && 'lb-content-snug', solo && 'lb-content-solo') || undefined}
       >
         <Slides
           key={slidesLayout}
@@ -305,10 +307,6 @@ function Gallery({
           })}
         </Slides>
 
-        <div className={cx('lb-top-left', 'lb-chrome-pull-hide')}>
-          <Counter />
-        </div>
-
         <div className={cx('lb-top-right', 'lb-chrome-pull-hide')}>
           <button
             type="button"
@@ -324,14 +322,18 @@ function Gallery({
           <Close />
         </div>
 
-        <div
-          className={cx(
-            'lb-bottom',
-            'lb-chrome-pull-hide',
-            items.length <= 1 && 'lb-bottom-solo',
-          )}
-        >
-          <Caption />
+        <div className={cx('lb-bottom', 'lb-chrome-pull-hide', solo && 'lb-bottom-solo')}>
+          {/*
+            Caption under the media, placard-style. The counter is visible on
+            mobile where there's no strip to show position; on md+ the strip
+            covers that, so the counter collapses to sr-only and keeps only
+            its aria-live announcement role.
+          */}
+          <div className="lb-caption-group">
+            <Caption />
+            {/* "1 of 1" is noise — skip the counter for single-item galleries. */}
+            {solo ? null : <Counter>{({ current, total }) => `${current} of ${total}`}</Counter>}
+          </div>
           <GalleryThumbnailStrip items={items} />
         </div>
       </Content>

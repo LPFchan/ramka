@@ -112,10 +112,6 @@ function OverlayDebugGallery({ items }: { items: LightboxItem[] }) {
 
         <OverlayPanelBridge />
 
-        <div className="lb-top-left lb-chrome-pull-hide">
-          <Lightbox.Counter />
-        </div>
-
         <div className="lb-top-right lb-chrome-pull-hide">
           <button
             type="button"
@@ -132,7 +128,10 @@ function OverlayDebugGallery({ items }: { items: LightboxItem[] }) {
         </div>
 
         <div className="lb-bottom lb-chrome-pull-hide">
-          <Lightbox.Caption />
+          <div className="lb-caption-group">
+            <Lightbox.Caption />
+            <Lightbox.Counter>{({ current, total }) => `${current} of ${total}`}</Lightbox.Counter>
+          </div>
           <Lightbox.ThumbnailStrip className="lb-thumbnail-strip-desktop">
             <Lightbox.ThumbnailStripTrack aria-label="Photo thumbnails">
               {items.map((item, i) => (
