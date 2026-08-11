@@ -81,6 +81,32 @@ export type LightboxItem = {
 
 export type SlidesLayout = 'bleed' | 'snug';
 
+/**
+ * The snug/bleed choice is a user preference, so it survives across galleries
+ * and visits. Guarded reads/writes: localStorage throws in some private modes,
+ * and `window` doesn't exist during SSR (the portal renders nothing while
+ * closed, so the pre-hydration value is never visible anyway).
+ */
+const SLIDES_LAYOUT_STORAGE_KEY = 'ramka-lightbox-slides-layout';
+
+function readStoredSlidesLayout(): SlidesLayout | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const value = window.localStorage.getItem(SLIDES_LAYOUT_STORAGE_KEY);
+    return value === 'snug' || value === 'bleed' ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+function storeSlidesLayout(layout: SlidesLayout) {
+  try {
+    window.localStorage.setItem(SLIDES_LAYOUT_STORAGE_KEY, layout);
+  } catch {
+    // Storage unavailable — the toggle still works for this session.
+  }
+}
+
 function itemAspectRatio(item: LightboxItem): number {
   return item.width / item.height;
 }
@@ -247,7 +273,9 @@ function Gallery({
   slidesLayout?: SlidesLayout;
   onSlidesLayoutChange?: (layout: SlidesLayout) => void;
 }) {
-  const [slidesLayoutInternal, setSlidesLayoutInternal] = React.useState<SlidesLayout>('bleed');
+  const [slidesLayoutInternal, setSlidesLayoutInternal] = React.useState<SlidesLayout>(
+    () => readStoredSlidesLayout() ?? 'bleed',
+  );
   const slidesLayout = slidesLayoutProp ?? slidesLayoutInternal;
   const snug = slidesLayout === 'snug';
   // Single item → no thumbnail strip → solo layout (tighter, centered bottom band).
@@ -255,6 +283,7 @@ function Gallery({
 
   const setSlidesLayout = React.useCallback(
     (next: SlidesLayout) => {
+      storeSlidesLayout(next);
       onSlidesLayoutChange?.(next);
       if (slidesLayoutProp === undefined) {
         setSlidesLayoutInternal(next);
@@ -328,17 +357,16 @@ function Gallery({
         </Slides>
 
         <div className={cx('lb-top-right', 'lb-chrome-pull-hide')}>
-          {/* Layout toggle: the icon is a miniature of the layout you GET by
-              clicking — snug shows a card with neighbours, bleed one wide slide. */}
+          {/* Layout toggle: the icon is a miniature of the CURRENT layout —
+              snug shows a card with neighbours, bleed one wide slide. */}
           <button
             type="button"
             className={cx('lb-control', 'lb-control-md', 'lb-control-layout')}
             aria-pressed={snug}
             aria-label={snug ? 'Switch to full-bleed slides' : 'Switch to snug slides'}
-            title={snug ? 'Full-bleed slides' : 'Snug slides'}
             onClick={toggleSlidesLayout}
           >
-            {snug ? <IconLayoutBleed /> : <IconLayoutSnug />}
+            {snug ? <IconLayoutSnug /> : <IconLayoutBleed />}
           </button>
           {/* Zoom −/+ share one capsule with a hairline divider. */}
           <div className={cx('lb-control-group', 'lb-control-md')}>

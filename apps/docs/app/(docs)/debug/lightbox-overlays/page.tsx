@@ -118,17 +118,17 @@ function OverlayDebugGallery({ items }: { items: LightboxItem[] }) {
             className="lb-control lb-control-md lb-control-layout"
             aria-pressed={snug}
             aria-label={snug ? 'Switch to full-bleed slides' : 'Switch to snug slides'}
-            title={snug ? 'Full-bleed slides' : 'Snug slides'}
             onClick={() => setSlidesLayout(snug ? 'bleed' : 'snug')}
           >
+            {/* Icon mirrors the CURRENT layout, matching the default preset. */}
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.25} aria-hidden>
               {snug ? (
-                <rect x="4" y="7" width="16" height="10" rx="1.5" />
-              ) : (
                 <>
                   <rect x="8.5" y="7" width="7" height="10" rx="1.5" />
                   <path d="M4 9v6M20 9v6" strokeLinecap="round" />
                 </>
+              ) : (
+                <rect x="4" y="7" width="16" height="10" rx="1.5" />
               )}
             </svg>
           </button>
