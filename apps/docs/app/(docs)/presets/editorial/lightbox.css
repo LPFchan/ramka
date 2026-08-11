@@ -119,6 +119,16 @@
   padding: var(--elb-inset-top) var(--elb-inset-inline) var(--elb-inset-bottom);
 }
 
+/* This viewer has no zoom, so Item stands in for the `Lightbox.Zoom` wrapper
+   structurally: Media's fit-box resolves `cqw`/`cqh` against the nearest size
+   container, and the flex centering letterboxes it inside the slide insets. */
+.elb-item {
+  container-type: size;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .elb-media img {
   user-select: none;
   -webkit-user-select: none;

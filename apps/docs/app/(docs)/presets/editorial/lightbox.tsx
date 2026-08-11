@@ -99,16 +99,12 @@ function Slide({ className, ...props }: React.ComponentProps<typeof RamkaLightbo
   return <RamkaLightbox.Slide className={cx('elb-slide', className)} {...props} />;
 }
 
-function Item(props: React.ComponentProps<typeof RamkaLightbox.Item>) {
-  return <RamkaLightbox.Item {...props} />;
+function Item({ className, ...props }: React.ComponentProps<typeof RamkaLightbox.Item>) {
+  return <RamkaLightbox.Item className={cx('elb-item', className)} {...props} />;
 }
 
 function Media({ className, ...props }: React.ComponentProps<typeof RamkaLightbox.Media>) {
   return <RamkaLightbox.Media className={cx('elb-media', className)} {...props} />;
-}
-
-function Zoom(props: React.ComponentProps<typeof RamkaLightbox.Zoom>) {
-  return <RamkaLightbox.Zoom {...props} />;
 }
 
 function Counter({ className, ...props }: React.ComponentProps<typeof RamkaLightbox.Counter>) {
@@ -160,25 +156,20 @@ function Gallery({ items, ariaLabel }: { items: LightboxItem[]; ariaLabel: strin
     <Portal>
       <Backdrop />
       <Content aria-label={ariaLabel}>
-        <Slides aria-label="Article photographs" preload={1}>
+        <Slides aria-label="Article photographs" preload={2}>
           {items.map((item, i) => (
             <Slide key={item.id ?? i}>
               <Item index={i} caption={figureCaption(item)}>
-                {/* Zoom locked at 1× — Media sizes its fit-box against Zoom's
-                    container, so the wrapper is structural even though this
-                    viewer deliberately doesn't zoom. */}
-                <Zoom maxZoom={1}>
-                  <Media width={item.width} height={item.height}>
-                    <img
-                      width={item.width}
-                      height={item.height}
-                      src={item.src}
-                      alt={item.alt}
-                      loading="eager"
-                      draggable={false}
-                    />
-                  </Media>
-                </Zoom>
+                <Media width={item.width} height={item.height}>
+                  <img
+                    width={item.width}
+                    height={item.height}
+                    src={item.src}
+                    alt={item.alt}
+                    loading="eager"
+                    draggable={false}
+                  />
+                </Media>
               </Item>
             </Slide>
           ))}
@@ -219,7 +210,6 @@ export const Lightbox = {
   Slide,
   Item,
   Media,
-  Zoom,
   Counter,
   Caption,
   Previous,
