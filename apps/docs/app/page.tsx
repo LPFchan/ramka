@@ -1,71 +1,117 @@
 import Link from 'next/link';
 
-import { CodeBlock } from './_components/code-block';
-import { docsLinkClassName } from './_components/docs-link';
-import { lightboxDocsPages } from './_content/lightbox/docs-pages';
-import { lightboxExcerpts } from './_content/lightbox/excerpts/generated';
+import { ApplesToApples } from './_components/apples-to-apples';
+import { FooterWordplay } from './_components/footer-wordplay';
+import { InstallCommand } from './_components/install-command';
+import { LandingDemo } from './_components/landing-demo';
+import { SponsorSection } from './_components/sponsor-section';
+import { SponsorsShowcase } from './_components/sponsors-showcase';
+import { ThemeToggle } from './_components/theme-toggle';
+
+const GITHUB_URL = 'https://github.com/arturbien/ramka';
+
+function GitHubIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden className={className}>
+      <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z" />
+    </svg>
+  );
+}
 
 export default function HomePage() {
   return (
-    <div className="mx-auto w-full max-w-3xl px-6 py-16">
-      <p className="text-xs font-semibold uppercase tracking-widest text-neutral-500">
-        Getting started
-      </p>
-      <h1 className="mt-2 text-5xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-50">
-        ramka
-      </h1>
-      <p className="mt-4 max-w-2xl text-lg leading-relaxed text-neutral-600 dark:text-neutral-400">
-        Unstyled, accessible lightbox primitives for React — in the style of Radix UI and Base UI.
-        Compose your own lightbox UI on headless parts with view-transition morph by default, swipe
-        slides, zoom, and pull-to-dismiss.
-      </p>
+    <div className="isolate flex min-h-screen flex-col">
+      {/* Mobile vertical padding matches the docs mobile nav (56px row) so the
+          wordmark doesn't shift between pages. */}
+      <header className="mx-auto flex w-full max-w-5xl items-center justify-between px-6 py-3 md:py-5">
+        <span className="text-sm font-semibold tracking-tight text-neutral-900 dark:text-neutral-50">
+          ramka
+        </span>
+        <div className="flex items-center gap-2">
+          <a
+            href={GITHUB_URL}
+            target="_blank"
+            rel="noreferrer"
+            aria-label="ramka on GitHub"
+            className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-neutral-200 bg-white text-neutral-700 transition hover:bg-neutral-100 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-800"
+          >
+            <GitHubIcon className="h-4 w-4" />
+          </a>
+          <ThemeToggle />
+        </div>
+      </header>
 
-      <section className="mt-10 space-y-3">
-        <h2 className="text-sm font-semibold uppercase tracking-widest text-neutral-500">
-          Installation
-        </h2>
-        <CodeBlock code="pnpm add ramka" lang="bash" />
-        <p className="text-sm text-neutral-600 dark:text-neutral-400">
-          Peer dependencies: <code className="text-xs">react</code> and{' '}
-          <code className="text-xs">react-dom</code> &gt;= 18.
-        </p>
-      </section>
+      <main className="flex-1">
+        <section className="mx-auto w-full max-w-3xl px-6 pt-16 text-center md:pt-24">
+          <h1 className="text-balance text-5xl font-semibold tracking-tight text-neutral-950 md:text-7xl dark:text-neutral-50">
+            The lightbox for&nbsp;React.
+          </h1>
+          <p className="mx-auto mt-6 max-w-xl text-pretty text-lg leading-relaxed text-neutral-500 md:text-xl dark:text-neutral-400">
+            Unstyled, accessible primitives built on native scrolling and view transitions.
+            Morph, swipe, zoom, and pull-to-dismiss, all out of the box.
+          </p>
 
-      <section className="mt-10 space-y-3">
-        <h2 className="text-sm font-semibold uppercase tracking-widest text-neutral-500">
-          Quick start
-        </h2>
-        <CodeBlock
-          code={lightboxExcerpts['quick-start'].code}
-          title={lightboxExcerpts['quick-start'].title}
-        />
-      </section>
-
-      <section className="mt-12 rounded-xl border border-neutral-200 p-5 dark:border-neutral-800">
-        <h2 className="text-base font-semibold text-neutral-900 dark:text-neutral-50">
-          Next steps
-        </h2>
-        <ul className="mt-3 space-y-2 text-sm text-neutral-600 dark:text-neutral-400">
-          <li>
-            <Link href={lightboxDocsPages.overview.href} className={docsLinkClassName}>
-              Lightbox overview
+          <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
+            <Link
+              href="/docs"
+              className="inline-flex h-11 items-center rounded-full bg-neutral-900 px-4 text-sm font-medium text-white transition hover:bg-neutral-700 dark:bg-neutral-50 dark:text-neutral-900 dark:hover:bg-neutral-300"
+            >
+              Documentation
             </Link>
-            {' — '}
-            guidelines and anatomy, then{' '}
-            <Link href={lightboxDocsPages.composition.href} className={docsLinkClassName}>
-              Composition
+            <a
+              href={GITHUB_URL}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex h-11 items-center gap-2 rounded-full border border-neutral-200 py-0 pr-4 pl-3.5 text-sm font-medium text-neutral-900 transition hover:bg-neutral-100 dark:border-neutral-800 dark:text-neutral-50 dark:hover:bg-neutral-900"
+            >
+              <GitHubIcon className="size-4" />
+              GitHub
+            </a>
+          </div>
+
+          <div className="mt-5">
+            <InstallCommand />
+          </div>
+        </section>
+
+        <section className="mx-auto w-full max-w-5xl px-6 pb-24 pt-16 md:pt-24">
+          <p className="mb-6 text-center text-sm text-neutral-400 dark:text-neutral-600">
+            Click any image. Swipe, pinch to zoom, pull to dismiss.
+          </p>
+          <LandingDemo />
+        </section>
+
+        <SponsorsShowcase />
+
+        <ApplesToApples />
+
+        <SponsorSection />
+      </main>
+
+      <footer className="border-t border-neutral-200 dark:border-neutral-800">
+        <div className="mx-auto flex w-full max-w-5xl flex-wrap items-center justify-between gap-4 px-6 py-8 text-sm text-neutral-500 dark:text-neutral-400">
+          <FooterWordplay />
+          <nav className="flex items-center gap-5">
+            <Link href="/docs" className="transition hover:text-neutral-900 dark:hover:text-neutral-100">
+              Docs
             </Link>
-            .
-          </li>
-          <li>
-            <Link href="/examples/lightbox/responsive-gallery" className={docsLinkClassName}>
+            <Link
+              href="/examples/lightbox/photos-app"
+              className="transition hover:text-neutral-900 dark:hover:text-neutral-100"
+            >
               Examples
             </Link>
-            {' — '}
-            live product demos and API pattern pages.
-          </li>
-        </ul>
-      </section>
+            <a
+              href={GITHUB_URL}
+              target="_blank"
+              rel="noreferrer"
+              className="transition hover:text-neutral-900 dark:hover:text-neutral-100"
+            >
+              GitHub
+            </a>
+          </nav>
+        </div>
+      </footer>
     </div>
   );
 }

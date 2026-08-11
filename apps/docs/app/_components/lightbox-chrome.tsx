@@ -14,15 +14,17 @@ import { ChevronLeft, ChevronRight, X, ZoomIn, ZoomOut } from 'lucide-react';
  * Motion timings mirror frosted-ui's lightbox so this docs site looks
  * like the same component the library is modeled after:
  *
- *   - backdrop opacity        --duration-open ease-out-expo
- *   - content opacity         --duration-open ease-out-expo
+ *   - backdrop opacity        --lightbox-vt-duration ease-out-expo
+ *   - content opacity         --lightbox-vt-duration ease-out-expo
  *   - VT root + morph group   library-injected (viewTransition preset timing)
  *   - morph-target hide       library-injected (200ms ease-out-expo)
  *   - active item fade-in     250ms ease-out (keyframe in globals.css)
  *
  * The open/close choreography (backdrop, content, VT root cross-fade, morph)
- * all share the single `--duration-open` token (motion.css) so they resolve as
- * one cohesive motion — tweak it once and everything stays in lockstep.
+ * all read `--lightbox-vt-duration` — the Root's `viewTransition` preset
+ * timing, which the library publishes on the Portal host (always) and on
+ * documentElement (during a morph) — so they resolve as one cohesive motion.
+ * Pick a different preset and everything stays in lockstep.
  *
  * The `ease-out-expo` token and `animate-lightbox-item-fade-in` utility
  * are defined in `globals.css` via Tailwind v4's `@theme`. The View
@@ -126,7 +128,7 @@ function GalleryThumbnailStrip({
 
 
 /**
- * Default product chrome for docs/examples — responsive-gallery viewer:
+ * Default product chrome for docs/examples — the shared fullscreen viewer:
  * light pull-fade Backdrop, Slides + Zoom, Counter (top-left), Close/ZoomIn/
  * ZoomOut, Caption + desktop thumbnails. Place beside Triggers under
  * `Lightbox.Root` (does not render Root or Triggers).
@@ -174,11 +176,12 @@ export function LightboxGallery({
 }) {
   // Viewport visibility only — linked layout/sync live in Lightbox.ThumbnailStrip.
   const thumbClass =
-    thumbnails === 'never'
-      ? 'hidden'
-      : thumbnails === 'always'
-        ? 'pointer-events-auto lightbox-demo-thumbnail-strip'
-        : 'pointer-events-auto hidden md:block lightbox-demo-thumbnail-strip';
+    thumbnails === 'always'
+      ? 'pointer-events-auto lightbox-demo-thumbnail-strip'
+      : 'pointer-events-auto hidden md:block lightbox-demo-thumbnail-strip';
+
+  // No strip → solo layout: tighter bottom band with the placard centered in it.
+  const showStrip = thumbnails !== 'never' && items.length > 1;
 
   const backdropTone = backdrop === 'solid' ? 'bg-white dark:bg-black' : 'lightbox-demo-backdrop-light';
   const snug = slidesLayout === 'snug';
@@ -196,7 +199,7 @@ export function LightboxGallery({
       <Lightbox.Content
         aria-label={ariaLabel}
         pullToClose={pullToClose}
-        className={`lightbox-demo-content fixed inset-0 flex flex-col overscroll-contain outline-none${snug ? ' lightbox-demo-content-snug' : ''}`}
+        className={`lightbox-demo-content fixed inset-0 flex flex-col overscroll-contain outline-none${snug ? ' lightbox-demo-content-snug' : ''}${showStrip ? '' : ' lightbox-demo-content-solo'}`}
       >
         <Lightbox.Slides
           aria-label="Full-size images"
@@ -269,12 +272,6 @@ export function LightboxGallery({
           can’t win when a sibling slide creates a higher stacking context.
         */}
         <div
-          className={`lightbox-demo-chrome-top lightbox-demo-chrome-hide absolute left-3 top-[calc(0.75rem+env(safe-area-inset-top,0px))] z-30`}
-        >
-          <Lightbox.Counter className="min-w-[3.5rem] font-mono text-sm tabular-nums text-black/70 dark:text-white/70" />
-        </div>
-
-        <div
           className={`lightbox-demo-chrome-top lightbox-demo-chrome-hide absolute right-3 top-[calc(0.75rem+env(safe-area-inset-top,0px))] z-30 flex gap-2`}
         >
           {zoomControls ? (
@@ -293,13 +290,24 @@ export function LightboxGallery({
         </div>
 
         <div
-          className={`lightbox-demo-chrome-bottom lightbox-demo-chrome-hide pointer-events-none absolute inset-x-0 bottom-0 z-30 flex flex-col items-center gap-3 px-3 pb-[calc(1rem+env(safe-area-inset-bottom,0px))]`}
+          className={`lightbox-demo-chrome-bottom lightbox-demo-chrome-hide${showStrip ? '' : ' lightbox-demo-chrome-bottom-solo'} pointer-events-none absolute inset-x-0 bottom-0 z-30 flex flex-col items-center gap-3 px-3 pb-[calc(1rem+env(safe-area-inset-bottom,0px))]`}
         >
-          <Lightbox.Caption className="pointer-events-auto block min-h-[1.25rem] max-w-full truncate px-6 text-center text-sm text-black/70 dark:text-white/80" />
-
-          {thumbnails !== 'never' ? (
-            <GalleryThumbnailStrip items={items} className={thumbClass} />
-          ) : null}
+          {/*
+            Caption under the media, placard-style, on every breakpoint. The
+            counter is visible on mobile where there's no strip to show
+            position; on md+ the strip covers that, so the counter collapses
+            to sr-only and keeps only its aria-live announcement role.
+          */}
+          <div className="flex max-w-full flex-col items-center text-center">
+            <Lightbox.Caption className="block max-w-full truncate text-[13px] font-medium leading-tight text-neutral-900 dark:text-neutral-50" />
+            {/* "1 of 1" is noise — skip the counter for single-item galleries. */}
+            {items.length > 1 ? (
+              <Lightbox.Counter className="text-[11px] leading-tight tabular-nums text-neutral-500 dark:text-neutral-400 md:sr-only">
+                {({ current, total }) => `${current} of ${total}`}
+              </Lightbox.Counter>
+            ) : null}
+          </div>
+          {showStrip ? <GalleryThumbnailStrip items={items} className={thumbClass} /> : null}
         </div>
       </Lightbox.Content>
     </Lightbox.Portal>

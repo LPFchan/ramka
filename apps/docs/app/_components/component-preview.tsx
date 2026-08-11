@@ -4,48 +4,53 @@ import * as React from 'react';
 import { Check, Copy } from 'lucide-react';
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { copyText } from '@/lib/copy-text';
 import { cn } from '@/lib/utils';
 
 import type { SourceFile, SourceFileGroup } from './read-source-files';
 
 /**
  * Live example card + separate multi-file source card below (file tabs + copy).
+ * `frame={false}` drops the bordered card and renders the demo directly on the
+ * page background (used by preset pages).
  */
 export function ComponentPreview({
   children,
   files,
   className,
   align = 'center',
+  frame = true,
 }: {
   children: React.ReactNode;
   files: SourceFile[];
   className?: string;
   align?: 'center' | 'start' | 'end';
+  frame?: boolean;
 }) {
+  const alignClass = cn(
+    align === 'center' && 'items-center justify-center',
+    align === 'start' && 'items-start justify-start',
+    align === 'end' && 'items-end justify-end',
+  );
+
   return (
     <div className={cn('flex flex-col gap-4', className)}>
-      <div className="overflow-hidden rounded-xl border border-neutral-200 dark:border-neutral-800">
-        <div
-          className={cn(
-            'flex min-h-70 bg-white p-6 sm:p-10 dark:bg-neutral-950',
-            align === 'center' && 'items-center justify-center',
-            align === 'start' && 'items-start justify-start',
-            align === 'end' && 'items-end justify-end',
-          )}
-        >
-          {children}
+      {frame ? (
+        <div className="overflow-hidden rounded-xl border border-neutral-200 dark:border-neutral-800">
+          <div className={cn('flex min-h-70 bg-white p-6 sm:p-10 dark:bg-neutral-950', alignClass)}>
+            {children}
+          </div>
         </div>
-      </div>
+      ) : (
+        // Bare demos flow with the page column (left-aligned like the title
+        // and description), instead of floating centered in the free space.
+        <div className="py-4">{children}</div>
+      )}
 
       <ComponentSource files={files} />
     </div>
   );
 }
-
-const GROUP_LABEL: Record<SourceFileGroup, string> = {
-  package: 'Package',
-  example: 'Example',
-};
 
 /** Standalone source card — segmented file switcher + copy for the active file. */
 export function ComponentSource({
@@ -82,15 +87,11 @@ export function ComponentSource({
     return sections;
   }, [files]);
 
-  async function copy() {
+  function copy() {
     if (!current) return;
-    try {
-      await navigator.clipboard.writeText(current.code);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 1500);
-    } catch {
-      // ignore
-    }
+    if (!copyText(current.code)) return;
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1500);
   }
 
   return (
@@ -120,11 +121,6 @@ export function ComponentSource({
                         className="mx-1 h-4 w-px shrink-0 self-center bg-neutral-300 dark:bg-neutral-600"
                       />
                     ) : null}
-                    {section.group ? (
-                      <span className="shrink-0 self-center px-1 text-[10px] font-semibold tracking-wide text-neutral-400 uppercase dark:text-neutral-500">
-                        {GROUP_LABEL[section.group]}
-                      </span>
-                    ) : null}
                     {section.files.map((file) => (
                       <TabsTrigger key={file.name} value={file.name} className="px-2.5 text-xs">
                         {file.name}
@@ -144,7 +140,7 @@ export function ComponentSource({
               aria-label={current ? `Copy ${current.name}` : 'Copy code'}
             >
               {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
-              {copied ? 'Copied' : 'Copy'}
+              <span className="hidden sm:inline">{copied ? 'Copied' : 'Copy'}</span>
             </button>
           </div>
 

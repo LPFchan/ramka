@@ -868,15 +868,15 @@ export const generatedCssVariables: Record<string, CssVarRow[]> = {
     },
     {
       name: "--lightbox-vt-duration",
-      description: "Morph + root-snapshot duration. WRITTEN BY THE LIBRARY onto `documentElement` during a morph from the Root's `viewTransition` timing preset — read it in document-level `::view-transition-*` rules (e.g. `calc(var(--lightbox-vt-duration) * 0.5)` for a derived track); do not set it yourself. Timing is chosen via the `viewTransition` prop.",
+      description: "Morph + root-snapshot duration from the Root's `viewTransition` timing preset. WRITTEN BY THE LIBRARY in two places — do not set it yourself: onto `documentElement` during a morph (read it in document-level `::view-transition-*` rules, e.g. `calc(var(--lightbox-vt-duration) * 0.5)` for a derived track), and always onto the Portal host, so skin open/close fades inside the portal can use the preset's clock even when no morph runs (non-VT browsers, reduced motion, low-end fallback), e.g. `transition: opacity var(--lightbox-vt-duration, 360ms) ease-out`.",
     },
     {
       name: "--lightbox-vt-easing",
-      description: "Easing for `::view-transition-group(lightbox-morph)` and the crossfade dissolve. Written by the library from the `viewTransition` preset, like `--lightbox-vt-duration`.",
+      description: "Easing for `::view-transition-group(lightbox-morph)` and the crossfade dissolve. Written by the library from the `viewTransition` preset, like `--lightbox-vt-duration` (during a morph on `documentElement`, always on the Portal host).",
     },
     {
       name: "--lightbox-vt-root-easing",
-      description: "Easing for the root snapshot cross-fade (`::view-transition-old/new(root)`). Written by the library from the `viewTransition` preset, like `--lightbox-vt-duration`.",
+      description: "Easing for the root snapshot cross-fade (`::view-transition-old/new(root)`). Written by the library from the `viewTransition` preset, like `--lightbox-vt-duration` (during a morph on `documentElement`, always on the Portal host). A good default for skin backdrop/content fades.",
     },
   ],
   "api-use-trigger-context": [],

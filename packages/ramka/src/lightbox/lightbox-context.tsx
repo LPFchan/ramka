@@ -3,6 +3,7 @@
 import * as React from 'react';
 
 import type { SlidesGeometry } from './lightbox-slides-geometry';
+import type { LightboxViewTransitionPreset } from './vt-timing';
 
 type NavigationSource = 'trigger' | 'keyboard' | 'thumbnail' | 'button' | 'scroll' | 'imperative';
 
@@ -110,6 +111,13 @@ interface LightboxContextValue {
 
   // View transition support
   viewTransition: boolean;
+  /**
+   * The Root's raw `viewTransition` prop — the timing preset name (or
+   * boolean). The Portal resolves it so the preset's `--lightbox-vt-*` motion
+   * vars are always available inside the portal subtree, not just while a
+   * morph is running (skins read them for their non-VT open/close fades).
+   */
+  transitionPreset: boolean | LightboxViewTransitionPreset | undefined;
   morphTo: 'active' | 'origin' | 'closest';
   triggerElementsRef: React.RefObject<Map<number, HTMLElement>>;
   /**
