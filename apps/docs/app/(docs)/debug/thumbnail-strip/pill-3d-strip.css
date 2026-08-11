@@ -82,9 +82,34 @@
   -webkit-backface-visibility: hidden;
 }
 
-.ts-p3d-thumb[data-active] {
-  outline: 2px solid rgb(255 255 255 / 0.95);
-  outline-offset: 2px;
+/*
+ * Stationary selection ring — like the regular lightbox chrome, the indicator
+ * sits fixed at the front-center rest position and thumbs rotate through it
+ * (nothing is anchored to the active item). The plane mirrors the scene
+ * transform so the ring projects with the same perspective, and pushes out by
+ * R (+1px so the coplanar front thumb never z-fights it).
+ */
+.ts-p3d-indicator-plane {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  transform-style: preserve-3d;
+  transform: translateZ(calc(var(--ts-p3d-r, 110) * -1px)) rotateX(12deg);
+}
+
+.ts-p3d-indicator {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: calc(3.5rem + 10px);
+  height: calc(3.5rem + 10px);
+  transform: translate(-50%, -50%) translateZ(calc(var(--ts-p3d-r, 110) * 1px + 1px));
+  border-radius: calc(0.625rem + 2px);
+  /* Dual stroke so the ring reads on light and dark photos (house style). */
+  box-shadow:
+    inset 0 0 0 2px rgb(255 255 255 / 0.95),
+    0 0 0 1px rgb(0 0 0 / 0.35),
+    0 1px 3px rgb(0 0 0 / 0.25);
 }
 
 .ts-p3d-thumb:focus-visible {

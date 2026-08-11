@@ -299,6 +299,12 @@ export function Pill3DStrip({ photos }: { photos: Pill3DPhoto[] }) {
             </Lightbox.Thumbnail>
           ))}
         </Lightbox.ThumbnailGroup>
+        {/* Stationary selection ring at the pill's front-center (rest position
+            of the active thumb) — a twin preserve-3d plane so it projects with
+            the exact same perspective as the scene. */}
+        <span className="ts-p3d-indicator-plane" aria-hidden>
+          <span className="ts-p3d-indicator" />
+        </span>
       </div>
     </div>
   );
