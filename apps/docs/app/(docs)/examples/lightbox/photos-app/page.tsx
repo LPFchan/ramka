@@ -16,8 +16,8 @@ import {
  * A macOS Photos–style app surface: a dense grid of square thumbnails under a
  * sticky, blurred toolbar. The whole page *is* the app — no docs chrome. The
  * toolbar `−`/`+` buttons change the grid density (crossfaded via a View
- * Transition), and tapping any photo opens the same fullscreen viewer used by
- * the `responsive-gallery` demo: swipe navigation, desktop thumbnails, a View
+ * Transition), and tapping any photo opens the shared docs fullscreen viewer
+ * (`LightboxGallery`): swipe navigation, desktop thumbnails, a View
  * Transition morph, pinch / scroll / keyboard zoom, and pull-to-dismiss.
  */
 

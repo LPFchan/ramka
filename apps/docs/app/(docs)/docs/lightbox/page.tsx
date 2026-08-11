@@ -134,7 +134,7 @@ export default function LightboxOverviewPage() {
         </ul>
         <p className="mt-4">
           Browse product demos under{' '}
-          <DocsLink href="/examples/lightbox/responsive-gallery">Examples</DocsLink>. Guides above are
+          <DocsLink href="/examples/lightbox/photos-app">Examples</DocsLink>. Guides above are
           canonical for behavior; examples are compositions.
         </p>
       </DocsSection>

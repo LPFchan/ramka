@@ -20,8 +20,8 @@ export default function LightboxGesturesPage() {
       description={
         <>
           Pull-to-dismiss, zoom/pan, and keyboard ownership. Part of{' '}
-          <DocsLink href={lightboxDocsPages.overview.href}>Lightbox</DocsLink>. For a full product composition see{' '}
-          <DocsLink href="/examples/lightbox/responsive-gallery">Responsive gallery</DocsLink>.
+          <DocsLink href={lightboxDocsPages.overview.href}>Lightbox</DocsLink>. For a full product composition see the{' '}
+          <DocsLink href="/presets/twitter">Twitter preset</DocsLink>.
         </>
       }
       toc={toc}

@@ -1,177 +1,371 @@
 'use client';
 
+import * as React from 'react';
+import { Lightbox as RamkaLightbox } from 'ramka';
+import { Heart, MessageCircle, Repeat2, Share } from 'lucide-react';
+
 import { Lightbox, type LightboxItem, type ThreadPost } from './lightbox';
-
-const author = {
-  name: 'Maya Chen',
-  handle: 'mayachen',
-  avatar: 'https://i.pravatar.cc/96?u=mayachen',
-  verified: true,
-};
-
-const thread: ThreadPost = {
-  author,
-  text: 'Hot take: most “premium” SaaS dashboards are just better spacing and one accent color.\n\nShipped a redesign in a weekend with tighter type scale + fewer borders. Engagement up 18%.',
-  time: 'Jul 30, 2026 · 2:14 PM',
-  stats: {
-    replies: 42,
-    reposts: 128,
-    likes: 890,
-    views: '48.2K',
-  },
-  replies: [
-    {
-      id: 'r1',
-      author: {
-        name: 'Alex Rivera',
-        handle: 'alexrivera',
-        avatar: 'https://i.pravatar.cc/96?u=alexrivera',
-      },
-      text: 'The spacing comment is so real. We removed half our card chrome and NPS jumped.',
-      time: '1h',
-    },
-    {
-      id: 'r2',
-      author: {
-        name: 'Sam Okonkwo',
-        handle: 'samok',
-        avatar: 'https://i.pravatar.cc/96?u=samok',
-      },
-      text: 'Would love a before/after thread. Also curious what you did for empty states.',
-      time: '45m',
-    },
-    {
-      id: 'r3',
-      author: {
-        name: 'Jordan Lee',
-        handle: 'jordanlee',
-        avatar: 'https://i.pravatar.cc/96?u=jordanlee',
-      },
-      text: 'Accent color + fewer borders is the whole trick. Everything else is performance.',
-      time: '32m',
-    },
-    {
-      id: 'r4',
-      author: {
-        name: 'Priya Nair',
-        handle: 'priyanair',
-        avatar: 'https://i.pravatar.cc/96?u=priyanair',
-      },
-      text: 'The 18% stat is wild for a weekend pass. Did you A/B or just ship?',
-      time: '18m',
-    },
-  ],
-};
-
-const media: LightboxItem[] = [
-  {
-    src: 'https://picsum.photos/seed/xlb-before/1400/900',
-    thumb: 'https://picsum.photos/seed/xlb-before/600/400',
-    alt: 'Dashboard before redesign',
-    width: 1400,
-    height: 900,
-  },
-  {
-    src: 'https://picsum.photos/seed/xlb-after/1400/900',
-    thumb: 'https://picsum.photos/seed/xlb-after/600/400',
-    alt: 'Dashboard after redesign',
-    width: 1400,
-    height: 900,
-  },
-  {
-    src: 'https://picsum.photos/seed/xlb-detail/1200/1200',
-    thumb: 'https://picsum.photos/seed/xlb-detail/480/480',
-    alt: 'Typography scale detail',
-    width: 1200,
-    height: 1200,
-  },
-  {
-    src: 'https://picsum.photos/seed/xlb-mobile/900/1400',
-    thumb: 'https://picsum.photos/seed/xlb-mobile/360/560',
-    alt: 'Mobile layout comparison',
-    width: 900,
-    height: 1400,
-  },
-];
-
-/** Shared carousel height — width follows each item's intrinsic aspect ratio. */
-const MEDIA_ROW_HEIGHT_PX = 220;
 
 /**
  * App-level demo — not part of the copy-paste package.
- * Tweet card with a horizontal media strip (latest X layout) opens the split viewer.
+ *
+ * A small social feed: each post is an independent `Lightbox.Root` whose
+ * attachments render in a Facebook-style grid (single image, three-up, and a
+ * 2×2 with a `+N` overlay tile). Tapping a tile morphs into the split viewer
+ * from `./lightbox`; the `+N` tile uses `crossfade="both"` (there is no
+ * single full-size image behind it, so a morph would look wrong) and
+ * `morphTo="closest"` so closing from a hidden extra lands on a visible tile.
+ *
+ * The reply action opens the viewer too (thread sidebar / comment sheet) via
+ * an imperative `Lightbox.createHandle()` — there is no trigger element to
+ * click, so the open is programmatic.
  */
-export function TwitterPresetDemo() {
+
+type FeedPost = {
+  id: string;
+  /** Short relative time on the feed card; `thread.time` is the full stamp. */
+  time: string;
+  thread: ThreadPost;
+  images: LightboxItem[];
+};
+
+const feed: FeedPost[] = [
+  {
+    id: 'post-road-trip',
+    time: '2d',
+    thread: {
+      author: {
+        name: 'Tomás Rivera',
+        handle: 'tomasrivera',
+        avatar: 'https://i.pravatar.cc/96?u=tomas',
+        verified: true,
+      },
+      text: 'Week-long road trip along the coast is done. Seven stops, seven completely different landscapes.',
+      time: 'Aug 9, 2026 · 6:41 PM',
+      stats: { replies: 97, reposts: 514, likes: 3842, views: '212K' },
+      replies: [
+        {
+          id: 'r1',
+          author: { name: 'Sofia Lindgren', handle: 'sofialind', avatar: 'https://i.pravatar.cc/96?u=sofia' },
+          text: 'The lighthouse shot is unreal. What time of day was that?',
+          time: '1d',
+        },
+        {
+          id: 'r2',
+          author: { name: 'James Okafor', handle: 'jamesokafor', avatar: 'https://i.pravatar.cc/96?u=james' },
+          text: 'Route details please — planning the same trip for October.',
+          time: '20h',
+        },
+      ],
+    },
+    images: [
+      { src: 'https://picsum.photos/seed/rg-6a/1600/1000', thumb: 'https://picsum.photos/seed/rg-6a/800/500', alt: 'Dramatic cliffside road at sunset', width: 1600, height: 1000 },
+      { src: 'https://picsum.photos/seed/rg-6b/1600/1000', thumb: 'https://picsum.photos/seed/rg-6b/800/500', alt: 'Turquoise cove with fishing boats', width: 1600, height: 1000 },
+      { src: 'https://picsum.photos/seed/rg-6c/1600/1000', thumb: 'https://picsum.photos/seed/rg-6c/800/500', alt: 'Terraced vineyards in morning mist', width: 1600, height: 1000 },
+      { src: 'https://picsum.photos/seed/rg-6d/900/1400', thumb: 'https://picsum.photos/seed/rg-6d/450/700', alt: 'Old lighthouse on a rocky headland', width: 900, height: 1400 },
+      { src: 'https://picsum.photos/seed/rg-6e/1600/1000', thumb: 'https://picsum.photos/seed/rg-6e/800/500', alt: 'Wild horses grazing on a dune', width: 1600, height: 1000 },
+      { src: 'https://picsum.photos/seed/rg-6f/1200/1200', thumb: 'https://picsum.photos/seed/rg-6f/600/600', alt: 'Street musicians in a coastal town square', width: 1200, height: 1200 },
+      { src: 'https://picsum.photos/seed/rg-6g/1600/1000', thumb: 'https://picsum.photos/seed/rg-6g/800/500', alt: 'Milky Way over a deserted beach', width: 1600, height: 1000 },
+    ],
+  },
+  {
+    id: 'post-good-light',
+    time: '8h',
+    thread: {
+      author: {
+        name: 'Aisha Patel',
+        handle: 'aishapatel',
+        avatar: 'https://i.pravatar.cc/96?u=aisha',
+      },
+      text: 'Golden hour across the valley, the canopy from below, and still water at dusk. A good day for light.',
+      time: 'Aug 11, 2026 · 4:05 AM',
+      stats: { replies: 28, reposts: 67, likes: 892, views: '31K' },
+      replies: [
+        {
+          id: 'r1',
+          author: { name: 'Marcus Chen', handle: 'marcusc', avatar: 'https://i.pravatar.cc/96?u=marcus' },
+          text: 'That canopy frame is a wallpaper. Straight out of camera?',
+          time: '6h',
+        },
+      ],
+    },
+    images: [
+      { src: 'https://picsum.photos/seed/rg-3a/1600/900', thumb: 'https://picsum.photos/seed/rg-3a/800/450', alt: 'Rolling fields at golden hour', width: 1600, height: 900 },
+      { src: 'https://picsum.photos/seed/rg-3b/1000/1400', thumb: 'https://picsum.photos/seed/rg-3b/500/700', alt: 'Dense forest canopy from below', width: 1000, height: 1400 },
+      { src: 'https://picsum.photos/seed/rg-3c/1500/1000', thumb: 'https://picsum.photos/seed/rg-3c/750/500', alt: 'Quiet lake reflecting the hills', width: 1500, height: 1000 },
+    ],
+  },
+  {
+    id: 'post-first-light',
+    time: '2h',
+    thread: {
+      author: {
+        name: 'Elena Vasquez',
+        handle: 'elenavsq',
+        avatar: 'https://i.pravatar.cc/96?u=elena',
+      },
+      text: 'First light over the ridgeline this morning — worth every minute of the 4am alarm.',
+      time: 'Aug 11, 2026 · 10:12 AM',
+      stats: { replies: 12, reposts: 31, likes: 284, views: '9.4K' },
+      replies: [
+        {
+          id: 'r1',
+          author: { name: 'Priya Nair', handle: 'priyanair', avatar: 'https://i.pravatar.cc/96?u=priya' },
+          text: 'The 4am alarm gang eats again. Gorgeous.',
+          time: '1h',
+        },
+      ],
+    },
+    images: [
+      { src: 'https://picsum.photos/seed/rg-1/1600/1000', thumb: 'https://picsum.photos/seed/rg-1/800/500', alt: 'Mountain range under a wide morning sky', width: 1600, height: 1000 },
+    ],
+  },
+];
+
+function formatCount(n: number): string {
+  if (n >= 1000) return `${(n / 1000).toFixed(1).replace(/\.0$/, '')}K`;
+  return String(n);
+}
+
+const actionClass =
+  'flex items-center gap-1.5 rounded-full px-2 py-1.5 text-xs transition-colors hover:bg-neutral-100 hover:text-neutral-900 dark:hover:bg-neutral-800 dark:hover:text-neutral-100';
+
+/** Reply / repost / like / share row. Reply opens the viewer (thread beside it). */
+function ActionBar({
+  stats,
+  onReply,
+}: {
+  stats: ThreadPost['stats'];
+  onReply: () => void;
+}) {
   return (
-    <div className="w-full max-w-md">
-      <Lightbox.Root
-        // Keep the active strip tile on-screen while navigating / after open
-        // so the close morph lands on the right image (horizontal overflow).
-        scrollTriggerIntoView={[
-          { type: 'onChange', behavior: 'instant', inline: 'nearest' },
-          { type: 'onOpenComplete', behavior: 'instant', inline: 'nearest' },
-        ]}
-      >
-        <article className="overflow-hidden rounded-2xl border border-neutral-200 bg-white text-left shadow-sm dark:border-neutral-700 dark:bg-neutral-900">
-          <div className="flex gap-3 p-3">
+    <div className="-mb-1.5 -ml-2 mt-1 flex items-center gap-1 text-neutral-500">
+      <button type="button" className={actionClass} aria-label="View replies" onClick={onReply}>
+        <MessageCircle className="size-4" aria-hidden />
+        <span>{formatCount(stats?.replies ?? 0)}</span>
+      </button>
+      <button type="button" className={actionClass} aria-label="Repost">
+        <Repeat2 className="size-4" aria-hidden />
+        <span>{formatCount(stats?.reposts ?? 0)}</span>
+      </button>
+      <button type="button" className={actionClass} aria-label="Like">
+        <Heart className="size-4" aria-hidden />
+        <span>{formatCount(stats?.likes ?? 0)}</span>
+      </button>
+      <button type="button" className={actionClass} aria-label="Share">
+        <Share className="size-4" aria-hidden />
+      </button>
+    </div>
+  );
+}
+
+/**
+ * Per-cell rounded corners for the 1–4 cell grids. Inner edges stay sharp;
+ * outer corners match the parent grid. The radius must live on the Trigger —
+ * the morph reads it to animate corner rounding.
+ */
+function cornerClass(index: number, count: number): string {
+  if (count === 2) {
+    return index === 0 ? 'rounded-l-xl' : 'rounded-r-xl';
+  }
+  if (count === 3) {
+    if (index === 0) return 'rounded-l-xl';
+    return index === 1 ? 'rounded-tr-xl' : 'rounded-br-xl';
+  }
+  if (count === 4) {
+    return ['rounded-tl-xl', 'rounded-tr-xl', 'rounded-bl-xl', 'rounded-br-xl'][index]!;
+  }
+  return 'rounded-xl';
+}
+
+/**
+ * Facebook-style trigger grid: 1 image fills the width, 2–4 tile into a
+ * grid, and 5+ collapse the extras behind a `+N` overlay tile. Every tile is
+ * a `Lightbox.Trigger`, so tapping one morphs into the viewer at that index.
+ */
+function ImageGrid({ imgs }: { imgs: LightboxItem[] }) {
+  const count = imgs.length;
+
+  if (count === 1) {
+    const only = imgs[0]!;
+    return (
+      <Lightbox.Trigger index={0} className="block w-full overflow-hidden rounded-xl bg-transparent p-0">
+        {({ imageRef }) => (
+          <img
+            ref={imageRef}
+            src={only.thumb}
+            alt={only.alt}
+            width={only.width}
+            height={only.height}
+            className="block w-full object-cover"
+            draggable={false}
+          />
+        )}
+      </Lightbox.Trigger>
+    );
+  }
+
+  if (count === 2) {
+    return (
+      <div className="grid grid-cols-2 gap-0.5 overflow-hidden rounded-xl">
+        {imgs.map((img, i) => (
+          <Lightbox.Trigger
+            key={img.src}
+            index={i}
+            className={`block overflow-hidden bg-transparent p-0 ${cornerClass(i, 2)}`}
+          >
+            {({ imageRef }) => (
+              <img
+                ref={imageRef}
+                src={img.thumb}
+                alt={img.alt}
+                width={img.width}
+                height={img.height}
+                className="block aspect-4/5 w-full object-cover"
+                draggable={false}
+              />
+            )}
+          </Lightbox.Trigger>
+        ))}
+      </div>
+    );
+  }
+
+  if (count === 3) {
+    const first = imgs[0]!;
+    return (
+      <div className="grid aspect-3/2 grid-cols-2 grid-rows-2 gap-0.5 overflow-hidden rounded-xl">
+        <Lightbox.Trigger
+          index={0}
+          className={`row-span-2 block overflow-hidden bg-transparent p-0 ${cornerClass(0, 3)}`}
+        >
+          {({ imageRef }) => (
             <img
-              src={author.avatar}
-              alt=""
-              className="size-10 shrink-0 rounded-full object-cover"
+              ref={imageRef}
+              src={first.thumb}
+              alt={first.alt}
+              width={first.width}
+              height={first.height}
+              className="block size-full object-cover"
               draggable={false}
             />
-            <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-center gap-x-1 text-sm">
-                <span className="font-bold text-neutral-900 dark:text-neutral-50">{author.name}</span>
-                <span className="text-neutral-500">@{author.handle}</span>
-              </div>
-              <p className="mt-1 whitespace-pre-wrap text-[15px] leading-snug text-neutral-900 dark:text-neutral-100">
-                {thread.text}
-              </p>
-            </div>
+          )}
+        </Lightbox.Trigger>
+        {imgs.slice(1, 3).map((img, idx) => {
+          const i = idx + 1;
+          return (
+            <Lightbox.Trigger
+              key={img.src}
+              index={i}
+              className={`block overflow-hidden bg-transparent p-0 ${cornerClass(i, 3)}`}
+            >
+              {({ imageRef }) => (
+                <img
+                  ref={imageRef}
+                  src={img.thumb}
+                  alt={img.alt}
+                  width={img.width}
+                  height={img.height}
+                  className="block size-full object-cover"
+                  draggable={false}
+                />
+              )}
+            </Lightbox.Trigger>
+          );
+        })}
+      </div>
+    );
+  }
+
+  const extra = count - 4;
+  return (
+    <div className="grid aspect-3/2 grid-cols-2 grid-rows-2 gap-0.5 overflow-hidden rounded-xl">
+      {imgs.slice(0, 4).map((img, i) => {
+        const showOverlay = i === 3 && extra > 0;
+        return (
+          <Lightbox.Trigger
+            key={img.src}
+            index={i}
+            crossfade={showOverlay ? 'both' : undefined}
+            className={`block overflow-hidden bg-transparent p-0 ${cornerClass(i, 4)}`}
+          >
+            {({ imageRef }) => (
+              // The whole tile crossfades (overlay included), but the
+              // destination placeholder is sourced from `imageRef` only — so
+              // the "+N" overlay never bleeds into the viewer image.
+              <span className={`relative block size-full overflow-hidden ${cornerClass(i, 4)}`}>
+                <img
+                  ref={imageRef}
+                  src={img.thumb}
+                  alt={img.alt}
+                  width={img.width}
+                  height={img.height}
+                  className="block size-full object-cover"
+                  draggable={false}
+                />
+                {showOverlay && (
+                  <span className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/50">
+                    <span className="text-2xl font-bold text-white">+{extra}</span>
+                  </span>
+                )}
+              </span>
+            )}
+          </Lightbox.Trigger>
+        );
+      })}
+    </div>
+  );
+}
+
+/** One feed post wired to the split viewer. */
+function FeedPostGallery({ post }: { post: FeedPost }) {
+  const { author } = post.thread;
+  const stats = post.thread.stats;
+  // Imperative handle so the reply action (not a Trigger) can open the viewer.
+  const [handle] = React.useState(() => RamkaLightbox.createHandle());
+
+  return (
+    <Lightbox.Root
+      handle={handle}
+      loop
+      // Extras hidden behind the `+N` tile have no trigger of their own —
+      // close to the nearest visible one instead of flashing.
+      morphTo={post.images.length > 4 ? 'closest' : undefined}
+    >
+      <article className="flex gap-3 px-4 py-3 text-left">
+        <img src={author.avatar} alt="" className="size-10 shrink-0 rounded-full object-cover" draggable={false} />
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-baseline gap-x-1 text-sm">
+            <span className="font-bold text-neutral-900 dark:text-neutral-50">{author.name}</span>
+            <span className="text-neutral-500">@{author.handle}</span>
+            <span className="text-neutral-500">· {post.time}</span>
           </div>
 
-          {/*
-            Full-width scrollport; L/R inset is padding on the flex track
-            (scrollable content) so first/last tiles aren't clipped and align
-            with the text column (p-3 + avatar + gap-3 = 4rem).
-          */}
-          <div className="overflow-x-auto [scrollbar-width:none] snap-x snap-mandatory [&::-webkit-scrollbar]:hidden">
-            <div className="flex w-max gap-2 pr-3 pl-16">
-              {media.map((item, i) => (
-                <Lightbox.Trigger
-                  key={item.src}
-                  index={i}
-                  className="relative block shrink-0 snap-center overflow-hidden rounded-2xl border-0 bg-neutral-100 p-0 dark:bg-neutral-800"
-                  style={{
-                    height: MEDIA_ROW_HEIGHT_PX,
-                    aspectRatio: `${item.width} / ${item.height}`,
-                  }}
-                >
-                  {({ imageRef }) => (
-                    <img
-                      ref={imageRef}
-                      src={item.thumb}
-                      alt={item.alt}
-                      width={item.width}
-                      height={item.height}
-                      className="size-full object-cover"
-                      draggable={false}
-                    />
-                  )}
-                </Lightbox.Trigger>
-              ))}
-            </div>
-          </div>
+          <p className="mb-3 mt-1 whitespace-pre-wrap text-[15px] leading-snug text-neutral-900 dark:text-neutral-100">
+            {post.thread.text}
+          </p>
 
-          <div className="flex justify-between py-2 pr-3 pl-16 text-xs text-neutral-500">
-            <span>{thread.stats?.replies} replies</span>
-            <span>{thread.stats?.likes} likes</span>
-          </div>
-        </article>
+          <ImageGrid imgs={post.images} />
 
-        <Lightbox.Gallery items={media} thread={thread} ariaLabel="Post media" />
-      </Lightbox.Root>
+          <ActionBar stats={stats} onReply={() => handle.open(0)} />
+        </div>
+      </article>
+
+      <Lightbox.Gallery
+        items={post.images}
+        thread={post.thread}
+        ariaLabel={`Photos by ${author.name}`}
+      />
+    </Lightbox.Root>
+  );
+}
+
+export function TwitterPresetDemo() {
+  return (
+    <div className="w-full max-w-xl divide-y divide-neutral-200 overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm dark:divide-neutral-800 dark:border-neutral-700 dark:bg-neutral-900">
+      {feed.map((post) => (
+        <FeedPostGallery key={post.id} post={post} />
+      ))}
     </div>
   );
 }

@@ -13,8 +13,9 @@
 //
 // Try any of them on a running page via the URL, e.g. `?vttiming=500,spring,.8`,
 // or from the console: `window.__RAMKA_VT_TIMING__ = '500,spring,.8'`.
-// To bring the picker UI back, see the git history of page.tsx (a radio list
-// that assigns the chosen value to `window.__RAMKA_VT_TIMING__`).
+// To bring the picker UI back, see the git history of the (since removed)
+// examples/lightbox/responsive-gallery/page.tsx — a radio list that assigned
+// the chosen value to `window.__RAMKA_VT_TIMING__`.
 // ---------------------------------------------------------------------------
 
 export const ARCHIVED_TIMING_PRESETS = {

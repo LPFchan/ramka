@@ -58,7 +58,7 @@ export default function HomePage() {
             .
           </li>
           <li>
-            <Link href="/examples/lightbox/responsive-gallery" className={docsLinkClassName}>
+            <Link href="/examples/lightbox/photos-app" className={docsLinkClassName}>
               Examples
             </Link>
             {' — '}

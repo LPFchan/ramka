@@ -128,7 +128,7 @@ function GalleryThumbnailStrip({
 
 
 /**
- * Default product chrome for docs/examples — responsive-gallery viewer:
+ * Default product chrome for docs/examples — the shared fullscreen viewer:
  * light pull-fade Backdrop, Slides + Zoom, Counter (top-left), Close/ZoomIn/
  * ZoomOut, Caption + desktop thumbnails. Place beside Triggers under
  * `Lightbox.Root` (does not render Root or Triggers).

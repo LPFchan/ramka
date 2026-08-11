@@ -94,7 +94,7 @@ export default function HomePage() {
               Docs
             </Link>
             <Link
-              href="/examples/lightbox/responsive-gallery"
+              href="/examples/lightbox/photos-app"
               className="transition hover:text-neutral-900 dark:hover:text-neutral-100"
             >
               Examples

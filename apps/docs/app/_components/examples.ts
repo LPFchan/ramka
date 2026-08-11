@@ -12,12 +12,6 @@ export interface ExampleGroup {
 
 export const lightboxExamples: ExampleLink[] = [
   {
-    slug: 'responsive-gallery',
-    title: 'Responsive gallery',
-    description:
-      'The canonical real-world lightbox in a social feed: crossfade `+N` grids, swipe navigation, desktop-only thumbnails, view-transition morph, pinch/scroll zoom, and pull-to-dismiss.',
-  },
-  {
     slug: 'photos-app',
     title: 'Photos app',
     description: 'macOS Photos–style square grid under a sticky, blurred toolbar with a fade gradient and "Library" title.',

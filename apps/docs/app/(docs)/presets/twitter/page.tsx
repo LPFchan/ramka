@@ -37,8 +37,9 @@ export default async function TwitterLightboxPresetPage() {
           <code className="text-xs">lightbox.css</code>) into your design system, then wire triggers
           in your app. The{' '}
           <strong className="font-medium text-neutral-800 dark:text-neutral-200">Example</strong>{' '}
-          tab shows a tweet card with a horizontally scrollable media strip
-          (original aspect ratios; Tailwind layout only).
+          tab shows a three-post feed with Facebook-style image grids — single image, three-up, and
+          a <code className="text-xs">+N</code> crossfade tile — each opening the split viewer
+          (Tailwind layout only).
         </>
       }
       docsHref="/docs/lightbox"
