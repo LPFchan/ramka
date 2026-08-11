@@ -953,9 +953,11 @@ function LightboxRoot(props: LightboxRootProps) {
         captionsRef,
         registerCaption,
         subscribeCaptions,
-        // Context consumers only care whether the morph is enabled; the
-        // preset's timing is resolved by the morph hook itself.
+        // Most context consumers only care whether the morph is enabled; the
+        // raw preset is passed alongside so the Portal can publish the
+        // preset's timing vars on its host.
         viewTransition: viewTransition !== false,
+        transitionPreset: viewTransition,
         morphTo,
         triggerElementsRef,
         triggerMorphElementsRef,

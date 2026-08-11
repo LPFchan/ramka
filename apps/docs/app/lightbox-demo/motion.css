@@ -6,14 +6,10 @@
      root cross-fade easing the library writes during a morph. */
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
 
-  /* Open/close choreography duration for the non-VT fallback path. During a
-     View Transition the backdrop/content fades read the library-written
-     `--lightbox-vt-duration` instead (see open-close.css), so they track the
-     Root's `viewTransition` timing preset automatically; this token only
-     covers reduced-motion / unsupported / low-end opens. Morph timing itself
-     is preset-driven (`viewTransition` prop on Lightbox.Root) — the old
-     `--lightbox-vt-*` skin mappings are no longer read by the library. */
-  --duration-open: 340ms;
+  /* No open/close duration token: the library always publishes the Root's
+     `viewTransition` preset timing as `--lightbox-vt-duration` on the Portal
+     host, so the backdrop/content fades (open-close.css) read it directly —
+     one motion clock with or without a View Transition. */
 
   /* Item navigation fade-in (data-active item picks this up via
      `animate-lightbox-item-fade-in`). Skipped during VT — see item-fade.css. */

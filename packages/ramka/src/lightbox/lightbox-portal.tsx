@@ -4,6 +4,8 @@ import * as React from 'react';
 import * as ReactDOM from 'react-dom';
 
 import { LightboxPortalDataAttributes } from './lightbox-data-attributes';
+import { LightboxDocumentCssVars } from './lightbox-css-vars';
+import { resolveViewTransitionTiming } from './vt-timing';
 import { useLightboxContext } from './lightbox-context';
 
 const useLayoutEffect = typeof window !== 'undefined' ? React.useLayoutEffect : React.useEffect;
@@ -88,7 +90,21 @@ function resolvePortalTarget(container: PortalContainer | undefined): ResolvedTa
 const LightboxPortal = React.forwardRef<HTMLDivElement, LightboxPortalProps>(
   function LightboxPortal(props, forwardedRef) {
     const { children, container, keepMounted = false, className, style, ...rest } = props;
-    const { mounted } = useLightboxContext();
+    const { mounted, transitionPreset } = useLightboxContext();
+
+    // Publish the Root's `viewTransition` preset timing as CSS vars on the
+    // portal host, so skins have ONE motion clock for open/close fades: during
+    // a morph the same vars exist on documentElement (written per-transition,
+    // same values), and here they cover everything else — non-VT browsers,
+    // reduced motion, low-end fallback opens. Scoped to the host (not :root)
+    // so multiple Roots with different presets never fight.
+    const timing = resolveViewTransitionTiming(transitionPreset);
+    const hostStyle: React.CSSProperties = {
+      [LightboxDocumentCssVars.vtDuration]: `${timing.duration}ms`,
+      [LightboxDocumentCssVars.vtEasing]: timing.cssEasing,
+      [LightboxDocumentCssVars.vtRootEasing]: timing.cssRootEasing,
+      ...style,
+    } as React.CSSProperties;
 
     const [portalTarget, setPortalTarget] = React.useState<ResolvedTarget | null>(() => resolvePortalTarget(container));
 
@@ -107,7 +123,7 @@ const LightboxPortal = React.forwardRef<HTMLDivElement, LightboxPortalProps>(
         <div
           ref={forwardedRef}
           className={className}
-          style={style}
+          style={hostStyle}
           {...rest}
           {...{ [LightboxPortalDataAttributes.portal]: '' }}
         >

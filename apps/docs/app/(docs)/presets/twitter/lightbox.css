@@ -9,10 +9,11 @@
 
 .xlb-portal {
   --xlb-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
-  /* Non-VT fallback duration. Morph timing is preset-driven (`viewTransition`
-     prop on Lightbox.Root); during a morph the library writes
-     `--lightbox-vt-*` onto documentElement and the fades below read it. */
-  --xlb-duration-open: 340ms;
+  /* One motion clock: the library always publishes the Root's `viewTransition`
+     preset timing on the Portal host (this element), so fades and chrome
+     slides track the preset with or without a View Transition. The literal
+     fallback only covers pre-var library versions. */
+  --xlb-duration-open: var(--lightbox-vt-duration, 360ms);
   --xlb-thread-width: 22.5rem;
   /* Clear media plane — dimming comes from `.xlb-backdrop` (mobile solid, desktop 0.5). */
   --xlb-media-bg: transparent;
@@ -47,7 +48,7 @@
   /* Mobile: solid black. Desktop overrides background alpha below. */
   background: #000;
   transition: opacity
-    var(--lightbox-pull-snap-duration, var(--lightbox-vt-duration, var(--xlb-duration-open)))
+    var(--lightbox-pull-snap-duration, var(--xlb-duration-open))
     var(--lightbox-pull-snap-easing, var(--xlb-ease-out));
 }
 
@@ -81,7 +82,7 @@
   overflow: hidden;
   outline: none;
   opacity: 0;
-  transition: opacity var(--lightbox-vt-duration, var(--xlb-duration-open)) var(--xlb-ease-out);
+  transition: opacity var(--xlb-duration-open) var(--xlb-ease-out);
 }
 
 .xlb-content[data-open] {

@@ -12,10 +12,11 @@
 
 .lb-portal {
   --lb-ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
-  /* Non-VT fallback duration. Morph timing is preset-driven (`viewTransition`
-     prop on Lightbox.Root); during a morph the library writes
-     `--lightbox-vt-*` onto documentElement and the fades below read it. */
-  --lb-duration-open: 340ms;
+  /* No duration token: open/close fades read the library-written
+     `--lightbox-vt-duration` (the Root's `viewTransition` preset timing,
+     always published on the Portal host) so the skin has one motion clock —
+     with or without a View Transition. The literal fallbacks below only
+     cover pre-var library versions. */
 }
 
 /* ── Trigger ────────────────────────────────────────────────────────────── */
@@ -47,7 +48,7 @@
   /* Solid — the page underneath is fully covered while open. */
   background-color: #fff;
   transition: opacity
-    var(--lightbox-pull-snap-duration, var(--lightbox-vt-duration, var(--lb-duration-open)))
+    var(--lightbox-pull-snap-duration, var(--lightbox-vt-duration, 360ms))
     var(--lightbox-pull-snap-easing, var(--lb-ease-out-expo));
 }
 
@@ -78,7 +79,7 @@ html.dark .lb-backdrop {
   overscroll-behavior: contain;
   outline: none;
   opacity: 0;
-  transition: opacity var(--lightbox-vt-duration, var(--lb-duration-open)) var(--lb-ease-out-expo);
+  transition: opacity var(--lightbox-vt-duration, 360ms) var(--lb-ease-out-expo);
 
   /*
    * Mobile: equal top/bottom so the media is perfectly vertically centered.

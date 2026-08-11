@@ -1894,6 +1894,45 @@ describe('Lightbox', () => {
       expect(docEl.style.getPropertyValue('--lightbox-vt-duration')).toBe('');
     });
 
+    it('always publishes the preset timing vars on the Portal host (skin motion clock)', async () => {
+      // Skins read `--lightbox-vt-*` for their non-VT open/close fades, so the
+      // Portal host must carry them whenever it is mounted — including after
+      // the morph's documentElement promotion has been cleaned up.
+      const { resolveFinished } = mockViewTransitionAPI();
+      render(
+        <LightboxRoot viewTransition="spring">
+          <LightboxTrigger index={0} data-testid="trigger-0">
+            {({ imageRef }) => <img ref={imageRef} src="thumb.jpg" alt="thumb" />}
+          </LightboxTrigger>
+          <LightboxPortal data-testid="portal">
+            <LightboxContent data-testid="content" aria-label="portal vars test">
+              <LightboxItemGroup>
+                <LightboxItem index={0}>
+                  {({ imageRef }) => <img ref={imageRef} src="full.jpg" alt="full" />}
+                </LightboxItem>
+              </LightboxItemGroup>
+              <LightboxClose data-testid="close">Close</LightboxClose>
+            </LightboxContent>
+          </LightboxPortal>
+        </LightboxRoot>,
+      );
+
+      fireEvent.click(screen.getByTestId('trigger-0'));
+      await act(async () => resolveFinished());
+
+      const host = document.querySelector('[data-ramka-portal]') as HTMLElement;
+      expect(host).not.toBeNull();
+      expect(host.style.getPropertyValue('--lightbox-vt-duration')).toBe('450ms');
+      expect(host.style.getPropertyValue('--lightbox-vt-easing')).toBe(
+        'cubic-bezier(0.22, 1, 0.36, 1)',
+      );
+      expect(host.style.getPropertyValue('--lightbox-vt-root-easing')).toBe(
+        'cubic-bezier(0.16, 1, 0.3, 1)',
+      );
+      // documentElement promotion is transition-scoped and already gone.
+      expect(document.documentElement.style.getPropertyValue('--lightbox-vt-duration')).toBe('');
+    });
+
     it('a stale transition finalizer cannot wipe a newer morph state (interleaved Roots)', async () => {
       // Per-transition finished promises — starting a new document transition
       // skips the active one, whose finalizer then runs AFTER the new morph

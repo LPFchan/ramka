@@ -290,17 +290,20 @@ export default function LightboxViewTransitionsPage() {
         <p>
           Timing is preset-based rather than free-form CSS on purpose: each preset is vetted
           on-device to stay smooth and skip-safe on iOS Safari (including Low Power Mode) and
-          Android, where arbitrary curves stutter or teleport. During a morph the library writes the
-          active preset onto <code className="text-xs">documentElement</code> —{' '}
-          <code className="text-xs">data-ramka-vt-preset</code> plus{' '}
-          <code className="text-xs">--lightbox-vt-duration</code> /{' '}
+          Android, where arbitrary curves stutter or teleport. The library publishes the preset
+          timing as <code className="text-xs">--lightbox-vt-duration</code> /{' '}
           <code className="text-xs">--lightbox-vt-easing</code> /{' '}
-          <code className="text-xs">--lightbox-vt-root-easing</code> — and clears them when it ends.
-          Read those vars in your own CSS to keep skin fades in lockstep with the morph (e.g.{' '}
+          <code className="text-xs">--lightbox-vt-root-easing</code> in two places: always on the{' '}
+          <DocsLink href={lightboxApiHref.portal}>Portal</DocsLink> host, and — together with{' '}
+          <code className="text-xs">data-ramka-vt-preset</code> — on{' '}
+          <code className="text-xs">documentElement</code> for the duration of a morph. Read those
+          vars in your own CSS as the skin&apos;s single motion clock (e.g.{' '}
           <code className="text-xs">
             transition: opacity var(--lightbox-vt-duration, 360ms) ease-out
           </code>{' '}
-          on Backdrop/Content); do not set them yourself.
+          on Backdrop/Content): during a morph the fades stay in lockstep with it, and on the
+          non-morph paths (unsupported browsers, reduced motion, low-end fallback) they still run
+          on the preset&apos;s timing; do not set the vars yourself.
         </p>
       </DocsSection>
 

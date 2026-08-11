@@ -14,15 +14,17 @@ import { ChevronLeft, ChevronRight, X, ZoomIn, ZoomOut } from 'lucide-react';
  * Motion timings mirror frosted-ui's lightbox so this docs site looks
  * like the same component the library is modeled after:
  *
- *   - backdrop opacity        --duration-open ease-out-expo
- *   - content opacity         --duration-open ease-out-expo
+ *   - backdrop opacity        --lightbox-vt-duration ease-out-expo
+ *   - content opacity         --lightbox-vt-duration ease-out-expo
  *   - VT root + morph group   library-injected (viewTransition preset timing)
  *   - morph-target hide       library-injected (200ms ease-out-expo)
  *   - active item fade-in     250ms ease-out (keyframe in globals.css)
  *
  * The open/close choreography (backdrop, content, VT root cross-fade, morph)
- * all share the single `--duration-open` token (motion.css) so they resolve as
- * one cohesive motion — tweak it once and everything stays in lockstep.
+ * all read `--lightbox-vt-duration` — the Root's `viewTransition` preset
+ * timing, which the library publishes on the Portal host (always) and on
+ * documentElement (during a morph) — so they resolve as one cohesive motion.
+ * Pick a different preset and everything stays in lockstep.
  *
  * The `ease-out-expo` token and `animate-lightbox-item-fade-in` utility
  * are defined in `globals.css` via Tailwind v4's `@theme`. The View
