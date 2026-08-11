@@ -106,7 +106,7 @@ export default function PhotosAppPage() {
   const zoomOut = () => zoomTo(columns + 1);
 
   return (
-    <div className="min-h-screen bg-white dark:bg-[#1c1c1e] select-none">
+    <div className="min-h-screen select-none">
       <Lightbox.Root
         loop
         scrollTriggerIntoView={[
@@ -115,51 +115,63 @@ export default function PhotosAppPage() {
         ]}
         awaitImageDecode={false}
       >
-        {/* The sticky nav AND the grid share a single `view-transition-name` so
-            the density crossfade captures them as ONE group. Naming only the
-            grid would lift it onto the VT layer *above* the sticky header,
-            covering it mid-transition. */}
-        <div style={{ viewTransitionName: 'photos-grid' }}>
-          {/* Sticky toolbar + fade gradient. The gradient strip lets the grid
-              visibly fade away as it scrolls beneath the chrome. */}
-          
-            <div className="pointer-events-auto flex shrink-0 items-center gap-3 bg-white/70 px-4 py-3 backdrop-blur-xl dark:bg-[#1c1c1e]/70">
-              <div className="flex flex-col leading-tight">
-                <span className="text-lg font-bold tracking-tight text-neutral-900 dark:text-neutral-50">Library</span>
-                <span className="text-[11px] text-neutral-500 dark:text-neutral-400">Jul 15–16, 2024</span>
-              </div>
+        {/* The toolbar and the grid get *separate* `view-transition-name`s.
+            Sharing one group would stretch the snapshot when the grid height
+            changes with the column count, visibly dragging the stuck header;
+            naming the toolbar separately keeps it static (its box doesn't
+            change) and — since it paints above the grid — its group also
+            layers above the grid's crossfade. */}
+        <div>
+          {/* Apple Photos-style large-title toolbar: solid surface (no
+              backdrop-filter on this site), hairline bottom edge, title +
+              count on the left, density capsule on the right. Sticky below
+              the mobile docs nav (top-14) and at the viewport top on md+. */}
+          <div
+            style={{ viewTransitionName: 'photos-toolbar' }}
+            className="pointer-events-auto sticky top-14 z-30 flex shrink-0 items-center gap-3 border-b border-black/[0.06] bg-background px-4 py-2.5 md:top-0 dark:border-white/[0.08]"
+          >
+            <div className="flex flex-col">
+              <span className="text-[19px] font-bold leading-6 tracking-tight text-neutral-900 dark:text-neutral-50">
+                Library
+              </span>
+              <span className="text-[11px] font-medium leading-4 text-neutral-500 dark:text-neutral-400">
+                {photos.length} Photos · July 2024
+              </span>
+            </div>
 
-              <div className="flex flex-1 items-center justify-end">
-                <div className="flex items-center rounded-full bg-black/5 dark:bg-white/10">
-                  <button
-                    type="button"
-                    aria-label="Smaller photos"
-                    onClick={zoomOut}
-                    disabled={columns >= MAX_COLUMNS}
-                    className={toolbarButton}
-                  >
-                    <Minus aria-hidden className="h-4 w-4" />
-                  </button>
-                  <button
-                    type="button"
-                    aria-label="Larger photos"
-                    onClick={zoomIn}
-                    disabled={columns <= MIN_COLUMNS}
-                    className={toolbarButton}
-                  >
-                    <Plus aria-hidden className="h-4 w-4" />
-                  </button>
-                </div>
+            <div className="flex flex-1 items-center justify-end">
+              <div className="flex items-center gap-0.5 rounded-full bg-black/[0.05] p-0.5 dark:bg-white/[0.09]">
+                <button
+                  type="button"
+                  aria-label="Smaller photos"
+                  onClick={zoomOut}
+                  disabled={columns >= MAX_COLUMNS}
+                  className={toolbarButton}
+                >
+                  <Minus aria-hidden className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  aria-label="Larger photos"
+                  onClick={zoomIn}
+                  disabled={columns <= MIN_COLUMNS}
+                  className={toolbarButton}
+                >
+                  <Plus aria-hidden className="h-4 w-4" />
+                </button>
               </div>
             </div>
-          
+          </div>
 
-          {/* The grid sits behind the sticky header; the negative margin pulls
-              it up so the first rows start under the fading chrome. Every tile
-              is a `Lightbox.Trigger`, so tapping one morphs into the viewer. */}
+          {/* Every tile is a `Lightbox.Trigger`, so tapping one morphs into
+              the viewer. The grid carries its own VT name for the density
+              crossfade. */}
           <div
             className="grid gap-0.5"
-            style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}
+            style={{
+              gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
+              viewTransitionName: 'photos-grid',
+            }}
           >
             {photos.map((photo, i) => (
               <Lightbox.Trigger

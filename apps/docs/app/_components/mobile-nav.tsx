@@ -21,10 +21,8 @@ export function MobileNav() {
   return (
     <>
       {/* iOS 26 Safari ignores `theme-color` and tints the status bar from
-          fixed/sticky elements near the top (`background-color` +
-          `backdrop-filter`). A thin solid strip gives it pure white/black to
-          sample; the sticky nav keeps its glass blur on an absolute child so
-          Safari doesn't read the frosted gray into the status bar. */}
+          fixed/sticky elements near the top. A thin solid strip gives it pure
+          white/black to sample; the nav surface lives on an absolute child. */}
       
       <header className="sticky top-0 z-40 md:hidden">
       <div
@@ -33,7 +31,7 @@ export function MobileNav() {
       />
         <div
           aria-hidden
-          className="pointer-events-none absolute inset-0 border-b border-neutral-200 bg-gradient-to-b from-white to-white/80 backdrop-blur-sm dark:border-neutral-800 dark:from-black dark:to-neutral-950/80"
+          className="pointer-events-none absolute inset-0 border-b border-neutral-200 bg-white dark:border-neutral-800 dark:bg-black"
         />
         <div className="relative flex h-14 items-center justify-between gap-2 px-4">
           <Drawer open={open} onOpenChange={setOpen} swipeDirection="down" showSwipeHandle>

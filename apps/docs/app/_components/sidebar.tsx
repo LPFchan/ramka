@@ -15,9 +15,10 @@ function GitHubIcon({ className }: { className?: string }) {
 export function Sidebar() {
   return (
     <aside className="sticky top-0 hidden h-screen w-[17rem] shrink-0 p-2.5 md:block">
-      {/* macOS-style floating panel: frosted gray material, hairline border with
-          a specular top highlight, soft ambient shadow. */}
-      <div className="flex h-full flex-col overflow-hidden rounded-xl border border-black/[0.07] bg-neutral-100/70 shadow-[inset_0_0.5px_0_rgba(255,255,255,0.6),0_1px_2px_rgba(0,0,0,0.04),0_12px_32px_-16px_rgba(0,0,0,0.12)] backdrop-blur-2xl dark:border-white/[0.08] dark:bg-neutral-900/60 dark:shadow-[inset_0_0.5px_0_rgba(255,255,255,0.07),0_1px_2px_rgba(0,0,0,0.4),0_12px_32px_-16px_rgba(0,0,0,0.6)]">
+      {/* macOS-style floating panel: solid gray material (no backdrop-filter
+          on this site), hairline border with a specular top highlight, soft
+          ambient shadow. */}
+      <div className="flex h-full flex-col overflow-hidden rounded-xl border border-black/[0.07] bg-neutral-100 shadow-[inset_0_0.5px_0_rgba(255,255,255,0.6),0_1px_2px_rgba(0,0,0,0.04),0_12px_32px_-16px_rgba(0,0,0,0.12)] dark:border-white/[0.08] dark:bg-neutral-900 dark:shadow-[inset_0_0.5px_0_rgba(255,255,255,0.07),0_1px_2px_rgba(0,0,0,0.4),0_12px_32px_-16px_rgba(0,0,0,0.6)]">
         <div className="px-[18px] pb-3 pt-4">
           <div className="flex items-center justify-between gap-3">
             <Link
