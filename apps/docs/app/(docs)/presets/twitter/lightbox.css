@@ -596,8 +596,20 @@
   padding: 0.625rem 0;
   font: inherit;
   font-size: 0.9375rem;
-  color: rgb(83 100 113);
+  color: inherit;
   background: transparent;
+}
+
+.xlb-reply-input::placeholder {
+  color: rgb(83 100 113);
+}
+
+/* iOS Safari zooms the page when a focused input's font-size is under 16px —
+   bump it on touch layouts (15px stays on desktop). */
+@media (max-width: 767px) {
+  .xlb-reply-input {
+    font-size: 1rem;
+  }
 }
 
 .xlb-reply-input:focus {
@@ -650,7 +662,11 @@
 }
 
 :is(.dark, [data-theme='dark'])
-  :is(.xlb-author-handle, .xlb-post-time, .xlb-post-meta, .xlb-action, .xlb-reply-input) {
+  :is(.xlb-author-handle, .xlb-post-time, .xlb-post-meta, .xlb-action) {
+  color: #71767b;
+}
+
+:is(.dark, [data-theme='dark']) .xlb-reply-input::placeholder {
   color: #71767b;
 }
 

@@ -404,7 +404,6 @@ function ThreadPanel({
             className="xlb-reply-input"
             placeholder="Post your reply"
             aria-label="Post your reply"
-            readOnly
           />
         </div>
 

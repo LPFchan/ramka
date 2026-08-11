@@ -319,6 +319,18 @@ const LightboxContent = React.forwardRef<HTMLDivElement, LightboxContentProps>(
           return;
         }
 
+        // Typing surfaces (skin reply boxes, search fields) own every key
+        // except Escape — swallowing "+" / "-" / arrows here would eat the
+        // user's input. Escape (above) still closes the dialog.
+        const targetEl = target instanceof HTMLElement ? target : null;
+        if (
+          targetEl &&
+          (targetEl.isContentEditable ||
+            targetEl.closest('input, textarea, select, [contenteditable]:not([contenteditable="false"])'))
+        ) {
+          return;
+        }
+
         const zoomCtl = activeZoomRef.current;
         const meta = event.metaKey || event.ctrlKey;
 
