@@ -133,11 +133,7 @@ function Content({ className, ...props }: React.ComponentProps<typeof RamkaLight
   return <RamkaLightbox.Content className={cx('lb-content', className)} {...props} />;
 }
 
-function Close({
-  className,
-  children,
-  ...props
-}: React.ComponentProps<typeof RamkaLightbox.Close>) {
+function Close({ className, children, ...props }: React.ComponentProps<typeof RamkaLightbox.Close>) {
   return (
     <RamkaLightbox.Close className={cx('lb-control', className)} aria-label="Close" {...props}>
       {children ?? <IconX />}
@@ -165,33 +161,17 @@ function Zoom(props: React.ComponentProps<typeof RamkaLightbox.Zoom>) {
   return <RamkaLightbox.Zoom {...props} />;
 }
 
-function ZoomIn({
-  className,
-  children,
-  ...props
-}: React.ComponentProps<typeof RamkaLightbox.ZoomIn>) {
+function ZoomIn({ className, children, ...props }: React.ComponentProps<typeof RamkaLightbox.ZoomIn>) {
   return (
-    <RamkaLightbox.ZoomIn
-      className={cx('lb-control', 'lb-control-md', className)}
-      aria-label="Zoom in"
-      {...props}
-    >
+    <RamkaLightbox.ZoomIn className={cx('lb-control', 'lb-control-md', className)} aria-label="Zoom in" {...props}>
       {children ?? <IconZoomIn />}
     </RamkaLightbox.ZoomIn>
   );
 }
 
-function ZoomOut({
-  className,
-  children,
-  ...props
-}: React.ComponentProps<typeof RamkaLightbox.ZoomOut>) {
+function ZoomOut({ className, children, ...props }: React.ComponentProps<typeof RamkaLightbox.ZoomOut>) {
   return (
-    <RamkaLightbox.ZoomOut
-      className={cx('lb-control', 'lb-control-md', className)}
-      aria-label="Zoom out"
-      {...props}
-    >
+    <RamkaLightbox.ZoomOut className={cx('lb-control', 'lb-control-md', className)} aria-label="Zoom out" {...props}>
       {children ?? <IconZoomOut />}
     </RamkaLightbox.ZoomOut>
   );
@@ -205,16 +185,11 @@ function Caption({ className, ...props }: React.ComponentProps<typeof RamkaLight
   return <RamkaLightbox.Caption className={cx('lb-caption', className)} {...props} />;
 }
 
-function ThumbnailStrip({
-  className,
-  ...props
-}: React.ComponentProps<typeof RamkaLightbox.ThumbnailStrip>) {
+function ThumbnailStrip({ className, ...props }: React.ComponentProps<typeof RamkaLightbox.ThumbnailStrip>) {
   return <RamkaLightbox.ThumbnailStrip className={cx('lb-thumbnail-strip', className)} {...props} />;
 }
 
-function ThumbnailStripTrack(
-  props: React.ComponentProps<typeof RamkaLightbox.ThumbnailStripTrack>,
-) {
+function ThumbnailStripTrack(props: React.ComponentProps<typeof RamkaLightbox.ThumbnailStripTrack>) {
   return <RamkaLightbox.ThumbnailStripTrack {...props} />;
 }
 
@@ -307,10 +282,7 @@ function Gallery({
   return (
     <Portal>
       <Backdrop />
-      <Content
-        aria-label={ariaLabel}
-        className={cx(snug && 'lb-content-snug', solo && 'lb-content-solo') || undefined}
-      >
+      <Content aria-label={ariaLabel} className={cx(snug && 'lb-content-snug', solo && 'lb-content-solo') || undefined}>
         <Slides
           key={slidesLayout}
           aria-label="Full-size images"
@@ -319,8 +291,8 @@ function Gallery({
           style={
             snugEdgeRatios
               ? ({
-                  '--lightbox-snug-ratio-start': snugEdgeRatios.start,
-                  '--lightbox-snug-ratio-end': snugEdgeRatios.end,
+                  '--lb-snug-ratio-start': snugEdgeRatios.start,
+                  '--lb-snug-ratio-end': snugEdgeRatios.end,
                 } as React.CSSProperties)
               : undefined
           }
@@ -331,11 +303,7 @@ function Gallery({
               <Slide
                 key={item.id ?? i}
                 className={snug ? 'lb-slide-snug' : undefined}
-                style={
-                  snug
-                    ? ({ '--lightbox-snug-ratio': ratio } as React.CSSProperties)
-                    : undefined
-                }
+                style={snug ? ({ '--lb-snug-ratio': ratio } as React.CSSProperties) : undefined}
               >
                 <Item index={i} caption={item.caption ?? item.alt}>
                   <Zoom maxZoom={6}>
@@ -356,7 +324,7 @@ function Gallery({
           })}
         </Slides>
 
-        <div className={cx('lb-top-right', 'lb-chrome-pull-hide')}>
+        <div className={cx('lb-top-right', 'lb-chrome-gesture-hide')}>
           {/* Layout toggle: the icon is a miniature of the CURRENT layout —
               snug shows a card with neighbours, bleed one wide slide. */}
           <button
@@ -376,7 +344,7 @@ function Gallery({
           <Close />
         </div>
 
-        <div className={cx('lb-bottom', 'lb-chrome-pull-hide', solo && 'lb-bottom-solo')}>
+        <div className={cx('lb-bottom', 'lb-chrome-gesture-hide', solo && 'lb-bottom-solo')}>
           {/*
             Caption under the media, placard-style. The counter is visible on
             mobile where there's no strip to show position; on md+ the strip

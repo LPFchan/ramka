@@ -73,8 +73,8 @@ function OverlayDebugGallery({ items }: { items: LightboxItem[] }) {
           style={
             snugEdgeRatios
               ? ({
-                  '--lightbox-snug-ratio-start': snugEdgeRatios.start,
-                  '--lightbox-snug-ratio-end': snugEdgeRatios.end,
+                  '--lb-snug-ratio-start': snugEdgeRatios.start,
+                  '--lb-snug-ratio-end': snugEdgeRatios.end,
                 } as React.CSSProperties)
               : undefined
           }
@@ -85,11 +85,7 @@ function OverlayDebugGallery({ items }: { items: LightboxItem[] }) {
               <Lightbox.Slide
                 key={item.id ?? i}
                 className={snug ? 'lb-slide-snug' : undefined}
-                style={
-                  snug
-                    ? ({ '--lightbox-snug-ratio': ratio } as React.CSSProperties)
-                    : undefined
-                }
+                style={snug ? ({ '--lb-snug-ratio': ratio } as React.CSSProperties) : undefined}
               >
                 <Lightbox.Item index={i} caption={item.caption ?? item.alt}>
                   <Lightbox.Zoom maxZoom={6}>
@@ -112,7 +108,7 @@ function OverlayDebugGallery({ items }: { items: LightboxItem[] }) {
 
         <OverlayPanelBridge />
 
-        <div className="lb-top-right lb-chrome-pull-hide">
+        <div className="lb-top-right lb-chrome-gesture-hide">
           <button
             type="button"
             className="lb-control lb-control-md lb-control-layout"
@@ -139,7 +135,7 @@ function OverlayDebugGallery({ items }: { items: LightboxItem[] }) {
           <Lightbox.Close />
         </div>
 
-        <div className="lb-bottom lb-chrome-pull-hide">
+        <div className="lb-bottom lb-chrome-gesture-hide">
           <div className="lb-caption-group">
             <Lightbox.Caption />
             <Lightbox.Counter>{({ current, total }) => `${current} of ${total}`}</Lightbox.Counter>
@@ -179,16 +175,13 @@ export default function LightboxOverlaysDebugPage() {
           Lightbox + shadcn overlays
         </h1>
         <p className="mt-3 max-w-2xl text-base leading-relaxed text-neutral-600 dark:text-neutral-400">
-          Default preset gallery with {SLIDE_COUNT} slides. Open the lightbox and use the floating
-          panel to exercise Base UI dialog, dropdown menu, and tooltip portaled inside the modal
-          viewer.
+          Default preset gallery with {SLIDE_COUNT} slides. Open the lightbox and use the floating panel to exercise
+          Base UI dialog, dropdown menu, and tooltip portaled inside the modal viewer.
         </p>
       </header>
 
       <section className="space-y-3">
-        <h2 className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
-          What to verify
-        </h2>
+        <h2 className="text-sm font-medium text-neutral-900 dark:text-neutral-100">What to verify</h2>
         <ul className="list-disc space-y-1 pl-5 text-sm text-neutral-600 dark:text-neutral-400">
           <li>Overlays render above slides and below / above nested dialogs as expected</li>
           <li>Arrow keys and swipe still change slides while a dropdown is closed</li>
