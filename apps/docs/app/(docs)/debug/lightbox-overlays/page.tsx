@@ -2,40 +2,30 @@
 
 import { notFound } from 'next/navigation';
 import * as React from 'react';
+import Image, { type StaticImageData } from 'next/image';
 import { useLightboxContext } from 'ramka';
 
-import { imgDims } from '../../../_components/lightbox-chrome';
 import { Lightbox, type LightboxItem } from '../../presets/default/lightbox';
 
+import { overlayImages } from './images.generated';
 import { OverlayTestPanel } from './overlay-test-panel';
-
-const ASPECTS: ReadonlyArray<readonly [number, number]> = [
-  [1200, 800],
-  [800, 1200],
-  [1200, 1200],
-  [1600, 900],
-  [1000, 1250],
-  [1300, 975],
-];
 
 const SLIDE_COUNT = 16;
 const TRIGGER_COUNT = 8;
 
-const slides: LightboxItem[] = Array.from({ length: SLIDE_COUNT }, (_, i) => {
-  const [w, h] = ASPECTS[i % ASPECTS.length]!;
-  const thumbScale = 320 / Math.max(w, h);
-  const tw = Math.round(w * thumbScale);
-  const th = Math.round(h * thumbScale);
-  return {
-    id: `overlay-debug-${i}`,
-    src: `https://picsum.photos/seed/ramka-overlay-${i}/${w}/${h}`,
-    thumb: `https://picsum.photos/seed/ramka-overlay-${i}/${tw}/${th}`,
-    alt: `Overlay test slide ${i + 1}`,
-    caption: `Slide ${i + 1} · ${w}×${h}`,
-    width: w,
-    height: h,
-  };
-});
+/** Preset item shape + the statically-imported asset for next/image. */
+type OverlayItem = LightboxItem & { image: StaticImageData };
+
+const slides: OverlayItem[] = overlayImages.slice(0, SLIDE_COUNT).map((image, i) => ({
+  id: `overlay-debug-${i}`,
+  image,
+  src: image.src,
+  thumb: image.src,
+  alt: `Overlay test slide ${i + 1}`,
+  caption: `Slide ${i + 1} · ${image.width}×${image.height}`,
+  width: image.width,
+  height: image.height,
+}));
 
 function itemAspectRatio(item: LightboxItem) {
   return item.width / item.height;
@@ -46,7 +36,7 @@ function OverlayPanelBridge() {
   return <OverlayTestPanel slideIndex={activeIndex} slideCount={itemCount} />;
 }
 
-function OverlayDebugGallery({ items }: { items: LightboxItem[] }) {
+function OverlayDebugGallery({ items }: { items: OverlayItem[] }) {
   const [slidesLayout, setSlidesLayout] = React.useState<'bleed' | 'snug'>('bleed');
   const snug = slidesLayout === 'snug';
 
@@ -90,13 +80,15 @@ function OverlayDebugGallery({ items }: { items: LightboxItem[] }) {
                 <Lightbox.Item index={i} caption={item.caption ?? item.alt}>
                   <Lightbox.Zoom maxZoom={6}>
                     <Lightbox.Media width={item.width} height={item.height}>
-                      <img
-                        width={item.width}
-                        height={item.height}
-                        src={item.src}
+                      <Image
+                        src={item.image}
                         alt={item.alt}
+                        sizes="100vw"
                         loading="eager"
                         draggable={false}
+                        // Slides past the trigger grid have no trigger image —
+                        // destination blur is the placeholder.
+                        {...(i >= TRIGGER_COUNT ? { placeholder: 'blur' as const } : null)}
                       />
                     </Lightbox.Media>
                   </Lightbox.Zoom>
@@ -144,7 +136,7 @@ function OverlayDebugGallery({ items }: { items: LightboxItem[] }) {
             <Lightbox.ThumbnailStripTrack aria-label="Photo thumbnails">
               {items.map((item, i) => (
                 <Lightbox.Thumbnail key={item.id ?? i} index={i}>
-                  <img src={item.thumb} alt={item.alt} draggable={false} />
+                  <Image src={item.image} alt={item.alt} sizes="96px" draggable={false} />
                 </Lightbox.Thumbnail>
               ))}
             </Lightbox.ThumbnailStripTrack>
@@ -201,11 +193,12 @@ export default function LightboxOverlaysDebugPage() {
               className="block overflow-hidden rounded-lg border border-neutral-300 bg-neutral-100 p-0 dark:border-neutral-700 dark:bg-neutral-800"
             >
               {({ imageRef }) => (
-                <img
+                <Image
                   ref={imageRef}
-                  {...imgDims(item.thumb)}
-                  src={item.thumb}
+                  src={item.image}
                   alt={item.alt}
+                  placeholder="blur"
+                  sizes="(min-width: 640px) 200px, 50vw"
                   className="aspect-[4/3] w-full object-cover"
                 />
               )}

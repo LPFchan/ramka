@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import Image from 'next/image';
 import { Lightbox } from 'ramka';
 
 import { ExampleShell } from '../../../../_components/example-shell';
@@ -8,52 +9,35 @@ import {
   LightboxGallery,
   triggerFocusClass,
 } from '../../../../_components/lightbox-chrome';
+import { moodboardImages } from './images.generated';
 
 /**
- * Unlike the other examples, these images carry NO known dimensions: the markup
- * sets no `width`/`height` attributes and reserves no `aspect-ratio`, so every
- * box is sized only once its pixels load — the "user-uploaded / CMS" scenario
- * where aspect ratios aren't known ahead of time.
- *
- * To stress the placeholder path, the trigger and the lightbox item fetch the
- * SAME photo (same seed → same aspect) at DIFFERENT sizes: a small thumbnail
- * for the grid and a much larger image for the fullscreen view. When you open a
- * tile, the small (already-decoded) thumbnail is painted as the item image's
- * background and bridges the blank frame while the big version downloads.
+ * Every tile is a statically-imported local asset rendered through
+ * `next/image`: the grid thumbnail gets a build-time `blurDataURL`
+ * placeholder, and the fullscreen viewer reuses the SAME source at a higher
+ * `sizes` so both are the same crop — opening a tile lets Ramka bridge the
+ * already-decoded thumbnail while the larger candidate downloads.
  */
-const THUMB_WIDTH = 400;
-/** The fullscreen image fetches this many times bigger (same aspect ratio). */
-const FULL_SCALE = 2;
-
-function thumbUrl(seed: string, w: number, h: number) {
-  const scale = THUMB_WIDTH / w;
-  return `https://picsum.photos/seed/${seed}/${Math.round(w * scale)}/${Math.round(h * scale)}`;
-}
-
-function fullUrl(seed: string, w: number, h: number) {
-  const scale = (THUMB_WIDTH / w) * FULL_SCALE;
-  return `https://picsum.photos/seed/${seed}/${Math.round(w * scale)}/${Math.round(h * scale)}`;
-}
-
 const images = (
   [
-    { id: 'mb-01', w: 600, h: 900, alt: 'Foggy pine ridge at dawn', caption: 'Dawn ridge' },
-    { id: 'mb-02', w: 900, h: 600, alt: 'Empty coastal highway', caption: 'Open road' },
-    { id: 'mb-03', w: 800, h: 800, alt: 'Overhead of a linen breakfast table', caption: 'Slow morning' },
-    { id: 'mb-04', w: 700, h: 1050, alt: 'Narrow sunlit alley', caption: 'Warm alley' },
-    { id: 'mb-05', w: 1200, h: 700, alt: 'Wide desert dunes', caption: 'Dunes' },
-    { id: 'mb-06', w: 640, h: 820, alt: 'Rain on a window', caption: 'Rainy glass' },
-    { id: 'mb-07', w: 960, h: 640, alt: 'Calm lake reflection', caption: 'Still water' },
-    { id: 'mb-08', w: 800, h: 1200, alt: 'Tall concrete staircase', caption: 'Ascent' },
-    { id: 'mb-09', w: 1000, h: 1000, alt: 'Close-up of dried flowers', caption: 'Pressed petals' },
-    { id: 'mb-10', w: 1100, h: 620, alt: 'Panoramic city skyline at dusk', caption: 'Dusk skyline' },
-    { id: 'mb-11', w: 620, h: 900, alt: 'Single tree in a green field', caption: 'Lone tree' },
-    { id: 'mb-12', w: 900, h: 900, alt: 'Textured stone wall', caption: 'Stonework' },
+    { id: 'mb-01', alt: 'Foggy pine ridge at dawn', caption: 'Dawn ridge' },
+    { id: 'mb-02', alt: 'Empty coastal highway', caption: 'Open road' },
+    { id: 'mb-03', alt: 'Overhead of a linen breakfast table', caption: 'Slow morning' },
+    { id: 'mb-04', alt: 'Narrow sunlit alley', caption: 'Warm alley' },
+    { id: 'mb-05', alt: 'Wide desert dunes', caption: 'Dunes' },
+    { id: 'mb-06', alt: 'Rain on a window', caption: 'Rainy glass' },
+    { id: 'mb-07', alt: 'Calm lake reflection', caption: 'Still water' },
+    { id: 'mb-08', alt: 'Tall concrete staircase', caption: 'Ascent' },
+    { id: 'mb-09', alt: 'Close-up of dried flowers', caption: 'Pressed petals' },
+    { id: 'mb-10', alt: 'Panoramic city skyline at dusk', caption: 'Dusk skyline' },
+    { id: 'mb-11', alt: 'Single tree in a green field', caption: 'Lone tree' },
+    { id: 'mb-12', alt: 'Textured stone wall', caption: 'Stonework' },
   ] as const
-).map((img) => ({
+).map((img, i) => ({
   ...img,
-  thumb: thumbUrl(img.id, img.w, img.h),
-  src: fullUrl(img.id, img.w, img.h),
+  image: moodboardImages[i]!,
+  thumb: moodboardImages[i]!,
+  src: moodboardImages[i]!,
 }));
 
 type Tile = (typeof images)[number];
@@ -89,7 +73,7 @@ export default function MoodboardPage() {
   return (
     <ExampleShell
       title="Moodboard"
-      description="A masonry wall of tiles with unknown dimensions — the grid images set no width/height and reserve no aspect ratio, so each is sized only once its pixels load (the CMS / user-upload scenario). Tapping a tile opens the same fullscreen viewer as the Photos-app demo: a swipeable, snapping scroller with pinch / scroll / keyboard zoom, desktop thumbnails, edge-to-edge images, and pull-to-dismiss. Each tile fetches a small thumbnail while the viewer loads a 2× larger version of the same photo, so opening one paints the cached thumbnail as a placeholder that bridges the blank frame while the big image downloads."
+      description="A masonry wall of next/image tiles — each grid thumbnail shows a build-time blurDataURL placeholder while its pixels load, then tapping a tile opens the same fullscreen viewer as the Photos-app demo: a swipeable, snapping scroller with pinch / scroll / keyboard zoom, desktop thumbnails, edge-to-edge images, and pull-to-dismiss. Trigger and viewer share the same local source image at different sizes (srcset picks the resolution), so opening one paints the cached thumbnail as a placeholder that bridges the blank frame while the larger candidate downloads."
     >
       <Lightbox.Root
         loop
@@ -111,15 +95,14 @@ export default function MoodboardPage() {
                   className={`block w-full cursor-pointer overflow-hidden rounded-xl border-none bg-transparent p-0 ${triggerFocusClass}`}
                 >
                   {({ imageRef }) => (
-                    <img
+                    <Image
                       ref={imageRef}
-                      src={tile.thumb}
+                      src={tile.image}
                       alt={tile.alt}
+                      placeholder="blur"
+                      sizes="(min-width: 640px) 224px, 50vw"
                       loading="lazy"
-                      // No width/height and no aspect-ratio on purpose. The neutral
-                      // fill gives the not-yet-loaded tile a clean look instead of a
-                      // collapsed 0-height sliver.
-                      className="block w-full rounded-xl bg-neutral-100 object-cover transition duration-200 hover:opacity-90 dark:bg-neutral-800"
+                      className="block h-auto w-full rounded-xl bg-neutral-100 object-cover transition duration-200 hover:opacity-90 dark:bg-neutral-800"
                     />
                   )}
                 </Lightbox.Trigger>

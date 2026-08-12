@@ -11,6 +11,9 @@ import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { TrackballControls } from 'three/examples/jsm/controls/TrackballControls.js';
 
+import { bottleScreenshot, chairScreenshot, shoeScreenshot } from './images.generated';
+
+// GLB models stay remote (large binaries); screenshots are local static imports.
 const assetBase =
   'https://cdn.jsdelivr.net/gh/KhronosGroup/glTF-Sample-Assets@main/Models';
 
@@ -23,21 +26,21 @@ export const moodboardProducts = [
     name: 'Materials Variants Shoe',
     material: 'Leather · multi-variant',
     src: `${assetBase}/MaterialsVariantsShoe/glTF-Binary/MaterialsVariantsShoe.glb`,
-    screenshot: `${assetBase}/MaterialsVariantsShoe/screenshot/screenshot.jpg`,
+    screenshot: shoeScreenshot,
   },
   {
     id: 'bottle',
     name: 'Water Bottle',
     material: 'Brushed metal',
     src: `${assetBase}/WaterBottle/glTF-Binary/WaterBottle.glb`,
-    screenshot: `${assetBase}/WaterBottle/screenshot/screenshot.jpg`,
+    screenshot: bottleScreenshot,
   },
   {
     id: 'chair',
     name: 'Damask Chair',
     material: 'Purple & gold fabric',
     src: `${assetBase}/ChairDamaskPurplegold/glTF-Binary/ChairDamaskPurplegold.glb`,
-    screenshot: `${assetBase}/ChairDamaskPurplegold/screenshot/screenshot.jpg`,
+    screenshot: chairScreenshot,
   },
 ] as const;
 

@@ -1,6 +1,7 @@
 'use client';
 
 import { notFound } from 'next/navigation';
+import Image from 'next/image';
 import { Lightbox } from 'ramka';
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -9,22 +10,34 @@ import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { ExampleShell } from '../../../_components/example-shell';
 import {
-  imgDims,
   LightboxGallery,
   triggerFocusClass,
 } from '../../../_components/lightbox-chrome';
+import {
+  agentClaire,
+  propBath,
+  propBed,
+  propDining,
+  propExt,
+  propGarden,
+  propHero,
+  propKitchen,
+  propOffice,
+  propPool,
+  propTerrace,
+} from './images.generated';
 
 const propertyPhotos = [
-  { id: 'prop-hero', src: 'https://picsum.photos/seed/prop-hero/1400/900', thumb: 'https://picsum.photos/seed/prop-hero/700/450', alt: 'Living room with floor-to-ceiling windows', label: 'Living Room', caption: 'Living Room — The Olive Grove Residence' },
-  { id: 'prop-kitchen', src: 'https://picsum.photos/seed/prop-kitchen/1400/900', thumb: 'https://picsum.photos/seed/prop-kitchen/700/450', alt: 'Modern kitchen with marble island', label: 'Kitchen', caption: 'Kitchen — The Olive Grove Residence' },
-  { id: 'prop-bedroom', src: 'https://picsum.photos/seed/prop-bed/900/1400', thumb: 'https://picsum.photos/seed/prop-bed/450/700', alt: 'Primary bedroom with en-suite balcony', label: 'Primary Bedroom', caption: 'Primary Bedroom — The Olive Grove Residence' },
-  { id: 'prop-bath', src: 'https://picsum.photos/seed/prop-bath/900/1400', thumb: 'https://picsum.photos/seed/prop-bath/450/700', alt: 'Spa-style bathroom with freestanding tub', label: 'Bathroom', caption: 'Bathroom — The Olive Grove Residence' },
-  { id: 'prop-terrace', src: 'https://picsum.photos/seed/prop-terrace/1400/900', thumb: 'https://picsum.photos/seed/prop-terrace/700/450', alt: 'Rooftop terrace with city views', label: 'Terrace', caption: 'Terrace — The Olive Grove Residence' },
-  { id: 'prop-dining', src: 'https://picsum.photos/seed/prop-dining/1400/900', thumb: 'https://picsum.photos/seed/prop-dining/700/450', alt: 'Dining area with designer lighting', label: 'Dining', caption: 'Dining — The Olive Grove Residence' },
-  { id: 'prop-office', src: 'https://picsum.photos/seed/prop-office/900/1200', thumb: 'https://picsum.photos/seed/prop-office/450/600', alt: 'Home office with built-in shelving', label: 'Office', caption: 'Office — The Olive Grove Residence' },
-  { id: 'prop-pool', src: 'https://picsum.photos/seed/prop-pool/1400/900', thumb: 'https://picsum.photos/seed/prop-pool/700/450', alt: 'Infinity pool overlooking the valley', label: 'Pool', caption: 'Pool — The Olive Grove Residence' },
-  { id: 'prop-garden', src: 'https://picsum.photos/seed/prop-garden/1400/900', thumb: 'https://picsum.photos/seed/prop-garden/700/450', alt: 'Landscaped garden with mature olive trees', label: 'Garden', caption: 'Garden — The Olive Grove Residence' },
-  { id: 'prop-exterior', src: 'https://picsum.photos/seed/prop-ext/900/1400', thumb: 'https://picsum.photos/seed/prop-ext/450/700', alt: 'Front elevation at dusk with warm lighting', label: 'Exterior', caption: 'Exterior — The Olive Grove Residence' },
+  { id: 'prop-hero', src: propHero, thumb: propHero, alt: 'Living room with floor-to-ceiling windows', label: 'Living Room', caption: 'Living Room — The Olive Grove Residence' },
+  { id: 'prop-kitchen', src: propKitchen, thumb: propKitchen, alt: 'Modern kitchen with marble island', label: 'Kitchen', caption: 'Kitchen — The Olive Grove Residence' },
+  { id: 'prop-bedroom', src: propBed, thumb: propBed, alt: 'Primary bedroom with en-suite balcony', label: 'Primary Bedroom', caption: 'Primary Bedroom — The Olive Grove Residence' },
+  { id: 'prop-bath', src: propBath, thumb: propBath, alt: 'Spa-style bathroom with freestanding tub', label: 'Bathroom', caption: 'Bathroom — The Olive Grove Residence' },
+  { id: 'prop-terrace', src: propTerrace, thumb: propTerrace, alt: 'Rooftop terrace with city views', label: 'Terrace', caption: 'Terrace — The Olive Grove Residence' },
+  { id: 'prop-dining', src: propDining, thumb: propDining, alt: 'Dining area with designer lighting', label: 'Dining', caption: 'Dining — The Olive Grove Residence' },
+  { id: 'prop-office', src: propOffice, thumb: propOffice, alt: 'Home office with built-in shelving', label: 'Office', caption: 'Office — The Olive Grove Residence' },
+  { id: 'prop-pool', src: propPool, thumb: propPool, alt: 'Infinity pool overlooking the valley', label: 'Pool', caption: 'Pool — The Olive Grove Residence' },
+  { id: 'prop-garden', src: propGarden, thumb: propGarden, alt: 'Landscaped garden with mature olive trees', label: 'Garden', caption: 'Garden — The Olive Grove Residence' },
+  { id: 'prop-exterior', src: propExt, thumb: propExt, alt: 'Front elevation at dusk with warm lighting', label: 'Exterior', caption: 'Exterior — The Olive Grove Residence' },
 ];
 
 const amenities = [
@@ -65,11 +78,12 @@ function HeroGrid() {
         className={`row-span-2 block cursor-pointer border-none bg-transparent p-0 ${triggerFocusClass} ${heroCornerClass[0]}`}
       >
         {({ imageRef }) => (
-          <img
+          <Image
             ref={imageRef}
-            {...imgDims(hero.thumb)}
             src={hero.thumb}
             alt={hero.alt}
+            placeholder="blur"
+            sizes="(min-width: 1024px) 512px, 50vw"
             className={`block size-full object-cover ${heroCornerClass[0]}`}
           />
         )}
@@ -81,11 +95,12 @@ function HeroGrid() {
           className={`block cursor-pointer border-none bg-transparent p-0 ${triggerFocusClass} ${heroCornerClass[i + 1] ?? ''}`}
         >
           {({ imageRef }) => (
-            <img
+            <Image
               ref={imageRef}
-              {...imgDims(photo.thumb)}
               src={photo.thumb}
               alt={photo.alt}
+              placeholder="blur"
+              sizes="(min-width: 1024px) 256px, 25vw"
               className={`block size-full object-cover ${heroCornerClass[i + 1] ?? ''}`}
             />
           )}
@@ -118,11 +133,12 @@ function RemainingPhotosGrid() {
           >
             {({ imageRef, morphRef }) => (
               <div ref={morphRef} className="relative overflow-hidden rounded-lg">
-                <img
+                <Image
                   ref={imageRef}
-                  {...imgDims(photo.thumb)}
                   src={photo.thumb}
                   alt={photo.alt}
+                  placeholder="blur"
+                  sizes="(min-width: 768px) 33vw, (min-width: 640px) 50vw, 100vw"
                   className="block aspect-[3/2] w-full object-cover"
                 />
                 <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent px-3 pb-2 pt-4">
@@ -189,7 +205,7 @@ export default function RealEstateListingPage() {
               <Separator />
               <div className="flex items-center gap-3">
                 <Avatar size="lg">
-                  <AvatarImage src="https://i.pravatar.cc/150?u=agent-claire" alt="Claire Rousseau" />
+                  <AvatarImage src={agentClaire.src} alt="Claire Rousseau" />
                   <AvatarFallback>CR</AvatarFallback>
                 </Avatar>
                 <div>

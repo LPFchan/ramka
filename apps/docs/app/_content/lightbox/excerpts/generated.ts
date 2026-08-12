@@ -34,7 +34,7 @@ export const lightboxExcerpts = {
   },
   "crossfade-both": {
     title: "crossfade=\"both\"",
-    code: "import { Lightbox } from 'ramka';\n\n<Lightbox.Root morphTo=\"closest\">\n  <Lightbox.Trigger index={0} crossfade=\"both\">\n    {({ imageRef }) => (\n      <div className=\"relative\">\n        <img ref={imageRef} src={thumb} alt=\"\" />\n        <span>+{extras}</span>\n      </div>\n    )}\n  </Lightbox.Trigger>\n  <Lightbox.Portal>\n    <Lightbox.Backdrop />\n    <Lightbox.Content>\n      <Lightbox.Slides>\n        <Lightbox.Slide>\n          <Lightbox.Item index={0}>{({ imageRef }) => <img ref={imageRef} src={src} alt=\"\" />}</Lightbox.Item>\n        </Lightbox.Slide>\n      </Lightbox.Slides>\n    </Lightbox.Content>\n  </Lightbox.Portal>\n</Lightbox.Root>\n",
+    code: "import { Lightbox } from 'ramka';\n\n<Lightbox.Root morphTo=\"closest\">\n  <Lightbox.Trigger index={0} crossfade=\"both\">\n    {({ imageRef }) => (\n      <div className=\"relative\">\n        <Image ref={imageRef} src={photo} alt=\"\" placeholder=\"blur\" />\n        <span>+{extras}</span>\n      </div>\n    )}\n  </Lightbox.Trigger>\n  <Lightbox.Portal>\n    <Lightbox.Backdrop />\n    <Lightbox.Content>\n      <Lightbox.Slides>\n        <Lightbox.Slide>\n          <Lightbox.Item index={0}>\n            {({ imageRef }) => <Image ref={imageRef} src={photo} alt=\"\" sizes=\"100vw\" priority />}\n          </Lightbox.Item>\n        </Lightbox.Slide>\n      </Lightbox.Slides>\n    </Lightbox.Content>\n  </Lightbox.Portal>\n</Lightbox.Root>\n",
     source: "app/_content/lightbox/excerpts/sources/crossfade-both.tsx",
   },
   "item-group-preload": {

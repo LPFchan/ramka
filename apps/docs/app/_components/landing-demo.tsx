@@ -1,10 +1,21 @@
 'use client';
 
+import Image from 'next/image';
 import { Lightbox } from 'ramka';
 
 import { setGlassShinePaused } from './broken-glass-shine';
 import {
-  imgDims,
+  ramkaA,
+  ramkaB,
+  ramkaC,
+  ramkaD,
+  ramkaE,
+  ramkaF,
+  ramkaG,
+  ramkaH,
+  ramkaI,
+} from './images.generated';
+import {
   LightboxGallery,
   triggerFocusClass,
   type LightboxGalleryItem,
@@ -34,32 +45,32 @@ import {
  */
 const visibleImages: (LightboxGalleryItem & { tileClass: string; breakClass: string })[] = [
   {
-    src: 'https://picsum.photos/seed/ramka-a/1600/1067',
-    thumb: 'https://picsum.photos/seed/ramka-a/800/533',
+    src: ramkaA,
+    thumb: ramkaA,
     alt: 'Person standing in a sunlit meadow at golden hour',
     caption: 'Golden hour in the meadow',
     tileClass: 'aspect-[4/3] md:aspect-[3/2]',
     breakClass: '',
   },
   {
-    src: 'https://picsum.photos/seed/ramka-b/1200/1500',
-    thumb: 'https://picsum.photos/seed/ramka-b/800/1000',
+    src: ramkaB,
+    thumb: ramkaB,
     alt: 'Seashells scattered along the shoreline',
     caption: 'Seashells on the shore',
     tileClass: 'aspect-[4/5]',
     breakClass: '',
   },
   {
-    src: 'https://picsum.photos/seed/ramka-c/1400/1400',
-    thumb: 'https://picsum.photos/seed/ramka-c/800/800',
+    src: ramkaC,
+    thumb: ramkaC,
     alt: 'Curved building facade in black and white',
     caption: 'Curved facade, in monochrome',
     tileClass: 'aspect-square',
     breakClass: 'md:break-before-column',
   },
   {
-    src: 'https://picsum.photos/seed/ramka-d/1200/1600',
-    thumb: 'https://picsum.photos/seed/ramka-d/800/1067',
+    src: ramkaD,
+    thumb: ramkaD,
     alt: 'Airplane crossing a purple sky above the clouds',
     caption: 'Above the clouds at dusk',
     // Cross-aspect showcase: portrait 3:4 source in a wide 5:3 tile. The sky
@@ -68,24 +79,24 @@ const visibleImages: (LightboxGalleryItem & { tileClass: string; breakClass: str
     breakClass: 'break-before-column md:break-before-auto',
   },
   {
-    src: 'https://picsum.photos/seed/ramka-e/1600/1000',
-    thumb: 'https://picsum.photos/seed/ramka-e/800/500',
+    src: ramkaE,
+    thumb: ramkaE,
     alt: 'Fog rolling over dark hills',
     caption: 'Fog rolling over the valley',
     tileClass: 'aspect-[10/7] md:aspect-[8/5]',
     breakClass: '',
   },
   {
-    src: 'https://picsum.photos/seed/ramka-f/1300/1600',
-    thumb: 'https://picsum.photos/seed/ramka-f/800/985',
+    src: ramkaF,
+    thumb: ramkaF,
     alt: 'Aerial view of a road entering twin forest tunnels',
     caption: 'Twin tunnels from above',
     tileClass: 'aspect-[10/11] md:aspect-[13/16]',
     breakClass: 'md:break-before-column',
   },
   {
-    src: 'https://picsum.photos/seed/ramka-g/1600/1000',
-    thumb: 'https://picsum.photos/seed/ramka-g/800/500',
+    src: ramkaG,
+    thumb: ramkaG,
     alt: 'Bride seen through the windows of a vintage car',
     caption: 'Through the wedding car window',
     tileClass: 'aspect-[8/5]',
@@ -93,19 +104,24 @@ const visibleImages: (LightboxGalleryItem & { tileClass: string; breakClass: str
   },
 ];
 
-/** Behind the "+2" tile — no triggers of their own. */
+/**
+ * Behind the "+2" tile — no triggers of their own, so the destination Image
+ * carries the blur-up placeholder (no trigger thumb to bridge from).
+ */
 const hiddenImages: LightboxGalleryItem[] = [
   {
-    src: 'https://picsum.photos/seed/ramka-h/1200/1500',
-    thumb: 'https://picsum.photos/seed/ramka-h/800/1000',
+    src: ramkaH,
+    thumb: ramkaH,
     alt: 'Sandstone hoodoos under a summer sky',
     caption: 'Hoodoos under a summer sky — Bryce Canyon',
+    destinationBlur: true,
   },
   {
-    src: 'https://picsum.photos/seed/ramka-i/1600/1600',
-    thumb: 'https://picsum.photos/seed/ramka-i/800/800',
+    src: ramkaI,
+    thumb: ramkaI,
     alt: 'The Leaning Tower of Pisa at dusk',
     caption: 'The leaning arches of Pisa',
+    destinationBlur: true,
   },
 ];
 
@@ -145,7 +161,7 @@ export function LandingDemo() {
           const isStack = i === lastIndex;
           return (
             <Lightbox.Trigger
-              key={img.src}
+              key={img.alt}
               index={i}
               // The stack tile's content (photo + "+2" scrim) doesn't match
               // the clean slide, so dissolve both ways instead of morphing.
@@ -165,11 +181,12 @@ export function LandingDemo() {
             >
               {({ imageRef }) => (
                 <>
-                  <img
+                  <Image
                     ref={imageRef}
-                    {...imgDims(img.thumb)}
                     src={img.thumb}
                     alt={img.alt}
+                    placeholder="blur"
+                    sizes="(min-width: 768px) 33vw, 50vw"
                     loading="eager"
                     draggable={false}
                     className={`col-start-1 row-start-1 block h-full w-full select-none object-cover ${img.tileClass}`}

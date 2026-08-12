@@ -1,21 +1,22 @@
 'use client';
 
 import * as React from 'react';
+import Image from 'next/image';
 import { Lightbox } from 'ramka';
 
 import { Separator } from '@/components/ui/separator';
 import {
-  imgDims,
   LightboxGallery,
   triggerFocusClass,
 } from '../../../_components/lightbox-chrome';
+import { morph1, morph2, morph3, morph4, morph5 } from './images.generated';
 
 const morphImages = [
-  { src: 'https://picsum.photos/seed/morph1/1200/800', thumb: 'https://picsum.photos/seed/morph1/300/200', alt: 'Alpine meadow', caption: 'Alpine meadow' },
-  { src: 'https://picsum.photos/seed/morph2/1200/800', thumb: 'https://picsum.photos/seed/morph2/300/200', alt: 'Rocky coastline', caption: 'Rocky coastline' },
-  { src: 'https://picsum.photos/seed/morph3/1200/800', thumb: 'https://picsum.photos/seed/morph3/300/200', alt: 'Autumn vineyard', caption: 'Autumn vineyard' },
-  { src: 'https://picsum.photos/seed/morph4/1200/800', thumb: 'https://picsum.photos/seed/morph4/300/200', alt: 'Desert canyon', caption: 'Desert canyon' },
-  { src: 'https://picsum.photos/seed/morph5/1200/800', thumb: 'https://picsum.photos/seed/morph5/300/200', alt: 'Northern lake', caption: 'Northern lake' },
+  { src: morph1, thumb: morph1, alt: 'Alpine meadow', caption: 'Alpine meadow' },
+  { src: morph2, thumb: morph2, alt: 'Rocky coastline', caption: 'Rocky coastline' },
+  { src: morph3, thumb: morph3, alt: 'Autumn vineyard', caption: 'Autumn vineyard' },
+  { src: morph4, thumb: morph4, alt: 'Desert canyon', caption: 'Desert canyon' },
+  { src: morph5, thumb: morph5, alt: 'Northern lake', caption: 'Northern lake' },
 ];
 
 function MorphDemo({
@@ -31,6 +32,10 @@ function MorphDemo({
 }) {
   const [activeIndex, setActiveIndex] = React.useState(0);
 
+  // No trigger registers an imageRef in these demos (the point is the morph
+  // strategy, not the thumb bridge), so destination blur is safe everywhere.
+  const items = morphImages.map((img) => ({ ...img, destinationBlur: true }));
+
   return (
     <Lightbox.Root morphTo={morphTo} value={activeIndex} onValueChange={setActiveIndex}>
       <div
@@ -42,15 +47,16 @@ function MorphDemo({
             crossfadeTriggers === 'all' || (crossfadeTriggers === 'last' && i === triggerCount - 1);
           return (
             <Lightbox.Trigger
-              key={img.src}
+              key={img.alt}
               index={i}
               crossfade={isCrossfade ? 'both' : undefined}
               className={`block cursor-pointer rounded-lg border-none bg-transparent p-0 ${triggerFocusClass}`}
             >
-              <img
-                {...imgDims(img.thumb)}
+              <Image
                 src={img.thumb}
                 alt={img.alt}
+                placeholder="blur"
+                sizes={`${Math.round(100 / triggerCount)}vw`}
                 className="block aspect-[3/2] w-full rounded-lg object-cover"
                 loading="lazy"
               />
@@ -59,7 +65,7 @@ function MorphDemo({
         })}
       </div>
 
-      <LightboxGallery items={morphImages} ariaLabel={ariaLabel} />
+      <LightboxGallery items={items} ariaLabel={ariaLabel} />
     </Lightbox.Root>
   );
 }

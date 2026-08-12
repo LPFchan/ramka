@@ -2,35 +2,26 @@
 
 import { notFound } from 'next/navigation';
 import * as React from 'react';
+import Image, { type StaticImageData } from 'next/image';
 import { Lightbox } from 'ramka';
 import { X } from 'lucide-react';
 
 import {
-  imgDims,
   lightboxChromeButton,
   triggerFocusClass,
 } from '../../../_components/lightbox-chrome';
 
 import { AspectFrameStrip } from './aspect-frame-strip';
+import { stripImages } from './images.generated';
 import './strips.css';
 
 type Photo = {
   id: string;
-  src: string;
-  thumb: string;
+  image: StaticImageData;
   alt: string;
   caption: string;
   aspect: number;
 };
-
-const ASPECTS: ReadonlyArray<readonly [number, number]> = [
-  [1200, 800], // 3:2
-  [800, 1200], // 2:3
-  [1200, 1200], // 1:1
-  [1400, 788], // ~16:9
-  [1000, 1250], // 4:5
-  [1300, 975], // 4:3
-];
 
 /** Short handwritten-style labels for the polaroid matte band. */
 const POLAROID_LABELS = [
@@ -60,24 +51,16 @@ const POLAROID_LABELS = [
   'early flight',
 ] as const;
 
-const PHOTO_COUNT = 24;
 /** Triggers on the page — lightbox still contains the full `photos` set. */
 const TRIGGER_COUNT = 6;
 
-const photos: Photo[] = Array.from({ length: PHOTO_COUNT }, (_, i) => {
-  const [w, h] = ASPECTS[i % ASPECTS.length]!;
-  const thumbScale = 320 / Math.max(w, h);
-  const tw = Math.round(w * thumbScale);
-  const th = Math.round(h * thumbScale);
-  return {
-    id: `strip-demo-${i}`,
-    src: `https://picsum.photos/seed/ramka-strip-${i}/${w}/${h}`,
-    thumb: `https://picsum.photos/seed/ramka-strip-${i}/${tw}/${th}`,
-    alt: `Photo ${i + 1}`,
-    caption: POLAROID_LABELS[i % POLAROID_LABELS.length] ?? `Frame ${i + 1}`,
-    aspect: w / h,
-  };
-});
+const photos: Photo[] = stripImages.map((image, i) => ({
+  id: `strip-demo-${i}`,
+  image,
+  alt: `Photo ${i + 1}`,
+  caption: POLAROID_LABELS[i % POLAROID_LABELS.length] ?? `Frame ${i + 1}`,
+  aspect: image.width / image.height,
+}));
 
 const TILTS = [-3.5, 2.2, -1.4, 3.1, -2.6, 1.8, -2.8, 2.5, -1.1, 3.4, -3.2, 1.6];
 
@@ -118,10 +101,11 @@ function DemoShell({
               crossfade={i === TRIGGER_COUNT - 1 ? 'both' : undefined}
               className={`relative aspect-square overflow-hidden rounded-lg bg-neutral-100 ${triggerFocusClass} dark:bg-neutral-900`}
             >
-              <img
-                {...(imgDims(photo.thumb) ?? {})}
-                src={photo.thumb}
+              <Image
+                src={photo.image}
                 alt={photo.alt}
+                placeholder="blur"
+                sizes="(min-width: 640px) 110px, 33vw"
                 className={`h-full w-full object-cover`}
                 draggable={false}
               />
@@ -141,30 +125,31 @@ function DemoShell({
               preload={1}
               className="lightbox-demo-slides flex-1 gap-5 [&::-webkit-scrollbar]:hidden md:gap-0"
             >
-              {photos.map((photo, i) => {
-                const dims = imgDims(photo.src);
-                return (
-                  <Lightbox.Slide key={photo.id} className="lightbox-demo-slide-pad h-full">
-                    <Lightbox.Item index={i} caption={photo.caption}>
-                      <Lightbox.Zoom maxZoom={4}>
-                        <Lightbox.Media
-                          {...(dims ?? {})}
-                          className="overflow-hidden rounded-none md:rounded-lg"
-                        >
-                          <img
-                            {...(dims ?? {})}
-                            src={photo.src}
-                            alt={photo.alt}
-                            loading="eager"
-                            draggable={false}
-                            className="select-none"
-                          />
-                        </Lightbox.Media>
-                      </Lightbox.Zoom>
-                    </Lightbox.Item>
-                  </Lightbox.Slide>
-                );
-              })}
+              {photos.map((photo, i) => (
+                <Lightbox.Slide key={photo.id} className="lightbox-demo-slide-pad h-full">
+                  <Lightbox.Item index={i} caption={photo.caption}>
+                    <Lightbox.Zoom maxZoom={4}>
+                      <Lightbox.Media
+                        width={photo.image.width}
+                        height={photo.image.height}
+                        className="overflow-hidden rounded-none md:rounded-lg"
+                      >
+                        <Image
+                          src={photo.image}
+                          alt={photo.alt}
+                          sizes="100vw"
+                          loading="eager"
+                          draggable={false}
+                          className="select-none"
+                          // Indexes past the trigger grid have no trigger image
+                          // to bridge from — destination blur is the placeholder.
+                          {...(i >= TRIGGER_COUNT ? { placeholder: 'blur' as const } : null)}
+                        />
+                      </Lightbox.Media>
+                    </Lightbox.Zoom>
+                  </Lightbox.Item>
+                </Lightbox.Slide>
+              ))}
             </Lightbox.Slides>
 
             <div
@@ -196,7 +181,7 @@ function BareStrip() {
       <Lightbox.ThumbnailStripTrack aria-label="Thumbnails">
         {photos.map((photo, i) => (
           <Lightbox.Thumbnail key={photo.id} index={i}>
-            <img src={photo.thumb} alt="" draggable={false} />
+            <Image src={photo.image} alt="" sizes="120px" draggable={false} />
           </Lightbox.Thumbnail>
         ))}
       </Lightbox.ThumbnailStripTrack>
@@ -210,7 +195,7 @@ function CirclesStrip() {
       <Lightbox.ThumbnailStripTrack aria-label="Thumbnails">
         {photos.map((photo, i) => (
           <Lightbox.Thumbnail key={photo.id} index={i}>
-            <img src={photo.thumb} alt="" draggable={false} />
+            <Image src={photo.image} alt="" sizes="120px" draggable={false} />
           </Lightbox.Thumbnail>
         ))}
       </Lightbox.ThumbnailStripTrack>
@@ -244,7 +229,7 @@ function PolaroidStrip() {
             index={i}
             style={{ ['--ts-tilt' as string]: `${TILTS[i % TILTS.length]}deg` }}
           >
-            <img src={photo.thumb} alt="" draggable={false} />
+            <Image src={photo.image} alt="" sizes="120px" draggable={false} />
             <span className="ts-debug-polaroid-caption">{photo.caption}</span>
           </Lightbox.Thumbnail>
         ))}
@@ -266,7 +251,7 @@ function FadeStrip() {
             index={i}
             style={{ ['--ts-aspect' as string]: String(photo.aspect) }}
           >
-            <img src={photo.thumb} alt="" draggable={false} />
+            <Image src={photo.image} alt="" sizes="120px" draggable={false} />
           </Lightbox.Thumbnail>
         ))}
       </Lightbox.ThumbnailStripTrack>

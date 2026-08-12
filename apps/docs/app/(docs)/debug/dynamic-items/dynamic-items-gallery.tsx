@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import Image from 'next/image';
 import { Lightbox } from 'ramka';
 import { X, ZoomIn, ZoomOut } from 'lucide-react';
 
@@ -33,7 +34,11 @@ function DynamicItemsThumbnailStrip({
             index={i}
             className={isRemoving(item) ? 'dynamic-items-thumb-removing' : undefined}
           >
-            <img src={item.thumb} alt={item.alt} draggable={false} />
+            {typeof item.thumb === 'object' ? (
+              <Image src={item.thumb} alt={item.alt} sizes="96px" draggable={false} />
+            ) : (
+              <img src={item.thumb} alt={item.alt} draggable={false} />
+            )}
           </Lightbox.Thumbnail>
         ))}
       </Lightbox.ThumbnailStripTrack>
@@ -84,14 +89,25 @@ export function DynamicItemsGallery({
                       {...(galleryItemDims(item) ?? {})}
                       className="overflow-hidden rounded-none md:rounded-lg"
                     >
-                      <img
-                        {...(galleryItemDims(item) ?? {})}
-                        src={item.src}
-                        alt={item.alt}
-                        loading="eager"
-                        draggable={false}
-                        className="select-none"
-                      />
+                      {typeof item.src === 'object' ? (
+                        <Image
+                          src={item.src}
+                          alt={item.alt}
+                          sizes="100vw"
+                          loading="eager"
+                          draggable={false}
+                          className="select-none"
+                        />
+                      ) : (
+                        <img
+                          {...(galleryItemDims(item) ?? {})}
+                          src={item.src}
+                          alt={item.alt}
+                          loading="eager"
+                          draggable={false}
+                          className="select-none"
+                        />
+                      )}
                     </Lightbox.Media>
                   </Lightbox.Zoom>
                 </div>

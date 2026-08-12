@@ -1,13 +1,14 @@
 'use client';
 
 import * as React from 'react';
+import Image, { type StaticImageData } from 'next/image';
 import { Lightbox, useLightboxContext } from 'ramka';
 
 import './aspect-frame-strip.css';
 
 export type AspectFramePhoto = {
   id: string;
-  thumb: string;
+  image: StaticImageData;
   alt: string;
   /** Hardcoded w/h from recipe data — drives frame morph (not measured live). */
   aspect: number;
@@ -610,7 +611,7 @@ export function AspectFrameStrip({
                 } as React.CSSProperties
               }
             >
-              <img src={item.thumb} alt={item.alt} draggable={false} />
+              <Image src={item.image} alt={item.alt} sizes="120px" draggable={false} />
             </Lightbox.Thumbnail>
           ))}
         </Lightbox.ThumbnailStripTrack>
