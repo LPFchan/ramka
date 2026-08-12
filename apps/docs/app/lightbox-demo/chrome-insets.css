@@ -82,14 +82,23 @@
   padding-inline: 0;
 }
 
-/* @docs-excerpt-start slide-track-css */
-/* @docs-excerpt-title Slide track (full-bleed carousel) */
 /*
- * Default bleed track — one scrollport width per slide.
- * Slides geometry assumes center snap (built into Lightbox.Slide).
+ * Layered so this stays an overridable demo-skin default: the selector matches
+ * EVERY ramka slide in the docs app, including other skins rendered on preset
+ * pages. Unlayered, it would beat their `@layer utilities` rules (e.g. the
+ * Tailwind preset's `md:flex-[0_0_auto] md:min-w-0` snug overrides) regardless
+ * of specificity or source order.
  */
-[data-ramka-slide] {
-  flex: 0 0 100%;
-  min-width: 100%;
+@layer components {
+  /* @docs-excerpt-start slide-track-css */
+  /* @docs-excerpt-title Slide track (full-bleed carousel) */
+  /*
+   * Default bleed track — one scrollport width per slide.
+   * Slides geometry assumes center snap (built into Lightbox.Slide).
+   */
+  [data-ramka-slide] {
+    flex: 0 0 100%;
+    min-width: 100%;
+  }
+  /* @docs-excerpt-end */
 }
-/* @docs-excerpt-end */

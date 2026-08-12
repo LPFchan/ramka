@@ -1,7 +1,9 @@
 'use client';
 
 /**
- * Default lightbox — design-system package entry (copy with lightbox.css).
+ * Default lightbox, plain-CSS variant — design-system package entry
+ * (copy with lightbox.css). A Tailwind variant with the identical component
+ * API lives in `../tailwind/lightbox.tsx`.
  *
  * Re-exports ramka Lightbox primitives with this skin attached, plus composed
  * `Lightbox.Gallery` (bleed or snug slides, glass controls, desktop thumbnail strip).
