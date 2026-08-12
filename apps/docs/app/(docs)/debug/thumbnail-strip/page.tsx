@@ -2,6 +2,8 @@
 
 import { notFound } from 'next/navigation';
 import * as React from 'react';
+import { DialRoot } from 'dialkit';
+import 'dialkit/styles.css';
 import { Lightbox } from 'ramka';
 import { X } from 'lucide-react';
 
@@ -12,7 +14,7 @@ import {
 } from '../../../_components/lightbox-chrome';
 
 import { AspectFrameStrip } from './aspect-frame-strip';
-import { Pill3DStrip } from './pill-3d-strip';
+import { Pill3DDemo } from './pill-3d-strip';
 import './strips.css';
 
 type Photo = {
@@ -67,7 +69,7 @@ const TRIGGER_COUNT = 6;
 
 const photos: Photo[] = Array.from({ length: PHOTO_COUNT }, (_, i) => {
   const [w, h] = ASPECTS[i % ASPECTS.length]!;
-  const thumbScale = 320 / Math.max(w, h);
+  const thumbScale = 1280 / Math.max(w, h);
   const tw = Math.round(w * thumbScale);
   const th = Math.round(h * thumbScale);
   return {
@@ -339,12 +341,24 @@ export default function ThumbnailStripDebugPage() {
         strip={<AspectFrameStrip photos={photos} />}
       />
 
-      <DemoShell
-        title="7 · 3D pill"
-        description="Thumbnails ride a pill-shaped 3D path (two straights + semicircular caps) at equal arc spacing, rotating with perspective as you swipe. Loop wraps spin through the caps — the pill is a closed loop."
-        contentClassName="ts-debug-content-pill3d"
-        strip={<Pill3DStrip photos={photos} />}
-      />
+      <section className="rounded-2xl border border-neutral-200/80 bg-white p-5 shadow-[0_1px_0_rgb(0_0_0/0.03)] dark:border-neutral-800 dark:bg-neutral-950/60 dark:shadow-none sm:p-6">
+        <header className="mb-4 max-w-xl">
+          <h2 className="text-base font-semibold tracking-tight text-neutral-900 dark:text-neutral-50">
+            7 · 3D pill — console shell
+          </h2>
+          <p className="mt-1 text-sm leading-relaxed text-neutral-600 dark:text-neutral-400">
+            Thumbnails ride a pill-shaped 3D path at equal arc spacing, rotating with perspective
+            as you swipe — loop wraps spin through the caps. Bespoke dark shell with a glass HUD,
+            plus view-mode presets (Stage / Drum / Orbit / Shelf / Coin) that morph the camera rig;
+            fine-tune any of them in the DialKit panel.
+          </p>
+        </header>
+        <Pill3DDemo photos={photos} triggerCount={TRIGGER_COUNT} />
+      </section>
+
+      {/* DialKit tweak panel host (3D pill controls register while the strip
+          is mounted, i.e. while that lightbox is open). */}
+      <DialRoot />
     </div>
   );
 }

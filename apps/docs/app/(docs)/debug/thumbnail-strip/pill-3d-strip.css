@@ -1,22 +1,32 @@
 /**
- * Debug page only — 3D pill (stadium) thumbnail carousel.
+ * Debug page only — 3D pill (stadium) thumbnail carousel + its dark
+ * console-style lightbox shell (`ts-p3dx-*`).
  *
  * The stage owns `perspective`; the scene (ThumbnailGroup) is a preserve-3d
- * space tilted slightly toward the viewer and pushed back by the cap radius
- * so the front straight sits at screen depth. Thumb transforms are written
- * imperatively from JS (`pill-3d-strip.tsx`); `--ts-p3d-r` / `--ts-p3d-l`
- * carry the measured stadium radius / straight length, `--p3d-shade` the
- * per-thumb depth (0 front → 1 back).
+ * space tilted toward the viewer and pushed back by the cap radius so the
+ * front straight sits at screen depth. Thumb transforms are written
+ * imperatively from JS (`pill-3d-strip.tsx`). Camera vars are eased by the
+ * strip's rAF tween: `--ts-p3d-r` / `--ts-p3d-l` (measured stadium radius /
+ * straight length), `--ts-p3d-dist` (extra push-back), `--ts-p3d-tilt`
+ * (scene rotateX, deg); `--p3d-shade` is the per-thumb depth (0 front →
+ * 1 back). Shell reuses the functional `lightbox-demo-*` classes (open/close
+ * fades, inset tokens) and only skins on top.
  */
 
 .lightbox-demo-content.ts-debug-content-pill3d {
-  --ts-inset-bottom: 13rem;
+  --ts-inset-bottom: 15rem;
   --lightbox-inset-bottom: calc(var(--ts-inset-bottom) + env(safe-area-inset-bottom, 0px));
 }
 
+/* -------------------------------------------------------------------------- */
+/* Pill strip                                                                 */
+/* -------------------------------------------------------------------------- */
+
 .ts-p3d {
   display: flex;
-  justify-content: center;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.375rem;
   width: 100%;
 }
 
@@ -28,7 +38,7 @@
   perspective-origin: 50% 32%;
 }
 
-/* Soft ground shadow — sells the floating pill. Sized from measured geometry. */
+/* Soft bloom under the pill — grounds it on the dark shell. */
 .ts-p3d-stage::before {
   content: '';
   position: absolute;
@@ -38,7 +48,7 @@
   height: calc(var(--ts-p3d-r, 110) * 0.55px + 24px);
   transform: translate(-50%, -50%);
   border-radius: 50%;
-  background: radial-gradient(closest-side, rgb(0 0 0 / 0.16), rgb(0 0 0 / 0));
+  background: radial-gradient(closest-side, rgb(125 165 255 / 0.14), rgb(125 165 255 / 0));
   pointer-events: none;
 }
 
@@ -46,20 +56,25 @@
   position: absolute;
   inset: 0;
   transform-style: preserve-3d;
-  /* Push back by R (front row → screen depth), then tilt to reveal the oval. */
-  transform: translateZ(calc(var(--ts-p3d-r, 110) * -1px)) rotateX(12deg);
+  /* Push back by R + distance (front row → screen depth at distance 0),
+     then tilt to reveal the oval. All vars eased by the JS camera tween. */
+  transform: translateZ(calc((var(--ts-p3d-r, 110) + var(--ts-p3d-dist, 0)) * -1px))
+    rotateX(calc(var(--ts-p3d-tilt, 12) * 1deg));
 }
 
 .ts-p3d-thumb {
   position: absolute;
   left: 50%;
   top: 50%;
-  width: 3.5rem;
-  height: 3.5rem;
+  /* Laid out at 2x and scaled to 0.5 in the JS pose transform (visual size
+     3.5rem) — supersamples the composited layer so the 3D planes stay crisp.
+     Border / radius are doubled to read as 1px / 0.625rem after the scale. */
+  width: 7rem;
+  height: 7rem;
   margin: 0;
   padding: 0;
-  border: 1px solid rgb(255 255 255 / 0.35);
-  border-radius: 0.625rem;
+  border: 2px solid rgb(255 255 255 / 0.35);
+  border-radius: 1.25rem;
   overflow: hidden;
   cursor: pointer;
   /* Card back — visible when the thumb faces away (image backface hidden). */
@@ -94,7 +109,8 @@
   inset: 0;
   pointer-events: none;
   transform-style: preserve-3d;
-  transform: translateZ(calc(var(--ts-p3d-r, 110) * -1px)) rotateX(12deg);
+  transform: translateZ(calc((var(--ts-p3d-r, 110) + var(--ts-p3d-dist, 0)) * -1px))
+    rotateX(calc(var(--ts-p3d-tilt, 12) * 1deg));
 }
 
 .ts-p3d-indicator {
@@ -113,6 +129,235 @@
 }
 
 .ts-p3d-thumb:focus-visible {
+  /* Doubled — the 0.5 pose scale brings it back to a visual 2px / 2px. */
+  outline: 4px solid rgb(56 189 248);
+  outline-offset: 4px;
+}
+
+/* -------------------------------------------------------------------------- */
+/* View-mode preset chips — visionOS-style segmented glass                    */
+/* -------------------------------------------------------------------------- */
+
+.ts-p3d-presets {
+  display: flex;
+  justify-content: center;
+  gap: 0.25rem;
+  padding: 0.25rem;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.06);
+  box-shadow:
+    inset 0 0 0 1px rgb(255 255 255 / 0.1),
+    0 8px 24px rgb(0 0 0 / 0.35);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+.ts-p3d-chip {
+  appearance: none;
+  margin: 0;
+  border: 0;
+  padding: 0.3125rem 0.75rem;
+  border-radius: 999px;
+  background: transparent;
+  color: rgb(255 255 255 / 0.62);
+  font-size: 0.6875rem;
+  font-weight: 550;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    color 160ms ease,
+    background-color 160ms ease,
+    transform 160ms ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.ts-p3d-chip:hover {
+  color: rgb(255 255 255 / 0.9);
+  background: rgb(255 255 255 / 0.08);
+}
+
+.ts-p3d-chip:active {
+  transform: scale(0.96);
+}
+
+.ts-p3d-chip[data-active] {
+  color: rgb(10 15 22 / 0.95);
+  background: rgb(255 255 255 / 0.92);
+  box-shadow: 0 2px 10px rgb(0 0 0 / 0.35);
+}
+
+.ts-p3d-chip:focus-visible {
   outline: 2px solid rgb(56 189 248);
   outline-offset: 2px;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Console shell (ts-p3dx-*) — deep space gradient, hairline glass HUD        */
+/* -------------------------------------------------------------------------- */
+
+.ts-p3dx-backdrop {
+  background:
+    radial-gradient(120% 85% at 50% -10%, rgb(43 58 86 / 0.85), rgb(43 58 86 / 0) 60%),
+    radial-gradient(90% 60% at 50% 110%, rgb(30 48 78 / 0.55), rgb(30 48 78 / 0) 55%),
+    linear-gradient(180deg, #0b101a 0%, #070a12 55%, #04060c 100%);
+}
+
+.ts-p3dx-content {
+  color-scheme: dark;
+}
+
+/* Slide media — game-card float: deep shadow + hairline + faint cool bloom. */
+.ts-p3dx-media {
+  box-shadow:
+    0 0 0 1px rgb(255 255 255 / 0.08),
+    0 24px 80px rgb(0 0 0 / 0.55),
+    0 0 80px rgb(90 140 255 / 0.1);
+}
+
+/* HUD plumbing: pull-to-close and zoom hide the chrome (same behavior as the
+   shared demo shell, expressed once here instead of long utility strings). */
+.ts-p3dx-hud {
+  position: absolute;
+  z-index: 30;
+  transition: opacity 200ms ease;
+}
+
+[data-pulling] .ts-p3dx-hud,
+[data-pull-dismissing] .ts-p3dx-hud,
+[data-pulling] .ts-p3dx-nav,
+[data-pull-dismissing] .ts-p3dx-nav {
+  opacity: 0;
+  pointer-events: none;
+}
+
+[data-zoomed] .ts-p3dx-hud-bottom {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.ts-p3dx-hud-top {
+  inset-inline: 0;
+  top: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: calc(0.75rem + env(safe-area-inset-top, 0px)) 0.75rem 0;
+  pointer-events: none;
+}
+
+.ts-p3dx-hud-top > * {
+  pointer-events: auto;
+}
+
+.ts-p3dx-hud-bottom {
+  inset-inline: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0 0.75rem calc(0.875rem + env(safe-area-inset-bottom, 0px));
+  pointer-events: none;
+}
+
+/* Mono HUD counter — zero-padded by the render prop ("03 / 24"). */
+.ts-p3dx-counter {
+  padding: 0.4375rem 0.75rem;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.06);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.1);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  color: rgb(255 255 255 / 0.72);
+  font-family: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, monospace;
+  font-size: 0.6875rem;
+  letter-spacing: 0.14em;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Glass icon button — close / prev / next. */
+.ts-p3dx-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.07);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.12);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  color: rgb(255 255 255 / 0.85);
+  cursor: pointer;
+  transition:
+    background-color 160ms ease,
+    color 160ms ease,
+    transform 160ms ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.ts-p3dx-btn:hover {
+  background: rgb(255 255 255 / 0.14);
+  color: rgb(255 255 255 / 1);
+}
+
+.ts-p3dx-btn:active {
+  transform: scale(0.94);
+}
+
+.ts-p3dx-btn:focus-visible {
+  outline: 2px solid rgb(56 189 248);
+  outline-offset: 2px;
+}
+
+/* Side navigation — desktop only (swipe + pill cover mobile). */
+.ts-p3dx-nav {
+  position: absolute;
+  top: 50%;
+  z-index: 30;
+  display: none;
+  transform: translateY(-50%);
+  transition:
+    opacity 200ms ease,
+    background-color 160ms ease,
+    color 160ms ease;
+}
+
+.ts-p3dx-nav:active {
+  transform: translateY(-50%) scale(0.94);
+}
+
+@media (min-width: 768px) {
+  .ts-p3dx-nav {
+    display: inline-flex;
+  }
+}
+
+.ts-p3dx-nav-prev {
+  left: 1rem;
+}
+
+.ts-p3dx-nav-next {
+  right: 1rem;
+}
+
+.ts-p3dx-caption {
+  display: block;
+  min-height: 1.1rem;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding-inline: 1rem;
+  text-align: center;
+  color: rgb(255 255 255 / 0.85);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  text-shadow: 0 1px 2px rgb(0 0 0 / 0.6);
 }
