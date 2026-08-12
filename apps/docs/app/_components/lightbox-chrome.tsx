@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import Image, { type StaticImageData } from 'next/image';
 import { Lightbox, useLightboxTriggerContext } from 'ramka';
 import { ChevronLeft, ChevronRight, X, ZoomIn, ZoomOut } from 'lucide-react';
 
@@ -71,24 +72,41 @@ export function imgDims(url: string) {
   return m ? { width: Number(m[1]), height: Number(m[2]) } : undefined;
 }
 
+/**
+ * Local statically-imported assets (preferred — Next.js provides intrinsic
+ * dimensions + `blurDataURL` at build time) or a remote/plain URL string.
+ */
+export type LightboxImageSource = string | StaticImageData;
+
 export type LightboxGalleryItem = {
   id?: string | number;
-  src: string;
-  thumb: string;
+  src: LightboxImageSource;
+  thumb: LightboxImageSource;
   alt: string;
   caption?: string;
   /**
-   * Optional intrinsic pixel size. Used for snug slide sizing when `src` is not
-   * a `…/{w}/{h}` URL (video posters, 3D screenshots).
+   * Optional intrinsic pixel size override. Used for snug slide sizing when
+   * `src` carries no dimensions (video posters sized to the video frame, 3D
+   * screenshots sized to the canvas fit-box).
    */
   width?: number;
   height?: number;
+  /**
+   * Blur-up LQIP on the destination `next/image`. Per the Next.js Image guide,
+   * only set this for items whose index has NO trigger image (+N overflow,
+   * non-image triggers) — when a trigger `imageRef` exists, Ramka's thumb
+   * bridge owns the open placeholder and a destination blur would cover it.
+   */
+  destinationBlur?: boolean;
 };
 
 /** Resolved pixel dims for Media / snug geometry. */
 export function galleryItemDims(item: LightboxGalleryItem): { width: number; height: number } | undefined {
   if (item.width && item.height && item.width > 0 && item.height > 0) {
     return { width: item.width, height: item.height };
+  }
+  if (typeof item.src === 'object') {
+    return { width: item.src.width, height: item.src.height };
   }
   return imgDims(item.src);
 }
@@ -117,7 +135,11 @@ function GalleryThumbnailStrip({
       <Lightbox.ThumbnailStripTrack aria-label="Photo thumbnails">
         {items.map((item, i) => (
           <Lightbox.Thumbnail key={item.id ?? i} index={i}>
-            <img src={item.thumb} alt={item.alt} draggable={false} />
+            {typeof item.thumb === 'object' ? (
+              <Image src={item.thumb} alt={item.alt} sizes="96px" draggable={false} />
+            ) : (
+              <img src={item.thumb} alt={item.alt} draggable={false} />
+            )}
           </Lightbox.Thumbnail>
         ))}
       </Lightbox.ThumbnailStripTrack>
@@ -247,14 +269,28 @@ export function LightboxGallery({
                           {...(galleryItemDims(item) ?? {})}
                           className="overflow-hidden rounded-none md:rounded-lg"
                         >
-                          <img
-                            {...(galleryItemDims(item) ?? {})}
-                            src={item.src}
-                            alt={item.alt}
-                            loading="eager"
-                            draggable={false}
-                            className="select-none"
-                          />
+                          {typeof item.src === 'object' ? (
+                            // Destination Image: no placeholder unless the item
+                            // has no trigger image (see `destinationBlur`).
+                            <Image
+                              src={item.src}
+                              alt={item.alt}
+                              sizes="100vw"
+                              loading="eager"
+                              draggable={false}
+                              className="select-none"
+                              {...(item.destinationBlur ? { placeholder: 'blur' as const } : null)}
+                            />
+                          ) : (
+                            <img
+                              {...(galleryItemDims(item) ?? {})}
+                              src={item.src}
+                              alt={item.alt}
+                              loading="eager"
+                              draggable={false}
+                              className="select-none"
+                            />
+                          )}
                         </Lightbox.Media>
                       </Lightbox.Zoom>
                     )
@@ -447,11 +483,32 @@ export function LightboxTriggerGrid({ children }: { children: React.ReactNode })
   return <div className="grid max-w-md grid-cols-3 gap-3">{children}</div>;
 }
 
-export function LightboxTriggerImage({ src, alt, className }: { src: string; alt: string; className?: string }) {
+export function LightboxTriggerImage({
+  src,
+  alt,
+  className,
+}: {
+  src: LightboxImageSource;
+  alt: string;
+  className?: string;
+}) {
   // Grab `imageRef` from the enclosing Lightbox.Trigger so this thumbnail
   // becomes the flash-free placeholder source for the item it opens — no render
   // prop threading required.
   const trigger = useLightboxTriggerContext();
+  if (typeof src === 'object') {
+    // Trigger thumb: blur-up LQIP is fine here (guide: blur on triggers only).
+    return (
+      <Image
+        ref={trigger?.imageRef}
+        src={src}
+        alt={alt}
+        placeholder="blur"
+        sizes="140px"
+        className={className ?? 'block h-28 w-full rounded-2xl object-cover'}
+      />
+    );
+  }
   return (
     <img
       ref={trigger?.imageRef}

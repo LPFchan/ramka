@@ -2,15 +2,15 @@
 
 import * as React from 'react';
 import { flushSync } from 'react-dom';
-import Image from 'next/image';
+import Image, { type StaticImageData } from 'next/image';
 import { Lightbox } from 'ramka';
 import { Heart, Minus, Plus } from 'lucide-react';
 
 import {
-  imgDims,
   LightboxGallery,
   triggerFocusClass,
 } from '../../../../_components/lightbox-chrome';
+import { photoImages } from './images.generated';
 
 /**
  * A macOS Photos–style app surface: a dense grid of square thumbnails under a
@@ -23,45 +23,25 @@ import {
 
 interface Photo {
   id: string;
-  thumb: string;
-  src: string;
+  /**
+   * One local asset per photo (varied natural aspect ratios). The grid trigger
+   * and the viewer share the same source image — next/image serves each at the
+   * right resolution via `sizes`/srcset — so the trigger→viewer morph never
+   * crossfades between differently-cropped images.
+   */
+  image: StaticImageData;
   alt: string;
   caption: string;
   favorite?: boolean;
 }
 
-// Varied full-size aspect ratios so the viewer shows each photo at its natural
-// shape. The grid triggers stay square (the thumbnail is a centered crop of the
-// same source image), so only the full-size `src` dimensions differ.
-const ASPECTS: ReadonlyArray<readonly [width: number, height: number]> = [
-  [1600, 1067], // 3:2 landscape
-  [1067, 1600], // 2:3 portrait
-  [1600, 1600], // square
-  [1600, 900], // 16:9 wide
-  [1200, 1600], // 3:4 portrait
-  [1600, 1200], // 4:3 landscape
-];
-
-// Scale an aspect ratio down so its longest edge is `THUMB_EDGE`px. The thumb
-// must share the full-size image's aspect ratio (just lower res) so both are
-// the *same* picsum crop — otherwise the trigger→viewer morph would crossfade
-// between differently-cropped images.
-const THUMB_EDGE = 500;
-
-const photos: Photo[] = Array.from({ length: 48 }, (_, i) => {
-  const [w, h] = ASPECTS[i % ASPECTS.length]!;
-  const scale = THUMB_EDGE / Math.max(w, h);
-  const thumbW = Math.round(w * scale);
-  const thumbH = Math.round(h * scale);
-  return {
-    id: `photo-${i}`,
-    thumb: `https://picsum.photos/seed/ramka-photos-${i}/${thumbW}/${thumbH}`,
-    src: `https://picsum.photos/seed/ramka-photos-${i}/${w}/${h}`,
-    alt: `Photo ${i + 1}`,
-    caption: `July ${(i % 28) + 1}, 2024`,
-    favorite: i === 0 || i === 15 || i === 24,
-  };
-});
+const photos: Photo[] = photoImages.map((image, i) => ({
+  id: `photo-${i}`,
+  image,
+  alt: `Photo ${i + 1}`,
+  caption: `July ${(i % 28) + 1}, 2024`,
+  favorite: i === 0 || i === 15 || i === 24,
+}));
 
 // Small toolbar buttons (grid density).
 const toolbarButton =
@@ -185,7 +165,15 @@ export default function PhotosAppPage() {
               >
                 {({ imageRef }) => (
                   <>
-                    <img ref={imageRef} {...imgDims(photo.thumb)} src={photo.thumb} alt={photo.alt} loading="lazy" className="block size-full object-cover" />
+                    <Image
+                      ref={imageRef}
+                      src={photo.image}
+                      alt={photo.alt}
+                      placeholder="blur"
+                      sizes={`${Math.round(100 / columns)}vw`}
+                      loading="lazy"
+                      className="block size-full object-cover"
+                    />
                     {photo.favorite ? (
                       <Heart
                         aria-hidden
@@ -200,30 +188,38 @@ export default function PhotosAppPage() {
         </div>
 
         <LightboxGallery
-          items={photos}
+          items={photos.map((photo) => ({
+            id: photo.id,
+            src: photo.image,
+            thumb: photo.image,
+            alt: photo.alt,
+            caption: photo.caption,
+          }))}
           ariaLabel="Library photos"
           backdrop="solid"
-          renderItem={(photo) => (
-            <Lightbox.Zoom maxZoom={6}>
-              <Lightbox.Media
-                width={imgDims(photo.src)?.width ?? 1600}
-                height={imgDims(photo.src)?.height ?? 1200}
-                className="overflow-hidden rounded-none md:rounded-lg"
-              >
-                <Image
-                  src={photo.src}
-                  alt={photo.alt}
-                  width={imgDims(photo.src)?.width ?? 1600}
-                  height={imgDims(photo.src)?.height ?? 1200}
-                  sizes="100vw"
-                  priority
-                  unoptimized
-                  draggable={false}
-                  className="select-none"
-                />
-              </Lightbox.Media>
-            </Lightbox.Zoom>
-          )}
+          renderItem={(_item, i) => {
+            const photo = photos[i]!;
+            return (
+              <Lightbox.Zoom maxZoom={6}>
+                <Lightbox.Media
+                  width={photo.image.width}
+                  height={photo.image.height}
+                  className="overflow-hidden rounded-none md:rounded-lg"
+                >
+                  {/* Destination Image: no placeholder — every index has a
+                      trigger thumb, so Ramka owns the open bridge. */}
+                  <Image
+                    src={photo.image}
+                    alt={photo.alt}
+                    sizes="100vw"
+                    priority
+                    draggable={false}
+                    className="select-none"
+                  />
+                </Lightbox.Media>
+              </Lightbox.Zoom>
+            );
+          }}
         />
       </Lightbox.Root>
     </div>

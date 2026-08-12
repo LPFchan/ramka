@@ -1,66 +1,53 @@
 'use client';
 
 import * as React from 'react';
+import Image from 'next/image';
 import { Lightbox } from 'ramka';
 import { Play } from 'lucide-react';
 
 import { Separator } from '@/components/ui/separator';
 import {
-  imgDims,
   LightboxGallery,
   triggerFocusClass,
 } from '../../../_components/lightbox-chrome';
+import {
+  bbbPoster,
+  xfadeA,
+  xfadeAva,
+  xfadeB,
+  xfadeC,
+  xfadeD,
+  xfadeE,
+  xfadeF,
+  xfadeG,
+  xfadeJules,
+  xfadeMei,
+  xfadeSam,
+} from './images.generated';
 
 /** Matching 3∶2 sources — element boxes in the demos may still differ. */
 const photos = [
-  {
-    src: 'https://picsum.photos/seed/xfade-a/1500/1000',
-    thumb: 'https://picsum.photos/seed/xfade-a/600/400',
-    alt: 'Coastal cliffs',
-  },
-  {
-    src: 'https://picsum.photos/seed/xfade-b/1500/1000',
-    thumb: 'https://picsum.photos/seed/xfade-b/600/400',
-    alt: 'Mountain lake',
-  },
-  {
-    src: 'https://picsum.photos/seed/xfade-c/1500/1000',
-    thumb: 'https://picsum.photos/seed/xfade-c/600/400',
-    alt: 'Desert road',
-  },
+  { src: xfadeA, thumb: xfadeA, alt: 'Coastal cliffs' },
+  { src: xfadeB, thumb: xfadeB, alt: 'Mountain lake' },
+  { src: xfadeC, thumb: xfadeC, alt: 'Desert road' },
 ];
 
-/** Album with hidden extras behind a +N tile (only the first two get triggers). */
+/**
+ * Album with hidden extras behind a +N tile (only the first two get triggers).
+ * Overflow items have no trigger image, so their destination Image carries the
+ * blur-up placeholder.
+ */
 const album = [
   ...photos,
-  {
-    src: 'https://picsum.photos/seed/xfade-d/1500/1000',
-    thumb: 'https://picsum.photos/seed/xfade-d/600/400',
-    alt: 'Pine forest',
-  },
-  {
-    src: 'https://picsum.photos/seed/xfade-e/1500/1000',
-    thumb: 'https://picsum.photos/seed/xfade-e/600/400',
-    alt: 'City night',
-  },
-  {
-    src: 'https://picsum.photos/seed/xfade-f/1500/1000',
-    thumb: 'https://picsum.photos/seed/xfade-f/600/400',
-    alt: 'Snow peak',
-  },
-  {
-    src: 'https://picsum.photos/seed/xfade-g/1500/1000',
-    thumb: 'https://picsum.photos/seed/xfade-g/600/400',
-    alt: 'River bend',
-  },
+  { src: xfadeD, thumb: xfadeD, alt: 'Pine forest', destinationBlur: true },
+  { src: xfadeE, thumb: xfadeE, alt: 'City night', destinationBlur: true },
+  { src: xfadeF, thumb: xfadeF, alt: 'Snow peak', destinationBlur: true },
+  { src: xfadeG, thumb: xfadeG, alt: 'River bend', destinationBlur: true },
 ];
 
 const trailer = {
   title: 'Big Buck Bunny',
-  poster:
-    'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c5/Big_buck_bunny_poster_big.jpg/500px-Big_buck_bunny_poster_big.jpg',
-  posterWidth: 500,
-  posterHeight: 707,
+  poster: bbbPoster,
   video: 'https://download.blender.org/peach/trailer/trailer_iphone.m4v',
   videoWidth: 480,
   videoHeight: 270,
@@ -72,37 +59,42 @@ const team = [
     name: 'Ava Chen',
     initials: 'AC',
     color: '#2a7ab5',
-    src: 'https://picsum.photos/seed/xfade-ava/900/1200',
-    thumb: 'https://picsum.photos/seed/xfade-ava/300/400',
+    src: xfadeAva,
+    thumb: xfadeAva,
     alt: 'Portrait of Ava Chen',
     caption: 'Ava Chen',
+    // Non-image triggers — the destination Image is the only placeholder.
+    destinationBlur: true,
   },
   {
     name: 'Jules Okonkwo',
     initials: 'JO',
     color: '#c93c20',
-    src: 'https://picsum.photos/seed/xfade-jules/900/1200',
-    thumb: 'https://picsum.photos/seed/xfade-jules/300/400',
+    src: xfadeJules,
+    thumb: xfadeJules,
     alt: 'Portrait of Jules Okonkwo',
     caption: 'Jules Okonkwo',
+    destinationBlur: true,
   },
   {
     name: 'Sam Rivera',
     initials: 'SR',
     color: '#7a9a6d',
-    src: 'https://picsum.photos/seed/xfade-sam/900/1200',
-    thumb: 'https://picsum.photos/seed/xfade-sam/300/400',
+    src: xfadeSam,
+    thumb: xfadeSam,
     alt: 'Portrait of Sam Rivera',
     caption: 'Sam Rivera',
+    destinationBlur: true,
   },
   {
     name: 'Mei Laurent',
     initials: 'ML',
     color: '#7b3f72',
-    src: 'https://picsum.photos/seed/xfade-mei/900/1200',
-    thumb: 'https://picsum.photos/seed/xfade-mei/300/400',
+    src: xfadeMei,
+    thumb: xfadeMei,
     alt: 'Portrait of Mei Laurent',
     caption: 'Mei Laurent',
+    destinationBlur: true,
   },
 ];
 
@@ -115,16 +107,17 @@ function SameImageDemo() {
       <div className="grid max-w-md grid-cols-3 gap-2">
         {photos.map((img, i) => (
           <Lightbox.Trigger
-            key={img.src}
+            key={img.alt}
             index={i}
             className={`block aspect-square overflow-hidden rounded-lg bg-transparent p-0 ${triggerFocusClass}`}
           >
             {({ imageRef }) => (
-              <img
+              <Image
                 ref={imageRef}
-                {...imgDims(img.thumb)}
                 src={img.thumb}
                 alt={img.alt}
+                placeholder="blur"
+                sizes="150px"
                 className="block size-full object-cover"
               />
             )}
@@ -150,18 +143,19 @@ function BothDemo() {
           const corner = i === 0 ? 'rounded-l-xl' : 'rounded-r-xl';
           return (
             <Lightbox.Trigger
-              key={img.src}
+              key={img.alt}
               index={i}
               crossfade={isOverlay ? 'both' : undefined}
               className={`block bg-transparent p-0 overflow-hidden ${triggerFocusClass} ${corner}`}
             >
               {({ imageRef }) => (
                 <div className="relative overflow-hidden">
-                  <img
+                  <Image
                     ref={imageRef}
-                    {...imgDims(img.thumb)}
                     src={img.thumb}
                     alt={img.alt}
+                    placeholder="blur"
+                    sizes="190px"
                     className="block aspect-square w-full object-cover"
                   />
                   {isOverlay ? (
@@ -230,11 +224,11 @@ function CloseDemo() {
             ref={morphRef}
             className={`relative overflow-hidden rounded-xl`}
           >
-            <img
-              width={trailer.posterWidth}
-              height={trailer.posterHeight}
+            <Image
               src={trailer.poster}
               alt={trailer.title}
+              placeholder="blur"
+              sizes="160px"
               className="block aspect-[2/3] w-full rounded-xl object-cover"
             />
             <div className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-xl bg-black/20 opacity-0 transition-opacity group-hover:opacity-100">
@@ -263,7 +257,7 @@ function CloseDemo() {
         renderItem={() => (
           <CloseDemoVideo
             src={trailer.video}
-            poster={trailer.poster}
+            poster={trailer.poster.src}
             ready={readyToPlay}
             width={trailer.videoWidth}
             height={trailer.videoHeight}

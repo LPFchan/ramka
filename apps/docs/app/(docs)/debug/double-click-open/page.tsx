@@ -2,6 +2,7 @@
 
 import { notFound } from 'next/navigation';
 import * as React from 'react';
+import Image, { type StaticImageData } from 'next/image';
 import { Lightbox } from 'ramka';
 import { X, ZoomIn, ZoomOut } from 'lucide-react';
 
@@ -13,61 +14,50 @@ import {
 } from '../../../_components/lightbox-chrome';
 
 import { AccessibleDoubleClickTile } from './double-click-trigger';
+import { dblA, dblB, dblC, dblD, dblE, dblF } from './images.generated';
 
 const PHOTOS: LightboxGalleryItem[] = [
   {
     id: 'dbl-a',
-    src: 'https://picsum.photos/seed/ramka-dbl-a/1400/900',
-    thumb: 'https://picsum.photos/seed/ramka-dbl-a/560/360',
+    src: dblA,
+    thumb: dblA,
     alt: 'Coastal cliffs at dusk',
     caption: 'Coastal cliffs at dusk',
-    width: 1400,
-    height: 900,
   },
   {
     id: 'dbl-b',
-    src: 'https://picsum.photos/seed/ramka-dbl-b/900/1400',
-    thumb: 'https://picsum.photos/seed/ramka-dbl-b/360/560',
+    src: dblB,
+    thumb: dblB,
     alt: 'Forest trail in morning light',
     caption: 'Forest trail',
-    width: 900,
-    height: 1400,
   },
   {
     id: 'dbl-c',
-    src: 'https://picsum.photos/seed/ramka-dbl-c/1200/1200',
-    thumb: 'https://picsum.photos/seed/ramka-dbl-c/480/480',
+    src: dblC,
+    thumb: dblC,
     alt: 'City skyline reflection',
     caption: 'City skyline',
-    width: 1200,
-    height: 1200,
   },
   {
     id: 'dbl-d',
-    src: 'https://picsum.photos/seed/ramka-dbl-d/1600/900',
-    thumb: 'https://picsum.photos/seed/ramka-dbl-d/640/360',
+    src: dblD,
+    thumb: dblD,
     alt: 'Desert highway',
     caption: 'Desert highway',
-    width: 1600,
-    height: 900,
   },
   {
     id: 'dbl-e',
-    src: 'https://picsum.photos/seed/ramka-dbl-e/1000/1250',
-    thumb: 'https://picsum.photos/seed/ramka-dbl-e/400/500',
+    src: dblE,
+    thumb: dblE,
     alt: 'Harbor boats at blue hour',
     caption: 'Harbor at blue hour',
-    width: 1000,
-    height: 1250,
   },
   {
     id: 'dbl-f',
-    src: 'https://picsum.photos/seed/ramka-dbl-f/1300/975',
-    thumb: 'https://picsum.photos/seed/ramka-dbl-f/520/390',
+    src: dblF,
+    thumb: dblF,
     alt: 'Mountain lake panorama',
     caption: 'Mountain lake',
-    width: 1300,
-    height: 975,
   },
 ];
 
@@ -172,10 +162,10 @@ export default function DoubleClickOpenDebugPage() {
                         {...(galleryItemDims(photo) ?? {})}
                         className="overflow-hidden rounded-none md:rounded-lg"
                       >
-                        <img
-                          {...(galleryItemDims(photo) ?? {})}
-                          src={photo.src}
+                        <Image
+                          src={photo.src as StaticImageData}
                           alt={photo.alt}
+                          sizes="100vw"
                           loading="eager"
                           draggable={false}
                           className="select-none"

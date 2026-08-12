@@ -1,7 +1,7 @@
+import Image, { type StaticImageData } from 'next/image';
 import { Lightbox } from 'ramka';
 
-declare const thumb: string;
-declare const src: string;
+declare const photo: StaticImageData;
 declare const extras: number;
 
 /**
@@ -16,7 +16,7 @@ export function CrossfadeBothExcerpt() {
       <Lightbox.Trigger index={0} crossfade="both">
         {({ imageRef }) => (
           <div className="relative">
-            <img ref={imageRef} src={thumb} alt="" />
+            <Image ref={imageRef} src={photo} alt="" placeholder="blur" />
             <span>+{extras}</span>
           </div>
         )}
@@ -26,7 +26,9 @@ export function CrossfadeBothExcerpt() {
         <Lightbox.Content>
           <Lightbox.Slides>
             <Lightbox.Slide>
-              <Lightbox.Item index={0}>{({ imageRef }) => <img ref={imageRef} src={src} alt="" />}</Lightbox.Item>
+              <Lightbox.Item index={0}>
+                {({ imageRef }) => <Image ref={imageRef} src={photo} alt="" sizes="100vw" priority />}
+              </Lightbox.Item>
             </Lightbox.Slide>
           </Lightbox.Slides>
         </Lightbox.Content>

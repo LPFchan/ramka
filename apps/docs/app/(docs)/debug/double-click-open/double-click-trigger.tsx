@@ -1,14 +1,15 @@
 'use client';
 
 import * as React from 'react';
+import Image, { type StaticImageData } from 'next/image';
 import { Lightbox, type LightboxHandle, type LightboxTriggerRenderState } from 'ramka';
 
-import { imgDims, triggerFocusClass } from '../../../_components/lightbox-chrome';
+import { triggerFocusClass, type LightboxImageSource } from '../../../_components/lightbox-chrome';
 
 type Photo = {
   /** Matches demo `LightboxGalleryItem.id` (optional string | number). */
   id?: string | number;
-  thumb: string;
+  thumb: LightboxImageSource;
   alt: string;
 };
 
@@ -52,11 +53,12 @@ export function AccessibleDoubleClickTile({
         <p id={`${previewId}-label`} className="sr-only">
           {photo.alt}
         </p>
-        <img
-          {...imgDims(photo.thumb)}
-          src={photo.thumb}
+        <Image
+          src={photo.thumb as StaticImageData}
           alt=""
           aria-hidden
+          placeholder="blur"
+          sizes="(min-width: 640px) 170px, 50vw"
           draggable={false}
           className="aspect-square w-full object-cover"
         />
@@ -93,7 +95,7 @@ function TriggerRegistration({
   morphRef,
 }: {
   previewRef: React.RefObject<HTMLDivElement | null>;
-  thumb: string;
+  thumb: LightboxImageSource;
   label: string;
 } & LightboxTriggerRenderState) {
   // morphRef must target the preview div (sibling of the Trigger button).
@@ -106,7 +108,14 @@ function TriggerRegistration({
 
   return (
     <>
-      <img ref={imageRef} {...imgDims(thumb)} src={thumb} alt="" aria-hidden className="sr-only" />
+      <Image
+        ref={imageRef}
+        src={thumb as StaticImageData}
+        alt=""
+        aria-hidden
+        sizes="170px"
+        className="sr-only"
+      />
       {label}
     </>
   );

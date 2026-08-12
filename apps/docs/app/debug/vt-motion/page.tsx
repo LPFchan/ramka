@@ -2,10 +2,12 @@
 
 import { notFound } from 'next/navigation';
 import * as React from 'react';
+import Image from 'next/image';
 import { Lightbox } from 'ramka';
 import { X } from 'lucide-react';
 
 import { lightboxChromeButton } from '../../_components/lightbox-chrome';
+import { vtMotionPhoto } from './images.generated';
 
 /**
  * Dev-only: controlled View Transition motion test. A single real photo on a
@@ -14,11 +16,8 @@ import { lightboxChromeButton } from '../../_components/lightbox-chrome';
  */
 
 const PHOTO = {
-  src: 'https://picsum.photos/seed/ramka-vt-motion/1200/800',
-  thumb: 'https://picsum.photos/seed/ramka-vt-motion/480/320',
+  image: vtMotionPhoto,
   alt: 'Motion test photo',
-  width: 1200,
-  height: 800,
 };
 
 export default function VtMotionDebugPage() {
@@ -41,12 +40,14 @@ export default function VtMotionDebugPage() {
       <Lightbox.Root viewTransition>
         <Lightbox.Trigger index={0}>
           {({ imageRef }) => (
-            <img
+            <Image
               ref={imageRef}
-              src={PHOTO.thumb}
+              src={PHOTO.image}
               alt={PHOTO.alt}
+              placeholder="blur"
               width={240}
               height={160}
+              sizes="240px"
               loading="eager"
               draggable={false}
               className="rounded-lg select-none"
@@ -64,12 +65,11 @@ export default function VtMotionDebugPage() {
               <Lightbox.Slide className="h-full">
                 <Lightbox.Item index={0}>
                   <Lightbox.Zoom>
-                    <Lightbox.Media width={PHOTO.width} height={PHOTO.height}>
-                      <img
-                        src={PHOTO.src}
+                    <Lightbox.Media width={PHOTO.image.width} height={PHOTO.image.height}>
+                      <Image
+                        src={PHOTO.image}
                         alt={PHOTO.alt}
-                        width={PHOTO.width}
-                        height={PHOTO.height}
+                        sizes="100vw"
                         loading="eager"
                         draggable={false}
                         className="select-none"

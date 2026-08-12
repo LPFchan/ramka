@@ -1,31 +1,33 @@
 'use client';
 
+import Image from 'next/image';
 import { Lightbox } from 'ramka';
 
 import { ExampleShell } from '../../../../_components/example-shell';
 import {
-  imgDims,
   LightboxGallery,
   triggerFocusClass,
 } from '../../../../_components/lightbox-chrome';
+import { messageImageFiles } from './images.generated';
 
 const messageImages = [
   {
-    src: 'https://picsum.photos/seed/msg1/1200/1600',
-    thumb: 'https://picsum.photos/seed/msg1/400/533',
+    image: messageImageFiles[0]!,
     alt: 'Screenshot of a changelog notification',
   },
   {
-    src: 'https://picsum.photos/seed/msg2/1200/1600',
-    thumb: 'https://picsum.photos/seed/msg2/400/533',
+    image: messageImageFiles[1]!,
     alt: 'Screenshot of a code review discussion',
+    // Only the top of the stack registers an imageRef — the other attachments
+    // rely on the destination Image's blur-up placeholder.
+    destinationBlur: true,
   },
   {
-    src: 'https://picsum.photos/seed/msg3/1200/1600',
-    thumb: 'https://picsum.photos/seed/msg3/400/533',
+    image: messageImageFiles[2]!,
     alt: 'Screenshot of a pull request overview',
+    destinationBlur: true,
   },
-];
+].map((img) => ({ ...img, src: img.image, thumb: img.image }));
 
 const stackRotations = [0, 2, -6];
 const stackOffsets = [
@@ -69,11 +71,12 @@ export default function TextMessagePage() {
                     const offset = stackOffsets[i] ?? { x: 0, y: 0 };
                     const rotation = stackRotations[i] ?? 0;
                     return (
-                      <img
-                        key={img.src}
-                        {...imgDims(img.thumb)}
-                        src={img.thumb}
+                      <Image
+                        key={img.alt}
+                        src={img.image}
                         alt={img.alt}
+                        placeholder="blur"
+                        sizes="200px"
                         ref={
                           i === 0
                             ? (node) => {

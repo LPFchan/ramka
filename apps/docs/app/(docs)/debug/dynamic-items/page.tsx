@@ -2,16 +2,17 @@
 
 import { notFound } from 'next/navigation';
 import * as React from 'react';
+import Image, { type StaticImageData } from 'next/image';
 import { Lightbox, useLightboxContext } from 'ramka';
 
 import {
   type LightboxGalleryItem,
-  imgDims,
   triggerFocusClass,
 } from '../../../_components/lightbox-chrome';
 
 import { DynamicItemsGallery } from './dynamic-items-gallery';
 import { DynamicItemsPanel } from './dynamic-items-panel';
+import { dynamicPoolImages } from './images.generated';
 import { useAnimatedItemRemoval } from './use-animated-item-removal';
 import './dynamic-items.css';
 import { Label } from '@/components/ui/label';
@@ -21,29 +22,20 @@ const INITIAL_TRIGGER_COUNT = 3;
 
 type TriggerMode = 'fixed' | 'synced';
 
-const ASPECTS: ReadonlyArray<readonly [number, number]> = [
-  [1200, 800],
-  [800, 1200],
-  [1200, 1200],
-  [1600, 900],
-];
-
 let nextItemSerial = 1;
 
+/** Newly added items cycle through a fixed pool of local assets by serial. */
 function createItem(seed: number): LightboxGalleryItem {
-  const [w, h] = ASPECTS[seed % ASPECTS.length]!;
   const serial = nextItemSerial++;
-  const thumbScale = 400 / Math.max(w, h);
-  const tw = Math.round(w * thumbScale);
-  const th = Math.round(h * thumbScale);
+  const image = dynamicPoolImages[seed % dynamicPoolImages.length]!;
   return {
     id: `dynamic-${serial}`,
-    src: `https://picsum.photos/seed/ramka-dynamic-${serial}/${w}/${h}`,
-    thumb: `https://picsum.photos/seed/ramka-dynamic-${serial}/${tw}/${th}`,
+    src: image,
+    thumb: image,
     alt: `Dynamic slide ${serial}`,
-    caption: `Slide ${serial} · ${w}×${h}`,
-    width: w,
-    height: h,
+    caption: `Slide ${serial} · ${image.width}×${image.height}`,
+    width: image.width,
+    height: image.height,
   };
 }
 
@@ -243,11 +235,12 @@ export default function DynamicItemsDebugPage() {
               }`}
             >
               {({ imageRef }) => (
-                <img
+                <Image
                   ref={imageRef}
-                  {...imgDims(item.thumb)}
-                  src={item.thumb}
+                  src={item.thumb as StaticImageData}
                   alt={item.alt}
+                  placeholder="blur"
+                  sizes="140px"
                   className="aspect-square w-full object-cover"
                 />
               )}

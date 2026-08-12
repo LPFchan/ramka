@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import Image from 'next/image';
 import { Lightbox } from 'ramka';
 import { Play } from 'lucide-react';
 
@@ -9,11 +10,13 @@ import {
   LightboxGallery,
   triggerFocusClass,
 } from '../../../../_components/lightbox-chrome';
+import { bbbPoster, edPoster, sintelPoster, tosPoster } from './images.generated';
 
 /**
  * Blender Open Movies — real trailers/shorts with their official posters
- * (Wikimedia Commons) so the trigger thumbnail matches the video poster 1:1.
- * Trailers are preferred where available so the demo stays snappy to load.
+ * (local copies of the Wikimedia Commons art, CC-BY Blender Foundation) so the
+ * trigger thumbnail matches the video poster 1:1. Trailers are preferred where
+ * available so the demo stays snappy to load.
  *
  * Each film is its own `Lightbox.Root` (no shared gallery) so opening one is a
  * single poster → fullscreen video morph.
@@ -28,10 +31,7 @@ const films = [
     title: 'Big Buck Bunny',
     year: 2008,
     genre: 'Animation',
-    poster:
-      'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c5/Big_buck_bunny_poster_big.jpg/500px-Big_buck_bunny_poster_big.jpg',
-    posterWidth: 500,
-    posterHeight: 707,
+    poster: bbbPoster,
     video: 'https://download.blender.org/peach/trailer/trailer_iphone.m4v',
     videoWidth: 480,
     videoHeight: 270,
@@ -41,10 +41,7 @@ const films = [
     title: "Elephant's Dream",
     year: 2006,
     genre: 'Sci-Fi',
-    poster:
-      'https://upload.wikimedia.org/wikipedia/commons/thumb/0/0c/ElephantsDreamPoster.jpg/500px-ElephantsDreamPoster.jpg',
-    posterWidth: 500,
-    posterHeight: 707,
+    poster: edPoster,
     video: 'https://archive.org/download/ElephantsDream/ed_1024_512kb.mp4',
     videoWidth: 426,
     videoHeight: 240,
@@ -54,10 +51,7 @@ const films = [
     title: 'Sintel',
     year: 2010,
     genre: 'Fantasy',
-    poster:
-      'https://upload.wikimedia.org/wikipedia/commons/thumb/8/8f/Sintel_poster.jpg/500px-Sintel_poster.jpg',
-    posterWidth: 500,
-    posterHeight: 707,
+    poster: sintelPoster,
     video: 'https://download.blender.org/durian/trailer/sintel_trailer-720p.mp4',
     videoWidth: 1280,
     videoHeight: 720,
@@ -67,10 +61,7 @@ const films = [
     title: 'Tears of Steel',
     year: 2012,
     genre: 'Sci-Fi',
-    poster:
-      'https://upload.wikimedia.org/wikipedia/commons/thumb/7/70/Tos-poster.png/500px-Tos-poster.png',
-    posterWidth: 500,
-    posterHeight: 741,
+    poster: tosPoster,
     video: 'https://archive.org/download/Tears-of-Steel/tears_of_steel_720p.mp4',
     // Scope encode from the file (~2.39:1), not 16:9.
     videoWidth: 862,
@@ -153,11 +144,11 @@ function FilmLightbox({ film }: { film: (typeof films)[number] }) {
               ref={morphRef}
               className={`relative overflow-hidden rounded-xl`}
             >
-              <img
-                width={film.posterWidth}
-                height={film.posterHeight}
+              <Image
                 src={film.poster}
                 alt={film.title}
+                placeholder="blur"
+                sizes="(min-width: 640px) 230px, 50vw"
                 className="block aspect-[2/3] w-full rounded-xl object-cover"
                 loading="lazy"
               />
@@ -195,7 +186,7 @@ function FilmLightbox({ film }: { film: (typeof films)[number] }) {
         renderItem={() => (
           <LightboxVideo
             src={film.video}
-            poster={film.poster}
+            poster={film.poster.src}
             readyToPlay={readyToPlay}
             width={film.videoWidth}
             height={film.videoHeight}

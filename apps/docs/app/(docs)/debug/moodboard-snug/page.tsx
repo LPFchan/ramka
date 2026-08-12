@@ -2,6 +2,7 @@
 
 import { notFound } from 'next/navigation';
 import * as React from 'react';
+import Image, { type StaticImageData } from 'next/image';
 import { Lightbox } from 'ramka';
 
 import { ExampleShell } from '../../../_components/example-shell';
@@ -10,6 +11,7 @@ import {
   type LightboxGalleryItem,
   triggerFocusClass,
 } from '../../../_components/lightbox-chrome';
+import { inksPoster, moodboardSnugImages, plasticinePoster } from './images.generated';
 import {
   FRAME_SIZE,
   LightboxScene,
@@ -24,28 +26,12 @@ import {
  * aspect-sized snap cards + desktop thumbnail-strip on md+; sibling dim/zoom CSS.
  */
 
-const THUMB_WIDTH = 400;
-const FULL_SCALE = 2;
-
-function thumbUrl(seed: string, w: number, h: number) {
-  const scale = THUMB_WIDTH / w;
-  return `https://picsum.photos/seed/${seed}/${Math.round(w * scale)}/${Math.round(h * scale)}`;
-}
-
-function fullUrl(seed: string, w: number, h: number) {
-  const scale = (THUMB_WIDTH / w) * FULL_SCALE;
-  return `https://picsum.photos/seed/${seed}/${Math.round(w * scale)}/${Math.round(h * scale)}`;
-}
-
 type ImageTile = {
   kind: 'image';
   id: string;
-  w: number;
-  h: number;
   alt: string;
   caption: string;
-  thumb: string;
-  src: string;
+  image: StaticImageData;
 };
 
 type VideoTile = {
@@ -53,9 +39,7 @@ type VideoTile = {
   id: string;
   alt: string;
   caption: string;
-  poster: string;
-  posterWidth: number;
-  posterHeight: number;
+  poster: StaticImageData;
   video: string;
 };
 
@@ -74,39 +58,34 @@ const films = [
   {
     id: 'inks',
     title: 'Flowing colored inks',
-    poster: 'https://assets.mixkit.co/videos/44793/44793-thumb-720-0.jpg',
-    posterWidth: 720,
-    posterHeight: 1280,
+    poster: inksPoster,
     video: 'https://assets.mixkit.co/videos/44793/44793-720.mp4',
   },
   {
     id: 'plasticine',
     title: 'Orange & teal plasticine',
-    poster: 'https://assets.mixkit.co/videos/47332/47332-thumb-720-0.jpg',
-    posterWidth: 720,
-    posterHeight: 1280,
+    poster: plasticinePoster,
     video: 'https://assets.mixkit.co/videos/47332/47332-720.mp4',
   },
 ] as const;
 
 const imageDefs = [
-  { id: 'mb-s-01', w: 600, h: 900, alt: 'Foggy pine ridge at dawn', caption: 'Dawn ridge' },
-  { id: 'mb-s-02', w: 900, h: 600, alt: 'Empty coastal highway', caption: 'Open road' },
-  { id: 'mb-s-03', w: 800, h: 800, alt: 'Overhead of a linen breakfast table', caption: 'Slow morning' },
-  { id: 'mb-s-04', w: 700, h: 1050, alt: 'Narrow sunlit alley', caption: 'Warm alley' },
-  { id: 'mb-s-05', w: 1200, h: 700, alt: 'Wide desert dunes', caption: 'Dunes' },
-  { id: 'mb-s-06', w: 640, h: 820, alt: 'Rain on a window', caption: 'Rainy glass' },
-  { id: 'mb-s-07', w: 960, h: 640, alt: 'Calm lake reflection', caption: 'Still water' },
-  { id: 'mb-s-08', w: 800, h: 1200, alt: 'Tall concrete staircase', caption: 'Ascent' },
+  { id: 'mb-s-01', alt: 'Foggy pine ridge at dawn', caption: 'Dawn ridge' },
+  { id: 'mb-s-02', alt: 'Empty coastal highway', caption: 'Open road' },
+  { id: 'mb-s-03', alt: 'Overhead of a linen breakfast table', caption: 'Slow morning' },
+  { id: 'mb-s-04', alt: 'Narrow sunlit alley', caption: 'Warm alley' },
+  { id: 'mb-s-05', alt: 'Wide desert dunes', caption: 'Dunes' },
+  { id: 'mb-s-06', alt: 'Rain on a window', caption: 'Rainy glass' },
+  { id: 'mb-s-07', alt: 'Calm lake reflection', caption: 'Still water' },
+  { id: 'mb-s-08', alt: 'Tall concrete staircase', caption: 'Ascent' },
 ] as const;
 
 /** Build a 12-tile wall: 7 photos, 2 vertical clips, 3 GLBs — mixed through the columns. */
 function buildTiles(): Tile[] {
-  const images: ImageTile[] = imageDefs.map((img) => ({
+  const images: ImageTile[] = imageDefs.map((img, i) => ({
     kind: 'image',
     ...img,
-    thumb: thumbUrl(img.id, img.w, img.h),
-    src: fullUrl(img.id, img.w, img.h),
+    image: moodboardSnugImages[i]!,
   }));
   const [shoe, bottle, chair] = moodboardProducts;
   const [inks, plasticine] = films;
@@ -121,8 +100,6 @@ function buildTiles(): Tile[] {
       alt: inks.title,
       caption: inks.title,
       poster: inks.poster,
-      posterWidth: inks.posterWidth,
-      posterHeight: inks.posterHeight,
       video: inks.video,
     },
     images[1]!,
@@ -141,8 +118,6 @@ function buildTiles(): Tile[] {
       alt: plasticine.title,
       caption: plasticine.title,
       poster: plasticine.poster,
-      posterWidth: plasticine.posterWidth,
-      posterHeight: plasticine.posterHeight,
       video: plasticine.video,
     },
     images[4]!,
@@ -171,12 +146,10 @@ function toGalleryItem(tile: Tile): LightboxGalleryItem {
   if (tile.kind === 'image') {
     return {
       id: tile.id,
-      src: tile.src,
-      thumb: tile.thumb,
+      src: tile.image,
+      thumb: tile.image,
       alt: tile.alt,
       caption: tile.caption,
-      width: tile.w,
-      height: tile.h,
     };
   }
   if (tile.kind === 'video') {
@@ -186,8 +159,8 @@ function toGalleryItem(tile: Tile): LightboxGalleryItem {
       thumb: tile.poster,
       alt: tile.alt,
       caption: tile.caption,
-      width: tile.posterWidth,
-      height: tile.posterHeight,
+      width: tile.poster.width,
+      height: tile.poster.height,
     };
   }
   return {
@@ -391,14 +364,14 @@ export default function MoodboardSnugPage() {
                       className={`block w-full cursor-pointer overflow-hidden rounded-xl border-none bg-transparent p-0 ${triggerFocusClass}`}
                     >
                       {({ imageRef }) => (
-                        <img
+                        <Image
                           ref={imageRef}
-                          src={tile.thumb}
+                          src={tile.image}
                           alt={tile.alt}
-                          width={tile.w}
-                          height={tile.h}
+                          placeholder="blur"
+                          sizes="(min-width: 640px) 224px, 50vw"
                           loading="lazy"
-                          className="block w-full rounded-xl bg-neutral-100 object-cover transition duration-200 hover:opacity-90 dark:bg-neutral-800"
+                          className="block h-auto w-full rounded-xl bg-neutral-100 object-cover transition duration-200 hover:opacity-90 dark:bg-neutral-800"
                         />
                       )}
                     </Lightbox.Trigger>
@@ -415,9 +388,9 @@ export default function MoodboardSnugPage() {
                     >
                       <AutoplayMuteVideo
                         src={tile.video}
-                        poster={tile.poster}
-                        width={tile.posterWidth}
-                        height={tile.posterHeight}
+                        poster={tile.poster.src}
+                        width={tile.poster.width}
+                        height={tile.poster.height}
                         // Keep the wall looping; pause only while this tile is open.
                         playing={!open || activeIndex !== index}
                         className="block w-full rounded-xl bg-neutral-100 object-cover transition duration-200 hover:opacity-90 dark:bg-neutral-800"
@@ -464,10 +437,10 @@ export default function MoodboardSnugPage() {
               return (
                 <LightboxVideo
                   src={tile.video}
-                  poster={tile.poster}
+                  poster={tile.poster.src}
                   enabled={open}
-                  width={tile.posterWidth}
-                  height={tile.posterHeight}
+                  width={tile.poster.width}
+                  height={tile.poster.height}
                 />
               );
             }
@@ -494,15 +467,14 @@ export default function MoodboardSnugPage() {
             return (
               <Lightbox.Zoom maxZoom={6}>
                 <Lightbox.Media
-                  width={tile.w}
-                  height={tile.h}
+                  width={tile.image.width}
+                  height={tile.image.height}
                   className="overflow-hidden rounded-none md:rounded-lg"
                 >
-                  <img
-                    width={tile.w}
-                    height={tile.h}
-                    src={tile.src}
+                  <Image
+                    src={tile.image}
                     alt={tile.alt}
+                    sizes="100vw"
                     loading="eager"
                     draggable={false}
                     className="select-none"
