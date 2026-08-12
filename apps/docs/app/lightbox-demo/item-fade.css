@@ -1,25 +1,22 @@
-/* Stacked ItemGroup entrance fade (skipped inside Slides / during VT). */
+/*
+ * Stacked ItemGroup entrance fade (skipped during VT).
+ *
+ * Scoped to `.lightbox-demo-item-group` (set by StackedItemGroup in
+ * lightbox-chrome.tsx): a bare `[data-ramka-item]` selector would leak into
+ * every skin rendered in the docs app. Scoping also makes the old
+ * "suppress inside Lightbox.Slides" opt-out unnecessary — Slides items are
+ * never inside an ItemGroup, so the fade can't replay on swipe.
+ */
 
 /* Default: fade the active item in. Opt-outs below are positive overrides —
    no `:not([data-skip-fade])` needed. */
-[data-ramka-item][data-active] {
+.lightbox-demo-item-group [data-ramka-item][data-active] {
   animation: var(--animate-lightbox-item-fade-in);
 }
 
 /* Destination item during a View Transition open — morph already handled
    entrance; a follow-up fade would flash opacity:0 after the VT layer drops. */
-[data-ramka-item][data-active][data-skip-fade] {
-  animation: none;
-}
-
-/* ...but NOT inside a Lightbox.Slides scroller. There, items sit side by
-   side and `data-active` moves as you scroll, so this stacked-navigation
-   entrance fade would replay (flash to opacity 0) on every swipe.
-   Lightbox.Slides is the only ancestor that sets `data-orientation`, so it's
-   a reliable, zero-config marker — consumers building a swipeable lightbox
-   don't have to remember to opt out. Higher specificity (0,3,0 > 0,2,0)
-   lets this win without `!important`. */
-[data-orientation] [data-ramka-item][data-active] {
+.lightbox-demo-item-group [data-ramka-item][data-active][data-skip-fade] {
   animation: none;
 }
 
@@ -28,6 +25,6 @@
    `flushSync(setMounted(true))` and an image-decode await), so there is a
    brief window where data-active is set without data-skip-fade. This rule
    covers that window without relying on precise ordering. */
-:root[data-ramka-view-transition] [data-ramka-item][data-active] {
+:root[data-ramka-view-transition] .lightbox-demo-item-group [data-ramka-item][data-active] {
   animation: none !important;
 }

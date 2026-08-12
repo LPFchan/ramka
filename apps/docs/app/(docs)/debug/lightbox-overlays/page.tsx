@@ -5,7 +5,7 @@ import * as React from 'react';
 import Image, { type StaticImageData } from 'next/image';
 import { useLightboxContext } from 'ramka';
 
-import { Lightbox, type LightboxItem } from '../../presets/default/lightbox';
+import { Lightbox, type LightboxItem } from '../../presets/default/css/lightbox';
 
 import { overlayImages } from './images.generated';
 import { OverlayTestPanel } from './overlay-test-panel';

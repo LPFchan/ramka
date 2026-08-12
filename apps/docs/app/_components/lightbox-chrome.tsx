@@ -443,14 +443,15 @@ export function LightboxNavBar() {
 /**
  * Wrapper around `Lightbox.ItemGroup` that stacks items absolutely and
  * uses `aria-hidden` / `data-active` to swap the visible item. The
- * fade-in keyframe is loaded from globals.css and is suppressed while
- * a view transition is in flight.
+ * `lightbox-demo-item-group` class scopes the entrance fade in
+ * item-fade.css (suppressed while a view transition is in flight) to
+ * this wrapper's items only.
  */
 export function StackedItemGroup({ children, className, ...rest }: React.ComponentProps<typeof Lightbox.ItemGroup>) {
   return (
     <Lightbox.ItemGroup
       {...rest}
-      className={`relative flex w-full flex-1 items-center justify-center overflow-hidden ${className ?? ''}`}
+      className={`lightbox-demo-item-group relative flex w-full flex-1 items-center justify-center overflow-hidden ${className ?? ''}`}
     >
       {children}
     </Lightbox.ItemGroup>
@@ -458,13 +459,13 @@ export function StackedItemGroup({ children, className, ...rest }: React.Compone
 }
 
 /**
- * Per-item class for stacked layouts. The active-item fade-in is
- * applied via item-fade.css on `[data-ramka-item][data-active]` (opt out with
- * `[data-skip-fade]`)
- * rather than a Tailwind `data-[active]:` utility, so that the library's
- * `data-skip-fade` flag (set on the View Transition destination item
- * during open) suppresses the entrance fade — otherwise the fade would
- * re-play once the VT layer is torn down and produce a visible flash.
+ * Per-item class for stacked layouts. The active-item fade-in is applied via
+ * item-fade.css on `.lightbox-demo-item-group [data-ramka-item][data-active]`
+ * (opt out with `[data-skip-fade]`) rather than a Tailwind `data-[active]:`
+ * utility, so that the library's `data-skip-fade` flag (set on the View
+ * Transition destination item during open) suppresses the entrance fade —
+ * otherwise the fade would re-play once the VT layer is torn down and produce
+ * a visible flash.
  */
 export const stackedItemClass =
   'absolute inset-0 flex items-center justify-center aria-hidden:invisible data-[active]:visible';

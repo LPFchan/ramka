@@ -105,7 +105,7 @@ export const lightboxExcerpts = {
   "slide-track-css": {
     title: "Slide track (full-bleed carousel)",
     code: "/*\n * Default bleed track — one scrollport width per slide.\n * Slides geometry assumes center snap (built into Lightbox.Slide).\n */\n[data-ramka-slide] {\n  flex: 0 0 100%;\n  min-width: 100%;\n}\n",
-    source: "app/lightbox-demo/chrome-insets.css",
+    source: "app/lightbox-demo/slide-track.excerpt.css",
   },
   "slides-nesting": {
     title: "Slides + Slide nesting",

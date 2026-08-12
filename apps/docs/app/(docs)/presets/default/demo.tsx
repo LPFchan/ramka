@@ -1,7 +1,19 @@
 'use client';
 
 import { imgDims } from '../../../_components/lightbox-chrome';
-import { Lightbox, type LightboxItem } from './lightbox';
+import { Lightbox as CssLightbox, type LightboxItem } from './css/lightbox';
+import { Lightbox as TailwindLightbox } from './tailwind/lightbox';
+
+/**
+ * Both skin variants export the same component API, so this demo renders
+ * either one — the docs page toggles between them. In your app, import ONE
+ * variant (`./css/lightbox` or `./tailwind/lightbox`) directly.
+ */
+const lightboxVariants = { css: CssLightbox, tailwind: TailwindLightbox };
+
+export type PresetVariant = keyof typeof lightboxVariants;
+
+type StyledLightbox = (typeof lightboxVariants)[PresetVariant];
 
 /** Demo seed data — dims are explicit (package Gallery requires them). */
 const trip: LightboxItem[] = [
@@ -111,18 +123,20 @@ const trip: LightboxItem[] = [
  * 2. Child morph via `morphRef` (chrome stays put)
  * 3. Whole-trigger morph + crossfade (card → photo)
  */
-export function DefaultPresetDemo() {
+export function DefaultPresetDemo({ variant = 'css' }: { variant?: PresetVariant }) {
+  const Lightbox = lightboxVariants[variant];
+
   return (
     <div className="flex w-full max-w-md flex-col gap-8">
-      <AlbumPlusNMorph />
-      <ListingCardMorph />
-      <UserCardMorph />
+      <AlbumPlusNMorph Lightbox={Lightbox} />
+      <ListingCardMorph Lightbox={Lightbox} />
+      <UserCardMorph Lightbox={Lightbox} />
     </div>
   );
 }
 
 /** Whole trigger morphs (default); `crossfade="both"` dissolves card ↔ photo. */
-function UserCardMorph() {
+function UserCardMorph({ Lightbox }: { Lightbox: StyledLightbox }) {
   const portrait = trip[0]!;
 
   return (
@@ -168,7 +182,7 @@ function UserCardMorph() {
  * Trigger wraps the card; `morphRef` (+ `imageRef`) on the photo so only that
  * child morphs — title / price stay put (`data-morph-target` on the image).
  */
-function ListingCardMorph() {
+function ListingCardMorph({ Lightbox }: { Lightbox: StyledLightbox }) {
   const listing = trip[1]!;
 
   return (
@@ -232,7 +246,7 @@ function tileCornerClass(index: number) {
  * `morphTo="closest"` on close from overflow slides. Corner radius lives on
  * each Trigger so the VT morph can animate it.
  */
-function AlbumPlusNMorph() {
+function AlbumPlusNMorph({ Lightbox }: { Lightbox: StyledLightbox }) {
   const extra = trip.length - 4;
 
   return (

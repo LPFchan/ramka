@@ -82,14 +82,17 @@
   padding-inline: 0;
 }
 
-/* @docs-excerpt-start slide-track-css */
-/* @docs-excerpt-title Slide track (full-bleed carousel) */
 /*
- * Default bleed track — one scrollport width per slide.
- * Slides geometry assumes center snap (built into Lightbox.Slide).
+ * Default bleed track — one scrollport width per slide. Slides geometry
+ * assumes center snap (built into Lightbox.Slide).
+ *
+ * Scoped to the demo skin's own Slides: a bare `[data-ramka-slide]` selector
+ * would match every ramka slide in the docs app — including other skins on
+ * preset pages, whose `@layer utilities` rules lose to any unlayered global
+ * rule. The generic copy-paste form shown in the composition docs lives in
+ * `slide-track.excerpt.css`.
  */
-[data-ramka-slide] {
+.lightbox-demo-slides [data-ramka-slide] {
   flex: 0 0 100%;
   min-width: 100%;
 }
-/* @docs-excerpt-end */
