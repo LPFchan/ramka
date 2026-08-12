@@ -2255,6 +2255,54 @@ describe('Lightbox', () => {
       expect(document.documentElement).not.toHaveAttribute('data-ramka-view-transition');
     });
 
+    it('keeps Content mounted (paint-suppressed) until the VT close finishes', async () => {
+      // Chrome Android aborts the close morph if the fixed fullscreen portal is
+      // unmounted inside the VT update callback. commitClose must only park it.
+      let resolveOpen: () => void;
+      let resolveClose: () => void;
+      let contentDuringCloseUpdate: boolean | null = null;
+
+      const startViewTransition = vi.fn((callback: () => void | Promise<void>) => {
+        const result = callback();
+        if (startViewTransition.mock.calls.length === 2) {
+          contentDuringCloseUpdate = !!screen.queryByTestId('content');
+        }
+        if (result && typeof (result as Promise<void>).then === 'function') {
+          (result as Promise<void>).catch(vi.fn());
+        }
+        if (startViewTransition.mock.calls.length === 1) {
+          return {
+            finished: new Promise<void>((r) => {
+              resolveOpen = r;
+            }),
+          };
+        }
+        return {
+          finished: new Promise<void>((r) => {
+            resolveClose = r;
+          }),
+        };
+      });
+
+      Object.defineProperty(document, 'startViewTransition', {
+        value: startViewTransition,
+        writable: true,
+        configurable: true,
+      });
+
+      render(<TestLightbox viewTransition />);
+      fireEvent.click(screen.getByTestId('trigger-0'));
+      await act(async () => resolveOpen!());
+
+      fireEvent.click(screen.getByTestId('close'));
+      expect(contentDuringCloseUpdate).toBe(true);
+      expect(screen.getByTestId('content')).toBeInTheDocument();
+      expect(screen.getByTestId('content')).toHaveStyle({ visibility: 'hidden' });
+
+      await act(async () => resolveClose!());
+      expect(screen.queryByTestId('content')).not.toBeInTheDocument();
+    });
+
     it('keeps the page scroll locked until the VT close transition finishes', async () => {
       let resolveOpen: () => void;
       let resolveClose: () => void;

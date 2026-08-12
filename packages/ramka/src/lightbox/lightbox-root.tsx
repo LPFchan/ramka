@@ -392,8 +392,8 @@ function LightboxRoot(props: LightboxRootProps) {
     }, []);
 
     // Portal mount state — stays true during exit animations so elements
-    // remain in the DOM for CSS transitions (non-VT) or are removed
-    // immediately inside flushSync (VT close).
+    // remain in the DOM for CSS transitions (non-VT) and for the VT close
+    // hold (`preparing` + mounted until `finished`; see commitClose).
     //
     // Initialized from the resolved open value (controlled prop or
     // `defaultOpen`) so a lightbox rendered with `open={true}` on first
@@ -449,13 +449,12 @@ function LightboxRoot(props: LightboxRootProps) {
     }, []);
 
     // Document scroll lock, owned here in Root rather than in Lightbox.Content.
-    // Content unmounts at the *start* of the VT close (commitClose runs inside
-    // the transition callback), so a lock tied to Content's lifecycle would be
-    // released while the close animation is still playing — letting the page
-    // scroll behind the transition. Root outlives the transition, so it holds
-    // the lock until the close fully completes (handleCloseComplete / the
-    // post-exit-animation unmount). Imperative + idempotent so the various
-    // open/close code paths can acquire/release it at explicit lifecycle points.
+    // During VT close the portal stays mounted (paint-suppressed) until
+    // `finished`, but `open` flips false immediately — a lock tied to Content's
+    // open lifecycle would still be wrong. Root outlives the transition and
+    // holds the lock until handleCloseComplete / post-exit-animation unmount.
+    // Imperative + idempotent so open/close paths can acquire/release at
+    // explicit lifecycle points.
     const scrollLockCleanupRef = React.useRef<(() => void) | null>(null);
     const lockScroll = React.useCallback(() => {
       if (scrollLockCleanupRef.current || typeof document === 'undefined') return;
@@ -646,12 +645,16 @@ function LightboxRoot(props: LightboxRootProps) {
       setMounted(false);
     }, []);
 
+    // VT close update callback: flip React "closed" + suppress paint, but keep
+    // the portal mounted until `finished`. Unmounting the fixed fullscreen
+    // dialog inside the callback aborts the morph on Chrome Android
+    // (InvalidStateError shortly after ready) — confirmed on Pixel / emulator.
     const commitClose = React.useCallback(() => {
       if (!isControlledOpen) {
         setUncontrolledOpen(false);
       }
       onOpenChangeRef.current?.(false);
-      setMounted(false);
+      setPreparing(true);
     }, [isControlledOpen]);
 
     const handleOpenComplete = React.useCallback(() => {
@@ -661,6 +664,8 @@ function LightboxRoot(props: LightboxRootProps) {
 
     const handleCloseComplete = React.useCallback(
       (triggerEl: HTMLElement | undefined) => {
+        setPreparing(false);
+        setMounted(false);
         // Release the page scroll lock only now — after the close transition has
         // finished — so the page can't scroll behind an in-flight VT close.
         unlockScroll();

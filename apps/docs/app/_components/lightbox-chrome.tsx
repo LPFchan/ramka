@@ -181,6 +181,7 @@ export function LightboxGallery({
   renderItem,
   /** Portaled inside Content — e.g. debug tooling or in-viewer controls. */
   overlay,
+  keepMounted = false,
 }: {
   items: LightboxGalleryItem[];
   ariaLabel: string;
@@ -195,6 +196,8 @@ export function LightboxGallery({
   slidesLayout?: 'bleed' | 'snug';
   renderItem?: (item: LightboxGalleryItem, index: number, ctx: GalleryItemRenderCtx) => React.ReactNode;
   overlay?: React.ReactNode;
+  /** Forwarded to `Lightbox.Portal` — keep viewer DOM parked while closed. */
+  keepMounted?: boolean;
 }) {
   // Viewport visibility only — linked layout/sync live in Lightbox.ThumbnailStrip.
   const thumbClass =
@@ -216,7 +219,7 @@ export function LightboxGallery({
       : null;
 
   return (
-    <Lightbox.Portal>
+    <Lightbox.Portal keepMounted={keepMounted}>
       <Lightbox.Backdrop className={`lightbox-demo-backdrop ${backdropTone} fixed inset-0`} />
       <Lightbox.Content
         aria-label={ariaLabel}

@@ -762,7 +762,10 @@ interface ViewTransitionMorphConfig {
    * open or `onBeforeOpen` failure).
    */
   commitAbortPrepare: () => void;
-  /** flushSync body that flips React state to the closed/unmounted state. */
+  /**
+   * flushSync body that flips React state to closed and paint-suppresses the
+   * portal (`preparing`) without unmounting — unmount waits for `finished`.
+   */
   commitClose: () => void;
   /** Fired once the open morph settles (and its generation is still current). */
   onOpenComplete: () => void;
@@ -1077,11 +1080,10 @@ function useViewTransitionMorph(config: ViewTransitionMorphConfig): ViewTransiti
     const docEl = document.documentElement;
     const gen = closeGenRef.current;
 
-    // Same guard as the open morph: Content unmounts at close start
-    // (commitClose runs inside the transition callback), so for the whole
-    // close animation a touch pan resolves to <html> with nothing left to
-    // contain it — Safari would expand its address bar and resize the
-    // viewport mid-morph.
+    // Same guard as the open morph: during close the portal is paint-
+    // suppressed (`preparing`) and then unmounted on `finished`, so a touch
+    // pan can resolve to <html> with nothing left to contain it — Safari
+    // would expand its address bar and resize the viewport mid-morph.
     const releaseTouchGuard = acquireVtTouchGuard();
 
     const itemEl = activeItemElementRef.current;

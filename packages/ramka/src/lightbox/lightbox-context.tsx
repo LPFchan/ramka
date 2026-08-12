@@ -31,12 +31,16 @@ interface LightboxContextValue {
   /** Whether the portal should be in the DOM (stays true during exit animations). */
   mounted: boolean;
   /**
-   * True during the brief "pre-mount" phase of a View Transition open: the
-   * portal is mounted (so its DOM/layout and image decode happen off the
-   * transition's render-suppressed critical path) but must not paint yet, or
-   * it would appear in the transition's *old* snapshot. `Lightbox.Content` and
-   * `Lightbox.Backdrop` render `visibility: hidden` while this is true, and
-   * focus/scroll-lock side effects hold off until the reveal.
+   * True while the portal must stay mounted but not paint:
+   * - VT **open** pre-mount: DOM/layout/decode run before `startViewTransition`,
+   *   hidden so the tree is absent from the transition's *old* snapshot.
+   * - VT **close** hold: portal stays mounted (paint-suppressed) until
+   *   `finished`, because unmounting a fixed fullscreen layer inside the
+   *   update callback aborts the transition on Chrome Android
+   *   (`InvalidStateError` after `ready`).
+   *
+   * `Lightbox.Content` / `Lightbox.Backdrop` use `visibility: hidden` while
+   * this is true. Focus/scroll-lock side effects hold off until reveal on open.
    */
   preparing: boolean;
   /**
