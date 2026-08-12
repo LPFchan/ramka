@@ -475,6 +475,15 @@ function LightboxRoot(props: LightboxRootProps) {
       // tap→pan. Disable selection on the document for the lock's lifetime.
       html.style.userSelect = 'none';
       html.style.setProperty('-webkit-user-select', 'none');
+      // NOTE: do NOT set `scrollbar-width: none` on <html> here to hide the
+      // fading iOS overlay scroll indicator during the open morph. It works —
+      // but restoring it on unlock permanently destroys the tab's page
+      // scrollbar on iOS: WebKit implements `none` by tearing down the native
+      // scroller layer and never re-attaches it when switching back
+      // (https://bugs.webkit.org/show_bug.cgi?id=282419). The state lives on
+      // the tab's native scroll view, so it survives reloads — only a new tab
+      // recovers. The macOS scroller was fixed (WebKit/WebKit#36030); the iOS
+      // one was not. Revisit if the iOS fix ships.
       if (scrollbarWidth > 0) {
         const currentPadding = parseFloat(window.getComputedStyle(body).paddingRight) || 0;
         body.style.paddingRight = `${currentPadding + scrollbarWidth}px`;

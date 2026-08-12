@@ -1742,6 +1742,21 @@ describe('Lightbox', () => {
       }
     });
 
+    it('never sets scrollbar-width on the document (WebKit bug 282419)', async () => {
+      // Hiding the fading iOS overlay scroll indicator via
+      // `scrollbar-width: none` on <html> looked like a free win, but
+      // restoring it permanently destroys the tab's page scrollbar on iOS —
+      // WebKit never re-attaches the native scroller layer
+      // (https://bugs.webkit.org/show_bug.cgi?id=282419), and the breakage
+      // survives page reloads. Guard against reintroducing it.
+      render(<TestLightbox defaultOpen />);
+      expect(document.documentElement.style.getPropertyValue('scrollbar-width')).toBe('');
+
+      fireEvent.click(screen.getByTestId('close'));
+      await flushMicrotasks();
+      expect(document.documentElement.style.getPropertyValue('scrollbar-width')).toBe('');
+    });
+
     it('disables document text selection while open, then restores it on close', async () => {
       // Regression: iOS Safari tap→pan while zoomed selected the page behind
       // the lightbox. The scroll lock sets user-select on <html> for the
