@@ -83,22 +83,16 @@
 }
 
 /*
- * Layered so this stays an overridable demo-skin default: the selector matches
- * EVERY ramka slide in the docs app, including other skins rendered on preset
- * pages. Unlayered, it would beat their `@layer utilities` rules (e.g. the
- * Tailwind preset's `md:flex-[0_0_auto] md:min-w-0` snug overrides) regardless
- * of specificity or source order.
+ * Default bleed track — one scrollport width per slide. Slides geometry
+ * assumes center snap (built into Lightbox.Slide).
+ *
+ * Scoped to the demo skin's own Slides: a bare `[data-ramka-slide]` selector
+ * would match every ramka slide in the docs app — including other skins on
+ * preset pages, whose `@layer utilities` rules lose to any unlayered global
+ * rule. The generic copy-paste form shown in the composition docs lives in
+ * `slide-track.excerpt.css`.
  */
-@layer components {
-  /* @docs-excerpt-start slide-track-css */
-  /* @docs-excerpt-title Slide track (full-bleed carousel) */
-  /*
-   * Default bleed track — one scrollport width per slide.
-   * Slides geometry assumes center snap (built into Lightbox.Slide).
-   */
-  [data-ramka-slide] {
-    flex: 0 0 100%;
-    min-width: 100%;
-  }
-  /* @docs-excerpt-end */
+.lightbox-demo-slides [data-ramka-slide] {
+  flex: 0 0 100%;
+  min-width: 100%;
 }
