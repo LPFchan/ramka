@@ -36,6 +36,7 @@ import {
   rubberBandPanDimension,
   RUBBER_BAND_DIMENSION_FACTOR_MOUSE,
 } from './gesture-math';
+import { resetVtTouchGuardForTesting } from './vt-touch-guard';
 
 // ---------------------------------------------------------------------------
 // Mocks — jsdom lacks matchMedia, getAnimations
@@ -85,6 +86,10 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.restoreAllMocks();
+  // VT tests mock startViewTransition with `finished` promises they never
+  // resolve, which would leak the morph's document-level touch-pan guard
+  // (held until `finished` settles) into subsequent tests.
+  resetVtTouchGuardForTesting();
 });
 
 // ---------------------------------------------------------------------------
@@ -3213,6 +3218,92 @@ describe('Lightbox', () => {
       });
       const prevented = !content.dispatchEvent(event);
       expect(prevented).toBe(false);
+    });
+
+    describe('touch scroll containment (iOS address bar)', () => {
+      function renderChromeLightbox() {
+        return render(
+          <LightboxRoot defaultOpen>
+            <LightboxPortal>
+              <LightboxContent data-testid="content" aria-label="Containment test">
+                <LightboxClose data-testid="close">Close</LightboxClose>
+                <div data-testid="panel" style={{ overflowY: 'auto' }}>
+                  <p data-testid="panel-text">scrollable chrome</p>
+                </div>
+                <LightboxItemGroup>
+                  <LightboxItem index={0}>
+                    <img src="test.jpg" alt="test" />
+                  </LightboxItem>
+                </LightboxItemGroup>
+              </LightboxContent>
+            </LightboxPortal>
+          </LightboxRoot>,
+        );
+      }
+
+      function fireTouch(el: Element, type: string, x: number, y: number, fingers = 1) {
+        const touches = Array.from(
+          { length: fingers },
+          (_, i) => new Touch({ identifier: i, target: el, clientX: x, clientY: y }),
+        );
+        const event = new TouchEvent(type, { bubbles: true, cancelable: true, touches });
+        return !el.dispatchEvent(event); // true when preventDefault-ed
+      }
+
+      /** Give the panel real scroll metrics (jsdom reports 0 everywhere). */
+      function makePanelScrollable(panel: HTMLElement, scrollTop: number) {
+        Object.defineProperty(panel, 'scrollHeight', { value: 200, configurable: true });
+        Object.defineProperty(panel, 'clientHeight', { value: 100, configurable: true });
+        Object.defineProperty(panel, 'scrollTop', { value: scrollTop, configurable: true });
+      }
+
+      it('cancels a vertical drag starting on non-scrollable chrome (close button)', () => {
+        renderChromeLightbox();
+        const close = screen.getByTestId('close');
+        fireTouch(close, 'touchstart', 10, 100);
+        expect(fireTouch(close, 'touchmove', 10, 130)).toBe(true);
+      });
+
+      it('leaves a drag alone until it passes the direction lock', () => {
+        renderChromeLightbox();
+        const close = screen.getByTestId('close');
+        fireTouch(close, 'touchstart', 10, 100);
+        // 3px wiggle — under the 6px lock, must not swallow a tap's moves.
+        expect(fireTouch(close, 'touchmove', 10, 103)).toBe(false);
+      });
+
+      it('allows a horizontal drag on chrome (slides/strip own that axis)', () => {
+        renderChromeLightbox();
+        const close = screen.getByTestId('close');
+        fireTouch(close, 'touchstart', 10, 100);
+        expect(fireTouch(close, 'touchmove', 40, 102)).toBe(false);
+      });
+
+      it('allows a vertical drag inside scrollable chrome that can consume it', () => {
+        renderChromeLightbox();
+        const panel = screen.getByTestId('panel');
+        makePanelScrollable(panel, 50); // mid-scroll — both directions available
+        const text = screen.getByTestId('panel-text');
+        fireTouch(text, 'touchstart', 10, 100);
+        expect(fireTouch(text, 'touchmove', 10, 130)).toBe(false);
+      });
+
+      it('cancels a vertical drag at the scrollable chrome boundary (no chain to the bar)', () => {
+        renderChromeLightbox();
+        const panel = screen.getByTestId('panel');
+        makePanelScrollable(panel, 0); // at top — finger-down pan has nothing to consume
+        const text = screen.getByTestId('panel-text');
+        fireTouch(text, 'touchstart', 10, 100);
+        expect(fireTouch(text, 'touchmove', 10, 130)).toBe(true);
+      });
+
+      it('ignores multi-finger gestures (pinch guard owns them)', () => {
+        renderChromeLightbox();
+        const close = screen.getByTestId('close');
+        fireTouch(close, 'touchstart', 10, 100, 2);
+        // Single-finger containment must not have latched onto a pinch.
+        expect(fireTouch(close, 'touchmove', 10, 130, 2)).toBe(true); // prevented by the PINCH guard
+      });
     });
 
     it('prevents ctrl+wheel (trackpad pinch-to-zoom) on content', () => {

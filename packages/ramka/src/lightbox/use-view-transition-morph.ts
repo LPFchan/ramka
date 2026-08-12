@@ -4,6 +4,7 @@ import * as React from 'react';
 import { flushSync } from 'react-dom';
 
 import { isFirefox } from './is-firefox';
+import { acquireVtTouchGuard } from './vt-touch-guard';
 import { maybeTraceViewTransition } from './vt-debug';
 import { maybeUpgradeToCompositedMorph } from './vt-composited-morph';
 import { isViewTransitionPreset, resolveViewTransitionTiming } from './vt-timing';
@@ -821,6 +822,13 @@ function useViewTransitionMorph(config: ViewTransitionMorphConfig): ViewTransiti
     const docEl = document.documentElement;
     const gen = closeGenRef.current;
 
+    // Swallow touch panning for the whole open morph — from prepare (viewer
+    // hidden, page not yet locked) through the transition itself, when hit
+    // testing resolves to <html> and an upward pan would expand iOS Safari's
+    // address bar, resizing the viewport mid-morph. Idempotent; released on
+    // every bail path below and in the finished finalizer.
+    const releaseTouchGuard = acquireVtTouchGuard();
+
     // Fresh controller for this open attempt; Root aborts it when gen bumps.
     const beforeOpenAbort = new AbortController();
     beforeOpenAbortRef.current = beforeOpenAbort;
@@ -886,6 +894,7 @@ function useViewTransitionMorph(config: ViewTransitionMorphConfig): ViewTransiti
           if (beforeOpenAbortRef.current === beforeOpenAbort) {
             beforeOpenAbortRef.current = null;
           }
+          releaseTouchGuard();
           return;
         }
       }
@@ -911,15 +920,20 @@ function useViewTransitionMorph(config: ViewTransitionMorphConfig): ViewTransiti
         if (configRef.current.closeGenRef.current === gen) {
           flushSync(commitAbortPrepare);
         }
+        releaseTouchGuard();
         return;
       }
       if (beforeOpenAbortRef.current === beforeOpenAbort) {
         beforeOpenAbortRef.current = null;
       }
-      if (configRef.current.closeGenRef.current !== gen) return;
+      if (configRef.current.closeGenRef.current !== gen) {
+        releaseTouchGuard();
+        return;
+      }
       // Aborted without throw (signal only) — same cleanup as supersede.
       if (beforeOpenAbort.signal.aborted) {
         flushSync(commitAbortPrepare);
+        releaseTouchGuard();
         return;
       }
     } else if (beforeOpenAbortRef.current === beforeOpenAbort) {
@@ -1011,6 +1025,7 @@ function useViewTransitionMorph(config: ViewTransitionMorphConfig): ViewTransiti
     }
 
     transition.finished.finally(() => {
+      releaseTouchGuard();
       restoreFirefoxCaptureInset?.();
       restoreFirefoxCaptureInset = null;
       if (configRef.current.closeGenRef.current !== gen) return;
@@ -1061,6 +1076,13 @@ function useViewTransitionMorph(config: ViewTransitionMorphConfig): ViewTransiti
 
     const docEl = document.documentElement;
     const gen = closeGenRef.current;
+
+    // Same guard as the open morph: Content unmounts at close start
+    // (commitClose runs inside the transition callback), so for the whole
+    // close animation a touch pan resolves to <html> with nothing left to
+    // contain it — Safari would expand its address bar and resize the
+    // viewport mid-morph.
+    const releaseTouchGuard = acquireVtTouchGuard();
 
     const itemEl = activeItemElementRef.current;
     const itemTarget = itemEl ? findItemMorphTarget(itemEl, itemMorphElementsRef.current) : null;
@@ -1139,6 +1161,7 @@ function useViewTransitionMorph(config: ViewTransitionMorphConfig): ViewTransiti
     }
 
     transition.finished.finally(() => {
+      releaseTouchGuard();
       restoreFirefoxCaptureInset?.();
       restoreFirefoxCaptureInset = null;
       if (canMorph) {

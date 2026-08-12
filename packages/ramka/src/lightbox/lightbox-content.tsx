@@ -9,6 +9,7 @@ import { useLightboxContext } from './lightbox-context';
 import { useLightboxPortalContext } from './lightbox-portal';
 import { useLightboxZoomPublish } from './lightbox-zoom-context';
 import { usePullToDismiss } from './use-pull-to-dismiss';
+import { useTouchScrollContainment } from './use-touch-scroll-containment';
 
 /** Imperative chrome vars (pull / zoom) — React style reconciliation must not wipe them. */
 const CONTENT_CHROME_STYLE_VARS = [
@@ -290,6 +291,17 @@ const LightboxContent = React.forwardRef<HTMLDivElement, LightboxContentProps>(
       // Suppress the pull gesture while a Lightbox.Slides swipe/fling is running.
       isScrollingRef: navigationLockedRef,
     });
+
+    // Vertical touch drags that start on interactive chrome (Close / Prev /
+    // Next / links / `[data-ramka-no-pull]`) are ignored by the pull gesture
+    // above, so nothing canceled their moves — and on iOS Safari a vertical
+    // pan with no scrollable ancestor is handed to the browser UI, expanding
+    // the collapsed address bar over the open viewer. This containment layer
+    // cancels exactly those drags (inner scroll containers and horizontal
+    // gestures stay native). The backdrop scrim gets the same treatment for
+    // skins where Content doesn't cover the whole viewport.
+    useTouchScrollContainment({ hostRef: contentRef, disabled: !mounted });
+    useTouchScrollContainment({ hostRef: backdropElementRef, disabled: !mounted });
 
     // Keyboard is owned entirely by Content — the single authority while focus
     // is inside this dialog. Portaled overlays (menu, dialog, etc.) keep focus
