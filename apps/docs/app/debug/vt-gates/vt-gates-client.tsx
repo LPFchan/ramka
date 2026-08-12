@@ -184,6 +184,9 @@ export function VtGatesClient() {
           }
         }
         appendLog('vt-trace', payload);
+      } else if (args[0] === '[ramka-vt-composited]') {
+        // Composited-upgrade decisions (upgrade committed / bail reasons).
+        appendLog('vt-composited', args.slice(1));
       }
       originalLog(...args);
     };

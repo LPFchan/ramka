@@ -18,6 +18,15 @@ interface TraceableTransition {
   finished: Promise<void>;
 }
 
+/** Serialize a promise rejection reason (usually a DOMException) for the log. */
+function describeError(err: unknown): Record<string, unknown> {
+  if (err && typeof err === 'object') {
+    const e = err as { name?: unknown; message?: unknown };
+    return { name: String(e.name ?? ''), message: String(e.message ?? err) };
+  }
+  return { message: String(err) };
+}
+
 function maybeTraceViewTransition(
   transition: TraceableTransition,
   phase: 'opening' | 'closing',
@@ -30,7 +39,38 @@ function maybeTraceViewTransition(
   const docEl = document.documentElement;
   const groupPseudo = `::view-transition-group(${VIEW_TRANSITION_NAME})`;
   const samples: Array<Record<string, unknown>> = [];
-  let meta: Record<string, unknown> = { phase, note: 'ready never resolved' };
+  const t0 = performance.now();
+  const sinceStart = () => Math.round((performance.now() - t0) * 10) / 10;
+
+  /** Compact inventory of animations currently targeting VT pseudos. */
+  const pseudoAnimInventory = (): unknown => {
+    try {
+      return document
+        .getAnimations()
+        .filter((a) => {
+          const pseudo = (a.effect as KeyframeEffect | null)?.pseudoElement;
+          return pseudo?.startsWith('::view-transition') ?? false;
+        })
+        .map((a) => ({
+          pseudo: (a.effect as KeyframeEffect).pseudoElement,
+          name: (a as CSSAnimation).animationName ?? null,
+          state: a.playState,
+          ct: a.currentTime == null ? null : Math.round(Number(a.currentTime) * 10) / 10,
+        }));
+    } catch (e) {
+      return `getAnimations failed: ${String(e)}`;
+    }
+  };
+
+  // Anything already animating a VT pseudo when THIS transition starts is a
+  // leak from a previous morph (composited replacements must be cancelled on
+  // finished) — the prime suspect when only the first morph of a page works.
+  const meta: Record<string, unknown> = {
+    phase,
+    readyState: 'never-settled',
+    visibility: document.visibilityState,
+    preExistingPseudoAnims: pseudoAnimInventory(),
+  };
   let raf = 0;
 
   const sample = (t: number) => {
@@ -67,8 +107,9 @@ function maybeTraceViewTransition(
         const pseudo = (a.effect as KeyframeEffect | null)?.pseudoElement;
         return pseudo?.startsWith('::view-transition') ?? false;
       });
-      meta = {
-        phase,
+      Object.assign(meta, {
+        readyState: 'resolved',
+        readyMs: sinceStart(),
         ua: navigator.userAgent,
         href: location.href,
         composited:
@@ -95,27 +136,45 @@ function maybeTraceViewTransition(
             keyframes,
           };
         }),
-      };
+      });
       raf = requestAnimationFrame(sample);
     })
-    .catch(() => {});
-
-  transition.finished.finally(() => {
-    cancelAnimationFrame(raf);
-    const payload = JSON.stringify({ meta, samples });
-    // eslint-disable-next-line no-console -- opt-in debug tracing
-    console.log('[ramka-vt-trace]', payload);
-    try {
-      void fetch(endpoint, {
-        method: 'POST',
-        body: payload,
-        keepalive: true,
-        headers: { 'content-type': 'application/json' },
+    .catch((err: unknown) => {
+      // THE key datum for aborted transitions: the browser's own skip reason
+      // ("duplicate view-transition-name", "invalid state", "rendering
+      // suppressed for too long", …).
+      Object.assign(meta, {
+        readyState: 'rejected',
+        readyMs: sinceStart(),
+        readyRejection: describeError(err),
+        visibilityAtReject: document.visibilityState,
       });
-    } catch {
-      // Trace delivery is best-effort.
-    }
-  });
+    });
+
+  transition.finished
+    .catch((err: unknown) => {
+      Object.assign(meta, { finishedRejection: describeError(err) });
+    })
+    .finally(() => {
+      cancelAnimationFrame(raf);
+      Object.assign(meta, {
+        finishedMs: sinceStart(),
+        pseudoAnimsAtFinish: pseudoAnimInventory(),
+      });
+      const payload = JSON.stringify({ meta, samples });
+      // eslint-disable-next-line no-console -- opt-in debug tracing
+      console.log('[ramka-vt-trace]', payload);
+      try {
+        void fetch(endpoint, {
+          method: 'POST',
+          body: payload,
+          keepalive: true,
+          headers: { 'content-type': 'application/json' },
+        });
+      } catch {
+        // Trace delivery is best-effort.
+      }
+    });
 }
 
 export { maybeTraceViewTransition };
