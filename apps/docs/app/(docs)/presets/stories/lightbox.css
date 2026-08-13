@@ -2,7 +2,7 @@
  * Stories lightbox skin — pairs with lightbox.tsx (copy both files).
  *
  * 9:16 story cards with a scroll-driven rotateY page-turn (CSS view-timeline).
- * Near-black surface in both color schemes. Class prefix: `stl-`.
+ * Translucent themed scrim (no blur); chrome matches light/dark. Class prefix: `stl-`.
  *
  * Variables named `--lightbox-*` are written by the library at runtime
  * (gesture progress, motion timing) — this file only reads them. All
@@ -16,10 +16,22 @@
   /* Camera distance for the page-turn. ~1.8× a phone-width card so rotateY
      foreshortens instead of looking like a 2D squash. */
   --stl-perspective: 720px;
+  --stl-scrim: rgb(255 255 255 / 0.72);
+  --stl-chrome-bg: rgb(0 0 0 / 0.08);
+  --stl-chrome-bg-hover: rgb(0 0 0 / 0.14);
+  --stl-chrome-fg: rgb(0 0 0 / 0.88);
+  --stl-chrome-fg-muted: rgb(0 0 0 / 0.55);
+  --stl-frame-ring: rgb(0 0 0 / 0.12);
 }
 
 :is(.dark, [data-theme='dark']) .stl-portal {
   --stl-blue: #0a84ff;
+  --stl-scrim: rgb(0 0 0 / 0.64);
+  --stl-chrome-bg: rgb(255 255 255 / 0.08);
+  --stl-chrome-bg-hover: rgb(255 255 255 / 0.14);
+  --stl-chrome-fg: rgb(255 255 255 / 0.9);
+  --stl-chrome-fg-muted: rgb(255 255 255 / 0.72);
+  --stl-frame-ring: rgb(255 255 255 / 0.12);
 }
 
 /* ── Trigger (circular avatar ring) ─────────────────────────────────────── */
@@ -58,7 +70,7 @@
   position: fixed;
   inset: 0;
   opacity: 0;
-  background-color: #000;
+  background-color: var(--stl-scrim);
   transition: opacity var(--lightbox-pull-snap-duration, var(--lightbox-vt-duration, 360ms))
     var(--lightbox-pull-snap-easing, var(--stl-ease-out));
 }
@@ -119,7 +131,7 @@
     aspect-ratio: 9 / 16;
     max-width: calc(100% - 8rem);
     border-radius: 1.75rem;
-    box-shadow: 0 0 0 0.5px rgb(255 255 255 / 0.12);
+    box-shadow: 0 0 0 0.5px var(--stl-frame-ring);
   }
 }
 
@@ -369,8 +381,8 @@
   justify-content: center;
   border: 0;
   border-radius: 9999px;
-  background: rgb(255 255 255 / 0.08);
-  color: rgb(255 255 255 / 0.9);
+  background: var(--stl-chrome-bg);
+  color: var(--stl-chrome-fg);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   transform: translateY(-50%);
@@ -382,7 +394,7 @@
 }
 
 .stl-nav:hover {
-  background: rgb(255 255 255 / 0.14);
+  background: var(--stl-chrome-bg-hover);
 }
 
 .stl-nav:active {
@@ -394,7 +406,7 @@
 }
 
 .stl-nav:focus-visible {
-  outline: 2px solid rgb(255 255 255 / 0.6);
+  outline: 2px solid var(--stl-chrome-fg-muted);
   outline-offset: 2px;
 }
 
@@ -443,8 +455,8 @@
     min-width: 3.5rem;
     padding: 0.25rem 0.625rem;
     border-radius: 9999px;
-    background: rgb(255 255 255 / 0.08);
-    color: rgb(255 255 255 / 0.72);
+    background: var(--stl-chrome-bg);
+    color: var(--stl-chrome-fg-muted);
     font-size: 0.8125rem;
     font-variant-numeric: tabular-nums;
     text-align: center;
