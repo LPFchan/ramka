@@ -130,7 +130,7 @@ function Counter({ className, ...props }: React.ComponentProps<typeof RamkaLight
   return <RamkaLightbox.Counter className={cx('stl-counter', className)} {...props} />;
 }
 
-/* ── Video (plays only while this slide is active) ──────────────────────── */
+/* ── Video (plays while this slide is active; pause in place when not) ─── */
 
 function StoryVideo({
   src,
@@ -156,7 +156,6 @@ function StoryVideo({
       el.play().catch(() => {});
     } else {
       el.pause();
-      el.currentTime = 0;
     }
   }, [active]);
 
