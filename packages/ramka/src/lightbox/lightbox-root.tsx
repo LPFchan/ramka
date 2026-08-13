@@ -653,11 +653,14 @@ function LightboxRoot(props: LightboxRootProps) {
       onOpenChangeRef.current?.(false);
       // Android Chrome: keep the portal mounted and hidden until `finished`.
       // Unmounting the overlay inside the VT callback changes the snapshot
-      // root and aborts the morph. Everywhere else (Safari, desktop Chrome)
-      // unmount immediately so unnamed chrome exists only in the old root
-      // snapshot and fades with `::view-transition-old(root)`. Holding it
-      // live on WebKit leaves thumbnails/zoom controls painted until
-      // `finished`, then they pop.
+      // root and aborts the morph. Blink hides the live tree during VT, so
+      // unnamed chrome still fades with `::view-transition-old(root)`.
+      //
+      // Everywhere else (Safari, desktop Chrome): unmount immediately so
+      // unnamed `position: fixed` chrome is gone from the live tree (WebKit
+      // paints it through the VT layer otherwise) and exists only in the old
+      // root snapshot. Do not give Content/Backdrop a view-transition-name —
+      // WebKit CPU-rasterizes every named group and those nodes are fullscreen.
       if (isAndroidBlinkSnapshotRoot()) {
         setPreparing(true);
       } else {

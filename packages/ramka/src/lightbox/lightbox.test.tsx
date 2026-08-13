@@ -2256,10 +2256,10 @@ describe('Lightbox', () => {
     });
 
     it('unmounts Content inside the VT close update callback', async () => {
-      // Safari / desktop Chrome: chrome (thumbnails, zoom controls) only
-      // fades with ::view-transition-old(root) if it is gone from the new
-      // snapshot. Holding it mounted leaves WebKit painting live chrome
-      // until finished, then it pops.
+      // Safari / desktop Chrome: unnamed position:fixed chrome only fades
+      // with ::view-transition-old(root) if it is gone from the live tree.
+      // Extra named groups on Content are not an option — WebKit
+      // CPU-rasterizes each, and Content is fullscreen.
       let resolveOpen: () => void;
       let resolveClose: () => void;
       let contentDuringCloseUpdate: boolean | null = null;
