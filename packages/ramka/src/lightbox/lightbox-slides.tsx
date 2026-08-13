@@ -518,6 +518,7 @@ const LightboxSlides = React.forwardRef<HTMLDivElement, LightboxSlidesProps>(
               // geometry accounts for any gap automatically.
               style: {
                 display: 'flex',
+                width: '100%',
                 overflowX: 'auto',
                 overflowY: 'hidden',
                 overscrollBehaviorX: 'contain',
@@ -532,6 +533,10 @@ const LightboxSlides = React.forwardRef<HTMLDivElement, LightboxSlidesProps>(
                 // our active-index pin (Chromium carousel footguns do the same).
                 overflowAnchor: 'none',
                 ...style,
+                // Flex min-size:auto is the N-slide min-content width; keep the
+                // scroller at its specified width instead of inflating the track.
+                minWidth: 0,
+                minHeight: 0,
                 // Size container so snug stage/snap CSS can use cqw/cqh against
                 // this scrollport (consumer styles; not a new prop).
                 containerType: 'size',

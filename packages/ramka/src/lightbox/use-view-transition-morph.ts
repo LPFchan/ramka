@@ -5,7 +5,7 @@ import { flushSync } from 'react-dom';
 
 import { isFirefox } from './is-firefox';
 import { acquireVtTouchGuard } from './vt-touch-guard';
-import { maybeTraceViewTransition } from './vt-debug';
+import { maybeTraceViewTransition, readVtViewportSnap } from './vt-debug';
 import { maybeUpgradeToCompositedMorph } from './vt-composited-morph';
 import { isViewTransitionPreset, resolveViewTransitionTiming } from './vt-timing';
 import type { LightboxViewTransitionPreset } from './vt-timing';
@@ -36,6 +36,82 @@ function startViewTransition(
       };
     }
   ).startViewTransition(callback);
+}
+
+/**
+ * Blink's snapshot containing block on Android is FrameView size plus
+ * browser-control outsets (URL bar). While the bar is mid show/hide,
+ * `innerHeight` (layout viewport) and `visualViewport.height` disagree —
+ * e.g. 867 vs 923. Capturing in that window skips the transition
+ * (`InvalidStateError` / SnapshotRootDidChangeSize).
+ *
+ * Wait until those two heights agree and have been unchanged for a few
+ * frames. Do not treat a stable *mismatch* as settled. jsdom has no
+ * compositor; skip so tests keep asserting on the click tick.
+ */
+const SNAPSHOT_ROOT_STABLE_FRAMES = 8;
+const SNAPSHOT_ROOT_SETTLE_MAX_MS = 1000;
+
+function viewportSnapKey(snap: Record<string, unknown>): string {
+  const vv = snap.vv as { h?: number; offTop?: number } | null;
+  const inner = snap.inner as [number, number];
+  const scroll = snap.scroll as [number, number];
+  return `${inner[0]}x${inner[1]}|vv:${vv?.h ?? 'n'}@${vv?.offTop ?? 'n'}|s:${scroll[0]},${scroll[1]}`;
+}
+
+function layoutMatchesVisualViewport(snap: Record<string, unknown>): boolean {
+  const vv = snap.vv as { h?: number } | null;
+  if (vv?.h == null) return true;
+  const innerH = (snap.inner as [number, number])[1];
+  return Math.abs(innerH - vv.h) <= 1;
+}
+
+function logVtViewport(label: string, extra?: Record<string, unknown>): void {
+  if (typeof window === 'undefined') return;
+  if (!(window as unknown as Record<string, unknown>).__RAMKA_VT_DEBUG__) return;
+  // eslint-disable-next-line no-console -- opt-in debug tracing
+  console.log('[ramka-vt-viewport]', label, JSON.stringify({ ...readVtViewportSnap(), ...extra }));
+}
+
+function waitForStableSnapshotRoot(): Promise<void> {
+  if (typeof navigator !== 'undefined' && /jsdom/i.test(navigator.userAgent)) {
+    return Promise.resolve();
+  }
+  return new Promise((resolve) => {
+    const t0 = performance.now();
+    let lastKey = viewportSnapKey(readVtViewportSnap());
+    let stable = 0;
+    logVtViewport('settle-start', { key: lastKey });
+    const tick = () => {
+      const snap = readVtViewportSnap();
+      const key = viewportSnapKey(snap);
+      const aligned = layoutMatchesVisualViewport(snap);
+      const elapsed = Math.round(performance.now() - t0);
+      if (key === lastKey && aligned) {
+        stable += 1;
+      } else {
+        if (key !== lastKey || !aligned) {
+          logVtViewport('settle-change', { from: lastKey, to: key, aligned, elapsed });
+        }
+        lastKey = key;
+        stable = 0;
+      }
+      const timedOut = elapsed >= SNAPSHOT_ROOT_SETTLE_MAX_MS;
+      if (stable >= SNAPSHOT_ROOT_STABLE_FRAMES || (timedOut && aligned) || elapsed >= SNAPSHOT_ROOT_SETTLE_MAX_MS * 1.5) {
+        logVtViewport('settle-done', {
+          stable,
+          elapsed,
+          key,
+          aligned,
+          capped: timedOut,
+        });
+        resolve();
+        return;
+      }
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  });
 }
 
 /**
@@ -762,10 +838,7 @@ interface ViewTransitionMorphConfig {
    * open or `onBeforeOpen` failure).
    */
   commitAbortPrepare: () => void;
-  /**
-   * flushSync body that flips React state to closed and paint-suppresses the
-   * portal (`preparing`) without unmounting — unmount waits for `finished`.
-   */
+  /** flushSync body that hides the viewer without unmounting (VT close hold). */
   commitClose: () => void;
   /** Fired once the open morph settles (and its generation is still current). */
   onOpenComplete: () => void;
@@ -877,18 +950,17 @@ function useViewTransitionMorph(config: ViewTransitionMorphConfig): ViewTransiti
     // callback -> captures new in a single uninterrupted rendering update with
     // no intermediate paint. Bounded by `decodeMaxWait`; skipped entirely when
     // the consumer opts out (awaitImageDecode={false}).
+    //
     if (decodeMaxWait > 0) {
       const pendingItemEl = activeItemElementRef.current;
       const pendingItemTarget = pendingItemEl
         ? findItemMorphTarget(pendingItemEl, itemMorphElementsRef.current)
         : null;
       // Only actually await when the destination image is still loading. When
-      // it's cached (or there's no image), skip the await so the open path stays
-      // synchronous and the transition starts on the same tick as the click — no
-      // microtask deferral, no perceptible lag. (The trigger-thumbnail bridge no
-      // longer needs its own decode priming here: `Lightbox.Item` now paints it
-      // into a <canvas>, a pre-rasterized bitmap with no async decode — see the
-      // placeholder effect in lightbox-item.)
+      // it's cached (or there's no image), skip the decode await. (The
+      // trigger-thumbnail bridge no longer needs its own decode priming here:
+      // `Lightbox.Item` now paints it into a <canvas>, a pre-rasterized bitmap
+      // with no async decode — see the placeholder effect in lightbox-item.)
       if (getPendingDecodeImage(pendingItemTarget)) {
         await waitForImageDecode(pendingItemTarget, decodeMaxWait);
         // A newer open/close superseded this one during the await — bail before
@@ -942,6 +1014,20 @@ function useViewTransitionMorph(config: ViewTransitionMorphConfig): ViewTransiti
     } else if (beforeOpenAbortRef.current === beforeOpenAbort) {
       beforeOpenAbortRef.current = null;
     }
+
+    // FrameView / URL-bar outsets must be still before capture. A scroll that
+    // hid or showed browser chrome (or the overlay mount itself) animates those
+    // for ~200ms; capturing mid-animation skips the transition on Android.
+    // Runs before morph document state so isolation CSS is not visible while we wait.
+    if (typeof navigator === 'undefined' || !/jsdom/i.test(navigator.userAgent)) {
+      await waitForStableSnapshotRoot();
+      if (configRef.current.closeGenRef.current !== gen) {
+        flushSync(commitAbortPrepare);
+        releaseTouchGuard();
+        return;
+      }
+    }
+    logVtViewport('open-before-svt');
 
     // Read the destination item's border-radius here, after the mount. The
     // slides' layout effect (measureGeometry) has already forced layout during
@@ -1081,9 +1167,9 @@ function useViewTransitionMorph(config: ViewTransitionMorphConfig): ViewTransiti
     const gen = closeGenRef.current;
 
     // Same guard as the open morph: during close the portal is paint-
-    // suppressed (`preparing`) and then unmounted on `finished`, so a touch
-    // pan can resolve to <html> with nothing left to contain it — Safari
-    // would expand its address bar and resize the viewport mid-morph.
+    // suppressed (`preparing`) until `finished`, so a touch pan can resolve
+    // to <html> with nothing left to contain it — Safari would expand its
+    // address bar and resize the viewport mid-morph.
     const releaseTouchGuard = acquireVtTouchGuard();
 
     const itemEl = activeItemElementRef.current;
@@ -1142,6 +1228,7 @@ function useViewTransitionMorph(config: ViewTransitionMorphConfig): ViewTransiti
       setMorphName(itemTarget!);
     }
 
+    logVtViewport('close-before-svt');
     const transition = startViewTransition(() => {
       restoreFirefoxCaptureInset?.();
       restoreFirefoxCaptureInset = null;

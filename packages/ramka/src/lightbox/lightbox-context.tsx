@@ -31,13 +31,12 @@ interface LightboxContextValue {
   /** Whether the portal should be in the DOM (stays true during exit animations). */
   mounted: boolean;
   /**
-   * True while the portal must stay mounted but not paint:
+   * True while the portal is mounted but must not paint:
    * - VT **open** pre-mount: DOM/layout/decode run before `startViewTransition`,
    *   hidden so the tree is absent from the transition's *old* snapshot.
-   * - VT **close** hold: portal stays mounted (paint-suppressed) until
-   *   `finished`, because unmounting a fixed fullscreen layer inside the
-   *   update callback aborts the transition on Chrome Android
-   *   (`InvalidStateError` after `ready`).
+   * - VT **close** hold: the tree stays mounted (paint-suppressed) through the
+   *   update callback and until `finished`, so unmounting a fullscreen overlay
+   *   cannot change Blink's snapshot containing block mid-transition.
    *
    * `Lightbox.Content` / `Lightbox.Backdrop` use `visibility: hidden` while
    * this is true. Focus/scroll-lock side effects hold off until reveal on open.

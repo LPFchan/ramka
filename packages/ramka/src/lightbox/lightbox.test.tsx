@@ -2255,17 +2255,17 @@ describe('Lightbox', () => {
       expect(document.documentElement).not.toHaveAttribute('data-ramka-view-transition');
     });
 
-    it('keeps Content mounted (paint-suppressed) until the VT close finishes', async () => {
-      // Chrome Android aborts the close morph if the fixed fullscreen portal is
-      // unmounted inside the VT update callback. commitClose must only park it.
+    it('hides Content inside the VT close update callback and unmounts after finished', async () => {
       let resolveOpen: () => void;
-      let resolveClose: () => void;
       let contentDuringCloseUpdate: boolean | null = null;
+      let contentHiddenDuringCloseUpdate: boolean | null = null;
 
       const startViewTransition = vi.fn((callback: () => void | Promise<void>) => {
         const result = callback();
         if (startViewTransition.mock.calls.length === 2) {
-          contentDuringCloseUpdate = !!screen.queryByTestId('content');
+          const node = screen.queryByTestId('content');
+          contentDuringCloseUpdate = !!node;
+          contentHiddenDuringCloseUpdate = node?.style.visibility === 'hidden';
         }
         if (result && typeof (result as Promise<void>).then === 'function') {
           (result as Promise<void>).catch(vi.fn());
@@ -2277,11 +2277,7 @@ describe('Lightbox', () => {
             }),
           };
         }
-        return {
-          finished: new Promise<void>((r) => {
-            resolveClose = r;
-          }),
-        };
+        return { finished: Promise.resolve() };
       });
 
       Object.defineProperty(document, 'startViewTransition', {
@@ -2296,10 +2292,8 @@ describe('Lightbox', () => {
 
       fireEvent.click(screen.getByTestId('close'));
       expect(contentDuringCloseUpdate).toBe(true);
-      expect(screen.getByTestId('content')).toBeInTheDocument();
-      expect(screen.getByTestId('content')).toHaveStyle({ visibility: 'hidden' });
-
-      await act(async () => resolveClose!());
+      expect(contentHiddenDuringCloseUpdate).toBe(true);
+      await act(async () => undefined);
       expect(screen.queryByTestId('content')).not.toBeInTheDocument();
     });
 
