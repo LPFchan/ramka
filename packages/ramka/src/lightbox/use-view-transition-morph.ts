@@ -41,9 +41,13 @@ function startViewTransition(
 /**
  * Android Chrome aborts a view transition if the snapshot root size changes
  * between old and new capture (URL-bar show/hide). Wait until layout
- * `innerHeight` and `visualViewport.height` agree and stay still. A stable
- * mismatch (bar mid-animation) does not count. jsdom has no compositor;
- * skip so tests keep asserting on the click tick.
+ * `innerHeight` and `visualViewport.height` agree **and stay still**.
+ *
+ * A one-shot "heights differ → wait until they match" is not enough: the bar
+ * animation can pass through a matching frame (or sit in a stable mismatch)
+ * and then keep moving during capture. Do not treat a stable mismatch as
+ * settled. jsdom has no compositor; skip so tests keep asserting on the
+ * click tick.
  */
 const SNAPSHOT_ROOT_STABLE_FRAMES = 8;
 const SNAPSHOT_ROOT_SETTLE_MAX_MS = 1000;
