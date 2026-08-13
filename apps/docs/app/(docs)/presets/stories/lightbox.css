@@ -163,6 +163,7 @@
   overflow: clip;
   background: #0a0a0a;
   transform-origin: center center;
+  -webkit-backface-visibility: hidden;
   backface-visibility: hidden;
 }
 
@@ -199,9 +200,26 @@
   }
 }
 
+/*
+ * Safari’s VT snapshot ignores backface-visibility and does not clip 3D
+ * overflow the way live layout does. Neighbors parked at ±90deg (fill-mode
+ * both after they leave `cover`) leak in as a flipped previous card —
+ * especially when opening a non-first story, whose morph target sits next
+ * to that edge-on slide. Flatten and hide them for the capture.
+ */
+:root[data-ramka-view-transition] .stl-card {
+  animation: none !important;
+  transform: none !important;
+}
+
+:root[data-ramka-view-transition] .stl-slide:not(:has([data-active])) {
+  visibility: hidden;
+}
+
 @keyframes stl-flip {
+  /* Stay on the front face: 90deg is edge-on and Safari will show the back. */
   0% {
-    transform: perspective(var(--stl-perspective)) rotateY(90deg);
+    transform: perspective(var(--stl-perspective)) rotateY(89deg);
     transform-origin: left center;
   }
   49% {
@@ -217,7 +235,7 @@
     transform-origin: right center;
   }
   100% {
-    transform: perspective(var(--stl-perspective)) rotateY(-90deg);
+    transform: perspective(var(--stl-perspective)) rotateY(-89deg);
     transform-origin: right center;
   }
 }
