@@ -46,8 +46,10 @@ function startViewTransition(
  * A one-shot "heights differ → wait until they match" is not enough: the bar
  * animation can pass through a matching frame (or sit in a stable mismatch)
  * and then keep moving during capture. Do not treat a stable mismatch as
- * settled. jsdom has no compositor; skip so tests keep asserting on the
- * click tick.
+ * settled.
+ *
+ * Only invoked on mobile Blink (see `shouldWaitForSnapshotRootSettle`). jsdom
+ * has no compositor; skip so a stray call cannot defer tests off the click tick.
  */
 const SNAPSHOT_ROOT_STABLE_FRAMES = 8;
 const SNAPSHOT_ROOT_SETTLE_MAX_MS = 1000;
@@ -109,6 +111,22 @@ function waitForStableSnapshotRoot(): Promise<void> {
     };
     requestAnimationFrame(tick);
   });
+}
+
+/**
+ * Blink on Android includes URL-bar outsets in the view-transition snapshot
+ * root. Desktop Chromium and WebKit (Safari, and every iOS browser) do not
+ * have that abort, so they skip the settle wait.
+ */
+function shouldWaitForSnapshotRootSettle(): boolean {
+  if (typeof navigator === 'undefined' || typeof window === 'undefined') return false;
+  if (/jsdom/i.test(navigator.userAgent)) return false;
+  // GestureEvent has only ever shipped in WebKit — same signal as the
+  // composited-morph Safari path. Chrome on iOS is WebKit too.
+  if ('GestureEvent' in window) return false;
+  const uaData = (navigator as Navigator & { userAgentData?: { mobile?: boolean } }).userAgentData;
+  if (typeof uaData?.mobile === 'boolean') return uaData.mobile;
+  return /Android/i.test(navigator.userAgent);
 }
 
 /**
@@ -1013,9 +1031,9 @@ function useViewTransitionMorph(config: ViewTransitionMorphConfig): ViewTransiti
       beforeOpenAbortRef.current = null;
     }
 
-    // Don't capture while Android URL-bar chrome is still moving. Skip the
-    // await in jsdom so tests keep asserting on the click tick.
-    if (typeof navigator === 'undefined' || !/jsdom/i.test(navigator.userAgent)) {
+    // Don't capture while Android Chrome's URL bar is still moving. Desktop
+    // and WebKit skip this — they don't share that snapshot-root abort.
+    if (shouldWaitForSnapshotRootSettle()) {
       await waitForStableSnapshotRoot();
       if (configRef.current.closeGenRef.current !== gen) {
         flushSync(commitAbortPrepare);
