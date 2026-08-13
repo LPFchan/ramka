@@ -3,6 +3,7 @@
 import * as React from 'react';
 import { flushSync } from 'react-dom';
 
+import { isAndroidBlinkSnapshotRoot } from './is-android-blink';
 import { isFirefox } from './is-firefox';
 import { acquireVtTouchGuard } from './vt-touch-guard';
 import { maybeTraceViewTransition } from './vt-debug';
@@ -119,14 +120,8 @@ function waitForStableSnapshotRoot(): Promise<void> {
  * have that abort, so they skip the settle wait.
  */
 function shouldWaitForSnapshotRootSettle(): boolean {
-  if (typeof navigator === 'undefined' || typeof window === 'undefined') return false;
-  if (/jsdom/i.test(navigator.userAgent)) return false;
-  // GestureEvent has only ever shipped in WebKit — same signal as the
-  // composited-morph Safari path. Chrome on iOS is WebKit too.
-  if ('GestureEvent' in window) return false;
-  const uaData = (navigator as Navigator & { userAgentData?: { mobile?: boolean } }).userAgentData;
-  if (typeof uaData?.mobile === 'boolean') return uaData.mobile;
-  return /Android/i.test(navigator.userAgent);
+  if (typeof navigator !== 'undefined' && /jsdom/i.test(navigator.userAgent)) return false;
+  return isAndroidBlinkSnapshotRoot();
 }
 
 /**

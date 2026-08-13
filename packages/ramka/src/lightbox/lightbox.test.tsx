@@ -2255,7 +2255,11 @@ describe('Lightbox', () => {
       expect(document.documentElement).not.toHaveAttribute('data-ramka-view-transition');
     });
 
-    it('keeps Content mounted (paint-suppressed) until the VT close finishes', async () => {
+    it('unmounts Content inside the VT close update callback', async () => {
+      // Safari / desktop Chrome: chrome (thumbnails, zoom controls) only
+      // fades with ::view-transition-old(root) if it is gone from the new
+      // snapshot. Holding it mounted leaves WebKit painting live chrome
+      // until finished, then it pops.
       let resolveOpen: () => void;
       let resolveClose: () => void;
       let contentDuringCloseUpdate: boolean | null = null;
@@ -2293,12 +2297,81 @@ describe('Lightbox', () => {
       await act(async () => resolveOpen!());
 
       fireEvent.click(screen.getByTestId('close'));
-      expect(contentDuringCloseUpdate).toBe(true);
-      expect(screen.getByTestId('content')).toBeInTheDocument();
-      expect(screen.getByTestId('content')).toHaveStyle({ visibility: 'hidden' });
+      expect(contentDuringCloseUpdate).toBe(false);
+      expect(screen.queryByTestId('content')).not.toBeInTheDocument();
 
       await act(async () => resolveClose!());
       expect(screen.queryByTestId('content')).not.toBeInTheDocument();
+    });
+
+    it('Android Chrome: keeps Content mounted (paint-suppressed) until the VT close finishes', async () => {
+      const originalChrome = (window as unknown as { chrome?: unknown }).chrome;
+      const originalUaData = (navigator as Navigator & { userAgentData?: unknown }).userAgentData;
+      (window as unknown as { chrome: object }).chrome = {};
+      Object.defineProperty(navigator, 'userAgentData', {
+        configurable: true,
+        value: { mobile: true },
+      });
+
+      let resolveOpen: () => void;
+      let resolveClose: () => void;
+      let contentDuringCloseUpdate: boolean | null = null;
+
+      const startViewTransition = vi.fn((callback: () => void | Promise<void>) => {
+        const result = callback();
+        if (startViewTransition.mock.calls.length === 2) {
+          contentDuringCloseUpdate = !!screen.queryByTestId('content');
+        }
+        if (result && typeof (result as Promise<void>).then === 'function') {
+          (result as Promise<void>).catch(vi.fn());
+        }
+        if (startViewTransition.mock.calls.length === 1) {
+          return {
+            finished: new Promise<void>((r) => {
+              resolveOpen = r;
+            }),
+          };
+        }
+        return {
+          finished: new Promise<void>((r) => {
+            resolveClose = r;
+          }),
+        };
+      });
+
+      Object.defineProperty(document, 'startViewTransition', {
+        value: startViewTransition,
+        writable: true,
+        configurable: true,
+      });
+
+      try {
+        render(<TestLightbox viewTransition />);
+        fireEvent.click(screen.getByTestId('trigger-0'));
+        await act(async () => resolveOpen!());
+
+        fireEvent.click(screen.getByTestId('close'));
+        expect(contentDuringCloseUpdate).toBe(true);
+        expect(screen.getByTestId('content')).toBeInTheDocument();
+        expect(screen.getByTestId('content')).toHaveStyle({ visibility: 'hidden' });
+
+        await act(async () => resolveClose!());
+        expect(screen.queryByTestId('content')).not.toBeInTheDocument();
+      } finally {
+        if (originalChrome === undefined) {
+          delete (window as unknown as { chrome?: unknown }).chrome;
+        } else {
+          (window as unknown as { chrome?: unknown }).chrome = originalChrome;
+        }
+        if (originalUaData === undefined) {
+          delete (navigator as Navigator & { userAgentData?: unknown }).userAgentData;
+        } else {
+          Object.defineProperty(navigator, 'userAgentData', {
+            configurable: true,
+            value: originalUaData,
+          });
+        }
+      }
     });
 
     it('keeps the page scroll locked until the VT close transition finishes', async () => {

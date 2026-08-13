@@ -198,10 +198,11 @@ const LightboxContent = React.forwardRef<HTMLDivElement, LightboxContentProps>(
       return () => el.removeEventListener('focusout', handleFocusOut);
     }, [mounted]);
 
-    // NOTE: the document scroll lock lives in Lightbox.Root (not here). During
-    // VT close Content stays mounted (paint-suppressed via `preparing`) until
-    // `finished`, but `open` is already false — a lock tied to Content would
-    // still release too early. Root holds the lock until close completes.
+    // NOTE: the document scroll lock lives in Lightbox.Root (not here). On
+    // Android Chrome, VT close Content stays mounted (paint-suppressed via
+    // `preparing`) until `finished`, but `open` is already false — a lock
+    // tied to Content would still release too early. Root holds the lock
+    // until close completes.
 
     // Prevent native pinch-zoom gestures (touch and trackpad) for the entire
     // time the lightbox is mounted.

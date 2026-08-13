@@ -33,8 +33,9 @@ interface LightboxContextValue {
   /**
    * True while the portal is mounted but must not paint:
    * - VT open pre-mount: DOM/layout/decode run before `startViewTransition`.
-   * - VT close hold: stays mounted (hidden) until `finished` so unmounting
-   *   the overlay inside the update callback cannot abort the morph.
+   * - Android Chrome VT close hold: stays mounted (hidden) until `finished`
+   *   so unmounting the overlay inside the update callback cannot abort the
+   *   morph. Safari / desktop Chrome unmount immediately instead.
    *
    * Content / Backdrop use `visibility: hidden` while this is true.
    * Focus/scroll-lock side effects hold off until reveal on open.

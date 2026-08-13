@@ -34,6 +34,7 @@ import {
   useViewTransitionMorph,
   type ScrollTriggerIntoView,
 } from './use-view-transition-morph';
+import { isAndroidBlinkSnapshotRoot } from './is-android-blink';
 import type { LightboxViewTransitionPreset } from './vt-timing';
 import { ensureVtStructuralStyles } from './vt-structural-styles';
 
@@ -392,8 +393,8 @@ function LightboxRoot(props: LightboxRootProps) {
     }, []);
 
     // Portal mount state — stays true during exit animations so elements
-    // remain in the DOM for CSS transitions (non-VT) and for the VT close
-    // hold (`preparing` until `finished`).
+    // remain in the DOM for CSS transitions (non-VT) and for the Android
+    // Chrome VT close hold (`preparing` until `finished`).
     //
     // Initialized from the resolved open value (controlled prop or
     // `defaultOpen`) so a lightbox rendered with `open={true}` on first
@@ -650,9 +651,18 @@ function LightboxRoot(props: LightboxRootProps) {
         setUncontrolledOpen(false);
       }
       onOpenChangeRef.current?.(false);
-      // Keep the portal mounted and hidden until `finished`. Unmounting the
-      // overlay inside the VT callback aborts the morph on Android Chrome.
-      setPreparing(true);
+      // Android Chrome: keep the portal mounted and hidden until `finished`.
+      // Unmounting the overlay inside the VT callback changes the snapshot
+      // root and aborts the morph. Everywhere else (Safari, desktop Chrome)
+      // unmount immediately so unnamed chrome exists only in the old root
+      // snapshot and fades with `::view-transition-old(root)`. Holding it
+      // live on WebKit leaves thumbnails/zoom controls painted until
+      // `finished`, then they pop.
+      if (isAndroidBlinkSnapshotRoot()) {
+        setPreparing(true);
+      } else {
+        setMounted(false);
+      }
     }, [isControlledOpen]);
 
     const handleOpenComplete = React.useCallback(() => {
