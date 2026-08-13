@@ -17,13 +17,18 @@ function mixkit(id: number): string {
   return `https://assets.mixkit.co/videos/${id}/${id}-720.mp4`;
 }
 
+/** Mixkit’s first generated 720p still — matches the opening frame of `${id}-720.mp4`. */
+function mixkitPoster(id: number): string {
+  return `https://assets.mixkit.co/videos/${id}/${id}-thumb-720-0.jpg`;
+}
+
 const stories: LightboxItem[] = [
   {
     id: 'maya',
     name: 'Maya',
     time: '2h',
     avatar: 'https://i.pravatar.cc/128?u=story-maya',
-    poster: 'https://picsum.photos/seed/story-maya/720/1280',
+    poster: mixkitPoster(40065),
     video: mixkit(40065),
     alt: 'Maya’s story',
     width: 720,
@@ -34,7 +39,7 @@ const stories: LightboxItem[] = [
     name: 'Julian',
     time: '5h',
     avatar: 'https://i.pravatar.cc/128?u=story-julian',
-    poster: 'https://picsum.photos/seed/story-julian/720/1280',
+    poster: mixkitPoster(43000),
     video: mixkit(43000),
     alt: 'Julian’s story',
     width: 720,
@@ -45,7 +50,7 @@ const stories: LightboxItem[] = [
     name: 'Noor',
     time: '8h',
     avatar: 'https://i.pravatar.cc/128?u=story-noor',
-    poster: 'https://picsum.photos/seed/story-noor/720/1280',
+    poster: mixkitPoster(43785),
     video: mixkit(43785),
     alt: 'Noor’s story',
     width: 720,
@@ -56,7 +61,7 @@ const stories: LightboxItem[] = [
     name: 'Eli',
     time: '12h',
     avatar: 'https://i.pravatar.cc/128?u=story-eli',
-    poster: 'https://picsum.photos/seed/story-eli/720/1280',
+    poster: mixkitPoster(40064),
     video: mixkit(40064),
     alt: 'Eli’s story',
     width: 720,
@@ -67,7 +72,7 @@ const stories: LightboxItem[] = [
     name: 'Sam',
     time: '1d',
     avatar: 'https://i.pravatar.cc/128?u=story-sam',
-    poster: 'https://picsum.photos/seed/story-sam/720/1280',
+    poster: mixkitPoster(44852),
     video: mixkit(44852),
     alt: 'Sam’s story',
     width: 720,
@@ -78,7 +83,7 @@ const stories: LightboxItem[] = [
     name: 'Priya',
     time: '1d',
     avatar: 'https://i.pravatar.cc/128?u=story-priya',
-    poster: 'https://picsum.photos/seed/story-priya/720/1280',
+    poster: mixkitPoster(50000),
     video: mixkit(50000),
     alt: 'Priya’s story',
     width: 720,
@@ -89,7 +94,7 @@ const stories: LightboxItem[] = [
     name: 'Tomás',
     time: '2d',
     avatar: 'https://i.pravatar.cc/128?u=story-tomas',
-    poster: 'https://picsum.photos/seed/story-tomas/720/1280',
+    poster: mixkitPoster(44600),
     video: mixkit(44600),
     alt: 'Tomás’s story',
     width: 720,
@@ -100,7 +105,7 @@ const stories: LightboxItem[] = [
     name: 'Aisha',
     time: '2d',
     avatar: 'https://i.pravatar.cc/128?u=story-aisha',
-    poster: 'https://picsum.photos/seed/story-aisha/720/1280',
+    poster: mixkitPoster(40066),
     video: mixkit(40066),
     alt: 'Aisha’s story',
     width: 720,

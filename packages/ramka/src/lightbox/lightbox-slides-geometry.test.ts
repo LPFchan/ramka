@@ -22,11 +22,13 @@ function mockViewport(
       scrollLeft = v;
     },
   });
+  Object.defineProperty(viewport, 'offsetLeft', { configurable: true, value: 0 });
   for (const slide of slides) {
     const el = document.createElement('div');
     el.setAttribute('data-ramka-slide', '');
     Object.defineProperty(el, 'offsetLeft', { value: slide.offsetLeft });
     Object.defineProperty(el, 'offsetWidth', { value: slide.offsetWidth });
+    Object.defineProperty(el, 'offsetParent', { configurable: true, value: viewport });
     viewport.appendChild(el);
   }
   return viewport;
@@ -65,6 +67,31 @@ describe('measureSlidesGeometry', () => {
     expect(slideIndexFromScrollLeft(220, g)).toBe(1);
     expect(slideIndexFromScrollLeft(300, g)).toBe(1);
     expect(slideIndexFromScrollLeft(700, g)).toBe(2);
+  });
+
+  it('subtracts the scroller inset when offsetParent is outside the viewport', () => {
+    // Centered 468px stage in a 1419px dialog: slides' offsetLeft includes the
+    // (1419 − 468) / 2 ≈ 476 inset of the static scroller inside the dialog.
+    const viewport = mockViewport(468, [
+      { offsetLeft: 476, offsetWidth: 468 },
+      { offsetLeft: 944, offsetWidth: 468 },
+      { offsetLeft: 1412, offsetWidth: 468 },
+    ]);
+    const parent = document.createElement('div');
+    Object.defineProperty(viewport, 'offsetLeft', { configurable: true, value: 476 });
+    Object.defineProperty(viewport, 'offsetParent', { configurable: true, value: parent });
+    for (const slide of viewport.querySelectorAll('[data-ramka-slide]')) {
+      Object.defineProperty(slide, 'offsetParent', { configurable: true, value: parent });
+    }
+
+    const g = measureSlidesGeometry(viewport);
+    expect(g.offsets).toEqual([0, 468, 936]);
+    expect(g.base).toBe(0);
+    expect(g.step).toBe(468);
+    expect(slideIndexFromScrollLeft(0, g)).toBe(0);
+    expect(slideIndexFromScrollLeft(200, g)).toBe(0);
+    expect(slideIndexFromScrollLeft(468, g)).toBe(1);
+    expect(slideIndexFromScrollLeft(936, g)).toBe(2);
   });
 });
 

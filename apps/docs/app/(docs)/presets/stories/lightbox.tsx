@@ -203,10 +203,6 @@ function StoryHud({ item, index, total }: { item: LightboxItem; index: number; t
   );
 }
 
-/**
- * Stories viewer — Portal → Backdrop + Content → 9:16 Stage frame with
- * scroll-driven 3D slides, HUD on each card, desktop edge navigation.
- */
 function Gallery({ items, ariaLabel }: { items: LightboxItem[]; ariaLabel: string }) {
   const multiple = items.length > 1;
 
@@ -215,7 +211,7 @@ function Gallery({ items, ariaLabel }: { items: LightboxItem[]; ariaLabel: strin
       <Backdrop />
       <Content aria-label={ariaLabel}>
         <Stage>
-          <Slides aria-label="Stories" preload={1}>
+          <Slides aria-label="Stories" preload={2}>
             {items.map((item, i) => (
               <Slide key={item.id ?? i}>
                 <Item index={i}>
