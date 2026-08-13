@@ -132,6 +132,7 @@ export default function LightboxCompositionPage() {
         <CodeBlock code={lightboxExcerpts['media-fit-box'].code} title={lightboxExcerpts['media-fit-box'].title} />
         <p>
           Live compositions: <DocsLink href="/presets/twitter">Twitter preset</DocsLink>,{' '}
+          <DocsLink href="/presets/stories">Stories preset</DocsLink>,{' '}
           <DocsLink href="/examples/lightbox/photos-app">Photos app</DocsLink>.
         </p>
       </DocsSection>

@@ -20,4 +20,9 @@ export const lightboxPresets = [
     title: 'Editorial',
     description: 'Newsroom article-figure viewer: near-black surface, caption + credit block',
   },
+  {
+    href: '/presets/stories',
+    title: 'Stories',
+    description: 'Avatar tray that crossfades into 9:16 video with a scroll-driven 3D page-turn',
+  },
 ];
