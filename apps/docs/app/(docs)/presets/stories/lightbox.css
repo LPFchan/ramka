@@ -426,3 +426,31 @@
     display: none;
   }
 }
+
+/* ── Counter (desktop only — mobile uses the HUD segments) ─────────────── */
+
+.stl-counter {
+  display: none;
+}
+
+@media (min-width: 768px) {
+  .stl-counter {
+    position: absolute;
+    left: 50%;
+    bottom: 1.25rem;
+    z-index: 1;
+    display: block;
+    min-width: 3.5rem;
+    padding: 0.25rem 0.625rem;
+    border-radius: 9999px;
+    background: rgb(255 255 255 / 0.08);
+    color: rgb(255 255 255 / 0.72);
+    font-size: 0.8125rem;
+    font-variant-numeric: tabular-nums;
+    text-align: center;
+    letter-spacing: 0.02em;
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    transform: translateX(-50%);
+  }
+}

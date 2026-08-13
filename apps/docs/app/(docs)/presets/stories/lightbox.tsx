@@ -126,6 +126,10 @@ function Next({ className, children, ...props }: React.ComponentProps<typeof Ram
   );
 }
 
+function Counter({ className, ...props }: React.ComponentProps<typeof RamkaLightbox.Counter>) {
+  return <RamkaLightbox.Counter className={cx('stl-counter', className)} {...props} />;
+}
+
 /* ── Video (plays only while this slide is active) ──────────────────────── */
 
 function StoryVideo({
@@ -240,6 +244,7 @@ function Gallery({ items, ariaLabel }: { items: LightboxItem[]; ariaLabel: strin
           <>
             <Previous className="stl-chrome-gesture-hide" />
             <Next className="stl-chrome-gesture-hide" />
+            <Counter className="stl-chrome-gesture-hide" />
           </>
         ) : null}
       </Content>
@@ -265,5 +270,6 @@ export const Lightbox = {
   Media,
   Previous,
   Next,
+  Counter,
   Gallery,
 };
