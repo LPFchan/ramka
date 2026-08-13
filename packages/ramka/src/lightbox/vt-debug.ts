@@ -18,32 +18,6 @@ interface TraceableTransition {
   finished: Promise<void>;
 }
 
-/** Layout + visual viewport + scroll — the inputs to Blink's snapshot containing block. */
-function readVtViewportSnap(): Record<string, unknown> {
-  const vv = typeof window !== 'undefined' ? window.visualViewport : null;
-  return {
-    inner: [window.innerWidth, window.innerHeight],
-    screen: [window.screen.width, window.screen.height],
-    chromeGap: window.screen.height - window.innerHeight,
-    scroll: [Math.round(window.scrollX), Math.round(window.scrollY)],
-    htmlSW: document.documentElement.scrollWidth,
-    htmlSH: document.documentElement.scrollHeight,
-    htmlCW: document.documentElement.clientWidth,
-    htmlCH: document.documentElement.clientHeight,
-    htmlOv: document.documentElement.style.overflow || getComputedStyle(document.documentElement).overflow,
-    vv: vv
-      ? {
-          w: Math.round(vv.width * 10) / 10,
-          h: Math.round(vv.height * 10) / 10,
-          offTop: Math.round(vv.offsetTop * 10) / 10,
-          offLeft: Math.round(vv.offsetLeft * 10) / 10,
-          scale: Math.round(vv.scale * 1000) / 1000,
-        }
-      : null,
-    vis: document.visibilityState,
-  };
-}
-
 /** Serialize a promise rejection reason (usually a DOMException) for the log. */
 function describeError(err: unknown): Record<string, unknown> {
   if (err && typeof err === 'object') {
@@ -95,7 +69,6 @@ function maybeTraceViewTransition(
     phase,
     readyState: 'never-settled',
     visibility: document.visibilityState,
-    viewportAtStart: readVtViewportSnap(),
     preExistingPseudoAnims: pseudoAnimInventory(),
   };
   let raf = 0;
@@ -175,7 +148,6 @@ function maybeTraceViewTransition(
         readyMs: sinceStart(),
         readyRejection: describeError(err),
         visibilityAtReject: document.visibilityState,
-        viewportAtReject: readVtViewportSnap(),
       });
     });
 
@@ -205,4 +177,4 @@ function maybeTraceViewTransition(
     });
 }
 
-export { maybeTraceViewTransition, readVtViewportSnap };
+export { maybeTraceViewTransition };

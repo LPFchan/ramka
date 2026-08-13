@@ -32,14 +32,12 @@ interface LightboxContextValue {
   mounted: boolean;
   /**
    * True while the portal is mounted but must not paint:
-   * - VT **open** pre-mount: DOM/layout/decode run before `startViewTransition`,
-   *   hidden so the tree is absent from the transition's *old* snapshot.
-   * - VT **close** hold: the tree stays mounted (paint-suppressed) through the
-   *   update callback and until `finished`, so unmounting a fullscreen overlay
-   *   cannot change Blink's snapshot containing block mid-transition.
+   * - VT open pre-mount: DOM/layout/decode run before `startViewTransition`.
+   * - VT close hold: stays mounted (hidden) until `finished` so unmounting
+   *   the overlay inside the update callback cannot abort the morph.
    *
-   * `Lightbox.Content` / `Lightbox.Backdrop` use `visibility: hidden` while
-   * this is true. Focus/scroll-lock side effects hold off until reveal on open.
+   * Content / Backdrop use `visibility: hidden` while this is true.
+   * Focus/scroll-lock side effects hold off until reveal on open.
    */
   preparing: boolean;
   /**

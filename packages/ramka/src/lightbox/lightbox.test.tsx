@@ -2255,17 +2255,15 @@ describe('Lightbox', () => {
       expect(document.documentElement).not.toHaveAttribute('data-ramka-view-transition');
     });
 
-    it('hides Content inside the VT close update callback and unmounts after finished', async () => {
+    it('keeps Content mounted (paint-suppressed) until the VT close finishes', async () => {
       let resolveOpen: () => void;
+      let resolveClose: () => void;
       let contentDuringCloseUpdate: boolean | null = null;
-      let contentHiddenDuringCloseUpdate: boolean | null = null;
 
       const startViewTransition = vi.fn((callback: () => void | Promise<void>) => {
         const result = callback();
         if (startViewTransition.mock.calls.length === 2) {
-          const node = screen.queryByTestId('content');
-          contentDuringCloseUpdate = !!node;
-          contentHiddenDuringCloseUpdate = node?.style.visibility === 'hidden';
+          contentDuringCloseUpdate = !!screen.queryByTestId('content');
         }
         if (result && typeof (result as Promise<void>).then === 'function') {
           (result as Promise<void>).catch(vi.fn());
@@ -2277,7 +2275,11 @@ describe('Lightbox', () => {
             }),
           };
         }
-        return { finished: Promise.resolve() };
+        return {
+          finished: new Promise<void>((r) => {
+            resolveClose = r;
+          }),
+        };
       });
 
       Object.defineProperty(document, 'startViewTransition', {
@@ -2292,8 +2294,10 @@ describe('Lightbox', () => {
 
       fireEvent.click(screen.getByTestId('close'));
       expect(contentDuringCloseUpdate).toBe(true);
-      expect(contentHiddenDuringCloseUpdate).toBe(true);
-      await act(async () => undefined);
+      expect(screen.getByTestId('content')).toBeInTheDocument();
+      expect(screen.getByTestId('content')).toHaveStyle({ visibility: 'hidden' });
+
+      await act(async () => resolveClose!());
       expect(screen.queryByTestId('content')).not.toBeInTheDocument();
     });
 

@@ -393,15 +393,16 @@ function LightboxRoot(props: LightboxRootProps) {
 
     // Portal mount state — stays true during exit animations so elements
     // remain in the DOM for CSS transitions (non-VT) and for the VT close
-    // hold (`preparing` + mounted until `finished`; see commitClose).
+    // hold (`preparing` until `finished`).
     //
     // Initialized from the resolved open value (controlled prop or
     // `defaultOpen`) so a lightbox rendered with `open={true}` on first
     // mount is visible immediately instead of flashing closed for a
     // tick before the sync effect catches up.
     const [mounted, setMounted] = React.useState(() => (isControlledOpen ? Boolean(openProp) : defaultOpen));
-    // Pre-mount phase flag for the VT open path (see `commitPrepare` /
-    // `commitReveal`). Never true for an initially-open lightbox.
+    // Hidden-but-mounted flag: VT open pre-mount and VT close hold
+    // (see `commitPrepare` / `commitReveal` / `commitClose`). Never true
+    // for an initially-open lightbox.
     const [preparing, setPreparing] = React.useState(false);
     const closeGenRef = React.useRef(0);
 
@@ -449,13 +450,11 @@ function LightboxRoot(props: LightboxRootProps) {
     }, []);
 
     // Document scroll lock, owned here in Root rather than in Lightbox.Content.
-    // Content unmounts at the *start* of the VT close (commitClose runs inside
-    // the transition callback), so a lock tied to Content's lifecycle would be
-    // released while the close animation is still playing — letting the page
-    // scroll behind the transition. Root outlives the transition, so it holds
-    // the lock until the close fully completes (handleCloseComplete / the
-    // post-exit-animation unmount). Imperative + idempotent so the various
-    // open/close code paths can acquire/release it at explicit lifecycle points.
+    // During VT close the portal stays mounted (paint-suppressed) until
+    // `finished`, but `open` flips false immediately — a lock tied to Content's
+    // open lifecycle would still release too early. Root holds the lock until
+    // handleCloseComplete / post-exit-animation unmount. Imperative +
+    // idempotent so open/close paths can acquire/release at explicit points.
     const scrollLockCleanupRef = React.useRef<(() => void) | null>(null);
     const lockScroll = React.useCallback(() => {
       if (scrollLockCleanupRef.current || typeof document === 'undefined') return;
@@ -651,10 +650,8 @@ function LightboxRoot(props: LightboxRootProps) {
         setUncontrolledOpen(false);
       }
       onOpenChangeRef.current?.(false);
-      // Stay mounted and paint-suppressed. Unmounting a fullscreen overlay
-      // inside the VT callback changes Blink's snapshot containing block on
-      // Android Chrome (FrameView + browser-control outsets) and skips the
-      // morph. Unmount waits for `finished` in handleCloseComplete.
+      // Keep the portal mounted and hidden until `finished`. Unmounting the
+      // overlay inside the VT callback aborts the morph on Android Chrome.
       setPreparing(true);
     }, [isControlledOpen]);
 
