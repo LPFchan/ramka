@@ -22,6 +22,7 @@
   --stl-chrome-fg: rgb(0 0 0 / 0.88);
   --stl-chrome-fg-muted: rgb(0 0 0 / 0.55);
   --stl-frame-ring: rgb(0 0 0 / 0.12);
+  --stl-frame-radius: 1.75rem;
 }
 
 :is(.dark, [data-theme='dark']) .stl-portal {
@@ -125,7 +126,6 @@
 
 @media (min-width: 768px) {
   .stl-frame {
-    --stl-frame-radius: 1.75rem;
     align-self: center;
     width: auto;
     height: min(100% - 4rem, 52rem);
@@ -173,9 +173,15 @@
   overflow: hidden;
   overflow: clip;
   background: #0a0a0a;
+  border-radius: var(--stl-frame-radius);
   transform-origin: center center;
   -webkit-backface-visibility: hidden;
   backface-visibility: hidden;
+}
+
+/* At rest the frame clips — drop the card radius so it isn’t double-rounded. */
+.stl-content[data-open] .stl-card {
+  border-radius: 0;
 }
 
 .stl-media {
@@ -252,10 +258,14 @@
   animation: none !important;
 }
 
+:root[data-ramka-view-transition] .stl-card,
+.stl-content:is([data-pulling], [data-pull-dismissing]) .stl-card {
+  border-radius: var(--stl-frame-radius);
+}
+
 @media (min-width: 768px) {
-  :root[data-ramka-view-transition='opening'] .stl-card,
+  :root[data-ramka-view-transition] .stl-card,
   .stl-content:is([data-pulling], [data-pull-dismissing]) .stl-card {
-    border-radius: var(--stl-frame-radius, 1.75rem);
     box-shadow: 0 0 0 0.5px var(--stl-frame-ring);
   }
 }

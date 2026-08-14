@@ -215,9 +215,9 @@ function Gallery({ items, ariaLabel }: { items: LightboxItem[]; ariaLabel: strin
               <Slide key={item.id ?? i}>
                 <Item index={i}>
                   {({ active, morphRef }) => (
-                    <div ref={morphRef} className="stl-card">
+                    
                       <Media  width={item.width}
-                          height={item.height}>
+                          height={item.height} ref={morphRef} className="stl-card">
                         <StoryVideo
                           src={item.video}
                           poster={item.poster}
@@ -226,9 +226,9 @@ function Gallery({ items, ariaLabel }: { items: LightboxItem[]; ariaLabel: strin
                           height={item.height}
                           active={active}
                         />
-                      </Media>
                       <StoryHud item={item} index={i} total={items.length} />
-                    </div>
+                      </Media>
+                    
                   )}
                 </Item>
               </Slide>
