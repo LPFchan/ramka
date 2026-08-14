@@ -45,7 +45,10 @@ export default function LightboxGesturesPage() {
             <code className="text-xs">[data-ramka-no-pull]</code>) keep their press. Side panels outside Stage do not
             start a pull.
           </li>
-          <li>Disabled while zoomed above 1× or while Slides reports an in-progress scroll (navigation lock).</li>
+          <li>
+            Disabled while zoomed above 1×, and while Slides is scrolling until <code className="text-xs">scrollend</code>{' '}
+            (so a gallery swipe that turns vertical cannot pull mid-gesture).
+          </li>
           <li>
             Backdrop is optional — when used, nest it inside <DocsLink href={lightboxApiHref.portal}>Portal</DocsLink>{' '}
             beside Content. Pull still works if you omit Backdrop.

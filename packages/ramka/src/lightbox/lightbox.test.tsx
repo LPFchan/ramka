@@ -3235,6 +3235,40 @@ describe('Lightbox', () => {
       expect(prevented).toBe(false);
     });
 
+    it('prevents leftover-finger gallery scroll after a pinch', () => {
+      render(
+        <LightboxRoot defaultOpen>
+          <LightboxPortal>
+            <LightboxContent data-testid="content" aria-label="Leftover finger">
+              <LightboxItemGroup>
+                <LightboxItem index={0}>
+                  <img src="test.jpg" alt="test" />
+                </LightboxItem>
+              </LightboxItemGroup>
+            </LightboxContent>
+          </LightboxPortal>
+        </LightboxRoot>,
+      );
+
+      const content = screen.getByTestId('content');
+      content.dispatchEvent(
+        new TouchEvent('touchstart', {
+          bubbles: true,
+          cancelable: true,
+          touches: [
+            new Touch({ identifier: 0, target: content, clientX: 0, clientY: 0 }),
+            new Touch({ identifier: 1, target: content, clientX: 100, clientY: 100 }),
+          ],
+        }),
+      );
+      const leftover = new TouchEvent('touchmove', {
+        bubbles: true,
+        cancelable: true,
+        touches: [new Touch({ identifier: 0, target: content, clientX: 40, clientY: 0 })],
+      });
+      expect(!content.dispatchEvent(leftover)).toBe(true);
+    });
+
     describe('touch scroll containment (iOS address bar)', () => {
       function renderChromeLightbox() {
         return render(
