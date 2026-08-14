@@ -4,6 +4,7 @@ import * as React from 'react';
 
 import {
   LightboxContext,
+  findItemMorphTarget,
   isLowEndDevice,
   supportsViewTransitions,
   type LightboxCloseOptions,
@@ -181,6 +182,16 @@ interface LightboxRootProps {
    * />
    */
   onBeforeOpen?: LightboxBeforeOpen;
+  /**
+   * Called synchronously just before close commits — and, when View
+   * Transitions are on, **before** the old snapshot is captured. Use this
+   * to freeze custom media (`video.pause()`, stop a rAF loop, …) so the
+   * close morph isn’t a mid-frame.
+   *
+   * Unlike `onBeforeOpen`, this cannot delay close (return values are
+   * ignored). Skipped when unset.
+   */
+  onBeforeClose?: LightboxBeforeClose;
 }
 
 /** Context passed to {@link LightboxRootProps.onBeforeOpen}. */
@@ -193,6 +204,15 @@ interface LightboxBeforeOpenContext {
 
 /** Return a Promise to delay the open View Transition until media is ready. */
 type LightboxBeforeOpen = (ctx: LightboxBeforeOpenContext) => void | Promise<void>;
+
+/** Context passed to {@link LightboxRootProps.onBeforeClose}. */
+interface LightboxBeforeCloseContext {
+  /** Destination morph host (`Media` / `morphRef` / item), if any. */
+  destination: Element | null;
+}
+
+/** Runs synchronously before the close snapshot / fade. Cannot delay close. */
+type LightboxBeforeClose = (ctx: LightboxBeforeCloseContext) => void;
 
 /**
  * Waits for the currently-running animations on `el` to finish, then invokes
@@ -236,12 +256,18 @@ function LightboxRoot(props: LightboxRootProps) {
       morphTo = 'active',
       awaitImageDecode = true,
       onBeforeOpen,
+      onBeforeClose,
     } = props;
 
     const onBeforeOpenRef = React.useRef(onBeforeOpen);
     React.useEffect(() => {
       onBeforeOpenRef.current = onBeforeOpen;
     }, [onBeforeOpen]);
+
+    const onBeforeCloseRef = React.useRef(onBeforeClose);
+    React.useEffect(() => {
+      onBeforeCloseRef.current = onBeforeClose;
+    }, [onBeforeClose]);
 
     /** Aborts an in-flight `onBeforeOpen` when a newer open/close starts. */
     const beforeOpenAbortRef = React.useRef<AbortController | null>(null);
@@ -523,6 +549,14 @@ function LightboxRoot(props: LightboxRootProps) {
     // `morphRef`, else its `imageRef`). Keyed by element. See
     // findItemMorphTarget.
     const itemMorphElementsRef = React.useRef<WeakMap<HTMLElement, HTMLElement>>(new WeakMap());
+    const notifyBeforeClose = React.useCallback(() => {
+      const itemEl = activeItemElementRef.current;
+      onBeforeCloseRef.current?.({
+        destination: itemEl
+          ? findItemMorphTarget(itemEl, itemMorphElementsRef.current)
+          : null,
+      });
+    }, []);
     const openingTriggerIndexRef = React.useRef(0);
     const openingTriggerElementRef = React.useRef<HTMLElement | null>(null);
     const openingTriggerImageRef = React.useRef<HTMLImageElement | null>(null);
@@ -717,6 +751,7 @@ function LightboxRoot(props: LightboxRootProps) {
           openTransitionPendingRef.current = true;
         } else {
           settleOpenTransition();
+          notifyBeforeClose();
         }
 
         // Skip the (document-snapshotting) morph on low-end hardware and fall
@@ -787,7 +822,7 @@ function LightboxRoot(props: LightboxRootProps) {
           }
         }
       },
-      [isControlledOpen, viewTransition, scrollTriggerIntoView, morphTo, morph, commitOpen, unlockScroll, settleOpenTransition, focusReturnTarget],
+      [isControlledOpen, viewTransition, scrollTriggerIntoView, morphTo, morph, commitOpen, unlockScroll, settleOpenTransition, focusReturnTarget, notifyBeforeClose],
     );
 
     // Sync `mounted` to externally-driven changes of a controlled
@@ -820,11 +855,12 @@ function LightboxRoot(props: LightboxRootProps) {
       }
 
       const gen = ++closeGenRef.current;
+      notifyBeforeClose();
       runAfterAnimations(dialogElementRef.current, gen, closeGenRef, () => {
         setMounted(false);
         unlockScroll();
       });
-    }, [open, lockScroll, unlockScroll]);
+    }, [open, lockScroll, unlockScroll, notifyBeforeClose]);
 
     // Initially-open lightbox (defaultOpen / controlled-open at mount): the
     // open-commit paths above don't run, so acquire the lock here. The cleanup
@@ -1034,4 +1070,10 @@ function LightboxRoot(props: LightboxRootProps) {
 LightboxRoot.displayName = 'LightboxRoot';
 
 export { LightboxRoot };
-export type { LightboxRootProps, LightboxBeforeOpen, LightboxBeforeOpenContext };
+export type {
+  LightboxRootProps,
+  LightboxBeforeOpen,
+  LightboxBeforeOpenContext,
+  LightboxBeforeClose,
+  LightboxBeforeCloseContext,
+};

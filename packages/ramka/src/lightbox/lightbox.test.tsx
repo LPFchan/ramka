@@ -2600,6 +2600,48 @@ describe('Lightbox', () => {
       });
     });
 
+    describe('onBeforeClose', () => {
+      it('runs before the close View Transition starts', async () => {
+        const { startViewTransition } = mockViewTransitionAPI();
+        const onBeforeClose = vi.fn();
+
+        render(
+          <LightboxRoot viewTransition awaitImageDecode={false} onBeforeClose={onBeforeClose}>
+            <LightboxTrigger index={0} data-testid="trigger-0">
+              Open
+            </LightboxTrigger>
+            <LightboxPortal>
+              <LightboxContent data-testid="content" aria-label="before-close test">
+                <LightboxItemGroup>
+                  <LightboxItem index={0} data-testid="item-0">
+                    item
+                  </LightboxItem>
+                </LightboxItemGroup>
+                <LightboxClose data-testid="close">Close</LightboxClose>
+              </LightboxContent>
+            </LightboxPortal>
+          </LightboxRoot>,
+        );
+
+        fireEvent.click(screen.getByTestId('trigger-0'));
+        await act(async () => {});
+
+        expect(onBeforeClose).not.toHaveBeenCalled();
+        const callsAfterOpen = startViewTransition.mock.calls.length;
+        expect(callsAfterOpen).toBeGreaterThan(0);
+
+        fireEvent.click(screen.getByTestId('close'));
+
+        expect(onBeforeClose).toHaveBeenCalledOnce();
+        expect(onBeforeClose).toHaveBeenCalledWith(
+          expect.objectContaining({
+            destination: expect.any(Element),
+          }),
+        );
+        expect(startViewTransition.mock.calls.length).toBeGreaterThan(callsAfterOpen);
+      });
+    });
+
     describe('morph fallback when destination target has no resolvable size', () => {
       let originalRect: PropertyDescriptor | undefined;
 

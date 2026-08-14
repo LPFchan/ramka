@@ -90,6 +90,11 @@ export const generatedProps: Record<string, PropRow[]> = {
       type: "LightboxBeforeOpen",
       description: "Called after the open morph has prepared the lightbox (mounted, still hidden) and finished any `awaitImageDecode` wait, and **before** the View Transition starts. Use this to await custom media readiness (iframe `load`, video `loadeddata`, WebGL, …).\n\nMay return a Promise — the morph waits for it. Bound your own timeout inside the callback; there is no library-imposed cap. When a newer open/close supersedes this one, `ctx.signal` aborts.\n\nOnly relevant when `viewTransition` is enabled. Skipped when unset.",
     },
+    {
+      name: "onBeforeClose",
+      type: "LightboxBeforeClose",
+      description: "Called synchronously just before close commits — and, when View Transitions are on, **before** the old snapshot is captured. Use this to freeze custom media (`video.pause()`, stop a rAF loop, …) so the close morph isn’t a mid-frame.\n\nUnlike `onBeforeOpen`, this cannot delay close (return values are ignored). Skipped when unset.",
+    },
   ],
   "api-trigger": [
     {
@@ -153,7 +158,7 @@ export const generatedProps: Record<string, PropRow[]> = {
       name: "pullToClose",
       type: "boolean",
       default: "true",
-      description: "Enable pull-to-close on touch and trackpad wheel. Starts from anywhere in Stage (or Content when Stage is omitted), except interactive controls. Publishes `data-pulling`, `data-pull-dismissing`, and `--lightbox-pull-progress` while active.",
+      description: "Enable pull-to-close on touch and trackpad wheel. Starts from anywhere in Stage (or Content when Stage is omitted), except interactive controls. Publishes `data-pulling`, `data-pull-snapping`, `data-pull-dismissing`, and `--lightbox-pull-progress` while active.",
     },
   ],
   "api-stage": [
@@ -536,6 +541,10 @@ export const generatedAttributes: Record<string, AttrRow[]> = {
       description: "Present while a pull-to-dismiss drag is in progress.",
     },
     {
+      name: "data-pull-snapping",
+      description: "Present while a cancelled pull springs back to rest. `data-pulling` is dropped on release so chrome can transition; this latch keeps pull-only layout (overflow, shell hide) until the item is parked.",
+    },
+    {
       name: "data-pull-dismissing",
       description: "Present while the dismiss animation runs after crossing the threshold.",
     },
@@ -570,6 +579,10 @@ export const generatedAttributes: Record<string, AttrRow[]> = {
     {
       name: "data-pulling",
       description: "Present while pull-to-dismiss is active (mirrors Content).",
+    },
+    {
+      name: "data-pull-snapping",
+      description: "Present while a cancelled pull springs back (mirrors Content).",
     },
   ],
   "api-close": [

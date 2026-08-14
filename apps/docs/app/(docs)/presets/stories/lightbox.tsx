@@ -10,7 +10,7 @@
  */
 
 import * as React from 'react';
-import { Lightbox as RamkaLightbox } from 'ramka';
+import { Lightbox as RamkaLightbox, useLightboxContext } from 'ramka';
 
 import './lightbox.css';
 
@@ -62,8 +62,28 @@ export type LightboxItem = {
 
 /* ── Styled primitives (design-system re-exports) ───────────────────────── */
 
-function Root(props: React.ComponentProps<typeof RamkaLightbox.Root>) {
-  return <RamkaLightbox.Root {...props} />;
+function pauseDialogVideos(scope: Element | null) {
+  if (!scope) return;
+  for (const video of scope.querySelectorAll('video')) {
+    video.pause();
+  }
+}
+
+function Root({
+  onBeforeClose,
+  ...props
+}: React.ComponentProps<typeof RamkaLightbox.Root>) {
+  return (
+    <RamkaLightbox.Root
+      {...props}
+      onBeforeClose={(ctx) => {
+        pauseDialogVideos(
+          ctx.destination?.closest('[data-ramka-content]') ?? ctx.destination,
+        );
+        onBeforeClose?.(ctx);
+      }}
+    />
+  );
 }
 
 function Trigger({ className, ...props }: React.ComponentProps<typeof RamkaLightbox.Trigger>) {
@@ -147,17 +167,37 @@ function StoryVideo({
   height: number;
   active: boolean;
 }) {
+  const { open, dialogElementRef } = useLightboxContext();
   const videoRef = React.useRef<HTMLVideoElement>(null);
 
-  React.useEffect(() => {
+  const syncPlayback = React.useCallback(() => {
     const el = videoRef.current;
     if (!el) return;
-    if (active) {
+    const content = dialogElementRef.current;
+    const pulling =
+      !!content &&
+      (content.hasAttribute('data-pulling') || content.hasAttribute('data-pull-dismissing'));
+    if (active && open && !pulling) {
       el.play().catch(() => {});
     } else {
       el.pause();
     }
-  }, [active]);
+  }, [active, open, dialogElementRef]);
+
+  React.useEffect(() => {
+    syncPlayback();
+  }, [syncPlayback]);
+
+  React.useEffect(() => {
+    const content = dialogElementRef.current;
+    if (!content) return;
+    const mo = new MutationObserver(syncPlayback);
+    mo.observe(content, {
+      attributes: true,
+      attributeFilter: ['data-pulling', 'data-pull-dismissing'],
+    });
+    return () => mo.disconnect();
+  }, [dialogElementRef, syncPlayback]);
 
   return (
     <video
