@@ -129,8 +129,8 @@ export function StoriesPresetDemo() {
         // without a painted jump. Avoid `onChange` — scrolling the page
         // under an open viewer can flash tiles on iOS Safari.
         scrollTriggerIntoView={[
-          { type: 'onOpenComplete', behavior: 'instant', inline: 'center' },
-          { type: 'onClose', behavior: 'instant', inline: 'center' },
+          { type: 'onOpenComplete', behavior: 'instant', inline: 'nearest' },
+          { type: 'onChange', behavior: 'instant', inline: 'nearest' },
         ]}
         onValueChange={(index) => {
           const id = stories[index]?.id;
