@@ -7,10 +7,10 @@ import { Lightbox, type LightboxItem } from './lightbox';
 /**
  * App-level demo — not part of the copy-paste package.
  *
- * A horizontally scrolling avatar tray. Each circle is a `Lightbox.Trigger`
- * with `crossfade="both"`: the avatar is not the story frame, so a geometry
- * morph would look wrong — dissolve into the 9:16 video instead. Closing from
- * a story whose avatar has scrolled off-screen recenters it for the close.
+ * A horizontally scrolling story tray. Each circle is a `Lightbox.Trigger`
+ * showing the video poster (`object-cover`). `crossfade="both"`: the circle
+ * is not the 9:16 frame, so a geometry morph would look wrong. Closing from
+ * a story whose trigger has scrolled off-screen recenters it for the close.
  */
 
 function mixkit(id: number): string {
@@ -121,7 +121,7 @@ export function StoriesPresetDemo() {
       <Lightbox.Root
         loop
         viewTransition="spring"
-        // Destination is video (not a matching thumb), and every trigger
+        // Poster is a cover-crop of the 9:16 frame, so every trigger
         // crossfades — skip the decode wait so the dissolve starts immediately.
         awaitImageDecode={false}
         // Avatar tray is a horizontal scroller: recenter the active circle
@@ -171,7 +171,7 @@ export function StoriesPresetDemo() {
                 {({ imageRef }) => (
                   <img
                     ref={imageRef}
-                    src={story.avatar}
+                    src={story.poster}
                     alt=""
                     width={56}
                     height={56}
