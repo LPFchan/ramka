@@ -229,12 +229,25 @@ const LightboxContent = React.forwardRef<HTMLDivElement, LightboxContentProps>(
     React.useEffect(() => {
       if (!mounted) return;
 
+      let pinchGestureActive = false;
       const preventTouchPinch = (event: TouchEvent) => {
-        if (event.touches.length > 1) {
+        // Two-finger: native page pinch. Leftover finger after a pinch
+        // (zoom snap-back): native gallery scroll, which would lock Slides
+        // with no `scrollend` and freeze pull/pinch/double-tap.
+        if (event.touches.length > 1 || pinchGestureActive) {
           event.preventDefault();
         }
       };
+      const onPinchTouchStart = (event: TouchEvent) => {
+        if (event.touches.length > 1) pinchGestureActive = true;
+      };
+      const onPinchTouchEnd = (event: TouchEvent) => {
+        if (event.touches.length === 0) pinchGestureActive = false;
+      };
       document.addEventListener('touchmove', preventTouchPinch, { passive: false });
+      document.addEventListener('touchstart', onPinchTouchStart, { passive: true });
+      document.addEventListener('touchend', onPinchTouchEnd, { passive: true });
+      document.addEventListener('touchcancel', onPinchTouchEnd, { passive: true });
 
       const hasSafariGestures = 'GestureEvent' in window;
 
@@ -254,6 +267,9 @@ const LightboxContent = React.forwardRef<HTMLDivElement, LightboxContentProps>(
 
       return () => {
         document.removeEventListener('touchmove', preventTouchPinch);
+        document.removeEventListener('touchstart', onPinchTouchStart);
+        document.removeEventListener('touchend', onPinchTouchEnd);
+        document.removeEventListener('touchcancel', onPinchTouchEnd);
         if (preventGesture) {
           document.removeEventListener('gesturestart', preventGesture);
           document.removeEventListener('gesturechange', preventGesture);

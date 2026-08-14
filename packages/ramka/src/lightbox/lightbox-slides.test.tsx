@@ -881,6 +881,68 @@ describe('Lightbox.Slides', () => {
       expect(zoomRef.current?.zoom).toBe(1);
     });
 
+    it('does not freeze gestures after leftover-finger movement during pinch snap-back', () => {
+      render(<GestureLightbox />);
+      const viewport = screen.getByTestId('slides');
+      const content = screen.getByTestId('content');
+      setupGeometry(viewport, 8);
+      const img = screen.getByTestId('img-0');
+
+      act(() => {
+        viewport.dispatchEvent(
+          new TouchEvent('touchstart', {
+            bubbles: true,
+            cancelable: true,
+            touches: [{ clientX: 100, clientY: 200 } as Touch],
+          }),
+        );
+        viewport.dispatchEvent(
+          new TouchEvent('touchmove', {
+            bubbles: true,
+            cancelable: true,
+            touches: [{ clientX: 140, clientY: 200 } as Touch],
+          }),
+        );
+        viewport.dispatchEvent(
+          new TouchEvent('touchstart', {
+            bubbles: true,
+            cancelable: true,
+            touches: [
+              { clientX: 140, clientY: 200 } as Touch,
+              { clientX: 200, clientY: 200 } as Touch,
+            ],
+          }),
+        );
+        viewport.dispatchEvent(
+          new TouchEvent('touchend', {
+            bubbles: true,
+            cancelable: true,
+            touches: [{ clientX: 140, clientY: 200 } as Touch],
+          }),
+        );
+        viewport.dispatchEvent(
+          new TouchEvent('touchmove', {
+            bubbles: true,
+            cancelable: true,
+            touches: [{ clientX: 200, clientY: 200 } as Touch],
+          }),
+        );
+        viewport.dispatchEvent(
+          new TouchEvent('touchend', {
+            bubbles: true,
+            cancelable: true,
+            touches: [] as unknown as Touch[],
+          }),
+        );
+      });
+
+      act(() => {
+        dispatchPointer(img, 'pointerdown', { clientX: 200, clientY: 200 });
+        dispatchPointer(content, 'pointermove', { clientX: 200, clientY: 240 });
+      });
+      expect(content).toHaveAttribute('data-pulling');
+    });
+
     it('ignores a second-finger pinch that lands while a one-finger swipe is in flight', () => {
       const zoomRef = React.createRef<LightboxZoomRef>();
       render(<GestureLightbox withZoom zoomRef={zoomRef} observedIndex={0} />);
