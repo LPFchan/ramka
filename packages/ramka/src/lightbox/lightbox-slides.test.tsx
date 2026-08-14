@@ -476,6 +476,10 @@ describe('Lightbox.Slides', () => {
 
   it('unlocks navigation via the idle fallback when scrollend never fires', () => {
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    // jsdom advertises `onscrollend` but never dispatches it. Strip it so this
+    // test exercises the Safari < 17.4 idle path (production uses `scrollend`).
+    const scrollendDesc = Object.getOwnPropertyDescriptor(window, 'onscrollend');
+    delete (window as { onscrollend?: unknown }).onscrollend;
     try {
       render(<SlidesLightbox />);
       const viewport = screen.getByTestId('slides');
@@ -503,6 +507,7 @@ describe('Lightbox.Slides', () => {
       act(() => flushRaf());
       expect(activeThumb()).toBe(6);
     } finally {
+      if (scrollendDesc) Object.defineProperty(window, 'onscrollend', scrollendDesc);
       vi.useRealTimers();
     }
   });
@@ -681,6 +686,115 @@ describe('Lightbox.Slides', () => {
         dispatchPointer(content, 'pointermove', { clientX: 200, clientY: 240 });
       });
       expect(content).toHaveAttribute('data-pulling');
+    });
+
+    function dispatchTrackpadWheel(target: Element, deltaX: number, deltaY: number) {
+      const event = new WheelEvent('wheel', {
+        bubbles: true,
+        cancelable: true,
+        deltaX,
+        deltaY,
+      });
+      Object.defineProperty(event, 'deltaMode', { value: 0 });
+      target.dispatchEvent(event);
+    }
+
+    it('does not start a trackpad pull until scrollend, even after scroll events go quiet', () => {
+      // Production path: `scrollend` is the settle signal. jsdom advertises
+      // `onscrollend` (so the idle fallback is not used); a quiet gap must not
+      // unlock and let a vertical continuation of the same trackpad swipe pull.
+      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+      try {
+        render(<GestureLightbox />);
+        const viewport = screen.getByTestId('slides');
+        const content = screen.getByTestId('content');
+        setupGeometry(viewport, 8);
+
+        swipeTo(viewport, 2);
+        const img = screen.getByTestId('img-2');
+
+        act(() => {
+          for (let i = 0; i < 4; i++) dispatchTrackpadWheel(img, 0, -30);
+        });
+        expect(content).not.toHaveAttribute('data-pulling');
+
+        // Past SCROLL_IDLE_MS with no further `scroll` events (fingers turned
+        // vertical). Must stay locked until `scrollend`.
+        act(() => {
+          vi.advanceTimersByTime(200);
+        });
+        act(() => {
+          for (let i = 0; i < 4; i++) dispatchTrackpadWheel(img, 0, -30);
+        });
+        expect(content).not.toHaveAttribute('data-pulling');
+
+        // Touch pull is gated on the same lock.
+        act(() => {
+          dispatchPointer(img, 'pointerdown', { clientX: 200, clientY: 200 });
+          dispatchPointer(content, 'pointermove', { clientX: 200, clientY: 240 });
+        });
+        expect(content).not.toHaveAttribute('data-pulling');
+        act(() => {
+          dispatchPointer(content, 'pointerup', { clientX: 200, clientY: 240 });
+        });
+
+        endScroll(viewport);
+        act(() => {
+          dispatchPointer(img, 'pointerdown', { clientX: 200, clientY: 200 });
+          dispatchPointer(content, 'pointermove', { clientX: 200, clientY: 240 });
+        });
+        expect(content).toHaveAttribute('data-pulling');
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('starts a trackpad pull after scrollend of a gallery swipe', () => {
+      render(<GestureLightbox />);
+      const viewport = screen.getByTestId('slides');
+      const content = screen.getByTestId('content');
+      setupGeometry(viewport, 8);
+
+      swipeTo(viewport, 2);
+      const img = screen.getByTestId('img-2');
+
+      act(() => {
+        for (let i = 0; i < 3; i++) dispatchTrackpadWheel(img, 0, -20);
+      });
+      expect(content).not.toHaveAttribute('data-pulling');
+
+      endScroll(viewport);
+      act(() => {
+        for (let i = 0; i < 3; i++) dispatchTrackpadWheel(img, 0, -20);
+      });
+      expect(content).toHaveAttribute('data-pulling');
+    });
+
+    it('starts a trackpad pull on a slides lightbox at rest', () => {
+      render(<GestureLightbox />);
+      const viewport = screen.getByTestId('slides');
+      const content = screen.getByTestId('content');
+      setupGeometry(viewport, 8);
+      const img = screen.getByTestId('img-0');
+
+      act(() => {
+        for (let i = 0; i < 3; i++) dispatchTrackpadWheel(img, 0, -20);
+      });
+      expect(content).toHaveAttribute('data-pulling');
+    });
+
+    it('does not convert a horizontal trackpad swipe into a pull when fingers turn vertical', () => {
+      render(<GestureLightbox />);
+      const viewport = screen.getByTestId('slides');
+      const content = screen.getByTestId('content');
+      setupGeometry(viewport, 8);
+      const img = screen.getByTestId('img-0');
+
+      act(() => {
+        for (let i = 0; i < 4; i++) dispatchTrackpadWheel(img, 40, 0);
+        for (let i = 0; i < 4; i++) dispatchTrackpadWheel(img, 0, -30);
+      });
+      expect(content).not.toHaveAttribute('data-pulling');
     });
 
     it('does not leave gestures locked after an open/snap scroll echo on the first slide', () => {

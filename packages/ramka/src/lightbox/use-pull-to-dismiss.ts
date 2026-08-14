@@ -120,10 +120,11 @@ interface PullToDismissOptions {
   onClose: () => void;
   disabled?: boolean;
   /**
-   * True while a `Lightbox.Slides` user scroll/fling is in flight. The pull
-   * gesture won't start (touch or trackpad) while this is set, so a swipe can't
-   * be turned into a dismiss mid-scroll. Stays `false` for non-`Slides`
-   * lightboxes, so their pull-to-dismiss is never gated.
+   * True while a `Lightbox.Slides` user scroll/fling is in flight (until
+   * `scrollend`). The pull gesture won't start (touch or trackpad) while this
+   * is set, so a swipe that turns vertical mid-scroll can't become a dismiss.
+   * Stays `false` for non-`Slides` lightboxes, so their pull-to-dismiss is
+   * never gated.
    */
   isScrollingRef?: React.RefObject<boolean>;
 }
@@ -167,6 +168,9 @@ function usePullToDismiss({
   // close (visible as a snap-back on Safari, whose View Transition snapshot is
   // captured a frame after the momentum event that would reset it).
   const wheelDismissedRef = React.useRef(false);
+  // True while this wheel sequence was claimed by a Slides scroll. Cleared on
+  // `scrollend` (lock drops) so the next wheel can start a fresh pull.
+  const wheelLockedByScrollRef = React.useRef(false);
 
   const cleanup = React.useCallback(() => {
     pointerIdRef.current = null;
@@ -486,6 +490,7 @@ function usePullToDismiss({
       wheelPullXRef.current = 0;
       wheelPullYRef.current = 0;
       wheelCountRef.current = 0;
+      wheelLockedByScrollRef.current = false;
       if (wheelIdleRef.current) {
         clearTimeout(wheelIdleRef.current);
         wheelIdleRef.current = null;
@@ -525,9 +530,6 @@ function usePullToDismiss({
     const handleWheel = (event: WheelEvent) => {
       // Already committed to dismissing — ignore the momentum tail.
       if (wheelDismissedRef.current) return;
-      // A Lightbox.Slides scroll/fling is in flight — don't start a pull
-      // (passive listener: the slides keep scrolling normally).
-      if (isScrollingRef?.current) return;
       // Precision devices (trackpads) report pixel-mode deltas; line/page mode
       // is a classic mouse wheel — leave those alone.
       if (event.deltaMode !== 0) return;
@@ -541,6 +543,23 @@ function usePullToDismiss({
       const stage = stageRef?.current;
       const wheelTarget = event.target as Node | null;
       if (stage && wheelTarget && !stage.contains(wheelTarget)) return;
+
+      // Gallery scroll owns this wheel sequence until `scrollend`. Latch as
+      // horizontal (and keep the idle timer alive) so a mid-gesture vertical
+      // turn cannot start a pull — including after the 90ms wheel-idle timer
+      // reset `wheelDir` while `isScrollingRef` was still set.
+      if (isScrollingRef?.current && wheelDirRef.current !== 'vertical') {
+        wheelDirRef.current = 'horizontal';
+        wheelLockedByScrollRef.current = true;
+        scheduleWheelIdle();
+        return;
+      }
+      // `scrollend` has fired. A gallery-owned sequence must not block a new
+      // vertical gesture now that the scroller is at rest.
+      if (wheelLockedByScrollRef.current) {
+        wheelLockedByScrollRef.current = false;
+        wheelDirRef.current = 'none';
+      }
 
       if (wheelDirRef.current === 'none') {
         const axis = wheelAxis(event.deltaX, event.deltaY);

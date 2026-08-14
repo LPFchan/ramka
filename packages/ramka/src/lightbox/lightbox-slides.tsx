@@ -47,8 +47,9 @@ import { useLightboxZoomPublish } from './lightbox-zoom-context';
  *   does NOT abort the fling curve; only a real input gesture does), so rather
  *   than fight it we simply refuse to navigate over it: thumbnail/keyboard/button
  *   navigation that lands mid-scroll is dropped upstream until the scroll
- *   settles. The lock clears on `scrollend` (with a `SCROLL_IDLE_MS` fallback),
- *   at which point the marker is reconciled to the resting position.
+ *   settles. The lock clears on `scrollend` (with a `SCROLL_IDLE_MS` fallback
+ *   only in engines without that event), at which point the marker is
+ *   reconciled to the resting position.
  *
  * - **Marker → scroll.** Because discrete navigation only ever runs while the
  *   scroller is at rest, `scrollToIndex` is a plain instant jump to the slide's
@@ -84,8 +85,11 @@ interface LightboxSlidesProps extends useRender.ComponentProps<'div', LightboxSl
 
 /**
  * Quiet gap (ms without a scroll event) after which we treat a user scroll as
- * finished, for browsers without `scrollend` (the primary signal) or that drop
- * it. Comfortably longer than a frame so an in-progress fling never trips it.
+ * finished — used only in engines without `scrollend`. Must not run alongside
+ * `scrollend`: a trackpad swipe that turns from horizontal to vertical stops
+ * producing `scroll` events (`overflow-y: hidden`) while the gesture is still
+ * down, and unlocking on that quiet gap lets pull-to-dismiss start mid-swipe.
+ * `scrollend` fires when the user has released and the scroller is at rest.
  */
 const SCROLL_IDLE_MS = 140;
 
@@ -151,7 +155,7 @@ const LightboxSlides = React.forwardRef<HTMLDivElement, LightboxSlidesProps>(
     const resizeGenRef = React.useRef(0);
     const repaintTimerRef = React.useRef(0);
     // setTimeout id for the scroll-idle fallback that clears the lock in browsers
-    // without (or that miss) `scrollend`.
+    // without `scrollend`. Unused when `onscrollend` is in `window`.
     const idleTimerRef = React.useRef(0);
     // Always-fresh mirror of activeIndex for use inside stable event listeners.
     const activeIndexRef = React.useRef(activeIndex);
@@ -350,17 +354,24 @@ const LightboxSlides = React.forwardRef<HTMLDivElement, LightboxSlidesProps>(
       };
       const armIdleFallback = () => {
         window.clearTimeout(idleTimerRef.current);
-        // Fallback for browsers without `scrollend` (or that drop it): treat a
-        // quiet gap as the scroll having ended.
+        idleTimerRef.current = 0;
+        // `scrollend` is the settle signal (user released, scroller at rest).
+        // A quiet gap is not: turning a trackpad swipe vertical stops `scroll`
+        // events without ending the gesture. Only engines without `scrollend`
+        // (Safari < 17.4) fall back to idle.
+        if ('onscrollend' in window) return;
+        // @ts-expect-error - window.setTimeout is always defined in browsers
         idleTimerRef.current = window.setTimeout(settle, SCROLL_IDLE_MS);
+
       };
       const lockUserScroll = () => {
         if (programmaticRef.current) return;
         navigationLockedRef.current = true;
-        // Always arm settle when locking. `onScroll` may set the lock before
-        // `process` runs; if that rAF is skipped (programmatic race) or this
-        // effect rebinds, a bare lock with no idle timer leaves pull/pinch/
-        // double-tap dead until the next real swipe settles.
+        // Arm settle when locking. `onScroll` may set the lock before `process`
+        // runs; if that rAF is skipped (programmatic race) or this effect
+        // rebinds, a bare lock with no settle path leaves pull/pinch/double-tap
+        // dead until the next real swipe. `scrollend` is that path when present;
+        // otherwise the idle fallback is.
         armIdleFallback();
       };
 
@@ -453,7 +464,8 @@ const LightboxSlides = React.forwardRef<HTMLDivElement, LightboxSlidesProps>(
         if (event.touches.length > 0) return;
         sawSingleFinger = false;
         singleFingerSlid = false;
-        // Keep the lock through momentum — `scrollend` / idle fallback clears it.
+        // Keep the lock through momentum — `scrollend` (or the no-scrollend idle
+        // fallback) clears it.
       };
 
       viewport.addEventListener('scroll', onScroll, { passive: true });
