@@ -1,7 +1,5 @@
 'use client';
 
-import * as React from 'react';
-
 import { Lightbox, type LightboxItem } from './lightbox';
 
 /**
@@ -114,8 +112,6 @@ const stories: LightboxItem[] = [
 ];
 
 export function StoriesPresetDemo() {
-  const [seen, setSeen] = React.useState<ReadonlySet<string>>(() => new Set());
-
   return (
     <div className="w-full max-w-xl">
       <Lightbox.Root
@@ -132,17 +128,6 @@ export function StoriesPresetDemo() {
           { type: 'onOpenComplete', behavior: 'instant', inline: 'nearest' },
           { type: 'onChange', behavior: 'instant', inline: 'nearest' },
         ]}
-        onValueChange={(index) => {
-          const id = stories[index]?.id;
-          if (id == null) return;
-          setSeen((prev) => {
-            const key = String(id);
-            if (prev.has(key)) return prev;
-            const next = new Set(prev);
-            next.add(key);
-            return next;
-          });
-        }}
       >
         <p className="px-1 text-[13px] font-semibold tracking-tight text-neutral-900 dark:text-neutral-50">
           Stories
@@ -153,20 +138,7 @@ export function StoriesPresetDemo() {
               key={story.id}
               className="flex w-16 shrink-0 snap-center scroll-mx-4 flex-col items-center gap-1.5"
             >
-              <Lightbox.Trigger
-                index={i}
-                aria-label={`${story.name}’s story`}
-                className={seen.has(String(story.id)) ? 'stl-trigger-seen' : undefined}
-                onClick={() => {
-                  const id = String(story.id);
-                  setSeen((prev) => {
-                    if (prev.has(id)) return prev;
-                    const next = new Set(prev);
-                    next.add(id);
-                    return next;
-                  });
-                }}
-              >
+              <Lightbox.Trigger index={i} aria-label={`${story.name}’s story`}>
                 {({ imageRef }) => (
                   <img
                     ref={imageRef}

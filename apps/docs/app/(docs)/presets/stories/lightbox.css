@@ -35,14 +35,14 @@
   --stl-frame-ring: rgb(255 255 255 / 0.12);
 }
 
-/* ── Trigger (circular avatar ring) ─────────────────────────────────────── */
+/* ── Trigger (circular avatar) ──────────────────────────────────────────── */
 
 .stl-trigger {
   display: grid;
   place-items: center;
   margin: 0;
-  padding: 2px;
-  border: 1.5px solid var(--stl-blue);
+  padding: 0;
+  border: 0;
   border-radius: 9999px;
   background: transparent;
   font: inherit;
@@ -50,10 +50,6 @@
   appearance: none;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
-}
-
-.stl-trigger-seen {
-  border-color: rgb(120 120 128 / 0.32);
 }
 
 .stl-trigger:focus {
