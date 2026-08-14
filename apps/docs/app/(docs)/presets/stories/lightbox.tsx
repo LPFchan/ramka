@@ -256,8 +256,17 @@ function Gallery({ items, ariaLabel }: { items: LightboxItem[]; ariaLabel: strin
                 <Item index={i}>
                   {({ active, morphRef }) => (
                     
-                      <Media  width={item.width}
-                          height={item.height} ref={morphRef} className="stl-card">
+                      <Media
+                        width={item.width}
+                        height={item.height}
+                        ref={morphRef}
+                        className="stl-card"
+                        style={{
+                          backgroundImage: `url(${item.poster})`,
+                          backgroundSize: 'cover',
+                          backgroundPosition: 'center',
+                        }}
+                      >
                         <StoryVideo
                           src={item.video}
                           poster={item.poster}

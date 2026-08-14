@@ -155,7 +155,6 @@ export function StoriesPresetDemo() {
             >
               <Lightbox.Trigger
                 index={i}
-                crossfade="both"
                 aria-label={`${story.name}’s story`}
                 className={seen.has(String(story.id)) ? 'stl-trigger-seen' : undefined}
                 onClick={() => {
