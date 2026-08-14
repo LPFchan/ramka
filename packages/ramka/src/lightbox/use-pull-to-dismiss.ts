@@ -217,6 +217,7 @@ function usePullToDismiss({
     for (const el of [content, backdrop]) {
       if (!el) continue;
       el.removeAttribute('data-pulling');
+      el.removeAttribute('data-pull-snapping');
       el.style.removeProperty(PULL_PROGRESS_VAR);
       el.style.removeProperty(PULL_SNAP_DURATION_VAR);
       el.style.removeProperty(PULL_SNAP_EASING_VAR);
@@ -261,19 +262,24 @@ function usePullToDismiss({
       : SNAP_EASING_FALLBACK;
 
     // Hand backdrop/chrome styling back to the consumer: publish the snap
-    // timing, drop the `data-pulling` flag (re-enabling the transition they
-    // suppressed while pulling), and reset progress to 0 so that transition —
+    // timing, drop `data-pulling` (re-enabling the transition they suppressed
+    // while pulling), latch `data-pull-snapping` so pull-only layout stays
+    // until the item is parked, and reset progress to 0 so that transition —
     // now on the item's curve+duration — eases everything back to rest.
     for (const el of [content, backdrop]) {
       if (!el) continue;
       el.style.setProperty(PULL_SNAP_DURATION_VAR, `${duration}ms`);
       el.style.setProperty(PULL_SNAP_EASING_VAR, snapEasing);
       el.removeAttribute('data-pulling');
+      el.setAttribute('data-pull-snapping', '');
       el.style.setProperty(PULL_PROGRESS_VAR, '0');
     }
 
     if (!target) {
       dragTargetRef.current = null;
+      for (const el of [content, backdrop]) {
+        el?.removeAttribute('data-pull-snapping');
+      }
       return;
     }
 
@@ -312,6 +318,7 @@ function usePullToDismiss({
         el?.style.removeProperty(PULL_PROGRESS_VAR);
         el?.style.removeProperty(PULL_SNAP_DURATION_VAR);
         el?.style.removeProperty(PULL_SNAP_EASING_VAR);
+        el?.removeAttribute('data-pull-snapping');
       }
     }).catch(() => {
       // Animation cancelled — cleanup already handled
@@ -329,6 +336,7 @@ function usePullToDismiss({
     // a prior close (in case the same element is reused).
     wheelDismissedRef.current = false;
     el.removeAttribute('data-pull-dismissing');
+    el.removeAttribute('data-pull-snapping');
 
     const handlePointerDown = (event: PointerEvent) => {
       // Touch-only gesture — ignore mouse and pen

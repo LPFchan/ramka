@@ -239,33 +239,33 @@
  * `overflow: visible` can reset scrollLeft without the card jumping to its
  * un-scrolled row position.
  */
-.stl-content:is([data-pulling], [data-pull-dismissing]) .stl-slide:not(:has([data-active])) {
+.stl-content:is([data-pulling], [data-pull-snapping], [data-pull-dismissing]) .stl-slide:not(:has([data-active])) {
   display: none;
 }
 
-.stl-content:is([data-pulling], [data-pull-dismissing]) .stl-slides {
+.stl-content:is([data-pulling], [data-pull-snapping], [data-pull-dismissing]) .stl-slides {
   overflow: visible !important;
 }
 
 :root[data-ramka-view-transition] .stl-frame,
-.stl-content:is([data-pulling], [data-pull-dismissing]) .stl-frame {
+.stl-content:is([data-pulling], [data-pull-snapping], [data-pull-dismissing]) .stl-frame {
   overflow: visible;
   background: transparent;
   box-shadow: none;
 }
 
-.stl-content:is([data-pulling], [data-pull-dismissing]) .stl-card {
+.stl-content:is([data-pulling], [data-pull-snapping], [data-pull-dismissing]) .stl-card {
   animation: none !important;
 }
 
 :root[data-ramka-view-transition] .stl-card,
-.stl-content:is([data-pulling], [data-pull-dismissing]) .stl-card {
+.stl-content:is([data-pulling], [data-pull-snapping], [data-pull-dismissing]) .stl-card {
   border-radius: var(--stl-frame-radius);
 }
 
 @media (min-width: 768px) {
   :root[data-ramka-view-transition] .stl-card,
-  .stl-content:is([data-pulling], [data-pull-dismissing]) .stl-card {
+  .stl-content:is([data-pulling], [data-pull-snapping], [data-pull-dismissing]) .stl-card {
     box-shadow: 0 0 0 0.5px var(--stl-frame-ring);
   }
 }
@@ -431,8 +431,8 @@
   }
 }
 
-.stl-content:is([data-pulling], [data-pull-dismissing]) .stl-chrome-gesture-hide,
-.stl-content:is([data-pulling], [data-pull-dismissing]) .stl-hud {
+.stl-content:is([data-pulling], [data-pull-snapping], [data-pull-dismissing]) .stl-chrome-gesture-hide,
+.stl-content:is([data-pulling], [data-pull-snapping], [data-pull-dismissing]) .stl-hud {
   opacity: 0;
   visibility: hidden;
   transition:

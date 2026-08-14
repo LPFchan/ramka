@@ -5665,6 +5665,8 @@ describe('Lightbox', () => {
       });
 
       expect(screen.getByRole('dialog')).toBeInTheDocument();
+      expect(content).toHaveAttribute('data-pull-snapping');
+      expect(content).not.toHaveAttribute('data-pulling');
     });
 
     it('closes on fast flick even below distance threshold', async () => {

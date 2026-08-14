@@ -74,7 +74,7 @@ interface LightboxContentProps extends React.ComponentPropsWithRef<'div'> {
   /**
    * Enable pull-to-close on touch and trackpad wheel. Starts from anywhere in
    * Stage (or Content when Stage is omitted), except interactive controls.
-   * Publishes `data-pulling`, `data-pull-dismissing`, and
+   * Publishes `data-pulling`, `data-pull-snapping`, `data-pull-dismissing`, and
    * `--lightbox-pull-progress` while active.
    * @default true
    */
