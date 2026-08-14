@@ -216,6 +216,37 @@
   visibility: hidden;
 }
 
+/*
+ * Pull: drop every other story instantly and let the active one leave the
+ * scrollport. `display: none` (not visibility) collapses the track so
+ * `overflow: visible` can reset scrollLeft without the card jumping to its
+ * un-scrolled row position.
+ */
+.stl-content:is([data-pulling], [data-pull-dismissing]) .stl-slide:not(:has([data-active])) {
+  display: none;
+}
+
+.stl-content:is([data-pulling], [data-pull-dismissing]) .stl-slides {
+  overflow: visible !important;
+}
+
+.stl-content:is([data-pulling], [data-pull-dismissing]) .stl-frame {
+  overflow: visible;
+  background: transparent;
+  box-shadow: none;
+}
+
+.stl-content:is([data-pulling], [data-pull-dismissing]) .stl-card {
+  animation: none !important;
+}
+
+@media (min-width: 768px) {
+  .stl-content:is([data-pulling], [data-pull-dismissing]) .stl-card {
+    border-radius: 1.75rem;
+    box-shadow: 0 0 0 0.5px var(--stl-frame-ring);
+  }
+}
+
 @keyframes stl-flip {
   /* Stay on the front face: 90deg is edge-on and Safari will show the back. */
   0% {
