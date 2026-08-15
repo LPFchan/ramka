@@ -111,7 +111,7 @@ export const generatedProps: Record<string, PropRow[]> = {
     {
       name: "crossfade",
       type: "'open' | 'close' | 'both'",
-      description: "Crossfade between trigger and item snapshots during the view-transition morph. Omit (default) for a hard-cut morph — ideal when trigger and item show the same image at different crops/sizes. Use a direction when they differ visually:\n\n- `'both'` — crossfade on open and close (e.g. a stack → single photo)\n- `'open'` — crossfade only when opening\n- `'close'` — crossfade only when closing (e.g. poster → live video)\n\nSets `data-crossfade` on the trigger and `data-ramka-crossfade` on `<html>` during phases that dissolve (omitted for hard-cut).",
+      description: "Crossfade between trigger and item snapshots during the view-transition morph. Omit (default) for a hard-cut morph — ideal when trigger and item show the same image at the same intrinsic aspect (a CSS `object-cover` window or smaller srcset is fine; a CDN-baked crop that changes the aspect is not). Use a direction when they differ visually:\n\n- `'both'` — crossfade on open and close (e.g. a stack → single photo)\n- `'open'` — crossfade only when opening\n- `'close'` — crossfade only when closing (e.g. poster → live video)\n\nSets `data-crossfade` on the trigger and `data-ramka-crossfade` on `<html>` during phases that dissolve (omitted for hard-cut).",
     },
     {
       name: "children",
