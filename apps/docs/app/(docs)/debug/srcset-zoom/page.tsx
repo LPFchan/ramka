@@ -21,7 +21,9 @@ type Candidate = {
   src: string;
 };
 
-type DemoItem = LightboxGalleryItem & {
+type DemoItem = Omit<LightboxGalleryItem, 'src' | 'thumb'> & {
+  src: string;
+  thumb: string;
   sizesBase: string;
   swatches: Candidate[];
   srcSet: string;
