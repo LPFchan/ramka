@@ -37,6 +37,12 @@ export const debugPages = {
     description:
       'Property page with hero grid + remaining photos; lightbox shows all photos in a swipeable Lightbox.Slides viewport.',
   },
+  srcsetZoom: {
+    href: '/debug/srcset-zoom',
+    title: 'Srcset zoom',
+    description:
+      'useLightboxSizes scales the sizes attribute at 2× / 4× so srcset can fetch a denser candidate. Color + labeled swatches make the swap obvious.',
+  },
 } as const;
 
 export const debugPagesList = Object.values(debugPages);

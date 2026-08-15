@@ -463,6 +463,17 @@ export const hooksApiMeta: ApiPartMeta[] = [
       file: 'lightbox-media.tsx',
     },
   },
+  {
+    id: 'api-use-lightbox-sizes',
+    name: 'useLightboxSizes',
+    description:
+      'Returns a sizes string scaled by the enclosing Zoom (snapped to 1× / 2× / 4× / …). Pass it to img sizes or next/image so the browser can pick a denser srcset candidate when the user zooms. Outside Zoom, returns the base value unchanged.',
+    extract: {
+      kind: 'hook-return',
+      functionName: 'useLightboxSizes',
+      file: 'use-lightbox-sizes.ts',
+    },
+  },
 ];
 
 export const imperativeApiMeta: ApiPartMeta[] = [

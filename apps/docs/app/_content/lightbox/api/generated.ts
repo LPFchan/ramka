@@ -422,6 +422,13 @@ export const generatedProps: Record<string, PropRow[]> = {
       description: "—",
     },
   ],
+  "api-use-lightbox-sizes": [
+    {
+      name: "(return)",
+      type: "string",
+      description: "`sizes` attribute scaled by the enclosing Zoom (snapped to 1× / 2× / 4× / …). Pass this to `<img sizes>` or `next/image` so the browser can pick a denser `srcset` candidate when the user zooms. Outside Zoom, returns `base` unchanged.",
+    },
+  ],
   "api-create-handle": [
     {
       name: "open",
@@ -778,6 +785,7 @@ export const generatedAttributes: Record<string, AttrRow[]> = {
   "api-use-trigger-context": [],
   "api-use-item-context": [],
   "api-use-media-context": [],
+  "api-use-lightbox-sizes": [],
   "api-create-handle": [],
   "api-zoom-ref": [],
 };
@@ -882,6 +890,7 @@ export const generatedCssVariables: Record<string, CssVarRow[]> = {
   "api-use-trigger-context": [],
   "api-use-item-context": [],
   "api-use-media-context": [],
+  "api-use-lightbox-sizes": [],
   "api-create-handle": [],
   "api-zoom-ref": [],
 };

@@ -7,6 +7,7 @@ export { useLightboxContext } from './lightbox-context';
 export { useOptionalLightboxItemContext as useLightboxItemContext } from './lightbox-item';
 export { useOptionalLightboxMediaContext as useLightboxMediaContext } from './lightbox-media';
 export { useOptionalLightboxTriggerContext as useLightboxTriggerContext } from './lightbox-trigger';
+export { useLightboxSizes } from './use-lightbox-sizes';
 export type { LightboxHandle, LightboxHandleOpenOptions } from './lightbox-handle';
 export type { LightboxContextValue, NavigationSource } from './lightbox-context';
 export type { LightboxItemContextValue } from './lightbox-item';
