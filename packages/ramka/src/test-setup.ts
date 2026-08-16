@@ -54,8 +54,10 @@ if (typeof globalThis !== 'undefined' && !globalThis.ResizeObserver) {
   };
 }
 
-// Zoom is lazy-loaded in production. Tests call `ref.zoomIn()` on the first
-// render, so warm the cache here (does not affect the published bundle).
+// Zoom and pull-to-close are lazy-loaded in production. Tests drive those
+// engines on the first render, so warm the caches here (does not affect
+// the published bundle).
 const { loadZoomRuntime } = await import('./lightbox/lightbox-zoom-loader');
-await loadZoomRuntime();
+const { loadPullRuntime } = await import('./lightbox/lightbox-pull-loader');
+await Promise.all([loadZoomRuntime(), loadPullRuntime()]);
 

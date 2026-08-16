@@ -9,23 +9,13 @@
  *
  * Pull-to-dismiss helpers live in `pull-math.ts` so this module can stay in
  * the lazy zoom chunk. Shared primitives (`clamp`, `round`, …) are re-exported
- * from `gesture-shared.ts` so existing test imports keep working.
+ * from `gesture-shared.ts`.
  */
 
 import { clamp } from './gesture-shared';
 
 export type { GestureAxis } from './gesture-shared';
 export { clamp, distance, round } from './gesture-shared';
-export type { PullTransform } from './pull-math';
-export {
-  PULL_DAMP_TRAVEL_RATIO,
-  computePullTransform,
-  computePullVelocity,
-  resolveDragAxis,
-  shouldDismissPull,
-  springEasingLinear,
-  wheelAxis,
-} from './pull-math';
 
 // ---------------------------------------------------------------------------
 // Zoom
