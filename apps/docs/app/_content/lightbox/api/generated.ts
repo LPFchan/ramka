@@ -65,7 +65,7 @@ export const generatedProps: Record<string, PropRow[]> = {
       name: "viewTransition",
       type: "boolean | LightboxViewTransitionPreset",
       default: "true",
-      description: "Morph between trigger and lightbox item via the View Transitions API. On by default: clicking a trigger morphs into the fullscreen item, and close morphs back. Falls back to a plain fade when unsupported, when prefers-reduced-motion is set, or on low-end devices. Pass `false` to opt out.\n\nPass a preset name to pick the morph's motion (duration + easing):\n\n- `\"default\"` — 360ms, sheet curve with a tamed launch (same as `true`)\n- `\"snappy\"` — 340ms, hotter launch; reads quicker\n- `\"relaxed\"` — 400ms, softer launch and longer settle\n- `\"spring\"` — 450ms, critically damped spring; Photos-style settle\n\nTiming is preset-based (not free-form CSS) on purpose: each preset is vetted on-device to stay smooth and skip-safe on iOS Safari (including Low Power Mode) and Android, where arbitrary curves stutter or teleport. The chosen timing drives the morph, the crossfade and the root fade together so they always stay in sync.",
+      description: "Morph between trigger and lightbox item via the View Transitions API. On by default: clicking a trigger morphs into the fullscreen item, and close morphs back. The morph engine is loaded on first use — pass `false` to skip that download. Falls back to a plain fade when unsupported, when prefers-reduced-motion is set, or on low-end devices.\n\nPass a preset name to pick the morph's motion (duration + easing):\n\n- `\"default\"` — 360ms, sheet curve with a tamed launch (same as `true`)\n- `\"snappy\"` — 340ms, hotter launch; reads quicker\n- `\"relaxed\"` — 400ms, softer launch and longer settle\n- `\"spring\"` — 450ms, critically damped spring; Photos-style settle\n\nTiming is preset-based (not free-form CSS) on purpose: each preset is vetted on-device to stay smooth and skip-safe on iOS Safari (including Low Power Mode) and Android, where arbitrary curves stutter or teleport. The chosen timing drives the morph, the crossfade and the root fade together so they always stay in sync.",
     },
     {
       name: "scrollTriggerIntoView",
@@ -153,7 +153,7 @@ export const generatedProps: Record<string, PropRow[]> = {
       name: "pullToClose",
       type: "boolean",
       default: "true",
-      description: "Enable pull-to-close on touch and trackpad wheel. Starts from anywhere in Stage (or Content when Stage is omitted), except interactive controls. Publishes `data-pulling`, `data-pull-dismissing`, and `--lightbox-pull-progress` while active.",
+      description: "Enable pull-to-close on touch and trackpad wheel. Starts from anywhere in Stage (or Content when Stage is omitted), except interactive controls. Publishes `data-pulling`, `data-pull-dismissing`, and `--lightbox-pull-progress` while active. The engine loads when Content first mounts with this on — pass `false` to skip that download.",
     },
   ],
   "api-stage": [
