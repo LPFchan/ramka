@@ -57,7 +57,6 @@ export const lightboxApiHref = {
   stage: `${api}#api-stage`,
   backdrop: `${api}#api-backdrop`,
   close: `${api}#api-close`,
-  itemGroup: `${api}#api-item-group`,
   item: `${api}#api-item`,
   media: `${api}#api-media`,
   slides: `${api}#api-slides`,

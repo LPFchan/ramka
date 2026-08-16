@@ -10,17 +10,4 @@
      `viewTransition` preset timing as `--lightbox-vt-duration` on the Portal
      host, so the backdrop/content fades (open-close.css) read it directly —
      one motion clock with or without a View Transition. */
-
-  /* Item navigation fade-in (data-active item picks this up via
-     `animate-lightbox-item-fade-in`). Skipped during VT — see item-fade.css. */
-  --animate-lightbox-item-fade-in: lightbox-item-fade-in 250ms ease-out both;
-}
-
-@keyframes lightbox-item-fade-in {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
 }

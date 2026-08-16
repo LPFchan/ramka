@@ -13,112 +13,19 @@ import { LightboxThumbnailGroup } from './lightbox-thumbnail-group';
 import { LightboxTrigger } from './lightbox-trigger';
 import { LightboxZoom, type LightboxZoomRef } from './lightbox-zoom';
 import { LightboxZoomIn } from './lightbox-zoom-in';
-
-// ---------------------------------------------------------------------------
-// jsdom has no layout engine, no ResizeObserver, and no scroll animation. The
-// scroller reads offsetLeft/offsetWidth/clientWidth, observes resizes, and uses
-// rAF, so we stub all three and make rAF a manually-drained queue. Scroll
-// settling is driven by the `scrollend` event (fired explicitly in tests).
-// ---------------------------------------------------------------------------
-
-const WIDTH = 100;
-
-const roInstances = new Set<{ cb: ResizeObserverCallback }>();
-
-let rafSeq = 0;
-const rafCallbacks = new Map<number, FrameRequestCallback>();
-
-/** Run one round of currently-scheduled animation frames. */
-function flushRaf() {
-  const callbacks = [...rafCallbacks.entries()];
-  rafCallbacks.clear();
-  callbacks.forEach(([, cb]) => cb(0));
-}
-
-/**
- * Fire every live ResizeObserver, then drain the frames it schedules.
- * A real geometry change pins `activeIndex` via a double-rAF settle (and may
- * schedule `scrollToIndex` restore frames) — leave those pending and
- * `resizingRef` stays true, which would suppress later swipe→index updates.
- */
-function flushResizeObservers() {
-  act(() => {
-    roInstances.forEach((o) => o.cb([], o as unknown as ResizeObserver));
-  });
-  act(() => flushRaf());
-  act(() => flushRaf());
-  act(() => flushRaf());
-}
-
-/**
- * Install uniform full-viewport geometry (slide i at offsetLeft `i*WIDTH`) and a
- * writable `scrollLeft` on the viewport, then trigger a re-measure so the
- * scroller adopts it (mount measured jsdom's zeroed layout).
- */
-function setupGeometry(viewport: HTMLElement, count: number) {
-  let scrollLeft = 0;
-  Object.defineProperty(viewport, 'clientWidth', { configurable: true, get: () => WIDTH });
-  Object.defineProperty(viewport, 'scrollWidth', { configurable: true, get: () => WIDTH * count });
-  Object.defineProperty(viewport, 'scrollLeft', {
-    configurable: true,
-    get: () => scrollLeft,
-    set: (v: number) => {
-      scrollLeft = v;
-    },
-  });
-  const slides = viewport.querySelectorAll<HTMLElement>('[data-ramka-slide]');
-  slides.forEach((slide, i) => {
-    Object.defineProperty(slide, 'offsetLeft', { configurable: true, get: () => i * WIDTH });
-    Object.defineProperty(slide, 'offsetWidth', { configurable: true, get: () => WIDTH });
-  });
-  flushResizeObservers();
-}
-
-/** Move the viewport and dispatch a scroll (as a physical swipe would). */
-function swipeTo(viewport: HTMLElement, index: number) {
-  act(() => {
-    viewport.scrollLeft = index * WIDTH;
-    fireEvent.scroll(viewport);
-    flushRaf();
-  });
-}
-
-/** Signal that scrolling has fully stopped (unlocks discrete navigation). */
-function endScroll(viewport: HTMLElement) {
-  act(() => {
-    fireEvent(viewport, new Event('scrollend'));
-  });
-}
+import {
+  SLIDE_TEST_WIDTH as WIDTH,
+  endScroll,
+  flushRaf,
+  installSlidesLayoutMocks,
+  resetSlidesLayoutMocks,
+  fireResizeObservers,
+  setupGeometry,
+  swipeTo,
+} from './lightbox-slides-test-utils';
 
 beforeEach(() => {
-  roInstances.clear();
-  rafCallbacks.clear();
-  rafSeq = 0;
-
-  vi.stubGlobal(
-    'ResizeObserver',
-    class {
-      cb: ResizeObserverCallback;
-      constructor(cb: ResizeObserverCallback) {
-        this.cb = cb;
-        roInstances.add(this);
-      }
-      observe() {}
-      unobserve() {}
-      disconnect() {
-        roInstances.delete(this);
-      }
-    },
-  );
-
-  vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => {
-    const id = ++rafSeq;
-    rafCallbacks.set(id, cb);
-    return id;
-  });
-  vi.stubGlobal('cancelAnimationFrame', (id: number) => {
-    rafCallbacks.delete(id);
-  });
+  installSlidesLayoutMocks();
 
   if (!window.matchMedia) {
     Object.defineProperty(window, 'matchMedia', {
@@ -144,7 +51,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-  vi.unstubAllGlobals();
+  resetSlidesLayoutMocks();
   vi.restoreAllMocks();
 });
 
@@ -251,7 +158,7 @@ describe('Lightbox.Slides', () => {
 
     // Fire RO without draining the double-rAF settle so `resizingRef` stays true.
     act(() => {
-      roInstances.forEach((o) => o.cb([], o as unknown as ResizeObserver));
+      fireResizeObservers();
     });
     act(() => flushRaf()); // scrollToIndex restore + outer resize frame
 
@@ -291,7 +198,7 @@ describe('Lightbox.Slides', () => {
     applyWidth(50);
     viewport.scrollLeft = 3 * WIDTH;
     act(() => {
-      roInstances.forEach((o) => o.cb([], o as unknown as ResizeObserver));
+      fireResizeObservers();
     });
     expect(viewport.style.scrollSnapType).toBe('none');
 
@@ -299,7 +206,7 @@ describe('Lightbox.Slides', () => {
     // savedSnap='none' and permanently stuck snap off after the superseded rAF.
     applyWidth(40);
     act(() => {
-      roInstances.forEach((o) => o.cb([], o as unknown as ResizeObserver));
+      fireResizeObservers();
     });
 
     act(() => flushRaf());

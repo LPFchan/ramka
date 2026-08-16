@@ -4,6 +4,8 @@ declare const items: { id: string; src: string; alt: string }[];
 
 /**
  * Slides carousel — Item (and Zoom → Media) must live inside Slide.
+ * `preload` gates Item contents; use the Item render prop's `active` /
+ * `visible` to distinguish the current slide from preload neighbors.
  *
  * @docsExcerpt slides-nesting
  * @docsExcerptTitle Slides + Slide nesting

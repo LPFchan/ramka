@@ -29,7 +29,7 @@
   }
 }
 
-/* Inner layer inside Item — avoids item-fade.css resetting animation on [data-ramka-item]. */
+/* Inner layer inside Item — isolate the exit animation from the item host. */
 .dynamic-items-root .dynamic-items-exit-layer {
   display: flex;
   width: 100%;

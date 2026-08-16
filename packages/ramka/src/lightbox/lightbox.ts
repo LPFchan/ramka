@@ -6,11 +6,9 @@
  *
  * Key design decisions:
  *
- * - **Swap-based rendering**: In the stacked `Lightbox.ItemGroup` layout only
- *   the active item (plus `preload` adjacent items) is rendered in the DOM,
- *   keeping memory usage low for large image collections. (The swipeable
- *   `Lightbox.Slides` layout keeps slide boxes mounted but preload-gates their
- *   contents the same way.)
+ * - **Preload-gated slides**: `Lightbox.Slides` keeps slide boxes mounted (so
+ *   scroll extent is correct) but only mounts `Lightbox.Item` contents for the
+ *   active index plus `preload` neighbors.
  *
  * - **Multiple triggers**: Each Trigger accepts an `index` prop, so a grid
  *   of thumbnails can each open the lightbox at the corresponding item.
@@ -21,7 +19,7 @@
  *   text, and captions in their language. The primitives own the structural
  *   ARIA per the WAI-ARIA APG:
  *     - Content → `role="dialog"` + `aria-modal`, focus trap, Escape.
- *     - Slides/ItemGroup → carousel container (`role="group"` +
+ *     - Slides → carousel container (`role="group"` +
  *       `aria-roledescription="carousel"`).
  *     - Item → a `tabpanel` associated with its Thumbnail `tab` when a
  *       `Lightbox.ThumbnailGroup` (tablist) is present, otherwise a standalone
@@ -50,7 +48,7 @@
  *   Backdrop        — Optional visible scrim, closes on click, animated by pull-to-dismiss
  *   Close           — Closes the lightbox
  *   Stage           — Optional media interaction surface (pull / pan / arrow scope)
- *   ItemGroup       — Container for items, manages swap rendering + preload
+ *   Slides/Slide    — Horizontal snap carousel; preload-gates Item contents
  *   Item            — Individual media item with lazy-load support. Its render
  *                     function exposes `imageRef` / `morphRef` (escape hatches;
  *                     prefer Media for the common case)
@@ -77,7 +75,6 @@ export { LightboxContent as Content } from './lightbox-content';
 export { LightboxBackdrop as Backdrop } from './lightbox-backdrop';
 export { LightboxClose as Close } from './lightbox-close';
 export { LightboxStage as Stage } from './lightbox-stage';
-export { LightboxItemGroup as ItemGroup } from './lightbox-item-group';
 export { LightboxItem as Item } from './lightbox-item';
 export { LightboxMedia as Media } from './lightbox-media';
 export { LightboxSlides as Slides } from './lightbox-slides';
@@ -107,7 +104,6 @@ export type { LightboxContentProps } from './lightbox-content';
 export type { LightboxBackdropProps, LightboxBackdropState } from './lightbox-backdrop';
 export type { LightboxCloseProps, LightboxCloseState } from './lightbox-close';
 export type { LightboxStageProps, LightboxStageState } from './lightbox-stage';
-export type { LightboxItemGroupProps, LightboxItemGroupState } from './lightbox-item-group';
 export type { LightboxItemProps, LightboxItemState, LightboxItemRenderState } from './lightbox-item';
 export type { LightboxMediaProps, LightboxMediaState, LightboxMediaContextValue } from './lightbox-media';
 export type { LightboxSlidesProps, LightboxSlidesState } from './lightbox-slides';
@@ -132,7 +128,6 @@ export {
   LightboxBackdropDataAttributes,
   LightboxCloseDataAttributes,
   LightboxStageDataAttributes,
-  LightboxItemGroupDataAttributes,
   LightboxItemDataAttributes,
   LightboxMediaDataAttributes,
   LightboxSlidesDataAttributes,
