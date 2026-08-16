@@ -258,6 +258,9 @@ const LightboxMedia = React.forwardRef<HTMLDivElement, LightboxMediaProps>(
         flexShrink: 0,
         // Grid host for a single in-flow media child. Placeholder canvas stays absolute.
         display: 'grid',
+        // So the z-index:-1 placeholder canvas stays in this box (not behind the page).
+        // Must be on the React style — notify re-renders Media and would wipe a DOM write.
+        isolation: 'isolate',
       };
       if (hasFitBox && width && height) {
         Object.assign(next, fitBoxStyle(width, height));

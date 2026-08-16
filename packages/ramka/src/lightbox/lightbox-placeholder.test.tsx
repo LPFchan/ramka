@@ -544,6 +544,9 @@ describe('Lightbox.Media (morph + placeholder host)', () => {
     // data-placeholder flips when Item notifies Media after inserting the canvas.
     await act(async () => undefined);
     expect(media).toHaveAttribute('data-placeholder');
+    // Notify re-renders Media; isolation must survive that style reconcile or
+    // the z-index:-1 canvas vanishes before the destination image paints.
+    expect(media).toHaveStyle({ isolation: 'isolate' });
 
     HTMLCanvasElement.prototype.getContext = origGetContext;
     restoreBox();

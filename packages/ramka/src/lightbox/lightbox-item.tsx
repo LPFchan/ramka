@@ -271,11 +271,6 @@ const LightboxItem = React.forwardRef<HTMLDivElement, LightboxItemProps>(
 
       const cs = getComputedStyle(img);
       const fit = cs.objectFit === 'contain' ? 'contain' : 'cover';
-      // Prefer Media's border-radius (the morph host) when present.
-      const hostForRadius = mediaNodeRef.current ?? morphNodeRef.current;
-      const borderRadius = hostForRadius
-        ? getComputedStyle(hostForRadius).borderRadius || cs.borderRadius
-        : cs.borderRadius;
 
       // Prefer a <canvas> underlay over a CSS background. WHY: during the open
       // morph WebKit routinely captures the destination's "new" view-transition
@@ -301,7 +296,6 @@ const LightboxItem = React.forwardRef<HTMLDivElement, LightboxItemProps>(
               img,
               source,
               fit,
-              borderRadius,
               objectPosition: cs.objectPosition,
               host: canvasHost,
             })

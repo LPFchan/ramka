@@ -8,7 +8,6 @@ export interface CanvasPlaceholderArgs {
   img: HTMLImageElement;
   source: HTMLImageElement | null;
   fit: 'contain' | 'cover';
-  borderRadius: string;
   objectPosition: string;
   /**
    * Non-replaced host that already owns the morph (`Lightbox.Media` or an
@@ -63,7 +62,7 @@ export function resolveObjectPosition(
  * blank frame, no fallback to the opaque trigger snapshot, no late letterboxing.
  */
 export function tryPaintCanvasPlaceholder(args: CanvasPlaceholderArgs): (() => void) | null {
-  const { img, source, fit, borderRadius, objectPosition, host } = args;
+  const { img, source, fit, objectPosition, host } = args;
   if (!source) return null;
 
   // A decoded source is required to draw synchronously (the trigger is on-screen
@@ -118,28 +117,19 @@ export function tryPaintCanvasPlaceholder(args: CanvasPlaceholderArgs): (() => v
     return null;
   }
 
-  // Prepare the host: (1) a positioned + isolated stacking context so the
-  // `z-index:-1` canvas paints ABOVE the host background but BELOW the in-flow
-  // <img> (without `isolation`, a negative z-index could sink the canvas behind
-  // the host's ancestors and vanish); (2) clip to the image's rounding so the
-  // morph group's animated radius is clean and the handoff to the live rounded
-  // <img> is seamless. All saved and restored when the bridge ends.
+  // The canvas is absolute + z-index:-1 (behind the <img>). The host must be
+  // a positioned, isolated stacking context or that z-index sinks behind the
+  // page. Media already sets both in React styles; this covers a custom morphRef.
   const savedPosition = host.style.position;
-  const savedOverflow = host.style.overflow;
-  const savedRadius = host.style.borderRadius;
   const savedIsolation = host.style.isolation;
   if (getComputedStyle(host).position === 'static') host.style.position = 'relative';
   host.style.isolation = 'isolate';
-  host.style.overflow = 'hidden';
-  host.style.borderRadius = borderRadius;
 
   host.insertBefore(canvas, host.firstChild);
 
   return () => {
     canvas.remove();
     host.style.position = savedPosition;
-    host.style.overflow = savedOverflow;
-    host.style.borderRadius = savedRadius;
     host.style.isolation = savedIsolation;
   };
 }
