@@ -1,5 +1,12 @@
 'use client';
 
+/**
+ * Root context bag — state + ref registries only.
+ *
+ * Layer map and what belongs where: `lightbox.ts` (SoC contract). Do not add
+ * paint, snap geometry, morph-target resolution, or VT capability checks here.
+ */
+
 import * as React from 'react';
 
 import type { SlidesGeometry } from './lightbox-slides-geometry';
