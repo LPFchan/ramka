@@ -27,15 +27,20 @@ import {
   type LightboxHandleTriggerRegistration,
 } from './lightbox-handle';
 import {
-  DEFAULT_DECODE_MAX_WAIT,
+  getMorphRuntimeSync,
+  loadMorphRuntime,
+  prefetchMorphRuntime,
+  type MorphRuntime,
+} from './lightbox-morph-loader';
+import {
   resolveScrollTriggerOption,
   resolveTriggerIndex,
   scrollTriggerEl,
-  useViewTransitionMorph,
   type ScrollTriggerIntoView,
-} from './use-view-transition-morph';
+} from './scroll-trigger';
+import { DEFAULT_DECODE_MAX_WAIT } from './vt-constants';
 import type { LightboxViewTransitionPreset } from './vt-timing';
-import { ensureVtStructuralStyles } from './vt-structural-styles';
+import type { ViewTransitionMorph, ViewTransitionMorphConfig } from './use-view-transition-morph';
 
 interface LightboxRootProps {
   /** Lightbox parts and page content (triggers typically live as children of Root). */
@@ -71,9 +76,9 @@ interface LightboxRootProps {
   /**
    * Morph between trigger and lightbox item via the View Transitions API.
    * On by default: clicking a trigger morphs into the fullscreen item, and
-   * close morphs back. Falls back to a plain fade when unsupported, when
-   * prefers-reduced-motion is set, or on low-end devices. Pass `false` to
-   * opt out.
+   * close morphs back. The morph engine is loaded on first use — pass `false`
+   * to skip that download. Falls back to a plain fade when unsupported, when
+   * prefers-reduced-motion is set, or on low-end devices.
    *
    * Pass a preset name to pick the morph's motion (duration + easing):
    * - `"default"` — 360ms, sheet curve with a tamed launch (same as `true`)
@@ -679,7 +684,9 @@ function LightboxRoot(props: LightboxRootProps) {
       [unlockScroll, focusReturnTarget],
     );
 
-    const morph = useViewTransitionMorph({
+    const morphRef = React.useRef<ViewTransitionMorph | null>(null);
+    const morphConfigRef = React.useRef<ViewTransitionMorphConfig>(null!);
+    morphConfigRef.current = {
       morphTo,
       scrollTriggerIntoView,
       decodeMaxWait,
@@ -701,7 +708,7 @@ function LightboxRoot(props: LightboxRootProps) {
       onOpenComplete: handleOpenComplete,
       onCloseComplete: handleCloseComplete,
       activeZoomRef,
-    });
+    };
 
     const setOpen = React.useCallback(
       (nextOpen: boolean, options?: LightboxCloseOptions) => {
@@ -734,10 +741,22 @@ function LightboxRoot(props: LightboxRootProps) {
 
         if (useVT) {
           // The generation was bumped above; the morph captures it on call.
-          if (nextOpen) {
-            morph.open();
+          const gen = closeGenRef.current;
+          const startMorph = (runtime: MorphRuntime) => {
+            if (closeGenRef.current !== gen) return;
+            runtime.ensureVtStructuralStyles();
+            morphRef.current ??= runtime.createViewTransitionMorph(() => morphConfigRef.current);
+            if (nextOpen) {
+              morphRef.current.open();
+            } else {
+              morphRef.current.close();
+            }
+          };
+          const runtime = getMorphRuntimeSync();
+          if (runtime) {
+            startMorph(runtime);
           } else {
-            morph.close();
+            void loadMorphRuntime().then(startMorph);
           }
         } else {
           // --- No view transition ---
@@ -796,7 +815,7 @@ function LightboxRoot(props: LightboxRootProps) {
           }
         }
       },
-      [isControlledOpen, viewTransition, scrollTriggerIntoView, morphTo, morph, commitOpen, unlockScroll, settleOpenTransition, focusReturnTarget],
+      [isControlledOpen, viewTransition, scrollTriggerIntoView, morphTo, commitOpen, unlockScroll, settleOpenTransition, focusReturnTarget],
     );
 
     // Sync `mounted` to externally-driven changes of a controlled
@@ -845,12 +864,13 @@ function LightboxRoot(props: LightboxRootProps) {
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    // Inject the structural view-transition stylesheet (isolation, morph
-    // group/snapshot mechanics, morph-target hide, slides-select crossfade)
-    // once per document — consumers write no view-transition CSS.
+    // Warm the morph chunk after paint when VT is on, so the first click
+    // does not wait on the network. Skipped when opted out or unsupported.
     React.useEffect(() => {
-      ensureVtStructuralStyles();
-    }, []);
+      if (viewTransition !== false && supportsViewTransitions() && !isLowEndDevice()) {
+        prefetchMorphRuntime();
+      }
+    }, [viewTransition]);
 
     const performOpen = React.useCallback(
       (index?: number, options?: LightboxHandleOpenOptions) => {
@@ -893,9 +913,12 @@ function LightboxRoot(props: LightboxRootProps) {
           openingTriggerImageRef.current = null;
         }
 
+        if (viewTransition !== false) {
+          prefetchMorphRuntime();
+        }
         setOpen(true);
       },
-      [handleProp, setActiveIndex, setOpen],
+      [handleProp, setActiveIndex, setOpen, viewTransition],
     );
 
     const performClose = React.useCallback(() => setOpen(false), [setOpen]);

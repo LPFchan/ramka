@@ -8,24 +8,23 @@ import { ensureVtStructuralStyles } from './vt-structural-styles';
 const selector = 'style[data-ramka-lightbox-vt-styles]';
 
 describe('vt-structural-styles', () => {
-  it('injects the stylesheet once, at the start of <head>, on Root mount', () => {
+  it('does not inject on Root mount — styles load with the morph engine', () => {
     render(
       <>
         <LightboxRoot>{null}</LightboxRoot>
         <LightboxRoot>{null}</LightboxRoot>
       </>,
     );
+    expect(document.head.querySelectorAll(selector)).toHaveLength(0);
+  });
 
+  it('injects the stylesheet once, at the start of <head>', () => {
+    ensureVtStructuralStyles();
+    ensureVtStructuralStyles();
     const sheets = document.head.querySelectorAll(selector);
     expect(sheets).toHaveLength(1);
     // Prepended so consumer stylesheets cascade after it and win ties.
     expect(document.head.firstElementChild).toBe(sheets[0]);
-  });
-
-  it('is idempotent when called directly', () => {
-    ensureVtStructuralStyles();
-    ensureVtStructuralStyles();
-    expect(document.head.querySelectorAll(selector)).toHaveLength(1);
   });
 
   it('contains the structural rules skins used to ship', () => {

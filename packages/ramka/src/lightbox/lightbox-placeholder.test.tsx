@@ -214,6 +214,8 @@ describe('render-fn placeholder wiring (Trigger imageRef -> Item imageRef)', () 
   });
 
   it('holds the placeholder until the open transition finishes, even after the image paints', async () => {
+    const { loadMorphRuntime } = await import('./lightbox-morph-loader');
+    await loadMorphRuntime();
     const { resolveFinished } = mockViewTransitionAPI();
 
     render(

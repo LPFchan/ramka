@@ -1777,6 +1777,11 @@ describe('Lightbox', () => {
   // ---------------------------------------------------------------------------
 
   describe('view transitions', () => {
+    beforeEach(async () => {
+      const { loadMorphRuntime } = await import('./lightbox-morph-loader');
+      await loadMorphRuntime();
+    });
+
     function mockViewTransitionAPI() {
       let resolveFinished: () => void;
       const finishedPromise = new Promise<void>((r) => {
@@ -1829,6 +1834,14 @@ describe('Lightbox', () => {
       render(<TestLightbox viewTransition />);
       fireEvent.click(screen.getByTestId('trigger-0'));
       expect(startViewTransition).toHaveBeenCalledOnce();
+    });
+
+    it('does not start a view transition when viewTransition is false', () => {
+      const { startViewTransition } = mockViewTransitionAPI();
+      render(<TestLightbox viewTransition={false} />);
+      fireEvent.click(screen.getByTestId('trigger-0'));
+      expect(startViewTransition).not.toHaveBeenCalled();
+      expect(screen.getByTestId('content')).toBeInTheDocument();
     });
 
     it('sets data-ramka-view-transition on <html> during open', () => {

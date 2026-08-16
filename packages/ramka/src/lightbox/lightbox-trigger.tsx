@@ -14,6 +14,7 @@ import {
   type LightboxHandle,
   type LightboxHandleTriggerRegistration,
 } from './lightbox-handle';
+import { prefetchMorphRuntime } from './lightbox-morph-loader';
 import { ignoreStateAttribute } from './lightbox-state-attributes';
 
 /** Direction(s) in which the trigger↔item morph should crossfade snapshots. */
@@ -468,6 +469,9 @@ const LightboxTrigger = React.forwardRef<HTMLButtonElement, LightboxTriggerProps
           'aria-expanded': openedByThisTrigger,
           ...(open && contentId ? { 'aria-controls': contentId } : null),
           onClick: handleClick,
+          onPointerDown: () => {
+            if (rootContext?.viewTransition) prefetchMorphRuntime();
+          },
           // Stable styling hook — consumer CSS can target every trigger
           // (e.g. for a default focus outline) without relying on
           // state-only attributes like `data-popup-open` or `data-active`.
