@@ -6,6 +6,9 @@ import {
   LightboxContext,
   type LightboxCloseOptions,
   type LightboxContextValue,
+  type LightboxMorphSlice,
+  type LightboxSlidesBridgeSlice,
+  type LightboxStateSlice,
   type NavigationSource,
 } from './lightbox-context';
 import {
@@ -1016,7 +1019,7 @@ function LightboxRoot(props: LightboxRootProps) {
       notifyLightboxHandle(handleProp);
     }, [handleProp, open, activeIndex]);
 
-    const contextValue = React.useMemo<LightboxContextValue>(
+    const stateSlice = React.useMemo<LightboxStateSlice>(
       () => ({
         open,
         setOpen,
@@ -1037,30 +1040,9 @@ function LightboxRoot(props: LightboxRootProps) {
         captionsRef,
         registerCaption,
         subscribeCaptions,
-        // Most context consumers only care whether the morph is enabled; the
-        // raw preset is passed alongside so the Portal can publish the
-        // preset's timing vars on its host.
-        viewTransition: viewTransition !== false,
-        transitionPreset: viewTransition,
-        morphTo,
-        triggerElementsRef,
-        triggerMorphElementsRef,
-        activeItemElementRef,
-        itemMorphElementsRef,
-        openingTriggerIndexRef,
-        openingTriggerElementRef,
-        openingTriggerImageRef,
-        triggerImageElementsRef,
-        triggerIdsRef,
         dialogElementRef,
         stageElementRef,
         backdropElementRef,
-        slidesViewportRef,
-        slidesGeometryRef,
-        subscribeSlidesViewport,
-        notifySlidesViewport,
-        thumbnailStripSelectRef,
-        navigate,
       }),
       [
         open,
@@ -1079,12 +1061,45 @@ function LightboxRoot(props: LightboxRootProps) {
         registerTablist,
         registerCaption,
         subscribeCaptions,
-        viewTransition,
+      ],
+    );
+
+    const morphSlice = React.useMemo<LightboxMorphSlice>(
+      () => ({
+        // Most context consumers only care whether the morph is enabled; the
+        // raw preset is passed alongside so the Portal can publish the
+        // preset's timing vars on its host.
+        viewTransition: viewTransition !== false,
+        transitionPreset: viewTransition,
         morphTo,
+        triggerElementsRef,
+        triggerMorphElementsRef,
+        activeItemElementRef,
+        itemMorphElementsRef,
+        openingTriggerIndexRef,
+        openingTriggerElementRef,
+        openingTriggerImageRef,
+        triggerImageElementsRef,
+        triggerIdsRef,
+      }),
+      [viewTransition, morphTo],
+    );
+
+    const slidesBridgeSlice = React.useMemo<LightboxSlidesBridgeSlice>(
+      () => ({
+        slidesViewportRef,
+        slidesGeometryRef,
         subscribeSlidesViewport,
         notifySlidesViewport,
+        thumbnailStripSelectRef,
         navigate,
-      ],
+      }),
+      [subscribeSlidesViewport, notifySlidesViewport, navigate],
+    );
+
+    const contextValue = React.useMemo<LightboxContextValue>(
+      () => ({ ...stateSlice, ...morphSlice, ...slidesBridgeSlice }),
+      [stateSlice, morphSlice, slidesBridgeSlice],
     );
 
     return (
