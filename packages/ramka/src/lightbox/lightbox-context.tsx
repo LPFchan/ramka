@@ -32,7 +32,8 @@ interface LightboxCloseOptions {
   focusVisible?: boolean;
 }
 
-interface LightboxContextValue {
+/** Open / index / ARIA / captions / shell element refs. */
+interface LightboxStateSlice {
   open: boolean;
   setOpen: (open: boolean, options?: LightboxCloseOptions) => void;
   /** Whether the portal should be in the DOM (stays true during exit animations). */
@@ -126,8 +127,25 @@ interface LightboxContextValue {
    * item mount).
    */
   subscribeCaptions: (onChange: () => void) => () => void;
+  dialogElementRef: React.MutableRefObject<HTMLElement | null>;
+  /**
+   * The currently-mounted `Lightbox.Stage` element (if any). When set, Stage
+   * is the media interaction surface for wheel pull-to-dismiss, Zoom pan
+   * viewport geometry, and arrow/Home/End gallery keyboard navigation.
+   * Stays `null` when no Stage is rendered — Content itself is the stage.
+   */
+  stageElementRef: React.MutableRefObject<HTMLElement | null>;
+  /**
+   * The currently-mounted `Lightbox.Backdrop` element (if any). Populated
+   * by the Backdrop primitive's ref callback so descendants like the
+   * pull-to-dismiss hook can read its opacity / data attributes without
+   * needing a direct ref. Stays `null` when no Backdrop is rendered.
+   */
+  backdropElementRef: React.MutableRefObject<HTMLElement | null>;
+}
 
-  // View transition support
+/** View-transition flags + trigger/item morph registries. */
+interface LightboxMorphSlice {
   viewTransition: boolean;
   /**
    * The Root's raw `viewTransition` prop — the timing preset name (or
@@ -195,24 +213,10 @@ interface LightboxContextValue {
       }
     >
   >;
-  dialogElementRef: React.MutableRefObject<HTMLElement | null>;
+}
 
-  /**
-   * The currently-mounted `Lightbox.Stage` element (if any). When set, Stage
-   * is the media interaction surface for wheel pull-to-dismiss, Zoom pan
-   * viewport geometry, and arrow/Home/End gallery keyboard navigation.
-   * Stays `null` when no Stage is rendered — Content itself is the stage.
-   */
-  stageElementRef: React.MutableRefObject<HTMLElement | null>;
-
-  /**
-   * The currently-mounted `Lightbox.Backdrop` element (if any). Populated
-   * by the Backdrop primitive's ref callback so descendants like the
-   * pull-to-dismiss hook can read its opacity / data attributes without
-   * needing a direct ref. Stays `null` when no Backdrop is rendered.
-   */
-  backdropElementRef: React.MutableRefObject<HTMLElement | null>;
-
+/** Slides viewport/geometry pub-sub + strip-aware `navigate`. */
+interface LightboxSlidesBridgeSlice {
   /**
    * The currently-mounted `Lightbox.Slides` viewport element (if any).
    * Populated by Slides' ref callback so scroll-linked chrome
@@ -250,6 +254,12 @@ interface LightboxContextValue {
   navigate: (index: number, source: NavigationSource) => void;
 }
 
+/**
+ * One Provider on purpose — splitting into multiple React contexts would
+ * change who re-renders. Slices are a file/type contract only.
+ */
+type LightboxContextValue = LightboxStateSlice & LightboxMorphSlice & LightboxSlidesBridgeSlice;
+
 const LightboxContext = React.createContext<LightboxContextValue | undefined>(undefined);
 
 function useLightboxContext(): LightboxContextValue {
@@ -261,4 +271,11 @@ function useLightboxContext(): LightboxContextValue {
 }
 
 export { LightboxContext, useLightboxContext };
-export type { LightboxContextValue, NavigationSource, LightboxCloseOptions };
+export type {
+  LightboxContextValue,
+  LightboxStateSlice,
+  LightboxMorphSlice,
+  LightboxSlidesBridgeSlice,
+  NavigationSource,
+  LightboxCloseOptions,
+};
