@@ -258,11 +258,31 @@ export function computeMaxZoom(
 }
 
 /**
+ * Pan offset (one axis) that keeps the content under `originFocal` glued to
+ * `currentFocal` while zooming from `originZoom` to `currentZoom`.
+ *
+ * Same transform convention as {@link focalOffset}:
+ * `content = screen / zoom − offset`. A two-finger pinch uses this so the
+ * image follows the centroid (pan) and scale (zoom) as one pose. When the
+ * focals are equal this is identical to `focalOffset`.
+ */
+export function pinchPanOffset(
+  originOffset: number,
+  originFocal: number,
+  originZoom: number,
+  currentFocal: number,
+  currentZoom: number,
+): number {
+  if (!(originZoom > 0) || !(currentZoom > 0)) return originOffset;
+  return originOffset + currentFocal / currentZoom - originFocal / originZoom;
+}
+
+/**
  * New pan offset (one axis) that keeps the focal point `focal` px from center
  * fixed under the cursor while zooming from `fromZoom` to `toZoom`.
  */
 export function focalOffset(currentOffset: number, focal: number, fromZoom: number, toZoom: number): number {
-  return currentOffset + focal * (1 / toZoom - 1 / fromZoom);
+  return pinchPanOffset(currentOffset, focal, fromZoom, focal, toZoom);
 }
 
 /**
@@ -304,6 +324,161 @@ export function projectFocalZoom(
 /** Pinch target zoom from the initial pinch (zoom + finger distance) and the current finger distance. */
 export function pinchZoom(initialZoom: number, initialDistance: number, currentDistance: number): number {
   return (initialZoom / initialDistance) * currentDistance;
+}
+
+/**
+ * iOS-style two-finger intent. UIKit keeps pinch and pan as separate
+ * recognizers: pan may begin on translation slop, pinch only after the
+ * fingers actually spread/pinch, and pinch `scale` starts at 1 when it
+ * begins. Applying `currentDist / initialDist` from contact is what makes
+ * a two-finger pan feel like it is also zooming — fingers never hold a
+ * perfectly constant span.
+ */
+
+/** Spread (px) that engages zoom when the motion looks like a real pinch. */
+export const PINCH_ENGAGE_SPREAD = 10;
+
+/** Spread (px) that engages zoom while the fingers are clearly panning together. */
+export const PINCH_ENGAGE_SPREAD_PAN = 28;
+
+/** Extra pan-mode slop as a fraction of the starting finger span. */
+export const PINCH_ENGAGE_SPREAD_PAN_RATIO = 0.14;
+
+/** Cosine similarity above this → both fingers travel as a pair. */
+export const PINCH_PAN_ALIGNMENT = 0.6;
+
+/** Each finger must travel this far (px) before alignment is trusted. */
+export const PINCH_ALIGNMENT_MIN_TRAVEL = 10;
+
+/** Centroid travel (px) that can mark the gesture pan-dominant. */
+export const PINCH_PAN_TRAVEL = 14;
+
+/** Pan travel must exceed spread by this factor to count as pan-dominant. */
+export const PINCH_PAN_DOMINANCE = 1.35;
+
+/** Cosine of the two fingers' displacement vectors, or `null` if either has not moved enough. */
+export function pinchFingerAlignment(
+  a0x: number,
+  a0y: number,
+  a1x: number,
+  a1y: number,
+  b0x: number,
+  b0y: number,
+  b1x: number,
+  b1y: number,
+  minTravel = PINCH_ALIGNMENT_MIN_TRAVEL,
+): number | null {
+  const dax = a1x - a0x;
+  const day = a1y - a0y;
+  const dbx = b1x - b0x;
+  const dby = b1y - b0y;
+  const la = Math.hypot(dax, day);
+  const lb = Math.hypot(dbx, dby);
+  if (la < minTravel || lb < minTravel) return null;
+  return (dax * dbx + day * dby) / (la * lb);
+}
+
+/**
+ * Decompose two-finger motion into |spread| along the original pair axis
+ * and centroid travel. A planted-finger pinch has large spread and modest
+ * pan; a two-finger slide is the reverse.
+ */
+export function pinchMotionComponents(
+  a0x: number,
+  a0y: number,
+  a1x: number,
+  a1y: number,
+  b0x: number,
+  b0y: number,
+  b1x: number,
+  b1y: number,
+): { spread: number; pan: number } {
+  const axisX = b0x - a0x;
+  const axisY = b0y - a0y;
+  const axisLen = Math.hypot(axisX, axisY) || 1;
+  const ux = axisX / axisLen;
+  const uy = axisY / axisLen;
+  const dax = a1x - a0x;
+  const day = a1y - a0y;
+  const dbx = b1x - b0x;
+  const dby = b1y - b0y;
+  const spread = Math.abs(dbx * ux + dby * uy - (dax * ux + day * uy));
+  return { spread, pan: Math.hypot((dax + dbx) / 2, (day + dby) / 2) };
+}
+
+/** True when the fingers are sliding as a pair, not spreading. */
+export function isTwoFingerPanIntent(
+  spreadDelta: number,
+  panTravel: number,
+  alignment: number | null,
+): boolean {
+  if (alignment != null && alignment >= PINCH_PAN_ALIGNMENT) return true;
+  return panTravel >= PINCH_PAN_TRAVEL && panTravel > spreadDelta * PINCH_PAN_DOMINANCE;
+}
+
+/** Spread (px) required before zoom may change, given the current intent. */
+export function pinchEngageSpread(initialDistance: number, panIntent: boolean): number {
+  if (panIntent) {
+    return Math.max(PINCH_ENGAGE_SPREAD_PAN, initialDistance * PINCH_ENGAGE_SPREAD_PAN_RATIO);
+  }
+  return PINCH_ENGAGE_SPREAD;
+}
+
+export interface ResolvePinchZoomInput {
+  initialZoom: number;
+  /** Distance baseline — the contact span, or the slop-adjusted span after engage. */
+  initialDistance: number;
+  currentDistance: number;
+  engaged: boolean;
+  alignment: number | null;
+  panTravel: number;
+}
+
+export interface ResolvedPinchZoom {
+  zoom: number;
+  engaged: boolean;
+  baselineDistance: number;
+}
+
+/**
+ * Live pinch scale with iOS-style begin slop.
+ *
+ * Until the gesture is clearly a pinch, zoom stays at `initialZoom` (pan
+ * still runs). A two-finger slide uses a larger slop so span jitter cannot
+ * scale the image. When zoom first engages during a pan, the slop is eaten
+ * so scale starts at 1 relative to the engage point (no pop). A decisive
+ * pinch keeps the original baseline so a fast spread is not discarded.
+ */
+export function resolvePinchZoom(input: ResolvePinchZoomInput): ResolvedPinchZoom {
+  const { initialZoom, initialDistance, currentDistance, engaged, alignment, panTravel } = input;
+  if (!(initialDistance > 0)) {
+    return { zoom: initialZoom, engaged, baselineDistance: Math.max(initialDistance, 1) };
+  }
+
+  const spreadDelta = Math.abs(currentDistance - initialDistance);
+  const panIntent = isTwoFingerPanIntent(spreadDelta, panTravel, alignment);
+  const gate = pinchEngageSpread(initialDistance, panIntent);
+
+  if (!engaged) {
+    if (spreadDelta <= gate) {
+      return { zoom: initialZoom, engaged: false, baselineDistance: initialDistance };
+    }
+    const signed = currentDistance - initialDistance;
+    const baseline = panIntent
+      ? initialDistance + Math.sign(signed || 1) * gate
+      : initialDistance;
+    return {
+      zoom: pinchZoom(initialZoom, baseline, currentDistance),
+      engaged: true,
+      baselineDistance: baseline,
+    };
+  }
+
+  return {
+    zoom: pinchZoom(initialZoom, initialDistance, currentDistance),
+    engaged: true,
+    baselineDistance: initialDistance,
+  };
 }
 
 /**

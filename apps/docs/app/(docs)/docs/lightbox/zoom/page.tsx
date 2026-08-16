@@ -84,9 +84,10 @@ const mobileAppRows: {
 
 // --- Table E: ramka on touch vs the consensus, per interaction ---------------
 const mobileRamkaRows: { interaction: string; ramka: string; consensus: string; verdict: string }[] = [
-  { interaction: 'Pinch to zoom', ramka: 'Focal at pinch midpoint; elastic past bounds, snaps back with haptic tick', consensus: 'Focal + rubber-band', verdict: 'Match' },
+  { interaction: 'Pinch to zoom', ramka: 'Focal at pinch midpoint; image follows the centroid (pinch + pan together); elastic past bounds, snaps back with haptic tick', consensus: 'Focal + rubber-band', verdict: 'Match' },
   { interaction: 'Double-tap', ramka: 'Toggles zoom, focal at tap; commit deferred to pointerup so a flick never misfires', consensus: 'Toggle at tap', verdict: 'Match (robust detection)' },
   { interaction: '1-finger pan (zoomed)', ramka: 'Elastic drag; velocity tracked', consensus: 'Universal', verdict: 'Match' },
+  { interaction: '2-finger pan (zoomed)', ramka: 'Centroid pans immediately; zoom stays frozen until fingers actually pinch (iOS-style recognizer slop), then scale rebases so jitter never pops', consensus: 'iOS Photos / pinch-pan', verdict: 'Match' },
   { interaction: 'Release with velocity', ramka: 'Momentum pan (decelerates, clamps to bounds)', consensus: 'iOS/Android inertia', verdict: 'Match' },
   { interaction: 'Swipe left / right', ramka: 'Navigates via Slides snap carousel (only at 1×)', consensus: 'Navigate photos', verdict: 'Match' },
   { interaction: 'Swipe down', ramka: 'Pull-to-dismiss; blocked while zoomed > 1×', consensus: 'Dismiss', verdict: 'Match' },
@@ -269,15 +270,16 @@ export default function LightboxZoomPage() {
         <ul className="list-disc space-y-2 pl-5">
           <li>
             <strong className="font-medium text-neutral-800 dark:text-neutral-200">Pinch to zoom</strong>,
-            focal at the pinch midpoint, with a <em>rubber-band</em> overshoot past the min/max that snaps
-            back on release.
+            focal at the pinch midpoint — the image stays glued to the centroid, so spreading and
+            sliding two fingers zoom and pan as one gesture — with a <em>rubber-band</em> overshoot
+            past the min/max that snaps back on release.
           </li>
           <li>
             <strong className="font-medium text-neutral-800 dark:text-neutral-200">Double-tap</strong>{' '}
             toggles between fit and a zoomed level, centered on the tap point.
           </li>
           <li>
-            <strong className="font-medium text-neutral-800 dark:text-neutral-200">One-finger drag pans</strong>{' '}
+            <strong className="font-medium text-neutral-800 dark:text-neutral-200">One- or two-finger drag pans</strong>{' '}
             while zoomed, with <strong className="font-medium text-neutral-800 dark:text-neutral-200">inertia / momentum</strong>{' '}
             on release.
           </li>

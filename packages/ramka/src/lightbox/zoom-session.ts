@@ -14,6 +14,7 @@ import {
   PAN_PHYSICS_SPRING_TOUCH,
   PAN_PHYSICS_STOP_SPEED,
   panOffsetRange,
+  pinchPanOffset,
   projectFocalZoom,
   round,
   RUBBER_BAND_DIMENSION_FACTOR,
@@ -309,6 +310,52 @@ export function createZoomSession(getDeps: () => ZoomSessionDeps): ZoomSession {
     startDiscreteZoom(to);
   };
 
+  const applyPinchPan = (
+    targetZoom: number,
+    origin: { zoom: number; offsetX: number; offsetY: number; cx: number; cy: number },
+    centroid: { x: number; y: number },
+    overflowAxesOnly?: boolean,
+  ) => {
+    const { controller, minZoom, maxZoom, measurePanGeometry, clampOffsets } = getDeps();
+    stopZoomSnap();
+    isElasticDrag.current = false;
+
+    if (controller.isSettling()) {
+      const caught = controller.catch();
+      if (caught) syncPoseRefs(caught);
+    } else if (controller.isDiscreteAnimating()) {
+      return;
+    }
+
+    const nextZoom = round(elasticClamp(targetZoom, minZoom, maxZoom), 5);
+    const rawX = pinchPanOffset(origin.offsetX, origin.cx, origin.zoom, centroid.x, nextZoom);
+    const rawY = pinchPanOffset(origin.offsetY, origin.cy, origin.zoom, centroid.y, nextZoom);
+    const geo = measurePanGeometry(nextZoom);
+
+    if (!geo) {
+      const offsets = clampOffsets(rawX, rawY, nextZoom);
+      writeHotPose({ zoom: nextZoom, offsetX: offsets.x, offsetY: offsets.y });
+      return;
+    }
+
+    const allowX = !overflowAxesOnly || geo.x.overflows;
+    const allowY = !overflowAxesOnly || geo.y.overflows;
+    const dimFactor = overflowAxesOnly
+      ? RUBBER_BAND_DIMENSION_FACTOR
+      : RUBBER_BAND_DIMENSION_FACTOR_MOUSE;
+    const dimX = rubberBandPanDimension(geo.viewport.width, nextZoom, dimFactor);
+    const dimY = rubberBandPanDimension(geo.viewport.height, nextZoom, dimFactor);
+    writeHotPose({
+      zoom: nextZoom,
+      offsetX: allowX
+        ? rubberBandClamp(rawX, geo.x.min, geo.x.max, dimX)
+        : clamp(rawX, geo.x.min, geo.x.max),
+      offsetY: allowY
+        ? rubberBandClamp(rawY, geo.y.min, geo.y.max, dimY)
+        : clamp(rawY, geo.y.min, geo.y.max),
+    });
+  };
+
   const zoomIn = () => {
     const { controller, zoomStep } = getDeps();
     const z = controller.getPose().zoom;
@@ -550,6 +597,7 @@ export function createZoomSession(getDeps: () => ZoomSessionDeps): ZoomSession {
     zoomOut,
     changeZoom,
     changeOffsets,
+    applyPinchPan,
     setDragging,
     snapToBounds,
     snapOffsetsToBounds,

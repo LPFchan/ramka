@@ -166,3 +166,87 @@ describe('zoom session discrete zoom retargeting', () => {
     expect(held).toHaveLength(0);
   });
 });
+
+describe('zoom session two-finger pinch-pan', () => {
+  let el: HTMLDivElement;
+
+  beforeEach(() => {
+    el = document.createElement('div');
+    document.body.appendChild(el);
+  });
+
+  afterEach(() => {
+    el.remove();
+  });
+
+  function overflowingGeo(z: number) {
+    const overflows = z > 1;
+    const max = overflows ? 100 : 0;
+    const box = { left: 0, top: 0, width: 400, height: 400, right: 400, bottom: 400 } as DOMRect;
+    return {
+      stage: box,
+      viewport: box,
+      contentW: 400,
+      contentH: 400,
+      x: { min: -max, max, overflows },
+      y: { min: -max, max, overflows },
+    };
+  }
+
+  function makeSession() {
+    const controller = new PoseController({ zoom: 2, offsetX: 0, offsetY: 0 }, { reducedMotion: true });
+    controller.attach(el);
+    const session = createZoomSession(() => ({
+      controller,
+      measureStageLayout: () => overflowingGeo(controller.getPose().zoom),
+      measurePanGeometry: (z) => overflowingGeo(z),
+      clampOffsets: (x, y) => ({ x, y }),
+      minZoom: 1,
+      maxZoom: 8,
+      zoomStep: 2,
+      reducedMotion: true,
+      isDragging: () => true,
+      setDraggingUi: () => {},
+      invalidateLayoutCache: () => {},
+    }));
+    return { session, controller };
+  }
+
+  it('translates with the centroid when zoom is unchanged', () => {
+    const { session, controller } = makeSession();
+    session.actions.applyPinchPan(
+      2,
+      { zoom: 2, offsetX: 0, offsetY: 0, cx: 0, cy: 0 },
+      { x: 60, y: 0 },
+      true,
+    );
+    expect(controller.getPose().zoom).toBe(2);
+    expect(controller.getPose().offsetX).toBeCloseTo(30, 5);
+    expect(controller.getPose().offsetY).toBe(0);
+  });
+
+  it('keeps the origin content point under the moving centroid while scaling', () => {
+    const { session, controller } = makeSession();
+    session.actions.applyPinchPan(
+      4,
+      { zoom: 2, offsetX: 0, offsetY: 0, cx: 0, cy: 0 },
+      { x: 40, y: 0 },
+      true,
+    );
+    expect(controller.getPose().zoom).toBe(4);
+    expect(controller.getPose().offsetX).toBeCloseTo(10, 5);
+  });
+
+  it('does not pan a letterboxed axis on touch', () => {
+    const { session, controller } = makeSession();
+    controller.replacePose({ zoom: 1, offsetX: 0, offsetY: 0 });
+    session.actions.applyPinchPan(
+      1,
+      { zoom: 1, offsetX: 0, offsetY: 0, cx: 0, cy: 0 },
+      { x: 80, y: 40 },
+      true,
+    );
+    expect(controller.getPose().offsetX).toBe(0);
+    expect(controller.getPose().offsetY).toBe(0);
+  });
+});
