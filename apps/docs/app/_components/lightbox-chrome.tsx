@@ -19,7 +19,6 @@ import { ChevronLeft, ChevronRight, X, ZoomIn, ZoomOut } from 'lucide-react';
  *   - content opacity         --lightbox-vt-duration ease-out-expo
  *   - VT root + morph group   library-injected (viewTransition preset timing)
  *   - morph-target hide       library-injected (200ms ease-out-expo)
- *   - active item fade-in     250ms ease-out (keyframe in globals.css)
  *
  * The open/close choreography (backdrop, content, VT root cross-fade, morph)
  * all read `--lightbox-vt-duration` — the Root's `viewTransition` preset
@@ -27,10 +26,10 @@ import { ChevronLeft, ChevronRight, X, ZoomIn, ZoomOut } from 'lucide-react';
  * documentElement (during a morph) — so they resolve as one cohesive motion.
  * Pick a different preset and everything stays in lockstep.
  *
- * The `ease-out-expo` token and `animate-lightbox-item-fade-in` utility
- * are defined in `globals.css` via Tailwind v4's `@theme`. The View
- * Transition pseudo-elements (morph group, root cross-fade) and the
- * morph-target hide are styled by the library's injected stylesheet.
+ * The `ease-out-expo` token is defined in `globals.css` via Tailwind v4's
+ * `@theme`. The View Transition pseudo-elements (morph group, root
+ * cross-fade) and the morph-target hide are styled by the library's
+ * injected stylesheet.
  *
  * The backdrop and chrome fade via their own live opacity transitions —
  * never via the VT root-crossfade snapshot. Crossfading two full-viewport
@@ -439,36 +438,6 @@ export function LightboxNavBar() {
     </div>
   );
 }
-
-/**
- * Wrapper around `Lightbox.ItemGroup` that stacks items absolutely and
- * uses `aria-hidden` / `data-active` to swap the visible item. The
- * `lightbox-demo-item-group` class scopes the entrance fade in
- * item-fade.css (suppressed while a view transition is in flight) to
- * this wrapper's items only.
- */
-export function StackedItemGroup({ children, className, ...rest }: React.ComponentProps<typeof Lightbox.ItemGroup>) {
-  return (
-    <Lightbox.ItemGroup
-      {...rest}
-      className={`lightbox-demo-item-group relative flex w-full flex-1 items-center justify-center overflow-hidden ${className ?? ''}`}
-    >
-      {children}
-    </Lightbox.ItemGroup>
-  );
-}
-
-/**
- * Per-item class for stacked layouts. The active-item fade-in is applied via
- * item-fade.css on `.lightbox-demo-item-group [data-ramka-item][data-active]`
- * (opt out with `[data-skip-fade]`) rather than a Tailwind `data-[active]:`
- * utility, so that the library's `data-skip-fade` flag (set on the View
- * Transition destination item during open) suppresses the entrance fade —
- * otherwise the fade would re-play once the VT layer is torn down and produce
- * a visible flash.
- */
-export const stackedItemClass =
-  'absolute inset-0 flex items-center justify-center aria-hidden:invisible data-[active]:visible';
 
 /**
  * Keyboard focus ring for a `Lightbox.Trigger`. Purely a demo affordance — the

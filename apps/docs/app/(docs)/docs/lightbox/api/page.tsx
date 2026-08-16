@@ -31,7 +31,6 @@ const byConcern: { label: string; links: { href: string; title: string }[] }[] =
     links: [
       { href: lightboxApiHref.slides, title: 'Slides' },
       { href: lightboxApiHref.slide, title: 'Slide' },
-      { href: lightboxApiHref.itemGroup, title: 'ItemGroup' },
     ],
   },
   {

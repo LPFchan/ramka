@@ -14,7 +14,7 @@ export type LightboxExcerpt = {
 export const lightboxExcerpts = {
   "anatomy": {
     title: "Anatomy",
-    code: "import { Lightbox } from 'ramka';\n\n<Lightbox.Root>\n  <Lightbox.Trigger index={0}>{/* thumb */}</Lightbox.Trigger>\n  <Lightbox.Portal>\n    <Lightbox.Backdrop />\n    <Lightbox.Content>\n      <Lightbox.Slides>\n        <Lightbox.Slide>\n          <Lightbox.Item index={0}>\n            <Lightbox.Zoom>\n              <Lightbox.Media>\n                <img alt=\"\" />\n              </Lightbox.Media>\n            </Lightbox.Zoom>\n          </Lightbox.Item>\n        </Lightbox.Slide>\n      </Lightbox.Slides>\n      <Lightbox.Counter />\n      <Lightbox.ZoomOut />\n      <Lightbox.ZoomIn />\n      <Lightbox.Close />\n      <Lightbox.Caption />\n      {/* or stacked swap: Lightbox.ItemGroup > Lightbox.Item */}\n    </Lightbox.Content>\n  </Lightbox.Portal>\n</Lightbox.Root>\n",
+    code: "import { Lightbox } from 'ramka';\n\n<Lightbox.Root>\n  <Lightbox.Trigger index={0}>{/* thumb */}</Lightbox.Trigger>\n  <Lightbox.Portal>\n    <Lightbox.Backdrop />\n    <Lightbox.Content>\n      <Lightbox.Slides>\n        <Lightbox.Slide>\n          <Lightbox.Item index={0}>\n            <Lightbox.Zoom>\n              <Lightbox.Media>\n                <img alt=\"\" />\n              </Lightbox.Media>\n            </Lightbox.Zoom>\n          </Lightbox.Item>\n        </Lightbox.Slide>\n      </Lightbox.Slides>\n      <Lightbox.Counter />\n      <Lightbox.ZoomOut />\n      <Lightbox.ZoomIn />\n      <Lightbox.Close />\n      <Lightbox.Caption />\n    </Lightbox.Content>\n  </Lightbox.Portal>\n</Lightbox.Root>\n",
     source: "app/_content/lightbox/excerpts/sources/anatomy.tsx",
   },
   "chrome-composition": {
@@ -36,11 +36,6 @@ export const lightboxExcerpts = {
     title: "crossfade=\"both\"",
     code: "import { Lightbox } from 'ramka';\n\n<Lightbox.Root morphTo=\"closest\">\n  <Lightbox.Trigger index={0} crossfade=\"both\">\n    {({ imageRef }) => (\n      <div className=\"relative\">\n        <Image ref={imageRef} src={photo} alt=\"\" placeholder=\"blur\" />\n        <span>+{extras}</span>\n      </div>\n    )}\n  </Lightbox.Trigger>\n  <Lightbox.Portal>\n    <Lightbox.Backdrop />\n    <Lightbox.Content>\n      <Lightbox.Slides>\n        <Lightbox.Slide>\n          <Lightbox.Item index={0}>\n            {({ imageRef }) => <Image ref={imageRef} src={photo} alt=\"\" sizes=\"100vw\" priority />}\n          </Lightbox.Item>\n        </Lightbox.Slide>\n      </Lightbox.Slides>\n    </Lightbox.Content>\n  </Lightbox.Portal>\n</Lightbox.Root>\n",
     source: "app/_content/lightbox/excerpts/sources/crossfade-both.tsx",
-  },
-  "item-group-preload": {
-    title: "ItemGroup + preload",
-    code: "import { Lightbox } from 'ramka';\n\n<Lightbox.Root>\n  <Lightbox.Portal>\n    <Lightbox.Backdrop />\n    <Lightbox.Content>\n      <Lightbox.ItemGroup preload={1}>\n        {items.map((item, i) => (\n          <Lightbox.Item key={item.id} index={i}>\n            {({ active, visible }) =>\n              visible ? (\n                <img\n                  src={item.src}\n                  alt={item.alt}\n                  // Prefer active for expensive work; visible includes preload neighbors.\n                  data-active={active || undefined}\n                />\n              ) : null\n            }\n          </Lightbox.Item>\n        ))}\n      </Lightbox.ItemGroup>\n    </Lightbox.Content>\n  </Lightbox.Portal>\n</Lightbox.Root>\n",
-    source: "app/_content/lightbox/excerpts/sources/item-group-preload.tsx",
   },
   "lifecycle-callbacks": {
     title: "Lifecycle callbacks",

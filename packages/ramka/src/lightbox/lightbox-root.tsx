@@ -283,6 +283,19 @@ function LightboxRoot(props: LightboxRootProps) {
     const [uncontrolledValue, setUncontrolledValue] = React.useState(defaultValue);
     const activeIndex = isControlledValue ? valueProp : uncontrolledValue;
 
+    // Same-commit direction (not a post-paint effect) so Slides' data-direction
+    // matches the index that just changed — including controlled `value` updates
+    // that never go through `setActiveIndex`.
+    const [navMeta, setNavMeta] = React.useState<{
+      index: number;
+      direction: 'forward' | 'backward';
+    }>({ index: activeIndex, direction: 'forward' });
+    let direction = navMeta.direction;
+    if (activeIndex !== navMeta.index) {
+      direction = activeIndex > navMeta.index ? 'forward' : 'backward';
+      setNavMeta({ index: activeIndex, direction });
+    }
+
     const onValueChangeRef = React.useRef(onValueChange);
     React.useEffect(() => {
       onValueChangeRef.current = onValueChange;
@@ -1014,6 +1027,7 @@ function LightboxRoot(props: LightboxRootProps) {
         openTransitionPendingRef,
         subscribeOpenComplete,
         activeIndex,
+        direction,
         setActiveIndex,
         navigationLockedRef,
         itemCount,
@@ -1057,6 +1071,7 @@ function LightboxRoot(props: LightboxRootProps) {
         preparing,
         subscribeOpenComplete,
         activeIndex,
+        direction,
         setActiveIndex,
         itemCount,
         registerItem,

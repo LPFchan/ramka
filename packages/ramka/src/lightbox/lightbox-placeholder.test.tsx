@@ -5,8 +5,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { LightboxContent } from './lightbox-content';
 import { LightboxPortal } from './lightbox-portal';
 import { LightboxItem } from './lightbox-item';
-import { LightboxItemGroup } from './lightbox-item-group';
 import { LightboxMedia } from './lightbox-media';
+import { SlidesHost } from './lightbox-slides-test-utils';
 import { LightboxRoot } from './lightbox-root';
 import { LightboxTrigger } from './lightbox-trigger';
 import { LightboxZoom } from './lightbox-zoom';
@@ -156,11 +156,11 @@ describe('render-fn placeholder wiring (Trigger imageRef -> Item imageRef)', () 
         </LightboxTrigger>
         <LightboxPortal>
           <LightboxContent aria-label="viewer">
-            <LightboxItemGroup>
+            <SlidesHost>
               <LightboxItem index={0}>
                 {({ imageRef }) => <img ref={imageRef} src="/full.jpg" alt="full" className="object-contain" />}
               </LightboxItem>
-            </LightboxItemGroup>
+            </SlidesHost>
           </LightboxContent>
         </LightboxPortal>
       </LightboxRoot>,
@@ -183,11 +183,11 @@ describe('render-fn placeholder wiring (Trigger imageRef -> Item imageRef)', () 
         </LightboxTrigger>
         <LightboxPortal>
           <LightboxContent aria-label="viewer">
-            <LightboxItemGroup>
+            <SlidesHost>
               <LightboxItem index={0}>
                 {({ imageRef }) => <img ref={imageRef} src="/full.jpg" alt="full" />}
               </LightboxItem>
-            </LightboxItemGroup>
+            </SlidesHost>
           </LightboxContent>
         </LightboxPortal>
       </LightboxRoot>,
@@ -225,11 +225,11 @@ describe('render-fn placeholder wiring (Trigger imageRef -> Item imageRef)', () 
         </LightboxTrigger>
         <LightboxPortal>
           <LightboxContent aria-label="viewer">
-            <LightboxItemGroup>
+            <SlidesHost>
               <LightboxItem index={0}>
                 {({ imageRef }) => <img ref={imageRef} src="/full.jpg" alt="full" />}
               </LightboxItem>
-            </LightboxItemGroup>
+            </SlidesHost>
           </LightboxContent>
         </LightboxPortal>
       </LightboxRoot>,
@@ -274,7 +274,7 @@ describe('render-fn placeholder wiring (Trigger imageRef -> Item imageRef)', () 
           </button>
           <LightboxPortal>
             <LightboxContent aria-label="viewer">
-              <LightboxItemGroup preload={0}>
+              <SlidesHost preload={0}>
                 <LightboxItem index={0}>
                   {({ imageRef }) => <img ref={imageRef} src="/full-0.jpg" alt="0" />}
                 </LightboxItem>
@@ -284,7 +284,7 @@ describe('render-fn placeholder wiring (Trigger imageRef -> Item imageRef)', () 
                 <LightboxItem index={2}>
                   {({ imageRef }) => <img ref={imageRef} src="/full-2.jpg" alt="2" />}
                 </LightboxItem>
-              </LightboxItemGroup>
+              </SlidesHost>
             </LightboxContent>
           </LightboxPortal>
         </LightboxRoot>
@@ -313,11 +313,11 @@ describe('render-fn placeholder wiring (Trigger imageRef -> Item imageRef)', () 
         </LightboxTrigger>
         <LightboxPortal>
           <LightboxContent aria-label="viewer">
-            <LightboxItemGroup>
+            <SlidesHost>
               <LightboxItem index={0}>
                 {({ imageRef }) => <img ref={imageRef} src="/full.jpg" alt="full" />}
               </LightboxItem>
-            </LightboxItemGroup>
+            </SlidesHost>
           </LightboxContent>
         </LightboxPortal>
       </LightboxRoot>,
@@ -340,11 +340,11 @@ describe('render-fn placeholder wiring (Trigger imageRef -> Item imageRef)', () 
         </LightboxTrigger>
         <LightboxPortal>
           <LightboxContent aria-label="viewer">
-            <LightboxItemGroup>
+            <SlidesHost>
               <LightboxItem index={0}>
                 {({ imageRef }) => <img ref={imageRef} src="/full.jpg" alt="full" />}
               </LightboxItem>
-            </LightboxItemGroup>
+            </SlidesHost>
           </LightboxContent>
         </LightboxPortal>
       </LightboxRoot>,
@@ -365,11 +365,11 @@ describe('render-fn placeholder wiring (Trigger imageRef -> Item imageRef)', () 
         </LightboxTrigger>
         <LightboxPortal>
           <LightboxContent aria-label="viewer">
-            <LightboxItemGroup>
+            <SlidesHost>
               <LightboxItem index={0}>
                 {({ imageRef }) => <img ref={imageRef} src="/full.jpg" alt="full" />}
               </LightboxItem>
-            </LightboxItemGroup>
+            </SlidesHost>
           </LightboxContent>
         </LightboxPortal>
       </LightboxRoot>,
@@ -395,7 +395,7 @@ describe('render-fn placeholder wiring (Trigger imageRef -> Item imageRef)', () 
         </LightboxTrigger>
         <LightboxPortal>
           <LightboxContent aria-label="viewer">
-            <LightboxItemGroup>
+            <SlidesHost>
               <LightboxItem index={0}>
                 {({ imageRef, morphRef }) => (
                   <div ref={morphRef} data-testid="item-morph">
@@ -403,7 +403,7 @@ describe('render-fn placeholder wiring (Trigger imageRef -> Item imageRef)', () 
                   </div>
                 )}
               </LightboxItem>
-            </LightboxItemGroup>
+            </SlidesHost>
           </LightboxContent>
         </LightboxPortal>
       </LightboxRoot>,
@@ -428,11 +428,11 @@ describe('render-fn placeholder wiring (Trigger imageRef -> Item imageRef)', () 
         </LightboxTrigger>
         <LightboxPortal>
           <LightboxContent aria-label="viewer">
-            <LightboxItemGroup>
+            <SlidesHost>
               <LightboxItem index={0}>
                 {({ imageRef }) => <img ref={imageRef} src="/full.jpg" alt="full" />}
               </LightboxItem>
-            </LightboxItemGroup>
+            </SlidesHost>
           </LightboxContent>
         </LightboxPortal>
       </LightboxRoot>,
@@ -470,7 +470,7 @@ describe('Lightbox.Media (morph + placeholder host)', () => {
         </LightboxTrigger>
         <LightboxPortal>
           <LightboxContent aria-label="viewer">
-            <LightboxItemGroup>
+            <SlidesHost>
               <LightboxItem index={0}>
                 <LightboxZoom>
                   <LightboxMedia data-testid="media" style={{ width: 400, height: 300 }}>
@@ -478,7 +478,7 @@ describe('Lightbox.Media (morph + placeholder host)', () => {
                   </LightboxMedia>
                 </LightboxZoom>
               </LightboxItem>
-            </LightboxItemGroup>
+            </SlidesHost>
           </LightboxContent>
         </LightboxPortal>
       </LightboxRoot>,
@@ -510,7 +510,7 @@ describe('Lightbox.Media (morph + placeholder host)', () => {
         </LightboxTrigger>
         <LightboxPortal>
           <LightboxContent aria-label="viewer">
-            <LightboxItemGroup>
+            <SlidesHost>
               <LightboxItem index={0}>
                 <LightboxZoom data-testid="zoom">
                   <LightboxMedia data-testid="media">
@@ -518,7 +518,7 @@ describe('Lightbox.Media (morph + placeholder host)', () => {
                   </LightboxMedia>
                 </LightboxZoom>
               </LightboxItem>
-            </LightboxItemGroup>
+            </SlidesHost>
           </LightboxContent>
         </LightboxPortal>
       </LightboxRoot>,
@@ -557,7 +557,7 @@ describe('Lightbox.Media (morph + placeholder host)', () => {
         </LightboxTrigger>
         <LightboxPortal>
           <LightboxContent aria-label="viewer">
-            <LightboxItemGroup>
+            <SlidesHost>
               <LightboxItem index={0}>
                 {({ imageRef }) => (
                   <div data-testid="diy-host">
@@ -565,7 +565,7 @@ describe('Lightbox.Media (morph + placeholder host)', () => {
                   </div>
                 )}
               </LightboxItem>
-            </LightboxItemGroup>
+            </SlidesHost>
           </LightboxContent>
         </LightboxPortal>
       </LightboxRoot>,
@@ -583,7 +583,7 @@ describe('Lightbox.Media (morph + placeholder host)', () => {
       <LightboxRoot defaultOpen>
         <LightboxPortal>
           <LightboxContent aria-label="viewer">
-            <LightboxItemGroup>
+            <SlidesHost>
               <LightboxItem index={0}>
                 <LightboxZoom>
                   <LightboxMedia data-testid="media" width={1600} height={900}>
@@ -591,7 +591,7 @@ describe('Lightbox.Media (morph + placeholder host)', () => {
                   </LightboxMedia>
                 </LightboxZoom>
               </LightboxItem>
-            </LightboxItemGroup>
+            </SlidesHost>
           </LightboxContent>
         </LightboxPortal>
       </LightboxRoot>,
@@ -624,7 +624,7 @@ describe('Lightbox.Media (morph + placeholder host)', () => {
       <LightboxRoot defaultOpen>
         <LightboxPortal>
           <LightboxContent aria-label="viewer">
-            <LightboxItemGroup>
+            <SlidesHost>
               <LightboxItem index={0}>
                 <LightboxZoom>
                   <LightboxMedia data-testid="media" width={800} height={600}>
@@ -632,7 +632,7 @@ describe('Lightbox.Media (morph + placeholder host)', () => {
                   </LightboxMedia>
                 </LightboxZoom>
               </LightboxItem>
-            </LightboxItemGroup>
+            </SlidesHost>
           </LightboxContent>
         </LightboxPortal>
       </LightboxRoot>,
@@ -663,13 +663,13 @@ describe('Lightbox.Media (morph + placeholder host)', () => {
       <LightboxRoot defaultOpen>
         <LightboxPortal>
           <LightboxContent aria-label="viewer">
-            <LightboxItemGroup>
+            <SlidesHost>
               <LightboxItem index={0}>
                 <LightboxMedia data-testid="media">
                   <img width={800} height={400} src="/full.jpg" alt="full" />
                 </LightboxMedia>
               </LightboxItem>
-            </LightboxItemGroup>
+            </SlidesHost>
           </LightboxContent>
         </LightboxPortal>
       </LightboxRoot>,
@@ -689,13 +689,13 @@ describe('Lightbox.Media (morph + placeholder host)', () => {
         </LightboxTrigger>
         <LightboxPortal>
           <LightboxContent aria-label="viewer">
-            <LightboxItemGroup>
+            <SlidesHost>
               <LightboxItem index={0}>
                 <LightboxMedia data-testid="media">
                   <video src="/clip.mp4" poster="/poster.jpg" />
                 </LightboxMedia>
               </LightboxItem>
-            </LightboxItemGroup>
+            </SlidesHost>
           </LightboxContent>
         </LightboxPortal>
       </LightboxRoot>,

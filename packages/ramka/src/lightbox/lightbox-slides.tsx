@@ -6,7 +6,6 @@ import * as React from 'react';
 
 import { LightboxSlidesDataAttributes } from './lightbox-data-attributes';
 import { useLightboxContext } from './lightbox-context';
-import { LightboxItemGroupContext, type LightboxItemGroupContextValue } from './lightbox-item-group';
 import {
   measureSlidesGeometry,
   slideIndexFromScrollLeft,
@@ -63,11 +62,18 @@ import { useLightboxZoomPublish } from './lightbox-zoom-context';
  * ## Direct Lightbox integration
  *
  * Reads/writes the Lightbox's own `activeIndex` directly — no external scroll
- * primitive and no state-sync bridge. It also provides the item-group context so
- * `Lightbox.Item`s inside `Lightbox.Slide`s get active/preload/direction, and
- * carries `data-orientation` so shared CSS (e.g. disabling item entrance fades
- * inside a scroller) keeps working.
+ * primitive and no state-sync bridge. Publishes `preload` so `Lightbox.Item`s
+ * inside `Lightbox.Slide`s gate their contents, and carries `data-orientation`
+ * so shared CSS (e.g. disabling item entrance fades inside a scroller) keeps
+ * working.
  */
+
+/** How many neighbors of the active item keep their Item contents mounted. */
+const LightboxSlidesPreloadContext = React.createContext(Number.POSITIVE_INFINITY);
+
+function useSlidesPreload(): number {
+  return React.useContext(LightboxSlidesPreloadContext);
+}
 
 interface LightboxSlidesState extends Record<string, unknown> {
   activeIndex: number;
@@ -118,9 +124,9 @@ const LightboxSlides = React.forwardRef<HTMLDivElement, LightboxSlidesProps>(
     const { render, preload = 1, style, ...elementProps } = props;
     const {
       activeIndex,
+      direction,
       setActiveIndex,
       navigationLockedRef,
-      loop,
       itemCount,
       slidesViewportRef,
       slidesGeometryRef,
@@ -512,28 +518,13 @@ const LightboxSlides = React.forwardRef<HTMLDivElement, LightboxSlidesProps>(
       };
     }, [indexFromScroll, setActiveIndex, navigationLockedRef, activeZoomRef]);
 
-    // Direction (used by item-entrance CSS / consumers). Mirrors ItemGroup.
-    const prevIndexRef = React.useRef(activeIndex);
-    const [direction, setDirection] = React.useState<'forward' | 'backward'>('forward');
-    React.useEffect(() => {
-      if (activeIndex !== prevIndexRef.current) {
-        setDirection(activeIndex > prevIndexRef.current ? 'forward' : 'backward');
-        prevIndexRef.current = activeIndex;
-      }
-    }, [activeIndex]);
-
-    const groupContext = React.useMemo<LightboxItemGroupContextValue>(
-      () => ({ activeIndex, preload, direction, loop, itemCount }),
-      [activeIndex, preload, direction, loop, itemCount],
-    );
-
     const state = React.useMemo<LightboxSlidesState>(
       () => ({ activeIndex, direction }),
       [activeIndex, direction],
     );
 
     return (
-      <LightboxItemGroupContext.Provider value={groupContext}>
+      <LightboxSlidesPreloadContext.Provider value={preload}>
         {useRender({
           render,
           ref: mergedRef,
@@ -577,12 +568,12 @@ const LightboxSlides = React.forwardRef<HTMLDivElement, LightboxSlidesProps>(
           ),
           defaultTagName: 'div',
         })}
-      </LightboxItemGroupContext.Provider>
+      </LightboxSlidesPreloadContext.Provider>
     );
   },
 );
 
 LightboxSlides.displayName = 'LightboxSlides';
 
-export { LightboxSlides };
+export { LightboxSlides, useSlidesPreload };
 export type { LightboxSlidesProps, LightboxSlidesState };

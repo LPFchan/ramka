@@ -31,7 +31,7 @@ interface LightboxStageProps extends useRender.ComponentProps<'div', LightboxSta
  * <Lightbox.Content aria-label="Post">
  *   <Lightbox.Stage className="media-pane">
  *     <Lightbox.Close />
- *     <Lightbox.ItemGroup>{…}</Lightbox.ItemGroup>
+ *     <Lightbox.Slides>{…}</Lightbox.Slides>
  *     <Lightbox.Previous />
  *     <Lightbox.Next />
  *   </Lightbox.Stage>

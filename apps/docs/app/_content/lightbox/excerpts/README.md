@@ -41,9 +41,9 @@ Demo CSS lives under [`app/lightbox-demo/`](../../../lightbox-demo/) and is impo
 **Region** — inside any `lightbox-demo/*.css` file:
 
 ```css
-/* @docs-excerpt-start item-fade */
-/* @docs-excerpt-title Item fade-in */
-[data-ramka-item][data-active] { … }
+/* @docs-excerpt-start open-close-css */
+/* @docs-excerpt-title Open / close fade */
+.lightbox-demo-backdrop[data-open] { … }
 /* @docs-excerpt-end */
 ```
 

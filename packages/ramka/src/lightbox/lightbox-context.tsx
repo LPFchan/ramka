@@ -60,6 +60,11 @@ interface LightboxContextValue {
    */
   subscribeOpenComplete: (listener: () => void) => () => void;
   activeIndex: number;
+  /**
+   * Last navigation direction, updated in the same commit as `activeIndex`.
+   * `Lightbox.Slides` exposes it as `data-direction` for consumer CSS.
+   */
+  direction: 'forward' | 'backward';
   setActiveIndex: (index: number, source: NavigationSource) => void;
   /**
    * Set by a scroller (e.g. `Lightbox.Slides`) while a *user* scroll/fling is in
@@ -73,8 +78,8 @@ interface LightboxContextValue {
    *     turns vertical mid-gesture must not pull until the user has released.
    *   - zoom/pan gestures won't start or continue (a swipe can't be hijacked
    *     into a pinch — including a second finger landing mid-scroll).
-   * Stays `false` when no scroller writes it (non-`Slides` lightboxes), so their
-   * navigation and gestures are never gated.
+   * Stays `false` when no Slides scroller writes it, so navigation and
+   * gestures are never gated.
    */
   navigationLockedRef: React.MutableRefObject<boolean>;
   itemCount: number;

@@ -6,7 +6,7 @@ import * as React from 'react';
 
 import { LightboxItemDataAttributes } from './lightbox-data-attributes';
 import { useLightboxContext } from './lightbox-context';
-import { useLightboxItemGroupContext } from './lightbox-item-group';
+import { useSlidesPreload } from './lightbox-slides';
 
 interface LightboxItemState extends Record<string, unknown> {
   active: boolean;
@@ -234,9 +234,10 @@ function tryPaintCanvasPlaceholder(args: CanvasPlaceholderArgs): (() => void) | 
 }
 
 /**
- * An individual lightbox item. Only renders when within the preload
- * window (active index +/- preload distance). Supports both static
- * children and render-prop children for lazy loading.
+ * An individual lightbox item. Inside `Lightbox.Slides`, only renders when
+ * within the preload window (active index +/- preload distance). Outside
+ * Slides, every item stays mounted. Supports both static children and
+ * render-prop children for lazy loading.
  *
  * When the item is active, registers its DOM element in context
  * so view transitions can morph to/from it.
@@ -257,6 +258,9 @@ const LightboxItem = React.forwardRef<HTMLDivElement, LightboxItemProps>(
     const {
       registerCaption,
       registerItem,
+      activeIndex,
+      loop,
+      itemCount,
       activeItemElementRef,
       itemMorphElementsRef,
       openingTriggerIndexRef,
@@ -269,14 +273,12 @@ const LightboxItem = React.forwardRef<HTMLDivElement, LightboxItemProps>(
       baseId,
       hasTablist,
     } = useLightboxContext();
-    const groupContext = useLightboxItemGroupContext();
+    const preload = useSlidesPreload();
 
-    const activeIndex = groupContext.activeIndex;
-    const preload = groupContext.preload;
     const isActive = index === activeIndex;
     const linearDist = Math.abs(index - activeIndex);
-    const distance = groupContext.loop && groupContext.itemCount > 0
-      ? Math.min(linearDist, groupContext.itemCount - linearDist)
+    const distance = loop && itemCount > 0
+      ? Math.min(linearDist, itemCount - linearDist)
       : linearDist;
     const isVisible = distance <= preload;
 
@@ -583,7 +585,7 @@ const LightboxItem = React.forwardRef<HTMLDivElement, LightboxItemProps>(
     //    `role="group"` + `aria-roledescription="slide"` with an `N of total`
     //    accessible name (group elements can't use aria-posinset/setsize, so the
     //    APG carousel pattern folds the position into the label).
-    const total = groupContext.itemCount;
+    const total = itemCount;
     const panelId = `${baseId}-panel-${index}`;
     const tabId = `${baseId}-tab-${index}`;
     const semanticProps: Record<string, string> = hasTablist
@@ -620,7 +622,7 @@ const LightboxItem = React.forwardRef<HTMLDivElement, LightboxItemProps>(
           'aria-hidden': !isActive,
           inert: !isActive ? true : undefined,
           style: {
-            // Fill the Slide (or stacked host) so Zoom’s 100% has a definite box.
+            // Fill the Slide so Zoom’s 100% has a definite box.
             width: '100%',
             height: '100%',
             ...style,
