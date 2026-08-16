@@ -38,13 +38,18 @@ interface LightboxItemContextValue {
    * placeholder target. Prefer Media over wiring `morphRef` manually.
    */
   registerMedia: (node: HTMLElement | null) => void;
+  /**
+   * Called by `Lightbox.Media` so Item can flip `data-placeholder` when it
+   * inserts or removes the canvas underlay. Ref-based — does not re-render Item.
+   */
+  registerPlaceholder: (setPlaceholder: ((on: boolean) => void) | null) => void;
 }
 
 const LightboxItemContext = React.createContext<LightboxItemContextValue | null>(null);
 
 /**
  * Optional context from the enclosing Item. Returns
- * `{ index, active, imageRef, morphRef, registerMedia }`, or `null` outside an Item.
+ * `{ index, active, imageRef, morphRef, registerMedia, registerPlaceholder }`, or `null` outside an Item.
  */
 function useOptionalLightboxItemContext(): LightboxItemContextValue | null {
   return React.useContext(LightboxItemContext);
@@ -209,6 +214,11 @@ const LightboxItem = React.forwardRef<HTMLDivElement, LightboxItemProps>(
       [registerMorphElement],
     );
 
+    const setMediaPlaceholderRef = React.useRef<((on: boolean) => void) | null>(null);
+    const registerPlaceholder = React.useCallback((setPlaceholder: ((on: boolean) => void) | null) => {
+      setMediaPlaceholderRef.current = setPlaceholder;
+    }, []);
+
     // Bridge the blank frame until the destination image loads: paint this
     // index's already-decoded trigger thumbnail into a `<canvas>` behind the
     // image (falling back to a CSS background when a canvas is unavailable),
@@ -299,7 +309,12 @@ const LightboxItem = React.forwardRef<HTMLDivElement, LightboxItemProps>(
 
       let restore: () => void;
       if (canvasRestore) {
-        restore = canvasRestore;
+        const notifyMedia = canvasHost === mediaNodeRef.current;
+        if (notifyMedia) setMediaPlaceholderRef.current?.(true);
+        restore = () => {
+          canvasRestore();
+          if (notifyMedia) setMediaPlaceholderRef.current?.(false);
+        };
       } else {
         // Fallback: paint the thumbnail as the <img>'s own CSS background. Size
         // it OURSELVES in px (not the `cover|contain` keyword, which resolves
@@ -458,8 +473,8 @@ const LightboxItem = React.forwardRef<HTMLDivElement, LightboxItemProps>(
         };
 
     const itemContextValue = React.useMemo<LightboxItemContextValue>(
-      () => ({ index, active: isActive, imageRef, morphRef, registerMedia }),
-      [index, isActive, imageRef, morphRef, registerMedia],
+      () => ({ index, active: isActive, imageRef, morphRef, registerMedia, registerPlaceholder }),
+      [index, isActive, imageRef, morphRef, registerMedia, registerPlaceholder],
     );
 
     // useRender is a hook — must always be called regardless of visibility

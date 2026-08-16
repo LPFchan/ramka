@@ -541,7 +541,7 @@ describe('Lightbox.Media (morph + placeholder host)', () => {
     // Canvas must not live on Zoom's transform wrapper (Media's parent under Zoom).
     expect(canvas!.parentElement).toBe(media);
 
-    // data-placeholder flips via MutationObserver → React state.
+    // data-placeholder flips when Item notifies Media after inserting the canvas.
     await act(async () => undefined);
     expect(media).toHaveAttribute('data-placeholder');
 
