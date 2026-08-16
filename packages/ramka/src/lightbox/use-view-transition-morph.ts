@@ -3,6 +3,7 @@
 import type * as React from 'react';
 import { flushSync } from 'react-dom';
 
+import { isAndroidBlinkSnapshotRoot } from './is-android-blink';
 import { isFirefox } from './is-firefox';
 import { acquireVtTouchGuard } from './vt-touch-guard';
 import { maybeTraceViewTransition } from './vt-debug';
@@ -43,6 +44,91 @@ function startViewTransition(
       };
     }
   ).startViewTransition(callback);
+}
+
+/**
+ * Android Chrome aborts a view transition if the snapshot root size changes
+ * between old and new capture (URL-bar show/hide). Wait until layout
+ * `innerHeight` and `visualViewport.height` agree **and stay still**.
+ *
+ * A one-shot "heights differ → wait until they match" is not enough: the bar
+ * animation can pass through a matching frame (or sit in a stable mismatch)
+ * and then keep moving during capture. Do not treat a stable mismatch as
+ * settled.
+ *
+ * Only invoked on mobile Blink (see `shouldWaitForSnapshotRootSettle`). jsdom
+ * has no compositor; skip so a stray call cannot defer tests off the click tick.
+ */
+const SNAPSHOT_ROOT_STABLE_FRAMES = 8;
+const SNAPSHOT_ROOT_SETTLE_MAX_MS = 1000;
+
+function readSnapshotRoot(): {
+  innerW: number;
+  innerH: number;
+  vvH: number | null;
+  scrollX: number;
+  scrollY: number;
+} {
+  const vv = typeof window !== 'undefined' ? window.visualViewport : null;
+  return {
+    innerW: window.innerWidth,
+    innerH: window.innerHeight,
+    vvH: vv?.height ?? null,
+    scrollX: Math.round(window.scrollX),
+    scrollY: Math.round(window.scrollY),
+  };
+}
+
+function snapshotRootKey(snap: ReturnType<typeof readSnapshotRoot>): string {
+  return `${snap.innerW}x${snap.innerH}|vv:${snap.vvH ?? 'n'}|s:${snap.scrollX},${snap.scrollY}`;
+}
+
+function layoutMatchesVisualViewport(snap: ReturnType<typeof readSnapshotRoot>): boolean {
+  if (snap.vvH == null) return true;
+  return Math.abs(snap.innerH - snap.vvH) <= 1;
+}
+
+function waitForStableSnapshotRoot(): Promise<void> {
+  if (typeof navigator !== 'undefined' && /jsdom/i.test(navigator.userAgent)) {
+    return Promise.resolve();
+  }
+  return new Promise((resolve) => {
+    const t0 = performance.now();
+    let lastKey = snapshotRootKey(readSnapshotRoot());
+    let stable = 0;
+    const tick = () => {
+      const snap = readSnapshotRoot();
+      const key = snapshotRootKey(snap);
+      const aligned = layoutMatchesVisualViewport(snap);
+      const elapsed = performance.now() - t0;
+      if (key === lastKey && aligned) {
+        stable += 1;
+      } else {
+        lastKey = key;
+        stable = 0;
+      }
+      if (
+        stable >= SNAPSHOT_ROOT_STABLE_FRAMES ||
+        (elapsed >= SNAPSHOT_ROOT_SETTLE_MAX_MS && aligned) ||
+        elapsed >= SNAPSHOT_ROOT_SETTLE_MAX_MS * 1.5
+      ) {
+        resolve();
+        return;
+      }
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  });
+}
+
+/**
+ * Blink on Android includes URL-bar outsets in the view-transition snapshot
+ * root. Desktop Chromium and WebKit (Safari, and every iOS browser) do not
+ * have that abort, so they skip the settle wait.
+ */
+function shouldWaitForSnapshotRootSettle(): boolean {
+  if (typeof navigator !== 'undefined' && /jsdom/i.test(navigator.userAgent)) return false;
+  return isAndroidBlinkSnapshotRoot();
 }
 
 /**
@@ -652,7 +738,7 @@ interface ViewTransitionMorphConfig {
    * open or `onBeforeOpen` failure).
    */
   commitAbortPrepare: () => void;
-  /** flushSync body that flips React state to the closed/unmounted state. */
+  /** flushSync body that hides the viewer; unmount waits for onCloseComplete. */
   commitClose: () => void;
   /** Fired once the open morph settles (and its generation is still current). */
   onOpenComplete: () => void;
@@ -827,6 +913,17 @@ function createViewTransitionMorph(getConfig: () => ViewTransitionMorphConfig): 
       beforeOpenAbortRef.current = null;
     }
 
+    // Don't capture while Android Chrome's URL bar is still moving. Desktop
+    // and WebKit skip this — they don't share that snapshot-root abort.
+    if (shouldWaitForSnapshotRootSettle()) {
+      await waitForStableSnapshotRoot();
+      if (getConfig().closeGenRef.current !== gen) {
+        flushSync(commitAbortPrepare);
+        releaseTouchGuard();
+        return;
+      }
+    }
+
     // Read the destination item's border-radius here, after the mount. The
     // slides' layout effect (measureGeometry) has already forced layout during
     // commitPrepare above, so style/layout are clean and this read is cheap —
@@ -964,11 +1061,9 @@ function createViewTransitionMorph(getConfig: () => ViewTransitionMorphConfig): 
     const docEl = document.documentElement;
     const gen = closeGenRef.current;
 
-    // Same guard as the open morph: Content unmounts at close start
-    // (commitClose runs inside the transition callback), so for the whole
-    // close animation a touch pan resolves to <html> with nothing left to
-    // contain it — Safari would expand its address bar and resize the
-    // viewport mid-morph.
+    // Same guard as the open morph: the portal is hidden until close
+    // `finished`, so a touch pan can resolve to <html> and expand Safari's
+    // address bar mid-morph.
     const releaseTouchGuard = acquireVtTouchGuard();
 
     const itemEl = activeItemElementRef.current;

@@ -203,11 +203,10 @@ const LightboxContent = React.forwardRef<HTMLDivElement, LightboxContentProps>(
       return () => el.removeEventListener('focusout', handleFocusOut);
     }, [mounted]);
 
-    // NOTE: the document scroll lock lives in Lightbox.Root (not here). Content
-    // unmounts at the *start* of the VT close (commitClose runs inside the
-    // transition callback), so a lock tied to Content's lifecycle would release
-    // mid-animation and let the page scroll behind the closing transition. Root
-    // outlives the transition and holds the lock until close completes.
+    // NOTE: the document scroll lock lives in Lightbox.Root (not here). During
+    // VT close Content stays mounted (paint-suppressed via `preparing`) until
+    // `finished`, but `open` is already false — a lock tied to Content would
+    // still release too early. Root holds the lock until close completes.
 
     // Prevent native pinch-zoom gestures (touch and trackpad) for the entire
     // time the lightbox is mounted.
@@ -535,9 +534,10 @@ const LightboxContent = React.forwardRef<HTMLDivElement, LightboxContentProps>(
         // chaining out to the page, including after the lightbox closes.
         // Consumers can still override via the `style` prop.
         //
-        // While `preparing` (VT pre-mount) or parked closed with keepMounted,
-        // force `visibility: hidden` (+ pointer-events none when parked) so
-        // the node can stay mounted without painting or intercepting input.
+        // While `preparing` (VT open pre-mount / VT close hold) or parked
+        // closed with keepMounted, force `visibility: hidden` (+ pointer-events
+        // none when parked) so the node can stay mounted without painting or
+        // intercepting input.
         style: {
           overflow: 'hidden',
           overscrollBehavior: 'contain',

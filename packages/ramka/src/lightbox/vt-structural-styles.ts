@@ -67,7 +67,9 @@ function buildCss(): string {
 
 @media (prefers-reduced-motion: no-preference) {
   /* Root snapshot cross-fade — the page-behind transition. Kept as a SINGLE
-     root group: WebKit rasterizes each named group on the CPU. */
+     root group: WebKit rasterizes each named group on the CPU. Lightbox
+     chrome (thumbnails, zoom controls) fades with this snapshot — never as
+     its own fullscreen named group. */
   :root[${vt}]::view-transition-old(root),
   :root[${vt}]::view-transition-new(root) {
     animation-duration: ${duration};
