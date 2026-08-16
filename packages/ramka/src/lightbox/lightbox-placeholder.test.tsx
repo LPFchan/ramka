@@ -214,6 +214,8 @@ describe('render-fn placeholder wiring (Trigger imageRef -> Item imageRef)', () 
   });
 
   it('holds the placeholder until the open transition finishes, even after the image paints', async () => {
+    const { loadMorphRuntime } = await import('./lightbox-morph-loader');
+    await loadMorphRuntime();
     const { resolveFinished } = mockViewTransitionAPI();
 
     render(
@@ -251,6 +253,54 @@ describe('render-fn placeholder wiring (Trigger imageRef -> Item imageRef)', () 
     // Only once the open transition finishes does the placeholder clear.
     await act(async () => resolveFinished());
     expect(img.style.backgroundImage).toBe('');
+  });
+
+  it('paints the matching trigger when navigating past the preload window', () => {
+    function Harness() {
+      const [value, setValue] = React.useState(0);
+      return (
+        <LightboxRoot value={value} onValueChange={setValue}>
+          <LightboxTrigger index={0} data-testid="trigger-0">
+            {({ imageRef }) => <img ref={imageRef} src="/thumb-0.jpg" alt="0" />}
+          </LightboxTrigger>
+          <LightboxTrigger index={1} data-testid="trigger-1">
+            {({ imageRef }) => <img ref={imageRef} src="/thumb-1.jpg" alt="1" />}
+          </LightboxTrigger>
+          <LightboxTrigger index={2} data-testid="trigger-2">
+            {({ imageRef }) => <img ref={imageRef} src="/thumb-2.jpg" alt="2" />}
+          </LightboxTrigger>
+          <button type="button" data-testid="jump" onClick={() => setValue(2)}>
+            jump
+          </button>
+          <LightboxPortal>
+            <LightboxContent aria-label="viewer">
+              <LightboxItemGroup preload={0}>
+                <LightboxItem index={0}>
+                  {({ imageRef }) => <img ref={imageRef} src="/full-0.jpg" alt="0" />}
+                </LightboxItem>
+                <LightboxItem index={1}>
+                  {({ imageRef }) => <img ref={imageRef} src="/full-1.jpg" alt="1" />}
+                </LightboxItem>
+                <LightboxItem index={2}>
+                  {({ imageRef }) => <img ref={imageRef} src="/full-2.jpg" alt="2" />}
+                </LightboxItem>
+              </LightboxItemGroup>
+            </LightboxContent>
+          </LightboxPortal>
+        </LightboxRoot>
+      );
+    }
+
+    render(<Harness />);
+    clickTrigger('trigger-0');
+    expect(itemImg().style.backgroundImage).toContain('/thumb-0.jpg');
+
+    fireEvent.click(document.querySelector('[data-testid="jump"]')!);
+
+    const jumped = itemImg();
+    expect(jumped.getAttribute('src')).toBe('/full-2.jpg');
+    expect(jumped.style.backgroundImage).toContain('/thumb-2.jpg');
+    expect(jumped.style.backgroundImage).not.toContain('/thumb-0.jpg');
   });
 
   it('does nothing when the destination image is already loaded (cache hit)', () => {

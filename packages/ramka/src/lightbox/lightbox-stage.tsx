@@ -1,6 +1,7 @@
 'use client';
 
-import { mergeProps, useRender } from '@base-ui/react';
+import { mergeProps } from '@base-ui/react/merge-props';
+import { useRender } from '@base-ui/react/use-render';
 import * as React from 'react';
 
 import { LightboxStageDataAttributes } from './lightbox-data-attributes';

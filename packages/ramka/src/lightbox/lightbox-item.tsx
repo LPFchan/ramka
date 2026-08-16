@@ -1,6 +1,7 @@
 'use client';
 
-import { mergeProps, useRender } from '@base-ui/react';
+import { mergeProps } from '@base-ui/react/merge-props';
+import { useRender } from '@base-ui/react/use-render';
 import * as React from 'react';
 
 import { LightboxItemDataAttributes } from './lightbox-data-attributes';
@@ -345,14 +346,21 @@ const LightboxItem = React.forwardRef<HTMLDivElement, LightboxItemProps>(
       [registerMorphElement],
     );
 
-    // Bridge the blank frame after the open morph: until the destination image
-    // loads, paint the opening trigger's already-decoded thumbnail into a
-    // `<canvas>` behind this image (falling back to a CSS background when a
-    // canvas is unavailable), then remove it on load. Runs on mount inside the
-    // `commitPrepare` flushSync — before the View Transition captures the "new"
-    // snapshot — so the placeholder is part of the morph end state. Only touches
-    // the image when the consumer opted in via `imageRef` (or Media auto-wired it).
+    // Bridge the blank frame until the destination image loads: paint this
+    // index's already-decoded trigger thumbnail into a `<canvas>` behind the
+    // image (falling back to a CSS background when a canvas is unavailable),
+    // then remove it on load.
+    //
+    // Must re-run when `isVisible` flips true. Items outside the preload
+    // window stay mounted but render `null`, so a `[]` effect would fire once
+    // with no destination `<img>` and never paint — that's the blank frame
+    // when the thumbnail strip jumps past the preload window. On open, this
+    // still runs inside `commitPrepare`'s flushSync (visible item, image
+    // already in the tree) so the placeholder is in the morph "new" snapshot.
+    // Only touches the image when the consumer opted in via `imageRef` (or
+    // Media auto-wired it).
     React.useLayoutEffect(() => {
+      if (!isVisible) return;
       const img = imageNodeRef.current;
       if (!img) return;
       if (img.complete && img.naturalWidth > 0) return; // already decoded
@@ -531,10 +539,10 @@ const LightboxItem = React.forwardRef<HTMLDivElement, LightboxItemProps>(
         if (rafB) cancelAnimationFrame(rafB);
         if (!cleared) restore();
       };
-      // Run once on mount: the source trigger and destination image are fixed
-      // for this item's lifetime.
+      // `isVisible` is the only render input — trigger/destination nodes are
+      // refs, read fresh each time the item enters the preload window.
       // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+    }, [isVisible]);
 
     // Register active item element for view transitions.
     // useLayoutEffect ensures the ref is set synchronously after

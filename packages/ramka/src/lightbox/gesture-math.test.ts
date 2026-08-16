@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
 import {
-  PULL_DAMP_TRAVEL_RATIO,
   ELASTIC_FACTOR,
   RUBBER_BAND_CONSTANT,
   RUBBER_BAND_DIMENSION_FACTOR,
@@ -13,10 +12,8 @@ import {
   computeMaxZoom,
   computeMomentumTarget,
   computeMomentumVelocity,
-  computePullTransform,
   stepPanPhysicsAxis,
   stepPanPhysics2D,
-  computePullVelocity,
   distance,
   doubleTapTargetZoom,
   elasticClamp,
@@ -26,16 +23,21 @@ import {
   panOffsetRange,
   pinchZoom,
   projectFocalZoom,
-  resolveDragAxis,
   round,
   rubberBandClamp,
   rubberBandDistance,
   rubberBandPanDimension,
   scaleZoom,
+} from './gesture-math';
+import {
+  PULL_DAMP_TRAVEL_RATIO,
+  computePullTransform,
+  computePullVelocity,
+  resolveDragAxis,
   shouldDismissPull,
   springEasingLinear,
   wheelAxis,
-} from './gesture-math';
+} from './pull-math';
 
 /** Parse a `linear(a, b, c, ...)` easing string into its numeric stops. */
 function parseLinearStops(easing: string): number[] {

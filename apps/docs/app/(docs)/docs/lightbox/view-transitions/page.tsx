@@ -6,11 +6,13 @@ import { DocsSection, DocsShell, type DocsTocItem } from '../../../../_component
 import { PropSectionTitle } from '../../../../_components/prop-section-title';
 import { lightboxApiHref, lightboxDocsPages } from '../../../../_content/lightbox/docs-pages';
 import { lightboxExcerpts } from '../../../../_content/lightbox/excerpts/generated';
+import { MorphAspectDoDemo, MorphAspectDontDemo } from '../aspect-demos';
 import { LightboxCrossfadeDemos } from '../crossfade-demos';
 import { LightboxMorphToDemos } from '../morph-to-demos';
 
 const toc: DocsTocItem[] = [
   { id: 'enable', title: 'Morph refs' },
+  { id: 'source-aspect', title: 'Source aspect' },
   { id: 'crossfade', title: 'Trigger crossfade' },
   { id: 'morph-to', title: 'Root morphTo' },
   { id: 'scroll-trigger', title: 'scrollTriggerIntoView' },
@@ -70,6 +72,41 @@ export default function LightboxViewTransitionsPage() {
         />
       </DocsSection>
 
+      <DocsSection id="source-aspect" title="Source aspect">
+        <p>
+          The morph snapshots whatever pixels are on the trigger <code className="text-xs">&lt;img&gt;</code>{' '}
+          and interpolates them into the destination Media box. That only looks like one photo when
+          both sides share the <em>same intrinsic aspect ratio</em> — the same file, or srcset
+          candidates of that file. A square tile is fine; crop it with CSS (
+          <code className="text-xs">object-fit: cover</code>), not by baking{' '}
+          <code className="text-xs">w=h&amp;fit=crop</code> into a different image.
+        </p>
+        <p>
+          A CDN-cropped 1∶1 thumb against a 3∶2 lightbox image will reframe mid-animation: Ramka
+          paints the square thumb into the landscape box, then the full file lands with a different
+          crop. Element boxes may differ. Intrinsic aspect must not.
+        </p>
+        {process.env.NEXT_PUBLIC_GITHUB_PAGES !== 'true' ? (
+          <p>
+            These demos delay the lightbox image by ~500ms so the handoff is visible on every open.
+          </p>
+        ) : null}
+        <DocsDemo
+          code={lightboxExcerpts['morph-aspect-do'].code}
+          title={lightboxExcerpts['morph-aspect-do'].title}
+        >
+          <MorphAspectDoDemo />
+        </DocsDemo>
+        <div className="mt-4">
+          <DocsDemo
+            code={lightboxExcerpts['morph-aspect-dont'].code}
+            title={lightboxExcerpts['morph-aspect-dont'].title}
+          >
+            <MorphAspectDontDemo />
+          </DocsDemo>
+        </div>
+      </DocsSection>
+
       <DocsSection
         id="crossfade"
         title={
@@ -88,8 +125,11 @@ export default function LightboxViewTransitionsPage() {
         <ul className="list-disc space-y-2 pl-5">
           <li>
             <strong className="font-medium text-neutral-800 dark:text-neutral-200">Omit (default)</strong>{' '}
-            — hard-cut. Best when trigger and item show the <em>same</em> picture (different crop/size
-            is fine). Leaves <code className="text-xs">data-ramka-crossfade</code> unset on{' '}
+            — hard-cut. Best when trigger and item show the <em>same</em> picture at the{' '}
+            <em>same intrinsic aspect</em> (a CSS <code className="text-xs">object-cover</code> window
+            or a smaller srcset is fine; a CDN-baked crop that changes the aspect is not — see{' '}
+            <DocsLink href="#source-aspect">Source aspect</DocsLink>). Leaves{' '}
+            <code className="text-xs">data-ramka-crossfade</code> unset on{' '}
             <code className="text-xs">&lt;html&gt;</code> during the transition.
           </li>
           <li>

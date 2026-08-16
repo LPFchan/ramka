@@ -1777,6 +1777,11 @@ describe('Lightbox', () => {
   // ---------------------------------------------------------------------------
 
   describe('view transitions', () => {
+    beforeEach(async () => {
+      const { loadMorphRuntime } = await import('./lightbox-morph-loader');
+      await loadMorphRuntime();
+    });
+
     function mockViewTransitionAPI() {
       let resolveFinished: () => void;
       const finishedPromise = new Promise<void>((r) => {
@@ -1829,6 +1834,14 @@ describe('Lightbox', () => {
       render(<TestLightbox viewTransition />);
       fireEvent.click(screen.getByTestId('trigger-0'));
       expect(startViewTransition).toHaveBeenCalledOnce();
+    });
+
+    it('does not start a view transition when viewTransition is false', () => {
+      const { startViewTransition } = mockViewTransitionAPI();
+      render(<TestLightbox viewTransition={false} />);
+      fireEvent.click(screen.getByTestId('trigger-0'));
+      expect(startViewTransition).not.toHaveBeenCalled();
+      expect(screen.getByTestId('content')).toBeInTheDocument();
     });
 
     it('sets data-ramka-view-transition on <html> during open', () => {
@@ -3352,6 +3365,40 @@ describe('Lightbox', () => {
       });
       const prevented = !content.dispatchEvent(event);
       expect(prevented).toBe(false);
+    });
+
+    it('prevents leftover-finger gallery scroll after a pinch', () => {
+      render(
+        <LightboxRoot defaultOpen>
+          <LightboxPortal>
+            <LightboxContent data-testid="content" aria-label="Leftover finger">
+              <LightboxItemGroup>
+                <LightboxItem index={0}>
+                  <img src="test.jpg" alt="test" />
+                </LightboxItem>
+              </LightboxItemGroup>
+            </LightboxContent>
+          </LightboxPortal>
+        </LightboxRoot>,
+      );
+
+      const content = screen.getByTestId('content');
+      content.dispatchEvent(
+        new TouchEvent('touchstart', {
+          bubbles: true,
+          cancelable: true,
+          touches: [
+            new Touch({ identifier: 0, target: content, clientX: 0, clientY: 0 }),
+            new Touch({ identifier: 1, target: content, clientX: 100, clientY: 100 }),
+          ],
+        }),
+      );
+      const leftover = new TouchEvent('touchmove', {
+        bubbles: true,
+        cancelable: true,
+        touches: [new Touch({ identifier: 0, target: content, clientX: 40, clientY: 0 })],
+      });
+      expect(!content.dispatchEvent(leftover)).toBe(true);
     });
 
     describe('touch scroll containment (iOS address bar)', () => {
@@ -6702,6 +6749,83 @@ describe('Lightbox', () => {
           expect(scrollIntoView).toHaveBeenCalledWith({
             block: 'center',
             inline: 'center',
+            behavior: 'instant',
+          });
+        } finally {
+          vi.useRealTimers();
+        }
+      } finally {
+        HTMLElement.prototype.scrollIntoView = origScroll;
+      }
+    });
+
+    it('scrolls the closest trigger when morphTo is closest and the active index has none', () => {
+      // Landing-style +N galleries register triggers only for visible tiles.
+      // Navigating to a hidden item must still scroll the trigger the close
+      // morph will land on — not look up the missing active-index trigger.
+      const scrollIntoView = vi.fn();
+      const origScroll = HTMLElement.prototype.scrollIntoView;
+      HTMLElement.prototype.scrollIntoView = function (this: HTMLElement, options?: ScrollIntoViewOptions) {
+        scrollIntoView(this, options);
+      };
+      try {
+        function Harness() {
+          return (
+            <LightboxRoot
+              morphTo="closest"
+              scrollTriggerIntoView={{ type: 'onChange', behavior: 'instant' }}
+            >
+              {[0, 1].map((i) => (
+                <LightboxTrigger key={i} index={i} data-testid={`trigger-${i}`}>
+                  T{i}
+                </LightboxTrigger>
+              ))}
+              <LightboxPortal>
+                <LightboxContent data-testid="content" aria-label="closest scroll test">
+                  <LightboxItemGroup preload={1}>
+                    {[0, 1, 2].map((i) => (
+                      <LightboxItem key={i} index={i}>
+                        Item {i}
+                      </LightboxItem>
+                    ))}
+                  </LightboxItemGroup>
+                  <LightboxNext data-testid="next">Next</LightboxNext>
+                </LightboxContent>
+              </LightboxPortal>
+            </LightboxRoot>
+          );
+        }
+        render(<Harness />);
+
+        act(() => {
+          fireEvent.click(screen.getByTestId('trigger-0'));
+        });
+
+        vi.useFakeTimers();
+        try {
+          act(() => {
+            fireEvent.click(screen.getByTestId('next'));
+          });
+          act(() => {
+            vi.advanceTimersByTime(120);
+          });
+          expect(scrollIntoView).toHaveBeenCalledTimes(1);
+          expect(scrollIntoView.mock.calls[0][0]).toBe(screen.getByTestId('trigger-1'));
+
+          scrollIntoView.mockClear();
+
+          act(() => {
+            fireEvent.click(screen.getByTestId('next'));
+          });
+          act(() => {
+            vi.advanceTimersByTime(120);
+          });
+          // Index 2 has no trigger — closest registered trigger is 1.
+          expect(scrollIntoView).toHaveBeenCalledTimes(1);
+          expect(scrollIntoView.mock.calls[0][0]).toBe(screen.getByTestId('trigger-1'));
+          expect(scrollIntoView.mock.calls[0][1]).toEqual({
+            block: 'nearest',
+            inline: 'nearest',
             behavior: 'instant',
           });
         } finally {

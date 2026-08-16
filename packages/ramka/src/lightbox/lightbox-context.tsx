@@ -69,6 +69,8 @@ interface LightboxContextValue {
    *   - `setActiveIndex` drops discrete navigation (`keyboard`/`thumbnail`/
    *     `button`) so the marker can't diverge from the real scroll position.
    *   - pull-to-dismiss won't start (a swipe can't become a dismiss mid-scroll).
+   *     Cleared on `scrollend`, not on a quiet gap — a trackpad swipe that
+   *     turns vertical mid-gesture must not pull until the user has released.
    *   - zoom/pan gestures won't start or continue (a swipe can't be hijacked
    *     into a pinch — including a second finger landing mid-scroll).
    * Stays `false` when no scroller writes it (non-`Slides` lightboxes), so their

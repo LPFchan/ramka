@@ -1,6 +1,6 @@
 'use client';
 
-import { mergeProps } from '@base-ui/react';
+import { mergeProps } from '@base-ui/react/merge-props';
 import * as React from 'react';
 
 import { LightboxContentCssVars } from './lightbox-css-vars';
@@ -8,7 +8,11 @@ import { LightboxContentDataAttributes } from './lightbox-data-attributes';
 import { useLightboxContext } from './lightbox-context';
 import { useLightboxPortalContext } from './lightbox-portal';
 import { useLightboxZoomPublish } from './lightbox-zoom-context';
-import { usePullToDismiss } from './use-pull-to-dismiss';
+import {
+  getPullRuntimeSync,
+  loadPullRuntime,
+  type PullRuntime,
+} from './lightbox-pull-loader';
 import { useTouchScrollContainment } from './use-touch-scroll-containment';
 
 /** Imperative chrome vars (pull / zoom) — React style reconciliation must not wipe them. */
@@ -75,7 +79,8 @@ interface LightboxContentProps extends React.ComponentPropsWithRef<'div'> {
    * Enable pull-to-close on touch and trackpad wheel. Starts from anywhere in
    * Stage (or Content when Stage is omitted), except interactive controls.
    * Publishes `data-pulling`, `data-pull-dismissing`, and
-   * `--lightbox-pull-progress` while active.
+   * `--lightbox-pull-progress` while active. The engine loads when Content
+   * first mounts with this on — pass `false` to skip that download.
    * @default true
    */
   pullToClose?: boolean;
@@ -228,12 +233,25 @@ const LightboxContent = React.forwardRef<HTMLDivElement, LightboxContentProps>(
     React.useEffect(() => {
       if (!mounted) return;
 
+      let pinchGestureActive = false;
       const preventTouchPinch = (event: TouchEvent) => {
-        if (event.touches.length > 1) {
+        // Two-finger: native page pinch. Leftover finger after a pinch
+        // (zoom snap-back): native gallery scroll, which would lock Slides
+        // with no `scrollend` and freeze pull/pinch/double-tap.
+        if (event.touches.length > 1 || pinchGestureActive) {
           event.preventDefault();
         }
       };
+      const onPinchTouchStart = (event: TouchEvent) => {
+        if (event.touches.length > 1) pinchGestureActive = true;
+      };
+      const onPinchTouchEnd = (event: TouchEvent) => {
+        if (event.touches.length === 0) pinchGestureActive = false;
+      };
       document.addEventListener('touchmove', preventTouchPinch, { passive: false });
+      document.addEventListener('touchstart', onPinchTouchStart, { passive: true });
+      document.addEventListener('touchend', onPinchTouchEnd, { passive: true });
+      document.addEventListener('touchcancel', onPinchTouchEnd, { passive: true });
 
       const hasSafariGestures = 'GestureEvent' in window;
 
@@ -253,6 +271,9 @@ const LightboxContent = React.forwardRef<HTMLDivElement, LightboxContentProps>(
 
       return () => {
         document.removeEventListener('touchmove', preventTouchPinch);
+        document.removeEventListener('touchstart', onPinchTouchStart);
+        document.removeEventListener('touchend', onPinchTouchEnd);
+        document.removeEventListener('touchcancel', onPinchTouchEnd);
         if (preventGesture) {
           document.removeEventListener('gesturestart', preventGesture);
           document.removeEventListener('gesturechange', preventGesture);
@@ -272,24 +293,20 @@ const LightboxContent = React.forwardRef<HTMLDivElement, LightboxContentProps>(
     // where a programmatic focus would otherwise inherit `:focus-visible`.
     const stableSetOpen = React.useCallback(() => setOpen(false, { focusVisible: false }), [setOpen]);
 
-    usePullToDismiss({
-      contentRef,
-      // Backdrop is provided by the optional `Lightbox.Backdrop` primitive.
-      // When the consumer doesn't render one, `backdropElementRef.current`
-      // stays null and the hook gracefully skips backdrop opacity updates.
-      backdropRef: backdropElementRef,
-      // The active slide element, tracked in context (Item sets it on activate).
-      // The wheel/trackpad pull path reads it directly instead of re-querying
-      // the DOM for `[data-ramka-item][data-active]`.
-      activeItemRef: activeItemElementRef,
-      // Optional Stage scopes touch + wheel pull to the media pane; null → Content.
-      stageRef: stageElementRef,
-      getZoom,
-      onClose: stableSetOpen,
-      disabled: !pullToClose || !mounted,
-      // Suppress the pull gesture while a Lightbox.Slides swipe/fling is running.
-      isScrollingRef: navigationLockedRef,
-    });
+    const cachedPull = getPullRuntimeSync();
+    const [PullRuntime, setPullRuntime] = React.useState<PullRuntime['PullToDismiss'] | null>(
+      () => cachedPull?.PullToDismiss ?? null,
+    );
+    React.useEffect(() => {
+      if (!pullToClose || PullRuntime) return;
+      let cancelled = false;
+      void loadPullRuntime().then((runtime) => {
+        if (!cancelled) setPullRuntime(() => runtime.PullToDismiss);
+      });
+      return () => {
+        cancelled = true;
+      };
+    }, [pullToClose, PullRuntime]);
 
     // Vertical touch drags that start on interactive chrome (Close / Prev /
     // Next / links / `[data-ramka-no-pull]`) are ignored by the pull gesture
@@ -563,6 +580,25 @@ const LightboxContent = React.forwardRef<HTMLDivElement, LightboxContentProps>(
         <div ref={mergedRef} {...dialogProps}>
           {children}
         </div>
+        {pullToClose && mounted && PullRuntime ? (
+          <PullRuntime
+            contentRef={contentRef}
+            // Backdrop is provided by the optional `Lightbox.Backdrop` primitive.
+            // When the consumer doesn't render one, `backdropElementRef.current`
+            // stays null and the hook gracefully skips backdrop opacity updates.
+            backdropRef={backdropElementRef}
+            // The active slide element, tracked in context (Item sets it on activate).
+            // The wheel/trackpad pull path reads it directly instead of re-querying
+            // the DOM for `[data-ramka-item][data-active]`.
+            activeItemRef={activeItemElementRef}
+            // Optional Stage scopes touch + wheel pull to the media pane; null → Content.
+            stageRef={stageElementRef}
+            getZoom={getZoom}
+            onClose={stableSetOpen}
+            // Suppress the pull gesture while a Lightbox.Slides swipe/fling is running.
+            isScrollingRef={navigationLockedRef}
+          />
+        ) : null}
         {!parked ? (
           <span
             tabIndex={0}
