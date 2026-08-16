@@ -9,7 +9,7 @@ export default defineConfig({
   treeshake: true,
   splitting: true,
   target: 'es2020',
-  external: ['react', 'react-dom', '@base-ui/react'],
+  external: ['react', 'react-dom', /^@base-ui\/react/],
   outExtension: ({ format }) => ({
     js: format === 'cjs' ? '.cjs' : '.js',
   }),

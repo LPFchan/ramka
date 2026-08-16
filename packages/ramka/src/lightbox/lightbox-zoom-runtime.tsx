@@ -4,7 +4,8 @@
  * `handle.open()` — never on Root mount.
  */
 
-import { mergeProps, useRender } from '@base-ui/react';
+import { mergeProps } from '@base-ui/react/merge-props';
+import { useRender } from '@base-ui/react/use-render';
 import * as React from 'react';
 
 import {

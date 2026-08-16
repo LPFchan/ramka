@@ -1,6 +1,6 @@
 'use client';
 
-import { mergeProps } from '@base-ui/react';
+import { mergeProps } from '@base-ui/react/merge-props';
 import * as React from 'react';
 
 import { LightboxContentCssVars } from './lightbox-css-vars';
