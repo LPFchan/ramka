@@ -40,6 +40,37 @@
  *   `Lightbox.Portal`. This keeps the primitives free of ship-as-is styles
  *   while still exposing the element the pull-to-dismiss gesture animates.
  *
+ * Layers (SoC contract — put new code in its layer, not the nearest file):
+ *
+ *   Root (state + ref registries)
+ *     ├─ Trigger
+ *     └─ Portal
+ *          ├─ Backdrop
+ *          └─ Content          dialog: focus, Escape, accessible name
+ *               ├─ Stage?      optional pull / pan / arrow scope
+ *               │    └─ Slides → Slide → Item → Zoom → Media
+ *               └─ chrome      Close, Prev/Next, Counter, Caption, thumbs
+ *
+ *   1. State — Root. Open, index, direction, itemCount, loop, handle,
+ *      captions, preparing/mounted. Morph/trigger registries stay as refs
+ *      here. Do not put paint, snap geometry, or keyboard policy on Root.
+ *   2. Shell — Portal, Content, Backdrop, Stage, Close. Content is the
+ *      dialog. Stage is the interaction surface when present; otherwise
+ *      Content is the stage. Backdrop is a sibling, never baked into Content.
+ *   3. Layout — Slides / Slide. Snap geometry + preload. Item reads index
+ *      from Root and preload from Slides. No second layout host.
+ *   4. Media — Item, Media, Zoom. Item = identity, ARIA, morph refs, and
+ *      *when* to bridge the open morph. Media = sized host (fit-box +
+ *      canvas container). Zoom = per-slide engine (lazy). Placeholder
+ *      paint lives in lightbox-placeholder.ts; the effect stays on Item.
+ *      Do not move paint into Media (Media is optional).
+ *   5. Chrome — Previous/Next, Counter, Caption, ThumbnailGroup/Thumbnail,
+ *      ThumbnailStrip. ThumbnailGroup is the ARIA tablist; ThumbnailStrip
+ *      is scroll-linked Photos chrome. Two jobs, two parts.
+ *   6. Engines — morph / zoom / pull lazy chunks, not primitives.
+ *      Capability + VT name: vt-constants.ts. Target resolution:
+ *      morph-target.ts. Helpers do not belong on lightbox-context.tsx.
+ *
  * Sub-components:
  *   Root            — State provider (open, activeIndex, controlled/uncontrolled)
  *   Trigger         — Opens lightbox at a specific item index
