@@ -1,4 +1,4 @@
-import { VIEW_TRANSITION_NAME } from './lightbox-context';
+import { VIEW_TRANSITION_NAME } from './vt-constants';
 import { LightboxDocumentCssVars, LightboxThumbnailStripCssVars } from './lightbox-css-vars';
 import {
   LightboxDocumentDataAttributes,

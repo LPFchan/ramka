@@ -10,13 +10,13 @@ import { maybeTraceViewTransition } from './vt-debug';
 import { maybeUpgradeToCompositedMorph } from './vt-composited-morph';
 import { isViewTransitionPreset, resolveViewTransitionTiming } from './vt-timing';
 import type { LightboxViewTransitionPreset } from './vt-timing';
-import { VIEW_TRANSITION_NAME, findItemMorphTarget, findTriggerMorphTarget } from './lightbox-context';
+import { findItemMorphTarget, findTriggerMorphTarget } from './morph-target';
+import { DEFAULT_DECODE_MAX_WAIT, VIEW_TRANSITION_NAME } from './vt-constants';
 import { LightboxDocumentCssVars } from './lightbox-css-vars';
 import {
   LightboxDocumentDataAttributes,
   LightboxSlideDataAttributes,
 } from './lightbox-data-attributes';
-import { DEFAULT_DECODE_MAX_WAIT } from './vt-constants';
 import {
   resolveScrollTriggerOption,
   resolveTriggerIndex,

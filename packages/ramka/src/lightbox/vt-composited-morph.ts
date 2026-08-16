@@ -1,4 +1,4 @@
-import { VIEW_TRANSITION_NAME } from './lightbox-context';
+import { VIEW_TRANSITION_NAME } from './vt-constants';
 import { LightboxDocumentCssVars } from './lightbox-css-vars';
 import { LightboxDocumentDataAttributes } from './lightbox-data-attributes';
 import { morphTiming } from './vt-timing';

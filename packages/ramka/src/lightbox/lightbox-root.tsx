@@ -4,8 +4,6 @@ import * as React from 'react';
 
 import {
   LightboxContext,
-  isLowEndDevice,
-  supportsViewTransitions,
   type LightboxCloseOptions,
   type LightboxContextValue,
   type NavigationSource,
@@ -40,7 +38,7 @@ import {
   type ScrollTriggerIntoView,
 } from './scroll-trigger';
 import { isAndroidBlinkSnapshotRoot } from './is-android-blink';
-import { DEFAULT_DECODE_MAX_WAIT } from './vt-constants';
+import { DEFAULT_DECODE_MAX_WAIT, isLowEndDevice, supportsViewTransitions } from './vt-constants';
 import type { LightboxViewTransitionPreset } from './vt-timing';
 import type { ViewTransitionMorph, ViewTransitionMorphConfig } from './use-view-transition-morph';
 
