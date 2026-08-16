@@ -100,15 +100,16 @@ interface LightboxRootProps {
    *   Use `inline: "center"` for horizontal snap strips with variable-width tiles.
    *
    * - `null` (default) — no automatic scrolling
-   * - `{ type: "onChange" }` — scroll to the active trigger whenever the active
-   *   index changes while the lightbox is open (preemptive; keeps the trigger
-   *   in view as the user navigates)
-   * - `{ type: "onOpenComplete" }` — scroll to the active trigger once the open
+   * - `{ type: "onChange" }` — scroll to the trigger the close morph will land
+   *   on whenever the active index changes while the lightbox is open
+   *   (preemptive; respects `morphTo`, so `closest` scrolls the nearest
+   *   registered trigger when the active index has none)
+   * - `{ type: "onOpenComplete" }` — scroll to that same trigger once the open
    *   transition finishes. The viewer covers the page and scroll is locked, so
    *   this reposition is invisible — it only pays off by ensuring the close
    *   morph lands on-screen without a jump when the trigger was partially
    *   off-screen at open time. `"instant"` recommended.
-   * - `{ type: "onClose" }` — scroll to the active trigger just before the close
+   * - `{ type: "onClose" }` — scroll to that trigger just before the close
    *   morph runs (visible reposition at close start)
    *
    * @example
@@ -304,15 +305,17 @@ function LightboxRoot(props: LightboxRootProps) {
       [isControlledValue],
     );
 
-    // Scroll the active trigger into view when the active index changes *while
-    // already open* (preemptive, so the destination trigger is on-screen for the
-    // close morph). This must NOT fire on the open→true edge: nothing changed
-    // yet — the lightbox just opened — and the clicked trigger is the open
-    // morph's origin, so scrolling it would move the morph's start point and
-    // jump the page mid-open. We therefore only scroll on a real index change
-    // between two consecutive open states (also skipping no-op re-renders where
-    // the index is unchanged). The close path scrolls the origin trigger into
-    // view on its own, so opening never needs to.
+    // Scroll the close-morph trigger into view when the active index changes
+    // *while already open* (preemptive, so the destination trigger is on-screen
+    // for the close morph). Respects `morphTo`: `closest` scrolls the nearest
+    // registered trigger when the active index has none. This must NOT fire on
+    // the open→true edge: nothing changed yet — the lightbox just opened — and
+    // the clicked trigger is the open morph's origin, so scrolling it would
+    // move the morph's start point and jump the page mid-open. We therefore
+    // only scroll on a real index change between two consecutive open states
+    // (also skipping no-op re-renders where the index is unchanged). The close
+    // path scrolls the morph-target trigger into view on its own, so opening
+    // never needs to.
     //
     // Idle-debounce: swipe / thumbnail-strip scrub can change the index many times per
     // second. Scrolling the page under the modal on every tick janks the viewer;
@@ -330,11 +333,17 @@ function LightboxRoot(props: LightboxRootProps) {
       const index = activeIndex;
       scrollSyncTimerRef.current = window.setTimeout(() => {
         if (!scrollSyncRef.current.open || scrollSyncRef.current.activeIndex !== index) return;
-        scrollTriggerEl(triggerElementsRef.current.get(index), scroll);
+        const idx = resolveTriggerIndex(
+          index,
+          morphTo,
+          openingTriggerIndexRef.current,
+          triggerElementsRef.current,
+        );
+        scrollTriggerEl(triggerElementsRef.current.get(idx), scroll);
       }, 120);
 
       return () => window.clearTimeout(scrollSyncTimerRef.current);
-    }, [scrollTriggerIntoView, open, activeIndex]);
+    }, [scrollTriggerIntoView, morphTo, open, activeIndex]);
 
     // Item registry — tracks mounted items so count can grow and shrink
     const registeredItemsRef = React.useRef(new Set<number>());
