@@ -6,7 +6,9 @@ import {
   computeMomentumVelocity,
   distance,
   doubleTapTargetZoom,
-  pinchZoom,
+  pinchFingerAlignment,
+  pinchMotionComponents,
+  resolvePinchZoom,
   scaleZoom,
 } from './gesture-math';
 
@@ -40,6 +42,18 @@ interface ZoomGestureActions {
    *   pan (touch). Mouse omits this so letterboxed axes can still rubber-band.
    */
   changeOffsets: (dx: number, dy: number, overscroll?: boolean, overflowAxesOnly?: boolean) => void;
+  /**
+   * Live two-finger pose from a pinch origin: scale to `targetZoom` (elastic)
+   * and translate so the origin content point stays under the current
+   * centroid. Pan rubber-bands past cover bounds. `overflowAxesOnly` locks
+   * letterboxed axes (touch), matching one-finger pan.
+   */
+  applyPinchPan: (
+    targetZoom: number,
+    origin: { zoom: number; offsetX: number; offsetY: number; cx: number; cy: number },
+    centroid: { x: number; y: number },
+    overflowAxesOnly?: boolean,
+  ) => void;
   setDragging: (dragging: boolean) => void;
   /**
    * Return an out-of-bounds zoom to range as a baked compositor settle.
@@ -146,6 +160,18 @@ function useZoomGestures(
   const pinchState = React.useRef<{
     initialDistance: number;
     initialZoom: number;
+    originCx: number;
+    originCy: number;
+    originOffsetX: number;
+    originOffsetY: number;
+    aId: number;
+    ax: number;
+    ay: number;
+    bId: number;
+    bx: number;
+    by: number;
+    /** Pinch recognizer has begun — scale may change. Pan runs either way. */
+    zoomEngaged: boolean;
   } | undefined>(undefined);
   const zoomingTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -173,6 +199,32 @@ function useZoomGestures(
       ];
     },
     [containerRef],
+  );
+
+  /** Snapshot the two-finger origin so later moves can glue content to the centroid. */
+  const capturePinchOrigin = React.useCallback(
+    (pts: PointerEvent[]) => {
+      const d = distance(pts[0].clientX, pts[0].clientY, pts[1].clientX, pts[1].clientY);
+      const [c0x, c0y] = translateCoordinates(pts[0]);
+      const [c1x, c1y] = translateCoordinates(pts[1]);
+      const offsets = actionsRef.current.getOffsets();
+      return {
+        initialDistance: Math.max(d, 1),
+        initialZoom: actionsRef.current.getZoom(),
+        originCx: (c0x + c1x) / 2,
+        originCy: (c0y + c1y) / 2,
+        originOffsetX: offsets.x,
+        originOffsetY: offsets.y,
+        aId: pts[0].pointerId,
+        ax: pts[0].clientX,
+        ay: pts[0].clientY,
+        bId: pts[1].pointerId,
+        bx: pts[1].clientX,
+        by: pts[1].clientY,
+        zoomEngaged: false,
+      };
+    },
+    [translateCoordinates],
   );
 
   // -------------------------------------------------------------------
@@ -385,14 +437,12 @@ function useZoomGestures(
             const pts = activePointers.current;
             if (pts.length !== 2 || pinchState.current || isScrollingRef?.current) return;
             actionsRef.current.stopZoomSnap();
+            actionsRef.current.setDragging(true);
             setZooming(true);
-            const d = distance(pts[0].clientX, pts[0].clientY, pts[1].clientX, pts[1].clientY);
-            pinchState.current = {
-              initialDistance: Math.max(d, 1),
-              initialZoom: actionsRef.current.getZoom(),
-            };
+            pinchState.current = capturePinchOrigin(pts);
             hadPinch.current = true;
             rebasePanAfterPinch.current = false;
+            velocityTracker.current.length = 0;
           });
           return;
         }
@@ -401,14 +451,12 @@ function useZoomGestures(
         // not keep animating under the pinch.
         actionsRef.current.cancelZoomAnimation();
         actionsRef.current.stopZoomSnap();
+        actionsRef.current.setDragging(true);
         setZooming(true);
-        const dist = distance(pointers[0].clientX, pointers[0].clientY, pointers[1].clientX, pointers[1].clientY);
-        pinchState.current = {
-          initialDistance: Math.max(dist, 1),
-          initialZoom: getZoom(),
-        };
+        pinchState.current = capturePinchOrigin(pointers);
         hadPinch.current = true;
         rebasePanAfterPinch.current = false;
+        velocityTracker.current.length = 0;
       }
     },
     [
@@ -419,6 +467,7 @@ function useZoomGestures(
       replacePointer,
       setZooming,
       abortZoomInteraction,
+      capturePinchOrigin,
     ],
   );
 
@@ -435,7 +484,7 @@ function useZoomGestures(
       }
 
       const pointers = activePointers.current;
-      const { getZoom, changeZoom, changeOffsets } = actionsRef.current;
+      const { getZoom, changeOffsets, applyPinchPan } = actionsRef.current;
       const zoom = getZoom();
       const existing = pointers.find((p) => p.pointerId === event.pointerId);
 
@@ -457,20 +506,76 @@ function useZoomGestures(
         }
       }
 
-      // Pinch zoom (2 pointers) — overscroll allows elastic bounce past bounds
+      // Two-finger pinch + pan. Pan follows the centroid immediately; zoom
+      // waits for a real pinch (iOS: separate pan vs pinch recognizers) so a
+      // two-finger slide cannot scale from span jitter.
       if (pointers.length === 2 && pinchState.current) {
         event.stopPropagation();
         replacePointer(event);
-        velocityTracker.current.length = 0;
 
+        const origin = pinchState.current;
         const currentDist = distance(pointers[0].clientX, pointers[0].clientY, pointers[1].clientX, pointers[1].clientY);
-        const targetZoom = pinchZoom(pinchState.current.initialZoom, pinchState.current.initialDistance, currentDist);
+        const [c0x, c0y] = translateCoordinates(pointers[0]);
+        const [c1x, c1y] = translateCoordinates(pointers[1]);
+        const a = pointers.find((p) => p.pointerId === origin.aId) ?? pointers[0];
+        const b = pointers.find((p) => p.pointerId === origin.bId) ?? pointers[1];
+        const alignment = pinchFingerAlignment(
+          origin.ax,
+          origin.ay,
+          a.clientX,
+          a.clientY,
+          origin.bx,
+          origin.by,
+          b.clientX,
+          b.clientY,
+        );
+        const { pan: panTravel } = pinchMotionComponents(
+          origin.ax,
+          origin.ay,
+          a.clientX,
+          a.clientY,
+          origin.bx,
+          origin.by,
+          b.clientX,
+          b.clientY,
+        );
+        const resolved = resolvePinchZoom({
+          initialZoom: origin.initialZoom,
+          initialDistance: origin.initialDistance,
+          currentDistance: currentDist,
+          engaged: origin.zoomEngaged,
+          alignment,
+          panTravel,
+        });
+        if (resolved.engaged && !origin.zoomEngaged) {
+          origin.zoomEngaged = true;
+          origin.initialDistance = resolved.baselineDistance;
+        }
+        applyPinchPan(
+          resolved.zoom,
+          {
+            zoom: origin.initialZoom,
+            offsetX: origin.originOffsetX,
+            offsetY: origin.originOffsetY,
+            cx: origin.originCx,
+            cy: origin.originCy,
+          },
+          { x: (c0x + c1x) / 2, y: (c0y + c1y) / 2 },
+          event.pointerType === 'touch',
+        );
 
-        const [cx, cy] = pointers
-          .map((p) => translateCoordinates(p))
-          .reduce<[number, number]>((acc, c) => [acc[0] + c[0] / 2, acc[1] + c[1] / 2], [0, 0]);
-
-        changeZoom(targetZoom, true, cx, cy, true);
+        // Centroid velocity — finger spread without translation stays ~0, so a
+        // two-finger flick can coast without a pinch-out seeding a fake pan.
+        const now = event.timeStamp;
+        const tracker = velocityTracker.current;
+        tracker.push({
+          x: (pointers[0].clientX + pointers[1].clientX) / 2,
+          y: (pointers[0].clientY + pointers[1].clientY) / 2,
+          t: now,
+        });
+        while (tracker.length > 0 && now - tracker[0].t > VELOCITY_WINDOW) {
+          tracker.shift();
+        }
         return;
       }
 
@@ -493,8 +598,9 @@ function useZoomGestures(
             // sample so lift jitter isn't applied as a delta, then pan.
             rebasePanAfterPinch.current = false;
             // Further motion is a pan gesture — allow momentum on release
-            // (wasPinch would otherwise force v=0 on the final pointerup).
+            // from this finger (centroid samples from the pinch are dropped).
             hadPinch.current = false;
+            velocityTracker.current.length = 0;
             replacePointer(event);
             return;
           }
@@ -536,8 +642,9 @@ function useZoomGestures(
         pointers.length >= 2 && pointers.some((p) => p.pointerId === event.pointerId);
       if (leavingPinch) {
         pinchState.current = undefined;
-        // Pinch finger motion must not seed a pan flick on the remaining finger.
-        velocityTracker.current.length = 0;
+        // Keep centroid samples: a quick 2→0 lift can coast from them. The
+        // remaining finger's first real pan (rebase) drops the tracker so
+        // pinch-spread never seeds a one-finger flick.
       }
       clearPointer(event.pointerId);
       if (leavingPinch && activePointers.current.length === 1) {
@@ -606,10 +713,9 @@ function useZoomGestures(
         tapStartPos.current = null;
         // Final release: bake+settle FIRST, then clear dragging UI. Never
         // notifyCommit / bust layout before WAAPI — that was the flick jump.
-        // Pure pinch release (no post-pinch pan handoff) keeps wasPinch and
-        // must not seed a flick from pinch finger motion; after a 2→1 pan,
-        // hadPinch was cleared so tracker velocity is used and the flick
-        // glides while the scale returns — one baked motion, like iOS.
+        // Tracker is centroid samples (two-finger) or the remaining finger
+        // after a 2→1 pan. Spread-without-translate stays under threshold;
+        // a stale window (held still after 2→1) is ignored so a pause doesn't flick.
         hadPinch.current = false;
         const { minZoom, maxZoom } = configRef.current;
         const releaseZoom = actionsRef.current.getZoom();
@@ -618,9 +724,11 @@ function useZoomGestures(
         let coasting = false;
         if (releaseZoom > 1 || zoomOutOfBounds) {
           const touch = event.pointerType === 'touch';
-          const vel = wasPinch
-            ? null
-            : computeMomentumVelocity(tracker, releaseZoom, MOMENTUM_THRESHOLD);
+          const last = tracker[tracker.length - 1];
+          const fresh = last != null && event.timeStamp - last.t <= VELOCITY_WINDOW;
+          const vel = fresh
+            ? computeMomentumVelocity(tracker, releaseZoom, MOMENTUM_THRESHOLD)
+            : null;
           coasting = actionsRef.current.momentumPan(vel?.vx ?? 0, vel?.vy ?? 0, touch);
         }
         // Safety net for the no-motion cases momentumPan rejected (e.g. an

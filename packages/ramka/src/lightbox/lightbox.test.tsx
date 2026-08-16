@@ -4751,6 +4751,153 @@ describe('Lightbox', () => {
           });
         });
 
+        it('pans a zoomed image when two fingers translate without changing spread', () => {
+          withViewport(() => {
+            const ref = React.createRef<LightboxZoomRef>();
+            renderZoomPan(ref);
+            const img = screen.getByTestId('zoom-img');
+            setupOverflowGeometry(img);
+
+            act(() => ref.current!.zoomTo(2, { rapid: true }));
+            expect(ref.current!.offsetX).toBe(0);
+            expect(ref.current!.offsetY).toBe(0);
+
+            act(() => {
+              dispatchPointer(img, 'pointerdown', {
+                clientX: 160,
+                clientY: 200,
+                pointerId: 1,
+                pointerType: 'touch',
+                isPrimary: true,
+              });
+              dispatchPointer(img, 'pointerdown', {
+                clientX: 240,
+                clientY: 200,
+                pointerId: 2,
+                pointerType: 'touch',
+                isPrimary: false,
+              });
+              // Translate both fingers 60px right — distance stays 80.
+              dispatchPointer(img, 'pointermove', {
+                clientX: 220,
+                clientY: 200,
+                pointerId: 1,
+                pointerType: 'touch',
+              });
+              dispatchPointer(img, 'pointermove', {
+                clientX: 300,
+                clientY: 200,
+                pointerId: 2,
+                pointerType: 'touch',
+              });
+            });
+
+            expect(ref.current!.zoom).toBeCloseTo(2, 5);
+            // Centroid traveled +60 screen-px at 2× → +30 offset-px.
+            expect(ref.current!.offsetX).toBeCloseTo(30, 5);
+            expect(ref.current!.offsetY).toBeCloseTo(0, 5);
+          });
+        });
+
+        it('does not zoom from finger-span jitter during a two-finger pan', () => {
+          withViewport(() => {
+            const ref = React.createRef<LightboxZoomRef>();
+            renderZoomPan(ref);
+            const img = screen.getByTestId('zoom-img');
+            setupOverflowGeometry(img);
+
+            act(() => ref.current!.zoomTo(2, { rapid: true }));
+
+            act(() => {
+              dispatchPointer(img, 'pointerdown', {
+                clientX: 160,
+                clientY: 200,
+                pointerId: 1,
+                pointerType: 'touch',
+                isPrimary: true,
+              });
+              dispatchPointer(img, 'pointerdown', {
+                clientX: 240,
+                clientY: 200,
+                pointerId: 2,
+                pointerType: 'touch',
+                isPrimary: false,
+              });
+              // Interleaved 8px steps (real touch samples), then a 12px span drift.
+              // A single 60px jump on one finger would look like a pinch.
+              for (const [x1, x2] of [
+                [168, 248],
+                [176, 256],
+                [184, 264],
+                [192, 272],
+                [200, 280],
+                [208, 300],
+              ] as const) {
+                dispatchPointer(img, 'pointermove', {
+                  clientX: x1,
+                  clientY: 200,
+                  pointerId: 1,
+                  pointerType: 'touch',
+                });
+                dispatchPointer(img, 'pointermove', {
+                  clientX: x2,
+                  clientY: 200,
+                  pointerId: 2,
+                  pointerType: 'touch',
+                });
+              }
+            });
+
+            expect(ref.current!.zoom).toBeCloseTo(2, 5);
+            expect(ref.current!.offsetX).toBeGreaterThan(20);
+          });
+        });
+
+        it('composes two-finger pan with pinch scale in one gesture', () => {
+          withViewport(() => {
+            const ref = React.createRef<LightboxZoomRef>();
+            renderZoomPan(ref);
+            const img = screen.getByTestId('zoom-img');
+            setupOverflowGeometry(img);
+
+            act(() => ref.current!.zoomTo(2, { rapid: true }));
+
+            act(() => {
+              dispatchPointer(img, 'pointerdown', {
+                clientX: 160,
+                clientY: 200,
+                pointerId: 1,
+                pointerType: 'touch',
+                isPrimary: true,
+              });
+              dispatchPointer(img, 'pointerdown', {
+                clientX: 240,
+                clientY: 200,
+                pointerId: 2,
+                pointerType: 'touch',
+                isPrimary: false,
+              });
+              // Spread 80→160 and slide the midpoint +40px right.
+              dispatchPointer(img, 'pointermove', {
+                clientX: 160,
+                clientY: 200,
+                pointerId: 1,
+                pointerType: 'touch',
+              });
+              dispatchPointer(img, 'pointermove', {
+                clientX: 320,
+                clientY: 200,
+                pointerId: 2,
+                pointerType: 'touch',
+              });
+            });
+
+            expect(ref.current!.zoom).toBeCloseTo(4, 5);
+            // origin centroid 0 at 2×; current centroid +40 at 4× → +10 offset.
+            expect(ref.current!.offsetX).toBeCloseTo(10, 5);
+          });
+        });
+
         it('continues pan without a jump after a pan → pinch → 2→1 handoff', () => {
           withViewport(() => {
             const ref = React.createRef<LightboxZoomRef>();
