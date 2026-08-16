@@ -399,7 +399,7 @@ export const generatedProps: Record<string, PropRow[]> = {
     {
       name: "(return)",
       type: "LightboxItemContextValue | null",
-      description: "Optional context from the enclosing Item. Returns `{ index, active, imageRef, morphRef, registerMedia }`, or `null` outside an Item.",
+      description: "Optional context from the enclosing Item. Returns `{ index, active, imageRef, morphRef, registerMedia, registerPlaceholder }`, or `null` outside an Item.",
     },
   ],
   "api-use-media-context": [

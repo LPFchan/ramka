@@ -138,6 +138,7 @@ const LightboxMedia = React.forwardRef<HTMLDivElement, LightboxMediaProps>(
         internalRef.current = node;
         setElement(node);
         item?.registerMedia(node);
+        item?.registerPlaceholder(node ? setPlaceholder : null);
         if (typeof forwardedRef === 'function') {
           forwardedRef(node);
         } else if (forwardedRef) {
@@ -148,7 +149,7 @@ const LightboxMedia = React.forwardRef<HTMLDivElement, LightboxMediaProps>(
           wiredImageRef.current = null;
         }
       },
-      [forwardedRef, item],
+      [forwardedRef, item, setPlaceholder],
     );
 
     const managedPosterRef = React.useRef<HTMLImageElement | null>(null);
@@ -243,19 +244,6 @@ const LightboxMedia = React.forwardRef<HTMLDivElement, LightboxMediaProps>(
         }
       };
     }, [clearManagedPoster, item, syncImage]);
-
-    // Observe placeholder canvas presence for data-placeholder styling.
-    React.useLayoutEffect(() => {
-      const host = internalRef.current;
-      if (!host) return;
-      const update = () => {
-        setPlaceholder(!!host.querySelector('[data-ramka-placeholder]'));
-      };
-      update();
-      const mo = new MutationObserver(update);
-      mo.observe(host, { childList: true });
-      return () => mo.disconnect();
-    }, []);
 
     const state = React.useMemo<LightboxMediaState>(() => ({ placeholder }), [placeholder]);
 
