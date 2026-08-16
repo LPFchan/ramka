@@ -32,6 +32,7 @@ import {
   prefetchMorphRuntime,
   type MorphRuntime,
 } from './lightbox-morph-loader';
+import { prefetchZoomRuntime } from './lightbox-zoom-loader';
 import {
   resolveScrollTriggerOption,
   resolveTriggerIndex,
@@ -866,6 +867,8 @@ function LightboxRoot(props: LightboxRootProps) {
 
     // Warm the morph chunk after paint when VT is on, so the first click
     // does not wait on the network. Skipped when opted out or unsupported.
+    // Zoom is not prefetched here — it loads on trigger press / first Zoom
+    // mount so a page that never opens the lightbox skips that download.
     React.useEffect(() => {
       if (viewTransition !== false && supportsViewTransitions() && !isLowEndDevice()) {
         prefetchMorphRuntime();
@@ -916,6 +919,7 @@ function LightboxRoot(props: LightboxRootProps) {
         if (viewTransition !== false) {
           prefetchMorphRuntime();
         }
+        prefetchZoomRuntime();
         setOpen(true);
       },
       [handleProp, setActiveIndex, setOpen, viewTransition],

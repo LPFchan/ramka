@@ -2,15 +2,15 @@
 
 import * as React from 'react';
 
+import { clamp } from './gesture-shared';
 import {
-  clamp,
   computePullTransform,
   computePullVelocity,
   resolveDragAxis,
   shouldDismissPull,
   springEasingLinear,
   wheelAxis,
-} from './gesture-math';
+} from './pull-math';
 import { LightboxContentCssVars } from './lightbox-css-vars';
 
 // ---------------------------------------------------------------------------

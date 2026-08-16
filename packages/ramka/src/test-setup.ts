@@ -53,3 +53,9 @@ if (typeof globalThis !== 'undefined' && !globalThis.ResizeObserver) {
     disconnect() {}
   };
 }
+
+// Zoom is lazy-loaded in production. Tests call `ref.zoomIn()` on the first
+// render, so warm the cache here (does not affect the published bundle).
+const { loadZoomRuntime } = await import('./lightbox/lightbox-zoom-loader');
+await loadZoomRuntime();
+
