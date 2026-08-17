@@ -391,7 +391,6 @@ const LightboxSlides = React.forwardRef<HTMLDivElement, LightboxSlidesProps>(
         // (Safari < 17.4) fall back to idle — unless a trackpad pinch aborted
         // the swipe, in which case `scrollend` often never comes.
         if ('onscrollend' in window && !pinchInterruptedRef.current) return;
-        // @ts-expect-error - window.setTimeout is always defined in browsers
         idleTimerRef.current = window.setTimeout(settle, SCROLL_IDLE_MS);
       };
       const lockUserScroll = () => {
