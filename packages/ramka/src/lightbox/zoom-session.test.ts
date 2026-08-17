@@ -1,5 +1,6 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 
+import { panOffsetRange } from './gesture-math';
 import { PoseController } from './pose-controller';
 import { createZoomSession, type ZoomSessionDeps } from './zoom-session';
 
@@ -248,5 +249,102 @@ describe('zoom session two-finger pinch-pan', () => {
     );
     expect(controller.getPose().offsetX).toBe(0);
     expect(controller.getPose().offsetY).toBe(0);
+  });
+});
+
+describe('zoom session pinch cover-threshold continuity', () => {
+  let el: HTMLDivElement;
+
+  beforeEach(() => {
+    el = document.createElement('div');
+    document.body.appendChild(el);
+  });
+
+  afterEach(() => {
+    el.remove();
+  });
+
+  /**
+   * Asymmetric chrome: viewport 0..400, stage center Y at 180 (δ = 20).
+   * Content 200 → zoomFit = 2, home at fit = 10. Crossing overflow used to
+   * drop a centered pinch from home (~10–20px) back to raw 0.
+   */
+  function asymmetricGeo(z: number) {
+    const viewport = { left: 0, top: 0, right: 400, bottom: 400, width: 400, height: 400 } as DOMRect;
+    const stage = { left: 0, top: 0, right: 400, bottom: 360, width: 400, height: 360 } as DOMRect;
+    return {
+      viewport,
+      stage,
+      contentW: 200,
+      contentH: 200,
+      x: panOffsetRange(200, z, 0, 400, 200, 1),
+      y: panOffsetRange(200, z, 0, 400, 180, 1),
+    };
+  }
+
+  function makeSession() {
+    const controller = new PoseController({ zoom: 1, offsetX: 0, offsetY: 0 }, { reducedMotion: true });
+    controller.attach(el);
+    const session = createZoomSession(() => ({
+      controller,
+      measureStageLayout: () => asymmetricGeo(controller.getPose().zoom),
+      measurePanGeometry: (z) => asymmetricGeo(z),
+      clampOffsets: (x, y) => ({ x, y }),
+      minZoom: 1,
+      maxZoom: 8,
+      zoomStep: 2,
+      reducedMotion: true,
+      isDragging: () => true,
+      setDraggingUi: () => {},
+      invalidateLayoutCache: () => {},
+    }));
+    return { session, controller };
+  }
+
+  const origin = { zoom: 1, offsetX: 0, offsetY: 0, cx: 0, cy: 0 };
+
+  it('does not jump off cover-home when a centered pinch crosses overflow', () => {
+    const { session, controller } = makeSession();
+
+    session.actions.applyPinchPan(1.5, origin, { x: 0, y: 0 }, true);
+    session.actions.applyPinchPan(2, origin, { x: 0, y: 0 }, true);
+    const atFit = controller.getPose().offsetY;
+    expect(asymmetricGeo(2).y.overflows).toBe(false);
+    expect(atFit).toBeCloseTo(10, 5);
+
+    session.actions.applyPinchPan(2.5, origin, { x: 0, y: 0 }, true);
+    expect(asymmetricGeo(2.5).y.overflows).toBe(true);
+    // Continues from the last home pose — not raw 0 (the old ~δ jump).
+    expect(controller.getPose().offsetY).toBeCloseTo(atFit, 5);
+  });
+
+  it('does not apply discarded off-center tracking when the axis unlocks', () => {
+    const { session, controller } = makeSession();
+    const offCenter = { ...origin, cy: 40 };
+
+    session.actions.applyPinchPan(2, offCenter, { x: 0, y: 40 }, true);
+    const atFit = controller.getPose().offsetY;
+    expect(atFit).toBeCloseTo(10, 5);
+
+    session.actions.applyPinchPan(2.5, offCenter, { x: 0, y: 40 }, true);
+    // Raw origin math would be 40/2.5 − 40 = −24. Rebase continues from home.
+    expect(controller.getPose().offsetY).toBeCloseTo(atFit + 40 / 2.5 - 40 / 2, 5);
+  });
+
+  it('drops the letterbox rebase when a new drag starts', () => {
+    const { session, controller } = makeSession();
+    session.actions.applyPinchPan(2, origin, { x: 0, y: 0 }, true);
+    expect(controller.getPose().offsetY).toBeCloseTo(10, 5);
+
+    session.actions.setDragging(true);
+    controller.replacePose({ zoom: 2.5, offsetX: 0, offsetY: 0 });
+    session.actions.applyPinchPan(
+      2.5,
+      { zoom: 2.5, offsetX: 0, offsetY: 0, cx: 0, cy: 0 },
+      { x: 0, y: 0 },
+      true,
+    );
+    // New pinch is already overflowing — must use the fresh origin, not home.
+    expect(controller.getPose().offsetY).toBeCloseTo(0, 5);
   });
 });

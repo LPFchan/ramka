@@ -132,8 +132,9 @@ export function maxPanOffset(contentSize: number, containerSize: number, zoom: n
  *
  * Cover collapses to δ = (viewportCenter − stageCenter) / zoom at the fit
  * threshold, not to rest `0`. While media still fits, we lock to a home offset
- * that lerps `0 → δ` between `minZoom` and the fit zoom so crossing the
- * threshold stays continuous (no mid-zoom teleport).
+ * that lerps `0 → δ` between `minZoom` and the fit zoom so the *range* stays
+ * continuous. Pinch must also rebase through that home (see applyPinchPan);
+ * otherwise unlock applies raw rest `0` and the image jumps by ~δ.
  *
  * - Fits → `{home,home}` (no pan; home is `0` at `minZoom`).
  * - Overflows → true cover `[alignEnd, alignStart]`.

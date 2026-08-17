@@ -73,6 +73,13 @@ export interface ZoomSession {
   dispose: () => void;
 }
 
+/** Stable pinch origin for one axis after a letterbox lock (see applyPinchPan). */
+interface PinchAxisOrigin {
+  offset: number;
+  focal: number;
+  zoom: number;
+}
+
 export function createZoomSession(getDeps: () => ZoomSessionDeps): ZoomSession {
   const rawOffsetX = { current: 0 };
   const rawOffsetY = { current: 0 };
@@ -81,6 +88,19 @@ export function createZoomSession(getDeps: () => ZoomSessionDeps): ZoomSession {
   const zoomSnapLastTs = { current: 0 };
   const zoomSnapVel = { current: 0 };
   const discreteWaiters = { current: [] as Array<() => void> };
+  /**
+   * While a touch axis is letterboxed, pinch tracking is discarded and the
+   * pose is locked to cover-home. Remember that displayed pose so the first
+   * overflowing frame continues from home instead of the raw origin (rest `0`
+   * on a centered pinch) — that mismatch is the ~20px edge jump.
+   */
+  const pinchRebaseX = { current: null as PinchAxisOrigin | null };
+  const pinchRebaseY = { current: null as PinchAxisOrigin | null };
+
+  const resetPinchRebase = () => {
+    pinchRebaseX.current = null;
+    pinchRebaseY.current = null;
+  };
 
   const syncPoseRefs = (_p: ZoomPose) => {
     // Pose is authoritative on the controller; kept as a no-op hook if we
@@ -141,6 +161,7 @@ export function createZoomSession(getDeps: () => ZoomSessionDeps): ZoomSession {
     const deps = getDeps();
     const { controller } = deps;
     if (value) {
+      resetPinchRebase();
       const live = controller.beginTracking();
       syncPoseRefs(live);
       deps.setDraggingUi(true);
@@ -310,6 +331,31 @@ export function createZoomSession(getDeps: () => ZoomSessionDeps): ZoomSession {
     startDiscreteZoom(to);
   };
 
+  const resolvePinchAxis = (
+    allow: boolean,
+    range: { min: number; max: number },
+    dim: number,
+    rebase: { current: PinchAxisOrigin | null },
+    origin: PinchAxisOrigin,
+    centroid: number,
+    nextZoom: number,
+  ): number => {
+    if (!allow) {
+      // Letterboxed: lock to cover-home and remember this pose so unlock
+      // continues from here instead of the raw pinch origin.
+      const displayed = range.min + 0;
+      rebase.current = { offset: displayed, focal: centroid, zoom: nextZoom };
+      return displayed;
+    }
+    const base = rebase.current ?? origin;
+    return rubberBandClamp(
+      pinchPanOffset(base.offset, base.focal, base.zoom, centroid, nextZoom),
+      range.min,
+      range.max,
+      dim,
+    );
+  };
+
   const applyPinchPan = (
     targetZoom: number,
     origin: { zoom: number; offsetX: number; offsetY: number; cx: number; cy: number },
@@ -328,11 +374,11 @@ export function createZoomSession(getDeps: () => ZoomSessionDeps): ZoomSession {
     }
 
     const nextZoom = round(elasticClamp(targetZoom, minZoom, maxZoom), 5);
-    const rawX = pinchPanOffset(origin.offsetX, origin.cx, origin.zoom, centroid.x, nextZoom);
-    const rawY = pinchPanOffset(origin.offsetY, origin.cy, origin.zoom, centroid.y, nextZoom);
     const geo = measurePanGeometry(nextZoom);
 
     if (!geo) {
+      const rawX = pinchPanOffset(origin.offsetX, origin.cx, origin.zoom, centroid.x, nextZoom);
+      const rawY = pinchPanOffset(origin.offsetY, origin.cy, origin.zoom, centroid.y, nextZoom);
       const offsets = clampOffsets(rawX, rawY, nextZoom);
       writeHotPose({ zoom: nextZoom, offsetX: offsets.x, offsetY: offsets.y });
       return;
@@ -347,12 +393,24 @@ export function createZoomSession(getDeps: () => ZoomSessionDeps): ZoomSession {
     const dimY = rubberBandPanDimension(geo.viewport.height, nextZoom, dimFactor);
     writeHotPose({
       zoom: nextZoom,
-      offsetX: allowX
-        ? rubberBandClamp(rawX, geo.x.min, geo.x.max, dimX)
-        : clamp(rawX, geo.x.min, geo.x.max),
-      offsetY: allowY
-        ? rubberBandClamp(rawY, geo.y.min, geo.y.max, dimY)
-        : clamp(rawY, geo.y.min, geo.y.max),
+      offsetX: resolvePinchAxis(
+        allowX,
+        geo.x,
+        dimX,
+        pinchRebaseX,
+        { offset: origin.offsetX, focal: origin.cx, zoom: origin.zoom },
+        centroid.x,
+        nextZoom,
+      ),
+      offsetY: resolvePinchAxis(
+        allowY,
+        geo.y,
+        dimY,
+        pinchRebaseY,
+        { offset: origin.offsetY, focal: origin.cy, zoom: origin.zoom },
+        centroid.y,
+        nextZoom,
+      ),
     });
   };
 
