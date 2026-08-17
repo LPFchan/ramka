@@ -41,6 +41,9 @@ jobs:
       - name: Check Lightbox docs excerpts
         run: pnpm docs:excerpts:check
 
+      - name: Check LLM docs
+        run: pnpm docs:llms:check
+
       - name: Test
         run: pnpm test
 
