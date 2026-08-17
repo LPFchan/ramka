@@ -632,7 +632,7 @@ function jsxToMarkdown(node: Node, ctx: Ctx): string {
   if (!name) return '';
   if (isSkippedName(name)) return '';
 
-  if (name === 'DocsShell') {
+  if (name === 'DocsShell' || name === 'ExampleShell') {
     const title = String(evalAttr(node, 'title', ctx) ?? '');
     const descriptionExpr = getAttr(node, 'description');
     const description = descriptionExpr
@@ -645,7 +645,7 @@ function jsxToMarkdown(node: Node, ctx: Ctx): string {
     return joinBlocks([
       title ? `# ${title}` : '',
       description,
-      jsxChildrenToBlocks(childrenOf(node), ctx),
+      name === 'DocsShell' ? jsxChildrenToBlocks(childrenOf(node), ctx) : '',
     ]);
   }
 
@@ -770,15 +770,65 @@ function hrefToPublicFile(href: string): string {
   return path.join(publicDir, `${trimmed}.md`);
 }
 
-function stubPage(title: string, description: string, href: string): PageDoc {
-  const markdown = normalizeMarkdown(
-    joinBlocks([
-      `# ${title}`,
-      description,
-      `Live demo: this page is an interactive composition, not a research guide. Open the HTML page at \`${href}\`.`,
-    ]),
+function langFromName(name: string): string {
+  if (name.endsWith('.css')) return 'css';
+  if (name.endsWith('.json')) return 'json';
+  if (name.endsWith('.ts')) return 'ts';
+  return 'tsx';
+}
+
+function collectReferencedSources(pageFile: string): string[] {
+  const text = fs.readFileSync(pageFile, 'utf8');
+  const seen = new Set<string>();
+  const paths: string[] = [];
+  for (const match of text.matchAll(/path:\s*'([^']+)'/g)) {
+    const rel = match[1];
+    if (seen.has(rel)) continue;
+    seen.add(rel);
+    paths.push(rel);
+  }
+  return paths;
+}
+
+function sourceBlocks(relPaths: string[]): string {
+  return joinBlocks(
+    relPaths.map((rel) => {
+      const abs = path.join(docsRoot, rel);
+      if (!fs.existsSync(abs)) {
+        throw new Error(`Missing source referenced by docs page: ${rel}`);
+      }
+      const name = path.basename(rel);
+      const label = rel.replace(/^app\/\(docs\)\//, '');
+      return fence(fs.readFileSync(abs, 'utf8'), langFromName(name), label);
+    }),
   );
-  return { href, title, description, markdown };
+}
+
+function compositionPage(
+  title: string,
+  description: string,
+  href: string,
+  pageFile: string,
+  extraFiles: string[] = [],
+  extractIntro = true,
+): PageDoc {
+  let intro = joinBlocks([`# ${title}`, description]);
+  if (extractIntro) {
+    try {
+      intro = extractPageMarkdown(pageFile, seedBindings());
+    } catch {
+      // Fall back to the registry blurb when the page is a live demo, not docs prose.
+    }
+  }
+  const referenced = collectReferencedSources(pageFile);
+  const files = [...referenced, ...extraFiles.filter((file) => !referenced.includes(file))];
+  const sources = files.length ? joinBlocks(['## Source', sourceBlocks(files)]) : '';
+  return {
+    href,
+    title,
+    description,
+    markdown: normalizeMarkdown(joinBlocks([intro, sources])),
+  };
 }
 
 function buildIndex(pages: PageDoc[]): string {
@@ -886,10 +936,23 @@ function collectOutputs(): Map<string, string> {
   });
 
   for (const preset of lightboxPresets) {
-    pages.push(stubPage(preset.title, preset.description, preset.href));
+    const slug = preset.href.replace('/presets/', '');
+    const pageFile = path.join(docsRoot, `app/(docs)/presets/${slug}/page.tsx`);
+    pages.push(compositionPage(preset.title, preset.description, preset.href, pageFile));
   }
   for (const example of lightboxExamples) {
-    pages.push(stubPage(example.title, example.description, `/examples/lightbox/${example.slug}`));
+    const href = `/examples/lightbox/${example.slug}`;
+    const pageFile = path.join(docsRoot, `app/(docs)/examples/lightbox/${example.slug}/page.tsx`);
+    pages.push(
+      compositionPage(
+        example.title,
+        example.description,
+        href,
+        pageFile,
+        [`app/(docs)/examples/lightbox/${example.slug}/page.tsx`],
+        false,
+      ),
+    );
   }
 
   const outputs = new Map<string, string>();
