@@ -756,8 +756,8 @@ function LightboxRoot(props: LightboxRootProps) {
         // controlled `open` prop subsequently updates via onOpenChange.
         lastInternalOpenRef.current = nextOpen;
 
-        // Start Zoom with the open, not after Zoom mounts. A late engine swap
-        // remounts Media and tears down the fallback canvas. Independent of VT.
+        // Warm Zoom with the open so the first pinch is not gated on the
+        // network. The host/children stay mounted if the chunk lands later.
         if (nextOpen) prefetchZoomRuntime();
 
         // Open-transition gate for `Lightbox.Item` placeholders: mark it pending
@@ -899,12 +899,10 @@ function LightboxRoot(props: LightboxRootProps) {
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    // Warm chunks after paint so the first open is not gated on the network.
-    // Morph only when VT will actually run. Zoom is its own engine — prefetch
-    // it even when VT is off, so the placeholder→engine swap does not remount
-    // Media mid-open and drop the fallback canvas.
+    // Warm the morph chunk after paint when a view transition will actually
+    // run. Zoom loads on trigger press / open / first Zoom mount — not here —
+    // so a closed gallery page does not download the engine.
     React.useEffect(() => {
-      prefetchZoomRuntime();
       if (viewTransition !== false && supportsViewTransitions() && !isLowEndDevice()) {
         prefetchMorphRuntime();
       }

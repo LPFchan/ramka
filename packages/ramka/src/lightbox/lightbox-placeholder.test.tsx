@@ -10,6 +10,11 @@ import { SlidesHost } from './lightbox-slides-test-utils';
 import { LightboxRoot } from './lightbox-root';
 import { LightboxTrigger } from './lightbox-trigger';
 import { LightboxZoom } from './lightbox-zoom';
+import {
+  loadZoomRuntime,
+  resetZoomRuntimeForTests,
+} from './lightbox-zoom-loader';
+import * as zoomLoader from './lightbox-zoom-loader';
 
 // ---------------------------------------------------------------------------
 // jsdom doesn't load images. Stub complete/naturalWidth/currentSrc so tests can
@@ -547,6 +552,83 @@ describe('Lightbox.Media (morph + placeholder host)', () => {
     // Notify re-renders Media; isolation must survive that style reconcile or
     // the z-index:-1 canvas vanishes before the destination image paints.
     expect(media).toHaveStyle({ isolation: 'isolate' });
+
+    HTMLCanvasElement.prototype.getContext = origGetContext;
+    restoreBox();
+  });
+
+  it('keeps Media and the fallback canvas when the zoom engine lands late', async () => {
+    const restoreBox = stubBox(400);
+    Object.defineProperty(HTMLImageElement.prototype, 'naturalHeight', {
+      configurable: true,
+      get(this: HTMLImageElement & { __naturalHeight?: number }) {
+        return this.__naturalHeight ?? (this.complete ? 200 : 0);
+      },
+    });
+    const origGetContext = HTMLCanvasElement.prototype.getContext;
+    HTMLCanvasElement.prototype.getContext = vi.fn(() => ({
+      scale: vi.fn(),
+      drawImage: vi.fn(),
+    })) as unknown as typeof HTMLCanvasElement.prototype.getContext;
+
+    resetZoomRuntimeForTests();
+    let resolveEngine!: (runtime: Awaited<ReturnType<typeof loadZoomRuntime>>) => void;
+    const deferred = new Promise<Awaited<ReturnType<typeof loadZoomRuntime>>>((resolve) => {
+      resolveEngine = resolve;
+    });
+    vi.spyOn(zoomLoader, 'getZoomRuntimeSync').mockReturnValue(null);
+    vi.spyOn(zoomLoader, 'loadZoomRuntime').mockReturnValue(deferred);
+
+    render(
+      <LightboxRoot>
+        <LightboxTrigger index={0} data-testid="trigger">
+          {({ imageRef }) => <img ref={imageRef} src="/thumb.jpg" alt="thumb" />}
+        </LightboxTrigger>
+        <LightboxPortal>
+          <LightboxContent aria-label="viewer">
+            <SlidesHost>
+              <LightboxItem index={0}>
+                <LightboxZoom data-testid="zoom">
+                  <LightboxMedia data-testid="media">
+                    <img src="/full.jpg" alt="full" />
+                  </LightboxMedia>
+                </LightboxZoom>
+              </LightboxItem>
+            </SlidesHost>
+          </LightboxContent>
+        </LightboxPortal>
+      </LightboxRoot>,
+    );
+
+    const triggerImg = document.querySelector('[data-testid="trigger"] img') as HTMLImageElement & {
+      __complete?: boolean;
+      __naturalWidth?: number;
+      __naturalHeight?: number;
+    };
+    triggerImg.__complete = true;
+    triggerImg.__naturalWidth = 200;
+    triggerImg.__naturalHeight = 200;
+
+    clickTrigger('trigger');
+
+    const media = document.querySelector('[data-testid="media"]')!;
+    const img = media.querySelector('img')!;
+    const canvas = media.querySelector('[data-ramka-placeholder]');
+    expect(canvas).toBeTruthy();
+
+    const { LightboxZoomEngine } = await import('./lightbox-zoom-runtime');
+    await act(async () => {
+      resolveEngine({ LightboxZoomEngine });
+      await deferred;
+    });
+
+    expect(document.querySelector('[data-testid="media"]')).toBe(media);
+    expect(media.querySelector('img')).toBe(img);
+    expect(media.querySelector('[data-ramka-placeholder]')).toBe(canvas);
+
+    vi.mocked(zoomLoader.getZoomRuntimeSync).mockRestore();
+    vi.mocked(zoomLoader.loadZoomRuntime).mockRestore();
+    await loadZoomRuntime();
 
     HTMLCanvasElement.prototype.getContext = origGetContext;
     restoreBox();

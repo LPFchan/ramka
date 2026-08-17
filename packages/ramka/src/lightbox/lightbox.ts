@@ -61,7 +61,7 @@
  *      from Root and preload from Slides. No second layout host.
  *   4. Media — Item, Media, Zoom. Item = identity, ARIA, morph refs, and
  *      *when* to bridge the open morph. Media = sized host (fit-box +
- *      canvas container). Zoom = per-slide engine (lazy). Placeholder
+ *      canvas container). Zoom = stable host; gesture bind is lazy. Placeholder
  *      paint lives in lightbox-placeholder.ts; the effect stays on Item.
  *      Do not move paint into Media (Media is optional).
  *   5. Chrome — Previous/Next, Counter, Caption, ThumbnailGroup/Thumbnail,

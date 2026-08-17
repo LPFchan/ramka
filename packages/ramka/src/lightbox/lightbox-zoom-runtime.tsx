@@ -1,11 +1,10 @@
 /**
- * Async chunk entry for the zoom engine.
+ * Async chunk entry for the zoom engine bind.
  * Loaded when `Lightbox.Zoom` first mounts, or earlier on trigger press /
- * `handle.open()` — never on Root mount.
+ * `handle.open()`. Does not render the host or children — those stay on
+ * `Lightbox.Zoom` so Media is not remounted when this chunk arrives.
  */
 
-import { mergeProps } from '@base-ui/react/merge-props';
-import { useRender } from '@base-ui/react/use-render';
 import * as React from 'react';
 
 import {
@@ -13,63 +12,44 @@ import {
   computeMaxZoom,
   panOffsetRange,
 } from './gesture-math';
-import { LightboxZoomDataAttributes } from './lightbox-data-attributes';
 import { useLightboxContext } from './lightbox-context';
 import { useOptionalLightboxItemContext } from './lightbox-item';
-import { ignoreStateAttribute } from './lightbox-state-attributes';
 import {
-  ZoomContext,
   useLightboxZoomPublish,
   type ActiveZoomControls,
   type ZoomContextValue,
 } from './lightbox-zoom-context';
-import type { LightboxZoomProps, LightboxZoomRef, LightboxZoomState } from './lightbox-zoom';
+import type {
+  LightboxZoomEngineProps,
+  LightboxZoomState,
+  ZoomEngineSnapshot,
+} from './lightbox-zoom';
 import { PoseController } from './pose-controller';
 import { useZoomGestures, type ZoomGestureConfig } from './use-zoom-gestures';
 import { bindZoomChrome } from './zoom-chrome';
 import { createZoomSession, type ZoomSessionDeps } from './zoom-session';
 
-const stateAttributesMapping = {
-  zoom: (value: unknown) => (typeof value === 'number' && value > 1 ? { 'data-zoom': '' } : null),
-  dragging: (value: unknown) => (value ? { 'data-dragging': '' } : null),
-  // Render-prop / imperative state — must not leak as data-maxzoom, etc.
-  maxZoom: ignoreStateAttribute,
-  offsetX: ignoreStateAttribute,
-  offsetY: ignoreStateAttribute,
-  canZoomIn: ignoreStateAttribute,
-  canZoomOut: ignoreStateAttribute,
-};
-
-// ---------------------------------------------------------------------------
-// Constants
-// ---------------------------------------------------------------------------
-
-const DEFAULT_MIN_ZOOM = 1;
 const DEFAULT_MAX_ZOOM_FALLBACK = 4;
-const DEFAULT_ZOOM_STEP = 2;
-const DEFAULT_WHEEL_SENSITIVITY = 100;
-const DEFAULT_KEYBOARD_PAN = 50;
-const DEFAULT_DOUBLE_CLICK_DELAY = 300;
 const DEFAULT_ANIMATION_DURATION = 300;
 
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
-const LightboxZoomEngine = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
-  function LightboxZoomEngine(props, forwardedRef) {
+function LightboxZoomEngine(props: LightboxZoomEngineProps) {
     const {
-      children,
-      render,
-      minZoom = DEFAULT_MIN_ZOOM,
+      containerRef,
+      wrapperRef,
+      minZoom,
       maxZoom: maxZoomProp,
-      zoomStep = DEFAULT_ZOOM_STEP,
-      scrollToZoom = false,
-      wheelSensitivity = DEFAULT_WHEEL_SENSITIVITY,
-      keyboardPanDistance = DEFAULT_KEYBOARD_PAN,
-      doubleClickDelay = DEFAULT_DOUBLE_CLICK_DELAY,
+      zoomStep,
+      scrollToZoom,
+      wheelSensitivity,
+      keyboardPanDistance,
+      doubleClickDelay,
       onZoomChange,
-      ...elementProps
+      onSnapshot,
+      zoomRef,
     } = props;
 
     const { activeIndex, dialogElementRef, stageElementRef, navigationLockedRef } =
@@ -115,15 +95,10 @@ const LightboxZoomEngine = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
     );
     const [containerSize, setContainerSize] = React.useState<{ w: number; h: number } | null>(null);
 
-    const containerRef = React.useRef<HTMLDivElement | null>(null);
-    const wrapperRef = React.useRef<HTMLDivElement | null>(null);
-    const setWrapperRef = React.useCallback(
-      (node: HTMLDivElement | null) => {
-        wrapperRef.current = node;
-        controller.attach(node);
-      },
-      [controller],
-    );
+    React.useLayoutEffect(() => {
+      controller.attach(wrapperRef.current);
+      return () => controller.attach(null);
+    }, [controller, wrapperRef]);
 
     const onZoomChangeRef = React.useRef(onZoomChange);
     onZoomChangeRef.current = onZoomChange;
@@ -354,7 +329,7 @@ const LightboxZoomEngine = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
     );
 
     React.useImperativeHandle(
-      forwardedRef,
+      zoomRef,
       () => ({
         get zoom() {
           return controller.getPose().zoom;
@@ -423,53 +398,24 @@ const LightboxZoomEngine = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
       [zoom, maxZoom, offsetX, offsetY, canZoomIn, canZoomOut, dragging],
     );
 
-    const resolvedChildren = typeof children === 'function' ? children(state) : children;
-
-    const wrapper = (
-      <div
-        ref={setWrapperRef}
-        style={{
-          width: '100%',
-          height: '100%',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          transformOrigin: 'center center',
-          willChange: zoom > 1 || poseSnap.phase !== 'idle' ? 'transform' : undefined,
-        }}
-      >
-        {resolvedChildren}
-      </div>
+    const snapshot = React.useMemo<ZoomEngineSnapshot>(
+      () => ({
+        state,
+        context: contextValue,
+        touchAction: zoom > minZoom ? 'none' : 'pan-x pan-y',
+        cursor: dragging ? 'grabbing' : zoom > 1 ? 'grab' : undefined,
+        willChange: zoom > 1 || poseSnap.phase !== 'idle',
+      }),
+      [state, contextValue, zoom, minZoom, dragging, poseSnap.phase],
     );
 
-    const element = useRender({
-      render,
-      ref: containerRef,
-      state,
-      stateAttributesMapping,
-      props: mergeProps<'div'>(
-        {
-          [LightboxZoomDataAttributes.host]: '',
-          style: {
-            position: 'relative',
-            width: '100%',
-            height: '100%',
-            containerType: 'size',
-            touchAction: zoom > minZoom ? 'none' : 'pan-x pan-y',
-            cursor: dragging ? 'grabbing' : zoom > 1 ? 'grab' : undefined,
-            userSelect: 'none',
-          },
-        } as React.ComponentPropsWithRef<'div'>,
-        elementProps as React.ComponentPropsWithRef<'div'>,
-        { children: wrapper } as React.ComponentPropsWithRef<'div'>,
-      ),
-      defaultTagName: 'div',
-    });
+    React.useLayoutEffect(() => {
+      onSnapshot(snapshot);
+    }, [onSnapshot, snapshot]);
 
-    return <ZoomContext.Provider value={contextValue}>{element}</ZoomContext.Provider>;
-  },
-);
+    return null;
+}
 
-LightboxZoomEngine.displayName = 'LightboxZoom';
+LightboxZoomEngine.displayName = 'LightboxZoomEngine';
 
 export { LightboxZoomEngine };

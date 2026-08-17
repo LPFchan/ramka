@@ -1,13 +1,11 @@
 'use client';
 
-import type { ForwardRefExoticComponent, RefAttributes } from 'react';
+import type { ComponentType } from 'react';
 
-import type { LightboxZoomProps, LightboxZoomRef } from './lightbox-zoom';
+import type { LightboxZoomEngineProps } from './lightbox-zoom';
 
 export interface ZoomRuntime {
-  LightboxZoomEngine: ForwardRefExoticComponent<
-    LightboxZoomProps & RefAttributes<LightboxZoomRef>
-  >;
+  LightboxZoomEngine: ComponentType<LightboxZoomEngineProps>;
 }
 
 let cached: ZoomRuntime | null = null;
@@ -30,4 +28,10 @@ function prefetchZoomRuntime(): void {
   void loadZoomRuntime();
 }
 
-export { loadZoomRuntime, getZoomRuntimeSync, prefetchZoomRuntime };
+/** Test-only: drop the in-memory engine so the next Zoom mount loads cold. */
+function resetZoomRuntimeForTests(): void {
+  cached = null;
+  pending = null;
+}
+
+export { loadZoomRuntime, getZoomRuntimeSync, prefetchZoomRuntime, resetZoomRuntimeForTests };
