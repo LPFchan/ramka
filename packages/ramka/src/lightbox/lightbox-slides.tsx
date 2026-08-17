@@ -169,9 +169,10 @@ const LightboxSlides = React.forwardRef<HTMLDivElement, LightboxSlidesProps>(
     /**
      * True when a trackpad pinch landed while the user-fling lock was held.
      * Pinch reclassifies the gesture (Safari `gesturestart` / Chrome
-     * `ctrlKey+wheel`) and often aborts the swipe without `scrollend`, which
-     * would freeze pull/pinch/thumbs until the next real swipe. While set, the
-     * idle fallback runs even in `scrollend` engines.
+     * `ctrlKey+wheel` / Safari ⌘+scroll `metaKey`) and often aborts the swipe
+     * without `scrollend`, which would freeze pull/pinch/thumbs until the next
+     * real swipe. While set, the idle fallback runs even in `scrollend`
+     * engines.
      */
     const pinchInterruptedRef = React.useRef(false);
     // Always-fresh mirror of activeIndex for use inside stable event listeners.
@@ -364,7 +365,12 @@ const LightboxSlides = React.forwardRef<HTMLDivElement, LightboxSlidesProps>(
       // can lock speculatively (horizontal slide at 1×) with no compositor
       // scroll — and then nothing emits `scrollend`.
       let sawScrollSinceLock = false;
+      let frame = 0;
       const settle = () => {
+        if (frame !== 0) {
+          cancelAnimationFrame(frame);
+          frame = 0;
+        }
         window.clearTimeout(idleTimerRef.current);
         idleTimerRef.current = 0;
         sawScrollSinceLock = false;
@@ -403,7 +409,6 @@ const LightboxSlides = React.forwardRef<HTMLDivElement, LightboxSlidesProps>(
       const isParkedOnJumpTarget = () =>
         Math.abs(viewport.scrollLeft - jumpTargetRef.current) < 1;
 
-      let frame = 0;
       const process = () => {
         frame = 0;
         // Entire programmatic jump window (exact set + snap restore): ignore.
@@ -431,9 +436,10 @@ const LightboxSlides = React.forwardRef<HTMLDivElement, LightboxSlidesProps>(
           idleTimerRef.current = 0;
           return;
         }
-        // Genuine user scroll/fling: lock discrete nav, keep the marker following
-        // the swipe, and (re)arm the idle-settle fallback.
-        lockUserScroll();
+        // `scrollend` already settled (CMD+/- aborts the swipe, then this rAF
+        // from the last `scroll` used to re-lock with no follow-up scrollend).
+        if (!navigationLockedRef.current) return;
+        // Marker follow-up only — `onScroll` already took the user-fling lock.
         sawScrollSinceLock = true;
         const derived = indexFromScroll(viewport);
         if (derived !== activeIndexRef.current) setActiveIndex(derived, 'scroll');
@@ -512,13 +518,16 @@ const LightboxSlides = React.forwardRef<HTMLDivElement, LightboxSlidesProps>(
         }
       };
 
-      // Trackpad pinch mid-swipe: Safari GestureEvent / Chrome ctrlKey+wheel.
-      // Must stay passive — a non-passive wheel on this scroller kills Safari
-      // compositor momentum. Observation only; native pinch is already swallowed
-      // by `useNativePinchGuard`.
+      // Trackpad pinch mid-swipe: Safari GestureEvent / Chrome ctrlKey+wheel /
+      // Safari ⌘+scroll (metaKey). Must stay passive — a non-passive wheel on
+      // this scroller kills Safari compositor momentum. Observation only;
+      // native pinch is already swallowed by `useNativePinchGuard`.
       const onTrackpadPinch = (event: Event) => {
         if (!navigationLockedRef.current) return;
-        if (event.type === 'wheel' && !(event as WheelEvent).ctrlKey) return;
+        if (event.type === 'wheel') {
+          const wheel = event as WheelEvent;
+          if (!wheel.ctrlKey && !wheel.metaKey) return;
+        }
         pinchInterruptedRef.current = true;
         armIdleFallback();
       };

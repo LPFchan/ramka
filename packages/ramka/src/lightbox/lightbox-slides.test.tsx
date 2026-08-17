@@ -602,13 +602,20 @@ describe('Lightbox.Slides', () => {
       expect(content).toHaveAttribute('data-pulling');
     });
 
-    function dispatchTrackpadWheel(target: Element, deltaX: number, deltaY: number, ctrlKey = false) {
+    function dispatchTrackpadWheel(
+      target: Element,
+      deltaX: number,
+      deltaY: number,
+      ctrlKey = false,
+      metaKey = false,
+    ) {
       const event = new WheelEvent('wheel', {
         bubbles: true,
         cancelable: true,
         deltaX,
         deltaY,
         ctrlKey,
+        metaKey,
       });
       Object.defineProperty(event, 'deltaMode', { value: 0 });
       target.dispatchEvent(event);
@@ -662,6 +669,38 @@ describe('Lightbox.Slides', () => {
       } finally {
         vi.useRealTimers();
       }
+    });
+
+    it('does not re-lock after scrollend while a scroll rAF is still pending', () => {
+      // Repro: ⌘+/- mid-swipe. `scrollend` settles, then the last `scroll`
+      // event's process rAF used to lock again with no follow-up scrollend —
+      // pull/pinch/thumbs stayed dead until the next real swipe.
+      render(<GestureLightbox />);
+      const viewport = screen.getByTestId('slides');
+      const content = screen.getByTestId('content');
+      setupGeometry(viewport, 8);
+
+      act(() => {
+        viewport.scrollLeft = 2 * WIDTH;
+        fireEvent.scroll(viewport);
+        fireEvent(viewport, new Event('scrollend'));
+        flushRaf();
+      });
+
+      const img = screen.getByTestId('img-2');
+      act(() => {
+        dispatchPointer(img, 'pointerdown', { clientX: 200, clientY: 200 });
+        dispatchPointer(content, 'pointermove', { clientX: 200, clientY: 240 });
+      });
+      expect(content).toHaveAttribute('data-pulling');
+      act(() => {
+        dispatchPointer(content, 'pointerup', { clientX: 200, clientY: 240 });
+      });
+      act(() => {
+        fireEvent.click(screen.getByTestId('thumb-6'));
+      });
+      act(() => flushRaf());
+      expect(activeThumb()).toBe(6);
     });
 
     it('starts a trackpad pull after scrollend of a gallery swipe', () => {
@@ -812,6 +851,33 @@ describe('Lightbox.Slides', () => {
         });
         act(() => flushRaf());
         expect(activeThumb()).toBe(6);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('does not freeze gestures after ⌘+scroll (metaKey wheel) interrupts an in-flight swipe', () => {
+      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+      try {
+        render(<GestureLightbox />);
+        const viewport = screen.getByTestId('slides');
+        const content = screen.getByTestId('content');
+        setupGeometry(viewport, 8);
+
+        swipeTo(viewport, 2);
+        const img = screen.getByTestId('img-2');
+
+        act(() => {
+          dispatchTrackpadWheel(img, 0, -40, false, true);
+        });
+        act(() => {
+          vi.advanceTimersByTime(200);
+        });
+        act(() => {
+          dispatchPointer(img, 'pointerdown', { clientX: 200, clientY: 200 });
+          dispatchPointer(content, 'pointermove', { clientX: 200, clientY: 240 });
+        });
+        expect(content).toHaveAttribute('data-pulling');
       } finally {
         vi.useRealTimers();
       }
