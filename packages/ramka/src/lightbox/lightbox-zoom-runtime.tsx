@@ -300,25 +300,6 @@ const LightboxZoomEngine = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
     }
     const session = sessionRef.current;
 
-    const zoomIn = React.useCallback(() => {
-      // Discrete zoom mid-swipe aborts compositor scrolling without `scrollend`
-      // (Safari then rebinds a non-passive ancestor wheel listener). Same gate
-      // as ZoomIn clicks / keyboard ⌘+/-.
-      if (navigationLockedRef.current) return;
-      session.zoomIn();
-    }, [navigationLockedRef, session]);
-    const zoomOut = React.useCallback(() => {
-      if (navigationLockedRef.current) return;
-      session.zoomOut();
-    }, [navigationLockedRef, session]);
-    const resetZoom = React.useCallback(
-      (rapid?: boolean) => {
-        if (navigationLockedRef.current) return;
-        session.reset(rapid);
-      },
-      [navigationLockedRef, session],
-    );
-
     React.useEffect(() => () => session.dispose(), [session]);
 
     // ----- Slide reset -----
@@ -385,15 +366,13 @@ const LightboxZoomEngine = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
         get offsetY() {
           return controller.getPose().offsetY;
         },
-        zoomIn,
-        zoomOut,
-        zoomTo: (target, opts) => {
-          if (navigationLockedRef.current) return;
-          session.changeZoom(target, opts?.rapid ?? false, opts?.dx, opts?.dy);
-        },
-        reset: resetZoom,
+        zoomIn: session.zoomIn,
+        zoomOut: session.zoomOut,
+        zoomTo: (target, opts) =>
+          session.changeZoom(target, opts?.rapid ?? false, opts?.dx, opts?.dy),
+        reset: session.reset,
       }),
-      [maxZoom, session, controller, zoomIn, zoomOut, resetZoom, navigationLockedRef],
+      [maxZoom, session, controller],
     );
 
     const canZoomIn = zoom < maxZoom;
@@ -407,30 +386,28 @@ const LightboxZoomEngine = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
         offsetY,
         canZoomIn,
         canZoomOut,
-        zoomIn,
-        zoomOut,
-        zoomTo: (target, opts) => {
-          if (navigationLockedRef.current) return;
-          session.changeZoom(target, opts?.rapid ?? false, opts?.dx, opts?.dy);
-        },
-        reset: resetZoom,
+        zoomIn: session.zoomIn,
+        zoomOut: session.zoomOut,
+        zoomTo: (target, opts) =>
+          session.changeZoom(target, opts?.rapid ?? false, opts?.dx, opts?.dy),
+        reset: session.reset,
         changeOffsets: session.changeOffsets,
       }),
-      [zoom, maxZoom, offsetX, offsetY, canZoomIn, canZoomOut, session, zoomIn, zoomOut, resetZoom, navigationLockedRef],
+      [zoom, maxZoom, offsetX, offsetY, canZoomIn, canZoomOut, session],
     );
 
     const activeControls = React.useMemo<ActiveZoomControls>(
       () => ({
         canZoomIn,
         canZoomOut,
-        zoomIn,
-        zoomOut,
-        reset: resetZoom,
+        zoomIn: session.zoomIn,
+        zoomOut: session.zoomOut,
+        reset: (rapid?: boolean) => session.reset(rapid),
         panBy: (dx: number, dy: number) => session.changeOffsets(dx, dy),
         keyboardPanDistance,
         getZoom: session.getLiveZoom,
       }),
-      [canZoomIn, canZoomOut, session, keyboardPanDistance, zoomIn, zoomOut, resetZoom],
+      [canZoomIn, canZoomOut, session, keyboardPanDistance],
     );
 
     React.useEffect(() => {

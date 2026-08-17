@@ -436,11 +436,9 @@ const LightboxSlides = React.forwardRef<HTMLDivElement, LightboxSlidesProps>(
           idleTimerRef.current = 0;
           return;
         }
-        // `scrollend` already settled (CMD+/- aborts the swipe, then this rAF
+        // `scrollend` already settled (⌘+/- aborts the swipe, then this rAF
         // from the last `scroll` used to re-lock with no follow-up scrollend).
         if (!navigationLockedRef.current) return;
-        // Marker follow-up only — `onScroll` already took the user-fling lock.
-        sawScrollSinceLock = true;
         const derived = indexFromScroll(viewport);
         if (derived !== activeIndexRef.current) setActiveIndex(derived, 'scroll');
       };
