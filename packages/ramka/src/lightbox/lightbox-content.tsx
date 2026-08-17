@@ -257,6 +257,7 @@ const LightboxContent = React.forwardRef<HTMLDivElement, LightboxContentProps>(
       loop,
       activeIndex,
       navigate,
+      isScrollingRef: navigationLockedRef,
     });
 
     // Click on the content container itself (not children) closes the

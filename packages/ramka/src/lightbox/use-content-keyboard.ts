@@ -15,6 +15,13 @@ interface UseContentKeyboardOptions {
   loop: boolean;
   activeIndex: number;
   navigate: (index: number, source: NavigationSource) => void;
+  /**
+   * True while a `Lightbox.Slides` user scroll/fling is in flight. Discrete
+   * keyboard zoom is dropped (⌘+/- still preventDefault so the page doesn't
+   * zoom) — applying a zoom animation mid-swipe aborts compositor scrolling
+   * without `scrollend` and freezes pull/pinch/thumbs.
+   */
+  isScrollingRef?: React.RefObject<boolean>;
 }
 
 /**
@@ -33,6 +40,7 @@ export function useContentKeyboard({
   loop,
   activeIndex,
   navigate,
+  isScrollingRef,
 }: UseContentKeyboardOptions): (event: React.KeyboardEvent) => void {
   return React.useCallback(
     (event: React.KeyboardEvent) => {
@@ -89,6 +97,9 @@ export function useContentKeyboard({
       const zoomResetKey = meta && event.key === '0';
       if (zoomInKey || zoomOutKey || zoomResetKey) {
         event.preventDefault();
+        // Swallow page-zoom even mid-swipe; don't start image zoom until the
+        // scroller has settled (same guard as ZoomIn/ZoomOut clicks).
+        if (isScrollingRef?.current) return;
         if (zoomCtl && !focusOutsideStage) {
           if (zoomInKey) zoomCtl.zoomIn();
           else if (zoomOutKey) zoomCtl.zoomOut();
@@ -167,6 +178,7 @@ export function useContentKeyboard({
       setOpen,
       activeZoomRef,
       stageElementRef,
+      isScrollingRef,
     ],
   );
 }
