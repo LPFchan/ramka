@@ -61,12 +61,21 @@ function near(a: number, b: number, eps = 1.5) {
   return Math.abs(a - b) <= eps;
 }
 
+/** Visible leftover vs subpixel/near-exact. Must match limit classification
+ *  and the letterbox check — a tighter “exact” epsilon than this gap threshold
+ *  false-fails while dragging through 16:9 (1px leftover, still called
+ *  width/height-limited). */
+const LETTERBOX_PX = 2;
+
 function expectedFitBox(cw: number, ch: number) {
   // Mirrors Media: width = min(100cqw, 100cqh * ratio); height from aspect-ratio.
   const widthLimited = cw <= ch * RATIO;
   const w = widthLimited ? cw : ch * RATIO;
   const h = w / RATIO;
-  const limit: LimitAxis = near(cw, ch * RATIO, 0.5) ? 'exact' : widthLimited ? 'width' : 'height';
+  const gapX = Math.max(0, cw - w);
+  const gapY = Math.max(0, ch - h);
+  const limit: LimitAxis =
+    gapX < LETTERBOX_PX && gapY < LETTERBOX_PX ? 'exact' : widthLimited ? 'width' : 'height';
   return { w, h, limit };
 }
 
@@ -165,10 +174,10 @@ export default function MediaStretchDebugPage() {
               : 'Height-limited — gaps on sides',
         pass:
           limit === 'exact'
-            ? gapX < 2 && gapY < 2
+            ? gapX < LETTERBOX_PX && gapY < LETTERBOX_PX
             : limit === 'width'
-              ? gapY > 2 && gapX < 2
-              : gapX > 2 && gapY < 2,
+              ? gapY >= LETTERBOX_PX && gapX < LETTERBOX_PX
+              : gapX >= LETTERBOX_PX && gapY < LETTERBOX_PX,
         detail: `container gaps ${gapX.toFixed(1)}×${gapY.toFixed(1)}px`,
       },
     ];
