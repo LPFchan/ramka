@@ -17,7 +17,7 @@ Compose a fullscreen media lightbox from headless parts: view-transition morph b
 - [Composition](docs/lightbox/composition.md): Default to Slides + Zoom (swipe carousel with pinch zoom), size media to fill Content, then layer chrome. Part of [Lightbox](docs/lightbox.md).
 - [Next.js Image](docs/lightbox/nextjs-image.md): Use `next/image` with Ramka. Lightbox-side blur depends on whether that item has a trigger image. Part of [Lightbox](docs/lightbox.md).
 - [View transitions](docs/lightbox/view-transitions.md): Morph open/close between a trigger and the active item with the browser View Transitions API. Part of [Lightbox](docs/lightbox.md). Unsupported browsers, reduced-motion, and low-end devices fall back to a plain fade.
-- [Gestures](docs/lightbox/gestures.md): Pull-to-dismiss, zoom/pan, and keyboard ownership. Part of [Lightbox](docs/lightbox.md). For a full product composition see the [Twitter preset](presets/twitter.md).
+- [Gestures](docs/lightbox/gestures.md): Pull-to-dismiss, zoom/pan, and keyboard ownership. Part of [Lightbox](docs/lightbox.md). For the usual gallery chrome (pull, zoom, keyboard) see the [Default preset](presets/default.md).
 - [Zoom & a11y](docs/lightbox/zoom.md): How ramka’s zoom & pan — on desktop and on touch — lines up with mainstream image viewers, and how it maps to WCAG 2.2. For the wiring and gesture ownership, see [Gestures](docs/lightbox/gestures.md).
 - [API reference](docs/lightbox/api.md): Props, data attributes, and CSS variables for every [Lightbox](docs/lightbox.md) part. Tables are generated from package TypeScript + JSDoc.
 

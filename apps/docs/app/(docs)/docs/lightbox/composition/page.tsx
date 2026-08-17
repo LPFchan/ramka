@@ -135,7 +135,7 @@ export default function LightboxCompositionPage() {
         </p>
         <CodeBlock code={lightboxExcerpts['media-fit-box'].code} title={lightboxExcerpts['media-fit-box'].title} />
         <p>
-          Live compositions: <DocsLink href="/presets/twitter">Twitter preset</DocsLink>,{' '}
+          Live compositions: <DocsLink href="/presets/default">Default preset</DocsLink>,{' '}
           <DocsLink href="/examples/lightbox/photos-app">Photos app</DocsLink>.
         </p>
       </DocsSection>
@@ -185,7 +185,7 @@ export default function LightboxCompositionPage() {
           title={lightboxExcerpts['chrome-composition'].title}
         />
         <p>
-          Full product composition: <DocsLink href="/presets/twitter">Twitter preset</DocsLink>.
+          Packaged as a skin: <DocsLink href="/presets/default">Default preset</DocsLink>.
         </p>
       </DocsSection>
 

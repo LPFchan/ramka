@@ -88,7 +88,7 @@ import { Lightbox } from 'ramka';
 </Lightbox.Root>
 ```
 
-Live compositions: [Twitter preset](presets/twitter.md), [Photos app](examples/lightbox/photos-app.md).
+Live compositions: [Default preset](presets/default.md), [Photos app](examples/lightbox/photos-app.md).
 
 ## Stage (split layouts)
 
@@ -155,7 +155,7 @@ import { Lightbox } from 'ramka';
 </Lightbox.Root>
 ```
 
-Full product composition: [Twitter preset](presets/twitter.md).
+Packaged as a skin: [Default preset](presets/default.md).
 
 ## Dynamic itemCount
 

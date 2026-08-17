@@ -299,7 +299,7 @@ import { Lightbox } from 'ramka';
 </Lightbox.Root>
 ```
 
-Live compositions: [Twitter preset](presets/twitter.md), [Photos app](examples/lightbox/photos-app.md).
+Live compositions: [Default preset](presets/default.md), [Photos app](examples/lightbox/photos-app.md).
 
 ## Stage (split layouts)
 
@@ -366,7 +366,7 @@ import { Lightbox } from 'ramka';
 </Lightbox.Root>
 ```
 
-Full product composition: [Twitter preset](presets/twitter.md).
+Packaged as a skin: [Default preset](presets/default.md).
 
 ## Dynamic itemCount
 
@@ -809,7 +809,7 @@ Lifecycle timing for your own CSS: Content/Backdrop stay `mounted` through exit 
 
 # Gestures
 
-Pull-to-dismiss, zoom/pan, and keyboard ownership. Part of [Lightbox](docs/lightbox.md). For a full product composition see the [Twitter preset](presets/twitter.md).
+Pull-to-dismiss, zoom/pan, and keyboard ownership. Part of [Lightbox](docs/lightbox.md). For the usual gallery chrome (pull, zoom, keyboard) see the [Default preset](presets/default.md).
 
 ## Content pullToClose
 

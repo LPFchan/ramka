@@ -1,6 +1,6 @@
 # Gestures
 
-Pull-to-dismiss, zoom/pan, and keyboard ownership. Part of [Lightbox](docs/lightbox.md). For a full product composition see the [Twitter preset](presets/twitter.md).
+Pull-to-dismiss, zoom/pan, and keyboard ownership. Part of [Lightbox](docs/lightbox.md). For the usual gallery chrome (pull, zoom, keyboard) see the [Default preset](presets/default.md).
 
 ## Content pullToClose
 
