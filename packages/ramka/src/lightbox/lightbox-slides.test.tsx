@@ -564,6 +564,13 @@ describe('Lightbox.Slides', () => {
                   </LightboxSlide>
                 ))}
               </LightboxSlides>
+              <LightboxThumbnailGroup data-testid="thumb-group">
+                {Array.from({ length: itemCount }, (_, i) => (
+                  <LightboxThumbnail key={`th-${i}`} index={i} data-testid={`thumb-${i}`}>
+                    Thumb {i}
+                  </LightboxThumbnail>
+                ))}
+              </LightboxThumbnailGroup>
             </LightboxContent>
           </LightboxPortal>
         </LightboxRoot>
@@ -712,13 +719,15 @@ describe('Lightbox.Slides', () => {
       // unlock), so pull/pinch/thumbs stayed dead until the next real swipe.
       vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
       try {
-        render(<GestureLightbox />);
+        const zoomRef = React.createRef<LightboxZoomRef>();
+        render(<GestureLightbox withZoom zoomRef={zoomRef} observedIndex={2} />);
         const viewport = screen.getByTestId('slides');
         const content = screen.getByTestId('content');
         setupGeometry(viewport, 8);
 
         swipeTo(viewport, 2);
         const img = screen.getByTestId('img-2');
+        expect(activeThumb()).toBe(2);
 
         act(() => {
           dispatchTrackpadWheel(img, 0, -40, true);
@@ -733,6 +742,14 @@ describe('Lightbox.Slides', () => {
         act(() => {
           dispatchPointer(content, 'pointerup', { clientX: 200, clientY: 240 });
         });
+        act(() => {
+          fireEvent.click(screen.getByTestId('thumb-6'));
+        });
+        expect(activeThumb()).toBe(2);
+        act(() => {
+          fireEvent.wheel(img, { deltaY: -100, ctrlKey: true });
+        });
+        expect(zoomRef.current?.zoom).toBe(1);
 
         // Pinch + scroll went quiet and `scrollend` never arrived. Must settle.
         act(() => {
@@ -743,6 +760,20 @@ describe('Lightbox.Slides', () => {
           dispatchPointer(content, 'pointermove', { clientX: 200, clientY: 240 });
         });
         expect(content).toHaveAttribute('data-pulling');
+        act(() => {
+          dispatchPointer(content, 'pointerup', { clientX: 200, clientY: 240 });
+        });
+
+        act(() => {
+          fireEvent.wheel(img, { deltaY: -100, ctrlKey: true });
+        });
+        expect(zoomRef.current!.zoom).toBeGreaterThan(1);
+
+        act(() => {
+          fireEvent.click(screen.getByTestId('thumb-6'));
+        });
+        act(() => flushRaf());
+        expect(activeThumb()).toBe(6);
       } finally {
         vi.useRealTimers();
       }
@@ -772,6 +803,15 @@ describe('Lightbox.Slides', () => {
           dispatchPointer(content, 'pointermove', { clientX: 200, clientY: 240 });
         });
         expect(content).toHaveAttribute('data-pulling');
+        act(() => {
+          dispatchPointer(content, 'pointerup', { clientX: 200, clientY: 240 });
+        });
+
+        act(() => {
+          fireEvent.click(screen.getByTestId('thumb-6'));
+        });
+        act(() => flushRaf());
+        expect(activeThumb()).toBe(6);
       } finally {
         vi.useRealTimers();
       }
@@ -992,24 +1032,63 @@ describe('Lightbox.Slides', () => {
       // Regression: keyboard zoom was not gated (unlike pinch / zoom buttons).
       // A discrete zoom mid-swipe aborts compositor scrolling without
       // `scrollend` and freezes pull/pinch/thumbs.
-      const zoomRef = React.createRef<LightboxZoomRef>();
-      render(<GestureLightbox withZoom zoomRef={zoomRef} observedIndex={1} />);
-      const viewport = screen.getByTestId('slides');
-      const content = screen.getByTestId('content');
-      setupGeometry(viewport, 8);
+      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+      try {
+        const zoomRef = React.createRef<LightboxZoomRef>();
+        render(<GestureLightbox withZoom zoomRef={zoomRef} observedIndex={1} />);
+        const viewport = screen.getByTestId('slides');
+        const content = screen.getByTestId('content');
+        setupGeometry(viewport, 8);
+        const img = screen.getByTestId('img-1');
 
-      swipeTo(viewport, 1);
-      expect(zoomRef.current?.zoom).toBe(1);
-      act(() => {
-        fireEvent.keyDown(content, { key: '=', metaKey: true });
-      });
-      expect(zoomRef.current?.zoom).toBe(1);
+        swipeTo(viewport, 1);
+        expect(zoomRef.current?.zoom).toBe(1);
+        expect(activeThumb()).toBe(1);
+        act(() => {
+          fireEvent.keyDown(content, { key: '=', metaKey: true });
+        });
+        expect(zoomRef.current?.zoom).toBe(1);
+        act(() => {
+          fireEvent.keyDown(content, { key: '-', metaKey: true });
+        });
+        expect(zoomRef.current?.zoom).toBe(1);
+        act(() => {
+          fireEvent.keyDown(content, { key: '0', metaKey: true });
+        });
+        expect(zoomRef.current?.zoom).toBe(1);
 
-      endScroll(viewport);
-      act(() => {
-        fireEvent.keyDown(content, { key: '=', metaKey: true });
-      });
-      expect(zoomRef.current!.zoom).toBeGreaterThan(1);
+        // Unlike a trackpad pinch, ⌘+/- must not idle-unlock: the swipe is
+        // still the live gesture until `scrollend`.
+        act(() => {
+          vi.advanceTimersByTime(200);
+        });
+        act(() => {
+          dispatchPointer(img, 'pointerdown', { clientX: 200, clientY: 200 });
+          dispatchPointer(content, 'pointermove', { clientX: 200, clientY: 240 });
+        });
+        expect(content).not.toHaveAttribute('data-pulling');
+        act(() => {
+          dispatchPointer(content, 'pointerup', { clientX: 200, clientY: 240 });
+        });
+        act(() => {
+          fireEvent.click(screen.getByTestId('thumb-6'));
+        });
+        expect(activeThumb()).toBe(1);
+
+        endScroll(viewport);
+        act(() => {
+          fireEvent.keyDown(content, { key: '=', metaKey: true });
+        });
+        expect(zoomRef.current!.zoom).toBeGreaterThan(1);
+
+        act(() => {
+          fireEvent.click(screen.getByTestId('thumb-6'));
+        });
+        act(() => flushRaf());
+        expect(activeThumb()).toBe(6);
+      } finally {
+        vi.useRealTimers();
+      }
     });
   });
 });
