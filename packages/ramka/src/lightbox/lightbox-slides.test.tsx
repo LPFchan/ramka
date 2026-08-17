@@ -564,6 +564,13 @@ describe('Lightbox.Slides', () => {
                   </LightboxSlide>
                 ))}
               </LightboxSlides>
+              <LightboxThumbnailGroup data-testid="thumb-group">
+                {Array.from({ length: itemCount }, (_, i) => (
+                  <LightboxThumbnail key={`th-${i}`} index={i} data-testid={`thumb-${i}`}>
+                    Thumb {i}
+                  </LightboxThumbnail>
+                ))}
+              </LightboxThumbnailGroup>
             </LightboxContent>
           </LightboxPortal>
         </LightboxRoot>
@@ -595,12 +602,20 @@ describe('Lightbox.Slides', () => {
       expect(content).toHaveAttribute('data-pulling');
     });
 
-    function dispatchTrackpadWheel(target: Element, deltaX: number, deltaY: number) {
+    function dispatchTrackpadWheel(
+      target: Element,
+      deltaX: number,
+      deltaY: number,
+      ctrlKey = false,
+      metaKey = false,
+    ) {
       const event = new WheelEvent('wheel', {
         bubbles: true,
         cancelable: true,
         deltaX,
         deltaY,
+        ctrlKey,
+        metaKey,
       });
       Object.defineProperty(event, 'deltaMode', { value: 0 });
       target.dispatchEvent(event);
@@ -656,6 +671,38 @@ describe('Lightbox.Slides', () => {
       }
     });
 
+    it('does not re-lock after scrollend while a scroll rAF is still pending', () => {
+      // Repro: ⌘+/- mid-swipe. `scrollend` settles, then the last `scroll`
+      // event's process rAF used to lock again with no follow-up scrollend —
+      // pull/pinch/thumbs stayed dead until the next real swipe.
+      render(<GestureLightbox />);
+      const viewport = screen.getByTestId('slides');
+      const content = screen.getByTestId('content');
+      setupGeometry(viewport, 8);
+
+      act(() => {
+        viewport.scrollLeft = 2 * WIDTH;
+        fireEvent.scroll(viewport);
+        fireEvent(viewport, new Event('scrollend'));
+        flushRaf();
+      });
+
+      const img = screen.getByTestId('img-2');
+      act(() => {
+        dispatchPointer(img, 'pointerdown', { clientX: 200, clientY: 200 });
+        dispatchPointer(content, 'pointermove', { clientX: 200, clientY: 240 });
+      });
+      expect(content).toHaveAttribute('data-pulling');
+      act(() => {
+        dispatchPointer(content, 'pointerup', { clientX: 200, clientY: 240 });
+      });
+      act(() => {
+        fireEvent.click(screen.getByTestId('thumb-6'));
+      });
+      act(() => flushRaf());
+      expect(activeThumb()).toBe(6);
+    });
+
     it('starts a trackpad pull after scrollend of a gallery swipe', () => {
       render(<GestureLightbox />);
       const viewport = screen.getByTestId('slides');
@@ -702,6 +749,138 @@ describe('Lightbox.Slides', () => {
         for (let i = 0; i < 4; i++) dispatchTrackpadWheel(img, 0, -30);
       });
       expect(content).not.toHaveAttribute('data-pulling');
+    });
+
+    it('does not freeze gestures after a trackpad pinch interrupts an in-flight swipe', () => {
+      // Regression: pinch mid-swipe (Chrome ctrlKey+wheel / Safari GestureEvent)
+      // aborts the gallery scroll without `scrollend`. The idle fallback is
+      // normally skipped when `onscrollend` exists (vertical-turn must not
+      // unlock), so pull/pinch/thumbs stayed dead until the next real swipe.
+      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+      try {
+        const zoomRef = React.createRef<LightboxZoomRef>();
+        render(<GestureLightbox withZoom zoomRef={zoomRef} observedIndex={2} />);
+        const viewport = screen.getByTestId('slides');
+        const content = screen.getByTestId('content');
+        setupGeometry(viewport, 8);
+
+        swipeTo(viewport, 2);
+        const img = screen.getByTestId('img-2');
+        expect(activeThumb()).toBe(2);
+
+        act(() => {
+          dispatchTrackpadWheel(img, 0, -40, true);
+        });
+
+        // Still locked immediately — snap may still be in flight.
+        act(() => {
+          dispatchPointer(img, 'pointerdown', { clientX: 200, clientY: 200 });
+          dispatchPointer(content, 'pointermove', { clientX: 200, clientY: 240 });
+        });
+        expect(content).not.toHaveAttribute('data-pulling');
+        act(() => {
+          dispatchPointer(content, 'pointerup', { clientX: 200, clientY: 240 });
+        });
+        act(() => {
+          fireEvent.click(screen.getByTestId('thumb-6'));
+        });
+        expect(activeThumb()).toBe(2);
+        act(() => {
+          fireEvent.wheel(img, { deltaY: -100, ctrlKey: true });
+        });
+        expect(zoomRef.current?.zoom).toBe(1);
+
+        // Pinch + scroll went quiet and `scrollend` never arrived. Must settle.
+        act(() => {
+          vi.advanceTimersByTime(200);
+        });
+        act(() => {
+          dispatchPointer(img, 'pointerdown', { clientX: 200, clientY: 200 });
+          dispatchPointer(content, 'pointermove', { clientX: 200, clientY: 240 });
+        });
+        expect(content).toHaveAttribute('data-pulling');
+        act(() => {
+          dispatchPointer(content, 'pointerup', { clientX: 200, clientY: 240 });
+        });
+
+        act(() => {
+          fireEvent.wheel(img, { deltaY: -100, ctrlKey: true });
+        });
+        expect(zoomRef.current!.zoom).toBeGreaterThan(1);
+
+        act(() => {
+          fireEvent.click(screen.getByTestId('thumb-6'));
+        });
+        act(() => flushRaf());
+        expect(activeThumb()).toBe(6);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('does not freeze gestures after a Safari trackpad pinch interrupts an in-flight swipe', () => {
+      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+      try {
+        render(<GestureLightbox />);
+        const viewport = screen.getByTestId('slides');
+        const content = screen.getByTestId('content');
+        setupGeometry(viewport, 8);
+
+        swipeTo(viewport, 2);
+        const img = screen.getByTestId('img-2');
+
+        act(() => {
+          img.dispatchEvent(new Event('gesturestart', { bubbles: true, cancelable: true }));
+          img.dispatchEvent(new Event('gesturechange', { bubbles: true, cancelable: true }));
+        });
+
+        act(() => {
+          vi.advanceTimersByTime(200);
+        });
+        act(() => {
+          dispatchPointer(img, 'pointerdown', { clientX: 200, clientY: 200 });
+          dispatchPointer(content, 'pointermove', { clientX: 200, clientY: 240 });
+        });
+        expect(content).toHaveAttribute('data-pulling');
+        act(() => {
+          dispatchPointer(content, 'pointerup', { clientX: 200, clientY: 240 });
+        });
+
+        act(() => {
+          fireEvent.click(screen.getByTestId('thumb-6'));
+        });
+        act(() => flushRaf());
+        expect(activeThumb()).toBe(6);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('does not freeze gestures after ⌘+scroll (metaKey wheel) interrupts an in-flight swipe', () => {
+      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+      try {
+        render(<GestureLightbox />);
+        const viewport = screen.getByTestId('slides');
+        const content = screen.getByTestId('content');
+        setupGeometry(viewport, 8);
+
+        swipeTo(viewport, 2);
+        const img = screen.getByTestId('img-2');
+
+        act(() => {
+          dispatchTrackpadWheel(img, 0, -40, false, true);
+        });
+        act(() => {
+          vi.advanceTimersByTime(200);
+        });
+        act(() => {
+          dispatchPointer(img, 'pointerdown', { clientX: 200, clientY: 200 });
+          dispatchPointer(content, 'pointermove', { clientX: 200, clientY: 240 });
+        });
+        expect(content).toHaveAttribute('data-pulling');
+      } finally {
+        vi.useRealTimers();
+      }
     });
 
     it('does not leave gestures locked after an open/snap scroll echo on the first slide', () => {
@@ -913,6 +1092,69 @@ describe('Lightbox.Slides', () => {
         fireEvent.click(screen.getByTestId('zoom-in'));
       });
       expect(zoomRef.current!.zoom).toBeGreaterThan(1);
+    });
+
+    it('drops keyboard ⌘+/- zoom while a scroll is in flight, then resumes after it settles', () => {
+      // Regression: keyboard zoom was not gated (unlike pinch / zoom buttons).
+      // A discrete zoom mid-swipe aborts compositor scrolling without
+      // `scrollend` and freezes pull/pinch/thumbs.
+      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+      try {
+        const zoomRef = React.createRef<LightboxZoomRef>();
+        render(<GestureLightbox withZoom zoomRef={zoomRef} observedIndex={1} />);
+        const viewport = screen.getByTestId('slides');
+        const content = screen.getByTestId('content');
+        setupGeometry(viewport, 8);
+        const img = screen.getByTestId('img-1');
+
+        swipeTo(viewport, 1);
+        expect(zoomRef.current?.zoom).toBe(1);
+        expect(activeThumb()).toBe(1);
+        act(() => {
+          fireEvent.keyDown(content, { key: '=', metaKey: true });
+        });
+        expect(zoomRef.current?.zoom).toBe(1);
+        act(() => {
+          fireEvent.keyDown(content, { key: '-', metaKey: true });
+        });
+        expect(zoomRef.current?.zoom).toBe(1);
+        act(() => {
+          fireEvent.keyDown(content, { key: '0', metaKey: true });
+        });
+        expect(zoomRef.current?.zoom).toBe(1);
+
+        // Unlike a trackpad pinch, ⌘+/- must not idle-unlock: the swipe is
+        // still the live gesture until `scrollend`.
+        act(() => {
+          vi.advanceTimersByTime(200);
+        });
+        act(() => {
+          dispatchPointer(img, 'pointerdown', { clientX: 200, clientY: 200 });
+          dispatchPointer(content, 'pointermove', { clientX: 200, clientY: 240 });
+        });
+        expect(content).not.toHaveAttribute('data-pulling');
+        act(() => {
+          dispatchPointer(content, 'pointerup', { clientX: 200, clientY: 240 });
+        });
+        act(() => {
+          fireEvent.click(screen.getByTestId('thumb-6'));
+        });
+        expect(activeThumb()).toBe(1);
+
+        endScroll(viewport);
+        act(() => {
+          fireEvent.keyDown(content, { key: '=', metaKey: true });
+        });
+        expect(zoomRef.current!.zoom).toBeGreaterThan(1);
+
+        act(() => {
+          fireEvent.click(screen.getByTestId('thumb-6'));
+        });
+        act(() => flushRaf());
+        expect(activeThumb()).toBe(6);
+      } finally {
+        vi.useRealTimers();
+      }
     });
   });
 });

@@ -84,6 +84,8 @@ interface LightboxStateSlice {
    *   - pull-to-dismiss won't start (a swipe can't become a dismiss mid-scroll).
    *     Cleared on `scrollend`, not on a quiet gap — a trackpad swipe that
    *     turns vertical mid-gesture must not pull until the user has released.
+   *     Exception: a trackpad pinch mid-swipe can cancel the scroll without
+   *     `scrollend`; Slides then settles on a quiet gap after that pinch.
    *   - zoom/pan gestures won't start or continue (a swipe can't be hijacked
    *     into a pinch — including a second finger landing mid-scroll).
    * Stays `false` when no Slides scroller writes it, so navigation and
