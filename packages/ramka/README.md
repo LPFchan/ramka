@@ -32,6 +32,8 @@ Docs: run the [docs site](../../apps/docs) and open `/docs/lightbox` (overview �
 
 API tables (props, data attributes, CSS variables) are generated from this package’s TypeScript + JSDoc — including the `*DataAttributes` / `*CssVars` enums. Usage code excerpts are extracted from typechecked sources under `apps/docs/app/_content/lightbox/excerpts/sources/`. After changing public APIs or excerpt sources, run `pnpm docs:api` and `pnpm docs:excerpts` from the repo root (CI fails if generated files are stale).
 
+LLM-oriented copies of the docs (`/llms.txt`, `/llms-full.txt`, and a `.md` twin of each docs page) are generated from those same sources — `pnpm docs:llms`. The docs `dev`/`build` scripts regenerate them automatically.
+
 ## License
 
 MIT

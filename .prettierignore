@@ -3,3 +3,11 @@ dist
 .next
 .turbo
 pnpm-lock.yaml
+
+# Generated LLM docs (apps/docs/scripts/generate-llms-txt.ts)
+apps/docs/public/llms.txt
+apps/docs/public/llms-full.txt
+apps/docs/public/docs.md
+apps/docs/public/docs/
+apps/docs/public/presets/
+apps/docs/public/examples/
