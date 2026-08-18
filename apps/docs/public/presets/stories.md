@@ -270,6 +270,7 @@ function Gallery({ items, ariaLabel }: { items: LightboxItem[]; ariaLabel: strin
     <Portal>
       <Backdrop />
       <Content aria-label={ariaLabel}>
+        {multiple ? <Previous className="stl-chrome-gesture-hide" /> : null}
         <Stage>
           <Slides aria-label="Stories" preload={2}>
             {items.map((item, i) => (
@@ -302,10 +303,8 @@ function Gallery({ items, ariaLabel }: { items: LightboxItem[]; ariaLabel: strin
             ))}
           </Slides>
         </Stage>
-
         {multiple ? (
           <>
-            <Previous className="stl-chrome-gesture-hide" />
             <Next className="stl-chrome-gesture-hide" />
             <Counter className="stl-chrome-gesture-hide" />
           </>
@@ -364,6 +363,8 @@ export const Lightbox = {
   --stl-chrome-fg-muted: rgb(0 0 0 / 0.55);
   --stl-frame-ring: rgb(0 0 0 / 0.12);
   --stl-frame-radius: 1.75rem;
+  --stl-card-radius: 8px;
+  --stl-stage-bg: #fff;
 }
 
 :is(.dark, [data-theme='dark']) .stl-portal {
@@ -374,6 +375,7 @@ export const Lightbox = {
   --stl-chrome-fg: rgb(255 255 255 / 0.9);
   --stl-chrome-fg-muted: rgb(255 255 255 / 0.72);
   --stl-frame-ring: rgb(255 255 255 / 0.12);
+  --stl-stage-bg: #000;
 }
 
 /* ── Trigger (circular avatar) ──────────────────────────────────────────── */
@@ -440,6 +442,13 @@ export const Lightbox = {
   transition: opacity var(--lightbox-vt-duration, 360ms) var(--stl-ease-out);
 }
 
+@media (min-width: 768px) {
+  .stl-content {
+    gap: 0.75rem;
+    padding: 0 1rem;
+  }
+}
+
 .stl-content[data-open] {
   opacity: 1;
 }
@@ -455,6 +464,7 @@ export const Lightbox = {
 .stl-stage {
   align-self: stretch;
   width: 100%;
+  min-width: 0;
   min-height: 0;
 }
 
@@ -486,6 +496,12 @@ export const Lightbox = {
 /* Shell chrome only after the open morph — not in the VT snapshot. */
 .stl-content[data-open] .stl-frame {
   background: #000;
+}
+
+@media (max-width: 767px) {
+  .stl-content[data-open] .stl-frame {
+    background: var(--stl-stage-bg);
+  }
 }
 
 @media (min-width: 768px) {
@@ -521,15 +537,10 @@ export const Lightbox = {
   overflow: hidden;
   overflow: clip;
   background: #0a0a0a;
-  border-radius: var(--stl-frame-radius);
+  border-radius: var(--stl-card-radius);
   transform-origin: center center;
   -webkit-backface-visibility: hidden;
   backface-visibility: hidden;
-}
-
-/* At rest the frame clips — drop the card radius so it isn’t double-rounded. */
-.stl-content[data-open] .stl-card {
-  border-radius: 0;
 }
 
 .stl-media {
@@ -750,15 +761,14 @@ export const Lightbox = {
   transition: opacity 200ms;
 }
 
-/* ── Edge navigation (desktop) ──────────────────────────────────────────── */
+/* ── Stage-adjacent navigation (desktop) ───────────────────────────────── */
 
 .stl-nav {
-  position: absolute;
-  top: 50%;
   z-index: 1;
-  display: inline-flex;
+  display: none;
   width: 2.75rem;
   height: 2.75rem;
+  flex-shrink: 0;
   align-items: center;
   justify-content: center;
   border: 0;
@@ -767,7 +777,6 @@ export const Lightbox = {
   color: var(--stl-chrome-fg);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  transform: translateY(-50%);
   cursor: pointer;
   transition:
     background-color 150ms ease-out,
@@ -775,12 +784,18 @@ export const Lightbox = {
     transform 150ms ease-out;
 }
 
+@media (min-width: 768px) {
+  .stl-nav {
+    display: inline-flex;
+  }
+}
+
 .stl-nav:hover {
   background: var(--stl-chrome-bg-hover);
 }
 
 .stl-nav:active {
-  transform: translateY(-50%) scale(0.96);
+  transform: scale(0.96);
 }
 
 .stl-nav:focus {
@@ -798,27 +813,13 @@ export const Lightbox = {
 }
 
 .stl-nav:disabled:active {
-  transform: translateY(-50%);
+  transform: none;
 }
 
 .stl-nav svg {
   display: block;
   width: 1.25rem;
   height: 1.25rem;
-}
-
-.stl-nav-prev {
-  left: 1rem;
-}
-
-.stl-nav-next {
-  right: 1rem;
-}
-
-@media (max-width: 767px) {
-  .stl-nav {
-    display: none;
-  }
 }
 
 /* ── Counter (desktop only — mobile uses the HUD segments) ─────────────── */
@@ -973,7 +974,7 @@ export function StoriesPresetDemo() {
     <div className="w-full max-w-xl">
       <Lightbox.Root
         loop
-        viewTransition="spring"
+        viewTransition="snappy"
         // Avatar is a different image from the 9:16 frame, so every trigger
         // crossfades — skip the decode wait so the dissolve starts immediately.
         awaitImageDecode={false}
