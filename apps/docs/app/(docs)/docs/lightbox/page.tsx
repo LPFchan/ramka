@@ -20,7 +20,7 @@ const guideLinks: {
   },
   {
     title: 'Composition',
-    description: 'Slides + Zoom chrome, media fill / fit-box sizing, ItemGroup swap, and itemCount.',
+    description: 'Slides + Zoom chrome, media fill / fit-box sizing, and itemCount.',
     href: lightboxDocsPages.composition.href,
   },
   {
@@ -74,10 +74,7 @@ export default function LightboxOverviewPage() {
             <strong className="font-medium text-neutral-800 dark:text-neutral-200">Layout</strong> —
             default to the swipe carousel (
             <DocsLink href={`${lightboxDocsPages.composition.href}#slides`}>Slides + Zoom</DocsLink>
-            ); use stacked swap (
-            <DocsLink href={`${lightboxDocsPages.composition.href}#item-group`}>ItemGroup</DocsLink>)
-            only when you do not want a carousel. See{' '}
-            <DocsLink href={lightboxDocsPages.composition.href}>Composition</DocsLink>.
+            ). See <DocsLink href={lightboxDocsPages.composition.href}>Composition</DocsLink>.
           </li>
           <li>
             <strong className="font-medium text-neutral-800 dark:text-neutral-200">Morph</strong> — on by

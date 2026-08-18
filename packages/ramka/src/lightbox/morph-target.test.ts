@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { findItemMorphTarget, findTriggerMorphTarget } from './lightbox-context';
+import { findItemMorphTarget, findTriggerMorphTarget } from './morph-target';
 
 // Build a detached DOM subtree from an HTML string and return its root element.
 function makeEl(html: string): HTMLElement {

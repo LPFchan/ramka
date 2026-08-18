@@ -10,7 +10,6 @@ const toc: DocsTocItem[] = [
   { id: 'media-layout', title: 'Media layout' },
   { id: 'stage', title: 'Stage (split layouts)' },
   { id: 'chrome', title: 'Chrome' },
-  { id: 'item-group', title: 'ItemGroup (swap)' },
   { id: 'item-count', title: 'Dynamic itemCount' },
 ];
 
@@ -21,7 +20,7 @@ export default function LightboxCompositionPage() {
       description={
         <>
           Default to Slides + Zoom (swipe carousel with pinch zoom), size media to fill Content, then layer chrome.
-          ItemGroup is the stacked-swap alternative. Part of{' '}
+          Part of{' '}
           <DocsLink href={lightboxDocsPages.overview.href}>Lightbox</DocsLink>.
         </>
       }
@@ -48,6 +47,11 @@ export default function LightboxCompositionPage() {
             Scroll-driven index changes report <code className="text-xs">onValueChange</code> with{' '}
             <code className="text-xs">source: &apos;scroll&apos;</code> — see{' '}
             <DocsLink href={lightboxApiHref.types}>NavigationSource</DocsLink>.
+          </li>
+          <li>
+            Item render-prop <code className="text-xs">active</code> is the current index (drive expensive work here).{' '}
+            <code className="text-xs">visible</code> means the item is in the preload window — use it for lightweight
+            prefetch, not video autoplay.
           </li>
         </ul>
         <CodeBlock code={lightboxExcerpts['slides-nesting'].code} title={lightboxExcerpts['slides-nesting'].title} />
@@ -131,7 +135,8 @@ export default function LightboxCompositionPage() {
         </p>
         <CodeBlock code={lightboxExcerpts['media-fit-box'].code} title={lightboxExcerpts['media-fit-box'].title} />
         <p>
-          Live compositions: <DocsLink href="/presets/twitter">Twitter preset</DocsLink>,{' '}
+          Live compositions: <DocsLink href="/presets/default">Default preset</DocsLink>,{' '}
+          <DocsLink href="/presets/twitter">Twitter preset</DocsLink>,{' '}
           <DocsLink href="/presets/stories">Stories preset</DocsLink>,{' '}
           <DocsLink href="/examples/lightbox/photos-app">Photos app</DocsLink>.
         </p>
@@ -150,7 +155,7 @@ export default function LightboxCompositionPage() {
           code={`<Lightbox.Content aria-label="Post">
   <Lightbox.Stage className="media-pane">
     <Lightbox.Close />
-    <Lightbox.ItemGroup>{/* media */}</Lightbox.ItemGroup>
+    <Lightbox.Slides>{/* media */}</Lightbox.Slides>
     <Lightbox.Previous />
     <Lightbox.Next />
   </Lightbox.Stage>
@@ -182,32 +187,8 @@ export default function LightboxCompositionPage() {
           title={lightboxExcerpts['chrome-composition'].title}
         />
         <p>
-          Full product composition: <DocsLink href="/presets/twitter">Twitter preset</DocsLink>.
+          Packaged as a skin: <DocsLink href="/presets/default">Default preset</DocsLink>.
         </p>
-      </DocsSection>
-
-      <DocsSection id="item-group" title="ItemGroup (swap)">
-        <p>
-          Use <DocsLink href={lightboxApiHref.itemGroup}>ItemGroup</DocsLink> when you want a stacked viewer instead of
-          a swipe carousel — one item visible at a time, typically with Previous / Next / Counter chrome. It mounts the
-          active <DocsLink href={lightboxApiHref.item}>Item</DocsLink> plus <code className="text-xs">preload</code>{' '}
-          neighbors (default neighbors depend on the prop; use <code className="text-xs">preload={'{0}'}</code> for
-          active-only).
-        </p>
-        <ul className="list-disc space-y-2 pl-5">
-          <li>
-            <code className="text-xs">active</code> — this item is the current index (drive expensive work here).
-          </li>
-          <li>
-            <code className="text-xs">visible</code> — mounted in the preload window (may include neighbors). Use for
-            lightweight prefetch; prefer <code className="text-xs">active</code> for video autoplay, high-res swaps,
-            etc.
-          </li>
-        </ul>
-        <CodeBlock
-          code={lightboxExcerpts['item-group-preload'].code}
-          title={lightboxExcerpts['item-group-preload'].title}
-        />
       </DocsSection>
 
       <DocsSection id="item-count" title="Dynamic itemCount">

@@ -1,122 +1,21 @@
 /**
- * Pure gesture math shared by the lightbox gesture hooks.
+ * Pure zoom/pan math for the lightbox zoom engine.
  *
  * Everything here is a plain function of its inputs — no DOM, no refs, no React
- * — so the tricky bits (damping, velocity, direction-lock, elastic clamping,
- * focal-point zoom, momentum) can be unit-tested directly instead of only
- * through flaky pointer/wheel integration tests. The stateful hooks
- * (`use-pull-to-dismiss`, `use-zoom-gestures`) and `Lightbox.Zoom` own the
- * event wiring and constants and delegate the arithmetic here.
+ * — so the tricky bits (elastic clamping, focal-point zoom, momentum) can be
+ * unit-tested directly instead of only through flaky pointer/wheel integration
+ * tests. `use-zoom-gestures` and `Lightbox.Zoom` own the event wiring and
+ * delegate the arithmetic here.
+ *
+ * Pull-to-dismiss helpers live in `pull-math.ts` so this module can stay in
+ * the lazy zoom chunk. Shared primitives (`clamp`, `round`, …) are re-exported
+ * from `gesture-shared.ts`.
  */
 
-// ---------------------------------------------------------------------------
-// Shared
-// ---------------------------------------------------------------------------
+import { clamp } from './gesture-shared';
 
-/** Gesture axis after direction resolution. */
-export type GestureAxis = 'none' | 'vertical' | 'horizontal';
-
-/** Euclidean distance between two points. */
-export function distance(ax: number, ay: number, bx: number, by: number): number {
-  return Math.hypot(ax - bx, ay - by);
-}
-
-/** Hard clamp to `[min, max]`. */
-export function clamp(value: number, min: number, max: number): number {
-  return Math.min(Math.max(value, min), max);
-}
-
-/** Round to `decimals` places to kill floating-point noise. */
-export function round(value: number, decimals: number): number {
-  const factor = 10 ** decimals;
-  return Math.round(value * factor) / factor;
-}
-
-// ---------------------------------------------------------------------------
-// Pull-to-dismiss
-// ---------------------------------------------------------------------------
-
-/** Vertical travel flattens toward `dismissDistance * this` as a ceiling. */
-export const PULL_DAMP_TRAVEL_RATIO = 1.2;
-
-export interface PullTransform {
-  /** Damped horizontal translation (px). */
-  x: number;
-  /** Damped vertical translation (px). */
-  y: number;
-  /** Shrink scale (1 at rest → `minScale` at/after the threshold). */
-  scale: number;
-  /** 0 at rest → 1 at the dismiss threshold (clamped). */
-  progress: number;
-}
-
-/**
- * Asymptotic damping for a pull-to-dismiss drag. Vertical travel moves ~1:1
- * near the origin then flattens toward a ceiling of
- * `dismissDistance * PULL_DAMP_TRAVEL_RATIO`; horizontal travel is scaled by
- * the same damping factor so the content never slides sideways faster than it
- * falls, and the curve never reverses regardless of drag distance.
- */
-export function computePullTransform(
-  rawDeltaX: number,
-  rawDeltaY: number,
-  dismissDistance: number,
-  minScale: number,
-): PullTransform {
-  const absY = Math.abs(rawDeltaY);
-  const maxTravel = dismissDistance * PULL_DAMP_TRAVEL_RATIO;
-  const dampedAbsY = maxTravel * (1 - Math.exp(-absY / maxTravel));
-  const dampedY = Math.sign(rawDeltaY) * dampedAbsY;
-  const dampFactor = absY > 0 ? dampedAbsY / absY : 1;
-  const dampedX = rawDeltaX * dampFactor;
-
-  const progress = Math.min(absY / dismissDistance, 1);
-  const scale = 1 - progress * (1 - minScale);
-
-  return { x: dampedX, y: dampedY, scale, progress };
-}
-
-/** Average vertical velocity (px/s) across a series of `{ y, t }` samples. */
-export function computePullVelocity(samples: readonly { y: number; t: number }[]): number {
-  if (samples.length < 2) return 0;
-  const first = samples[0];
-  const last = samples[samples.length - 1];
-  const dt = last.t - first.t;
-  if (dt === 0) return 0;
-  return ((last.y - first.y) / dt) * 1000;
-}
-
-/**
- * Direction-lock: `'none'` until the pointer travels past `lockDistance`, then
- * whichever axis dominates. Ties resolve to vertical (favoring dismiss).
- */
-export function resolveDragAxis(deltaX: number, deltaY: number, lockDistance: number): GestureAxis {
-  if (Math.hypot(deltaX, deltaY) < lockDistance) return 'none';
-  return Math.abs(deltaY) >= Math.abs(deltaX) ? 'vertical' : 'horizontal';
-}
-
-/**
- * Whether a completed pull should dismiss: either dragged past the distance
- * threshold, or flicked fast enough in the same direction as the drag.
- */
-export function shouldDismissPull(
-  deltaY: number,
-  velocity: number,
-  dismissDistance: number,
-  dismissVelocity: number,
-): boolean {
-  const sameDirection = (deltaY > 0 && velocity > 0) || (deltaY < 0 && velocity < 0);
-  return Math.abs(deltaY) >= dismissDistance || (Math.abs(velocity) >= dismissVelocity && sameDirection);
-}
-
-/**
- * Which axis a wheel event favors. `'none'` for a zero delta; ties (equal
- * magnitudes) resolve to vertical to mirror {@link resolveDragAxis}.
- */
-export function wheelAxis(deltaX: number, deltaY: number): GestureAxis {
-  if (deltaX === 0 && deltaY === 0) return 'none';
-  return Math.abs(deltaX) > Math.abs(deltaY) ? 'horizontal' : 'vertical';
-}
+export type { GestureAxis } from './gesture-shared';
+export { clamp, distance, round } from './gesture-shared';
 
 // ---------------------------------------------------------------------------
 // Zoom
@@ -233,8 +132,9 @@ export function maxPanOffset(contentSize: number, containerSize: number, zoom: n
  *
  * Cover collapses to δ = (viewportCenter − stageCenter) / zoom at the fit
  * threshold, not to rest `0`. While media still fits, we lock to a home offset
- * that lerps `0 → δ` between `minZoom` and the fit zoom so crossing the
- * threshold stays continuous (no mid-zoom teleport).
+ * that lerps `0 → δ` between `minZoom` and the fit zoom so the *range* stays
+ * continuous. Pinch must also rebase through that home (see applyPinchPan);
+ * otherwise unlock applies raw rest `0` and the image jumps by ~δ.
  *
  * - Fits → `{home,home}` (no pan; home is `0` at `minZoom`).
  * - Overflows → true cover `[alignEnd, alignStart]`.
@@ -359,11 +259,31 @@ export function computeMaxZoom(
 }
 
 /**
+ * Pan offset (one axis) that keeps the content under `originFocal` glued to
+ * `currentFocal` while zooming from `originZoom` to `currentZoom`.
+ *
+ * Same transform convention as {@link focalOffset}:
+ * `content = screen / zoom − offset`. A two-finger pinch uses this so the
+ * image follows the centroid (pan) and scale (zoom) as one pose. When the
+ * focals are equal this is identical to `focalOffset`.
+ */
+export function pinchPanOffset(
+  originOffset: number,
+  originFocal: number,
+  originZoom: number,
+  currentFocal: number,
+  currentZoom: number,
+): number {
+  if (!(originZoom > 0) || !(currentZoom > 0)) return originOffset;
+  return originOffset + currentFocal / currentZoom - originFocal / originZoom;
+}
+
+/**
  * New pan offset (one axis) that keeps the focal point `focal` px from center
  * fixed under the cursor while zooming from `fromZoom` to `toZoom`.
  */
 export function focalOffset(currentOffset: number, focal: number, fromZoom: number, toZoom: number): number {
-  return currentOffset + focal * (1 / toZoom - 1 / fromZoom);
+  return pinchPanOffset(currentOffset, focal, fromZoom, focal, toZoom);
 }
 
 /**
@@ -408,92 +328,166 @@ export function pinchZoom(initialZoom: number, initialDistance: number, currentD
 }
 
 /**
+ * iOS-style two-finger intent. UIKit keeps pinch and pan as separate
+ * recognizers: pan may begin on translation slop, pinch only after the
+ * fingers actually spread/pinch, and pinch `scale` starts at 1 when it
+ * begins. Applying `currentDist / initialDist` from contact is what makes
+ * a two-finger pan feel like it is also zooming — fingers never hold a
+ * perfectly constant span.
+ */
+
+/** Spread (px) that engages zoom when the motion looks like a real pinch. */
+export const PINCH_ENGAGE_SPREAD = 10;
+
+/** Spread (px) that engages zoom while the fingers are clearly panning together. */
+export const PINCH_ENGAGE_SPREAD_PAN = 28;
+
+/** Extra pan-mode slop as a fraction of the starting finger span. */
+export const PINCH_ENGAGE_SPREAD_PAN_RATIO = 0.14;
+
+/** Cosine similarity above this → both fingers travel as a pair. */
+export const PINCH_PAN_ALIGNMENT = 0.6;
+
+/** Each finger must travel this far (px) before alignment is trusted. */
+export const PINCH_ALIGNMENT_MIN_TRAVEL = 10;
+
+/** Centroid travel (px) that can mark the gesture pan-dominant. */
+export const PINCH_PAN_TRAVEL = 14;
+
+/** Pan travel must exceed spread by this factor to count as pan-dominant. */
+export const PINCH_PAN_DOMINANCE = 1.35;
+
+/** Cosine of the two fingers' displacement vectors, or `null` if either has not moved enough. */
+export function pinchFingerAlignment(
+  a0x: number,
+  a0y: number,
+  a1x: number,
+  a1y: number,
+  b0x: number,
+  b0y: number,
+  b1x: number,
+  b1y: number,
+  minTravel = PINCH_ALIGNMENT_MIN_TRAVEL,
+): number | null {
+  const dax = a1x - a0x;
+  const day = a1y - a0y;
+  const dbx = b1x - b0x;
+  const dby = b1y - b0y;
+  const la = Math.hypot(dax, day);
+  const lb = Math.hypot(dbx, dby);
+  if (la < minTravel || lb < minTravel) return null;
+  return (dax * dbx + day * dby) / (la * lb);
+}
+
+/**
+ * Decompose two-finger motion into |spread| along the original pair axis
+ * and centroid travel. A planted-finger pinch has large spread and modest
+ * pan; a two-finger slide is the reverse.
+ */
+export function pinchMotionComponents(
+  a0x: number,
+  a0y: number,
+  a1x: number,
+  a1y: number,
+  b0x: number,
+  b0y: number,
+  b1x: number,
+  b1y: number,
+): { spread: number; pan: number } {
+  const axisX = b0x - a0x;
+  const axisY = b0y - a0y;
+  const axisLen = Math.hypot(axisX, axisY) || 1;
+  const ux = axisX / axisLen;
+  const uy = axisY / axisLen;
+  const dax = a1x - a0x;
+  const day = a1y - a0y;
+  const dbx = b1x - b0x;
+  const dby = b1y - b0y;
+  const spread = Math.abs(dbx * ux + dby * uy - (dax * ux + day * uy));
+  return { spread, pan: Math.hypot((dax + dbx) / 2, (day + dby) / 2) };
+}
+
+/** True when the fingers are sliding as a pair, not spreading. */
+export function isTwoFingerPanIntent(
+  spreadDelta: number,
+  panTravel: number,
+  alignment: number | null,
+): boolean {
+  if (alignment != null && alignment >= PINCH_PAN_ALIGNMENT) return true;
+  return panTravel >= PINCH_PAN_TRAVEL && panTravel > spreadDelta * PINCH_PAN_DOMINANCE;
+}
+
+/** Spread (px) required before zoom may change, given the current intent. */
+export function pinchEngageSpread(initialDistance: number, panIntent: boolean): number {
+  if (panIntent) {
+    return Math.max(PINCH_ENGAGE_SPREAD_PAN, initialDistance * PINCH_ENGAGE_SPREAD_PAN_RATIO);
+  }
+  return PINCH_ENGAGE_SPREAD;
+}
+
+export interface ResolvePinchZoomInput {
+  initialZoom: number;
+  /** Distance baseline — the contact span, or the slop-adjusted span after engage. */
+  initialDistance: number;
+  currentDistance: number;
+  engaged: boolean;
+  alignment: number | null;
+  panTravel: number;
+}
+
+export interface ResolvedPinchZoom {
+  zoom: number;
+  engaged: boolean;
+  baselineDistance: number;
+}
+
+/**
+ * Live pinch scale with iOS-style begin slop.
+ *
+ * Until the gesture is clearly a pinch, zoom stays at `initialZoom` (pan
+ * still runs). A two-finger slide uses a larger slop so span jitter cannot
+ * scale the image. When zoom first engages during a pan, the slop is eaten
+ * so scale starts at 1 relative to the engage point (no pop). A decisive
+ * pinch keeps the original baseline so a fast spread is not discarded.
+ */
+export function resolvePinchZoom(input: ResolvePinchZoomInput): ResolvedPinchZoom {
+  const { initialZoom, initialDistance, currentDistance, engaged, alignment, panTravel } = input;
+  if (!(initialDistance > 0)) {
+    return { zoom: initialZoom, engaged, baselineDistance: Math.max(initialDistance, 1) };
+  }
+
+  const spreadDelta = Math.abs(currentDistance - initialDistance);
+  const panIntent = isTwoFingerPanIntent(spreadDelta, panTravel, alignment);
+  const gate = pinchEngageSpread(initialDistance, panIntent);
+
+  if (!engaged) {
+    if (spreadDelta <= gate) {
+      return { zoom: initialZoom, engaged: false, baselineDistance: initialDistance };
+    }
+    const signed = currentDistance - initialDistance;
+    const baseline = panIntent
+      ? initialDistance + Math.sign(signed || 1) * gate
+      : initialDistance;
+    return {
+      zoom: pinchZoom(initialZoom, baseline, currentDistance),
+      engaged: true,
+      baselineDistance: baseline,
+    };
+  }
+
+  return {
+    zoom: pinchZoom(initialZoom, initialDistance, currentDistance),
+    engaged: true,
+    baselineDistance: initialDistance,
+  };
+}
+
+/**
  * Double-tap target: zoom back to `minZoom` when already zoomed in, otherwise
  * to `zoomStep` (capped at `maxZoom`).
  */
 export function doubleTapTargetZoom(zoom: number, minZoom: number, maxZoom: number, zoomStep: number): number {
   return zoom > minZoom ? minZoom : Math.min(zoomStep, maxZoom);
-}
-
-// ---------------------------------------------------------------------------
-// Spring
-// ---------------------------------------------------------------------------
-
-/**
- * Generate a CSS/WAAPI `linear()` easing string approximating a damped spring,
- * for iOS-style rubber-band *release* snap-backs.
- *
- * The returned easing maps progress `0 → 1` to the fraction of the journey
- * from the released position back to rest. Unlike a plain ease-out it is
- * velocity-aware: with a positive `initialVelocity` the curve first dips below
- * `0` — i.e. the content *follows through* in the release direction before
- * springing back — and it always finishes with a small settle overshoot above
- * `1`, landing exactly at `1`. This mirrors how a native spring picks up the
- * gesture's release velocity instead of reversing from a dead stop.
- *
- * All physics run in normalized progress time, so the caller controls the wall-
- * clock feel purely through the animation's `duration`.
- *
- * @param initialVelocity Release velocity in normalized units — the spring's
- *   `d(fraction)/d(progress)` at `p = 0`. Positive continues past the start
- *   (follow-through); `0` releases at rest. Callers derive it from the real
- *   pointer velocity: `velocity * durationSeconds / releaseAmplitudePx`.
- * @param damping Damping ratio ζ. Lower (`< 1`) is under-damped and *will*
- *   overshoot rest (bouncy). The default `1` is **critically damped**: given a
- *   sane release velocity it approaches rest monotonically and provably never
- *   crosses it, so the easing output never exceeds `1` — no overshoot past rest,
- *   no overflow. Values `> 1` are over-damped (even softer, still no overshoot).
- *   The "life" comes purely from the velocity follow-through, never an end bounce.
- * @param settle The `ζω` product controlling how completely the spring settles
- *   by `p = 1`. Larger settles more fully (crisper arrival, less tail).
- * @param samples Number of `linear()` stops (more = smoother, longer string).
- */
-export function springEasingLinear(
-  initialVelocity = 0,
-  damping = 1,
-  settle = 6,
-  samples = 40,
-): string {
-  const zeta = clamp(damping, 0.05, 4);
-  const omega = settle / zeta; // natural frequency (ζω = settle)
-  const vn = initialVelocity;
-
-  // s(p) is the remaining-distance fraction: s(0) = 1, s(∞) = 0, s'(0) = vn.
-  // The easing is e(p) = 1 − s(p), so e(0) = 0 and e settles at 1. When s stays
-  // positive (critical / over-damped) e never exceeds 1 → no overshoot past rest.
-  let s: (p: number) => number;
-  if (zeta < 1) {
-    // Under-damped — oscillates, overshoots rest.
-    const omegaD = omega * Math.sqrt(1 - zeta * zeta);
-    const c = (vn + zeta * omega) / omegaD;
-    s = (p) => Math.exp(-zeta * omega * p) * (Math.cos(omegaD * p) + c * Math.sin(omegaD * p));
-  } else if (zeta === 1) {
-    // Critically damped — fastest non-overshooting approach to rest.
-    s = (p) => Math.exp(-omega * p) * (1 + (vn + omega) * p);
-  } else {
-    // Over-damped — two real roots, monotonic settle.
-    const rate = omega * Math.sqrt(zeta * zeta - 1);
-    const r1 = -zeta * omega + rate;
-    const r2 = -zeta * omega - rate;
-    const a = (vn - r2) / (r1 - r2);
-    const b = 1 - a;
-    s = (p) => a * Math.exp(r1 * p) + b * Math.exp(r2 * p);
-  }
-
-  const points: string[] = [];
-  for (let i = 0; i < samples; i += 1) {
-    if (i === samples - 1) {
-      // Pin the final stop exactly at rest so the transform lands clean.
-      points.push('1');
-      break;
-    }
-    const p = i / (samples - 1);
-    // Never allow a stop past rest — a hard guarantee against overshoot/overflow
-    // even if an under-damped ζ is requested. Follow-through (values < 0, i.e.
-    // continuing in the release direction) is intentionally left unclamped.
-    points.push(String(Math.min(round(1 - s(p), 4), 1)));
-  }
-  return `linear(${points.join(', ')})`;
 }
 
 // ---------------------------------------------------------------------------

@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
 import {
-  PULL_DAMP_TRAVEL_RATIO,
   ELASTIC_FACTOR,
   RUBBER_BAND_CONSTANT,
   RUBBER_BAND_DIMENSION_FACTOR,
@@ -13,10 +12,8 @@ import {
   computeMaxZoom,
   computeMomentumTarget,
   computeMomentumVelocity,
-  computePullTransform,
   stepPanPhysicsAxis,
   stepPanPhysics2D,
-  computePullVelocity,
   distance,
   doubleTapTargetZoom,
   elasticClamp,
@@ -24,18 +21,31 @@ import {
   focalOffset,
   maxPanOffset,
   panOffsetRange,
+  isTwoFingerPanIntent,
+  pinchEngageSpread,
+  pinchFingerAlignment,
+  pinchMotionComponents,
+  pinchPanOffset,
   pinchZoom,
+  PINCH_ENGAGE_SPREAD,
+  PINCH_ENGAGE_SPREAD_PAN,
   projectFocalZoom,
-  resolveDragAxis,
+  resolvePinchZoom,
   round,
   rubberBandClamp,
   rubberBandDistance,
   rubberBandPanDimension,
   scaleZoom,
+} from './gesture-math';
+import {
+  PULL_DAMP_TRAVEL_RATIO,
+  computePullTransform,
+  computePullVelocity,
+  resolveDragAxis,
   shouldDismissPull,
   springEasingLinear,
   wheelAxis,
-} from './gesture-math';
+} from './pull-math';
 
 /** Parse a `linear(a, b, c, ...)` easing string into its numeric stops. */
 function parseLinearStops(easing: string): number[] {
@@ -480,6 +490,32 @@ describe('computeMaxZoom', () => {
   });
 });
 
+describe('pinchPanOffset', () => {
+  it('matches focalOffset when the centroid does not move', () => {
+    expect(pinchPanOffset(10, 50, 2, 50, 3)).toBeCloseTo(focalOffset(10, 50, 2, 3), 10);
+  });
+
+  it('is a no-op when neither zoom nor centroid change', () => {
+    expect(pinchPanOffset(10, 40, 2, 40, 2)).toBe(10);
+  });
+
+  it('pans by the centroid travel when zoom is unchanged', () => {
+    // content = screen/zoom − offset; glue originFocal onto currentFocal.
+    // 0 + 80/2 − 20/2 = 30
+    expect(pinchPanOffset(0, 20, 2, 80, 2)).toBeCloseTo(30, 10);
+  });
+
+  it('composes pinch-zoom and centroid pan', () => {
+    // Zoom 1→2 and slide the centroid 0→40: 0 + 40/2 − 0/1 = 20
+    expect(pinchPanOffset(0, 0, 1, 40, 2)).toBeCloseTo(20, 10);
+  });
+
+  it('returns the origin offset for non-positive zooms', () => {
+    expect(pinchPanOffset(7, 10, 0, 20, 2)).toBe(7);
+    expect(pinchPanOffset(7, 10, 2, 20, 0)).toBe(7);
+  });
+});
+
 describe('focalOffset', () => {
   it('is a no-op when the zoom does not change', () => {
     expect(focalOffset(10, 50, 2, 2)).toBe(10);
@@ -521,6 +557,92 @@ describe('pinchZoom', () => {
 
   it('shrinks zoom when fingers close', () => {
     expect(pinchZoom(2, 200, 100)).toBe(1);
+  });
+});
+
+describe('pinchFingerAlignment', () => {
+  it('is ~1 when both fingers travel the same way', () => {
+    expect(pinchFingerAlignment(0, 0, 40, 0, 80, 0, 120, 0)).toBeCloseTo(1, 5);
+  });
+
+  it('is ~-1 when fingers travel opposite ways', () => {
+    expect(pinchFingerAlignment(40, 0, 0, 0, 80, 0, 120, 0)).toBeCloseTo(-1, 5);
+  });
+
+  it('is null until both fingers have moved enough', () => {
+    expect(pinchFingerAlignment(0, 0, 2, 0, 80, 0, 140, 0)).toBeNull();
+  });
+});
+
+describe('pinchMotionComponents', () => {
+  it('reads a two-finger slide as pan with almost no spread', () => {
+    const m = pinchMotionComponents(0, 0, 50, 0, 80, 0, 130, 0);
+    expect(m.pan).toBeCloseTo(50, 5);
+    expect(m.spread).toBeLessThan(1);
+  });
+
+  it('reads a planted-finger pinch as spread', () => {
+    const m = pinchMotionComponents(0, 0, 0, 0, 80, 0, 160, 0);
+    expect(m.spread).toBeCloseTo(80, 5);
+    expect(m.pan).toBeCloseTo(40, 5);
+  });
+});
+
+describe('isTwoFingerPanIntent / pinchEngageSpread', () => {
+  it('treats aligned travel as pan and raises the zoom slop', () => {
+    expect(isTwoFingerPanIntent(8, 40, 0.95)).toBe(true);
+    expect(pinchEngageSpread(80, true)).toBe(PINCH_ENGAGE_SPREAD_PAN);
+  });
+
+  it('keeps a tight slop for a decisive pinch', () => {
+    expect(isTwoFingerPanIntent(40, 10, -0.9)).toBe(false);
+    expect(pinchEngageSpread(80, false)).toBe(PINCH_ENGAGE_SPREAD);
+  });
+});
+
+describe('resolvePinchZoom', () => {
+  it('freezes zoom while two fingers slide with span jitter', () => {
+    const next = resolvePinchZoom({
+      initialZoom: 2,
+      initialDistance: 80,
+      currentDistance: 92,
+      engaged: false,
+      alignment: 0.95,
+      panTravel: 50,
+    });
+    expect(next.engaged).toBe(false);
+    expect(next.zoom).toBe(2);
+  });
+
+  it('engages a real pinch from the original baseline', () => {
+    const next = resolvePinchZoom({
+      initialZoom: 2,
+      initialDistance: 80,
+      currentDistance: 160,
+      engaged: false,
+      alignment: -1,
+      panTravel: 0,
+    });
+    expect(next.engaged).toBe(true);
+    expect(next.zoom).toBe(4);
+    expect(next.baselineDistance).toBe(80);
+  });
+
+  it('eats pan-mode slop so zoom starts at 1× relative when a slide becomes a pinch', () => {
+    const next = resolvePinchZoom({
+      initialZoom: 2,
+      initialDistance: 80,
+      currentDistance: 80 + PINCH_ENGAGE_SPREAD_PAN + 1,
+      engaged: false,
+      alignment: 0.95,
+      panTravel: 40,
+    });
+    expect(next.engaged).toBe(true);
+    expect(next.baselineDistance).toBe(80 + PINCH_ENGAGE_SPREAD_PAN);
+    expect(next.zoom).toBeCloseTo(
+      pinchZoom(2, 80 + PINCH_ENGAGE_SPREAD_PAN, 80 + PINCH_ENGAGE_SPREAD_PAN + 1),
+      5,
+    );
   });
 });
 

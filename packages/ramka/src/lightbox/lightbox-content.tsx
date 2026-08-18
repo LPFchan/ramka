@@ -1,6 +1,6 @@
 'use client';
 
-import { mergeProps } from '@base-ui/react';
+import { mergeProps } from '@base-ui/react/merge-props';
 import * as React from 'react';
 
 import { LightboxContentCssVars } from './lightbox-css-vars';
@@ -8,7 +8,13 @@ import { LightboxContentDataAttributes } from './lightbox-data-attributes';
 import { useLightboxContext } from './lightbox-context';
 import { useLightboxPortalContext } from './lightbox-portal';
 import { useLightboxZoomPublish } from './lightbox-zoom-context';
-import { usePullToDismiss } from './use-pull-to-dismiss';
+import {
+  getPullRuntimeSync,
+  loadPullRuntime,
+  type PullRuntime,
+} from './lightbox-pull-loader';
+import { useContentKeyboard } from './use-content-keyboard';
+import { useNativePinchGuard } from './use-native-pinch-guard';
 import { useTouchScrollContainment } from './use-touch-scroll-containment';
 
 /** Imperative chrome vars (pull / zoom) — React style reconciliation must not wipe them. */
@@ -75,7 +81,8 @@ interface LightboxContentProps extends React.ComponentPropsWithRef<'div'> {
    * Enable pull-to-close on touch and trackpad wheel. Starts from anywhere in
    * Stage (or Content when Stage is omitted), except interactive controls.
    * Publishes `data-pulling`, `data-pull-snapping`, `data-pull-dismissing`, and
-   * `--lightbox-pull-progress` while active.
+   * `--lightbox-pull-progress` while active. The engine loads when Content
+   * first mounts with this on — pass `false` to skip that download.
    * @default true
    */
   pullToClose?: boolean;
@@ -198,87 +205,12 @@ const LightboxContent = React.forwardRef<HTMLDivElement, LightboxContentProps>(
       return () => el.removeEventListener('focusout', handleFocusOut);
     }, [mounted]);
 
-    // NOTE: the document scroll lock lives in Lightbox.Root (not here). Content
-    // unmounts at the *start* of the VT close (commitClose runs inside the
-    // transition callback), so a lock tied to Content's lifecycle would release
-    // mid-animation and let the page scroll behind the closing transition. Root
-    // outlives the transition and holds the lock until close completes.
+    // NOTE: the document scroll lock lives in Lightbox.Root (not here). During
+    // VT close Content stays mounted (paint-suppressed via `preparing`) until
+    // `finished`, but `open` is already false — a lock tied to Content would
+    // still release too early. Root holds the lock until close completes.
 
-    // Prevent native pinch-zoom gestures (touch and trackpad) for the entire
-    // time the lightbox is mounted.
-    //
-    // Attached on `document`, NOT the content element. During the VT open the
-    // content mounts `visibility: hidden` (see `preparing`), which makes it
-    // non-hit-testable — so a quick pinch mid-open lands on the page/trigger/
-    // backdrop instead of the content, triggers native page zoom, and then our
-    // per-image `Lightbox.Zoom` gesture guards (which `preventDefault` every
-    // subsequent gesture over the viewer) trap the page in that zoomed state
-    // with no way to pinch back out. A document-level guard blocks native
-    // pinch-zoom everywhere, from mount through the whole transition. The
-    // per-Zoom listeners still perform the actual image zoom — `preventDefault`
-    // cancels only the browser's native default, not our own handlers.
-    //
-    // Safari quirk: a non-passive `wheel` listener on an ancestor forces Safari
-    // to fall back from compositor-thread scrolling to main-thread scrolling,
-    // killing momentum/flick scrolling in descendant scroll containers (e.g.
-    // Lightbox.Slides). Safari fires its own GestureEvent (gesturestart/
-    // gesturechange) for trackpad pinch — preventing those stops native zoom
-    // without any wheel listener. For Chrome/Firefox (no GestureEvent), trackpad
-    // pinch arrives as ctrlKey+wheel and non-passive wheel listeners don't break
-    // their momentum scrolling, so a non-passive wheel handler is safe.
-    React.useEffect(() => {
-      if (!mounted) return;
-
-      let pinchGestureActive = false;
-      const preventTouchPinch = (event: TouchEvent) => {
-        // Two-finger: native page pinch. Leftover finger after a pinch
-        // (zoom snap-back): native gallery scroll, which would lock Slides
-        // with no `scrollend` and freeze pull/pinch/double-tap.
-        if (event.touches.length > 1 || pinchGestureActive) {
-          event.preventDefault();
-        }
-      };
-      const onPinchTouchStart = (event: TouchEvent) => {
-        if (event.touches.length > 1) pinchGestureActive = true;
-      };
-      const onPinchTouchEnd = (event: TouchEvent) => {
-        if (event.touches.length === 0) pinchGestureActive = false;
-      };
-      document.addEventListener('touchmove', preventTouchPinch, { passive: false });
-      document.addEventListener('touchstart', onPinchTouchStart, { passive: true });
-      document.addEventListener('touchend', onPinchTouchEnd, { passive: true });
-      document.addEventListener('touchcancel', onPinchTouchEnd, { passive: true });
-
-      const hasSafariGestures = 'GestureEvent' in window;
-
-      let preventGesture: ((e: Event) => void) | undefined;
-      let preventWheelZoom: ((e: WheelEvent) => void) | undefined;
-
-      if (hasSafariGestures) {
-        preventGesture = (e: Event) => e.preventDefault();
-        document.addEventListener('gesturestart', preventGesture);
-        document.addEventListener('gesturechange', preventGesture);
-      } else {
-        preventWheelZoom = (e: WheelEvent) => {
-          if (e.ctrlKey) e.preventDefault();
-        };
-        document.addEventListener('wheel', preventWheelZoom, { passive: false });
-      }
-
-      return () => {
-        document.removeEventListener('touchmove', preventTouchPinch);
-        document.removeEventListener('touchstart', onPinchTouchStart);
-        document.removeEventListener('touchend', onPinchTouchEnd);
-        document.removeEventListener('touchcancel', onPinchTouchEnd);
-        if (preventGesture) {
-          document.removeEventListener('gesturestart', preventGesture);
-          document.removeEventListener('gesturechange', preventGesture);
-        }
-        if (preventWheelZoom) {
-          document.removeEventListener('wheel', preventWheelZoom);
-        }
-      };
-    }, [mounted]);
+    useNativePinchGuard(mounted);
 
     // Pull-to-dismiss: drag the image vertically to close the lightbox.
     // The active slide's live zoom level comes from the Root-owned bridge; the
@@ -289,24 +221,20 @@ const LightboxContent = React.forwardRef<HTMLDivElement, LightboxContentProps>(
     // where a programmatic focus would otherwise inherit `:focus-visible`.
     const stableSetOpen = React.useCallback(() => setOpen(false, { focusVisible: false }), [setOpen]);
 
-    usePullToDismiss({
-      contentRef,
-      // Backdrop is provided by the optional `Lightbox.Backdrop` primitive.
-      // When the consumer doesn't render one, `backdropElementRef.current`
-      // stays null and the hook gracefully skips backdrop opacity updates.
-      backdropRef: backdropElementRef,
-      // The active slide element, tracked in context (Item sets it on activate).
-      // The wheel/trackpad pull path reads it directly instead of re-querying
-      // the DOM for `[data-ramka-item][data-active]`.
-      activeItemRef: activeItemElementRef,
-      // Optional Stage scopes touch + wheel pull to the media pane; null → Content.
-      stageRef: stageElementRef,
-      getZoom,
-      onClose: stableSetOpen,
-      disabled: !pullToClose || !mounted,
-      // Suppress the pull gesture while a Lightbox.Slides swipe/fling is running.
-      isScrollingRef: navigationLockedRef,
-    });
+    const cachedPull = getPullRuntimeSync();
+    const [PullRuntime, setPullRuntime] = React.useState<PullRuntime['PullToDismiss'] | null>(
+      () => cachedPull?.PullToDismiss ?? null,
+    );
+    React.useEffect(() => {
+      if (!pullToClose || PullRuntime) return;
+      let cancelled = false;
+      void loadPullRuntime().then((runtime) => {
+        if (!cancelled) setPullRuntime(() => runtime.PullToDismiss);
+      });
+      return () => {
+        cancelled = true;
+      };
+    }, [pullToClose, PullRuntime]);
 
     // Vertical touch drags that start on interactive chrome (Close / Prev /
     // Next / links / `[data-ramka-no-pull]`) are ignored by the pull gesture
@@ -319,145 +247,18 @@ const LightboxContent = React.forwardRef<HTMLDivElement, LightboxContentProps>(
     useTouchScrollContainment({ hostRef: contentRef, disabled: !mounted });
     useTouchScrollContainment({ hostRef: backdropElementRef, disabled: !mounted });
 
-    // Keyboard is owned entirely by Content — the single authority while focus
-    // is inside this dialog. Portaled overlays (menu, dialog, etc.) keep focus
-    // outside this subtree; React still re-bubbles their key events through the
-    // React tree, so ignore keys whose DOM target is outside this host element.
-    const handleKeyDown = React.useCallback(
-      (event: React.KeyboardEvent) => {
-        // Parked keepMounted content stays in the DOM but must not handle keys.
-        if (!mounted) return;
-
-        const el = contentRef.current;
-        const target = event.target as Node | null;
-        if (el && target && !el.contains(target)) return;
-
-        // A descendant (e.g. a Lightbox.Slides viewport or the thumbnail
-        // group) already handled this key and called preventDefault. Defer so
-        // navigation has a single authority and we don't double-handle it.
-        if (event.defaultPrevented) return;
-
-        // Close on Escape. Handled here (rather than a document listener) so it
-        // stays scoped to the focused instance: focus is contained within this
-        // dialog, so with multiple lightboxes open only the active one closes.
-        if (event.key === 'Escape') {
-          event.preventDefault();
-          // Keyboard-driven close → restore a visible focus ring on the trigger.
-          setOpen(false, { focusVisible: true });
-          return;
-        }
-
-        // Typing surfaces (skin reply boxes, search fields) own every key
-        // except Escape — swallowing "+" / "-" / arrows here would eat the
-        // user's input. Escape (above) still closes the dialog.
-        const targetEl = target instanceof HTMLElement ? target : null;
-        if (
-          targetEl &&
-          (targetEl.isContentEditable ||
-            targetEl.closest('input, textarea, select, [contenteditable]:not([contenteditable="false"])'))
-        ) {
-          return;
-        }
-
-        const zoomCtl = activeZoomRef.current;
-        const meta = event.metaKey || event.ctrlKey;
-
-        // When Stage is mounted, media actions (image zoom, arrows / Home /
-        // End, zoomed pan) run while focus is inside Stage — or on Content
-        // itself (default focus after open). Without Stage, Content is the
-        // stage. Escape stays dialog-scoped.
-        const stage = stageElementRef.current;
-        const focusOutsideStage =
-          !!stage && !!target && target !== el && !stage.contains(target);
-
-        // Zoom shortcuts: always swallow browser page-zoom while the dialog
-        // owns the viewport. Image zoom only runs when focus is in Stage
-        // (or Content, when Stage is absent / dialog-focused).
-        const zoomInKey = event.key === '+' || (meta && event.key === '=');
-        const zoomOutKey = event.key === '-' || event.key === '_' || (meta && event.key === '-');
-        const zoomResetKey = meta && event.key === '0';
-        if (zoomInKey || zoomOutKey || zoomResetKey) {
-          event.preventDefault();
-          if (zoomCtl && !focusOutsideStage) {
-            if (zoomInKey) zoomCtl.zoomIn();
-            else if (zoomOutKey) zoomCtl.zoomOut();
-            else zoomCtl.reset();
-          }
-          return;
-        }
-
-        const isArrow = event.key.startsWith('Arrow');
-        const isGalleryNavKey =
-          isArrow || event.key === 'Home' || event.key === 'End';
-
-        if (isGalleryNavKey && focusOutsideStage) {
-          return;
-        }
-
-        // While zoomed in, arrows pan the active slide instead of navigating.
-        if (isArrow && (zoomCtl?.getZoom() ?? 1) > 1 && zoomCtl) {
-          const d = zoomCtl.keyboardPanDistance;
-          switch (event.key) {
-            case 'ArrowRight':
-              zoomCtl.panBy(d, 0);
-              break;
-            case 'ArrowLeft':
-              zoomCtl.panBy(-d, 0);
-              break;
-            case 'ArrowDown':
-              zoomCtl.panBy(0, d);
-              break;
-            case 'ArrowUp':
-              zoomCtl.panBy(0, -d);
-              break;
-            default:
-              return;
-          }
-          event.preventDefault();
-          return;
-        }
-
-        if (itemCount === 0) return;
-
-        let nextIndex: number | null = null;
-
-        switch (event.key) {
-          case 'ArrowRight':
-          case 'ArrowDown':
-            nextIndex = loop ? (activeIndex + 1) % itemCount : Math.min(activeIndex + 1, itemCount - 1);
-            break;
-          case 'ArrowLeft':
-          case 'ArrowUp':
-            nextIndex = loop ? (activeIndex - 1 + itemCount) % itemCount : Math.max(activeIndex - 1, 0);
-            break;
-          case 'Home':
-            nextIndex = 0;
-            break;
-          case 'End':
-            nextIndex = itemCount - 1;
-            break;
-          default:
-            return;
-        }
-
-        if (nextIndex !== null && nextIndex !== activeIndex) {
-          event.preventDefault();
-          // `navigate` routes through a mounted ThumbnailStrip so the strip
-          // scrubs with discrete keyboard nav (plain setActiveIndex otherwise).
-          navigate(nextIndex, 'keyboard');
-        }
-      },
-      [
-        mounted,
-        activeIndex,
-        itemCount,
-        loop,
-        navigate,
-        setOpen,
-        activeZoomRef,
-        stageElementRef,
-      ],
-    );
+    const handleKeyDown = useContentKeyboard({
+      mounted,
+      contentRef,
+      setOpen,
+      activeZoomRef,
+      stageElementRef,
+      itemCount,
+      loop,
+      activeIndex,
+      navigate,
+      isScrollingRef: navigationLockedRef,
+    });
 
     // Click on the content container itself (not children) closes the
     // lightbox, matching native <dialog> backdrop click behavior. A
@@ -534,9 +335,10 @@ const LightboxContent = React.forwardRef<HTMLDivElement, LightboxContentProps>(
         // chaining out to the page, including after the lightbox closes.
         // Consumers can still override via the `style` prop.
         //
-        // While `preparing` (VT pre-mount) or parked closed with keepMounted,
-        // force `visibility: hidden` (+ pointer-events none when parked) so
-        // the node can stay mounted without painting or intercepting input.
+        // While `preparing` (VT open pre-mount / VT close hold) or parked
+        // closed with keepMounted, force `visibility: hidden` (+ pointer-events
+        // none when parked) so the node can stay mounted without painting or
+        // intercepting input.
         style: {
           overflow: 'hidden',
           overscrollBehavior: 'contain',
@@ -579,6 +381,25 @@ const LightboxContent = React.forwardRef<HTMLDivElement, LightboxContentProps>(
         <div ref={mergedRef} {...dialogProps}>
           {children}
         </div>
+        {pullToClose && mounted && PullRuntime ? (
+          <PullRuntime
+            contentRef={contentRef}
+            // Backdrop is provided by the optional `Lightbox.Backdrop` primitive.
+            // When the consumer doesn't render one, `backdropElementRef.current`
+            // stays null and the hook gracefully skips backdrop opacity updates.
+            backdropRef={backdropElementRef}
+            // The active slide element, tracked in context (Item sets it on activate).
+            // The wheel/trackpad pull path reads it directly instead of re-querying
+            // the DOM for `[data-ramka-item][data-active]`.
+            activeItemRef={activeItemElementRef}
+            // Optional Stage scopes touch + wheel pull to the media pane; null → Content.
+            stageRef={stageElementRef}
+            getZoom={getZoom}
+            onClose={stableSetOpen}
+            // Suppress the pull gesture while a Lightbox.Slides swipe/fling is running.
+            isScrollingRef={navigationLockedRef}
+          />
+        ) : null}
         {!parked ? (
           <span
             tabIndex={0}

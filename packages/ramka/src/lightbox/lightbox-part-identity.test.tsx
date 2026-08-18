@@ -9,7 +9,6 @@ import { LightboxClose } from './lightbox-close';
 import { LightboxContent } from './lightbox-content';
 import { LightboxCounter } from './lightbox-counter';
 import { LightboxItem } from './lightbox-item';
-import { LightboxItemGroup } from './lightbox-item-group';
 import { LightboxMedia } from './lightbox-media';
 import { LightboxNext } from './lightbox-next';
 import { LightboxPortal } from './lightbox-portal';
@@ -19,7 +18,6 @@ import { LightboxSlide } from './lightbox-slide';
 import { LightboxSlides } from './lightbox-slides';
 import { LightboxStage } from './lightbox-stage';
 import { LightboxThumbnail } from './lightbox-thumbnail';
-import { LightboxThumbnailGroup } from './lightbox-thumbnail-group';
 import { LightboxThumbnailStrip } from './lightbox-thumbnail-strip';
 import { LightboxThumbnailStripTrack } from './lightbox-thumbnail-strip-track';
 import { LightboxTrigger } from './lightbox-trigger';
@@ -33,8 +31,7 @@ afterEach(() => {
 
 /**
  * Mounts every DOM-rendering Lightbox part so identity-marker coverage can be
- * asserted in one pass. Includes both Slides and ItemGroup layouts (they are
- * mutually exclusive in real apps, but both publish distinct markers).
+ * asserted in one pass.
  */
 function FullChromeLightbox() {
   return (
@@ -74,25 +71,6 @@ function FullChromeLightbox() {
   );
 }
 
-function ItemGroupLightbox() {
-  return (
-    <LightboxRoot defaultOpen>
-      <LightboxPortal>
-        <LightboxContent aria-label="Swap gallery">
-          <LightboxItemGroup aria-label="Items">
-            <LightboxItem index={0}>
-              <img src="/a.jpg" alt="A" />
-            </LightboxItem>
-          </LightboxItemGroup>
-          <LightboxThumbnailGroup aria-label="Thumbs">
-            <LightboxThumbnail index={0}>1</LightboxThumbnail>
-          </LightboxThumbnailGroup>
-        </LightboxContent>
-      </LightboxPortal>
-    </LightboxRoot>
-  );
-}
-
 describe('Lightbox part identity markers', () => {
   it('lists only data-ramka-* identity attributes', () => {
     for (const attr of LIGHTBOX_PART_IDENTITY_ATTRIBUTES) {
@@ -102,7 +80,6 @@ describe('Lightbox part identity markers', () => {
 
   it('publishes every listed identity marker on a mounted tree', () => {
     render(<FullChromeLightbox />);
-    render(<ItemGroupLightbox />);
 
     const missing = LIGHTBOX_PART_IDENTITY_ATTRIBUTES.filter(
       (attr) => document.querySelector(`[${attr}]`) === null,

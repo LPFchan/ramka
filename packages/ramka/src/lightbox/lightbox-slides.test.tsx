@@ -13,112 +13,19 @@ import { LightboxThumbnailGroup } from './lightbox-thumbnail-group';
 import { LightboxTrigger } from './lightbox-trigger';
 import { LightboxZoom, type LightboxZoomRef } from './lightbox-zoom';
 import { LightboxZoomIn } from './lightbox-zoom-in';
-
-// ---------------------------------------------------------------------------
-// jsdom has no layout engine, no ResizeObserver, and no scroll animation. The
-// scroller reads offsetLeft/offsetWidth/clientWidth, observes resizes, and uses
-// rAF, so we stub all three and make rAF a manually-drained queue. Scroll
-// settling is driven by the `scrollend` event (fired explicitly in tests).
-// ---------------------------------------------------------------------------
-
-const WIDTH = 100;
-
-const roInstances = new Set<{ cb: ResizeObserverCallback }>();
-
-let rafSeq = 0;
-const rafCallbacks = new Map<number, FrameRequestCallback>();
-
-/** Run one round of currently-scheduled animation frames. */
-function flushRaf() {
-  const callbacks = [...rafCallbacks.entries()];
-  rafCallbacks.clear();
-  callbacks.forEach(([, cb]) => cb(0));
-}
-
-/**
- * Fire every live ResizeObserver, then drain the frames it schedules.
- * A real geometry change pins `activeIndex` via a double-rAF settle (and may
- * schedule `scrollToIndex` restore frames) — leave those pending and
- * `resizingRef` stays true, which would suppress later swipe→index updates.
- */
-function flushResizeObservers() {
-  act(() => {
-    roInstances.forEach((o) => o.cb([], o as unknown as ResizeObserver));
-  });
-  act(() => flushRaf());
-  act(() => flushRaf());
-  act(() => flushRaf());
-}
-
-/**
- * Install uniform full-viewport geometry (slide i at offsetLeft `i*WIDTH`) and a
- * writable `scrollLeft` on the viewport, then trigger a re-measure so the
- * scroller adopts it (mount measured jsdom's zeroed layout).
- */
-function setupGeometry(viewport: HTMLElement, count: number) {
-  let scrollLeft = 0;
-  Object.defineProperty(viewport, 'clientWidth', { configurable: true, get: () => WIDTH });
-  Object.defineProperty(viewport, 'scrollWidth', { configurable: true, get: () => WIDTH * count });
-  Object.defineProperty(viewport, 'scrollLeft', {
-    configurable: true,
-    get: () => scrollLeft,
-    set: (v: number) => {
-      scrollLeft = v;
-    },
-  });
-  const slides = viewport.querySelectorAll<HTMLElement>('[data-ramka-slide]');
-  slides.forEach((slide, i) => {
-    Object.defineProperty(slide, 'offsetLeft', { configurable: true, get: () => i * WIDTH });
-    Object.defineProperty(slide, 'offsetWidth', { configurable: true, get: () => WIDTH });
-  });
-  flushResizeObservers();
-}
-
-/** Move the viewport and dispatch a scroll (as a physical swipe would). */
-function swipeTo(viewport: HTMLElement, index: number) {
-  act(() => {
-    viewport.scrollLeft = index * WIDTH;
-    fireEvent.scroll(viewport);
-    flushRaf();
-  });
-}
-
-/** Signal that scrolling has fully stopped (unlocks discrete navigation). */
-function endScroll(viewport: HTMLElement) {
-  act(() => {
-    fireEvent(viewport, new Event('scrollend'));
-  });
-}
+import {
+  SLIDE_TEST_WIDTH as WIDTH,
+  endScroll,
+  flushRaf,
+  installSlidesLayoutMocks,
+  resetSlidesLayoutMocks,
+  fireResizeObservers,
+  setupGeometry,
+  swipeTo,
+} from './lightbox-slides-test-utils';
 
 beforeEach(() => {
-  roInstances.clear();
-  rafCallbacks.clear();
-  rafSeq = 0;
-
-  vi.stubGlobal(
-    'ResizeObserver',
-    class {
-      cb: ResizeObserverCallback;
-      constructor(cb: ResizeObserverCallback) {
-        this.cb = cb;
-        roInstances.add(this);
-      }
-      observe() {}
-      unobserve() {}
-      disconnect() {
-        roInstances.delete(this);
-      }
-    },
-  );
-
-  vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => {
-    const id = ++rafSeq;
-    rafCallbacks.set(id, cb);
-    return id;
-  });
-  vi.stubGlobal('cancelAnimationFrame', (id: number) => {
-    rafCallbacks.delete(id);
-  });
+  installSlidesLayoutMocks();
 
   if (!window.matchMedia) {
     Object.defineProperty(window, 'matchMedia', {
@@ -144,7 +51,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-  vi.unstubAllGlobals();
+  resetSlidesLayoutMocks();
   vi.restoreAllMocks();
 });
 
@@ -251,7 +158,7 @@ describe('Lightbox.Slides', () => {
 
     // Fire RO without draining the double-rAF settle so `resizingRef` stays true.
     act(() => {
-      roInstances.forEach((o) => o.cb([], o as unknown as ResizeObserver));
+      fireResizeObservers();
     });
     act(() => flushRaf()); // scrollToIndex restore + outer resize frame
 
@@ -291,7 +198,7 @@ describe('Lightbox.Slides', () => {
     applyWidth(50);
     viewport.scrollLeft = 3 * WIDTH;
     act(() => {
-      roInstances.forEach((o) => o.cb([], o as unknown as ResizeObserver));
+      fireResizeObservers();
     });
     expect(viewport.style.scrollSnapType).toBe('none');
 
@@ -299,7 +206,7 @@ describe('Lightbox.Slides', () => {
     // savedSnap='none' and permanently stuck snap off after the superseded rAF.
     applyWidth(40);
     act(() => {
-      roInstances.forEach((o) => o.cb([], o as unknown as ResizeObserver));
+      fireResizeObservers();
     });
 
     act(() => flushRaf());
@@ -657,6 +564,13 @@ describe('Lightbox.Slides', () => {
                   </LightboxSlide>
                 ))}
               </LightboxSlides>
+              <LightboxThumbnailGroup data-testid="thumb-group">
+                {Array.from({ length: itemCount }, (_, i) => (
+                  <LightboxThumbnail key={`th-${i}`} index={i} data-testid={`thumb-${i}`}>
+                    Thumb {i}
+                  </LightboxThumbnail>
+                ))}
+              </LightboxThumbnailGroup>
             </LightboxContent>
           </LightboxPortal>
         </LightboxRoot>
@@ -688,12 +602,20 @@ describe('Lightbox.Slides', () => {
       expect(content).toHaveAttribute('data-pulling');
     });
 
-    function dispatchTrackpadWheel(target: Element, deltaX: number, deltaY: number) {
+    function dispatchTrackpadWheel(
+      target: Element,
+      deltaX: number,
+      deltaY: number,
+      ctrlKey = false,
+      metaKey = false,
+    ) {
       const event = new WheelEvent('wheel', {
         bubbles: true,
         cancelable: true,
         deltaX,
         deltaY,
+        ctrlKey,
+        metaKey,
       });
       Object.defineProperty(event, 'deltaMode', { value: 0 });
       target.dispatchEvent(event);
@@ -749,6 +671,38 @@ describe('Lightbox.Slides', () => {
       }
     });
 
+    it('does not re-lock after scrollend while a scroll rAF is still pending', () => {
+      // Repro: ⌘+/- mid-swipe. `scrollend` settles, then the last `scroll`
+      // event's process rAF used to lock again with no follow-up scrollend —
+      // pull/pinch/thumbs stayed dead until the next real swipe.
+      render(<GestureLightbox />);
+      const viewport = screen.getByTestId('slides');
+      const content = screen.getByTestId('content');
+      setupGeometry(viewport, 8);
+
+      act(() => {
+        viewport.scrollLeft = 2 * WIDTH;
+        fireEvent.scroll(viewport);
+        fireEvent(viewport, new Event('scrollend'));
+        flushRaf();
+      });
+
+      const img = screen.getByTestId('img-2');
+      act(() => {
+        dispatchPointer(img, 'pointerdown', { clientX: 200, clientY: 200 });
+        dispatchPointer(content, 'pointermove', { clientX: 200, clientY: 240 });
+      });
+      expect(content).toHaveAttribute('data-pulling');
+      act(() => {
+        dispatchPointer(content, 'pointerup', { clientX: 200, clientY: 240 });
+      });
+      act(() => {
+        fireEvent.click(screen.getByTestId('thumb-6'));
+      });
+      act(() => flushRaf());
+      expect(activeThumb()).toBe(6);
+    });
+
     it('starts a trackpad pull after scrollend of a gallery swipe', () => {
       render(<GestureLightbox />);
       const viewport = screen.getByTestId('slides');
@@ -795,6 +749,138 @@ describe('Lightbox.Slides', () => {
         for (let i = 0; i < 4; i++) dispatchTrackpadWheel(img, 0, -30);
       });
       expect(content).not.toHaveAttribute('data-pulling');
+    });
+
+    it('does not freeze gestures after a trackpad pinch interrupts an in-flight swipe', () => {
+      // Regression: pinch mid-swipe (Chrome ctrlKey+wheel / Safari GestureEvent)
+      // aborts the gallery scroll without `scrollend`. The idle fallback is
+      // normally skipped when `onscrollend` exists (vertical-turn must not
+      // unlock), so pull/pinch/thumbs stayed dead until the next real swipe.
+      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+      try {
+        const zoomRef = React.createRef<LightboxZoomRef>();
+        render(<GestureLightbox withZoom zoomRef={zoomRef} observedIndex={2} />);
+        const viewport = screen.getByTestId('slides');
+        const content = screen.getByTestId('content');
+        setupGeometry(viewport, 8);
+
+        swipeTo(viewport, 2);
+        const img = screen.getByTestId('img-2');
+        expect(activeThumb()).toBe(2);
+
+        act(() => {
+          dispatchTrackpadWheel(img, 0, -40, true);
+        });
+
+        // Still locked immediately — snap may still be in flight.
+        act(() => {
+          dispatchPointer(img, 'pointerdown', { clientX: 200, clientY: 200 });
+          dispatchPointer(content, 'pointermove', { clientX: 200, clientY: 240 });
+        });
+        expect(content).not.toHaveAttribute('data-pulling');
+        act(() => {
+          dispatchPointer(content, 'pointerup', { clientX: 200, clientY: 240 });
+        });
+        act(() => {
+          fireEvent.click(screen.getByTestId('thumb-6'));
+        });
+        expect(activeThumb()).toBe(2);
+        act(() => {
+          fireEvent.wheel(img, { deltaY: -100, ctrlKey: true });
+        });
+        expect(zoomRef.current?.zoom).toBe(1);
+
+        // Pinch + scroll went quiet and `scrollend` never arrived. Must settle.
+        act(() => {
+          vi.advanceTimersByTime(200);
+        });
+        act(() => {
+          dispatchPointer(img, 'pointerdown', { clientX: 200, clientY: 200 });
+          dispatchPointer(content, 'pointermove', { clientX: 200, clientY: 240 });
+        });
+        expect(content).toHaveAttribute('data-pulling');
+        act(() => {
+          dispatchPointer(content, 'pointerup', { clientX: 200, clientY: 240 });
+        });
+
+        act(() => {
+          fireEvent.wheel(img, { deltaY: -100, ctrlKey: true });
+        });
+        expect(zoomRef.current!.zoom).toBeGreaterThan(1);
+
+        act(() => {
+          fireEvent.click(screen.getByTestId('thumb-6'));
+        });
+        act(() => flushRaf());
+        expect(activeThumb()).toBe(6);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('does not freeze gestures after a Safari trackpad pinch interrupts an in-flight swipe', () => {
+      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+      try {
+        render(<GestureLightbox />);
+        const viewport = screen.getByTestId('slides');
+        const content = screen.getByTestId('content');
+        setupGeometry(viewport, 8);
+
+        swipeTo(viewport, 2);
+        const img = screen.getByTestId('img-2');
+
+        act(() => {
+          img.dispatchEvent(new Event('gesturestart', { bubbles: true, cancelable: true }));
+          img.dispatchEvent(new Event('gesturechange', { bubbles: true, cancelable: true }));
+        });
+
+        act(() => {
+          vi.advanceTimersByTime(200);
+        });
+        act(() => {
+          dispatchPointer(img, 'pointerdown', { clientX: 200, clientY: 200 });
+          dispatchPointer(content, 'pointermove', { clientX: 200, clientY: 240 });
+        });
+        expect(content).toHaveAttribute('data-pulling');
+        act(() => {
+          dispatchPointer(content, 'pointerup', { clientX: 200, clientY: 240 });
+        });
+
+        act(() => {
+          fireEvent.click(screen.getByTestId('thumb-6'));
+        });
+        act(() => flushRaf());
+        expect(activeThumb()).toBe(6);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('does not freeze gestures after ⌘+scroll (metaKey wheel) interrupts an in-flight swipe', () => {
+      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+      try {
+        render(<GestureLightbox />);
+        const viewport = screen.getByTestId('slides');
+        const content = screen.getByTestId('content');
+        setupGeometry(viewport, 8);
+
+        swipeTo(viewport, 2);
+        const img = screen.getByTestId('img-2');
+
+        act(() => {
+          dispatchTrackpadWheel(img, 0, -40, false, true);
+        });
+        act(() => {
+          vi.advanceTimersByTime(200);
+        });
+        act(() => {
+          dispatchPointer(img, 'pointerdown', { clientX: 200, clientY: 200 });
+          dispatchPointer(content, 'pointermove', { clientX: 200, clientY: 240 });
+        });
+        expect(content).toHaveAttribute('data-pulling');
+      } finally {
+        vi.useRealTimers();
+      }
     });
 
     it('does not leave gestures locked after an open/snap scroll echo on the first slide', () => {
@@ -1006,6 +1092,69 @@ describe('Lightbox.Slides', () => {
         fireEvent.click(screen.getByTestId('zoom-in'));
       });
       expect(zoomRef.current!.zoom).toBeGreaterThan(1);
+    });
+
+    it('drops keyboard ⌘+/- zoom while a scroll is in flight, then resumes after it settles', () => {
+      // Regression: keyboard zoom was not gated (unlike pinch / zoom buttons).
+      // A discrete zoom mid-swipe aborts compositor scrolling without
+      // `scrollend` and freezes pull/pinch/thumbs.
+      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+      try {
+        const zoomRef = React.createRef<LightboxZoomRef>();
+        render(<GestureLightbox withZoom zoomRef={zoomRef} observedIndex={1} />);
+        const viewport = screen.getByTestId('slides');
+        const content = screen.getByTestId('content');
+        setupGeometry(viewport, 8);
+        const img = screen.getByTestId('img-1');
+
+        swipeTo(viewport, 1);
+        expect(zoomRef.current?.zoom).toBe(1);
+        expect(activeThumb()).toBe(1);
+        act(() => {
+          fireEvent.keyDown(content, { key: '=', metaKey: true });
+        });
+        expect(zoomRef.current?.zoom).toBe(1);
+        act(() => {
+          fireEvent.keyDown(content, { key: '-', metaKey: true });
+        });
+        expect(zoomRef.current?.zoom).toBe(1);
+        act(() => {
+          fireEvent.keyDown(content, { key: '0', metaKey: true });
+        });
+        expect(zoomRef.current?.zoom).toBe(1);
+
+        // Unlike a trackpad pinch, ⌘+/- must not idle-unlock: the swipe is
+        // still the live gesture until `scrollend`.
+        act(() => {
+          vi.advanceTimersByTime(200);
+        });
+        act(() => {
+          dispatchPointer(img, 'pointerdown', { clientX: 200, clientY: 200 });
+          dispatchPointer(content, 'pointermove', { clientX: 200, clientY: 240 });
+        });
+        expect(content).not.toHaveAttribute('data-pulling');
+        act(() => {
+          dispatchPointer(content, 'pointerup', { clientX: 200, clientY: 240 });
+        });
+        act(() => {
+          fireEvent.click(screen.getByTestId('thumb-6'));
+        });
+        expect(activeThumb()).toBe(1);
+
+        endScroll(viewport);
+        act(() => {
+          fireEvent.keyDown(content, { key: '=', metaKey: true });
+        });
+        expect(zoomRef.current!.zoom).toBeGreaterThan(1);
+
+        act(() => {
+          fireEvent.click(screen.getByTestId('thumb-6'));
+        });
+        act(() => flushRaf());
+        expect(activeThumb()).toBe(6);
+      } finally {
+        vi.useRealTimers();
+      }
     });
   });
 });

@@ -1,20 +1,28 @@
 'use client';
 
-import * as React from 'react';
+import type * as React from 'react';
 import { flushSync } from 'react-dom';
 
+import { isAndroidBlinkSnapshotRoot } from './is-android-blink';
 import { isFirefox } from './is-firefox';
 import { acquireVtTouchGuard } from './vt-touch-guard';
 import { maybeTraceViewTransition } from './vt-debug';
 import { maybeUpgradeToCompositedMorph } from './vt-composited-morph';
 import { isViewTransitionPreset, resolveViewTransitionTiming } from './vt-timing';
 import type { LightboxViewTransitionPreset } from './vt-timing';
-import { VIEW_TRANSITION_NAME, findItemMorphTarget, findTriggerMorphTarget } from './lightbox-context';
+import { findItemMorphTarget, findTriggerMorphTarget } from './morph-target';
+import { DEFAULT_DECODE_MAX_WAIT, VIEW_TRANSITION_NAME } from './vt-constants';
 import { LightboxDocumentCssVars } from './lightbox-css-vars';
 import {
   LightboxDocumentDataAttributes,
   LightboxSlideDataAttributes,
 } from './lightbox-data-attributes';
+import {
+  resolveScrollTriggerOption,
+  resolveTriggerIndex,
+  scrollTriggerEl,
+} from './scroll-trigger';
+import type { ScrollTriggerIntoView } from './scroll-trigger';
 
 // ---------------------------------------------------------------------------
 // View Transition helpers
@@ -39,10 +47,89 @@ function startViewTransition(
 }
 
 /**
- * Default upper bound (ms) for how long the open morph waits on the
- * destination image to decode. Used when `awaitImageDecode` is `true`.
+ * Android Chrome aborts a view transition if the snapshot root size changes
+ * between old and new capture (URL-bar show/hide). Wait until layout
+ * `innerHeight` and `visualViewport.height` agree **and stay still**.
+ *
+ * A one-shot "heights differ → wait until they match" is not enough: the bar
+ * animation can pass through a matching frame (or sit in a stable mismatch)
+ * and then keep moving during capture. Do not treat a stable mismatch as
+ * settled.
+ *
+ * Only invoked on mobile Blink (see `shouldWaitForSnapshotRootSettle`). jsdom
+ * has no compositor; skip so a stray call cannot defer tests off the click tick.
  */
-const DEFAULT_DECODE_MAX_WAIT = 200;
+const SNAPSHOT_ROOT_STABLE_FRAMES = 8;
+const SNAPSHOT_ROOT_SETTLE_MAX_MS = 1000;
+
+function readSnapshotRoot(): {
+  innerW: number;
+  innerH: number;
+  vvH: number | null;
+  scrollX: number;
+  scrollY: number;
+} {
+  const vv = typeof window !== 'undefined' ? window.visualViewport : null;
+  return {
+    innerW: window.innerWidth,
+    innerH: window.innerHeight,
+    vvH: vv?.height ?? null,
+    scrollX: Math.round(window.scrollX),
+    scrollY: Math.round(window.scrollY),
+  };
+}
+
+function snapshotRootKey(snap: ReturnType<typeof readSnapshotRoot>): string {
+  return `${snap.innerW}x${snap.innerH}|vv:${snap.vvH ?? 'n'}|s:${snap.scrollX},${snap.scrollY}`;
+}
+
+function layoutMatchesVisualViewport(snap: ReturnType<typeof readSnapshotRoot>): boolean {
+  if (snap.vvH == null) return true;
+  return Math.abs(snap.innerH - snap.vvH) <= 1;
+}
+
+function waitForStableSnapshotRoot(): Promise<void> {
+  if (typeof navigator !== 'undefined' && /jsdom/i.test(navigator.userAgent)) {
+    return Promise.resolve();
+  }
+  return new Promise((resolve) => {
+    const t0 = performance.now();
+    let lastKey = snapshotRootKey(readSnapshotRoot());
+    let stable = 0;
+    const tick = () => {
+      const snap = readSnapshotRoot();
+      const key = snapshotRootKey(snap);
+      const aligned = layoutMatchesVisualViewport(snap);
+      const elapsed = performance.now() - t0;
+      if (key === lastKey && aligned) {
+        stable += 1;
+      } else {
+        lastKey = key;
+        stable = 0;
+      }
+      if (
+        stable >= SNAPSHOT_ROOT_STABLE_FRAMES ||
+        (elapsed >= SNAPSHOT_ROOT_SETTLE_MAX_MS && aligned) ||
+        elapsed >= SNAPSHOT_ROOT_SETTLE_MAX_MS * 1.5
+      ) {
+        resolve();
+        return;
+      }
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  });
+}
+
+/**
+ * Blink on Android includes URL-bar outsets in the view-transition snapshot
+ * root. Desktop Chromium and WebKit (Safari, and every iOS browser) do not
+ * have that abort, so they skip the settle wait.
+ */
+function shouldWaitForSnapshotRootSettle(): boolean {
+  if (typeof navigator !== 'undefined' && /jsdom/i.test(navigator.userAgent)) return false;
+  return isAndroidBlinkSnapshotRoot();
+}
 
 /**
  * Wait for an image element to decode (pixels composited and ready to paint).
@@ -188,117 +275,6 @@ function warnCollapsedMediaMorph(target: HTMLElement | null) {
       'Falling back to a root crossfade.',
     media,
   );
-}
-
-// ---------------------------------------------------------------------------
-// scrollTriggerIntoView config
-// ---------------------------------------------------------------------------
-
-/**
- * The moments at which the active trigger can be scrolled into view:
- * - `onChange` — the active index changes while open (navigation)
- * - `onOpenComplete` — the open transition finishes (page is covered + locked,
- *   so this reposition is invisible; recommended with `instant`)
- * - `onClose` — just before the close morph runs
- */
-type ScrollTriggerMoment = 'onChange' | 'onOpenComplete' | 'onClose';
-
-/** Alignment passed through to `Element.scrollIntoView`. */
-type ScrollTriggerAlign = ScrollLogicalPosition;
-
-interface ScrollTriggerOption {
-  type: ScrollTriggerMoment;
-  behavior?: 'smooth' | 'instant';
-  /**
-   * Vertical alignment for `scrollIntoView`.
-   * @default 'nearest'
-   */
-  block?: ScrollTriggerAlign;
-  /**
-   * Horizontal alignment for `scrollIntoView`. Use `'center'` for
-   * variable-width horizontal strips with scroll-snap so a narrow tile
-   * isn't re-snapped back to a wider sibling after a minimal `nearest` nudge.
-   * @default 'nearest'
-   */
-  inline?: ScrollTriggerAlign;
-}
-
-/** Single option, an array of options, or `null` to disable. */
-type ScrollTriggerIntoView = null | ScrollTriggerOption | ScrollTriggerOption[];
-
-interface ResolvedScrollTrigger {
-  behavior: ScrollBehavior;
-  block: ScrollTriggerAlign;
-  inline: ScrollTriggerAlign;
-}
-
-/**
- * Resolve the scroll config for a given moment, or `null` when that moment
- * isn't enabled. Accepts both the single-object and array config forms so
- * `scrollTriggerIntoView={{ type: 'onChange' }}` and
- * `scrollTriggerIntoView={[{ type: 'onChange' }, { type: 'onOpenComplete' }]}`
- * both work.
- */
-function resolveScrollTriggerOption(
-  config: ScrollTriggerIntoView | undefined,
-  moment: ScrollTriggerMoment,
-): ResolvedScrollTrigger | null {
-  if (!config) return null;
-  const options = Array.isArray(config) ? config : [config];
-  const match = options.find((option) => option.type === moment);
-  if (!match) return null;
-  return {
-    behavior: match.behavior ?? 'smooth',
-    block: match.block ?? 'nearest',
-    inline: match.inline ?? 'nearest',
-  };
-}
-
-// ---------------------------------------------------------------------------
-// Trigger resolution (shared with Root's non-VT close paths)
-// ---------------------------------------------------------------------------
-
-function scrollTriggerEl(
-  el: HTMLElement | undefined,
-  options: ResolvedScrollTrigger = { behavior: 'smooth', block: 'nearest', inline: 'nearest' },
-) {
-  if (!el) return;
-  // Defaults (`nearest` / `nearest`) only scroll when needed and honor CSS
-  // `scroll-margin`/`scroll-padding` (sticky header clearance). Consumers set
-  // `block` / `inline` on `scrollTriggerIntoView` options when a different
-  // alignment is required (e.g. `inline: 'center'` for horizontal snap strips).
-  //
-  // We deliberately do NOT gate this on a manual getBoundingClientRect check:
-  // that check measures against the raw viewport (top >= 0), so it considers a
-  // trigger occluded by a sticky header "fully visible" and skips the scroll.
-  // IntersectionObserver can't fix this either — v1 is purely geometric (same
-  // blind spot) and v2's occlusion-aware `isVisible` is Chromium-only, async,
-  // and expensive, so unusable for a synchronous cross-browser decision here.
-  el.scrollIntoView({
-    block: options.block,
-    inline: options.inline,
-    behavior: options.behavior,
-  });
-}
-
-function resolveTriggerIndex(
-  activeIndex: number,
-  morphTo: 'active' | 'origin' | 'closest',
-  openingIndex: number,
-  triggerElements: Map<number, HTMLElement>,
-): number {
-  if (morphTo === 'origin') return openingIndex;
-  if (morphTo === 'active' || triggerElements.has(activeIndex)) return activeIndex;
-  let best = -1;
-  let bestDist = Infinity;
-  for (const idx of triggerElements.keys()) {
-    const dist = Math.abs(idx - activeIndex);
-    if (dist < bestDist) {
-      bestDist = dist;
-      best = idx;
-    }
-  }
-  return best >= 0 ? best : activeIndex;
 }
 
 // ---------------------------------------------------------------------------
@@ -708,7 +684,7 @@ function clearMorphState(docEl: HTMLElement, owner: number) {
 }
 
 // ---------------------------------------------------------------------------
-// Hook
+// Morph runtime (lazy-loaded from Root)
 // ---------------------------------------------------------------------------
 
 interface ViewTransitionMorphConfig {
@@ -762,7 +738,7 @@ interface ViewTransitionMorphConfig {
    * open or `onBeforeOpen` failure).
    */
   commitAbortPrepare: () => void;
-  /** flushSync body that flips React state to the closed/unmounted state. */
+  /** flushSync body that hides the viewer; unmount waits for onCloseComplete. */
   commitClose: () => void;
   /** Fired once the open morph settles (and its generation is still current). */
   onOpenComplete: () => void;
@@ -795,14 +771,11 @@ interface ViewTransitionMorph {
  *
  * The caller is expected to bump `closeGenRef.current` immediately before
  * invoking `open()`/`close()` so each morph captures a fresh generation.
+ *
+ * Not a hook — Root lazy-loads this module and constructs one instance.
  */
-function useViewTransitionMorph(config: ViewTransitionMorphConfig): ViewTransitionMorph {
-  // Keep the latest config in a ref so the returned callbacks are stable while
-  // always reading fresh values (mirrors the onOpenChangeRef pattern in Root).
-  const configRef = React.useRef(config);
-  configRef.current = config;
-
-  const open = React.useCallback(async () => {
+function createViewTransitionMorph(getConfig: () => ViewTransitionMorphConfig): ViewTransitionMorph {
+  const open = async () => {
     const {
       decodeMaxWait,
       onBeforeOpenRef,
@@ -817,7 +790,7 @@ function useViewTransitionMorph(config: ViewTransitionMorphConfig): ViewTransiti
       commitPrepare,
       commitReveal,
       commitAbortPrepare,
-    } = configRef.current;
+    } = getConfig();
 
     const docEl = document.documentElement;
     const gen = closeGenRef.current;
@@ -890,7 +863,7 @@ function useViewTransitionMorph(config: ViewTransitionMorphConfig): ViewTransiti
         await waitForImageDecode(pendingItemTarget, decodeMaxWait);
         // A newer open/close superseded this one during the await — bail before
         // touching any document-level morph state so we don't corrupt it.
-        if (configRef.current.closeGenRef.current !== gen) {
+        if (getConfig().closeGenRef.current !== gen) {
           if (beforeOpenAbortRef.current === beforeOpenAbort) {
             beforeOpenAbortRef.current = null;
           }
@@ -917,7 +890,7 @@ function useViewTransitionMorph(config: ViewTransitionMorphConfig): ViewTransiti
         if (beforeOpenAbortRef.current === beforeOpenAbort) {
           beforeOpenAbortRef.current = null;
         }
-        if (configRef.current.closeGenRef.current === gen) {
+        if (getConfig().closeGenRef.current === gen) {
           flushSync(commitAbortPrepare);
         }
         releaseTouchGuard();
@@ -926,7 +899,7 @@ function useViewTransitionMorph(config: ViewTransitionMorphConfig): ViewTransiti
       if (beforeOpenAbortRef.current === beforeOpenAbort) {
         beforeOpenAbortRef.current = null;
       }
-      if (configRef.current.closeGenRef.current !== gen) {
+      if (getConfig().closeGenRef.current !== gen) {
         releaseTouchGuard();
         return;
       }
@@ -938,6 +911,17 @@ function useViewTransitionMorph(config: ViewTransitionMorphConfig): ViewTransiti
       }
     } else if (beforeOpenAbortRef.current === beforeOpenAbort) {
       beforeOpenAbortRef.current = null;
+    }
+
+    // Don't capture while Android Chrome's URL bar is still moving. Desktop
+    // and WebKit skip this — they don't share that snapshot-root abort.
+    if (shouldWaitForSnapshotRootSettle()) {
+      await waitForStableSnapshotRoot();
+      if (getConfig().closeGenRef.current !== gen) {
+        flushSync(commitAbortPrepare);
+        releaseTouchGuard();
+        return;
+      }
     }
 
     // Read the destination item's border-radius here, after the mount. The
@@ -978,7 +962,7 @@ function useViewTransitionMorph(config: ViewTransitionMorphConfig): ViewTransiti
       useCrossfade: canMorph ? useCrossfade : true,
       fromRadius: canMorph ? fromRadius : null,
       toRadius,
-      preset: configRef.current.transitionPreset,
+      preset: getConfig().transitionPreset,
     });
 
     if (canMorph) {
@@ -1028,8 +1012,8 @@ function useViewTransitionMorph(config: ViewTransitionMorphConfig): ViewTransiti
       releaseTouchGuard();
       restoreFirefoxCaptureInset?.();
       restoreFirefoxCaptureInset = null;
-      if (configRef.current.closeGenRef.current !== gen) return;
-      const cfg = configRef.current;
+      if (getConfig().closeGenRef.current !== gen) return;
+      const cfg = getConfig();
       const itemEl = cfg.activeItemElementRef.current;
       const itemTarget = itemEl
         ? findItemMorphTarget(itemEl, cfg.itemMorphElementsRef.current)
@@ -1058,9 +1042,9 @@ function useViewTransitionMorph(config: ViewTransitionMorphConfig): ViewTransiti
 
       cfg.onOpenComplete();
     });
-  }, []);
+  };
 
-  const close = React.useCallback(() => {
+  const close = () => {
     const {
       morphTo,
       scrollTriggerIntoView,
@@ -1072,16 +1056,14 @@ function useViewTransitionMorph(config: ViewTransitionMorphConfig): ViewTransiti
       activeIndexRef,
       closeGenRef,
       commitClose,
-    } = configRef.current;
+    } = getConfig();
 
     const docEl = document.documentElement;
     const gen = closeGenRef.current;
 
-    // Same guard as the open morph: Content unmounts at close start
-    // (commitClose runs inside the transition callback), so for the whole
-    // close animation a touch pan resolves to <html> with nothing left to
-    // contain it — Safari would expand its address bar and resize the
-    // viewport mid-morph.
+    // Same guard as the open morph: the portal is hidden until close
+    // `finished`, so a touch pan can resolve to <html> and expand Safari's
+    // address bar mid-morph.
     const releaseTouchGuard = acquireVtTouchGuard();
 
     const itemEl = activeItemElementRef.current;
@@ -1116,7 +1098,7 @@ function useViewTransitionMorph(config: ViewTransitionMorphConfig): ViewTransiti
       useCrossfade,
       fromRadius,
       toRadius,
-      preset: configRef.current.transitionPreset,
+      preset: getConfig().transitionPreset,
     });
 
     // Firefox: zoomed Media is painted under scale/pan and clipped by ancestor
@@ -1125,7 +1107,7 @@ function useViewTransitionMorph(config: ViewTransitionMorphConfig): ViewTransiti
     // while zoomed — leave their live pose alone. Animated reset() would leave
     // capture mid-zoom.
     if (isFirefox()) {
-      const activeZoom = configRef.current.activeZoomRef.current;
+      const activeZoom = getConfig().activeZoomRef.current;
       if (activeZoom && activeZoom.getZoom() > 1) {
         activeZoom.reset(true);
       }
@@ -1168,17 +1150,17 @@ function useViewTransitionMorph(config: ViewTransitionMorphConfig): ViewTransiti
         clearMorphName(triggerTarget!);
       }
       clearMorphState(docEl, morphStateToken);
-      if (configRef.current.closeGenRef.current === gen) {
-        configRef.current.onCloseComplete(triggerEl);
+      if (getConfig().closeGenRef.current === gen) {
+        getConfig().onCloseComplete(triggerEl);
       }
     });
-  }, []);
+  };
 
-  return React.useMemo(() => ({ open, close }), [open, close]);
+  return { open, close };
 }
 
 export {
-  useViewTransitionMorph,
+  createViewTransitionMorph,
   startViewTransition,
   waitForImageDecode,
   scrollTriggerEl,
@@ -1190,12 +1172,11 @@ export {
   applyFirefoxFullBleedCaptureInset,
   DEFAULT_DECODE_MAX_WAIT,
 };
+export type { ViewTransitionMorphConfig, ViewTransitionMorph };
 export type {
-  ViewTransitionMorphConfig,
-  ViewTransitionMorph,
   ScrollTriggerIntoView,
   ScrollTriggerOption,
   ScrollTriggerMoment,
   ScrollTriggerAlign,
   ResolvedScrollTrigger,
-};
+} from './scroll-trigger';

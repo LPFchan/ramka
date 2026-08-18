@@ -73,6 +73,9 @@ const docsLightbox = {
   morph4: picsum('morph4', 1200, 800),
   morph5: picsum('morph5', 1200, 800),
   xfadeA: picsum('xfade-a', 1500, 1000),
+  // Center-square of xfade-a (checked in). Used by the view-transitions
+  // source-aspect Don’t demo — same scene, different intrinsic aspect.
+  xfadeASquare: 'xfade-a-square.jpg',
   xfadeB: picsum('xfade-b', 1500, 1000),
   xfadeC: picsum('xfade-c', 1500, 1000),
   xfadeD: picsum('xfade-d', 1500, 1000),

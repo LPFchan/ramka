@@ -65,13 +65,13 @@ export const generatedProps: Record<string, PropRow[]> = {
       name: "viewTransition",
       type: "boolean | LightboxViewTransitionPreset",
       default: "true",
-      description: "Morph between trigger and lightbox item via the View Transitions API. On by default: clicking a trigger morphs into the fullscreen item, and close morphs back. Falls back to a plain fade when unsupported, when prefers-reduced-motion is set, or on low-end devices. Pass `false` to opt out.\n\nPass a preset name to pick the morph's motion (duration + easing):\n\n- `\"default\"` — 360ms, sheet curve with a tamed launch (same as `true`)\n- `\"snappy\"` — 340ms, hotter launch; reads quicker\n- `\"relaxed\"` — 400ms, softer launch and longer settle\n- `\"spring\"` — 450ms, critically damped spring; Photos-style settle\n\nTiming is preset-based (not free-form CSS) on purpose: each preset is vetted on-device to stay smooth and skip-safe on iOS Safari (including Low Power Mode) and Android, where arbitrary curves stutter or teleport. The chosen timing drives the morph, the crossfade and the root fade together so they always stay in sync.",
+      description: "Morph between trigger and lightbox item via the View Transitions API. On by default: clicking a trigger morphs into the fullscreen item, and close morphs back. The morph engine is loaded on first use — pass `false` to skip that download. Falls back to a plain fade when unsupported, when prefers-reduced-motion is set, or on low-end devices.\n\nPass a preset name to pick the morph's motion (duration + easing):\n\n- `\"default\"` — 360ms, sheet curve with a tamed launch (same as `true`)\n- `\"snappy\"` — 340ms, hotter launch; reads quicker\n- `\"relaxed\"` — 400ms, softer launch and longer settle\n- `\"spring\"` — 450ms, critically damped spring; Photos-style settle\n\nTiming is preset-based (not free-form CSS) on purpose: each preset is vetted on-device to stay smooth and skip-safe on iOS Safari (including Low Power Mode) and Android, where arbitrary curves stutter or teleport. The chosen timing drives the morph, the crossfade and the root fade together so they always stay in sync.",
     },
     {
       name: "scrollTriggerIntoView",
       type: "ScrollTriggerIntoView",
       default: "null",
-      description: "Scroll the active trigger element into the viewport so close animations land on-screen instead of animating off-viewport.\n\nAccepts a single option or an array of options, so you can combine the moments below. Per option:\n\n- `behavior` — `\"smooth\"` (default) or `\"instant\"`\n- `block` / `inline` — `scrollIntoView` alignment (`\"nearest\"` default). Use `inline: \"center\"` for horizontal snap strips with variable-width tiles.\n\n- `null` (default) — no automatic scrolling\n- `{ type: \"onChange\" }` — scroll to the active trigger whenever the active index changes while the lightbox is open (preemptive; keeps the trigger in view as the user navigates)\n- `{ type: \"onOpenComplete\" }` — scroll to the active trigger once the open transition finishes. The viewer covers the page and scroll is locked, so this reposition is invisible — it only pays off by ensuring the close morph lands on-screen without a jump when the trigger was partially off-screen at open time. `\"instant\"` recommended.\n- `{ type: \"onClose\" }` — scroll to the active trigger just before the close morph runs (visible reposition at close start)",
+      description: "Scroll the active trigger element into the viewport so close animations land on-screen instead of animating off-viewport.\n\nAccepts a single option or an array of options, so you can combine the moments below. Per option:\n\n- `behavior` — `\"smooth\"` (default) or `\"instant\"`\n- `block` / `inline` — `scrollIntoView` alignment (`\"nearest\"` default). Use `inline: \"center\"` for horizontal snap strips with variable-width tiles.\n\n- `null` (default) — no automatic scrolling\n- `{ type: \"onChange\" }` — scroll to the trigger the close morph will land on whenever the active index changes while the lightbox is open (preemptive; respects `morphTo`, so `closest` scrolls the nearest registered trigger when the active index has none)\n- `{ type: \"onOpenComplete\" }` — scroll to that same trigger once the open transition finishes. The viewer covers the page and scroll is locked, so this reposition is invisible — it only pays off by ensuring the close morph lands on-screen without a jump when the trigger was partially off-screen at open time. `\"instant\"` recommended.\n- `{ type: \"onClose\" }` — scroll to that trigger just before the close morph runs (visible reposition at close start)",
     },
     {
       name: "morphTo",
@@ -116,7 +116,7 @@ export const generatedProps: Record<string, PropRow[]> = {
     {
       name: "crossfade",
       type: "'open' | 'close' | 'both'",
-      description: "Crossfade between trigger and item snapshots during the view-transition morph. Omit (default) for a hard-cut morph — ideal when trigger and item show the same image at different crops/sizes. Use a direction when they differ visually:\n\n- `'both'` — crossfade on open and close (e.g. a stack → single photo)\n- `'open'` — crossfade only when opening\n- `'close'` — crossfade only when closing (e.g. poster → live video)\n\nSets `data-crossfade` on the trigger and `data-ramka-crossfade` on `<html>` during phases that dissolve (omitted for hard-cut).",
+      description: "Crossfade between trigger and item snapshots during the view-transition morph. Omit (default) for a hard-cut morph — ideal when trigger and item show the same image at the same intrinsic aspect (a CSS `object-cover` window or smaller srcset is fine; a CDN-baked crop that changes the aspect is not). Use a direction when they differ visually:\n\n- `'both'` — crossfade on open and close (e.g. a stack → single photo)\n- `'open'` — crossfade only when opening\n- `'close'` — crossfade only when closing (e.g. poster → live video)\n\nSets `data-crossfade` on the trigger and `data-ramka-crossfade` on `<html>` during phases that dissolve (omitted for hard-cut).",
     },
     {
       name: "children",
@@ -158,7 +158,7 @@ export const generatedProps: Record<string, PropRow[]> = {
       name: "pullToClose",
       type: "boolean",
       default: "true",
-      description: "Enable pull-to-close on touch and trackpad wheel. Starts from anywhere in Stage (or Content when Stage is omitted), except interactive controls. Publishes `data-pulling`, `data-pull-snapping`, `data-pull-dismissing`, and `--lightbox-pull-progress` while active.",
+      description: "Enable pull-to-close on touch and trackpad wheel. Starts from anywhere in Stage (or Content when Stage is omitted), except interactive controls. Publishes `data-pulling`, `data-pull-snapping`, `data-pull-dismissing`, and `--lightbox-pull-progress` while active. The engine loads when Content first mounts with this on — pass `false` to skip that download.",
     },
   ],
   "api-stage": [
@@ -236,19 +236,6 @@ export const generatedProps: Record<string, PropRow[]> = {
     },
   ],
   "api-slide": [],
-  "api-item-group": [
-    {
-      name: "preload",
-      type: "number",
-      default: "1",
-      description: "How many adjacent items to keep rendered on each side of the active item for preloading. Set to 0 to only render the active item.",
-    },
-    {
-      name: "render",
-      type: "ReactElement | ComponentRenderFn",
-      description: "Allows you to replace the component's HTML element with a different tag, or compose it with another component.\n\nAccepts a `ReactElement` or a function that returns the element to render.",
-    },
-  ],
   "api-previous": [
     {
       name: "render",
@@ -417,7 +404,7 @@ export const generatedProps: Record<string, PropRow[]> = {
     {
       name: "(return)",
       type: "LightboxItemContextValue | null",
-      description: "Optional context from the enclosing Item. Returns `{ index, active, imageRef, morphRef, registerMedia }`, or `null` outside an Item.",
+      description: "Optional context from the enclosing Item. Returns `{ index, active, imageRef, morphRef, registerMedia, registerPlaceholder }`, or `null` outside an Item.",
     },
   ],
   "api-use-media-context": [
@@ -651,20 +638,6 @@ export const generatedAttributes: Record<string, AttrRow[]> = {
       description: "Always present on the slide element.",
     },
   ],
-  "api-item-group": [
-    {
-      name: "data-ramka-item-group",
-      description: "Always present on the item-group element.",
-    },
-    {
-      name: "data-active-index",
-      description: "Current active index as a string.",
-    },
-    {
-      name: "data-direction",
-      description: "`forward` or `backward` — last navigation direction.",
-    },
-  ],
   "api-previous": [
     {
       name: "data-ramka-previous",
@@ -837,7 +810,6 @@ export const generatedCssVariables: Record<string, CssVarRow[]> = {
   "api-media": [],
   "api-slides": [],
   "api-slide": [],
-  "api-item-group": [],
   "api-previous": [],
   "api-next": [],
   "api-counter": [],

@@ -3,8 +3,8 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "dev": "node scripts/dev-qr.mjs & next dev",
-    "build": "next build",
+    "dev": "tsx scripts/generate-llms-txt.ts && node scripts/dev-qr.mjs & next dev",
+    "build": "tsx scripts/generate-llms-txt.ts && next build",
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
@@ -12,6 +12,8 @@
     "docs:api:check": "tsx scripts/generate-lightbox-api.ts --check",
     "docs:excerpts": "tsx scripts/generate-excerpts.ts",
     "docs:excerpts:check": "tsx scripts/generate-excerpts.ts --check",
+    "docs:llms": "tsx scripts/generate-llms-txt.ts",
+    "docs:llms:check": "tsx scripts/generate-llms-txt.ts --check",
     "clean": "rm -rf .next .turbo"
   },
   "dependencies": {

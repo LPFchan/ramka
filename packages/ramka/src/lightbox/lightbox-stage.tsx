@@ -1,6 +1,7 @@
 'use client';
 
-import { mergeProps, useRender } from '@base-ui/react';
+import { mergeProps } from '@base-ui/react/merge-props';
+import { useRender } from '@base-ui/react/use-render';
 import * as React from 'react';
 
 import { LightboxStageDataAttributes } from './lightbox-data-attributes';
@@ -30,7 +31,7 @@ interface LightboxStageProps extends useRender.ComponentProps<'div', LightboxSta
  * <Lightbox.Content aria-label="Post">
  *   <Lightbox.Stage className="media-pane">
  *     <Lightbox.Close />
- *     <Lightbox.ItemGroup>{…}</Lightbox.ItemGroup>
+ *     <Lightbox.Slides>{…}</Lightbox.Slides>
  *     <Lightbox.Previous />
  *     <Lightbox.Next />
  *   </Lightbox.Stage>

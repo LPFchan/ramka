@@ -1,6 +1,7 @@
 'use client';
 
-import { mergeProps, useRender } from '@base-ui/react';
+import { mergeProps } from '@base-ui/react/merge-props';
+import { useRender } from '@base-ui/react/use-render';
 import * as React from 'react';
 
 import { LightboxMediaDataAttributes } from './lightbox-data-attributes';
@@ -137,6 +138,7 @@ const LightboxMedia = React.forwardRef<HTMLDivElement, LightboxMediaProps>(
         internalRef.current = node;
         setElement(node);
         item?.registerMedia(node);
+        item?.registerPlaceholder(node ? setPlaceholder : null);
         if (typeof forwardedRef === 'function') {
           forwardedRef(node);
         } else if (forwardedRef) {
@@ -147,7 +149,7 @@ const LightboxMedia = React.forwardRef<HTMLDivElement, LightboxMediaProps>(
           wiredImageRef.current = null;
         }
       },
-      [forwardedRef, item],
+      [forwardedRef, item, setPlaceholder],
     );
 
     const managedPosterRef = React.useRef<HTMLImageElement | null>(null);
@@ -243,19 +245,6 @@ const LightboxMedia = React.forwardRef<HTMLDivElement, LightboxMediaProps>(
       };
     }, [clearManagedPoster, item, syncImage]);
 
-    // Observe placeholder canvas presence for data-placeholder styling.
-    React.useLayoutEffect(() => {
-      const host = internalRef.current;
-      if (!host) return;
-      const update = () => {
-        setPlaceholder(!!host.querySelector('[data-ramka-placeholder]'));
-      };
-      update();
-      const mo = new MutationObserver(update);
-      mo.observe(host, { childList: true });
-      return () => mo.disconnect();
-    }, []);
-
     const state = React.useMemo<LightboxMediaState>(() => ({ placeholder }), [placeholder]);
 
     const mediaContext = React.useMemo<LightboxMediaContextValue>(
@@ -269,6 +258,9 @@ const LightboxMedia = React.forwardRef<HTMLDivElement, LightboxMediaProps>(
         flexShrink: 0,
         // Grid host for a single in-flow media child. Placeholder canvas stays absolute.
         display: 'grid',
+        // So the z-index:-1 placeholder canvas stays in this box (not behind the page).
+        // Must be on the React style — notify re-renders Media and would wipe a DOM write.
+        isolation: 'isolate',
       };
       if (hasFitBox && width && height) {
         Object.assign(next, fitBoxStyle(width, height));

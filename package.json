@@ -15,7 +15,9 @@
     "docs:api": "pnpm --filter docs docs:api",
     "docs:api:check": "pnpm --filter docs docs:api:check",
     "docs:excerpts": "pnpm --filter docs docs:excerpts",
-    "docs:excerpts:check": "pnpm --filter docs docs:excerpts:check"
+    "docs:excerpts:check": "pnpm --filter docs docs:excerpts:check",
+    "docs:llms": "pnpm --filter docs docs:llms",
+    "docs:llms:check": "pnpm --filter docs docs:llms:check"
   },
   "devDependencies": {
     "pkg-pr-new": "^0.0.78",

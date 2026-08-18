@@ -2,7 +2,7 @@ import { Lightbox } from 'ramka';
 
 /**
  * Canonical compound-parts sketch for the Overview page.
- * Default layout: Slides → Slide → Item → Zoom → Media (ItemGroup is the swap alternative).
+ * Default layout: Slides → Slide → Item → Zoom → Media.
  *
  * @docsExcerpt anatomy
  * @docsExcerptTitle Anatomy
@@ -30,7 +30,6 @@ export function AnatomyExcerpt() {
           <Lightbox.ZoomIn />
           <Lightbox.Close />
           <Lightbox.Caption />
-          {/* or stacked swap: Lightbox.ItemGroup > Lightbox.Item */}
         </Lightbox.Content>
       </Lightbox.Portal>
     </Lightbox.Root>

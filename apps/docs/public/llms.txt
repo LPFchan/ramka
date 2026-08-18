@@ -1,0 +1,43 @@
+# ramka
+
+> Unstyled, accessible lightbox primitives for React — in the style of Radix UI and Base UI.
+
+Generated from the HTML docs sources. Do not edit by hand — run `pnpm docs:llms`.
+
+Compose a fullscreen media lightbox from headless parts: view-transition morph by default, swipe slides, zoom, and pull-to-dismiss. You own colors and chrome; ramka owns state, focus, gestures, and structural styles those mechanics need.
+
+## Docs
+
+- [Installation](docs.md): Install ramka and a minimal Root + Slides setup.
+
+## Lightbox
+
+- [Overview](docs/lightbox.md): Accessible primitives for fullscreen media lightboxes — compound parts in the style of Base UI and Radix. Cosmetically unstyled: you own colors, chrome, and radius values. Ramka owns state, focus, gestures, morphs, and structural styles required for those mechanics.
+- [State & lifecycle](docs/lightbox/state-lifecycle.md): Control open state and the active index from React, `createHandle()`, or both — and know when callbacks fire. Part of [Lightbox](docs/lightbox.md).
+- [Composition](docs/lightbox/composition.md): Default to Slides + Zoom (swipe carousel with pinch zoom), size media to fill Content, then layer chrome. Part of [Lightbox](docs/lightbox.md).
+- [Next.js Image](docs/lightbox/nextjs-image.md): Use `next/image` with Ramka. Lightbox-side blur depends on whether that item has a trigger image. Part of [Lightbox](docs/lightbox.md).
+- [View transitions](docs/lightbox/view-transitions.md): Morph open/close between a trigger and the active item with the browser View Transitions API. Part of [Lightbox](docs/lightbox.md). Unsupported browsers, reduced-motion, and low-end devices fall back to a plain fade.
+- [Gestures](docs/lightbox/gestures.md): Pull-to-dismiss, zoom/pan, and keyboard ownership. Part of [Lightbox](docs/lightbox.md). For the usual gallery chrome (pull, zoom, keyboard) see the [Default preset](presets/default.md).
+- [Zoom & a11y](docs/lightbox/zoom.md): How ramka’s zoom & pan — on desktop and on touch — lines up with mainstream image viewers, and how it maps to WCAG 2.2. For the wiring and gesture ownership, see [Gestures](docs/lightbox/gestures.md).
+- [API reference](docs/lightbox/api.md): Props, data attributes, and CSS variables for every [Lightbox](docs/lightbox.md) part. Tables are generated from package TypeScript + JSDoc.
+
+## Presets
+
+- [Default](presets/default.md): Docs-demo chrome as a copy-paste design-system Lightbox
+- [Twitter](presets/twitter.md): Split media + thread sidebar with translucent backdrop and edge nav
+- [Store](presets/store.md): Commerce viewer: thumbnail rail + buy panel with price, highlights, and CTA
+- [Editorial](presets/editorial.md): Newsroom article-figure viewer: near-black surface, caption + credit block
+- [Stories](presets/stories.md): Avatar tray that crossfades into 9:16 video with a scroll-driven 3D page-turn
+
+## Examples
+
+- [Photos app](examples/lightbox/photos-app.md): macOS Photos–style square grid under a sticky, blurred toolbar with a fade gradient and "Library" title.
+- [Moodboard](examples/lightbox/moodboard.md): Masonry wall of images with unknown dimensions (no width/height, no reserved aspect ratio) — stresses the morph size-resolution fallback and trigger-thumbnail placeholder.
+- [Text message](examples/lightbox/text-message.md): iMessage-style chat with a single morphTo="origin" trigger over a stack of attachments.
+- [Film trailers](examples/lightbox/film-trailers.md): Movie posters morph into a fullscreen <video> that auto-plays on becoming active.
+- [3D models](examples/lightbox/3d-models.md): Three.js product grid with Lightbox.Slides — onBeforeOpen preheats GLBs before the morph; shared orbit with each trigger.
+
+## Optional
+
+- [Full documentation](llms-full.txt): every guide, API table, and code excerpt in one file
+- [GitHub](https://github.com/arturbien/ramka)

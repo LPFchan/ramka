@@ -4,11 +4,11 @@ import * as React from 'react';
 
 import {
   LightboxContext,
-  findItemMorphTarget,
-  isLowEndDevice,
-  supportsViewTransitions,
   type LightboxCloseOptions,
   type LightboxContextValue,
+  type LightboxMorphSlice,
+  type LightboxSlidesBridgeSlice,
+  type LightboxStateSlice,
   type NavigationSource,
 } from './lightbox-context';
 import {
@@ -28,15 +28,23 @@ import {
   type LightboxHandleTriggerRegistration,
 } from './lightbox-handle';
 import {
-  DEFAULT_DECODE_MAX_WAIT,
+  getMorphRuntimeSync,
+  loadMorphRuntime,
+  prefetchMorphRuntime,
+  type MorphRuntime,
+} from './lightbox-morph-loader';
+import { prefetchZoomRuntime } from './lightbox-zoom-loader';
+import {
   resolveScrollTriggerOption,
   resolveTriggerIndex,
   scrollTriggerEl,
-  useViewTransitionMorph,
   type ScrollTriggerIntoView,
-} from './use-view-transition-morph';
+} from './scroll-trigger';
+import { isAndroidBlinkSnapshotRoot } from './is-android-blink';
+import { findItemMorphTarget } from './morph-target';
+import { DEFAULT_DECODE_MAX_WAIT, isLowEndDevice, supportsViewTransitions } from './vt-constants';
 import type { LightboxViewTransitionPreset } from './vt-timing';
-import { ensureVtStructuralStyles } from './vt-structural-styles';
+import type { ViewTransitionMorph, ViewTransitionMorphConfig } from './use-view-transition-morph';
 
 interface LightboxRootProps {
   /** Lightbox parts and page content (triggers typically live as children of Root). */
@@ -72,9 +80,9 @@ interface LightboxRootProps {
   /**
    * Morph between trigger and lightbox item via the View Transitions API.
    * On by default: clicking a trigger morphs into the fullscreen item, and
-   * close morphs back. Falls back to a plain fade when unsupported, when
-   * prefers-reduced-motion is set, or on low-end devices. Pass `false` to
-   * opt out.
+   * close morphs back. The morph engine is loaded on first use — pass `false`
+   * to skip that download. Falls back to a plain fade when unsupported, when
+   * prefers-reduced-motion is set, or on low-end devices.
    *
    * Pass a preset name to pick the morph's motion (duration + easing):
    * - `"default"` — 360ms, sheet curve with a tamed launch (same as `true`)
@@ -101,15 +109,16 @@ interface LightboxRootProps {
    *   Use `inline: "center"` for horizontal snap strips with variable-width tiles.
    *
    * - `null` (default) — no automatic scrolling
-   * - `{ type: "onChange" }` — scroll to the active trigger whenever the active
-   *   index changes while the lightbox is open (preemptive; keeps the trigger
-   *   in view as the user navigates)
-   * - `{ type: "onOpenComplete" }` — scroll to the active trigger once the open
+   * - `{ type: "onChange" }` — scroll to the trigger the close morph will land
+   *   on whenever the active index changes while the lightbox is open
+   *   (preemptive; respects `morphTo`, so `closest` scrolls the nearest
+   *   registered trigger when the active index has none)
+   * - `{ type: "onOpenComplete" }` — scroll to that same trigger once the open
    *   transition finishes. The viewer covers the page and scroll is locked, so
    *   this reposition is invisible — it only pays off by ensuring the close
    *   morph lands on-screen without a jump when the trigger was partially
    *   off-screen at open time. `"instant"` recommended.
-   * - `{ type: "onClose" }` — scroll to the active trigger just before the close
+   * - `{ type: "onClose" }` — scroll to that trigger just before the close
    *   morph runs (visible reposition at close start)
    *
    * @example
@@ -301,6 +310,19 @@ function LightboxRoot(props: LightboxRootProps) {
     const [uncontrolledValue, setUncontrolledValue] = React.useState(defaultValue);
     const activeIndex = isControlledValue ? valueProp : uncontrolledValue;
 
+    // Same-commit direction (not a post-paint effect) so Slides' data-direction
+    // matches the index that just changed — including controlled `value` updates
+    // that never go through `setActiveIndex`.
+    const [navMeta, setNavMeta] = React.useState<{
+      index: number;
+      direction: 'forward' | 'backward';
+    }>({ index: activeIndex, direction: 'forward' });
+    let direction = navMeta.direction;
+    if (activeIndex !== navMeta.index) {
+      direction = activeIndex > navMeta.index ? 'forward' : 'backward';
+      setNavMeta({ index: activeIndex, direction });
+    }
+
     const onValueChangeRef = React.useRef(onValueChange);
     React.useEffect(() => {
       onValueChangeRef.current = onValueChange;
@@ -330,15 +352,17 @@ function LightboxRoot(props: LightboxRootProps) {
       [isControlledValue],
     );
 
-    // Scroll the active trigger into view when the active index changes *while
-    // already open* (preemptive, so the destination trigger is on-screen for the
-    // close morph). This must NOT fire on the open→true edge: nothing changed
-    // yet — the lightbox just opened — and the clicked trigger is the open
-    // morph's origin, so scrolling it would move the morph's start point and
-    // jump the page mid-open. We therefore only scroll on a real index change
-    // between two consecutive open states (also skipping no-op re-renders where
-    // the index is unchanged). The close path scrolls the origin trigger into
-    // view on its own, so opening never needs to.
+    // Scroll the close-morph trigger into view when the active index changes
+    // *while already open* (preemptive, so the destination trigger is on-screen
+    // for the close morph). Respects `morphTo`: `closest` scrolls the nearest
+    // registered trigger when the active index has none. This must NOT fire on
+    // the open→true edge: nothing changed yet — the lightbox just opened — and
+    // the clicked trigger is the open morph's origin, so scrolling it would
+    // move the morph's start point and jump the page mid-open. We therefore
+    // only scroll on a real index change between two consecutive open states
+    // (also skipping no-op re-renders where the index is unchanged). The close
+    // path scrolls the morph-target trigger into view on its own, so opening
+    // never needs to.
     //
     // Idle-debounce: swipe / thumbnail-strip scrub can change the index many times per
     // second. Scrolling the page under the modal on every tick janks the viewer;
@@ -356,11 +380,17 @@ function LightboxRoot(props: LightboxRootProps) {
       const index = activeIndex;
       scrollSyncTimerRef.current = window.setTimeout(() => {
         if (!scrollSyncRef.current.open || scrollSyncRef.current.activeIndex !== index) return;
-        scrollTriggerEl(triggerElementsRef.current.get(index), scroll);
+        const idx = resolveTriggerIndex(
+          index,
+          morphTo,
+          openingTriggerIndexRef.current,
+          triggerElementsRef.current,
+        );
+        scrollTriggerEl(triggerElementsRef.current.get(idx), scroll);
       }, 120);
 
       return () => window.clearTimeout(scrollSyncTimerRef.current);
-    }, [scrollTriggerIntoView, open, activeIndex]);
+    }, [scrollTriggerIntoView, morphTo, open, activeIndex]);
 
     // Item registry — tracks mounted items so count can grow and shrink
     const registeredItemsRef = React.useRef(new Set<number>());
@@ -418,16 +448,17 @@ function LightboxRoot(props: LightboxRootProps) {
     }, []);
 
     // Portal mount state — stays true during exit animations so elements
-    // remain in the DOM for CSS transitions (non-VT) or are removed
-    // immediately inside flushSync (VT close).
+    // remain in the DOM for CSS transitions (non-VT) and for the Android
+    // Chrome VT close hold (`preparing` until `finished`).
     //
     // Initialized from the resolved open value (controlled prop or
     // `defaultOpen`) so a lightbox rendered with `open={true}` on first
     // mount is visible immediately instead of flashing closed for a
     // tick before the sync effect catches up.
     const [mounted, setMounted] = React.useState(() => (isControlledOpen ? Boolean(openProp) : defaultOpen));
-    // Pre-mount phase flag for the VT open path (see `commitPrepare` /
-    // `commitReveal`). Never true for an initially-open lightbox.
+    // Hidden-but-mounted flag: VT open pre-mount and VT close hold
+    // (see `commitPrepare` / `commitReveal` / `commitClose`). Never true
+    // for an initially-open lightbox.
     const [preparing, setPreparing] = React.useState(false);
     const closeGenRef = React.useRef(0);
 
@@ -475,13 +506,11 @@ function LightboxRoot(props: LightboxRootProps) {
     }, []);
 
     // Document scroll lock, owned here in Root rather than in Lightbox.Content.
-    // Content unmounts at the *start* of the VT close (commitClose runs inside
-    // the transition callback), so a lock tied to Content's lifecycle would be
-    // released while the close animation is still playing — letting the page
-    // scroll behind the transition. Root outlives the transition, so it holds
-    // the lock until the close fully completes (handleCloseComplete / the
-    // post-exit-animation unmount). Imperative + idempotent so the various
-    // open/close code paths can acquire/release it at explicit lifecycle points.
+    // During VT close the portal stays mounted (paint-suppressed) until
+    // `finished`, but `open` flips false immediately — a lock tied to Content's
+    // open lifecycle would still release too early. Root holds the lock until
+    // handleCloseComplete / post-exit-animation unmount. Imperative +
+    // idempotent so open/close paths can acquire/release at explicit points.
     const scrollLockCleanupRef = React.useRef<(() => void) | null>(null);
     const lockScroll = React.useCallback(() => {
       if (scrollLockCleanupRef.current || typeof document === 'undefined') return;
@@ -685,7 +714,21 @@ function LightboxRoot(props: LightboxRootProps) {
         setUncontrolledOpen(false);
       }
       onOpenChangeRef.current?.(false);
-      setMounted(false);
+      // Android Chrome: keep the portal mounted and hidden until `finished`.
+      // Unmounting the overlay inside the VT callback changes the snapshot
+      // root and aborts the morph. Blink hides the live tree during VT, so
+      // unnamed chrome still fades with `::view-transition-old(root)`.
+      //
+      // Everywhere else (Safari, desktop Chrome): unmount immediately so
+      // unnamed `position: fixed` chrome is gone from the live tree (WebKit
+      // paints it through the VT layer otherwise) and exists only in the old
+      // root snapshot. Do not give Content/Backdrop a view-transition-name —
+      // WebKit CPU-rasterizes every named group and those nodes are fullscreen.
+      if (isAndroidBlinkSnapshotRoot()) {
+        setPreparing(true);
+      } else {
+        setMounted(false);
+      }
     }, [isControlledOpen]);
 
     const handleOpenComplete = React.useCallback(() => {
@@ -698,13 +741,17 @@ function LightboxRoot(props: LightboxRootProps) {
         // Release the page scroll lock only now — after the close transition has
         // finished — so the page can't scroll behind an in-flight VT close.
         unlockScroll();
+        setPreparing(false);
+        setMounted(false);
         focusReturnTarget(triggerEl);
         onOpenChangeCompleteRef.current?.(false);
       },
       [unlockScroll, focusReturnTarget],
     );
 
-    const morph = useViewTransitionMorph({
+    const morphRef = React.useRef<ViewTransitionMorph | null>(null);
+    const morphConfigRef = React.useRef<ViewTransitionMorphConfig>(null!);
+    morphConfigRef.current = {
       morphTo,
       scrollTriggerIntoView,
       decodeMaxWait,
@@ -726,7 +773,7 @@ function LightboxRoot(props: LightboxRootProps) {
       onOpenComplete: handleOpenComplete,
       onCloseComplete: handleCloseComplete,
       activeZoomRef,
-    });
+    };
 
     const setOpen = React.useCallback(
       (nextOpen: boolean, options?: LightboxCloseOptions) => {
@@ -742,6 +789,10 @@ function LightboxRoot(props: LightboxRootProps) {
         // below doesn't double-handle the mount lifecycle when the
         // controlled `open` prop subsequently updates via onOpenChange.
         lastInternalOpenRef.current = nextOpen;
+
+        // Start Zoom with the open, not after Zoom mounts. A late engine swap
+        // remounts Media and tears down the fallback canvas. Independent of VT.
+        if (nextOpen) prefetchZoomRuntime();
 
         // Open-transition gate for `Lightbox.Item` placeholders: mark it pending
         // as the open begins (items mounting during the morph will wait for it),
@@ -760,10 +811,22 @@ function LightboxRoot(props: LightboxRootProps) {
 
         if (useVT) {
           // The generation was bumped above; the morph captures it on call.
-          if (nextOpen) {
-            morph.open();
+          const gen = closeGenRef.current;
+          const startMorph = (runtime: MorphRuntime) => {
+            if (closeGenRef.current !== gen) return;
+            runtime.ensureVtStructuralStyles();
+            morphRef.current ??= runtime.createViewTransitionMorph(() => morphConfigRef.current);
+            if (nextOpen) {
+              morphRef.current.open();
+            } else {
+              morphRef.current.close();
+            }
+          };
+          const runtime = getMorphRuntimeSync();
+          if (runtime) {
+            startMorph(runtime);
           } else {
-            morph.close();
+            void loadMorphRuntime().then(startMorph);
           }
         } else {
           // --- No view transition ---
@@ -822,7 +885,7 @@ function LightboxRoot(props: LightboxRootProps) {
           }
         }
       },
-      [isControlledOpen, viewTransition, scrollTriggerIntoView, morphTo, morph, commitOpen, unlockScroll, settleOpenTransition, focusReturnTarget, notifyBeforeClose],
+      [isControlledOpen, viewTransition, scrollTriggerIntoView, morphTo, commitOpen, unlockScroll, settleOpenTransition, focusReturnTarget, notifyBeforeClose],
     );
 
     // Sync `mounted` to externally-driven changes of a controlled
@@ -872,12 +935,16 @@ function LightboxRoot(props: LightboxRootProps) {
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    // Inject the structural view-transition stylesheet (isolation, morph
-    // group/snapshot mechanics, morph-target hide, slides-select crossfade)
-    // once per document — consumers write no view-transition CSS.
+    // Warm chunks after paint so the first open is not gated on the network.
+    // Morph only when VT will actually run. Zoom is its own engine — prefetch
+    // it even when VT is off, so the placeholder→engine swap does not remount
+    // Media mid-open and drop the fallback canvas.
     React.useEffect(() => {
-      ensureVtStructuralStyles();
-    }, []);
+      prefetchZoomRuntime();
+      if (viewTransition !== false && supportsViewTransitions() && !isLowEndDevice()) {
+        prefetchMorphRuntime();
+      }
+    }, [viewTransition]);
 
     const performOpen = React.useCallback(
       (index?: number, options?: LightboxHandleOpenOptions) => {
@@ -920,9 +987,13 @@ function LightboxRoot(props: LightboxRootProps) {
           openingTriggerImageRef.current = null;
         }
 
+        if (viewTransition !== false) {
+          prefetchMorphRuntime();
+        }
+        prefetchZoomRuntime();
         setOpen(true);
       },
-      [handleProp, setActiveIndex, setOpen],
+      [handleProp, setActiveIndex, setOpen, viewTransition],
     );
 
     const performClose = React.useCallback(() => setOpen(false), [setOpen]);
@@ -989,7 +1060,7 @@ function LightboxRoot(props: LightboxRootProps) {
       notifyLightboxHandle(handleProp);
     }, [handleProp, open, activeIndex]);
 
-    const contextValue = React.useMemo<LightboxContextValue>(
+    const stateSlice = React.useMemo<LightboxStateSlice>(
       () => ({
         open,
         setOpen,
@@ -998,6 +1069,7 @@ function LightboxRoot(props: LightboxRootProps) {
         openTransitionPendingRef,
         subscribeOpenComplete,
         activeIndex,
+        direction,
         setActiveIndex,
         navigationLockedRef,
         itemCount,
@@ -1009,6 +1081,32 @@ function LightboxRoot(props: LightboxRootProps) {
         captionsRef,
         registerCaption,
         subscribeCaptions,
+        dialogElementRef,
+        stageElementRef,
+        backdropElementRef,
+      }),
+      [
+        open,
+        setOpen,
+        mounted,
+        preparing,
+        subscribeOpenComplete,
+        activeIndex,
+        direction,
+        setActiveIndex,
+        itemCount,
+        registerItem,
+        loop,
+        baseId,
+        hasTablist,
+        registerTablist,
+        registerCaption,
+        subscribeCaptions,
+      ],
+    );
+
+    const morphSlice = React.useMemo<LightboxMorphSlice>(
+      () => ({
         // Most context consumers only care whether the morph is enabled; the
         // raw preset is passed alongside so the Portal can publish the
         // preset's timing vars on its host.
@@ -1024,9 +1122,12 @@ function LightboxRoot(props: LightboxRootProps) {
         openingTriggerImageRef,
         triggerImageElementsRef,
         triggerIdsRef,
-        dialogElementRef,
-        stageElementRef,
-        backdropElementRef,
+      }),
+      [viewTransition, morphTo],
+    );
+
+    const slidesBridgeSlice = React.useMemo<LightboxSlidesBridgeSlice>(
+      () => ({
         slidesViewportRef,
         slidesGeometryRef,
         subscribeSlidesViewport,
@@ -1034,28 +1135,12 @@ function LightboxRoot(props: LightboxRootProps) {
         thumbnailStripSelectRef,
         navigate,
       }),
-      [
-        open,
-        setOpen,
-        mounted,
-        preparing,
-        subscribeOpenComplete,
-        activeIndex,
-        setActiveIndex,
-        itemCount,
-        registerItem,
-        loop,
-        baseId,
-        hasTablist,
-        registerTablist,
-        registerCaption,
-        subscribeCaptions,
-        viewTransition,
-        morphTo,
-        subscribeSlidesViewport,
-        notifySlidesViewport,
-        navigate,
-      ],
+      [subscribeSlidesViewport, notifySlidesViewport, navigate],
+    );
+
+    const contextValue = React.useMemo<LightboxContextValue>(
+      () => ({ ...stateSlice, ...morphSlice, ...slidesBridgeSlice }),
+      [stateSlice, morphSlice, slidesBridgeSlice],
     );
 
     return (

@@ -14,7 +14,7 @@ export type LightboxExcerpt = {
 export const lightboxExcerpts = {
   "anatomy": {
     title: "Anatomy",
-    code: "import { Lightbox } from 'ramka';\n\n<Lightbox.Root>\n  <Lightbox.Trigger index={0}>{/* thumb */}</Lightbox.Trigger>\n  <Lightbox.Portal>\n    <Lightbox.Backdrop />\n    <Lightbox.Content>\n      <Lightbox.Slides>\n        <Lightbox.Slide>\n          <Lightbox.Item index={0}>\n            <Lightbox.Zoom>\n              <Lightbox.Media>\n                <img alt=\"\" />\n              </Lightbox.Media>\n            </Lightbox.Zoom>\n          </Lightbox.Item>\n        </Lightbox.Slide>\n      </Lightbox.Slides>\n      <Lightbox.Counter />\n      <Lightbox.ZoomOut />\n      <Lightbox.ZoomIn />\n      <Lightbox.Close />\n      <Lightbox.Caption />\n      {/* or stacked swap: Lightbox.ItemGroup > Lightbox.Item */}\n    </Lightbox.Content>\n  </Lightbox.Portal>\n</Lightbox.Root>\n",
+    code: "import { Lightbox } from 'ramka';\n\n<Lightbox.Root>\n  <Lightbox.Trigger index={0}>{/* thumb */}</Lightbox.Trigger>\n  <Lightbox.Portal>\n    <Lightbox.Backdrop />\n    <Lightbox.Content>\n      <Lightbox.Slides>\n        <Lightbox.Slide>\n          <Lightbox.Item index={0}>\n            <Lightbox.Zoom>\n              <Lightbox.Media>\n                <img alt=\"\" />\n              </Lightbox.Media>\n            </Lightbox.Zoom>\n          </Lightbox.Item>\n        </Lightbox.Slide>\n      </Lightbox.Slides>\n      <Lightbox.Counter />\n      <Lightbox.ZoomOut />\n      <Lightbox.ZoomIn />\n      <Lightbox.Close />\n      <Lightbox.Caption />\n    </Lightbox.Content>\n  </Lightbox.Portal>\n</Lightbox.Root>\n",
     source: "app/_content/lightbox/excerpts/sources/anatomy.tsx",
   },
   "chrome-composition": {
@@ -37,11 +37,6 @@ export const lightboxExcerpts = {
     code: "import { Lightbox } from 'ramka';\n\n<Lightbox.Root morphTo=\"closest\">\n  <Lightbox.Trigger index={0} crossfade=\"both\">\n    {({ imageRef }) => (\n      <div className=\"relative\">\n        <Image ref={imageRef} src={photo} alt=\"\" placeholder=\"blur\" />\n        <span>+{extras}</span>\n      </div>\n    )}\n  </Lightbox.Trigger>\n  <Lightbox.Portal>\n    <Lightbox.Backdrop />\n    <Lightbox.Content>\n      <Lightbox.Slides>\n        <Lightbox.Slide>\n          <Lightbox.Item index={0}>\n            {({ imageRef }) => <Image ref={imageRef} src={photo} alt=\"\" sizes=\"100vw\" priority />}\n          </Lightbox.Item>\n        </Lightbox.Slide>\n      </Lightbox.Slides>\n    </Lightbox.Content>\n  </Lightbox.Portal>\n</Lightbox.Root>\n",
     source: "app/_content/lightbox/excerpts/sources/crossfade-both.tsx",
   },
-  "item-group-preload": {
-    title: "ItemGroup + preload",
-    code: "import { Lightbox } from 'ramka';\n\n<Lightbox.Root>\n  <Lightbox.Portal>\n    <Lightbox.Backdrop />\n    <Lightbox.Content>\n      <Lightbox.ItemGroup preload={1}>\n        {items.map((item, i) => (\n          <Lightbox.Item key={item.id} index={i}>\n            {({ active, visible }) =>\n              visible ? (\n                <img\n                  src={item.src}\n                  alt={item.alt}\n                  // Prefer active for expensive work; visible includes preload neighbors.\n                  data-active={active || undefined}\n                />\n              ) : null\n            }\n          </Lightbox.Item>\n        ))}\n      </Lightbox.ItemGroup>\n    </Lightbox.Content>\n  </Lightbox.Portal>\n</Lightbox.Root>\n",
-    source: "app/_content/lightbox/excerpts/sources/item-group-preload.tsx",
-  },
   "lifecycle-callbacks": {
     title: "Lifecycle callbacks",
     code: "import { Lightbox } from 'ramka';\n\n<Lightbox.Root\n  onOpenChange={(open) => {\n    // Fires immediately — sync URL / store here.\n    void open;\n  }}\n  onOpenChangeComplete={(open) => {\n    // Fires after enter/exit motion settles — cleanup / focus here.\n    void open;\n  }}\n  onValueChange={(value, { source }) => {\n    void value;\n    void source; // 'trigger' | 'keyboard' | 'thumbnail' | 'button' | 'scroll' | 'imperative'\n  }}\n>\n  {/* … */}\n</Lightbox.Root>\n",
@@ -56,6 +51,16 @@ export const lightboxExcerpts = {
     title: "Minimal morph",
     code: "import { Lightbox } from 'ramka';\n\n<Lightbox.Root morphTo=\"active\">\n  <Lightbox.Trigger index={0}>{({ imageRef }) => <img ref={imageRef} src={thumb} alt=\"\" />}</Lightbox.Trigger>\n\n  <Lightbox.Portal>\n    <Lightbox.Backdrop />\n    <Lightbox.Content>\n      <Lightbox.Slides>\n        <Lightbox.Slide>\n          <Lightbox.Item index={0}>\n            <Lightbox.Zoom>\n              <Lightbox.Media>\n                <img src={src} alt=\"\" />\n              </Lightbox.Media>\n            </Lightbox.Zoom>\n          </Lightbox.Item>\n        </Lightbox.Slide>\n      </Lightbox.Slides>\n    </Lightbox.Content>\n  </Lightbox.Portal>\n</Lightbox.Root>\n",
     source: "app/_content/lightbox/excerpts/sources/minimal-morph.tsx",
+  },
+  "morph-aspect-do": {
+    title: "Do — same source aspect",
+    code: "import { Lightbox } from 'ramka';\n\n<Lightbox.Root>\n  <Lightbox.Trigger index={0}>\n    {({ imageRef }) => (\n      <Image\n        ref={imageRef}\n        src={photo}\n        alt=\"Photo\"\n        placeholder=\"blur\"\n        className=\"aspect-square size-full object-cover\"\n      />\n    )}\n  </Lightbox.Trigger>\n\n  <Lightbox.Portal>\n    <Lightbox.Backdrop />\n    <Lightbox.Content>\n      <Lightbox.Slides>\n        <Lightbox.Slide>\n          <Lightbox.Item index={0}>\n            <Lightbox.Zoom>\n              <Lightbox.Media width={photo.width} height={photo.height}>\n                <Image src={photo} alt=\"Photo\" sizes=\"100vw\" priority />\n              </Lightbox.Media>\n            </Lightbox.Zoom>\n          </Lightbox.Item>\n        </Lightbox.Slide>\n      </Lightbox.Slides>\n    </Lightbox.Content>\n  </Lightbox.Portal>\n</Lightbox.Root>\n",
+    source: "app/_content/lightbox/excerpts/sources/morph-aspect-do.tsx",
+  },
+  "morph-aspect-dont": {
+    title: "Don’t — baked square crop",
+    code: "import { Lightbox } from 'ramka';\n\n<Lightbox.Root>\n  <Lightbox.Trigger index={0}>\n    {({ imageRef }) => (\n      // ❌ 1∶1 file. Media below is the full 3∶2 photo.\n      <Image ref={imageRef} src={squareThumb} alt=\"Photo\" className=\"size-full object-cover\" />\n    )}\n  </Lightbox.Trigger>\n\n  <Lightbox.Portal>\n    <Lightbox.Backdrop />\n    <Lightbox.Content>\n      <Lightbox.Slides>\n        <Lightbox.Slide>\n          <Lightbox.Item index={0}>\n            <Lightbox.Zoom>\n              <Lightbox.Media width={photo.width} height={photo.height}>\n                <Image src={photo} alt=\"Photo\" sizes=\"100vw\" priority />\n              </Lightbox.Media>\n            </Lightbox.Zoom>\n          </Lightbox.Item>\n        </Lightbox.Slide>\n      </Lightbox.Slides>\n    </Lightbox.Content>\n  </Lightbox.Portal>\n</Lightbox.Root>\n",
+    source: "app/_content/lightbox/excerpts/sources/morph-aspect-dont.tsx",
   },
   "morph-to-closest": {
     title: "morphTo=\"closest\"",

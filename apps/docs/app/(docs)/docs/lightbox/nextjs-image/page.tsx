@@ -100,7 +100,11 @@ export default function LightboxNextjsImagePage() {
         <p>
           Static-import the same asset for trigger and destination (Next fills in{' '}
           <code className="text-xs">blurDataURL</code>). Blur the trigger; leave the destination
-          clean. Square trigger crop is CSS only — keep source aspect matched to Media.
+          clean. Square trigger crop is CSS only — keep source aspect matched to Media. See{' '}
+          <DocsLink href={`${lightboxDocsPages.viewTransitions.href}#source-aspect`}>
+            View transitions → Source aspect
+          </DocsLink>{' '}
+          for a live Do / Don&apos;t.
         </p>
         <DocsDemo
           code={lightboxExcerpts['nextjs-image-do'].code}
@@ -176,6 +180,13 @@ export default function LightboxNextjsImagePage() {
           <li>
             Match Media <code className="text-xs">width</code>/<code className="text-xs">height</code>{' '}
             to the image source aspect
+          </li>
+          <li>
+            Trigger and destination must share that intrinsic aspect (CSS-crop the tile; don&apos;t
+            serve a differently-cropped file) —{' '}
+            <DocsLink href={`${lightboxDocsPages.viewTransitions.href}#source-aspect`}>
+              Source aspect
+            </DocsLink>
           </li>
           <li>
             Trigger: <code className="text-xs">imageRef</code> (or{' '}

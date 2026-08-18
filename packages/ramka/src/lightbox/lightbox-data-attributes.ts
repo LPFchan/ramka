@@ -85,15 +85,6 @@ export enum LightboxStageDataAttributes {
   stage = 'data-ramka-stage',
 }
 
-export enum LightboxItemGroupDataAttributes {
-  /** Always present on the item-group element. */
-  itemGroup = 'data-ramka-item-group',
-  /** Current active index as a string. */
-  activeIndex = 'data-active-index',
-  /** `forward` or `backward` — last navigation direction. */
-  direction = 'data-direction',
-}
-
 export enum LightboxItemDataAttributes {
   /** Always present on the item element. */
   item = 'data-ramka-item',
@@ -241,7 +232,6 @@ export const LIGHTBOX_PART_IDENTITY_ATTRIBUTES = [
   LightboxBackdropDataAttributes.backdrop,
   LightboxCloseDataAttributes.close,
   LightboxStageDataAttributes.stage,
-  LightboxItemGroupDataAttributes.itemGroup,
   LightboxItemDataAttributes.item,
   LightboxSlidesDataAttributes.slides,
   LightboxSlideDataAttributes.slide,

@@ -1,6 +1,7 @@
 'use client';
 
-import { mergeProps, useRender } from '@base-ui/react';
+import { mergeProps } from '@base-ui/react/merge-props';
+import { useRender } from '@base-ui/react/use-render';
 import * as React from 'react';
 
 import { LightboxContext } from './lightbox-context';
@@ -14,6 +15,8 @@ import {
   type LightboxHandle,
   type LightboxHandleTriggerRegistration,
 } from './lightbox-handle';
+import { prefetchMorphRuntime } from './lightbox-morph-loader';
+import { prefetchZoomRuntime } from './lightbox-zoom-loader';
 import { ignoreStateAttribute } from './lightbox-state-attributes';
 
 /** Direction(s) in which the trigger↔item morph should crossfade snapshots. */
@@ -87,8 +90,9 @@ interface LightboxTriggerProps
   /**
    * Crossfade between trigger and item snapshots during the view-transition
    * morph. Omit (default) for a hard-cut morph — ideal when trigger and item
-   * show the same image at different crops/sizes. Use a direction when they
-   * differ visually:
+   * show the same image at the same intrinsic aspect (a CSS `object-cover`
+   * window or smaller srcset is fine; a CDN-baked crop that changes the
+   * aspect is not). Use a direction when they differ visually:
    * - `'both'` — crossfade on open and close (e.g. a stack → single photo)
    * - `'open'` — crossfade only when opening
    * - `'close'` — crossfade only when closing (e.g. poster → live video)
@@ -467,6 +471,10 @@ const LightboxTrigger = React.forwardRef<HTMLButtonElement, LightboxTriggerProps
           'aria-expanded': openedByThisTrigger,
           ...(open && contentId ? { 'aria-controls': contentId } : null),
           onClick: handleClick,
+          onPointerDown: () => {
+            if (rootContext?.viewTransition) prefetchMorphRuntime();
+            prefetchZoomRuntime();
+          },
           // Stable styling hook — consumer CSS can target every trigger
           // (e.g. for a default focus outline) without relying on
           // state-only attributes like `data-popup-open` or `data-active`.

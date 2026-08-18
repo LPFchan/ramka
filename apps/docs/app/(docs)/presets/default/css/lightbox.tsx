@@ -207,10 +207,6 @@ function Next(props: React.ComponentProps<typeof RamkaLightbox.Next>) {
   return <RamkaLightbox.Next {...props} />;
 }
 
-function ItemGroup(props: React.ComponentProps<typeof RamkaLightbox.ItemGroup>) {
-  return <RamkaLightbox.ItemGroup {...props} />;
-}
-
 function ThumbnailGroup(props: React.ComponentProps<typeof RamkaLightbox.ThumbnailGroup>) {
   return <RamkaLightbox.ThumbnailGroup {...props} />;
 }
@@ -379,7 +375,6 @@ export const Lightbox = {
   Slides,
   Slide,
   Item,
-  ItemGroup,
   Media,
   Zoom,
   ZoomIn,

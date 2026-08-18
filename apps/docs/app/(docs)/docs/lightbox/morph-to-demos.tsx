@@ -32,12 +32,19 @@ function MorphDemo({
 }) {
   const [activeIndex, setActiveIndex] = React.useState(0);
 
-  // No trigger registers an imageRef in these demos (the point is the morph
-  // strategy, not the thumb bridge), so destination blur is safe everywhere.
-  const items = morphImages.map((img) => ({ ...img, destinationBlur: true }));
+  // Destination blur only for indexes with no trigger imageRef (Next.js Image guide).
+  const items = morphImages.map((img, i) => ({
+    ...img,
+    destinationBlur: i >= triggerCount,
+  }));
 
   return (
-    <Lightbox.Root morphTo={morphTo} value={activeIndex} onValueChange={setActiveIndex}>
+    <Lightbox.Root
+      morphTo={morphTo}
+      value={activeIndex}
+      onValueChange={setActiveIndex}
+      awaitImageDecode={false}
+    >
       <div
         className="grid gap-2"
         style={{ gridTemplateColumns: `repeat(${triggerCount}, minmax(0, 1fr))` }}
@@ -52,14 +59,17 @@ function MorphDemo({
               crossfade={isCrossfade ? 'both' : undefined}
               className={`block cursor-pointer rounded-lg border-none bg-transparent p-0 ${triggerFocusClass}`}
             >
-              <Image
-                src={img.thumb}
-                alt={img.alt}
-                placeholder="blur"
-                sizes={`${Math.round(100 / triggerCount)}vw`}
-                className="block aspect-[3/2] w-full rounded-lg object-cover"
-                loading="lazy"
-              />
+              {({ imageRef }) => (
+                <Image
+                  ref={imageRef}
+                  src={img.thumb}
+                  alt={img.alt}
+                  placeholder="blur"
+                  sizes={`${Math.round(100 / triggerCount)}vw`}
+                  className="block aspect-[3/2] w-full rounded-lg object-cover"
+                  loading="lazy"
+                />
+              )}
             </Lightbox.Trigger>
           );
         })}

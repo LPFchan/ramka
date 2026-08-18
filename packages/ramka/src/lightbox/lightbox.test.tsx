@@ -17,8 +17,8 @@ import { LightboxContent } from './lightbox-content';
 import { LightboxCounter } from './lightbox-counter';
 import { LightboxPortal } from './lightbox-portal';
 import { LightboxItem } from './lightbox-item';
-import { LightboxItemGroup } from './lightbox-item-group';
 import { LightboxNext } from './lightbox-next';
+import { installSlidesLayoutMocks, resetSlidesLayoutMocks, SlidesHost } from './lightbox-slides-test-utils';
 import { LightboxPrevious } from './lightbox-previous';
 import { createHandle } from './lightbox-handle';
 import { LightboxRoot } from './lightbox-root';
@@ -60,6 +60,8 @@ if (typeof globalThis.Touch === 'undefined') {
 }
 
 beforeEach(() => {
+  installSlidesLayoutMocks({ raf: false });
+
   if (!window.matchMedia) {
     Object.defineProperty(window, 'matchMedia', {
       writable: true,
@@ -85,6 +87,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  resetSlidesLayoutMocks();
   vi.restoreAllMocks();
   // VT tests mock startViewTransition with `finished` promises they never
   // resolve, which would leak the morph's document-level touch-pan guard
@@ -152,7 +155,7 @@ function TestLightbox({
         <LightboxContent data-testid="content" aria-label="Test lightbox">
           <LightboxClose data-testid="close">Close</LightboxClose>
 
-          <LightboxItemGroup data-testid="item-group" preload={preload}>
+          <SlidesHost data-testid="slides" preload={preload}>
             {Array.from({ length: itemCount }, (_, i) => (
               <LightboxItem
                 key={`i-${i}`}
@@ -169,7 +172,7 @@ function TestLightbox({
                   : `Item ${i}`}
               </LightboxItem>
             ))}
-          </LightboxItemGroup>
+          </SlidesHost>
 
           <LightboxPrevious data-testid="prev">Previous</LightboxPrevious>
           <LightboxNext data-testid="next">Next</LightboxNext>
@@ -247,9 +250,9 @@ describe('Lightbox', () => {
       expect(screen.queryByTestId('content')).toBeNull();
     });
 
-    it('renders ItemGroup with role="group" and aria-roledescription="carousel"', () => {
+    it('renders Slides with role="group" and aria-roledescription="carousel"', () => {
       render(<TestLightbox defaultOpen />);
-      const group = screen.getByTestId('item-group');
+      const group = screen.getByTestId('slides');
       expect(group).toHaveAttribute('role', 'group');
       expect(group).toHaveAttribute('aria-roledescription', 'carousel');
     });
@@ -342,9 +345,9 @@ describe('Lightbox', () => {
           <div data-testid="anchor">
             <LightboxPortal container={null}>
               <LightboxContent data-testid="content" aria-label="In place">
-                <LightboxItemGroup>
+                <SlidesHost>
                   <LightboxItem index={0}>Item 0</LightboxItem>
-                </LightboxItemGroup>
+                </SlidesHost>
               </LightboxContent>
             </LightboxPortal>
           </div>
@@ -366,9 +369,9 @@ describe('Lightbox', () => {
           <LightboxRoot defaultOpen>
             <LightboxPortal container={custom}>
               <LightboxContent data-testid="content" aria-label="Custom">
-                <LightboxItemGroup>
+                <SlidesHost>
                   <LightboxItem index={0}>Item 0</LightboxItem>
-                </LightboxItemGroup>
+                </SlidesHost>
               </LightboxContent>
             </LightboxPortal>
           </LightboxRoot>,
@@ -386,9 +389,9 @@ describe('Lightbox', () => {
           <LightboxTrigger index={0}>Open</LightboxTrigger>
           <LightboxPortal keepMounted>
             <LightboxContent data-testid="content" aria-label="Parked">
-              <LightboxItemGroup>
+              <SlidesHost>
                 <LightboxItem index={0}>Item 0</LightboxItem>
-              </LightboxItemGroup>
+              </SlidesHost>
             </LightboxContent>
           </LightboxPortal>
         </LightboxRoot>,
@@ -407,9 +410,9 @@ describe('Lightbox', () => {
           <LightboxPortal keepMounted>
             <LightboxContent data-testid="content" aria-label="Parked">
               <LightboxClose data-testid="close">Close</LightboxClose>
-              <LightboxItemGroup>
+              <SlidesHost>
                 <LightboxItem index={0}>Item 0</LightboxItem>
-              </LightboxItemGroup>
+              </SlidesHost>
             </LightboxContent>
           </LightboxPortal>
         </LightboxRoot>,
@@ -436,9 +439,9 @@ describe('Lightbox', () => {
           <LightboxPortal keepMounted>
             <LightboxBackdrop data-testid="backdrop" />
             <LightboxContent data-testid="content" aria-label="Parked">
-              <LightboxItemGroup>
+              <SlidesHost>
                 <LightboxItem index={0}>Item 0</LightboxItem>
-              </LightboxItemGroup>
+              </SlidesHost>
             </LightboxContent>
           </LightboxPortal>
         </LightboxRoot>,
@@ -466,9 +469,9 @@ describe('Lightbox', () => {
         <LightboxRoot defaultOpen>
           <LightboxPortal>
             <LightboxContent data-testid="content" onClick={onClick}>
-              <LightboxItemGroup>
+              <SlidesHost>
                 <LightboxItem index={0}>Item 0</LightboxItem>
-              </LightboxItemGroup>
+              </SlidesHost>
             </LightboxContent>
           </LightboxPortal>
         </LightboxRoot>,
@@ -490,10 +493,10 @@ describe('Lightbox', () => {
         <LightboxRoot defaultOpen onValueChange={onValueChange}>
           <LightboxPortal>
             <LightboxContent data-testid="content" onKeyDown={onKeyDown}>
-              <LightboxItemGroup>
+              <SlidesHost>
                 <LightboxItem index={0}>Item 0</LightboxItem>
                 <LightboxItem index={1}>Item 1</LightboxItem>
-              </LightboxItemGroup>
+              </SlidesHost>
             </LightboxContent>
           </LightboxPortal>
         </LightboxRoot>,
@@ -508,9 +511,9 @@ describe('Lightbox', () => {
         <LightboxRoot defaultOpen>
           <LightboxPortal>
             <LightboxContent data-testid="content" data-custom="x">
-              <LightboxItemGroup>
+              <SlidesHost>
                 <LightboxItem index={0}>Item 0</LightboxItem>
-              </LightboxItemGroup>
+              </SlidesHost>
             </LightboxContent>
           </LightboxPortal>
         </LightboxRoot>,
@@ -576,18 +579,18 @@ describe('Lightbox', () => {
             <LightboxRoot defaultOpen defaultValue={0}>
               <LightboxPortal>
                 <LightboxContent data-testid="content-a" aria-label="Lightbox A">
-                  <LightboxItemGroup>
+                  <SlidesHost>
                     <LightboxItem index={0}>A0</LightboxItem>
-                  </LightboxItemGroup>
+                  </SlidesHost>
                 </LightboxContent>
               </LightboxPortal>
             </LightboxRoot>
             <LightboxRoot defaultOpen defaultValue={0}>
               <LightboxPortal>
                 <LightboxContent data-testid="content-b" aria-label="Lightbox B">
-                  <LightboxItemGroup>
+                  <SlidesHost>
                     <LightboxItem index={0}>B0</LightboxItem>
-                  </LightboxItemGroup>
+                  </SlidesHost>
                 </LightboxContent>
               </LightboxPortal>
             </LightboxRoot>
@@ -624,11 +627,11 @@ describe('Lightbox', () => {
         <LightboxRoot defaultOpen>
           <LightboxPortal>
             <LightboxContent data-testid="content" aria-label="Drag dismiss guard">
-              <LightboxItemGroup>
+              <SlidesHost>
                 <LightboxItem index={0}>
                   <img data-testid="media" src="test.jpg" alt="test" />
                 </LightboxItem>
-              </LightboxItemGroup>
+              </SlidesHost>
               <div data-testid="chrome">Caption / strip / sidebar</div>
             </LightboxContent>
           </LightboxPortal>
@@ -805,13 +808,13 @@ describe('Lightbox', () => {
           <LightboxPortal>
             <LightboxContent data-testid="content" aria-label="Stage focus test">
               <LightboxStage data-testid="stage">
-                <LightboxItemGroup preload={1}>
+                <SlidesHost preload={1}>
                   {Array.from({ length: 3 }, (_, i) => (
                     <LightboxItem key={`i-${i}`} index={i} data-testid={`item-${i}`}>
                       Item {i}
                     </LightboxItem>
                   ))}
-                </LightboxItemGroup>
+                </SlidesHost>
               </LightboxStage>
               <aside data-testid="sidebar" tabIndex={0}>
                 Thread
@@ -831,13 +834,13 @@ describe('Lightbox', () => {
           <LightboxPortal>
             <LightboxContent data-testid="content" aria-label="Stage nav test">
               <LightboxStage data-testid="stage">
-                <LightboxItemGroup preload={1}>
+                <SlidesHost preload={1}>
                   {Array.from({ length: 3 }, (_, i) => (
                     <LightboxItem key={`i-${i}`} index={i} data-testid={`item-${i}`}>
                       Item {i}
                     </LightboxItem>
                   ))}
-                </LightboxItemGroup>
+                </SlidesHost>
               </LightboxStage>
               <aside data-testid="sidebar" tabIndex={0}>
                 Thread
@@ -857,13 +860,13 @@ describe('Lightbox', () => {
           <LightboxPortal>
             <LightboxContent data-testid="content" aria-label="Stage sidebar test">
               <LightboxStage data-testid="stage">
-                <LightboxItemGroup preload={1}>
+                <SlidesHost preload={1}>
                   {Array.from({ length: 3 }, (_, i) => (
                     <LightboxItem key={`i-${i}`} index={i} data-testid={`item-${i}`}>
                       Item {i}
                     </LightboxItem>
                   ))}
-                </LightboxItemGroup>
+                </SlidesHost>
               </LightboxStage>
               <aside data-testid="sidebar" tabIndex={0}>
                 Thread
@@ -885,9 +888,9 @@ describe('Lightbox', () => {
           <LightboxPortal>
             <LightboxContent data-testid="content" aria-label="Stage escape test">
               <LightboxStage>
-                <LightboxItemGroup>
+                <SlidesHost>
                   <LightboxItem index={0}>Item</LightboxItem>
-                </LightboxItemGroup>
+                </SlidesHost>
               </LightboxStage>
               <aside data-testid="sidebar" tabIndex={0}>
                 Thread
@@ -916,13 +919,13 @@ describe('Lightbox', () => {
                   if (event.key === 'ArrowRight') event.preventDefault();
                 }}
               >
-                <LightboxItemGroup preload={1}>
+                <SlidesHost preload={1}>
                   {Array.from({ length: 3 }, (_, i) => (
                     <LightboxItem key={`i-${i}`} index={i} data-testid={`item-${i}`}>
                       Item {i}
                     </LightboxItem>
                   ))}
-                </LightboxItemGroup>
+                </SlidesHost>
               </div>
             </LightboxContent>
           </LightboxPortal>
@@ -964,13 +967,13 @@ describe('Lightbox', () => {
           <LightboxPortal>
             <LightboxContent data-testid="content" aria-label="Portal key test">
               <PortaledMenuItem />
-              <LightboxItemGroup preload={1}>
+              <SlidesHost preload={1}>
                 {Array.from({ length: 3 }, (_, i) => (
                   <LightboxItem key={`i-${i}`} index={i} data-testid={`item-${i}`}>
                     Item {i}
                   </LightboxItem>
                 ))}
-              </LightboxItemGroup>
+              </SlidesHost>
             </LightboxContent>
           </LightboxPortal>
         </LightboxRoot>,
@@ -1040,13 +1043,13 @@ describe('Lightbox', () => {
         <LightboxRoot defaultOpen defaultValue={0}>
           <LightboxPortal>
             <LightboxContent data-testid="content" aria-label="Non-focusable slide test">
-              <LightboxItemGroup>
+              <SlidesHost>
                 <LightboxItem index={0} data-testid="item-0">
                   <LightboxZoom maxZoom={4}>
                     <img src="a.jpg" alt="a" />
                   </LightboxZoom>
                 </LightboxItem>
-              </LightboxItemGroup>
+              </SlidesHost>
             </LightboxContent>
           </LightboxPortal>
         </LightboxRoot>,
@@ -1063,7 +1066,7 @@ describe('Lightbox', () => {
         <LightboxRoot defaultOpen defaultValue={0}>
           <LightboxPortal>
             <LightboxContent data-testid="content" aria-label="Containment test">
-              <LightboxItemGroup preload={2}>
+              <SlidesHost preload={2}>
                 {Array.from({ length: 3 }, (_, i) => (
                   <LightboxItem key={`i-${i}`} index={i} data-testid={`item-${i}`}>
                     {/* A consumer-provided focusable control inside a slide. */}
@@ -1072,7 +1075,7 @@ describe('Lightbox', () => {
                     </button>
                   </LightboxItem>
                 ))}
-              </LightboxItemGroup>
+              </SlidesHost>
             </LightboxContent>
           </LightboxPortal>
         </LightboxRoot>,
@@ -1201,13 +1204,13 @@ describe('Lightbox', () => {
               ))}
               <LightboxPortal>
                 <LightboxContent aria-label="Dynamic test" data-testid="content">
-                  <LightboxItemGroup preload={count}>
+                  <SlidesHost preload={count}>
                     {Array.from({ length: count }, (_, i) => (
                       <LightboxItem key={i} index={i}>
                         Item {i}
                       </LightboxItem>
                     ))}
-                  </LightboxItemGroup>
+                  </SlidesHost>
                   <LightboxCounter data-testid="counter" />
                 </LightboxContent>
               </LightboxPortal>
@@ -1289,11 +1292,11 @@ describe('Lightbox', () => {
           <LightboxRoot defaultOpen defaultValue={0}>
             <LightboxPortal>
               <LightboxContent aria-label="Reactive caption test">
-                <LightboxItemGroup>
+                <SlidesHost>
                   <LightboxItem index={0} caption={text}>
                     Item 0
                   </LightboxItem>
-                </LightboxItemGroup>
+                </SlidesHost>
                 <LightboxCaption data-testid="reactive-caption" />
               </LightboxContent>
             </LightboxPortal>
@@ -1320,13 +1323,13 @@ describe('Lightbox', () => {
         <LightboxRoot defaultOpen defaultValue={2}>
           <LightboxPortal>
             <LightboxContent aria-label="Test">
-              <LightboxItemGroup>
+              <SlidesHost>
                 {Array.from({ length: 4 }, (_, i) => (
                   <LightboxItem key={i} index={i}>
                     Item {i}
                   </LightboxItem>
                 ))}
-              </LightboxItemGroup>
+              </SlidesHost>
               <LightboxCounter data-testid="counter">
                 {({ current, total }) => <span>{`${current} of ${total}`}</span>}
               </LightboxCounter>
@@ -1436,14 +1439,14 @@ describe('Lightbox', () => {
         <LightboxRoot handle={handle}>
           <LightboxPortal>
             <LightboxContent data-testid="content" aria-label="Test">
-              <LightboxItemGroup>
+              <SlidesHost>
                 <LightboxItem index={0} data-testid="item-0">
                   Item 0
                 </LightboxItem>
                 <LightboxItem index={1} data-testid="item-1">
                   Item 1
                 </LightboxItem>
-              </LightboxItemGroup>
+              </SlidesHost>
             </LightboxContent>
           </LightboxPortal>
         </LightboxRoot>,
@@ -1464,9 +1467,9 @@ describe('Lightbox', () => {
         <LightboxRoot handle={handle}>
           <LightboxPortal>
             <LightboxContent data-testid="content" aria-label="Test">
-              <LightboxItemGroup>
+              <SlidesHost>
                 <LightboxItem index={0}>Item 0</LightboxItem>
-              </LightboxItemGroup>
+              </SlidesHost>
             </LightboxContent>
           </LightboxPortal>
         </LightboxRoot>,
@@ -1489,9 +1492,9 @@ describe('Lightbox', () => {
           </LightboxTrigger>
           <LightboxPortal>
             <LightboxContent data-testid="content" aria-label="Test">
-              <LightboxItemGroup>
+              <SlidesHost>
                 <LightboxItem index={0}>Item 0</LightboxItem>
-              </LightboxItemGroup>
+              </SlidesHost>
             </LightboxContent>
           </LightboxPortal>
         </LightboxRoot>,
@@ -1513,9 +1516,9 @@ describe('Lightbox', () => {
             <LightboxRoot handle={handle}>
               <LightboxPortal>
                 <LightboxContent data-testid="content" aria-label="Test">
-                  <LightboxItemGroup>
+                  <SlidesHost>
                     <LightboxItem index={0}>Item 0</LightboxItem>
-                  </LightboxItemGroup>
+                  </SlidesHost>
                 </LightboxContent>
               </LightboxPortal>
             </LightboxRoot>
@@ -1542,14 +1545,14 @@ describe('Lightbox', () => {
             <LightboxRoot handle={handle}>
               <LightboxPortal>
                 <LightboxContent data-testid="content" aria-label="Test">
-                  <LightboxItemGroup>
+                  <SlidesHost>
                     <LightboxItem index={0} data-testid="item-0">
                       Item 0
                     </LightboxItem>
                     <LightboxItem index={1} data-testid="item-1">
                       Item 1
                     </LightboxItem>
-                  </LightboxItemGroup>
+                  </SlidesHost>
                 </LightboxContent>
               </LightboxPortal>
             </LightboxRoot>
@@ -1599,9 +1602,9 @@ describe('Lightbox', () => {
         <LightboxRoot handle={handle} onOpenChangeComplete={completeSpy} defaultOpen>
           <LightboxPortal>
             <LightboxContent data-testid="content" aria-label="Test">
-              <LightboxItemGroup>
+              <SlidesHost>
                 <LightboxItem index={0}>Item 0</LightboxItem>
-              </LightboxItemGroup>
+              </SlidesHost>
             </LightboxContent>
           </LightboxPortal>
         </LightboxRoot>,
@@ -1628,7 +1631,7 @@ describe('Lightbox', () => {
           <LightboxRoot defaultOpen>
             <LightboxPortal>
               <LightboxContent aria-label="Empty">
-                <LightboxItemGroup />
+                <SlidesHost />
               </LightboxContent>
             </LightboxPortal>
           </LightboxRoot>,
@@ -1661,11 +1664,11 @@ describe('Lightbox', () => {
           </LightboxTrigger>
           <LightboxPortal>
             <LightboxContent data-testid="content" aria-label="Test">
-              <LightboxItemGroup>
+              <SlidesHost>
                 <LightboxItem index={0} data-testid="item-0">
                   Item 0
                 </LightboxItem>
-              </LightboxItemGroup>
+              </SlidesHost>
             </LightboxContent>
           </LightboxPortal>
         </LightboxRoot>,
@@ -1681,9 +1684,9 @@ describe('Lightbox', () => {
         <LightboxRoot handle={handle}>
           <LightboxPortal>
             <LightboxContent data-testid="content" aria-label="Test">
-              <LightboxItemGroup>
+              <SlidesHost>
                 <LightboxItem index={0}>Item 0</LightboxItem>
-              </LightboxItemGroup>
+              </SlidesHost>
             </LightboxContent>
           </LightboxPortal>
         </LightboxRoot>,
@@ -1777,6 +1780,11 @@ describe('Lightbox', () => {
   // ---------------------------------------------------------------------------
 
   describe('view transitions', () => {
+    beforeEach(async () => {
+      const { loadMorphRuntime } = await import('./lightbox-morph-loader');
+      await loadMorphRuntime();
+    });
+
     function mockViewTransitionAPI() {
       let resolveFinished: () => void;
       const finishedPromise = new Promise<void>((r) => {
@@ -1829,6 +1837,14 @@ describe('Lightbox', () => {
       render(<TestLightbox viewTransition />);
       fireEvent.click(screen.getByTestId('trigger-0'));
       expect(startViewTransition).toHaveBeenCalledOnce();
+    });
+
+    it('does not start a view transition when viewTransition is false', () => {
+      const { startViewTransition } = mockViewTransitionAPI();
+      render(<TestLightbox viewTransition={false} />);
+      fireEvent.click(screen.getByTestId('trigger-0'));
+      expect(startViewTransition).not.toHaveBeenCalled();
+      expect(screen.getByTestId('content')).toBeInTheDocument();
     });
 
     it('sets data-ramka-view-transition on <html> during open', () => {
@@ -1893,11 +1909,11 @@ describe('Lightbox', () => {
           </LightboxTrigger>
           <LightboxPortal>
             <LightboxContent data-testid="content" aria-label="vt preset test">
-              <LightboxItemGroup>
+              <SlidesHost>
                 <LightboxItem index={0}>
                   {({ imageRef }) => <img ref={imageRef} src="full.jpg" alt="full" />}
                 </LightboxItem>
-              </LightboxItemGroup>
+              </SlidesHost>
               <LightboxClose data-testid="close">Close</LightboxClose>
             </LightboxContent>
           </LightboxPortal>
@@ -1926,11 +1942,11 @@ describe('Lightbox', () => {
           </LightboxTrigger>
           <LightboxPortal data-testid="portal">
             <LightboxContent data-testid="content" aria-label="portal vars test">
-              <LightboxItemGroup>
+              <SlidesHost>
                 <LightboxItem index={0}>
                   {({ imageRef }) => <img ref={imageRef} src="full.jpg" alt="full" />}
                 </LightboxItem>
-              </LightboxItemGroup>
+              </SlidesHost>
               <LightboxClose data-testid="close">Close</LightboxClose>
             </LightboxContent>
           </LightboxPortal>
@@ -1978,11 +1994,11 @@ describe('Lightbox', () => {
           </LightboxTrigger>
           <LightboxPortal>
             <LightboxContent aria-label={id}>
-              <LightboxItemGroup>
+              <SlidesHost>
                 <LightboxItem index={0}>
                   {({ imageRef }) => <img ref={imageRef} src="full.jpg" alt="full" />}
                 </LightboxItem>
-              </LightboxItemGroup>
+              </SlidesHost>
             </LightboxContent>
           </LightboxPortal>
         </LightboxRoot>
@@ -2080,7 +2096,7 @@ describe('Lightbox', () => {
             <LightboxPortal>
               <LightboxContent data-testid="content" aria-label="zoomed close morph">
                 <LightboxClose data-testid="close">Close</LightboxClose>
-                <LightboxItemGroup>
+                <SlidesHost>
                   <LightboxItem index={0} data-testid="item-0">
                     <LightboxZoom ref={zoomRef} maxZoom={4}>
                       <LightboxMedia data-testid="media">
@@ -2088,7 +2104,7 @@ describe('Lightbox', () => {
                       </LightboxMedia>
                     </LightboxZoom>
                   </LightboxItem>
-                </LightboxItemGroup>
+                </SlidesHost>
               </LightboxContent>
             </LightboxPortal>
           </LightboxRoot>,
@@ -2143,7 +2159,7 @@ describe('Lightbox', () => {
             <LightboxPortal>
               <LightboxContent data-testid="content" aria-label="zoomed close chromelike">
                 <LightboxClose data-testid="close">Close</LightboxClose>
-                <LightboxItemGroup>
+                <SlidesHost>
                   <LightboxItem index={0} data-testid="item-0">
                     <LightboxZoom ref={zoomRef} maxZoom={4}>
                       <LightboxMedia data-testid="media">
@@ -2151,7 +2167,7 @@ describe('Lightbox', () => {
                       </LightboxMedia>
                     </LightboxZoom>
                   </LightboxItem>
-                </LightboxItemGroup>
+                </SlidesHost>
               </LightboxContent>
             </LightboxPortal>
           </LightboxRoot>,
@@ -2197,11 +2213,11 @@ describe('Lightbox', () => {
           <LightboxPortal>
             <LightboxContent data-testid="content" aria-label="no-trigger close">
               <LightboxClose data-testid="close">Close</LightboxClose>
-              <LightboxItemGroup>
+              <SlidesHost>
                 <LightboxItem index={0} data-testid="item-0">
                   {({ imageRef }) => <img ref={imageRef} src="a.jpg" alt="a" />}
                 </LightboxItem>
-              </LightboxItemGroup>
+              </SlidesHost>
             </LightboxContent>
           </LightboxPortal>
         </LightboxRoot>,
@@ -2253,6 +2269,125 @@ describe('Lightbox', () => {
 
       await act(async () => resolveClose!());
       expect(document.documentElement).not.toHaveAttribute('data-ramka-view-transition');
+    });
+
+    it('unmounts Content inside the VT close update callback', async () => {
+      // Safari / desktop Chrome: unnamed position:fixed chrome only fades
+      // with ::view-transition-old(root) if it is gone from the live tree.
+      // Extra named groups on Content are not an option — WebKit
+      // CPU-rasterizes each, and Content is fullscreen.
+      let resolveOpen: () => void;
+      let resolveClose: () => void;
+      let contentDuringCloseUpdate: boolean | null = null;
+
+      const startViewTransition = vi.fn((callback: () => void | Promise<void>) => {
+        const result = callback();
+        if (startViewTransition.mock.calls.length === 2) {
+          contentDuringCloseUpdate = !!screen.queryByTestId('content');
+        }
+        if (result && typeof (result as Promise<void>).then === 'function') {
+          (result as Promise<void>).catch(vi.fn());
+        }
+        if (startViewTransition.mock.calls.length === 1) {
+          return {
+            finished: new Promise<void>((r) => {
+              resolveOpen = r;
+            }),
+          };
+        }
+        return {
+          finished: new Promise<void>((r) => {
+            resolveClose = r;
+          }),
+        };
+      });
+
+      Object.defineProperty(document, 'startViewTransition', {
+        value: startViewTransition,
+        writable: true,
+        configurable: true,
+      });
+
+      render(<TestLightbox viewTransition />);
+      fireEvent.click(screen.getByTestId('trigger-0'));
+      await act(async () => resolveOpen!());
+
+      fireEvent.click(screen.getByTestId('close'));
+      expect(contentDuringCloseUpdate).toBe(false);
+      expect(screen.queryByTestId('content')).not.toBeInTheDocument();
+
+      await act(async () => resolveClose!());
+      expect(screen.queryByTestId('content')).not.toBeInTheDocument();
+    });
+
+    it('Android Chrome: keeps Content mounted (paint-suppressed) until the VT close finishes', async () => {
+      const originalChrome = (window as unknown as { chrome?: unknown }).chrome;
+      const originalUaData = (navigator as Navigator & { userAgentData?: unknown }).userAgentData;
+      (window as unknown as { chrome: object }).chrome = {};
+      Object.defineProperty(navigator, 'userAgentData', {
+        configurable: true,
+        value: { mobile: true },
+      });
+
+      let resolveOpen: () => void;
+      let resolveClose: () => void;
+      let contentDuringCloseUpdate: boolean | null = null;
+
+      const startViewTransition = vi.fn((callback: () => void | Promise<void>) => {
+        const result = callback();
+        if (startViewTransition.mock.calls.length === 2) {
+          contentDuringCloseUpdate = !!screen.queryByTestId('content');
+        }
+        if (result && typeof (result as Promise<void>).then === 'function') {
+          (result as Promise<void>).catch(vi.fn());
+        }
+        if (startViewTransition.mock.calls.length === 1) {
+          return {
+            finished: new Promise<void>((r) => {
+              resolveOpen = r;
+            }),
+          };
+        }
+        return {
+          finished: new Promise<void>((r) => {
+            resolveClose = r;
+          }),
+        };
+      });
+
+      Object.defineProperty(document, 'startViewTransition', {
+        value: startViewTransition,
+        writable: true,
+        configurable: true,
+      });
+
+      try {
+        render(<TestLightbox viewTransition />);
+        fireEvent.click(screen.getByTestId('trigger-0'));
+        await act(async () => resolveOpen!());
+
+        fireEvent.click(screen.getByTestId('close'));
+        expect(contentDuringCloseUpdate).toBe(true);
+        expect(screen.getByTestId('content')).toBeInTheDocument();
+        expect(screen.getByTestId('content')).toHaveStyle({ visibility: 'hidden' });
+
+        await act(async () => resolveClose!());
+        expect(screen.queryByTestId('content')).not.toBeInTheDocument();
+      } finally {
+        if (originalChrome === undefined) {
+          delete (window as unknown as { chrome?: unknown }).chrome;
+        } else {
+          (window as unknown as { chrome?: unknown }).chrome = originalChrome;
+        }
+        if (originalUaData === undefined) {
+          delete (navigator as Navigator & { userAgentData?: unknown }).userAgentData;
+        } else {
+          Object.defineProperty(navigator, 'userAgentData', {
+            configurable: true,
+            value: originalUaData,
+          });
+        }
+      }
     });
 
     it('keeps the page scroll locked until the VT close transition finishes', async () => {
@@ -2456,11 +2591,11 @@ describe('Lightbox', () => {
             </LightboxTrigger>
             <LightboxPortal>
               <LightboxContent data-testid="content" aria-label="decode test">
-                <LightboxItemGroup>
+                <SlidesHost>
                   <LightboxItem index={0} data-testid="item-0">
                     <img src="https://example.com/a.jpg" alt="a" />
                   </LightboxItem>
-                </LightboxItemGroup>
+                </SlidesHost>
               </LightboxContent>
             </LightboxPortal>
           </LightboxRoot>,
@@ -2530,11 +2665,11 @@ describe('Lightbox', () => {
             </LightboxTrigger>
             <LightboxPortal>
               <LightboxContent data-testid="content" aria-label="before-open test">
-                <LightboxItemGroup>
+                <SlidesHost>
                   <LightboxItem index={0} data-testid="item-0">
                     item
                   </LightboxItem>
-                </LightboxItemGroup>
+                </SlidesHost>
               </LightboxContent>
             </LightboxPortal>
           </LightboxRoot>,
@@ -2577,11 +2712,11 @@ describe('Lightbox', () => {
             </LightboxTrigger>
             <LightboxPortal>
               <LightboxContent data-testid="content" aria-label="before-open abort test">
-                <LightboxItemGroup>
+                <SlidesHost>
                   <LightboxItem index={0} data-testid="item-0">
                     item
                   </LightboxItem>
-                </LightboxItemGroup>
+                </SlidesHost>
               </LightboxContent>
             </LightboxPortal>
             <LightboxClose data-testid="close">Close</LightboxClose>
@@ -2612,11 +2747,11 @@ describe('Lightbox', () => {
             </LightboxTrigger>
             <LightboxPortal>
               <LightboxContent data-testid="content" aria-label="before-close test">
-                <LightboxItemGroup>
+                <SlidesHost>
                   <LightboxItem index={0} data-testid="item-0">
                     item
                   </LightboxItem>
-                </LightboxItemGroup>
+                </SlidesHost>
                 <LightboxClose data-testid="close">Close</LightboxClose>
               </LightboxContent>
             </LightboxPortal>
@@ -2677,11 +2812,11 @@ describe('Lightbox', () => {
             </LightboxTrigger>
             <LightboxPortal>
               <LightboxContent data-testid="content" aria-label="morph fallback test">
-                <LightboxItemGroup>
+                <SlidesHost>
                   <LightboxItem index={0} data-testid="item-0">
                     {({ imageRef }) => <img ref={imageRef} src="a.jpg" alt="a" />}
                   </LightboxItem>
-                </LightboxItemGroup>
+                </SlidesHost>
               </LightboxContent>
             </LightboxPortal>
           </LightboxRoot>,
@@ -2729,11 +2864,11 @@ describe('Lightbox', () => {
             </LightboxTrigger>
             <LightboxPortal>
               <LightboxContent aria-label="morph attr test">
-                <LightboxItemGroup>
+                <SlidesHost>
                   <LightboxItem index={0}>
                     <img src="full.jpg" alt="full" />
                   </LightboxItem>
-                </LightboxItemGroup>
+                </SlidesHost>
               </LightboxContent>
             </LightboxPortal>
           </LightboxRoot>,
@@ -2760,11 +2895,11 @@ describe('Lightbox', () => {
             </LightboxTrigger>
             <LightboxPortal>
               <LightboxContent aria-label="morph attr test">
-                <LightboxItemGroup>
+                <SlidesHost>
                   <LightboxItem index={0}>
                     <img src="full.jpg" alt="full" />
                   </LightboxItem>
-                </LightboxItemGroup>
+                </SlidesHost>
               </LightboxContent>
             </LightboxPortal>
           </LightboxRoot>,
@@ -2794,11 +2929,11 @@ describe('Lightbox', () => {
             </LightboxTrigger>
             <LightboxPortal>
               <LightboxContent aria-label="morph attr test">
-                <LightboxItemGroup>
+                <SlidesHost>
                   <LightboxItem index={0}>
                     <img src="full.jpg" alt="full" />
                   </LightboxItem>
-                </LightboxItemGroup>
+                </SlidesHost>
               </LightboxContent>
             </LightboxPortal>
           </LightboxRoot>,
@@ -2847,11 +2982,11 @@ describe('Lightbox', () => {
             <LightboxPortal>
               <LightboxContent data-testid="content" aria-label="crossfade test">
                 <LightboxClose data-testid="close">Close</LightboxClose>
-                <LightboxItemGroup>
+                <SlidesHost>
                   <LightboxItem index={0} data-testid="item-0">
                     {({ imageRef }) => <img ref={imageRef} src="full.jpg" alt="full" />}
                   </LightboxItem>
-                </LightboxItemGroup>
+                </SlidesHost>
               </LightboxContent>
             </LightboxPortal>
           </LightboxRoot>,
@@ -2993,11 +3128,11 @@ describe('Lightbox', () => {
             </LightboxTrigger>
             <LightboxPortal>
               <LightboxContent data-testid="content" aria-label="radius vars test">
-                <LightboxItemGroup>
+                <SlidesHost>
                   <LightboxItem index={0} data-testid="item-0">
                     {({ imageRef }) => <img ref={imageRef} src="full.jpg" alt="full" style={{ borderRadius: '8px' }} />}
                   </LightboxItem>
-                </LightboxItemGroup>
+                </SlidesHost>
               </LightboxContent>
             </LightboxPortal>
           </LightboxRoot>,
@@ -3061,12 +3196,12 @@ describe('Lightbox', () => {
             </LightboxTrigger>
             <LightboxPortal>
               <LightboxContent data-testid="content" aria-label="unwired warn">
-                <LightboxItemGroup>
+                <SlidesHost>
                   <LightboxItem index={0} data-testid="item-0">
                     {/* No imageRef / morphRef → target resolves to the item element. */}
                     <div>no morph target here</div>
                   </LightboxItem>
-                </LightboxItemGroup>
+                </SlidesHost>
               </LightboxContent>
             </LightboxPortal>
           </LightboxRoot>,
@@ -3089,11 +3224,11 @@ describe('Lightbox', () => {
             </LightboxTrigger>
             <LightboxPortal>
               <LightboxContent data-testid="content" aria-label="wired ok">
-                <LightboxItemGroup>
+                <SlidesHost>
                   <LightboxItem index={0} data-testid="item-0">
                     {({ imageRef }) => <img ref={imageRef} src="a.jpg" alt="a" />}
                   </LightboxItem>
-                </LightboxItemGroup>
+                </SlidesHost>
               </LightboxContent>
             </LightboxPortal>
           </LightboxRoot>,
@@ -3116,7 +3251,7 @@ describe('Lightbox', () => {
             </LightboxTrigger>
             <LightboxPortal>
               <LightboxContent data-testid="content" aria-label="media wired">
-                <LightboxItemGroup>
+                <SlidesHost>
                   <LightboxItem index={0} data-testid="item-0">
                     <LightboxZoom>
                       <LightboxMedia data-testid="media">
@@ -3124,7 +3259,7 @@ describe('Lightbox', () => {
                       </LightboxMedia>
                     </LightboxZoom>
                   </LightboxItem>
-                </LightboxItemGroup>
+                </SlidesHost>
               </LightboxContent>
             </LightboxPortal>
           </LightboxRoot>,
@@ -3180,13 +3315,13 @@ describe('Lightbox', () => {
             </LightboxTrigger>
             <LightboxPortal>
               <LightboxContent aria-label="collapsed media">
-                <LightboxItemGroup>
+                <SlidesHost>
                   <LightboxItem index={0}>
                     <LightboxMedia data-testid="media">
                       <img src="a.jpg" alt="a" />
                     </LightboxMedia>
                   </LightboxItem>
-                </LightboxItemGroup>
+                </SlidesHost>
               </LightboxContent>
             </LightboxPortal>
           </LightboxRoot>,
@@ -3229,11 +3364,11 @@ describe('Lightbox', () => {
         <LightboxRoot defaultOpen>
           <LightboxPortal>
             <LightboxContent data-testid="content" aria-label="Pinch test">
-              <LightboxItemGroup>
+              <SlidesHost>
                 <LightboxItem index={0}>
                   <img src="test.jpg" alt="test" />
                 </LightboxItem>
-              </LightboxItemGroup>
+              </SlidesHost>
             </LightboxContent>
           </LightboxPortal>
         </LightboxRoot>,
@@ -3257,11 +3392,11 @@ describe('Lightbox', () => {
         <LightboxRoot defaultOpen>
           <LightboxPortal>
             <LightboxContent data-testid="content" aria-label="Single touch test">
-              <LightboxItemGroup>
+              <SlidesHost>
                 <LightboxItem index={0}>
                   <img src="test.jpg" alt="test" />
                 </LightboxItem>
-              </LightboxItemGroup>
+              </SlidesHost>
             </LightboxContent>
           </LightboxPortal>
         </LightboxRoot>,
@@ -3282,11 +3417,11 @@ describe('Lightbox', () => {
         <LightboxRoot defaultOpen>
           <LightboxPortal>
             <LightboxContent data-testid="content" aria-label="Leftover finger">
-              <LightboxItemGroup>
+              <SlidesHost>
                 <LightboxItem index={0}>
                   <img src="test.jpg" alt="test" />
                 </LightboxItem>
-              </LightboxItemGroup>
+              </SlidesHost>
             </LightboxContent>
           </LightboxPortal>
         </LightboxRoot>,
@@ -3321,11 +3456,11 @@ describe('Lightbox', () => {
                 <div data-testid="panel" style={{ overflowY: 'auto' }}>
                   <p data-testid="panel-text">scrollable chrome</p>
                 </div>
-                <LightboxItemGroup>
+                <SlidesHost>
                   <LightboxItem index={0}>
                     <img src="test.jpg" alt="test" />
                   </LightboxItem>
-                </LightboxItemGroup>
+                </SlidesHost>
               </LightboxContent>
             </LightboxPortal>
           </LightboxRoot>,
@@ -3405,11 +3540,11 @@ describe('Lightbox', () => {
         <LightboxRoot defaultOpen>
           <LightboxPortal>
             <LightboxContent data-testid="content" aria-label="Wheel zoom test">
-              <LightboxItemGroup>
+              <SlidesHost>
                 <LightboxItem index={0}>
                   <img src="test.jpg" alt="test" />
                 </LightboxItem>
-              </LightboxItemGroup>
+              </SlidesHost>
             </LightboxContent>
           </LightboxPortal>
         </LightboxRoot>,
@@ -3431,11 +3566,11 @@ describe('Lightbox', () => {
         <LightboxRoot defaultOpen>
           <LightboxPortal>
             <LightboxContent data-testid="content" aria-label="Regular wheel test">
-              <LightboxItemGroup>
+              <SlidesHost>
                 <LightboxItem index={0}>
                   <img src="test.jpg" alt="test" />
                 </LightboxItem>
-              </LightboxItemGroup>
+              </SlidesHost>
             </LightboxContent>
           </LightboxPortal>
         </LightboxRoot>,
@@ -3466,7 +3601,7 @@ describe('Lightbox', () => {
         <LightboxRoot defaultOpen>
           <LightboxPortal>
             <LightboxContent data-testid="content" aria-label="Zoom test">
-              <LightboxItemGroup>
+              <SlidesHost>
                 <LightboxItem index={0} data-testid="item-0">
                   <LightboxZoom maxZoom={maxZoom} onZoomChange={onZoomChange}>
                     <img src="test.jpg" alt="test" data-testid="zoom-img" />
@@ -3479,7 +3614,7 @@ describe('Lightbox', () => {
                     <img src="test2.jpg" alt="test2" />
                   </LightboxZoom>
                 </LightboxItem>
-              </LightboxItemGroup>
+              </SlidesHost>
               <LightboxNext data-testid="next">Next</LightboxNext>
               <LightboxPrevious data-testid="prev">Previous</LightboxPrevious>
             </LightboxContent>
@@ -3495,13 +3630,13 @@ describe('Lightbox', () => {
           <LightboxRoot defaultOpen>
             <LightboxPortal>
               <LightboxContent aria-label="Zoom ref test">
-                <LightboxItemGroup>
+                <SlidesHost>
                   <LightboxItem index={0}>
                     <LightboxZoom ref={ref} maxZoom={4}>
                       <img src="test.jpg" alt="test" data-testid="zoom-img" />
                     </LightboxZoom>
                   </LightboxItem>
-                </LightboxItemGroup>
+                </SlidesHost>
               </LightboxContent>
             </LightboxPortal>
           </LightboxRoot>
@@ -3537,7 +3672,7 @@ describe('Lightbox', () => {
           <LightboxRoot defaultOpen>
             <LightboxPortal>
               <LightboxContent aria-label="Zoom media size">
-                <LightboxItemGroup>
+                <SlidesHost>
                   <LightboxItem index={0}>
                     <LightboxZoom ref={ref} maxZoom={4}>
                       <LightboxMedia data-testid="media">
@@ -3545,7 +3680,7 @@ describe('Lightbox', () => {
                       </LightboxMedia>
                     </LightboxZoom>
                   </LightboxItem>
-                </LightboxItemGroup>
+                </SlidesHost>
               </LightboxContent>
             </LightboxPortal>
           </LightboxRoot>,
@@ -3637,13 +3772,13 @@ describe('Lightbox', () => {
         <LightboxRoot defaultOpen>
           <LightboxPortal>
             <LightboxContent aria-label="Zoom callback test">
-              <LightboxItemGroup>
+              <SlidesHost>
                 <LightboxItem index={0}>
                   <LightboxZoom ref={ref} maxZoom={4} onZoomChange={spy}>
                     <img src="test.jpg" alt="test" />
                   </LightboxZoom>
                 </LightboxItem>
-              </LightboxItemGroup>
+              </SlidesHost>
             </LightboxContent>
           </LightboxPortal>
         </LightboxRoot>,
@@ -3658,7 +3793,7 @@ describe('Lightbox', () => {
         <LightboxRoot defaultOpen>
           <LightboxPortal>
             <LightboxContent aria-label="Zoom reset test" data-testid="content">
-              <LightboxItemGroup>
+              <SlidesHost>
                 <LightboxItem index={0}>
                   <LightboxZoom ref={ref} maxZoom={4}>
                     <img src="test.jpg" alt="test" />
@@ -3669,7 +3804,7 @@ describe('Lightbox', () => {
                     <img src="test2.jpg" alt="test2" />
                   </LightboxZoom>
                 </LightboxItem>
-              </LightboxItemGroup>
+              </SlidesHost>
               <LightboxNext data-testid="next">Next</LightboxNext>
             </LightboxContent>
           </LightboxPortal>
@@ -3728,13 +3863,13 @@ describe('Lightbox', () => {
         <LightboxRoot defaultOpen>
           <LightboxPortal>
             <LightboxContent data-testid="content" aria-label="Zoom zoomed test">
-              <LightboxItemGroup>
+              <SlidesHost>
                 <LightboxItem index={0}>
                   <LightboxZoom ref={ref} maxZoom={4}>
                     <img src="test.jpg" alt="test" />
                   </LightboxZoom>
                 </LightboxItem>
-              </LightboxItemGroup>
+              </SlidesHost>
             </LightboxContent>
           </LightboxPortal>
         </LightboxRoot>,
@@ -3806,13 +3941,13 @@ describe('Lightbox', () => {
         <LightboxRoot defaultOpen>
           <LightboxPortal>
             <LightboxContent data-testid="content" aria-label="Zoom-in live progress test">
-              <LightboxItemGroup>
+              <SlidesHost>
                 <LightboxItem index={0}>
                   <LightboxZoom ref={ref} maxZoom={4}>
                     <img src="test.jpg" alt="test" />
                   </LightboxZoom>
                 </LightboxItem>
-              </LightboxItemGroup>
+              </SlidesHost>
               <LightboxZoomIn data-testid="zoom-in">+</LightboxZoomIn>
               <LightboxZoomOut data-testid="zoom-out">-</LightboxZoomOut>
             </LightboxContent>
@@ -3861,13 +3996,13 @@ describe('Lightbox', () => {
         <LightboxRoot defaultOpen>
           <LightboxPortal>
             <LightboxContent data-testid="content" aria-label="Zoom progress var test">
-              <LightboxItemGroup>
+              <SlidesHost>
                 <LightboxItem index={0}>
                   <LightboxZoom ref={ref} maxZoom={4}>
                     <img src="test.jpg" alt="test" />
                   </LightboxZoom>
                 </LightboxItem>
-              </LightboxItemGroup>
+              </SlidesHost>
             </LightboxContent>
           </LightboxPortal>
         </LightboxRoot>,
@@ -3892,13 +4027,13 @@ describe('Lightbox', () => {
         <LightboxRoot defaultOpen>
           <LightboxPortal>
             <LightboxContent data-testid="content" aria-label="Zoom reset attr test">
-              <LightboxItemGroup>
+              <SlidesHost>
                 <LightboxItem index={0}>
                   <LightboxZoom ref={ref} maxZoom={4}>
                     <img src="test.jpg" alt="test" />
                   </LightboxZoom>
                 </LightboxItem>
-              </LightboxItemGroup>
+              </SlidesHost>
             </LightboxContent>
           </LightboxPortal>
         </LightboxRoot>,
@@ -3943,13 +4078,13 @@ describe('Lightbox', () => {
         <LightboxRoot defaultOpen>
           <LightboxPortal>
             <LightboxContent data-testid="content" aria-label="Zoom animated reset attr test">
-              <LightboxItemGroup>
+              <SlidesHost>
                 <LightboxItem index={0}>
                   <LightboxZoom ref={ref} maxZoom={4}>
                     <img src="test.jpg" alt="test" />
                   </LightboxZoom>
                 </LightboxItem>
-              </LightboxItemGroup>
+              </SlidesHost>
             </LightboxContent>
           </LightboxPortal>
         </LightboxRoot>,
@@ -3983,7 +4118,7 @@ describe('Lightbox', () => {
         <LightboxRoot defaultOpen>
           <LightboxPortal>
             <LightboxContent data-testid="content" aria-label="Zoom slide change test">
-              <LightboxItemGroup>
+              <SlidesHost>
                 <LightboxItem index={0}>
                   <LightboxZoom ref={ref} maxZoom={4}>
                     <img src="test.jpg" alt="test" />
@@ -3994,7 +4129,7 @@ describe('Lightbox', () => {
                     <img src="test2.jpg" alt="test2" />
                   </LightboxZoom>
                 </LightboxItem>
-              </LightboxItemGroup>
+              </SlidesHost>
               <LightboxNext data-testid="next">Next</LightboxNext>
             </LightboxContent>
           </LightboxPortal>
@@ -4014,13 +4149,13 @@ describe('Lightbox', () => {
         <LightboxRoot defaultOpen>
           <LightboxPortal>
             <LightboxContent aria-label="Default maxZoom">
-              <LightboxItemGroup>
+              <SlidesHost>
                 <LightboxItem index={0}>
                   <LightboxZoom>
                     <div>No image</div>
                   </LightboxZoom>
                 </LightboxItem>
-              </LightboxItemGroup>
+              </SlidesHost>
             </LightboxContent>
           </LightboxPortal>
         </LightboxRoot>,
@@ -4034,13 +4169,13 @@ describe('Lightbox', () => {
         <LightboxRoot defaultOpen>
           <LightboxPortal>
             <LightboxContent aria-label="Touch action test">
-              <LightboxItemGroup>
+              <SlidesHost>
                 <LightboxItem index={0}>
                   <LightboxZoom ref={ref} maxZoom={4}>
                     <img src="test.jpg" alt="test" />
                   </LightboxZoom>
                 </LightboxItem>
-              </LightboxItemGroup>
+              </SlidesHost>
             </LightboxContent>
           </LightboxPortal>
         </LightboxRoot>,
@@ -4064,13 +4199,13 @@ describe('Lightbox', () => {
           <LightboxRoot defaultOpen>
             <LightboxPortal>
               <LightboxContent aria-label="Elastic test">
-                <LightboxItemGroup>
+                <SlidesHost>
                   <LightboxItem index={0}>
                     <LightboxZoom ref={ref} maxZoom={4}>
                       <img src="test.jpg" alt="test" />
                     </LightboxZoom>
                   </LightboxItem>
-                </LightboxItemGroup>
+                </SlidesHost>
               </LightboxContent>
             </LightboxPortal>
           </LightboxRoot>,
@@ -4087,13 +4222,13 @@ describe('Lightbox', () => {
           <LightboxRoot defaultOpen>
             <LightboxPortal>
               <LightboxContent aria-label="Snap test">
-                <LightboxItemGroup>
+                <SlidesHost>
                   <LightboxItem index={0}>
                     <LightboxZoom ref={ref} maxZoom={4}>
                       <img src="test.jpg" alt="test" />
                     </LightboxZoom>
                   </LightboxItem>
-                </LightboxItemGroup>
+                </SlidesHost>
               </LightboxContent>
             </LightboxPortal>
           </LightboxRoot>,
@@ -4114,13 +4249,13 @@ describe('Lightbox', () => {
           <LightboxRoot defaultOpen>
             <LightboxPortal>
               <LightboxContent aria-label="Min clamp test">
-                <LightboxItemGroup>
+                <SlidesHost>
                   <LightboxItem index={0}>
                     <LightboxZoom ref={ref} maxZoom={4}>
                       <img src="test.jpg" alt="test" />
                     </LightboxZoom>
                   </LightboxItem>
-                </LightboxItemGroup>
+                </SlidesHost>
               </LightboxContent>
             </LightboxPortal>
           </LightboxRoot>,
@@ -4186,14 +4321,14 @@ describe('Lightbox', () => {
             <LightboxRoot defaultOpen>
               <LightboxPortal>
                 <LightboxContent aria-label="Elastic pan test">
-                  <LightboxItemGroup>
+                  <SlidesHost>
                     <LightboxItem index={0}>
                       <LightboxZoom ref={ref} maxZoom={4}>
                         <img src="test.jpg" alt="test" data-testid="zoom-img" />
                         <ZoomPanProbe panRef={panRef} />
                       </LightboxZoom>
                     </LightboxItem>
-                  </LightboxItemGroup>
+                  </SlidesHost>
                 </LightboxContent>
               </LightboxPortal>
             </LightboxRoot>,
@@ -4658,6 +4793,153 @@ describe('Lightbox', () => {
               });
             });
             expect(ref.current!.offsetX).not.toBeCloseTo(zoomedOffsets.x, 5);
+          });
+        });
+
+        it('pans a zoomed image when two fingers translate without changing spread', () => {
+          withViewport(() => {
+            const ref = React.createRef<LightboxZoomRef>();
+            renderZoomPan(ref);
+            const img = screen.getByTestId('zoom-img');
+            setupOverflowGeometry(img);
+
+            act(() => ref.current!.zoomTo(2, { rapid: true }));
+            expect(ref.current!.offsetX).toBe(0);
+            expect(ref.current!.offsetY).toBe(0);
+
+            act(() => {
+              dispatchPointer(img, 'pointerdown', {
+                clientX: 160,
+                clientY: 200,
+                pointerId: 1,
+                pointerType: 'touch',
+                isPrimary: true,
+              });
+              dispatchPointer(img, 'pointerdown', {
+                clientX: 240,
+                clientY: 200,
+                pointerId: 2,
+                pointerType: 'touch',
+                isPrimary: false,
+              });
+              // Translate both fingers 60px right — distance stays 80.
+              dispatchPointer(img, 'pointermove', {
+                clientX: 220,
+                clientY: 200,
+                pointerId: 1,
+                pointerType: 'touch',
+              });
+              dispatchPointer(img, 'pointermove', {
+                clientX: 300,
+                clientY: 200,
+                pointerId: 2,
+                pointerType: 'touch',
+              });
+            });
+
+            expect(ref.current!.zoom).toBeCloseTo(2, 5);
+            // Centroid traveled +60 screen-px at 2× → +30 offset-px.
+            expect(ref.current!.offsetX).toBeCloseTo(30, 5);
+            expect(ref.current!.offsetY).toBeCloseTo(0, 5);
+          });
+        });
+
+        it('does not zoom from finger-span jitter during a two-finger pan', () => {
+          withViewport(() => {
+            const ref = React.createRef<LightboxZoomRef>();
+            renderZoomPan(ref);
+            const img = screen.getByTestId('zoom-img');
+            setupOverflowGeometry(img);
+
+            act(() => ref.current!.zoomTo(2, { rapid: true }));
+
+            act(() => {
+              dispatchPointer(img, 'pointerdown', {
+                clientX: 160,
+                clientY: 200,
+                pointerId: 1,
+                pointerType: 'touch',
+                isPrimary: true,
+              });
+              dispatchPointer(img, 'pointerdown', {
+                clientX: 240,
+                clientY: 200,
+                pointerId: 2,
+                pointerType: 'touch',
+                isPrimary: false,
+              });
+              // Interleaved 8px steps (real touch samples), then a 12px span drift.
+              // A single 60px jump on one finger would look like a pinch.
+              for (const [x1, x2] of [
+                [168, 248],
+                [176, 256],
+                [184, 264],
+                [192, 272],
+                [200, 280],
+                [208, 300],
+              ] as const) {
+                dispatchPointer(img, 'pointermove', {
+                  clientX: x1,
+                  clientY: 200,
+                  pointerId: 1,
+                  pointerType: 'touch',
+                });
+                dispatchPointer(img, 'pointermove', {
+                  clientX: x2,
+                  clientY: 200,
+                  pointerId: 2,
+                  pointerType: 'touch',
+                });
+              }
+            });
+
+            expect(ref.current!.zoom).toBeCloseTo(2, 5);
+            expect(ref.current!.offsetX).toBeGreaterThan(20);
+          });
+        });
+
+        it('composes two-finger pan with pinch scale in one gesture', () => {
+          withViewport(() => {
+            const ref = React.createRef<LightboxZoomRef>();
+            renderZoomPan(ref);
+            const img = screen.getByTestId('zoom-img');
+            setupOverflowGeometry(img);
+
+            act(() => ref.current!.zoomTo(2, { rapid: true }));
+
+            act(() => {
+              dispatchPointer(img, 'pointerdown', {
+                clientX: 160,
+                clientY: 200,
+                pointerId: 1,
+                pointerType: 'touch',
+                isPrimary: true,
+              });
+              dispatchPointer(img, 'pointerdown', {
+                clientX: 240,
+                clientY: 200,
+                pointerId: 2,
+                pointerType: 'touch',
+                isPrimary: false,
+              });
+              // Spread 80→160 and slide the midpoint +40px right.
+              dispatchPointer(img, 'pointermove', {
+                clientX: 160,
+                clientY: 200,
+                pointerId: 1,
+                pointerType: 'touch',
+              });
+              dispatchPointer(img, 'pointermove', {
+                clientX: 320,
+                clientY: 200,
+                pointerId: 2,
+                pointerType: 'touch',
+              });
+            });
+
+            expect(ref.current!.zoom).toBeCloseTo(4, 5);
+            // origin centroid 0 at 2×; current centroid +40 at 4× → +10 offset.
+            expect(ref.current!.offsetX).toBeCloseTo(10, 5);
           });
         });
 
@@ -5314,7 +5596,7 @@ describe('Lightbox', () => {
   // 14b. Global zoom controls (active-zoom bridge)
   //
   // Mirrors the flagship layout: one shared ZoomIn/ZoomOut set rendered in the
-  // chrome (siblings of ItemGroup, OUTSIDE any per-slide Lightbox.Zoom), each
+  // chrome (siblings of Slides, OUTSIDE any per-slide Lightbox.Zoom), each
   // item wrapped in its own Zoom. The buttons must drive whichever slide is
   // currently active via the Root-owned bridge.
   // ---------------------------------------------------------------------------
@@ -5356,7 +5638,7 @@ describe('Lightbox', () => {
         <LightboxRoot defaultOpen>
           <LightboxPortal>
             <LightboxContent data-testid="content" aria-label="Global zoom test">
-              <LightboxItemGroup>
+              <SlidesHost>
                 <LightboxItem index={0} data-testid="item-0">
                   <LightboxZoom ref={refs?.[0]} maxZoom={maxZoom}>
                     <img src="a.jpg" alt="a" />
@@ -5367,7 +5649,7 @@ describe('Lightbox', () => {
                     <img src="b.jpg" alt="b" />
                   </LightboxZoom>
                 </LightboxItem>
-              </LightboxItemGroup>
+              </SlidesHost>
               {/* Single shared control set outside every Zoom */}
               <LightboxZoomIn data-testid="zoom-in">+</LightboxZoomIn>
               <LightboxZoomOut data-testid="zoom-out">-</LightboxZoomOut>
@@ -5545,7 +5827,7 @@ describe('Lightbox', () => {
         <LightboxRoot defaultOpen>
           <LightboxPortal>
             <LightboxContent data-testid="content" aria-label="Pull dismiss test" pullToClose={pullToClose}>
-              <LightboxItemGroup>
+              <SlidesHost>
                 <LightboxItem index={0}>
                   {withZoom ? (
                     <LightboxZoom ref={zoomRef} maxZoom={4}>
@@ -5555,7 +5837,7 @@ describe('Lightbox', () => {
                     <img src="test.jpg" alt="test" />
                   )}
                 </LightboxItem>
-              </LightboxItemGroup>
+              </SlidesHost>
             </LightboxContent>
           </LightboxPortal>
         </LightboxRoot>
@@ -5580,7 +5862,7 @@ describe('Lightbox', () => {
         <LightboxRoot defaultOpen>
           <LightboxPortal>
             <LightboxContent data-testid="content" aria-label="Pull media hit-test">
-              <LightboxItemGroup>
+              <SlidesHost>
                 <LightboxItem index={0} className="relative">
                   <div data-testid="chrome" style={{ position: 'absolute', inset: 0 }}>
                     chrome
@@ -5592,7 +5874,7 @@ describe('Lightbox', () => {
                     <img src="test.jpg" alt="test" />
                   </LightboxMedia>
                 </LightboxItem>
-              </LightboxItemGroup>
+              </SlidesHost>
             </LightboxContent>
           </LightboxPortal>
         </LightboxRoot>,
@@ -6118,11 +6400,11 @@ describe('Lightbox', () => {
         <LightboxRoot defaultOpen>
           <LightboxPortal>
             <LightboxContent data-testid="content" aria-label="Controls test">
-              <LightboxItemGroup>
+              <SlidesHost>
                 <LightboxItem index={0}>
                   <img src="test.jpg" alt="test" />
                 </LightboxItem>
-              </LightboxItemGroup>
+              </SlidesHost>
               <button data-testid="close-btn">Close</button>
             </LightboxContent>
           </LightboxPortal>
@@ -6191,7 +6473,7 @@ describe('Lightbox', () => {
             <LightboxPortal>
               <LightboxContent data-testid="content" aria-label="Wired pull test">
                 <LightboxStage data-testid="stage">
-                  <LightboxItemGroup>
+                  <SlidesHost>
                     <LightboxItem index={0}>
                       {({ imageRef }) => (
                         <>
@@ -6202,7 +6484,7 @@ describe('Lightbox', () => {
                         </>
                       )}
                     </LightboxItem>
-                  </LightboxItemGroup>
+                  </SlidesHost>
                   <div data-testid="no-pull" data-ramka-no-pull="">
                     overlay chrome
                   </div>
@@ -6269,11 +6551,11 @@ describe('Lightbox', () => {
           <LightboxPortal>
             <LightboxContent data-testid="content" aria-label="Stage wheel test">
               <LightboxStage data-testid="stage">
-                <LightboxItemGroup>
+                <SlidesHost>
                   <LightboxItem index={0}>
                     <img src="test.jpg" alt="test" />
                   </LightboxItem>
-                </LightboxItemGroup>
+                </SlidesHost>
               </LightboxStage>
               <aside data-testid="sidebar">Thread</aside>
             </LightboxContent>
@@ -6301,11 +6583,11 @@ describe('Lightbox', () => {
         <LightboxRoot defaultOpen>
           <LightboxPortal>
             <LightboxContent data-testid="content" aria-label="No-stage wheel test">
-              <LightboxItemGroup>
+              <SlidesHost>
                 <LightboxItem index={0}>
                   <img src="test.jpg" alt="test" />
                 </LightboxItem>
-              </LightboxItemGroup>
+              </SlidesHost>
             </LightboxContent>
           </LightboxPortal>
         </LightboxRoot>,
@@ -6362,7 +6644,7 @@ describe('Lightbox', () => {
             <LightboxPortal>
               <LightboxContent data-testid="content" aria-label="Stage pan test">
                 <LightboxStage data-testid="stage">
-                  <LightboxItemGroup>
+                  <SlidesHost>
                     <LightboxItem index={0}>
                       <LightboxZoom ref={ref} maxZoom={4}>
                         <LightboxMedia width={400} height={300}>
@@ -6370,7 +6652,7 @@ describe('Lightbox', () => {
                         </LightboxMedia>
                       </LightboxZoom>
                     </LightboxItem>
-                  </LightboxItemGroup>
+                  </SlidesHost>
                 </LightboxStage>
                 <aside data-testid="sidebar">Thread</aside>
               </LightboxContent>
@@ -6404,13 +6686,13 @@ describe('Lightbox', () => {
           <LightboxPortal>
             <LightboxContent data-testid="content" aria-label="Stage zoom scope test">
               <LightboxStage data-testid="stage">
-                <LightboxItemGroup>
+                <SlidesHost>
                   <LightboxItem index={0}>
                     <LightboxZoom ref={zoomRef} maxZoom={4}>
                       <img src="test.jpg" alt="test" data-testid="zoom-img" />
                     </LightboxZoom>
                   </LightboxItem>
-                </LightboxItemGroup>
+                </SlidesHost>
               </LightboxStage>
               <aside data-testid="sidebar" tabIndex={0}>
                 Thread
@@ -6504,13 +6786,13 @@ describe('Lightbox', () => {
         <LightboxRoot defaultOpen>
           <LightboxPortal>
             <LightboxContent data-testid="content" aria-label="No-stage zoom test">
-              <LightboxItemGroup>
+              <SlidesHost>
                 <LightboxItem index={0}>
                   <LightboxZoom ref={zoomRef} maxZoom={4}>
                     <img src="test.jpg" alt="test" data-testid="zoom-img" />
                   </LightboxZoom>
                 </LightboxItem>
-              </LightboxItemGroup>
+              </SlidesHost>
             </LightboxContent>
           </LightboxPortal>
         </LightboxRoot>,
@@ -6563,13 +6845,13 @@ describe('Lightbox', () => {
               ))}
               <LightboxPortal>
                 <LightboxContent data-testid="content" aria-label="scroll test">
-                  <LightboxItemGroup preload={1}>
+                  <SlidesHost preload={1}>
                     {[0, 1, 2].map((i) => (
                       <LightboxItem key={i} index={i}>
                         Item {i}
                       </LightboxItem>
                     ))}
-                  </LightboxItemGroup>
+                  </SlidesHost>
                   <LightboxNext data-testid="next">Next</LightboxNext>
                 </LightboxContent>
               </LightboxPortal>
@@ -6631,13 +6913,13 @@ describe('Lightbox', () => {
               ))}
               <LightboxPortal>
                 <LightboxContent data-testid="content" aria-label="scroll align test">
-                  <LightboxItemGroup preload={1}>
+                  <SlidesHost preload={1}>
                     {[0, 1].map((i) => (
                       <LightboxItem key={i} index={i}>
                         Item {i}
                       </LightboxItem>
                     ))}
-                  </LightboxItemGroup>
+                  </SlidesHost>
                   <LightboxNext data-testid="next">Next</LightboxNext>
                 </LightboxContent>
               </LightboxPortal>
@@ -6661,6 +6943,83 @@ describe('Lightbox', () => {
           expect(scrollIntoView).toHaveBeenCalledWith({
             block: 'center',
             inline: 'center',
+            behavior: 'instant',
+          });
+        } finally {
+          vi.useRealTimers();
+        }
+      } finally {
+        HTMLElement.prototype.scrollIntoView = origScroll;
+      }
+    });
+
+    it('scrolls the closest trigger when morphTo is closest and the active index has none', () => {
+      // Landing-style +N galleries register triggers only for visible tiles.
+      // Navigating to a hidden item must still scroll the trigger the close
+      // morph will land on — not look up the missing active-index trigger.
+      const scrollIntoView = vi.fn();
+      const origScroll = HTMLElement.prototype.scrollIntoView;
+      HTMLElement.prototype.scrollIntoView = function (this: HTMLElement, options?: ScrollIntoViewOptions) {
+        scrollIntoView(this, options);
+      };
+      try {
+        function Harness() {
+          return (
+            <LightboxRoot
+              morphTo="closest"
+              scrollTriggerIntoView={{ type: 'onChange', behavior: 'instant' }}
+            >
+              {[0, 1].map((i) => (
+                <LightboxTrigger key={i} index={i} data-testid={`trigger-${i}`}>
+                  T{i}
+                </LightboxTrigger>
+              ))}
+              <LightboxPortal>
+                <LightboxContent data-testid="content" aria-label="closest scroll test">
+                  <SlidesHost preload={1}>
+                    {[0, 1, 2].map((i) => (
+                      <LightboxItem key={i} index={i}>
+                        Item {i}
+                      </LightboxItem>
+                    ))}
+                  </SlidesHost>
+                  <LightboxNext data-testid="next">Next</LightboxNext>
+                </LightboxContent>
+              </LightboxPortal>
+            </LightboxRoot>
+          );
+        }
+        render(<Harness />);
+
+        act(() => {
+          fireEvent.click(screen.getByTestId('trigger-0'));
+        });
+
+        vi.useFakeTimers();
+        try {
+          act(() => {
+            fireEvent.click(screen.getByTestId('next'));
+          });
+          act(() => {
+            vi.advanceTimersByTime(120);
+          });
+          expect(scrollIntoView).toHaveBeenCalledTimes(1);
+          expect(scrollIntoView.mock.calls[0][0]).toBe(screen.getByTestId('trigger-1'));
+
+          scrollIntoView.mockClear();
+
+          act(() => {
+            fireEvent.click(screen.getByTestId('next'));
+          });
+          act(() => {
+            vi.advanceTimersByTime(120);
+          });
+          // Index 2 has no trigger — closest registered trigger is 1.
+          expect(scrollIntoView).toHaveBeenCalledTimes(1);
+          expect(scrollIntoView.mock.calls[0][0]).toBe(screen.getByTestId('trigger-1'));
+          expect(scrollIntoView.mock.calls[0][1]).toEqual({
+            block: 'nearest',
+            inline: 'nearest',
             behavior: 'instant',
           });
         } finally {
@@ -6724,13 +7083,13 @@ describe('Lightbox', () => {
               ))}
               <LightboxPortal>
                 <LightboxContent data-testid="content" aria-label="open complete scroll test">
-                  <LightboxItemGroup preload={1}>
+                  <SlidesHost preload={1}>
                     {[0, 1, 2].map((i) => (
                       <LightboxItem key={i} index={i}>
                         Item {i}
                       </LightboxItem>
                     ))}
-                  </LightboxItemGroup>
+                  </SlidesHost>
                 </LightboxContent>
               </LightboxPortal>
             </LightboxRoot>

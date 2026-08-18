@@ -1,5 +1,12 @@
 'use client';
 
+/**
+ * Root context bag — state + ref registries only.
+ *
+ * Layer map and what belongs where: `lightbox.ts` (SoC contract). Do not add
+ * paint, snap geometry, morph-target resolution, or VT capability checks here.
+ */
+
 import * as React from 'react';
 
 import type { SlidesGeometry } from './lightbox-slides-geometry';
@@ -25,18 +32,23 @@ interface LightboxCloseOptions {
   focusVisible?: boolean;
 }
 
-interface LightboxContextValue {
+/** Open / index / ARIA / captions / shell element refs. */
+interface LightboxStateSlice {
   open: boolean;
   setOpen: (open: boolean, options?: LightboxCloseOptions) => void;
   /** Whether the portal should be in the DOM (stays true during exit animations). */
   mounted: boolean;
   /**
-   * True during the brief "pre-mount" phase of a View Transition open: the
-   * portal is mounted (so its DOM/layout and image decode happen off the
-   * transition's render-suppressed critical path) but must not paint yet, or
-   * it would appear in the transition's *old* snapshot. `Lightbox.Content` and
-   * `Lightbox.Backdrop` render `visibility: hidden` while this is true, and
-   * focus/scroll-lock side effects hold off until the reveal.
+   * True while the portal is mounted but must not paint:
+   * - VT open pre-mount: DOM/layout/decode run before `startViewTransition`.
+   * - VT close hold (Android Chrome only): stays mounted (hidden) until
+   *   `finished` so unmounting the overlay cannot abort the morph. Safari
+   *   unmounts in the callback instead — chrome fades with the root snapshot.
+   *   Never give Content/Backdrop their own view-transition-name: WebKit
+   *   CPU-rasterizes every named group, and those nodes are fullscreen.
+   *
+   * Content / Backdrop use `visibility: hidden` while this is true.
+   * Focus/scroll-lock side effects hold off until reveal on open.
    */
   preparing: boolean;
   /**
@@ -56,6 +68,11 @@ interface LightboxContextValue {
    */
   subscribeOpenComplete: (listener: () => void) => () => void;
   activeIndex: number;
+  /**
+   * Last navigation direction, updated in the same commit as `activeIndex`.
+   * `Lightbox.Slides` exposes it as `data-direction` for consumer CSS.
+   */
+  direction: 'forward' | 'backward';
   setActiveIndex: (index: number, source: NavigationSource) => void;
   /**
    * Set by a scroller (e.g. `Lightbox.Slides`) while a *user* scroll/fling is in
@@ -67,10 +84,12 @@ interface LightboxContextValue {
    *   - pull-to-dismiss won't start (a swipe can't become a dismiss mid-scroll).
    *     Cleared on `scrollend`, not on a quiet gap — a trackpad swipe that
    *     turns vertical mid-gesture must not pull until the user has released.
+   *     Exception: a trackpad pinch mid-swipe can cancel the scroll without
+   *     `scrollend`; Slides then settles on a quiet gap after that pinch.
    *   - zoom/pan gestures won't start or continue (a swipe can't be hijacked
    *     into a pinch — including a second finger landing mid-scroll).
-   * Stays `false` when no scroller writes it (non-`Slides` lightboxes), so their
-   * navigation and gestures are never gated.
+   * Stays `false` when no Slides scroller writes it, so navigation and
+   * gestures are never gated.
    */
   navigationLockedRef: React.MutableRefObject<boolean>;
   itemCount: number;
@@ -110,8 +129,25 @@ interface LightboxContextValue {
    * item mount).
    */
   subscribeCaptions: (onChange: () => void) => () => void;
+  dialogElementRef: React.MutableRefObject<HTMLElement | null>;
+  /**
+   * The currently-mounted `Lightbox.Stage` element (if any). When set, Stage
+   * is the media interaction surface for wheel pull-to-dismiss, Zoom pan
+   * viewport geometry, and arrow/Home/End gallery keyboard navigation.
+   * Stays `null` when no Stage is rendered — Content itself is the stage.
+   */
+  stageElementRef: React.MutableRefObject<HTMLElement | null>;
+  /**
+   * The currently-mounted `Lightbox.Backdrop` element (if any). Populated
+   * by the Backdrop primitive's ref callback so descendants like the
+   * pull-to-dismiss hook can read its opacity / data attributes without
+   * needing a direct ref. Stays `null` when no Backdrop is rendered.
+   */
+  backdropElementRef: React.MutableRefObject<HTMLElement | null>;
+}
 
-  // View transition support
+/** View-transition flags + trigger/item morph registries. */
+interface LightboxMorphSlice {
   viewTransition: boolean;
   /**
    * The Root's raw `viewTransition` prop — the timing preset name (or
@@ -179,24 +215,10 @@ interface LightboxContextValue {
       }
     >
   >;
-  dialogElementRef: React.MutableRefObject<HTMLElement | null>;
+}
 
-  /**
-   * The currently-mounted `Lightbox.Stage` element (if any). When set, Stage
-   * is the media interaction surface for wheel pull-to-dismiss, Zoom pan
-   * viewport geometry, and arrow/Home/End gallery keyboard navigation.
-   * Stays `null` when no Stage is rendered — Content itself is the stage.
-   */
-  stageElementRef: React.MutableRefObject<HTMLElement | null>;
-
-  /**
-   * The currently-mounted `Lightbox.Backdrop` element (if any). Populated
-   * by the Backdrop primitive's ref callback so descendants like the
-   * pull-to-dismiss hook can read its opacity / data attributes without
-   * needing a direct ref. Stays `null` when no Backdrop is rendered.
-   */
-  backdropElementRef: React.MutableRefObject<HTMLElement | null>;
-
+/** Slides viewport/geometry pub-sub + strip-aware `navigate`. */
+interface LightboxSlidesBridgeSlice {
   /**
    * The currently-mounted `Lightbox.Slides` viewport element (if any).
    * Populated by Slides' ref callback so scroll-linked chrome
@@ -234,6 +256,12 @@ interface LightboxContextValue {
   navigate: (index: number, source: NavigationSource) => void;
 }
 
+/**
+ * One Provider on purpose — splitting into multiple React contexts would
+ * change who re-renders. Slices are a file/type contract only.
+ */
+type LightboxContextValue = LightboxStateSlice & LightboxMorphSlice & LightboxSlidesBridgeSlice;
+
 const LightboxContext = React.createContext<LightboxContextValue | undefined>(undefined);
 
 function useLightboxContext(): LightboxContextValue {
@@ -244,101 +272,12 @@ function useLightboxContext(): LightboxContextValue {
   return context;
 }
 
-const VIEW_TRANSITION_NAME = 'lightbox-morph';
-
-function supportsViewTransitions(): boolean {
-  return (
-    typeof document !== 'undefined' &&
-    'startViewTransition' in document &&
-    !window.matchMedia('(prefers-reduced-motion: reduce)').matches
-  );
-}
-
-// A View Transition snapshots the whole document and crossfades it, which is
-// comparatively heavy on constrained hardware. Below these thresholds we skip
-// the morph and fall back to the plain (fade) path instead.
-//
-// `deviceMemory` reports 0.25–8 (GiB, capped); `< 4` targets ≤2 GiB devices.
-// `hardwareConcurrency` `< 4` targets ≤3 logical cores. Both signals are
-// advisory and coarse by design (privacy), so we only treat clearly low values
-// as low-end and never downgrade a typical 4-core / 4 GiB+ machine.
-const LOW_END_MEMORY_GIB = 4;
-const LOW_END_CORE_COUNT = 4;
-
-/**
- * Best-effort detection of a low-powered device via the Device Memory and
- * `hardwareConcurrency` hints. SSR-safe and defensive: when neither hint is
- * exposed (e.g. Safari/Firefox omit `deviceMemory`) it returns `false`, so the
- * richer View Transition path stays the default everywhere it's supported.
- */
-function isLowEndDevice(): boolean {
-  if (typeof navigator === 'undefined') return false;
-
-  const deviceMemory = (navigator as Navigator & { deviceMemory?: number }).deviceMemory;
-  if (typeof deviceMemory === 'number' && deviceMemory < LOW_END_MEMORY_GIB) {
-    return true;
-  }
-
-  const cores = navigator.hardwareConcurrency;
-  if (typeof cores === 'number' && cores < LOW_END_CORE_COUNT) {
-    return true;
-  }
-
-  return false;
-}
-
-/**
- * Resolves the morph target for the **destination item**.
- *
- * The consumer designates the exact element to morph into via the item
- * render-prop's `morphRef` (explicit) or `imageRef` (the destination
- * image), whichever is registered in `registry` keyed by the item element.
- * With no registered override, the item container itself is the target.
- *
- * Resolution is registry-only — symmetric with {@link findTriggerMorphTarget}.
- * We deliberately do NOT hunt for an inner `<img>`/`<video>`: an item is a
- * full-viewport container, so an un-designated morph lands on that container
- * (a clean crossfade fallback once `isMorphTargetSizeResolvable` rejects the
- * oversized box) rather than silently guessing which descendant is "the"
- * media. Explicit refs are the price of a pixel-perfect, native-feeling morph
- * — there's no ambiguity about which element the trigger animates into, even
- * for items with captions, overlays, or multiple images.
- */
-function findItemMorphTarget(
-  container: HTMLElement,
-  registry?: WeakMap<HTMLElement, HTMLElement> | null,
-): HTMLElement {
-  return registry?.get(container) ?? container;
-}
-
-/**
- * Resolves the morph target for the **trigger**.
- *
- * The consumer designates a specific descendant via the trigger render-prop's
- * `morphRef`, which registers it in `registry` keyed by the trigger
- * element. When there's no registered override, the trigger element itself is
- * the target — its border-radius, clipping, and chrome live on that element, so
- * morphing it reproduces exactly what the user sees.
- *
- * Unlike the item, the trigger deliberately does NOT hunt for an inner `<img>`.
- * Resolution is registry-based rather than a DOM `[data-ramka-morph]` scan:
- * the lookup is O(1), order-independent, and correct even when several triggers
- * share an index (the registry is keyed by element, not index).
- */
-function findTriggerMorphTarget(
-  container: HTMLElement,
-  registry?: WeakMap<HTMLElement, HTMLElement> | null,
-): HTMLElement {
-  return registry?.get(container) ?? container;
-}
-
-export {
-  LightboxContext,
-  useLightboxContext,
-  supportsViewTransitions,
-  isLowEndDevice,
-  VIEW_TRANSITION_NAME,
-  findItemMorphTarget,
-  findTriggerMorphTarget,
+export { LightboxContext, useLightboxContext };
+export type {
+  LightboxContextValue,
+  LightboxStateSlice,
+  LightboxMorphSlice,
+  LightboxSlidesBridgeSlice,
+  NavigationSource,
+  LightboxCloseOptions,
 };
-export type { LightboxContextValue, NavigationSource, LightboxCloseOptions };
