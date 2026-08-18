@@ -102,8 +102,22 @@ function Content({ className, ...props }: React.ComponentProps<typeof RamkaLight
   return <RamkaLightbox.Content className={cx('stl-content', className)} {...props} />;
 }
 
-function Stage({ className, ...props }: React.ComponentProps<typeof RamkaLightbox.Stage>) {
-  return <RamkaLightbox.Stage className={cx('stl-frame', className)} {...props} />;
+function Stage({
+  className,
+  children,
+  ...props
+}: Omit<React.ComponentProps<typeof RamkaLightbox.Stage>, 'children'> & {
+  children?: React.ReactNode;
+}) {
+  return (
+    <RamkaLightbox.Stage className={cx('stl-stage', className)} {...props}>
+      {({ morphRef }) => (
+        <div ref={morphRef} className="stl-frame">
+          {children}
+        </div>
+      )}
+    </RamkaLightbox.Stage>
+  );
 }
 
 function Close({ className, children, ...props }: React.ComponentProps<typeof RamkaLightbox.Close>) {
@@ -254,30 +268,27 @@ function Gallery({ items, ariaLabel }: { items: LightboxItem[]; ariaLabel: strin
             {items.map((item, i) => (
               <Slide key={item.id ?? i}>
                 <Item index={i}>
-                  {({ active, morphRef }) => (
-                    
-                      <Media
+                  {({ active }) => (
+                    <Media
+                      width={item.width}
+                      height={item.height}
+                      className="stl-card"
+                      style={{
+                        backgroundImage: `url(${item.poster})`,
+                        backgroundSize: 'cover',
+                        backgroundPosition: 'center',
+                      }}
+                    >
+                      <StoryVideo
+                        src={item.video}
+                        poster={item.poster}
+                        alt={item.alt}
                         width={item.width}
                         height={item.height}
-                        ref={morphRef}
-                        className="stl-card"
-                        style={{
-                          backgroundImage: `url(${item.poster})`,
-                          backgroundSize: 'cover',
-                          backgroundPosition: 'center',
-                        }}
-                      >
-                        <StoryVideo
-                          src={item.video}
-                          poster={item.poster}
-                          alt={item.alt}
-                          width={item.width}
-                          height={item.height}
-                          active={active}
-                        />
+                        active={active}
+                      />
                       <StoryHud item={item} index={i} total={items.length} />
-                      </Media>
-                    
+                    </Media>
                   )}
                 </Item>
               </Slide>

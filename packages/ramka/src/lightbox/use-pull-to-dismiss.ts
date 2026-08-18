@@ -109,6 +109,12 @@ interface PullToDismissOptions {
   /** The currently-active slide element, tracked in context by Lightbox.Item. */
   activeItemRef: React.RefObject<HTMLElement | null>;
   /**
+   * Shared capture destination from Stage `morphRef`. When set, pull
+   * transforms this node (the frame / bezel) instead of the active item,
+   * so the carousel can keep clipping neighbors.
+   */
+  destinationMorphElementRef?: React.RefObject<HTMLElement | null>;
+  /**
    * Optional `Lightbox.Stage` host. When set, touch and trackpad wheel
    * pull-to-dismiss only start if the event target is inside Stage — so side
    * panels outside Stage keep native scroll / their own gestures. When
@@ -137,6 +143,7 @@ function usePullToDismiss({
   contentRef,
   backdropRef,
   activeItemRef,
+  destinationMorphElementRef,
   stageRef,
   getZoom,
   onClose,
@@ -154,6 +161,10 @@ function usePullToDismiss({
   // Last *displayed* (damped) vertical offset, used as the spring amplitude so
   // the release velocity maps to a correctly-scaled follow-through.
   const lastAppliedYRef = React.useRef(0);
+
+  const resolveDragTarget = React.useCallback((): HTMLElement | null => {
+    return destinationMorphElementRef?.current ?? activeItemRef.current;
+  }, [destinationMorphElementRef, activeItemRef]);
 
   // Trackpad (wheel) pull-to-dismiss state. A two-finger swipe emits a stream
   // of `wheel` events with no explicit end, so gesture completion is inferred
@@ -357,10 +368,10 @@ function usePullToDismiss({
       // but don't steal presses on real controls.
       if (isPullIgnoredTarget(target)) return;
 
-      // Always drag the active item (same as wheel), even if the finger landed
-      // on Stage padding rather than the media itself.
-      const activeItem = activeItemRef.current;
-      if (!activeItem) return;
+      // Drag the shared Stage morph target when set, else the active item —
+      // even if the finger landed on Stage padding rather than the media.
+      const dragTarget = resolveDragTarget();
+      if (!dragTarget) return;
 
       // Don't activate if zoomed or if zoom gestures are in progress
       if (getZoom() > 1) return;
@@ -373,7 +384,7 @@ function usePullToDismiss({
         clearTransform();
       }
 
-      dragTargetRef.current = activeItem;
+      dragTargetRef.current = dragTarget;
       pointerIdRef.current = event.pointerId;
       startYRef.current = event.clientY;
       startXRef.current = event.clientX;
@@ -580,20 +591,20 @@ function usePullToDismiss({
           return;
         }
 
-        const activeItem = activeItemRef.current;
-        if (!activeItem) {
+        const dragTarget = resolveDragTarget();
+        if (!dragTarget) {
           wheelDirRef.current = 'horizontal'; // nothing to pull — bail gesture
           scheduleWheelIdle();
           return;
         }
 
-        // Cancel any in-flight snap-back and take over the active item.
+        // Cancel any in-flight snap-back and take over the drag target.
         if (animationRef.current) {
           animationRef.current.cancel();
           animationRef.current = null;
           clearTransform();
         }
-        dragTargetRef.current = activeItem;
+        dragTargetRef.current = dragTarget;
         wheelDirRef.current = 'vertical';
         wheelPullXRef.current = 0;
         wheelPullYRef.current = 0;
@@ -643,7 +654,7 @@ function usePullToDismiss({
       }
       clearTransform();
     };
-  }, [disabled, contentRef, backdropRef, activeItemRef, stageRef, getZoom, onClose, isScrollingRef, applyTransform, clearTransform, snapBack, cleanup, computeVelocity]);
+  }, [disabled, contentRef, backdropRef, activeItemRef, destinationMorphElementRef, stageRef, getZoom, onClose, isScrollingRef, applyTransform, clearTransform, snapBack, cleanup, computeVelocity, resolveDragTarget]);
 }
 
 export { usePullToDismiss };

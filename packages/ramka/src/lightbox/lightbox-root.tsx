@@ -41,7 +41,7 @@ import {
   type ScrollTriggerIntoView,
 } from './scroll-trigger';
 import { isAndroidBlinkSnapshotRoot } from './is-android-blink';
-import { findItemMorphTarget } from './morph-target';
+import { findDestinationMorphTarget } from './morph-target';
 import { DEFAULT_DECODE_MAX_WAIT, isLowEndDevice, supportsViewTransitions } from './vt-constants';
 import type { LightboxViewTransitionPreset } from './vt-timing';
 import type { ViewTransitionMorph, ViewTransitionMorphConfig } from './use-view-transition-morph';
@@ -205,7 +205,7 @@ interface LightboxRootProps {
 
 /** Context passed to {@link LightboxRootProps.onBeforeOpen}. */
 interface LightboxBeforeOpenContext {
-  /** Destination morph host (`Media` / `morphRef` / item), if any. */
+  /** Capture destination (Stage `morphRef` / Media / item `morphRef` / item), if any. */
   destination: Element | null;
   /** Aborts when a newer open/close wins. */
   signal: AbortSignal;
@@ -216,7 +216,7 @@ type LightboxBeforeOpen = (ctx: LightboxBeforeOpenContext) => void | Promise<voi
 
 /** Context passed to {@link LightboxRootProps.onBeforeClose}. */
 interface LightboxBeforeCloseContext {
-  /** Destination morph host (`Media` / `morphRef` / item), if any. */
+  /** Capture destination (Stage `morphRef` / Media / item `morphRef` / item), if any. */
   destination: Element | null;
 }
 
@@ -578,12 +578,16 @@ function LightboxRoot(props: LightboxRootProps) {
     // `morphRef`, else its `imageRef`). Keyed by element. See
     // findItemMorphTarget.
     const itemMorphElementsRef = React.useRef<WeakMap<HTMLElement, HTMLElement>>(new WeakMap());
+    // Shared capture destination from Stage `morphRef`. When set, the VT
+    // names this node instead of the active item (see findDestinationMorphTarget).
+    const destinationMorphElementRef = React.useRef<HTMLElement | null>(null);
     const notifyBeforeClose = React.useCallback(() => {
-      const itemEl = activeItemElementRef.current;
       onBeforeCloseRef.current?.({
-        destination: itemEl
-          ? findItemMorphTarget(itemEl, itemMorphElementsRef.current)
-          : null,
+        destination: findDestinationMorphTarget(
+          activeItemElementRef.current,
+          itemMorphElementsRef.current,
+          destinationMorphElementRef.current,
+        ),
       });
     }, []);
     const openingTriggerIndexRef = React.useRef(0);
@@ -761,6 +765,7 @@ function LightboxRoot(props: LightboxRootProps) {
       triggerMorphElementsRef,
       activeItemElementRef,
       itemMorphElementsRef,
+      destinationMorphElementRef,
       openingTriggerIndexRef,
       openingTriggerElementRef,
       activeIndexRef,
@@ -1117,6 +1122,7 @@ function LightboxRoot(props: LightboxRootProps) {
         triggerMorphElementsRef,
         activeItemElementRef,
         itemMorphElementsRef,
+        destinationMorphElementRef,
         openingTriggerIndexRef,
         openingTriggerElementRef,
         openingTriggerImageRef,

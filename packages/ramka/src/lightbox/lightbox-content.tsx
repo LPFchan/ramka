@@ -105,6 +105,7 @@ const LightboxContent = React.forwardRef<HTMLDivElement, LightboxContentProps>(
       stageElementRef,
       backdropElementRef,
       activeItemElementRef,
+      destinationMorphElementRef,
       navigationLockedRef,
       baseId,
     } = useLightboxContext();
@@ -392,6 +393,9 @@ const LightboxContent = React.forwardRef<HTMLDivElement, LightboxContentProps>(
             // The wheel/trackpad pull path reads it directly instead of re-querying
             // the DOM for `[data-ramka-item][data-active]`.
             activeItemRef={activeItemElementRef}
+            // Stage `morphRef` (shared capture dest) pulls as one unit so
+            // carousels don't have to unclip / hide neighbors during the drag.
+            destinationMorphElementRef={destinationMorphElementRef}
             // Optional Stage scopes touch + wheel pull to the media pane; null → Content.
             stageRef={stageElementRef}
             getZoom={getZoom}

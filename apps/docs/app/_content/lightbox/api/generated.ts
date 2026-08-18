@@ -163,6 +163,11 @@ export const generatedProps: Record<string, PropRow[]> = {
   ],
   "api-stage": [
     {
+      name: "children",
+      type: "ReactNode | ((state: LightboxStageRenderState) => ReactNode)",
+      description: "Static children, or a render function that receives `morphRef`. Attach `morphRef` to morph the Stage surface (or a descendant) instead of the active item.",
+    },
+    {
       name: "render",
       type: "ReactElement | ComponentRenderFn",
       description: "Allows you to replace the component's HTML element with a different tag, or compose it with another component.\n\nAccepts a `ReactElement` or a function that returns the element to render.",
@@ -412,6 +417,13 @@ export const generatedProps: Record<string, PropRow[]> = {
       name: "(return)",
       type: "LightboxMediaContextValue | null",
       description: "—",
+    },
+  ],
+  "api-use-stage-context": [
+    {
+      name: "(return)",
+      type: "LightboxStageRenderState | null",
+      description: "Optional context from the enclosing Stage. Returns `{ morphRef }`, or `null` outside a Stage.",
     },
   ],
   "api-create-handle": [
@@ -764,6 +776,7 @@ export const generatedAttributes: Record<string, AttrRow[]> = {
   "api-use-trigger-context": [],
   "api-use-item-context": [],
   "api-use-media-context": [],
+  "api-use-stage-context": [],
   "api-create-handle": [],
   "api-zoom-ref": [],
 };
@@ -867,6 +880,7 @@ export const generatedCssVariables: Record<string, CssVarRow[]> = {
   "api-use-trigger-context": [],
   "api-use-item-context": [],
   "api-use-media-context": [],
+  "api-use-stage-context": [],
   "api-create-handle": [],
   "api-zoom-ref": [],
 };

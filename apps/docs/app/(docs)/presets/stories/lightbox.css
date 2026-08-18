@@ -109,11 +109,27 @@
   }
 }
 
-/* ── 9:16 frame (the view-timeline clip + perspective host) ─────────────── */
+/* ── 9:16 frame (Stage host sizes; inner frame is the morph target) ───── */
 
-.stl-frame {
+.stl-stage {
   align-self: stretch;
   width: 100%;
+  min-height: 0;
+}
+
+@media (min-width: 768px) {
+  .stl-stage {
+    align-self: center;
+    width: auto;
+    height: min(100% - 4rem, 52rem);
+    aspect-ratio: 9 / 16;
+    max-width: calc(100% - 8rem);
+  }
+}
+
+.stl-frame {
+  width: 100%;
+  height: 100%;
   min-height: 0;
   overflow: hidden;
   overflow: clip;
@@ -122,11 +138,6 @@
 
 @media (min-width: 768px) {
   .stl-frame {
-    align-self: center;
-    width: auto;
-    height: min(100% - 4rem, 52rem);
-    aspect-ratio: 9 / 16;
-    max-width: calc(100% - 8rem);
     border-radius: var(--stl-frame-radius);
   }
 }
@@ -229,43 +240,6 @@
   visibility: hidden;
 }
 
-/*
- * Pull: drop every other story instantly and let the active one leave the
- * scrollport. `display: none` (not visibility) collapses the track so
- * `overflow: visible` can reset scrollLeft without the card jumping to its
- * un-scrolled row position.
- */
-.stl-content:is([data-pulling], [data-pull-snapping], [data-pull-dismissing]) .stl-slide:not(:has([data-active])) {
-  display: none;
-}
-
-.stl-content:is([data-pulling], [data-pull-snapping], [data-pull-dismissing]) .stl-slides {
-  overflow: visible !important;
-}
-
-:root[data-ramka-view-transition] .stl-frame,
-.stl-content:is([data-pulling], [data-pull-snapping], [data-pull-dismissing]) .stl-frame {
-  overflow: visible;
-  background: transparent;
-  box-shadow: none;
-}
-
-.stl-content:is([data-pulling], [data-pull-snapping], [data-pull-dismissing]) .stl-card {
-  animation: none !important;
-}
-
-:root[data-ramka-view-transition] .stl-card,
-.stl-content:is([data-pulling], [data-pull-snapping], [data-pull-dismissing]) .stl-card {
-  border-radius: var(--stl-frame-radius);
-}
-
-@media (min-width: 768px) {
-  :root[data-ramka-view-transition] .stl-card,
-  .stl-content:is([data-pulling], [data-pull-snapping], [data-pull-dismissing]) .stl-card {
-    box-shadow: 0 0 0 0.5px var(--stl-frame-ring);
-  }
-}
-
 @keyframes stl-flip {
   /* Stay on the front face: 90deg is edge-on and Safari will show the back. */
   0% {
@@ -307,9 +281,8 @@
   flex-direction: column;
   padding: calc(0.625rem + env(safe-area-inset-top, 0px)) 0.75rem 0;
   background: linear-gradient(to bottom, rgb(0 0 0 / 0.45) 0%, rgb(0 0 0 / 0) 7.5rem);
-  transition:
-    opacity 200ms,
-    visibility 0s linear 0s;
+  transition: opacity var(--lightbox-pull-snap-duration, 200ms)
+    var(--lightbox-pull-snap-easing, var(--stl-ease-out));
 }
 
 .stl-progress {
@@ -416,9 +389,8 @@
 .stl-chrome-gesture-hide {
   opacity: 1;
   visibility: visible;
-  transition:
-    opacity 200ms,
-    visibility 0s linear 0s;
+  transition: opacity var(--lightbox-pull-snap-duration, 200ms)
+    var(--lightbox-pull-snap-easing, var(--stl-ease-out));
 }
 
 @starting-style {
@@ -427,13 +399,14 @@
   }
 }
 
-.stl-content:is([data-pulling], [data-pull-snapping], [data-pull-dismissing]) .stl-chrome-gesture-hide,
-.stl-content:is([data-pulling], [data-pull-snapping], [data-pull-dismissing]) .stl-hud {
+/* Hide while the finger is down or a dismiss is committed. Omit
+ * `data-pull-snapping` so release fades chrome back in on the snap spring
+ * (other presets do the same). */
+.stl-content:is([data-pulling], [data-pull-dismissing]) .stl-chrome-gesture-hide,
+.stl-content:is([data-pulling], [data-pull-dismissing]) .stl-hud {
   opacity: 0;
-  visibility: hidden;
-  transition:
-    opacity 200ms,
-    visibility 0s linear 200ms;
+  pointer-events: none;
+  transition: opacity 200ms;
 }
 
 /* ── Edge navigation (desktop) ──────────────────────────────────────────── */

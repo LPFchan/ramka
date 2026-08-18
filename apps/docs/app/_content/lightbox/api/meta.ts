@@ -120,7 +120,7 @@ export const lightboxApiMeta: ApiPartMeta[] = [
     id: 'api-stage',
     name: 'Stage',
     description:
-      'Optional media interaction surface inside Content. Scopes touch and trackpad wheel pull-to-dismiss, Zoom pan viewport geometry, arrow/Home/End gallery navigation, zoom shortcuts (⌘/+/-), and pinch/ctrl+wheel zoom to the media pane. Interactive controls inside Stage keep their press (Close, Prev/Next, etc.). Place side panels / threads as siblings of Stage under Content. When omitted, Content itself is the stage.',
+      'Optional media interaction surface inside Content. Scopes touch and trackpad wheel pull-to-dismiss, Zoom pan viewport geometry, arrow/Home/End gallery navigation, zoom shortcuts (⌘/+/-), and pinch/ctrl+wheel zoom to the media pane. Interactive controls inside Stage keep their press (Close, Prev/Next, etc.). Place side panels / threads as siblings of Stage under Content. When omitted, Content itself is the stage. Prefer render-prop children to attach morphRef when the open/close morph should capture this surface (or a descendant) instead of the active item.',
     extract: {
       kind: 'interface-props',
       typeName: 'LightboxStageProps',
@@ -444,6 +444,17 @@ export const hooksApiMeta: ApiPartMeta[] = [
       kind: 'hook-return',
       functionName: 'useOptionalLightboxMediaContext',
       file: 'lightbox-media.tsx',
+    },
+  },
+  {
+    id: 'api-use-stage-context',
+    name: 'useLightboxStageContext',
+    description:
+      'Optional context from the enclosing Stage. Use in nested wrappers to attach morphRef without threading the render prop — the shared View Transition capture destination.',
+    extract: {
+      kind: 'hook-return',
+      functionName: 'useOptionalLightboxStageContext',
+      file: 'lightbox-stage.tsx',
     },
   },
 ];

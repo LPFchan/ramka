@@ -117,12 +117,13 @@ Dialog surface (role="dialog", aria-modal). Provide an accessible name via aria-
 
 ### Stage
 
-Optional media interaction surface inside Content. Scopes touch and trackpad wheel pull-to-dismiss, Zoom pan viewport geometry, arrow/Home/End gallery navigation, zoom shortcuts (⌘/+/-), and pinch/ctrl+wheel zoom to the media pane. Interactive controls inside Stage keep their press (Close, Prev/Next, etc.). Place side panels / threads as siblings of Stage under Content. When omitted, Content itself is the stage.
+Optional media interaction surface inside Content. Scopes touch and trackpad wheel pull-to-dismiss, Zoom pan viewport geometry, arrow/Home/End gallery navigation, zoom shortcuts (⌘/+/-), and pinch/ctrl+wheel zoom to the media pane. Interactive controls inside Stage keep their press (Close, Prev/Next, etc.). Place side panels / threads as siblings of Stage under Content. When omitted, Content itself is the stage. Prefer render-prop children to attach morphRef when the open/close morph should capture this surface (or a descendant) instead of the active item.
 
 #### Props
 
 | Name | Type | Default | Description |
 | --- | --- | --- | --- |
+| children | `ReactNode \| ((state: LightboxStageRenderState) => ReactNode)` |  | Static children, or a render function that receives `morphRef`. Attach `morphRef` to morph the Stage surface (or a descendant) instead of the active item. |
 | render | `ReactElement \| ComponentRenderFn` |  | Allows you to replace the component's HTML element with a different tag, or compose it with another component. Accepts a `ReactElement` or a function that returns the element to render. |
 
 #### Data attributes
@@ -517,6 +518,16 @@ Optional context from the enclosing Media. Exposes the Media host element for ad
 | Name | Type | Default | Description |
 | --- | --- | --- | --- |
 | (return) | `LightboxMediaContextValue \| null` |  | — |
+
+### useLightboxStageContext
+
+Optional context from the enclosing Stage. Use in nested wrappers to attach morphRef without threading the render prop — the shared View Transition capture destination.
+
+#### Props
+
+| Name | Type | Default | Description |
+| --- | --- | --- | --- |
+| (return) | `LightboxStageRenderState \| null` |  | Optional context from the enclosing Stage. Returns `{ morphRef }`, or `null` outside a Stage. |
 
 ## Imperative handles
 

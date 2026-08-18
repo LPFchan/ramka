@@ -109,8 +109,22 @@ function Content({ className, ...props }: React.ComponentProps<typeof RamkaLight
   return <RamkaLightbox.Content className={cx('stl-content', className)} {...props} />;
 }
 
-function Stage({ className, ...props }: React.ComponentProps<typeof RamkaLightbox.Stage>) {
-  return <RamkaLightbox.Stage className={cx('stl-frame', className)} {...props} />;
+function Stage({
+  className,
+  children,
+  ...props
+}: Omit<React.ComponentProps<typeof RamkaLightbox.Stage>, 'children'> & {
+  children?: React.ReactNode;
+}) {
+  return (
+    <RamkaLightbox.Stage className={cx('stl-stage', className)} {...props}>
+      {({ morphRef }) => (
+        <div ref={morphRef} className="stl-frame">
+          {children}
+        </div>
+      )}
+    </RamkaLightbox.Stage>
+  );
 }
 
 function Close({ className, children, ...props }: React.ComponentProps<typeof RamkaLightbox.Close>) {
@@ -261,30 +275,27 @@ function Gallery({ items, ariaLabel }: { items: LightboxItem[]; ariaLabel: strin
             {items.map((item, i) => (
               <Slide key={item.id ?? i}>
                 <Item index={i}>
-                  {({ active, morphRef }) => (
-
-                      <Media
+                  {({ active }) => (
+                    <Media
+                      width={item.width}
+                      height={item.height}
+                      className="stl-card"
+                      style={{
+                        backgroundImage: `url(${item.poster})`,
+                        backgroundSize: 'cover',
+                        backgroundPosition: 'center',
+                      }}
+                    >
+                      <StoryVideo
+                        src={item.video}
+                        poster={item.poster}
+                        alt={item.alt}
                         width={item.width}
                         height={item.height}
-                        ref={morphRef}
-                        className="stl-card"
-                        style={{
-                          backgroundImage: `url(${item.poster})`,
-                          backgroundSize: 'cover',
-                          backgroundPosition: 'center',
-                        }}
-                      >
-                        <StoryVideo
-                          src={item.video}
-                          poster={item.poster}
-                          alt={item.alt}
-                          width={item.width}
-                          height={item.height}
-                          active={active}
-                        />
+                        active={active}
+                      />
                       <StoryHud item={item} index={i} total={items.length} />
-                      </Media>
-
+                    </Media>
                   )}
                 </Item>
               </Slide>
@@ -439,11 +450,27 @@ export const Lightbox = {
   }
 }
 
-/* ── 9:16 frame (the view-timeline clip + perspective host) ─────────────── */
+/* ── 9:16 frame (Stage host sizes; inner frame is the morph target) ───── */
 
-.stl-frame {
+.stl-stage {
   align-self: stretch;
   width: 100%;
+  min-height: 0;
+}
+
+@media (min-width: 768px) {
+  .stl-stage {
+    align-self: center;
+    width: auto;
+    height: min(100% - 4rem, 52rem);
+    aspect-ratio: 9 / 16;
+    max-width: calc(100% - 8rem);
+  }
+}
+
+.stl-frame {
+  width: 100%;
+  height: 100%;
   min-height: 0;
   overflow: hidden;
   overflow: clip;
@@ -452,11 +479,6 @@ export const Lightbox = {
 
 @media (min-width: 768px) {
   .stl-frame {
-    align-self: center;
-    width: auto;
-    height: min(100% - 4rem, 52rem);
-    aspect-ratio: 9 / 16;
-    max-width: calc(100% - 8rem);
     border-radius: var(--stl-frame-radius);
   }
 }
