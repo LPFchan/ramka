@@ -5010,19 +5010,31 @@ describe('Lightbox', () => {
                 pointerType: 'touch',
                 isPrimary: false,
               });
-              // Translate both fingers 60px right — distance stays 80.
-              dispatchPointer(img, 'pointermove', {
-                clientX: 220,
-                clientY: 200,
-                pointerId: 1,
-                pointerType: 'touch',
-              });
-              dispatchPointer(img, 'pointermove', {
-                clientX: 300,
-                clientY: 200,
-                pointerId: 2,
-                pointerType: 'touch',
-              });
+              // Interleaved 8px steps (real touch samples). A single 60px
+              // jump on one finger collapses the span and reads as a pinch.
+              for (const [x1, x2] of [
+                [168, 248],
+                [176, 256],
+                [184, 264],
+                [192, 272],
+                [200, 280],
+                [208, 288],
+                [216, 296],
+                [220, 300],
+              ] as const) {
+                dispatchPointer(img, 'pointermove', {
+                  clientX: x1,
+                  clientY: 200,
+                  pointerId: 1,
+                  pointerType: 'touch',
+                });
+                dispatchPointer(img, 'pointermove', {
+                  clientX: x2,
+                  clientY: 200,
+                  pointerId: 2,
+                  pointerType: 'touch',
+                });
+              }
             });
 
             expect(ref.current!.zoom).toBeCloseTo(2, 5);
