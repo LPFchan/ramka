@@ -99,6 +99,13 @@
   transition: opacity var(--lightbox-vt-duration, 360ms) var(--stl-ease-out);
 }
 
+@media (min-width: 768px) {
+  .stl-content {
+    gap: 0.75rem;
+    padding: 0 1rem;
+  }
+}
+
 .stl-content[data-open] {
   opacity: 1;
 }
@@ -114,6 +121,7 @@
 .stl-stage {
   align-self: stretch;
   width: 100%;
+  min-width: 0;
   min-height: 0;
 }
 
@@ -409,15 +417,14 @@
   transition: opacity 200ms;
 }
 
-/* ── Edge navigation (desktop) ──────────────────────────────────────────── */
+/* ── Stage-adjacent navigation (desktop) ───────────────────────────────── */
 
 .stl-nav {
-  position: absolute;
-  top: 50%;
   z-index: 1;
-  display: inline-flex;
+  display: none;
   width: 2.75rem;
   height: 2.75rem;
+  flex-shrink: 0;
   align-items: center;
   justify-content: center;
   border: 0;
@@ -426,7 +433,6 @@
   color: var(--stl-chrome-fg);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  transform: translateY(-50%);
   cursor: pointer;
   transition:
     background-color 150ms ease-out,
@@ -434,12 +440,18 @@
     transform 150ms ease-out;
 }
 
+@media (min-width: 768px) {
+  .stl-nav {
+    display: inline-flex;
+  }
+}
+
 .stl-nav:hover {
   background: var(--stl-chrome-bg-hover);
 }
 
 .stl-nav:active {
-  transform: translateY(-50%) scale(0.96);
+  transform: scale(0.96);
 }
 
 .stl-nav:focus {
@@ -457,27 +469,13 @@
 }
 
 .stl-nav:disabled:active {
-  transform: translateY(-50%);
+  transform: none;
 }
 
 .stl-nav svg {
   display: block;
   width: 1.25rem;
   height: 1.25rem;
-}
-
-.stl-nav-prev {
-  left: 1rem;
-}
-
-.stl-nav-next {
-  right: 1rem;
-}
-
-@media (max-width: 767px) {
-  .stl-nav {
-    display: none;
-  }
 }
 
 /* ── Counter (desktop only — mobile uses the HUD segments) ─────────────── */

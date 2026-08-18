@@ -263,6 +263,7 @@ function Gallery({ items, ariaLabel }: { items: LightboxItem[]; ariaLabel: strin
     <Portal>
       <Backdrop />
       <Content aria-label={ariaLabel}>
+        {multiple ? <Previous className="stl-chrome-gesture-hide" /> : null}
         <Stage>
           <Slides aria-label="Stories" preload={2}>
             {items.map((item, i) => (
@@ -295,10 +296,8 @@ function Gallery({ items, ariaLabel }: { items: LightboxItem[]; ariaLabel: strin
             ))}
           </Slides>
         </Stage>
-
         {multiple ? (
           <>
-            <Previous className="stl-chrome-gesture-hide" />
             <Next className="stl-chrome-gesture-hide" />
             <Counter className="stl-chrome-gesture-hide" />
           </>
