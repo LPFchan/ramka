@@ -8,7 +8,8 @@ import { LightboxDocumentDataAttributes } from './lightbox-data-attributes';
 // pick a preset via `viewTransition` on `Lightbox.Root`; the Root promotes the
 // preset's timing to `documentElement` (as `--lightbox-vt-*` vars + a preset
 // data attribute) so the composited morph, the stock CSS fallback, the
-// crossfade dissolve and the root snapshot fade all run the same clock.
+// crossfade dissolve (open ease-out / close ease-in, shorter complementary
+// window) and the root snapshot fade all run the same clock.
 // ---------------------------------------------------------------------------
 
 type EasingFn = (t: number) => number;
@@ -145,9 +146,17 @@ interface ViewTransitionTimingSpec {
   /**
    * CSS equivalent (or nearest bezier approximation for springs) for tracks
    * the composited morph does not drive: the stock `::view-transition-group`
-   * fallback and the trigger↔item crossfade dissolve.
+   * fallback and the *open* trigger↔item crossfade dissolve.
    */
   cssEasing: string;
+  /**
+   * Close snapshot dissolve. Not the morph ease-out (that reveals a
+   * stretched trigger in the first frames) and not its time-inverse (that
+   * holds the trigger until the size settle). Mild ease-in on a shorter
+   * complementary window so the mix finishes before the size settle without
+   * a see-through gap.
+   */
+  cssCrossfadeCloseEasing: string;
   /** CSS easing for the root snapshot fade (`::view-transition-old/new(root)`). */
   cssRootEasing: string;
   /** Human-readable timing summary for debug traces. */
@@ -157,19 +166,29 @@ interface ViewTransitionTimingSpec {
 /** easeOutExpo — the root fade wants a fast dissolve regardless of preset. */
 const ROOT_FADE_EASING = 'cubic-bezier(0.16, 1, 0.3, 1)';
 
+/**
+ * Close trigger↔item dissolve. Mild ease-in on a shorter complementary
+ * window (same duration on old and new — plus-lighter stays opaque).
+ */
+const CROSSFADE_CLOSE_EASING = 'cubic-bezier(0.5, 0, 1, 1)';
+
 const bezierSpec = (
   duration: number,
   x1: number,
   y1: number,
   x2: number,
   y2: number,
-): ViewTransitionTimingSpec => ({
-  duration,
-  ease: cubicBezierEasing(x1, y1, x2, y2),
-  cssEasing: `cubic-bezier(${x1}, ${y1}, ${x2}, ${y2})`,
-  cssRootEasing: ROOT_FADE_EASING,
-  label: `${duration}ms cubic-bezier(${x1},${y1},${x2},${y2})`,
-});
+): ViewTransitionTimingSpec => {
+  const cssEasing = `cubic-bezier(${x1}, ${y1}, ${x2}, ${y2})`;
+  return {
+    duration,
+    ease: cubicBezierEasing(x1, y1, x2, y2),
+    cssEasing,
+    cssCrossfadeCloseEasing: CROSSFADE_CLOSE_EASING,
+    cssRootEasing: ROOT_FADE_EASING,
+    label: `${duration}ms cubic-bezier(${x1},${y1},${x2},${y2})`,
+  };
+};
 
 /**
  * The curated timing presets. Every entry was A/B tested on-device (iPhone
@@ -196,6 +215,7 @@ const VIEW_TRANSITION_PRESETS: Record<LightboxViewTransitionPreset, ViewTransiti
     ease: protectedSpring(1, 0.22, 0.08),
     // Nearest bezier to the visible (post-wind-up) spring settle.
     cssEasing: 'cubic-bezier(0.22, 1, 0.36, 1)',
+    cssCrossfadeCloseEasing: CROSSFADE_CLOSE_EASING,
     cssRootEasing: ROOT_FADE_EASING,
     label: '450ms protected-spring(1,.22,.08)',
   },

@@ -1819,6 +1819,7 @@ describe('Lightbox', () => {
       document.documentElement.style.removeProperty('--lightbox-morph-new-opacity');
       document.documentElement.style.removeProperty('--lightbox-vt-duration');
       document.documentElement.style.removeProperty('--lightbox-vt-easing');
+      document.documentElement.style.removeProperty('--lightbox-vt-crossfade-close-easing');
       document.documentElement.style.removeProperty('--lightbox-vt-root-easing');
     }
 
@@ -1875,6 +1876,7 @@ describe('Lightbox', () => {
       expect(docStyle.getPropertyValue('--lightbox-morph-border-radius-to')).toBe('');
       expect(docStyle.getPropertyValue('--lightbox-vt-duration')).toBe('');
       expect(docStyle.getPropertyValue('--lightbox-vt-easing')).toBe('');
+      expect(docStyle.getPropertyValue('--lightbox-vt-crossfade-close-easing')).toBe('');
       expect(docStyle.getPropertyValue('--lightbox-vt-root-easing')).toBe('');
     });
 
@@ -1889,6 +1891,9 @@ describe('Lightbox', () => {
       expect(docEl.style.getPropertyValue('--lightbox-vt-easing')).toBe(
         'cubic-bezier(0.44, 0.58, 0, 1)',
       );
+      expect(docEl.style.getPropertyValue('--lightbox-vt-crossfade-close-easing')).toBe(
+        'cubic-bezier(0.5, 0, 1, 1)',
+      );
       expect(docEl.style.getPropertyValue('--lightbox-vt-root-easing')).toBe(
         'cubic-bezier(0.16, 1, 0.3, 1)',
       );
@@ -1897,6 +1902,7 @@ describe('Lightbox', () => {
       expect(docEl).not.toHaveAttribute('data-ramka-vt-preset');
       expect(docEl.style.getPropertyValue('--lightbox-vt-duration')).toBe('');
       expect(docEl.style.getPropertyValue('--lightbox-vt-easing')).toBe('');
+      expect(docEl.style.getPropertyValue('--lightbox-vt-crossfade-close-easing')).toBe('');
       expect(docEl.style.getPropertyValue('--lightbox-vt-root-easing')).toBe('');
     });
 

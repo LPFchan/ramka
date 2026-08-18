@@ -788,7 +788,7 @@ You write **zero** view-transition CSS: the library injects the structural `::vi
 - `data-ramka-view-transition` — `opening` | `closing`
 - `data-ramka-crossfade` — dissolve path (present when Trigger `crossfade` is active for this phase; absent for hard-cut)
 - `--lightbox-morph-border-radius-from/to`, `--lightbox-morph-old/new-opacity`
-- `data-ramka-vt-preset`, `--lightbox-vt-duration`, `--lightbox-vt-easing`, `--lightbox-vt-root-easing` — the active timing preset, written by the library (see [Timing presets](#timing-presets))
+- `data-ramka-vt-preset`, `--lightbox-vt-duration`, `--lightbox-vt-easing`, `--lightbox-vt-crossfade-close-easing`, `--lightbox-vt-root-easing` — the active timing preset, written by the library (see [Timing presets](#timing-presets))
 - [Trigger](docs/lightbox/api.md#api-trigger) `data-morph-target` / [Item](docs/lightbox/api.md#api-item) `data-skip-fade` — hide the live morph source and suppress entrance fades on the destination while the VT layer is up
 
 Motion splits into **timing** (a preset picked on Root — see below) and **structure** (injected by the library). Your CSS only handles cosmetics — and reads the library-written contract vars where it wants to stay in sync.
@@ -814,7 +814,7 @@ On first [Root](docs/lightbox/api.md#api-root) mount the library injects one sty
 
 - **Name isolation** — `startViewTransition` snapshots the whole document, so any page element with its own `view-transition-name` would paint *over* the lightbox. Every name is cleared while `data-ramka-view-transition` is set; the morph target re-applies its name inline with `!important` and stays the only captured group.
 - **Morph group** — clipping + border-radius interpolation (put radius on the morph target element; JS writes `--lightbox-morph-border-radius-from/to`), timed by the active preset.
-- **Snapshots** — hard-cut by default (`object-fit: cover`, no UA dissolve); when Trigger `crossfade` sets `data-ramka-crossfade`, the dissolve path (UA fade, `plus-lighter`, `object-fit: fill`) runs on the same preset clock.
+- **Snapshots** — hard-cut by default (`object-fit: cover`, no UA dissolve); when Trigger `crossfade` sets `data-ramka-crossfade`, the dissolve path (UA fade, `plus-lighter`, `object-fit: fill`) runs on the same preset clock. Open uses the morph ease-out so the destination appears promptly; close runs the same complementary dissolve on a shorter window so the item yields before the size settle (`plus-lighter` stays opaque).
 - **Root snapshot** — the page-behind crossfade, kept as a *single* root group (promoting Backdrop / Content into named groups tanks Safari). Fade scrim and chrome with live `opacity` transitions instead.
 - **Morph-target hide** — `[data-morph-target]` gets `opacity: 0` with a 200ms fade-back (disabled during the transition so it can't be captured mid-flight), so the live trigger never shows doubled under the morphing snapshot.
 - **Thumb-jump crossfade** — the element-scoped Slides transition started by ThumbnailStrip's `selectViewTransition`, tunable via `--lightbox-select-vt-duration/easing` on Slides.
@@ -1610,7 +1610,8 @@ While a view-transition morph runs, ramka sets attributes and CSS variables on <
 | `--lightbox-morph-old-opacity` |  | Opacity of the old morph snapshot on the hard-cut path (no document crossfade). |
 | `--lightbox-morph-new-opacity` |  | Opacity of the new morph snapshot on the hard-cut path (1 on open, 0 on close). |
 | `--lightbox-vt-duration` |  | Morph + root-snapshot duration from the Root's `viewTransition` timing preset. WRITTEN BY THE LIBRARY in two places — do not set it yourself: onto `documentElement` during a morph (read it in document-level `::view-transition-*` rules, e.g. `calc(var(--lightbox-vt-duration) * 0.5)` for a derived track), and always onto the Portal host, so skin open/close fades inside the portal can use the preset's clock even when no morph runs (non-VT browsers, reduced motion, low-end fallback), e.g. `transition: opacity var(--lightbox-vt-duration, 360ms) ease-out`. |
-| `--lightbox-vt-easing` |  | Easing for `::view-transition-group(lightbox-morph)` and the crossfade dissolve. Written by the library from the `viewTransition` preset, like `--lightbox-vt-duration` (during a morph on `documentElement`, always on the Portal host). |
+| `--lightbox-vt-easing` |  | Easing for `::view-transition-group(lightbox-morph)` and the *open* crossfade dissolve. Written by the library from the `viewTransition` preset, like `--lightbox-vt-duration` (during a morph on `documentElement`, always on the Portal host). Close dissolve uses `--lightbox-vt-crossfade-close-easing` (a shorter complementary fade, not the morph curve) so the item yields before the size settle. |
+| `--lightbox-vt-crossfade-close-easing` |  | Close trigger↔item snapshot dissolve, used while `data-ramka-view-transition="closing"` and `data-ramka-crossfade` are set. Mild ease-in on a shorter window that still runs old 1→0 and new 0→1 on the same clock (`plus-lighter` stays opaque). Written by the library onto `documentElement` during a morph — do not set it yourself. |
 | `--lightbox-vt-root-easing` |  | Easing for the root snapshot cross-fade (`::view-transition-old/new(root)`). Written by the library from the `viewTransition` preset, like `--lightbox-vt-duration` (during a morph on `documentElement`, always on the Portal host). A good default for skin backdrop/content fades. |
 
 ## Types

@@ -120,7 +120,7 @@ export function StoriesPresetDemo() {
     <div className="w-full max-w-xl">
       <Lightbox.Root
         loop
-        viewTransition="spring"
+        viewTransition="snappy"
         // Avatar is a different image from the 9:16 frame, so every trigger
         // crossfades — skip the decode wait so the dissolve starts immediately.
         awaitImageDecode={false}

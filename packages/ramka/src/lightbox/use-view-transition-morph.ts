@@ -450,9 +450,10 @@ export function resolveMorphBorderRadius(el: HTMLElement): string {
  * for this morph only: the preset name as `data-ramka-vt-preset` (read by the
  * composited morph) and its duration/easing as `--lightbox-vt-*` vars (read
  * by document-level `::view-transition-*` rules — the stock group fallback,
- * the crossfade dissolve and the root snapshot fade — which cannot inherit
- * from Content/Portal). Timing is preset-driven, not consumer CSS: arbitrary
- * curves teleport on iOS (see the preset table in vt-timing.ts).
+ * the crossfade dissolve (open curve + close complementary swap) and the root snapshot
+ * fade — which cannot inherit from Content/Portal). Timing is preset-driven,
+ * not consumer CSS: arbitrary curves teleport on iOS (see the preset table
+ * in vt-timing.ts).
  */
 function promoteVtMotionTokens(
   docEl: HTMLElement,
@@ -465,6 +466,10 @@ function promoteVtMotionTokens(
   );
   docEl.style.setProperty(LightboxDocumentCssVars.vtDuration, `${spec.duration}ms`);
   docEl.style.setProperty(LightboxDocumentCssVars.vtEasing, spec.cssEasing);
+  docEl.style.setProperty(
+    LightboxDocumentCssVars.vtCrossfadeCloseEasing,
+    spec.cssCrossfadeCloseEasing,
+  );
   docEl.style.setProperty(LightboxDocumentCssVars.vtRootEasing, spec.cssRootEasing);
 }
 
@@ -684,6 +689,7 @@ function clearMorphState(docEl: HTMLElement, owner: number) {
   docEl.style.removeProperty(LightboxDocumentCssVars.morphBorderRadiusTo);
   docEl.style.removeProperty(LightboxDocumentCssVars.vtDuration);
   docEl.style.removeProperty(LightboxDocumentCssVars.vtEasing);
+  docEl.style.removeProperty(LightboxDocumentCssVars.vtCrossfadeCloseEasing);
   docEl.style.removeProperty(LightboxDocumentCssVars.vtRootEasing);
 }
 

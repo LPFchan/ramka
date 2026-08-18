@@ -40,6 +40,7 @@ describe('vt-timing', () => {
         expect(mid).toBeLessThan(1.2);
         expect(spec.duration).toBeGreaterThan(0);
         expect(spec.cssEasing).toMatch(/^cubic-bezier\(/);
+        expect(spec.cssCrossfadeCloseEasing).toBe('cubic-bezier(0.5, 0, 1, 1)');
       }
     });
   });

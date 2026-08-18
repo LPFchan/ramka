@@ -90,13 +90,24 @@ export enum LightboxDocumentCssVars {
    */
   vtDuration = '--lightbox-vt-duration',
   /**
-   * Easing for `::view-transition-group(lightbox-morph)` and the crossfade
-   * dissolve. Written by the library from the `viewTransition` preset, like
-   * `--lightbox-vt-duration` (during a morph on `documentElement`, always on
-   * the Portal host).
+   * Easing for `::view-transition-group(lightbox-morph)` and the *open*
+   * crossfade dissolve. Written by the library from the `viewTransition`
+   * preset, like `--lightbox-vt-duration` (during a morph on
+   * `documentElement`, always on the Portal host). Close dissolve uses
+   * `--lightbox-vt-crossfade-close-easing` (a shorter complementary fade,
+   * not the morph curve) so the item yields before the size settle.
    * @type string
    */
   vtEasing = '--lightbox-vt-easing',
+  /**
+   * Close trigger↔item snapshot dissolve, used while
+   * `data-ramka-view-transition="closing"` and `data-ramka-crossfade` are set.
+   * Mild ease-in on a shorter window that still runs old 1→0 and new 0→1 on
+   * the same clock (`plus-lighter` stays opaque). Written by the library onto
+   * `documentElement` during a morph — do not set it yourself.
+   * @type string
+   */
+  vtCrossfadeCloseEasing = '--lightbox-vt-crossfade-close-easing',
   /**
    * Easing for the root snapshot cross-fade
    * (`::view-transition-old/new(root)`). Written by the library from the
