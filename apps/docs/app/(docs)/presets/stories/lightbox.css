@@ -24,6 +24,7 @@
   --stl-frame-ring: rgb(0 0 0 / 0.12);
   --stl-frame-radius: 1.75rem;
   --stl-card-radius: 8px;
+  --stl-stage-bg: #fff;
 }
 
 :is(.dark, [data-theme='dark']) .stl-portal {
@@ -34,6 +35,7 @@
   --stl-chrome-fg: rgb(255 255 255 / 0.9);
   --stl-chrome-fg-muted: rgb(255 255 255 / 0.72);
   --stl-frame-ring: rgb(255 255 255 / 0.12);
+  --stl-stage-bg: #000;
 }
 
 /* ── Trigger (circular avatar) ──────────────────────────────────────────── */
@@ -154,6 +156,12 @@
 /* Shell chrome only after the open morph — not in the VT snapshot. */
 .stl-content[data-open] .stl-frame {
   background: #000;
+}
+
+@media (max-width: 767px) {
+  .stl-content[data-open] .stl-frame {
+    background: var(--stl-stage-bg);
+  }
 }
 
 @media (min-width: 768px) {
