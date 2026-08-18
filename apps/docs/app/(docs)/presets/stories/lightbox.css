@@ -23,6 +23,7 @@
   --stl-chrome-fg-muted: rgb(0 0 0 / 0.55);
   --stl-frame-ring: rgb(0 0 0 / 0.12);
   --stl-frame-radius: 1.75rem;
+  --stl-card-radius: 8px;
 }
 
 :is(.dark, [data-theme='dark']) .stl-portal {
@@ -188,15 +189,10 @@
   overflow: hidden;
   overflow: clip;
   background: #0a0a0a;
-  border-radius: var(--stl-frame-radius);
+  border-radius: var(--stl-card-radius);
   transform-origin: center center;
   -webkit-backface-visibility: hidden;
   backface-visibility: hidden;
-}
-
-/* At rest the frame clips — drop the card radius so it isn’t double-rounded. */
-.stl-content[data-open] .stl-card {
-  border-radius: 0;
 }
 
 .stl-media {
