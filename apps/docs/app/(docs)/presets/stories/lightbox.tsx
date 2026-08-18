@@ -265,7 +265,7 @@ function Gallery({ items, ariaLabel }: { items: LightboxItem[]; ariaLabel: strin
       <Content aria-label={ariaLabel}>
         {multiple ? <Previous className="stl-chrome-gesture-hide" /> : null}
         <Stage>
-          <Slides aria-label="Stories" preload={2}>
+          <Slides aria-label="Stories" preload={1}>
             {items.map((item, i) => (
               <Slide key={item.id ?? i}>
                 <Item index={i}>
