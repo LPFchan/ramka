@@ -6,9 +6,9 @@ import { Lightbox, type LightboxItem } from './lightbox';
  * App-level demo — not part of the copy-paste package.
  *
  * A horizontally scrolling story tray. Each circle is a `Lightbox.Trigger`
- * showing the video poster (`object-cover`). `crossfade="both"`: the circle
- * is not the 9:16 frame, so a geometry morph would look wrong. Closing from
- * a story whose trigger has scrolled off-screen recenters it for the close.
+ * showing the author’s portrait. `crossfade="both"`: the face is not the
+ * 9:16 frame, so a geometry morph would look wrong. Closing from a story
+ * whose trigger has scrolled off-screen recenters it for the close.
  */
 
 function mixkit(id: number): string {
@@ -20,12 +20,16 @@ function mixkitPoster(id: number): string {
   return `https://assets.mixkit.co/videos/${id}/${id}-thumb-720-0.jpg`;
 }
 
+function portrait(gender: 'women' | 'men', n: number): string {
+  return `https://randomuser.me/api/portraits/${gender}/${n}.jpg`;
+}
+
 const stories: LightboxItem[] = [
   {
     id: 'maya',
     name: 'Maya',
     time: '2h',
-    avatar: 'https://i.pravatar.cc/128?u=story-maya',
+    avatar: portrait('women', 44),
     poster: mixkitPoster(40065),
     video: mixkit(40065),
     alt: 'Maya’s story',
@@ -36,7 +40,7 @@ const stories: LightboxItem[] = [
     id: 'julian',
     name: 'Julian',
     time: '5h',
-    avatar: 'https://i.pravatar.cc/128?u=story-julian',
+    avatar: portrait('men', 32),
     poster: mixkitPoster(43000),
     video: mixkit(43000),
     alt: 'Julian’s story',
@@ -47,7 +51,7 @@ const stories: LightboxItem[] = [
     id: 'noor',
     name: 'Noor',
     time: '8h',
-    avatar: 'https://i.pravatar.cc/128?u=story-noor',
+    avatar: portrait('women', 68),
     poster: mixkitPoster(43785),
     video: mixkit(43785),
     alt: 'Noor’s story',
@@ -58,7 +62,7 @@ const stories: LightboxItem[] = [
     id: 'eli',
     name: 'Eli',
     time: '12h',
-    avatar: 'https://i.pravatar.cc/128?u=story-eli',
+    avatar: portrait('men', 75),
     poster: mixkitPoster(40064),
     video: mixkit(40064),
     alt: 'Eli’s story',
@@ -69,7 +73,7 @@ const stories: LightboxItem[] = [
     id: 'sam',
     name: 'Sam',
     time: '1d',
-    avatar: 'https://i.pravatar.cc/128?u=story-sam',
+    avatar: portrait('men', 22),
     poster: mixkitPoster(44852),
     video: mixkit(44852),
     alt: 'Sam’s story',
@@ -80,7 +84,7 @@ const stories: LightboxItem[] = [
     id: 'priya',
     name: 'Priya',
     time: '1d',
-    avatar: 'https://i.pravatar.cc/128?u=story-priya',
+    avatar: portrait('women', 21),
     poster: mixkitPoster(50000),
     video: mixkit(50000),
     alt: 'Priya’s story',
@@ -91,7 +95,7 @@ const stories: LightboxItem[] = [
     id: 'tomas',
     name: 'Tomás',
     time: '2d',
-    avatar: 'https://i.pravatar.cc/128?u=story-tomas',
+    avatar: portrait('men', 11),
     poster: mixkitPoster(44600),
     video: mixkit(44600),
     alt: 'Tomás’s story',
@@ -102,7 +106,7 @@ const stories: LightboxItem[] = [
     id: 'aisha',
     name: 'Aisha',
     time: '2d',
-    avatar: 'https://i.pravatar.cc/128?u=story-aisha',
+    avatar: portrait('women', 17),
     poster: mixkitPoster(40066),
     video: mixkit(40066),
     alt: 'Aisha’s story',
@@ -117,7 +121,7 @@ export function StoriesPresetDemo() {
       <Lightbox.Root
         loop
         viewTransition="spring"
-        // Poster is a cover-crop of the 9:16 frame, so every trigger
+        // Avatar is a different image from the 9:16 frame, so every trigger
         // crossfades — skip the decode wait so the dissolve starts immediately.
         awaitImageDecode={false}
         // Avatar tray is a horizontal scroller: recenter the active circle
@@ -138,11 +142,11 @@ export function StoriesPresetDemo() {
               key={story.id}
               className="flex w-16 shrink-0 snap-center scroll-mx-4 flex-col items-center gap-1.5"
             >
-              <Lightbox.Trigger index={i} aria-label={`${story.name}’s story`}>
+              <Lightbox.Trigger index={i} aria-label={`${story.name}’s story`} crossfade="both">
                 {({ imageRef }) => (
                   <img
                     ref={imageRef}
-                    src={story.poster}
+                    src={story.avatar}
                     alt=""
                     width={56}
                     height={56}

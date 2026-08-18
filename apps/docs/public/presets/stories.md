@@ -581,43 +581,6 @@ export const Lightbox = {
   visibility: hidden;
 }
 
-/*
- * Pull: drop every other story instantly and let the active one leave the
- * scrollport. `display: none` (not visibility) collapses the track so
- * `overflow: visible` can reset scrollLeft without the card jumping to its
- * un-scrolled row position.
- */
-.stl-content:is([data-pulling], [data-pull-snapping], [data-pull-dismissing]) .stl-slide:not(:has([data-active])) {
-  display: none;
-}
-
-.stl-content:is([data-pulling], [data-pull-snapping], [data-pull-dismissing]) .stl-slides {
-  overflow: visible !important;
-}
-
-:root[data-ramka-view-transition] .stl-frame,
-.stl-content:is([data-pulling], [data-pull-snapping], [data-pull-dismissing]) .stl-frame {
-  overflow: visible;
-  background: transparent;
-  box-shadow: none;
-}
-
-.stl-content:is([data-pulling], [data-pull-snapping], [data-pull-dismissing]) .stl-card {
-  animation: none !important;
-}
-
-:root[data-ramka-view-transition] .stl-card,
-.stl-content:is([data-pulling], [data-pull-snapping], [data-pull-dismissing]) .stl-card {
-  border-radius: var(--stl-frame-radius);
-}
-
-@media (min-width: 768px) {
-  :root[data-ramka-view-transition] .stl-card,
-  .stl-content:is([data-pulling], [data-pull-snapping], [data-pull-dismissing]) .stl-card {
-    box-shadow: 0 0 0 0.5px var(--stl-frame-ring);
-  }
-}
-
 @keyframes stl-flip {
   /* Stay on the front face: 90deg is edge-on and Safari will show the back. */
   0% {
@@ -659,9 +622,8 @@ export const Lightbox = {
   flex-direction: column;
   padding: calc(0.625rem + env(safe-area-inset-top, 0px)) 0.75rem 0;
   background: linear-gradient(to bottom, rgb(0 0 0 / 0.45) 0%, rgb(0 0 0 / 0) 7.5rem);
-  transition:
-    opacity 200ms,
-    visibility 0s linear 0s;
+  transition: opacity var(--lightbox-pull-snap-duration, 200ms)
+    var(--lightbox-pull-snap-easing, var(--stl-ease-out));
 }
 
 .stl-progress {
@@ -768,9 +730,8 @@ export const Lightbox = {
 .stl-chrome-gesture-hide {
   opacity: 1;
   visibility: visible;
-  transition:
-    opacity 200ms,
-    visibility 0s linear 0s;
+  transition: opacity var(--lightbox-pull-snap-duration, 200ms)
+    var(--lightbox-pull-snap-easing, var(--stl-ease-out));
 }
 
 @starting-style {
@@ -779,13 +740,14 @@ export const Lightbox = {
   }
 }
 
-.stl-content:is([data-pulling], [data-pull-snapping], [data-pull-dismissing]) .stl-chrome-gesture-hide,
-.stl-content:is([data-pulling], [data-pull-snapping], [data-pull-dismissing]) .stl-hud {
+/* Hide while the finger is down or a dismiss is committed. Omit
+ * `data-pull-snapping` so release fades chrome back in on the snap spring
+ * (other presets do the same). */
+.stl-content:is([data-pulling], [data-pull-dismissing]) .stl-chrome-gesture-hide,
+.stl-content:is([data-pulling], [data-pull-dismissing]) .stl-hud {
   opacity: 0;
-  visibility: hidden;
-  transition:
-    opacity 200ms,
-    visibility 0s linear 200ms;
+  pointer-events: none;
+  transition: opacity 200ms;
 }
 
 /* ── Edge navigation (desktop) ──────────────────────────────────────────── */
@@ -897,9 +859,9 @@ import { Lightbox, type LightboxItem } from './lightbox';
  * App-level demo — not part of the copy-paste package.
  *
  * A horizontally scrolling story tray. Each circle is a `Lightbox.Trigger`
- * showing the video poster (`object-cover`). `crossfade="both"`: the circle
- * is not the 9:16 frame, so a geometry morph would look wrong. Closing from
- * a story whose trigger has scrolled off-screen recenters it for the close.
+ * showing the author’s portrait. `crossfade="both"`: the face is not the
+ * 9:16 frame, so a geometry morph would look wrong. Closing from a story
+ * whose trigger has scrolled off-screen recenters it for the close.
  */
 
 function mixkit(id: number): string {
@@ -911,12 +873,16 @@ function mixkitPoster(id: number): string {
   return `https://assets.mixkit.co/videos/${id}/${id}-thumb-720-0.jpg`;
 }
 
+function portrait(gender: 'women' | 'men', n: number): string {
+  return `https://randomuser.me/api/portraits/${gender}/${n}.jpg`;
+}
+
 const stories: LightboxItem[] = [
   {
     id: 'maya',
     name: 'Maya',
     time: '2h',
-    avatar: 'https://i.pravatar.cc/128?u=story-maya',
+    avatar: portrait('women', 44),
     poster: mixkitPoster(40065),
     video: mixkit(40065),
     alt: 'Maya’s story',
@@ -927,7 +893,7 @@ const stories: LightboxItem[] = [
     id: 'julian',
     name: 'Julian',
     time: '5h',
-    avatar: 'https://i.pravatar.cc/128?u=story-julian',
+    avatar: portrait('men', 32),
     poster: mixkitPoster(43000),
     video: mixkit(43000),
     alt: 'Julian’s story',
@@ -938,7 +904,7 @@ const stories: LightboxItem[] = [
     id: 'noor',
     name: 'Noor',
     time: '8h',
-    avatar: 'https://i.pravatar.cc/128?u=story-noor',
+    avatar: portrait('women', 68),
     poster: mixkitPoster(43785),
     video: mixkit(43785),
     alt: 'Noor’s story',
@@ -949,7 +915,7 @@ const stories: LightboxItem[] = [
     id: 'eli',
     name: 'Eli',
     time: '12h',
-    avatar: 'https://i.pravatar.cc/128?u=story-eli',
+    avatar: portrait('men', 75),
     poster: mixkitPoster(40064),
     video: mixkit(40064),
     alt: 'Eli’s story',
@@ -960,7 +926,7 @@ const stories: LightboxItem[] = [
     id: 'sam',
     name: 'Sam',
     time: '1d',
-    avatar: 'https://i.pravatar.cc/128?u=story-sam',
+    avatar: portrait('men', 22),
     poster: mixkitPoster(44852),
     video: mixkit(44852),
     alt: 'Sam’s story',
@@ -971,7 +937,7 @@ const stories: LightboxItem[] = [
     id: 'priya',
     name: 'Priya',
     time: '1d',
-    avatar: 'https://i.pravatar.cc/128?u=story-priya',
+    avatar: portrait('women', 21),
     poster: mixkitPoster(50000),
     video: mixkit(50000),
     alt: 'Priya’s story',
@@ -982,7 +948,7 @@ const stories: LightboxItem[] = [
     id: 'tomas',
     name: 'Tomás',
     time: '2d',
-    avatar: 'https://i.pravatar.cc/128?u=story-tomas',
+    avatar: portrait('men', 11),
     poster: mixkitPoster(44600),
     video: mixkit(44600),
     alt: 'Tomás’s story',
@@ -993,7 +959,7 @@ const stories: LightboxItem[] = [
     id: 'aisha',
     name: 'Aisha',
     time: '2d',
-    avatar: 'https://i.pravatar.cc/128?u=story-aisha',
+    avatar: portrait('women', 17),
     poster: mixkitPoster(40066),
     video: mixkit(40066),
     alt: 'Aisha’s story',
@@ -1008,7 +974,7 @@ export function StoriesPresetDemo() {
       <Lightbox.Root
         loop
         viewTransition="spring"
-        // Poster is a cover-crop of the 9:16 frame, so every trigger
+        // Avatar is a different image from the 9:16 frame, so every trigger
         // crossfades — skip the decode wait so the dissolve starts immediately.
         awaitImageDecode={false}
         // Avatar tray is a horizontal scroller: recenter the active circle
@@ -1029,11 +995,11 @@ export function StoriesPresetDemo() {
               key={story.id}
               className="flex w-16 shrink-0 snap-center scroll-mx-4 flex-col items-center gap-1.5"
             >
-              <Lightbox.Trigger index={i} aria-label={`${story.name}’s story`}>
+              <Lightbox.Trigger index={i} aria-label={`${story.name}’s story`} crossfade="both">
                 {({ imageRef }) => (
                   <img
                     ref={imageRef}
-                    src={story.poster}
+                    src={story.avatar}
                     alt=""
                     width={56}
                     height={56}
