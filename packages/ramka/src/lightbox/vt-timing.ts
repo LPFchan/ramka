@@ -151,8 +151,8 @@ interface ViewTransitionTimingSpec {
   cssEasing: string;
   /**
    * Close snapshot dissolve. Not the morph ease-out (that reveals a
-   * stretched trigger in the first frames) and not its time-inverse (that
-   * holds the trigger until the size settle). Mild ease-in on a shorter
+   * stretched trigger in the first frames) and not a strong ease-in (that
+   * holds the item through the shrink). Modest ease-out on a shorter
    * complementary window so the mix finishes before the size settle without
    * a see-through gap.
    */
@@ -167,10 +167,10 @@ interface ViewTransitionTimingSpec {
 const ROOT_FADE_EASING = 'cubic-bezier(0.16, 1, 0.3, 1)';
 
 /**
- * Close trigger↔item dissolve. Mild ease-in on a shorter complementary
+ * Close trigger↔item dissolve. Modest ease-out on a shorter complementary
  * window (same duration on old and new — plus-lighter stays opaque).
  */
-const CROSSFADE_CLOSE_EASING = 'cubic-bezier(0.5, 0, 1, 1)';
+const CROSSFADE_CLOSE_EASING = 'cubic-bezier(0.22, 0, 0.35, 1)';
 
 const bezierSpec = (
   duration: number,

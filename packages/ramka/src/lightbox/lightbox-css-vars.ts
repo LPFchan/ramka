@@ -102,7 +102,7 @@ export enum LightboxDocumentCssVars {
   /**
    * Close trigger↔item snapshot dissolve, used while
    * `data-ramka-view-transition="closing"` and `data-ramka-crossfade` are set.
-   * Mild ease-in on a shorter window that still runs old 1→0 and new 0→1 on
+   * Modest ease-out on a shorter window that still runs old 1→0 and new 0→1 on
    * the same clock (`plus-lighter` stays opaque). Written by the library onto
    * `documentElement` during a morph — do not set it yourself.
    * @type string

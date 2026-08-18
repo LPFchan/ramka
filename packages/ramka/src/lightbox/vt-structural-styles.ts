@@ -44,7 +44,7 @@ function buildCss(): string {
   // both holds old at 0 / new at 1 so a dissimilar trigger (avatar, +N
   // overlay) does not ghost through the size settle. Same clock on both
   // snapshots — plus-lighter stays opaque.
-  const dissolveDuration = `calc(${duration} * 0.62)`;
+  const dissolveDuration = `calc(${duration} * 0.48)`;
 
   return `
 /* Isolate the lightbox morph from the rest of the page. startViewTransition
@@ -125,11 +125,12 @@ function buildCss(): string {
      the preset vars so the dissolve runs on the morph's clock (the UA
      default would end at 250ms, mid-morph). Open uses the morph ease-out so
      the destination appears promptly while the group grows; close uses a
-     milder ease-in. Both phases share one complementary 1→0 / 0→1 pair on
-     a shorter window so the outgoing snapshot is gone before the size
-     settle (a face or +N overlay must not ghost until t=1). Do not delay
-     one snapshot relative to the other — that leaves a window where
-     opacities no longer sum to 1.
+     modest ease-out (not the morph curve — that flashes a stretched trigger
+     in the first frames, and a strong ease-in holds the item too long).
+     Both phases share one complementary 1→0 / 0→1 pair on a shorter window
+     so the outgoing snapshot is gone before the size settle (a face or +N
+     overlay must not ghost until t=1). Do not delay one snapshot relative
+     to the other — that leaves a window where opacities no longer sum to 1.
 
      Fill-mode both: the UA fades run with fill none, so a finished fade
      snaps the old snapshot back to its base opacity of 1 — and the

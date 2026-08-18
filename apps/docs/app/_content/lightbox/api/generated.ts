@@ -874,7 +874,7 @@ export const generatedCssVariables: Record<string, CssVarRow[]> = {
     },
     {
       name: "--lightbox-vt-crossfade-close-easing",
-      description: "Close trigger↔item snapshot dissolve, used while `data-ramka-view-transition=\"closing\"` and `data-ramka-crossfade` are set. Mild ease-in on a shorter window that still runs old 1→0 and new 0→1 on the same clock (`plus-lighter` stays opaque). Written by the library onto `documentElement` during a morph — do not set it yourself.",
+      description: "Close trigger↔item snapshot dissolve, used while `data-ramka-view-transition=\"closing\"` and `data-ramka-crossfade` are set. Modest ease-out on a shorter window that still runs old 1→0 and new 0→1 on the same clock (`plus-lighter` stays opaque). Written by the library onto `documentElement` during a morph — do not set it yourself.",
     },
     {
       name: "--lightbox-vt-root-easing",

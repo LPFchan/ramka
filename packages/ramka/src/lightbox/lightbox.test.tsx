@@ -1892,7 +1892,7 @@ describe('Lightbox', () => {
         'cubic-bezier(0.44, 0.58, 0, 1)',
       );
       expect(docEl.style.getPropertyValue('--lightbox-vt-crossfade-close-easing')).toBe(
-        'cubic-bezier(0.5, 0, 1, 1)',
+        'cubic-bezier(0.22, 0, 0.35, 1)',
       );
       expect(docEl.style.getPropertyValue('--lightbox-vt-root-easing')).toBe(
         'cubic-bezier(0.16, 1, 0.3, 1)',
