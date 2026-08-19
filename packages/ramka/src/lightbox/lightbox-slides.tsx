@@ -28,9 +28,11 @@ import { useLightboxZoomPublish } from './lightbox-zoom-context';
  *   content-sized (snug around media) as long as snap offsets are measurable.
  *
  * Index sync uses **offset geometry** (`offsetLeft` / `offsetWidth`) — reliable
- * inside a `<dialog>`/portal on mobile Safari, unlike `getBoundingClientRect`:
+ * inside a `<dialog>`/portal on mobile Safari, unlike `getBoundingClientRect`.
+ * The scroller is `position: relative` so it is the slides' `offsetParent`;
+ * measurements also subtract a shared ancestor inset when it is not:
  *
- *   offsets[i] = offsetLeft(slideᵢ) + widthᵢ/2 − clientWidth/2
+ *   offsets[i] = leftInScroller(slideᵢ) + widthᵢ/2 − clientWidth/2
  *   index      = nearest offsets[i] to scrollLeft
  *   (uniform full-bleed tracks still use the O(1) round((scrollLeft−base)/step) path)
  *
@@ -240,7 +242,9 @@ const LightboxSlides = React.forwardRef<HTMLDivElement, LightboxSlidesProps>(
           0,
           max > 0 ? max : 0,
         );
-        if (Math.abs(viewport.scrollLeft - target) < 1) return;
+        if (Math.abs(viewport.scrollLeft - target) < 1) {
+          return;
+        }
 
         programmaticRef.current = true;
         jumpTargetRef.current = target;
@@ -346,7 +350,8 @@ const LightboxSlides = React.forwardRef<HTMLDivElement, LightboxSlidesProps>(
     React.useLayoutEffect(() => {
       const viewport = viewportRef.current;
       if (!viewport) return;
-      if (indexFromScroll(viewport) === activeIndex) return;
+      const derived = indexFromScroll(viewport);
+      if (derived === activeIndex) return;
       scrollToIndex(activeIndex);
     }, [activeIndex, indexFromScroll, scrollToIndex]);
 
@@ -378,7 +383,9 @@ const LightboxSlides = React.forwardRef<HTMLDivElement, LightboxSlidesProps>(
         navigationLockedRef.current = false;
         programmaticRef.current = false;
         // Resize re-snap owns the marker — don't adopt a stale mid-layout index.
-        if (resizingRef.current) return;
+        if (resizingRef.current) {
+          return;
+        }
         const derived = indexFromScroll(viewport);
         if (derived !== activeIndexRef.current) setActiveIndex(derived, 'scroll');
       };
@@ -596,6 +603,10 @@ const LightboxSlides = React.forwardRef<HTMLDivElement, LightboxSlidesProps>(
                 // our active-index pin (Chromium carousel footguns do the same).
                 overflowAnchor: 'none',
                 ...style,
+                // Containing block for slides so `offsetLeft` is scroller-relative
+                // (a static scroller inside a positioned dialog otherwise inherits
+                // the dialog inset and lags the active index — see geometry).
+                position: 'relative',
                 // Size container so snug stage/snap CSS can use cqw/cqh against
                 // this scrollport (consumer styles; not a new prop).
                 containerType: 'size',

@@ -1,6 +1,7 @@
 import { VIEW_TRANSITION_NAME } from './vt-constants';
 import { LightboxDocumentCssVars } from './lightbox-css-vars';
 import { LightboxDocumentDataAttributes } from './lightbox-data-attributes';
+import { compensatedMorphRadiusAt, parseMorphRadiusList } from './vt-morph-radius';
 import { morphTiming } from './vt-timing';
 
 // ---------------------------------------------------------------------------
@@ -30,10 +31,13 @@ import { morphTiming } from './vt-timing';
 //      aspect ratio — reproducing `object-fit: cover` against the animated
 //      box with zero distortion. Keyframes are sampled numerically (the
 //      counter track needs 1/s(t), which no easing function expresses).
-//   4. Re-express the border-radius animation with per-axis compensated
-//      elliptical radii so corners render round under the non-uniform group
-//      scale. This track still animates a paint property; under jank the
-//      corners may lag, but geometry no longer depends on the main thread.
+//   4. Re-express the border-radius animation as size-relative roundness
+//      (r / min(w, h)), then per-axis compensated elliptical radii so
+//      corners render round under the non-uniform group scale. Absolute-px
+//      lerp would freeze a 28px stage radius into a 28px circle destination
+//      as a rounded rect the whole way. This track still animates a paint
+//      property; under jank the corners may lag, but geometry no longer
+//      depends on the main thread.
 //
 // Crossfade morphs (Trigger `crossfade`) get steps 1, 2 and 4 only. Their
 // snapshot contract is `width/height: 100%` + `object-fit: fill` against the
@@ -257,21 +261,6 @@ function parsePx(value: unknown): number | null {
 // Easing math and timing presets live in vt-timing.ts (shared with the Root,
 // which promotes the active preset's timing to documentElement).
 
-/**
- * Parse a morph radius var (`12px`, `16px 16px 160px 160px`, or empty) into
- * four per-corner px values [tl, tr, br, bl]. The vars are written by
- * `resolveMorphBorderRadius`, which already serializes plain px lists.
- */
-function parseRadiusList(value: string): [number, number, number, number] {
-  const tokens = value
-    .trim()
-    .split(/\s+/)
-    .map((t) => Number.parseFloat(t))
-    .filter((n) => Number.isFinite(n) && n >= 0);
-  const [a = 0, b = a, c = a, d = b] = tokens;
-  return [a, b, c, d];
-}
-
 const fmt = (n: number) => Number(n.toFixed(4));
 
 // ---------------------------------------------------------------------------
@@ -458,10 +447,10 @@ function upgrade(transition: UpgradeableTransition): void {
   }
 
   const rootStyle = getComputedStyle(docEl);
-  const rFrom = parseRadiusList(
+  const rFrom = parseMorphRadiusList(
     rootStyle.getPropertyValue(LightboxDocumentCssVars.morphBorderRadiusFrom),
   );
-  const rTo = parseRadiusList(
+  const rTo = parseMorphRadiusList(
     rootStyle.getPropertyValue(LightboxDocumentCssVars.morphBorderRadiusTo),
   );
   const hasRadius = [...rFrom, ...rTo].some((r) => r > 0);
@@ -493,14 +482,11 @@ function upgrade(transition: UpgradeableTransition): void {
     const left = tx + fx * w * (1 - sxm);
     const top = ty + fy * h * (1 - sym);
 
-    // Radius r(q) lives in the UA box's coordinate space; our frozen box is
-    // (w1, h1) scaled by (renderedW/w1, renderedH/h1), so the local radius
-    // that renders identically is r·w1/w (H) and r·h1/h (V).
+    // Roundness in UA-box space, then elliptical rx/ry on the frozen
+    // destination box so non-uniform scale still renders circular arcs.
     let radius: string | null = null;
     if (hasRadius) {
-      const rH = rFrom.map((r, c) => fmt((lerp(r, rTo[c]!, q) * w1) / w));
-      const rV = rFrom.map((r, c) => fmt((lerp(r, rTo[c]!, q) * h1) / h));
-      radius = `${rH.map((r) => `${r}px`).join(' ')} / ${rV.map((r) => `${r}px`).join(' ')}`;
+      radius = compensatedMorphRadiusAt(rFrom, rTo, q, { w0, h0, w, h, w1, h1 });
     }
 
     // Counter-transform per snapshot: `object-fit: cover` fits the intrinsic

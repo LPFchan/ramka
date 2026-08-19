@@ -78,7 +78,9 @@
  *   Content         — Modal overlay (div-based) + keyboard navigation
  *   Backdrop        — Optional visible scrim, closes on click, animated by pull-to-dismiss
  *   Close           — Closes the lightbox
- *   Stage           — Optional media interaction surface (pull / pan / arrow scope)
+ *   Stage           — Optional media interaction surface (pull / pan / arrow scope).
+ *                     Render-function `morphRef` opts the surface (or a
+ *                     descendant) in as the shared VT capture destination.
  *   Slides/Slide    — Horizontal snap carousel; preload-gates Item contents
  *   Item            — Individual media item with lazy-load support. Its render
  *                     function exposes `imageRef` / `morphRef` (escape hatches;
@@ -122,7 +124,13 @@ export { LightboxZoom as Zoom } from './lightbox-zoom';
 export { LightboxZoomIn as ZoomIn } from './lightbox-zoom-in';
 export { LightboxZoomOut as ZoomOut } from './lightbox-zoom-out';
 
-export type { LightboxRootProps, LightboxBeforeOpen, LightboxBeforeOpenContext } from './lightbox-root';
+export type {
+  LightboxRootProps,
+  LightboxBeforeOpen,
+  LightboxBeforeOpenContext,
+  LightboxBeforeClose,
+  LightboxBeforeCloseContext,
+} from './lightbox-root';
 export type { LightboxViewTransitionPreset } from './vt-timing';
 export type {
   LightboxTriggerProps,
@@ -134,7 +142,11 @@ export type { LightboxPortalProps } from './lightbox-portal';
 export type { LightboxContentProps } from './lightbox-content';
 export type { LightboxBackdropProps, LightboxBackdropState } from './lightbox-backdrop';
 export type { LightboxCloseProps, LightboxCloseState } from './lightbox-close';
-export type { LightboxStageProps, LightboxStageState } from './lightbox-stage';
+export type {
+  LightboxStageProps,
+  LightboxStageState,
+  LightboxStageRenderState,
+} from './lightbox-stage';
 export type { LightboxItemProps, LightboxItemState, LightboxItemRenderState } from './lightbox-item';
 export type { LightboxMediaProps, LightboxMediaState, LightboxMediaContextValue } from './lightbox-media';
 export type { LightboxSlidesProps, LightboxSlidesState } from './lightbox-slides';

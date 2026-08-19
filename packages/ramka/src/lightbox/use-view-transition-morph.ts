@@ -10,7 +10,11 @@ import { maybeTraceViewTransition } from './vt-debug';
 import { maybeUpgradeToCompositedMorph } from './vt-composited-morph';
 import { isViewTransitionPreset, resolveViewTransitionTiming } from './vt-timing';
 import type { LightboxViewTransitionPreset } from './vt-timing';
-import { findItemMorphTarget, findTriggerMorphTarget } from './morph-target';
+import {
+  findDestinationMorphTarget,
+  findItemMorphTarget,
+  findTriggerMorphTarget,
+} from './morph-target';
 import { DEFAULT_DECODE_MAX_WAIT, VIEW_TRANSITION_NAME } from './vt-constants';
 import { LightboxDocumentCssVars } from './lightbox-css-vars';
 import {
@@ -446,9 +450,10 @@ export function resolveMorphBorderRadius(el: HTMLElement): string {
  * for this morph only: the preset name as `data-ramka-vt-preset` (read by the
  * composited morph) and its duration/easing as `--lightbox-vt-*` vars (read
  * by document-level `::view-transition-*` rules — the stock group fallback,
- * the crossfade dissolve and the root snapshot fade — which cannot inherit
- * from Content/Portal). Timing is preset-driven, not consumer CSS: arbitrary
- * curves teleport on iOS (see the preset table in vt-timing.ts).
+ * the crossfade dissolve (open curve + close complementary swap) and the root snapshot
+ * fade — which cannot inherit from Content/Portal). Timing is preset-driven,
+ * not consumer CSS: arbitrary curves teleport on iOS (see the preset table
+ * in vt-timing.ts).
  */
 function promoteVtMotionTokens(
   docEl: HTMLElement,
@@ -461,6 +466,10 @@ function promoteVtMotionTokens(
   );
   docEl.style.setProperty(LightboxDocumentCssVars.vtDuration, `${spec.duration}ms`);
   docEl.style.setProperty(LightboxDocumentCssVars.vtEasing, spec.cssEasing);
+  docEl.style.setProperty(
+    LightboxDocumentCssVars.vtCrossfadeCloseEasing,
+    spec.cssCrossfadeCloseEasing,
+  );
   docEl.style.setProperty(LightboxDocumentCssVars.vtRootEasing, spec.cssRootEasing);
 }
 
@@ -680,6 +689,7 @@ function clearMorphState(docEl: HTMLElement, owner: number) {
   docEl.style.removeProperty(LightboxDocumentCssVars.morphBorderRadiusTo);
   docEl.style.removeProperty(LightboxDocumentCssVars.vtDuration);
   docEl.style.removeProperty(LightboxDocumentCssVars.vtEasing);
+  docEl.style.removeProperty(LightboxDocumentCssVars.vtCrossfadeCloseEasing);
   docEl.style.removeProperty(LightboxDocumentCssVars.vtRootEasing);
 }
 
@@ -708,6 +718,11 @@ interface ViewTransitionMorphConfig {
   activeItemElementRef: React.RefObject<HTMLElement | null>;
   /** Item element → its designated morph descendant (see findItemMorphTarget). */
   itemMorphElementsRef: React.RefObject<WeakMap<HTMLElement, HTMLElement>>;
+  /**
+   * Shared capture destination from Stage `morphRef`. When set, the VT
+   * names this node instead of the active item.
+   */
+  destinationMorphElementRef: React.RefObject<HTMLElement | null>;
   openingTriggerIndexRef: React.RefObject<number>;
   /**
    * Exact opening trigger (click or handle + triggerId). Preferred over the
@@ -849,6 +864,7 @@ function createViewTransitionMorph(getConfig: () => ViewTransitionMorphConfig): 
     // the consumer opts out (awaitImageDecode={false}).
     if (decodeMaxWait > 0) {
       const pendingItemEl = activeItemElementRef.current;
+      // Decode waits on the item (Media / image), not a shared Stage surface.
       const pendingItemTarget = pendingItemEl
         ? findItemMorphTarget(pendingItemEl, itemMorphElementsRef.current)
         : null;
@@ -879,9 +895,11 @@ function createViewTransitionMorph(getConfig: () => ViewTransitionMorphConfig): 
     const onBeforeOpen = onBeforeOpenRef.current;
     if (onBeforeOpen) {
       const pendingItemEl = activeItemElementRef.current;
-      const destination = pendingItemEl
-        ? findItemMorphTarget(pendingItemEl, itemMorphElementsRef.current)
-        : null;
+      const destination = findDestinationMorphTarget(
+        pendingItemEl,
+        itemMorphElementsRef.current,
+        getConfig().destinationMorphElementRef.current,
+      );
       try {
         await onBeforeOpen({ destination, signal: beforeOpenAbort.signal });
       } catch {
@@ -931,9 +949,11 @@ function createViewTransitionMorph(getConfig: () => ViewTransitionMorphConfig): 
     // which avoids a forced reflow *inside* the render-suppressed VT callback.
     // Radius is unaffected by the `visibility: hidden` prepare state.
     const itemElPrep = activeItemElementRef.current;
-    const itemTargetPrep = itemElPrep
-      ? findItemMorphTarget(itemElPrep, itemMorphElementsRef.current)
-      : null;
+    const itemTargetPrep = findDestinationMorphTarget(
+      itemElPrep,
+      itemMorphElementsRef.current,
+      getConfig().destinationMorphElementRef.current,
+    );
 
     // Decide whether to morph. A morph needs both a trigger (the "old" group)
     // and a destination whose size we can resolve (the "new" group). If the
@@ -943,7 +963,8 @@ function createViewTransitionMorph(getConfig: () => ViewTransitionMorphConfig): 
     const canMorph = !!triggerTarget && isMorphTargetSizeResolvable(itemTargetPrep);
 
     // Dev nudge: a morph into the bare item container means the consumer forgot
-    // to designate a morph target (imageRef / morphRef).
+    // to designate a morph target (imageRef / morphRef). Skip when Stage
+    // `morphRef` owns the capture destination.
     if (canMorph && itemElPrep && itemTargetPrep === itemElPrep) {
       warnUnwiredItemMorph(itemElPrep, itemTargetPrep);
     }
@@ -993,7 +1014,11 @@ function createViewTransitionMorph(getConfig: () => ViewTransitionMorphConfig): 
       // before the new snapshot is taken.
       const itemEl = activeItemElementRef.current;
       if (canMorph) {
-        const itemTarget = itemEl ? findItemMorphTarget(itemEl, itemMorphElementsRef.current) : null;
+        const itemTarget = findDestinationMorphTarget(
+          itemEl,
+          itemMorphElementsRef.current,
+          getConfig().destinationMorphElementRef.current,
+        );
         if (itemTarget) {
           setMorphName(itemTarget);
           restoreFirefoxCaptureInset = applyFirefoxFullBleedCaptureInset(itemTarget);
@@ -1015,9 +1040,11 @@ function createViewTransitionMorph(getConfig: () => ViewTransitionMorphConfig): 
       if (getConfig().closeGenRef.current !== gen) return;
       const cfg = getConfig();
       const itemEl = cfg.activeItemElementRef.current;
-      const itemTarget = itemEl
-        ? findItemMorphTarget(itemEl, cfg.itemMorphElementsRef.current)
-        : null;
+      const itemTarget = findDestinationMorphTarget(
+        itemEl,
+        cfg.itemMorphElementsRef.current,
+        cfg.destinationMorphElementRef.current,
+      );
       if (itemTarget) {
         clearMorphName(itemTarget);
       }
@@ -1052,6 +1079,7 @@ function createViewTransitionMorph(getConfig: () => ViewTransitionMorphConfig): 
       triggerMorphElementsRef,
       activeItemElementRef,
       itemMorphElementsRef,
+      destinationMorphElementRef,
       openingTriggerIndexRef,
       activeIndexRef,
       closeGenRef,
@@ -1067,7 +1095,11 @@ function createViewTransitionMorph(getConfig: () => ViewTransitionMorphConfig): 
     const releaseTouchGuard = acquireVtTouchGuard();
 
     const itemEl = activeItemElementRef.current;
-    const itemTarget = itemEl ? findItemMorphTarget(itemEl, itemMorphElementsRef.current) : null;
+    const itemTarget = findDestinationMorphTarget(
+      itemEl,
+      itemMorphElementsRef.current,
+      destinationMorphElementRef.current,
+    );
     const triggerIdx = resolveTriggerIndex(
       activeIndexRef.current,
       morphTo,

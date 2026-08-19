@@ -42,3 +42,21 @@ export function findTriggerMorphTarget(
 ): HTMLElement {
   return registry?.get(container) ?? container;
 }
+
+/**
+ * Resolves the View Transition **capture** destination.
+ *
+ * A shared destination (Stage `morphRef`) wins — the snapshot is that
+ * surface, not the active item. Otherwise falls back to the per-item chain
+ * ({@link findItemMorphTarget}). Decode / placeholder still use the item
+ * target; only the named VT group uses this.
+ */
+export function findDestinationMorphTarget(
+  itemEl: HTMLElement | null | undefined,
+  itemRegistry?: WeakMap<HTMLElement, HTMLElement> | null,
+  sharedDestination?: HTMLElement | null,
+): HTMLElement | null {
+  if (sharedDestination) return sharedDestination;
+  if (!itemEl) return null;
+  return findItemMorphTarget(itemEl, itemRegistry);
+}

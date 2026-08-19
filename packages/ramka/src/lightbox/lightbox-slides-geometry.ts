@@ -5,7 +5,29 @@
  *
  * Slides may be full-viewport or content-sized (snug around media). Snap
  * positions are stored per slide so variable widths stay correct.
+ *
+ * `offsetLeft` is relative to `offsetParent`, not the scroll container. A
+ * static-positioned scroller inside a positioned dialog (centered stage) makes
+ * every slide's offset include the stage inset — using that as `scrollLeft`
+ * leaves index 0 occupying the first ~half-viewport of scroll.
  */
+
+/**
+ * Slide left edge in the scroller's content coordinates.
+ */
+function slideOffsetLeftInViewport(slide: HTMLElement, viewport: HTMLElement): number {
+  if (slide.offsetParent === viewport) {
+    return slide.offsetLeft;
+  }
+  // Shared containing block (typical: both sit in a `position: fixed` dialog).
+  // `offsetLeft` is scroll-invariant, so do not add `scrollLeft`.
+  if (slide.offsetParent === viewport.offsetParent) {
+    return slide.offsetLeft - viewport.offsetLeft;
+  }
+  return (
+    slide.getBoundingClientRect().left - viewport.getBoundingClientRect().left + viewport.scrollLeft
+  );
+}
 
 export const SLIDE_SELECTOR = '[data-ramka-slide]';
 
@@ -37,12 +59,14 @@ export function measureSlidesGeometry(viewport: HTMLElement): SlidesGeometry {
 
   const offsets = Array.from(slides, (slide) => {
     const width = slide.offsetWidth || clientWidth;
+    const left = slideOffsetLeftInViewport(slide, viewport);
     // scrollLeft that centers this slide (0 for a full-width slide at offset 0).
-    return slide.offsetLeft + width / 2 - clientWidth / 2;
+    return left + width / 2 - clientWidth / 2;
   });
   const base = offsets[0] ?? 0;
-  const step = count > 1 ? offsets[1]! - offsets[0]! : clientWidth;
-  return { offsets, base, step: step > 0 ? step : clientWidth, count };
+  const rawStep = count > 1 ? offsets[1]! - offsets[0]! : clientWidth;
+  const step = rawStep > 0 ? rawStep : clientWidth;
+  return { offsets, base, step, count };
 }
 
 /** True when snap offsets match a uniform `base + i * step` track. */

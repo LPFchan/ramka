@@ -27,6 +27,7 @@ Compose a fullscreen media lightbox from headless parts: view-transition morph b
 - [Twitter](presets/twitter.md): Split media + thread sidebar with translucent backdrop and edge nav
 - [Store](presets/store.md): Commerce viewer: thumbnail rail + buy panel with price, highlights, and CTA
 - [Editorial](presets/editorial.md): Newsroom article-figure viewer: near-black surface, caption + credit block
+- [Stories](presets/stories.md): Avatar tray that crossfades into 9:16 video with a scroll-driven 3D page-turn
 
 ## Examples
 

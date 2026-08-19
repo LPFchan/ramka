@@ -90,6 +90,11 @@ export const generatedProps: Record<string, PropRow[]> = {
       type: "LightboxBeforeOpen",
       description: "Called after the open morph has prepared the lightbox (mounted, still hidden) and finished any `awaitImageDecode` wait, and **before** the View Transition starts. Use this to await custom media readiness (iframe `load`, video `loadeddata`, WebGL, …).\n\nMay return a Promise — the morph waits for it. Bound your own timeout inside the callback; there is no library-imposed cap. When a newer open/close supersedes this one, `ctx.signal` aborts.\n\nOnly relevant when `viewTransition` is enabled. Skipped when unset.",
     },
+    {
+      name: "onBeforeClose",
+      type: "LightboxBeforeClose",
+      description: "Called synchronously just before close commits — and, when View Transitions are on, **before** the old snapshot is captured. Use this to freeze custom media (`video.pause()`, stop a rAF loop, …) so the close morph isn’t a mid-frame.\n\nUnlike `onBeforeOpen`, this cannot delay close (return values are ignored). Skipped when unset.",
+    },
   ],
   "api-trigger": [
     {
@@ -153,10 +158,15 @@ export const generatedProps: Record<string, PropRow[]> = {
       name: "pullToClose",
       type: "boolean",
       default: "true",
-      description: "Enable pull-to-close on touch and trackpad wheel. Starts from anywhere in Stage (or Content when Stage is omitted), except interactive controls. Publishes `data-pulling`, `data-pull-dismissing`, and `--lightbox-pull-progress` while active. The engine loads when Content first mounts with this on — pass `false` to skip that download.",
+      description: "Enable pull-to-close on touch and trackpad wheel. Starts from anywhere in Stage (or Content when Stage is omitted), except interactive controls. Publishes `data-pulling`, `data-pull-snapping`, `data-pull-dismissing`, and `--lightbox-pull-progress` while active. The engine loads when Content first mounts with this on — pass `false` to skip that download.",
     },
   ],
   "api-stage": [
+    {
+      name: "children",
+      type: "ReactNode | ((state: LightboxStageRenderState) => ReactNode)",
+      description: "Static children, or a render function that receives `morphRef`. Attach `morphRef` to morph the Stage surface (or a descendant) instead of the active item.",
+    },
     {
       name: "render",
       type: "ReactElement | ComponentRenderFn",
@@ -409,6 +419,13 @@ export const generatedProps: Record<string, PropRow[]> = {
       description: "—",
     },
   ],
+  "api-use-stage-context": [
+    {
+      name: "(return)",
+      type: "LightboxStageRenderState | null",
+      description: "Optional context from the enclosing Stage. Returns `{ morphRef }`, or `null` outside a Stage.",
+    },
+  ],
   "api-create-handle": [
     {
       name: "open",
@@ -523,6 +540,10 @@ export const generatedAttributes: Record<string, AttrRow[]> = {
       description: "Present while a pull-to-dismiss drag is in progress.",
     },
     {
+      name: "data-pull-snapping",
+      description: "Present while a cancelled pull springs back to rest. `data-pulling` is dropped on release so chrome can transition; this latch keeps pull-only layout (overflow, shell hide) until the item is parked.",
+    },
+    {
       name: "data-pull-dismissing",
       description: "Present while the dismiss animation runs after crossing the threshold.",
     },
@@ -557,6 +578,10 @@ export const generatedAttributes: Record<string, AttrRow[]> = {
     {
       name: "data-pulling",
       description: "Present while pull-to-dismiss is active (mirrors Content).",
+    },
+    {
+      name: "data-pull-snapping",
+      description: "Present while a cancelled pull springs back (mirrors Content).",
     },
   ],
   "api-close": [
@@ -751,6 +776,7 @@ export const generatedAttributes: Record<string, AttrRow[]> = {
   "api-use-trigger-context": [],
   "api-use-item-context": [],
   "api-use-media-context": [],
+  "api-use-stage-context": [],
   "api-create-handle": [],
   "api-zoom-ref": [],
 };
@@ -844,7 +870,11 @@ export const generatedCssVariables: Record<string, CssVarRow[]> = {
     },
     {
       name: "--lightbox-vt-easing",
-      description: "Easing for `::view-transition-group(lightbox-morph)` and the crossfade dissolve. Written by the library from the `viewTransition` preset, like `--lightbox-vt-duration` (during a morph on `documentElement`, always on the Portal host).",
+      description: "Easing for `::view-transition-group(lightbox-morph)` and the *open* crossfade dissolve. Written by the library from the `viewTransition` preset, like `--lightbox-vt-duration` (during a morph on `documentElement`, always on the Portal host). Close dissolve uses `--lightbox-vt-crossfade-close-easing` (a shorter complementary fade, not the morph curve) so the item yields before the size settle.",
+    },
+    {
+      name: "--lightbox-vt-crossfade-close-easing",
+      description: "Close trigger↔item snapshot dissolve, used while `data-ramka-view-transition=\"closing\"` and `data-ramka-crossfade` are set. Modest ease-out on a shorter window that still runs old 1→0 and new 0→1 on the same clock (`plus-lighter` stays opaque). Written by the library onto `documentElement` during a morph — do not set it yourself.",
     },
     {
       name: "--lightbox-vt-root-easing",
@@ -854,6 +884,7 @@ export const generatedCssVariables: Record<string, CssVarRow[]> = {
   "api-use-trigger-context": [],
   "api-use-item-context": [],
   "api-use-media-context": [],
+  "api-use-stage-context": [],
   "api-create-handle": [],
   "api-zoom-ref": [],
 };

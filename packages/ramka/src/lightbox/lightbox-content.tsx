@@ -80,7 +80,7 @@ interface LightboxContentProps extends React.ComponentPropsWithRef<'div'> {
   /**
    * Enable pull-to-close on touch and trackpad wheel. Starts from anywhere in
    * Stage (or Content when Stage is omitted), except interactive controls.
-   * Publishes `data-pulling`, `data-pull-dismissing`, and
+   * Publishes `data-pulling`, `data-pull-snapping`, `data-pull-dismissing`, and
    * `--lightbox-pull-progress` while active. The engine loads when Content
    * first mounts with this on — pass `false` to skip that download.
    * @default true
@@ -105,6 +105,7 @@ const LightboxContent = React.forwardRef<HTMLDivElement, LightboxContentProps>(
       stageElementRef,
       backdropElementRef,
       activeItemElementRef,
+      destinationMorphElementRef,
       navigationLockedRef,
       baseId,
     } = useLightboxContext();
@@ -392,6 +393,9 @@ const LightboxContent = React.forwardRef<HTMLDivElement, LightboxContentProps>(
             // The wheel/trackpad pull path reads it directly instead of re-querying
             // the DOM for `[data-ramka-item][data-active]`.
             activeItemRef={activeItemElementRef}
+            // Stage `morphRef` (shared capture dest) pulls as one unit so
+            // carousels don't have to unclip / hide neighbors during the drag.
+            destinationMorphElementRef={destinationMorphElementRef}
             // Optional Stage scopes touch + wheel pull to the media pane; null → Content.
             stageRef={stageElementRef}
             getZoom={getZoom}

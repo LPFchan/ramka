@@ -175,6 +175,12 @@ interface LightboxMorphSlice {
    * findItemMorphTarget.
    */
   itemMorphElementsRef: React.RefObject<WeakMap<HTMLElement, HTMLElement>>;
+  /**
+   * Shared capture destination (Stage `morphRef`). When set, the View
+   * Transition names this node instead of the active item. Decode /
+   * placeholder stay on the item. `null` when nothing is attached.
+   */
+  destinationMorphElementRef: React.MutableRefObject<HTMLElement | null>;
   openingTriggerIndexRef: React.MutableRefObject<number>;
   /**
    * The exact trigger element that opened the lightbox (click or

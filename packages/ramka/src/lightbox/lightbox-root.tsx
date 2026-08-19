@@ -41,6 +41,7 @@ import {
   type ScrollTriggerIntoView,
 } from './scroll-trigger';
 import { isAndroidBlinkSnapshotRoot } from './is-android-blink';
+import { findDestinationMorphTarget } from './morph-target';
 import { DEFAULT_DECODE_MAX_WAIT, isLowEndDevice, supportsViewTransitions } from './vt-constants';
 import type { LightboxViewTransitionPreset } from './vt-timing';
 import type { ViewTransitionMorph, ViewTransitionMorphConfig } from './use-view-transition-morph';
@@ -190,11 +191,21 @@ interface LightboxRootProps {
    * />
    */
   onBeforeOpen?: LightboxBeforeOpen;
+  /**
+   * Called synchronously just before close commits — and, when View
+   * Transitions are on, **before** the old snapshot is captured. Use this
+   * to freeze custom media (`video.pause()`, stop a rAF loop, …) so the
+   * close morph isn’t a mid-frame.
+   *
+   * Unlike `onBeforeOpen`, this cannot delay close (return values are
+   * ignored). Skipped when unset.
+   */
+  onBeforeClose?: LightboxBeforeClose;
 }
 
 /** Context passed to {@link LightboxRootProps.onBeforeOpen}. */
 interface LightboxBeforeOpenContext {
-  /** Destination morph host (`Media` / `morphRef` / item), if any. */
+  /** Capture destination (Stage `morphRef` / Media / item `morphRef` / item), if any. */
   destination: Element | null;
   /** Aborts when a newer open/close wins. */
   signal: AbortSignal;
@@ -202,6 +213,15 @@ interface LightboxBeforeOpenContext {
 
 /** Return a Promise to delay the open View Transition until media is ready. */
 type LightboxBeforeOpen = (ctx: LightboxBeforeOpenContext) => void | Promise<void>;
+
+/** Context passed to {@link LightboxRootProps.onBeforeClose}. */
+interface LightboxBeforeCloseContext {
+  /** Capture destination (Stage `morphRef` / Media / item `morphRef` / item), if any. */
+  destination: Element | null;
+}
+
+/** Runs synchronously before the close snapshot / fade. Cannot delay close. */
+type LightboxBeforeClose = (ctx: LightboxBeforeCloseContext) => void;
 
 /**
  * Waits for the currently-running animations on `el` to finish, then invokes
@@ -245,12 +265,18 @@ function LightboxRoot(props: LightboxRootProps) {
       morphTo = 'active',
       awaitImageDecode = true,
       onBeforeOpen,
+      onBeforeClose,
     } = props;
 
     const onBeforeOpenRef = React.useRef(onBeforeOpen);
     React.useEffect(() => {
       onBeforeOpenRef.current = onBeforeOpen;
     }, [onBeforeOpen]);
+
+    const onBeforeCloseRef = React.useRef(onBeforeClose);
+    React.useEffect(() => {
+      onBeforeCloseRef.current = onBeforeClose;
+    }, [onBeforeClose]);
 
     /** Aborts an in-flight `onBeforeOpen` when a newer open/close starts. */
     const beforeOpenAbortRef = React.useRef<AbortController | null>(null);
@@ -552,6 +578,18 @@ function LightboxRoot(props: LightboxRootProps) {
     // `morphRef`, else its `imageRef`). Keyed by element. See
     // findItemMorphTarget.
     const itemMorphElementsRef = React.useRef<WeakMap<HTMLElement, HTMLElement>>(new WeakMap());
+    // Shared capture destination from Stage `morphRef`. When set, the VT
+    // names this node instead of the active item (see findDestinationMorphTarget).
+    const destinationMorphElementRef = React.useRef<HTMLElement | null>(null);
+    const notifyBeforeClose = React.useCallback(() => {
+      onBeforeCloseRef.current?.({
+        destination: findDestinationMorphTarget(
+          activeItemElementRef.current,
+          itemMorphElementsRef.current,
+          destinationMorphElementRef.current,
+        ),
+      });
+    }, []);
     const openingTriggerIndexRef = React.useRef(0);
     const openingTriggerElementRef = React.useRef<HTMLElement | null>(null);
     const openingTriggerImageRef = React.useRef<HTMLImageElement | null>(null);
@@ -727,6 +765,7 @@ function LightboxRoot(props: LightboxRootProps) {
       triggerMorphElementsRef,
       activeItemElementRef,
       itemMorphElementsRef,
+      destinationMorphElementRef,
       openingTriggerIndexRef,
       openingTriggerElementRef,
       activeIndexRef,
@@ -768,6 +807,7 @@ function LightboxRoot(props: LightboxRootProps) {
           openTransitionPendingRef.current = true;
         } else {
           settleOpenTransition();
+          notifyBeforeClose();
         }
 
         // Skip the (document-snapshotting) morph on low-end hardware and fall
@@ -850,7 +890,7 @@ function LightboxRoot(props: LightboxRootProps) {
           }
         }
       },
-      [isControlledOpen, viewTransition, scrollTriggerIntoView, morphTo, commitOpen, unlockScroll, settleOpenTransition, focusReturnTarget],
+      [isControlledOpen, viewTransition, scrollTriggerIntoView, morphTo, commitOpen, unlockScroll, settleOpenTransition, focusReturnTarget, notifyBeforeClose],
     );
 
     // Sync `mounted` to externally-driven changes of a controlled
@@ -883,11 +923,12 @@ function LightboxRoot(props: LightboxRootProps) {
       }
 
       const gen = ++closeGenRef.current;
+      notifyBeforeClose();
       runAfterAnimations(dialogElementRef.current, gen, closeGenRef, () => {
         setMounted(false);
         unlockScroll();
       });
-    }, [open, lockScroll, unlockScroll]);
+    }, [open, lockScroll, unlockScroll, notifyBeforeClose]);
 
     // Initially-open lightbox (defaultOpen / controlled-open at mount): the
     // open-commit paths above don't run, so acquire the lock here. The cleanup
@@ -1081,6 +1122,7 @@ function LightboxRoot(props: LightboxRootProps) {
         triggerMorphElementsRef,
         activeItemElementRef,
         itemMorphElementsRef,
+        destinationMorphElementRef,
         openingTriggerIndexRef,
         openingTriggerElementRef,
         openingTriggerImageRef,
@@ -1119,4 +1161,10 @@ function LightboxRoot(props: LightboxRootProps) {
 LightboxRoot.displayName = 'LightboxRoot';
 
 export { LightboxRoot };
-export type { LightboxRootProps, LightboxBeforeOpen, LightboxBeforeOpenContext };
+export type {
+  LightboxRootProps,
+  LightboxBeforeOpen,
+  LightboxBeforeOpenContext,
+  LightboxBeforeClose,
+  LightboxBeforeCloseContext,
+};

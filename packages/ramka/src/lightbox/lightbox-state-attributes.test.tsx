@@ -37,6 +37,7 @@ const FORBIDDEN_SQUASHED_ATTRS = [
   'data-canzoomout',
   'data-skipfade',
   'data-pulldismissing',
+  'data-pullsnapping',
 ] as const;
 
 function collectForbiddenAttrs(root: ParentNode = document): string[] {

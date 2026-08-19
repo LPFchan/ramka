@@ -38,7 +38,13 @@ function buildCss(): string {
   // fires before promotion (it can't in practice — belt and braces).
   const duration = `var(${vars.vtDuration}, ${def.duration}ms)`;
   const easing = `var(${vars.vtEasing}, ${def.cssEasing})`;
+  const closeEasing = `var(${vars.vtCrossfadeCloseEasing}, ${def.cssCrossfadeCloseEasing})`;
   const rootEasing = `var(${vars.vtRootEasing}, ${def.cssRootEasing})`;
+  // Complementary dissolve as a fraction of the morph. After this, fill-mode
+  // both holds old at 0 / new at 1 so a dissimilar trigger (avatar, +N
+  // overlay) does not ghost through the size settle. Same clock on both
+  // snapshots — plus-lighter stays opaque.
+  const dissolveDuration = `calc(${duration} * 0.48)`;
 
   return `
 /* Isolate the lightbox morph from the rest of the page. startViewTransition
@@ -116,22 +122,36 @@ function buildCss(): string {
 
   /* Dissolve path (Trigger crossfade): restore the UA fade, plus-lighter
      blend, fill so circular triggers don't balloon under cover. Re-timed to
-     the preset vars so the dissolve runs on the morph's clock/curve (the UA
-     default would end at 250ms, mid-morph). Fill-mode both: the UA fades run
-     with fill none, so a finished fade snaps the old snapshot back to its
-     base opacity of 1 — and the composited group replacement can outlive the
-     fades by a frame (its animations attach one style flush later), which
-     painted a fully-opaque trigger snapshot blended over the item for that
-     frame. Holding the end state closes the gap. */
+     the preset vars so the dissolve runs on the morph's clock (the UA
+     default would end at 250ms, mid-morph). Open uses the morph ease-out so
+     the destination appears promptly while the group grows; close uses a
+     modest ease-out (not the morph curve — that flashes a stretched trigger
+     in the first frames, and a strong ease-in holds the item too long).
+     Both phases share one complementary 1→0 / 0→1 pair on a shorter window
+     so the outgoing snapshot is gone before the size settle (a face or +N
+     overlay must not ghost until t=1). Do not delay one snapshot relative
+     to the other — that leaves a window where opacities no longer sum to 1.
+
+     Fill-mode both: the UA fades run with fill none, so a finished fade
+     snaps the old snapshot back to its base opacity of 1 — and the
+     composited group replacement can outlive the fades by a frame (its
+     animations attach one style flush later), which painted a fully-opaque
+     trigger snapshot blended over the item for that frame. Holding the end
+     state closes the gap. */
   :root[${crossfade}]${oldPseudo},
   :root[${crossfade}]${newPseudo} {
     object-fit: fill;
     mix-blend-mode: plus-lighter;
     animation: revert !important;
-    animation-duration: ${duration} !important;
+    animation-duration: ${dissolveDuration} !important;
     animation-timing-function: ${easing} !important;
     animation-fill-mode: both !important;
     opacity: revert;
+  }
+
+  :root[${vt}="closing"][${crossfade}]${oldPseudo},
+  :root[${vt}="closing"][${crossfade}]${newPseudo} {
+    animation-timing-function: ${closeEasing} !important;
   }
 }
 

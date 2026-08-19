@@ -22,7 +22,7 @@ import { installSlidesLayoutMocks, resetSlidesLayoutMocks, SlidesHost } from './
 import { LightboxPrevious } from './lightbox-previous';
 import { createHandle } from './lightbox-handle';
 import { LightboxRoot } from './lightbox-root';
-import { LightboxStage } from './lightbox-stage';
+import { LightboxStage, useOptionalLightboxStageContext } from './lightbox-stage';
 import { LightboxThumbnail } from './lightbox-thumbnail';
 import { LightboxThumbnailGroup } from './lightbox-thumbnail-group';
 import { LightboxTrigger } from './lightbox-trigger';
@@ -1819,6 +1819,7 @@ describe('Lightbox', () => {
       document.documentElement.style.removeProperty('--lightbox-morph-new-opacity');
       document.documentElement.style.removeProperty('--lightbox-vt-duration');
       document.documentElement.style.removeProperty('--lightbox-vt-easing');
+      document.documentElement.style.removeProperty('--lightbox-vt-crossfade-close-easing');
       document.documentElement.style.removeProperty('--lightbox-vt-root-easing');
     }
 
@@ -1875,6 +1876,7 @@ describe('Lightbox', () => {
       expect(docStyle.getPropertyValue('--lightbox-morph-border-radius-to')).toBe('');
       expect(docStyle.getPropertyValue('--lightbox-vt-duration')).toBe('');
       expect(docStyle.getPropertyValue('--lightbox-vt-easing')).toBe('');
+      expect(docStyle.getPropertyValue('--lightbox-vt-crossfade-close-easing')).toBe('');
       expect(docStyle.getPropertyValue('--lightbox-vt-root-easing')).toBe('');
     });
 
@@ -1889,6 +1891,9 @@ describe('Lightbox', () => {
       expect(docEl.style.getPropertyValue('--lightbox-vt-easing')).toBe(
         'cubic-bezier(0.44, 0.58, 0, 1)',
       );
+      expect(docEl.style.getPropertyValue('--lightbox-vt-crossfade-close-easing')).toBe(
+        'cubic-bezier(0.22, 0, 0.35, 1)',
+      );
       expect(docEl.style.getPropertyValue('--lightbox-vt-root-easing')).toBe(
         'cubic-bezier(0.16, 1, 0.3, 1)',
       );
@@ -1897,6 +1902,7 @@ describe('Lightbox', () => {
       expect(docEl).not.toHaveAttribute('data-ramka-vt-preset');
       expect(docEl.style.getPropertyValue('--lightbox-vt-duration')).toBe('');
       expect(docEl.style.getPropertyValue('--lightbox-vt-easing')).toBe('');
+      expect(docEl.style.getPropertyValue('--lightbox-vt-crossfade-close-easing')).toBe('');
       expect(docEl.style.getPropertyValue('--lightbox-vt-root-easing')).toBe('');
     });
 
@@ -2735,6 +2741,48 @@ describe('Lightbox', () => {
       });
     });
 
+    describe('onBeforeClose', () => {
+      it('runs before the close View Transition starts', async () => {
+        const { startViewTransition } = mockViewTransitionAPI();
+        const onBeforeClose = vi.fn();
+
+        render(
+          <LightboxRoot viewTransition awaitImageDecode={false} onBeforeClose={onBeforeClose}>
+            <LightboxTrigger index={0} data-testid="trigger-0">
+              Open
+            </LightboxTrigger>
+            <LightboxPortal>
+              <LightboxContent data-testid="content" aria-label="before-close test">
+                <SlidesHost>
+                  <LightboxItem index={0} data-testid="item-0">
+                    item
+                  </LightboxItem>
+                </SlidesHost>
+                <LightboxClose data-testid="close">Close</LightboxClose>
+              </LightboxContent>
+            </LightboxPortal>
+          </LightboxRoot>,
+        );
+
+        fireEvent.click(screen.getByTestId('trigger-0'));
+        await act(async () => {});
+
+        expect(onBeforeClose).not.toHaveBeenCalled();
+        const callsAfterOpen = startViewTransition.mock.calls.length;
+        expect(callsAfterOpen).toBeGreaterThan(0);
+
+        fireEvent.click(screen.getByTestId('close'));
+
+        expect(onBeforeClose).toHaveBeenCalledOnce();
+        expect(onBeforeClose).toHaveBeenCalledWith(
+          expect.objectContaining({
+            destination: expect.any(Element),
+          }),
+        );
+        expect(startViewTransition.mock.calls.length).toBeGreaterThan(callsAfterOpen);
+      });
+    });
+
     describe('morph fallback when destination target has no resolvable size', () => {
       let originalRect: PropertyDescriptor | undefined;
 
@@ -3288,6 +3336,188 @@ describe('Lightbox', () => {
 
         expect(warn).toHaveBeenCalledWith(expect.stringContaining('no resolvable size'), screen.getByTestId('media'));
         warn.mockRestore();
+      });
+    });
+
+    describe('Stage morphRef (shared capture destination)', () => {
+      let originalRect: PropertyDescriptor | undefined;
+
+      function mockResolvableBox() {
+        originalRect = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'getBoundingClientRect');
+        Object.defineProperty(HTMLElement.prototype, 'getBoundingClientRect', {
+          value: () => ({
+            width: 360,
+            height: 640,
+            top: 0,
+            left: 0,
+            right: 360,
+            bottom: 640,
+            x: 0,
+            y: 0,
+            toJSON() {},
+          }),
+          writable: true,
+          configurable: true,
+        });
+      }
+
+      afterEach(() => {
+        if (originalRect) {
+          Object.defineProperty(HTMLElement.prototype, 'getBoundingClientRect', originalRect);
+        }
+        originalRect = undefined;
+      });
+
+      it('names the Stage morphRef node, not the item Media', () => {
+        mockViewTransitionAPI();
+        mockResolvableBox();
+
+        render(
+          <LightboxRoot viewTransition awaitImageDecode={false}>
+            <LightboxTrigger index={0} data-testid="trigger-0">
+              Open
+            </LightboxTrigger>
+            <LightboxPortal>
+              <LightboxContent aria-label="stage morph">
+                <LightboxStage>
+                  {({ morphRef }) => (
+                    <div ref={morphRef} data-testid="frame">
+                      <SlidesHost>
+                        <LightboxItem index={0} data-testid="item-0">
+                          <LightboxMedia data-testid="media">
+                            <img src="a.jpg" alt="a" />
+                          </LightboxMedia>
+                        </LightboxItem>
+                      </SlidesHost>
+                    </div>
+                  )}
+                </LightboxStage>
+              </LightboxContent>
+            </LightboxPortal>
+          </LightboxRoot>,
+        );
+
+        fireEvent.click(screen.getByTestId('trigger-0'));
+
+        expect(screen.getByTestId('frame').style.getPropertyValue('view-transition-name')).toBe(
+          'lightbox-morph',
+        );
+        expect(screen.getByTestId('media').style.getPropertyValue('view-transition-name')).toBe('');
+        expect(screen.getByTestId('item-0').style.getPropertyValue('view-transition-name')).toBe('');
+      });
+
+      it('passes the Stage morphRef node as onBeforeClose destination', () => {
+        mockViewTransitionAPI();
+        mockResolvableBox();
+        const onBeforeClose = vi.fn();
+
+        render(
+          <LightboxRoot viewTransition awaitImageDecode={false} onBeforeClose={onBeforeClose}>
+            <LightboxTrigger index={0} data-testid="trigger-0">
+              Open
+            </LightboxTrigger>
+            <LightboxPortal>
+              <LightboxContent aria-label="stage close dest">
+                <LightboxStage>
+                  {({ morphRef }) => (
+                    <div ref={morphRef} data-testid="frame">
+                      <SlidesHost>
+                        <LightboxItem index={0} data-testid="item-0">
+                          item
+                        </LightboxItem>
+                      </SlidesHost>
+                    </div>
+                  )}
+                </LightboxStage>
+                <LightboxClose data-testid="close">Close</LightboxClose>
+              </LightboxContent>
+            </LightboxPortal>
+          </LightboxRoot>,
+        );
+
+        fireEvent.click(screen.getByTestId('trigger-0'));
+        const frame = screen.getByTestId('frame');
+        fireEvent.click(screen.getByTestId('close'));
+
+        expect(onBeforeClose).toHaveBeenCalledWith(
+          expect.objectContaining({ destination: frame }),
+        );
+      });
+
+      it('does NOT warn about an unwired item when Stage morphRef is attached', () => {
+        mockViewTransitionAPI();
+        mockResolvableBox();
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+        render(
+          <LightboxRoot viewTransition awaitImageDecode={false}>
+            <LightboxTrigger index={0} data-testid="trigger-0">
+              Open
+            </LightboxTrigger>
+            <LightboxPortal>
+              <LightboxContent aria-label="stage morph no warn">
+                <LightboxStage>
+                  {({ morphRef }) => (
+                    <div ref={morphRef} data-testid="frame">
+                      <SlidesHost>
+                        <LightboxItem index={0} data-testid="item-0">
+                          <div>no item morphRef</div>
+                        </LightboxItem>
+                      </SlidesHost>
+                    </div>
+                  )}
+                </LightboxStage>
+              </LightboxContent>
+            </LightboxPortal>
+          </LightboxRoot>,
+        );
+
+        fireEvent.click(screen.getByTestId('trigger-0'));
+
+        expect(warn).not.toHaveBeenCalledWith(
+          expect.stringContaining('morphing into its own element'),
+          expect.anything(),
+        );
+        warn.mockRestore();
+      });
+
+      it('lets a nested wrapper attach morphRef via Stage context', () => {
+        mockViewTransitionAPI();
+        mockResolvableBox();
+
+        function Frame({ children }: { children: React.ReactNode }) {
+          const stage = useOptionalLightboxStageContext();
+          return (
+            <div ref={stage?.morphRef} data-testid="frame">
+              {children}
+            </div>
+          );
+        }
+
+        render(
+          <LightboxRoot viewTransition awaitImageDecode={false}>
+            <LightboxTrigger index={0} data-testid="trigger-0">
+              Open
+            </LightboxTrigger>
+            <LightboxPortal>
+              <LightboxContent aria-label="stage context">
+                <LightboxStage>
+                  <Frame>
+                    <SlidesHost>
+                      <LightboxItem index={0}>item</LightboxItem>
+                    </SlidesHost>
+                  </Frame>
+                </LightboxStage>
+              </LightboxContent>
+            </LightboxPortal>
+          </LightboxRoot>,
+        );
+
+        fireEvent.click(screen.getByTestId('trigger-0'));
+
+        expect(screen.getByTestId('frame').style.getPropertyValue('view-transition-name')).toBe(
+          'lightbox-morph',
+        );
       });
     });
 
@@ -5959,6 +6189,8 @@ describe('Lightbox', () => {
       });
 
       expect(screen.getByRole('dialog')).toBeInTheDocument();
+      expect(content).toHaveAttribute('data-pull-snapping');
+      expect(content).not.toHaveAttribute('data-pulling');
     });
 
     it('closes on fast flick even below distance threshold', async () => {
@@ -6349,6 +6581,41 @@ describe('Lightbox', () => {
       expect(item.style.transform).toMatch(/translate\(.+,.+\)/);
       expect(item.style.transform).toMatch(/scale\(/);
       expect(content.style.transform).toBe('');
+    });
+
+    it('applies transform to the Stage morphRef node instead of the item', () => {
+      render(
+        <LightboxRoot defaultOpen>
+          <LightboxPortal>
+            <LightboxContent data-testid="content" aria-label="Pull stage morph">
+              <LightboxStage>
+                {({ morphRef }) => (
+                  <div ref={morphRef} data-testid="frame">
+                    <SlidesHost>
+                      <LightboxItem index={0}>
+                        <img src="test.jpg" alt="test" />
+                      </LightboxItem>
+                    </SlidesHost>
+                  </div>
+                )}
+              </LightboxStage>
+            </LightboxContent>
+          </LightboxPortal>
+        </LightboxRoot>,
+      );
+      const content = screen.getByTestId('content');
+      const img = screen.getByAltText('test');
+      const item = img.closest('[data-ramka-item]') as HTMLElement;
+      const frame = screen.getByTestId('frame');
+
+      act(() => {
+        dispatchPointer(img, 'pointerdown', { clientX: 200, clientY: 200 });
+        dispatchPointer(content, 'pointermove', { clientX: 200, clientY: 250 });
+      });
+
+      expect(frame.style.transform).toMatch(/translate\(.+,.+\)/);
+      expect(frame.style.transform).toMatch(/scale\(/);
+      expect(item.style.transform).toBe('');
     });
 
     it('does not activate for mouse pointer', () => {

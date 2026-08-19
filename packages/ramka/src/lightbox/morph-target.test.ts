@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { findItemMorphTarget, findTriggerMorphTarget } from './morph-target';
+import { findDestinationMorphTarget, findItemMorphTarget, findTriggerMorphTarget } from './morph-target';
 
 // Build a detached DOM subtree from an HTML string and return its root element.
 function makeEl(html: string): HTMLElement {
@@ -113,5 +113,35 @@ describe('trigger vs item resolution (symmetric, registry-only)', () => {
 
     expect(findTriggerMorphTarget(trigger, triggerRegistry)).toBe(triggerMarker);
     expect(findItemMorphTarget(item, itemRegistry)).toBe(itemMarker);
+  });
+});
+
+describe('findDestinationMorphTarget', () => {
+  it('prefers a shared Stage destination over the per-item chain', () => {
+    const item = makeEl('<div data-item><span data-media></span></div>');
+    const frame = makeEl('<div data-frame></div>');
+    const media = item.querySelector('[data-media]') as HTMLElement;
+    const itemRegistry = new WeakMap<HTMLElement, HTMLElement>();
+    itemRegistry.set(item, media);
+    expect(findDestinationMorphTarget(item, itemRegistry, frame)).toBe(frame);
+  });
+
+  it('falls back to the per-item chain when no shared destination is set', () => {
+    const item = makeEl('<div data-item><span data-media></span></div>');
+    const media = item.querySelector('[data-media]') as HTMLElement;
+    const itemRegistry = new WeakMap<HTMLElement, HTMLElement>();
+    itemRegistry.set(item, media);
+    expect(findDestinationMorphTarget(item, itemRegistry, null)).toBe(media);
+    expect(findDestinationMorphTarget(item, itemRegistry)).toBe(media);
+  });
+
+  it('returns the shared destination even when there is no active item', () => {
+    const frame = makeEl('<div data-frame></div>');
+    expect(findDestinationMorphTarget(null, null, frame)).toBe(frame);
+  });
+
+  it('returns null when neither a shared destination nor an item is present', () => {
+    expect(findDestinationMorphTarget(null)).toBeNull();
+    expect(findDestinationMorphTarget(undefined, new WeakMap(), null)).toBeNull();
   });
 });

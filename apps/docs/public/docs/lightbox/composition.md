@@ -88,7 +88,7 @@ import { Lightbox } from 'ramka';
 </Lightbox.Root>
 ```
 
-Live compositions: [Default preset](presets/default.md), [Photos app](examples/lightbox/photos-app.md).
+Live compositions: [Default preset](presets/default.md), [Twitter preset](presets/twitter.md), [Stories preset](presets/stories.md), [Photos app](examples/lightbox/photos-app.md).
 
 ## Stage (split layouts)
 
@@ -106,7 +106,19 @@ Use [Lightbox.Stage](docs/lightbox/api.md#api-stage) when Content holds more tha
 </Lightbox.Content>
 ```
 
-Live example: [Twitter preset](presets/twitter.md).
+Attach Stage `morphRef` when the open/close morph should capture the Stage surface (or a descendant) instead of the active item — a 9:16 stories frame, the slides track, or a custom bezel. Decode and the thumbnail placeholder stay on the item.
+
+```tsx Stage morphRef
+<Lightbox.Stage>
+  {({ morphRef }) => (
+    <div ref={morphRef} className="frame">
+      <Lightbox.Slides>{/* media */}</Lightbox.Slides>
+    </div>
+  )}
+</Lightbox.Stage>
+```
+
+Live examples: [Twitter preset](presets/twitter.md), [Stories preset](presets/stories.md).
 
 ## Chrome
 

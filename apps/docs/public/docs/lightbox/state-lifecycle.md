@@ -88,3 +88,7 @@ import { Lightbox } from 'ramka';
 When View Transitions are on, open is *prepare → optional image decode → optional onBeforeOpen → morph*. Use [Root](docs/lightbox/api.md#api-root) ’s `onBeforeOpen` to delay the morph until custom media is ready (iframe `load`, video, WebGL, …). It runs after the lightbox is mounted hidden — so destination nodes exist — and before `startViewTransition`.
 
 Keep `awaitImageDecode` for photos (default `true`). For non-image destinations, pass `awaitImageDecode={false}` and wait in `onBeforeOpen`. Bound your own timeout; `ctx.signal` aborts if a newer open/close wins. See [3D models](examples/lightbox/3d-models.md).
+
+## onBeforeClose
+
+`onBeforeClose` fires synchronously when close begins — and, with View Transitions, *before* the old snapshot is captured. Use it to freeze custom media (`video.pause()`, stop a rAF loop) so the close morph isn’t a mid-frame. Unlike `onBeforeOpen`, it cannot delay close. `onOpenChange(false)` is too late for this: it runs inside the transition callback, after the snapshot.

@@ -277,6 +277,7 @@ export default function LightboxViewTransitionsPage() {
             <code className="text-xs">data-ramka-vt-preset</code>,{' '}
             <code className="text-xs">--lightbox-vt-duration</code>,{' '}
             <code className="text-xs">--lightbox-vt-easing</code>,{' '}
+            <code className="text-xs">--lightbox-vt-crossfade-close-easing</code>,{' '}
             <code className="text-xs">--lightbox-vt-root-easing</code> — the active timing preset,
             written by the library (see <DocsLink href="#timing-presets">Timing presets</DocsLink>)
           </li>
@@ -375,7 +376,9 @@ export default function LightboxViewTransitionsPage() {
             when Trigger <code className="text-xs">crossfade</code> sets{' '}
             <code className="text-xs">data-ramka-crossfade</code>, the dissolve path (UA fade,{' '}
             <code className="text-xs">plus-lighter</code>, <code className="text-xs">object-fit: fill</code>)
-            runs on the same preset clock.
+            runs on the same preset clock. Open uses the morph ease-out so the destination appears
+            promptly; both phases run that complementary dissolve on a shorter window so the
+            outgoing snapshot is gone before the size settle (`plus-lighter` stays opaque).
           </li>
           <li>
             <strong className="font-medium text-neutral-800 dark:text-neutral-200">Root snapshot</strong>{' '}

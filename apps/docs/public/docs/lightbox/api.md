@@ -37,6 +37,7 @@ Groups all parts of the lightbox and owns open state, active index, view-transit
 | morphTo | `'active' \| 'origin' \| 'closest'` | `'active'` | Controls which trigger receives the View Transition morph on close. - `'active'` (default) — morph to the trigger matching the current active index. No morph if no trigger exists for that index. - `'origin'` — always morph back to the trigger that originally opened the lightbox, regardless of which item is active. - `'closest'` — morph to the trigger at the active index if it exists, otherwise fall back to the nearest registered trigger. |
 | awaitImageDecode | `boolean \| number` | `true` | How long the open morph waits for the destination image to decode before starting, so the lightbox doesn't flash empty space while the full-size image is still loading. - `true` (default) — wait up to ~200ms, then start regardless. - `false` — don't wait; start the transition immediately. Useful when the trigger image doubles as a placeholder for the lightbox item so there is nothing to wait for. - `number` — wait up to this many milliseconds. The morph starts as soon as the image decodes (or is served from cache), or when the timeout elapses — whichever comes first. Runs after the lightbox is prepared (mounted hidden) and before `onBeforeOpen`. Only relevant when `viewTransition` is enabled. |
 | onBeforeOpen | `LightboxBeforeOpen` |  | Called after the open morph has prepared the lightbox (mounted, still hidden) and finished any `awaitImageDecode` wait, and **before** the View Transition starts. Use this to await custom media readiness (iframe `load`, video `loadeddata`, WebGL, …). May return a Promise — the morph waits for it. Bound your own timeout inside the callback; there is no library-imposed cap. When a newer open/close supersedes this one, `ctx.signal` aborts. Only relevant when `viewTransition` is enabled. Skipped when unset. |
+| onBeforeClose | `LightboxBeforeClose` |  | Called synchronously just before close commits — and, when View Transitions are on, **before** the old snapshot is captured. Use this to freeze custom media (`video.pause()`, stop a rAF loop, …) so the close morph isn’t a mid-frame. Unlike `onBeforeOpen`, this cannot delay close (return values are ignored). Skipped when unset. |
 
 ### Trigger
 
@@ -90,7 +91,7 @@ Dialog surface (role="dialog", aria-modal). Provide an accessible name via aria-
 | Name | Type | Default | Description |
 | --- | --- | --- | --- |
 | children | `ReactNode` |  | Dialog contents (close, slides/items, chrome). |
-| pullToClose | `boolean` | `true` | Enable pull-to-close on touch and trackpad wheel. Starts from anywhere in Stage (or Content when Stage is omitted), except interactive controls. Publishes `data-pulling`, `data-pull-dismissing`, and `--lightbox-pull-progress` while active. The engine loads when Content first mounts with this on — pass `false` to skip that download. |
+| pullToClose | `boolean` | `true` | Enable pull-to-close on touch and trackpad wheel. Starts from anywhere in Stage (or Content when Stage is omitted), except interactive controls. Publishes `data-pulling`, `data-pull-snapping`, `data-pull-dismissing`, and `--lightbox-pull-progress` while active. The engine loads when Content first mounts with this on — pass `false` to skip that download. |
 
 #### Data attributes
 
@@ -100,6 +101,7 @@ Dialog surface (role="dialog", aria-modal). Provide an accessible name via aria-
 | `data-open` | Present while the lightbox is open. |
 | `data-closed` | Present while the lightbox is closed (still rendered). |
 | `data-pulling` | Present while a pull-to-dismiss drag is in progress. |
+| `data-pull-snapping` | Present while a cancelled pull springs back to rest. `data-pulling` is dropped on release so chrome can transition; this latch keeps pull-only layout (overflow, shell hide) until the item is parked. |
 | `data-pull-dismissing` | Present while the dismiss animation runs after crossing the threshold. |
 | `data-zooming` | Present during an active pinch/zoom gesture (blocks pull-to-dismiss). |
 | `data-zoomed` | Present when content zoom is greater than 1× (held through zoom-out animation). |
@@ -115,12 +117,13 @@ Dialog surface (role="dialog", aria-modal). Provide an accessible name via aria-
 
 ### Stage
 
-Optional media interaction surface inside Content. Scopes touch and trackpad wheel pull-to-dismiss, Zoom pan viewport geometry, arrow/Home/End gallery navigation, zoom shortcuts (⌘/+/-), and pinch/ctrl+wheel zoom to the media pane. Interactive controls inside Stage keep their press (Close, Prev/Next, etc.). Place side panels / threads as siblings of Stage under Content. When omitted, Content itself is the stage.
+Optional media interaction surface inside Content. Scopes touch and trackpad wheel pull-to-dismiss, Zoom pan viewport geometry, arrow/Home/End gallery navigation, zoom shortcuts (⌘/+/-), and pinch/ctrl+wheel zoom to the media pane. Interactive controls inside Stage keep their press (Close, Prev/Next, etc.). Place side panels / threads as siblings of Stage under Content. When omitted, Content itself is the stage. Prefer render-prop children to attach morphRef when the open/close morph should capture this surface (or a descendant) instead of the active item.
 
 #### Props
 
 | Name | Type | Default | Description |
 | --- | --- | --- | --- |
+| children | `ReactNode \| ((state: LightboxStageRenderState) => ReactNode)` |  | Static children, or a render function that receives `morphRef`. Attach `morphRef` to morph the Stage surface (or a descendant) instead of the active item. |
 | render | `ReactElement \| ComponentRenderFn` |  | Allows you to replace the component's HTML element with a different tag, or compose it with another component. Accepts a `ReactElement` or a function that returns the element to render. |
 
 #### Data attributes
@@ -147,6 +150,7 @@ Optional scrim (place inside Lightbox.Portal, typically beside Content). Click c
 | `data-open` | Present while the lightbox is open. |
 | `data-closed` | Present while the lightbox is closed (still rendered). |
 | `data-pulling` | Present while pull-to-dismiss is active (mirrors Content). |
+| `data-pull-snapping` | Present while a cancelled pull springs back (mirrors Content). |
 
 #### CSS variables
 
@@ -470,7 +474,8 @@ While a view-transition morph runs, ramka sets attributes and CSS variables on <
 | `--lightbox-morph-old-opacity` |  | Opacity of the old morph snapshot on the hard-cut path (no document crossfade). |
 | `--lightbox-morph-new-opacity` |  | Opacity of the new morph snapshot on the hard-cut path (1 on open, 0 on close). |
 | `--lightbox-vt-duration` |  | Morph + root-snapshot duration from the Root's `viewTransition` timing preset. WRITTEN BY THE LIBRARY in two places — do not set it yourself: onto `documentElement` during a morph (read it in document-level `::view-transition-*` rules, e.g. `calc(var(--lightbox-vt-duration) * 0.5)` for a derived track), and always onto the Portal host, so skin open/close fades inside the portal can use the preset's clock even when no morph runs (non-VT browsers, reduced motion, low-end fallback), e.g. `transition: opacity var(--lightbox-vt-duration, 360ms) ease-out`. |
-| `--lightbox-vt-easing` |  | Easing for `::view-transition-group(lightbox-morph)` and the crossfade dissolve. Written by the library from the `viewTransition` preset, like `--lightbox-vt-duration` (during a morph on `documentElement`, always on the Portal host). |
+| `--lightbox-vt-easing` |  | Easing for `::view-transition-group(lightbox-morph)` and the *open* crossfade dissolve. Written by the library from the `viewTransition` preset, like `--lightbox-vt-duration` (during a morph on `documentElement`, always on the Portal host). Close dissolve uses `--lightbox-vt-crossfade-close-easing` (a shorter complementary fade, not the morph curve) so the item yields before the size settle. |
+| `--lightbox-vt-crossfade-close-easing` |  | Close trigger↔item snapshot dissolve, used while `data-ramka-view-transition="closing"` and `data-ramka-crossfade` are set. Modest ease-out on a shorter window that still runs old 1→0 and new 0→1 on the same clock (`plus-lighter` stays opaque). Written by the library onto `documentElement` during a morph — do not set it yourself. |
 | `--lightbox-vt-root-easing` |  | Easing for the root snapshot cross-fade (`::view-transition-old/new(root)`). Written by the library from the `viewTransition` preset, like `--lightbox-vt-duration` (during a morph on `documentElement`, always on the Portal host). A good default for skin backdrop/content fades. |
 
 ## Types
@@ -514,6 +519,16 @@ Optional context from the enclosing Media. Exposes the Media host element for ad
 | Name | Type | Default | Description |
 | --- | --- | --- | --- |
 | (return) | `LightboxMediaContextValue \| null` |  | — |
+
+### useLightboxStageContext
+
+Optional context from the enclosing Stage. Use in nested wrappers to attach morphRef without threading the render prop — the shared View Transition capture destination.
+
+#### Props
+
+| Name | Type | Default | Description |
+| --- | --- | --- | --- |
+| (return) | `LightboxStageRenderState \| null` |  | Optional context from the enclosing Stage. Returns `{ morphRef }`, or `null` outside a Stage. |
 
 ## Imperative handles
 

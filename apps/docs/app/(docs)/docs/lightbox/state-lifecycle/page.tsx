@@ -15,6 +15,7 @@ const toc: DocsTocItem[] = [
   { id: 'imperative', title: 'Imperative API' },
   { id: 'lifecycle', title: 'Lifecycle callbacks' },
   { id: 'before-open', title: 'onBeforeOpen' },
+  { id: 'before-close', title: 'onBeforeClose' },
 ];
 
 export default function LightboxStateLifecyclePage() {
@@ -95,6 +96,17 @@ export default function LightboxStateLifecyclePage() {
           <code className="text-xs">onBeforeOpen</code>. Bound your own timeout;{' '}
           <code className="text-xs">ctx.signal</code> aborts if a newer open/close wins. See{' '}
           <DocsLink href="/examples/lightbox/3d-models">3D models</DocsLink>.
+        </p>
+      </DocsSection>
+
+      <DocsSection id="before-close" title="onBeforeClose">
+        <p>
+          <code className="text-xs">onBeforeClose</code> fires synchronously when close begins — and,
+          with View Transitions, <em>before</em> the old snapshot is captured. Use it to freeze custom
+          media (<code className="text-xs">video.pause()</code>, stop a rAF loop) so the close morph
+          isn’t a mid-frame. Unlike <code className="text-xs">onBeforeOpen</code>, it cannot delay
+          close. <code className="text-xs">onOpenChange(false)</code> is too late for this: it runs
+          inside the transition callback, after the snapshot.
         </p>
       </DocsSection>
 

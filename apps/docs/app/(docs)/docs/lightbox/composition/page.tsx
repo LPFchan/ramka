@@ -136,6 +136,8 @@ export default function LightboxCompositionPage() {
         <CodeBlock code={lightboxExcerpts['media-fit-box'].code} title={lightboxExcerpts['media-fit-box'].title} />
         <p>
           Live compositions: <DocsLink href="/presets/default">Default preset</DocsLink>,{' '}
+          <DocsLink href="/presets/twitter">Twitter preset</DocsLink>,{' '}
+          <DocsLink href="/presets/stories">Stories preset</DocsLink>,{' '}
           <DocsLink href="/examples/lightbox/photos-app">Photos app</DocsLink>.
         </p>
       </DocsSection>
@@ -162,7 +164,24 @@ export default function LightboxCompositionPage() {
           title="Stage + side panel"
         />
         <p>
-          Live example: <DocsLink href="/presets/twitter">Twitter preset</DocsLink>.
+          Attach Stage <code className="text-xs">morphRef</code> when the open/close morph should
+          capture the Stage surface (or a descendant) instead of the active item — a 9:16 stories
+          frame, the slides track, or a custom bezel. Decode and the thumbnail placeholder stay on
+          the item.
+        </p>
+        <CodeBlock
+          code={`<Lightbox.Stage>
+  {({ morphRef }) => (
+    <div ref={morphRef} className="frame">
+      <Lightbox.Slides>{/* media */}</Lightbox.Slides>
+    </div>
+  )}
+</Lightbox.Stage>`}
+          title="Stage morphRef"
+        />
+        <p>
+          Live examples: <DocsLink href="/presets/twitter">Twitter preset</DocsLink>,{' '}
+          <DocsLink href="/presets/stories">Stories preset</DocsLink>.
         </p>
       </DocsSection>
 

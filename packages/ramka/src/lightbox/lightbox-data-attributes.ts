@@ -48,6 +48,12 @@ export enum LightboxContentDataAttributes {
   closed = 'data-closed',
   /** Present while a pull-to-dismiss drag is in progress. */
   pulling = 'data-pulling',
+  /**
+   * Present while a cancelled pull springs back to rest. `data-pulling` is
+   * dropped on release so chrome can transition; this latch keeps pull-only
+   * layout (overflow, shell hide) until the item is parked.
+   */
+  pullSnapping = 'data-pull-snapping',
   /** Present while the dismiss animation runs after crossing the threshold. */
   pullDismissing = 'data-pull-dismissing',
   /** Present during an active pinch/zoom gesture (blocks pull-to-dismiss). */
@@ -65,6 +71,8 @@ export enum LightboxBackdropDataAttributes {
   closed = 'data-closed',
   /** Present while pull-to-dismiss is active (mirrors Content). */
   pulling = 'data-pulling',
+  /** Present while a cancelled pull springs back (mirrors Content). */
+  pullSnapping = 'data-pull-snapping',
 }
 
 export enum LightboxCloseDataAttributes {
