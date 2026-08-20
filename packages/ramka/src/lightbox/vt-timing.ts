@@ -36,75 +36,24 @@ function cubicBezierEasing(x1: number, y1: number, x2: number, y2: number): Easi
 }
 
 /**
- * Apple-style protected ease-out: a brief low-travel wind-up followed by a
- * cubic ease-out entered at PEAK velocity, C1-continuous at the junction.
+ * Damped spring with a protected launch: a gentle quadratic wind-up handing
+ * its exit velocity INTO the spring as initial velocity — the same trick
+ * Apple's interruptible transitions use to inject gesture velocity into a
+ * spring.
  *
- * Why not a plain bezier: Apple motion has no perceptible ease-in — it moves
- * at full speed immediately and spends most of its duration decelerating.
- * But on iOS, accelerated animations on a fresh view-transition layer tree
- * fast-forward past Core Animation's multi-frame first commit: the first
- * *displayed* frame lands ~100ms into the curve, and no anchoring trick
- * moves that (see the WebKit branch in vt-composited-morph's `upgrade`). A
- * true ease-out would teleport its fastest stretch. So the curve protects
- * exactly that window:
+ * The wind-up exists because on iOS, accelerated animations on a fresh
+ * view-transition layer tree fast-forward past Core Animation's multi-frame
+ * first commit: the first *displayed* frame lands ~100ms into the curve, and
+ * no anchoring trick moves that (see the WebKit branch in
+ * vt-composited-morph's `upgrade`). A curve that launches hot would teleport
+ * its fastest stretch, so `a` (wind-up fraction of the duration) covers that
+ * swallowed window while `q` (wind-up travel) keeps it near-still. On iOS the
+ * swallowed leading edge IS the wind-up, so the visible motion is a pure
+ * Photos-style spring settle; elsewhere it reads as a short natural gather.
  *
- *   - wind-up `[0..a]`: `q·(p/a)^k` — near-still, carrying only `q` of the
- *     travel, with `k` chosen so velocity is continuous into the next phase.
- *   - settle `[a..1]`: cubic ease-out over the remaining `1-q` travel.
- *
- * On iOS the swallowed leading edge IS the wind-up, so visible motion begins
- * at maximum velocity and settles long — the Apple signature. Elsewhere the
- * wind-up reads as a short natural gather before the launch.
- *
- * `a` (wind-up fraction of duration) should cover the skip (~100ms); `q`
- * (wind-up travel) trades skip invisibility against desktop responsiveness.
- */
-function protectedEaseOut(a: number, q: number): EasingFn {
-  const k = (3 * (1 - q) * a) / (q * (1 - a));
-  return (p) => {
-    if (p <= 0) return 0;
-    if (p >= 1) return 1;
-    if (p < a) return q * Math.pow(p / a, k);
-    const u = (p - a) / (1 - a);
-    return q + (1 - q) * (1 - Math.pow(1 - u, 3));
-  };
-}
-
-/**
- * Damped-spring step response normalized to play out over the duration —
- * what UIKit actually runs for Photos-style zoom transitions
- * (`usingSpringWithDamping:`) and the iOS 18 fluid zoom. `zeta` is the
- * damping ratio: 1 = critically damped (no overshoot), <1 overshoots
- * slightly (0.8 is the widely documented Photos-zoom value). The decay
- * constant is fixed so the spring has visually settled at p=1, and the
- * output is normalized to end exactly at 1.
- */
-function springEase(zeta: number): EasingFn {
-  const z = Math.min(Math.max(zeta, 0.2), 1);
-  if (z >= 1) {
-    // Critical: y = 1 - (1 + A·p)·e^(-A·p); A picked so y(1) ≈ 0.999.
-    const A = 9.2;
-    const end = 1 - (1 + A) * Math.exp(-A);
-    return (p) =>
-      p <= 0 ? 0 : p >= 1 ? 1 : (1 - (1 + A * p) * Math.exp(-A * p)) / end;
-  }
-  // Underdamped: envelope e^(-α·p) with α = ζω; α picked so it has decayed
-  // to ~0.1% at p=1.
-  const alpha = 6.9;
-  const omega = alpha / z;
-  const wd = omega * Math.sqrt(1 - z * z);
-  const f = (p: number) => Math.exp(-alpha * p) * (Math.cos(wd * p) + (alpha / wd) * Math.sin(wd * p));
-  const end = 1 - f(1);
-  return (p) => (p <= 0 ? 0 : p >= 1 ? 1 : (1 - f(p)) / end);
-}
-
-/**
- * Spring with a protected launch: a gentle quadratic wind-up covering the
- * iOS commit-skip window (`a` fraction of duration, `q` of the travel),
- * handing its exit velocity INTO the spring as initial velocity — the same
- * trick Apple's interruptible transitions use to inject gesture velocity
- * into a spring. On iOS the swallowed leading edge is the wind-up, so the
- * visible motion is a pure Photos-style spring settle.
+ * `zeta` is the damping ratio: 1 = critically damped (no overshoot), <1
+ * overshoots slightly. The decay constant is fixed so the spring has visually
+ * settled at p=1, and the output is normalized to end exactly at 1.
  */
 function protectedSpring(zeta: number, a: number, q: number): EasingFn {
   const z = Math.min(Math.max(zeta, 0.2), 1);
@@ -159,8 +108,6 @@ interface ViewTransitionTimingSpec {
   cssCrossfadeCloseEasing: string;
   /** CSS easing for the root snapshot fade (`::view-transition-old/new(root)`). */
   cssRootEasing: string;
-  /** Human-readable timing summary for debug traces. */
-  label: string;
 }
 
 /** easeOutExpo — the root fade wants a fast dissolve regardless of preset. */
@@ -186,7 +133,6 @@ const bezierSpec = (
     cssEasing,
     cssCrossfadeCloseEasing: CROSSFADE_CLOSE_EASING,
     cssRootEasing: ROOT_FADE_EASING,
-    label: `${duration}ms cubic-bezier(${x1},${y1},${x2},${y2})`,
   };
 };
 
@@ -217,7 +163,6 @@ const VIEW_TRANSITION_PRESETS: Record<LightboxViewTransitionPreset, ViewTransiti
     cssEasing: 'cubic-bezier(0.22, 1, 0.36, 1)',
     cssCrossfadeCloseEasing: CROSSFADE_CLOSE_EASING,
     cssRootEasing: ROOT_FADE_EASING,
-    label: '450ms protected-spring(1,.22,.08)',
   },
 };
 
@@ -238,88 +183,20 @@ function resolveViewTransitionTiming(
 }
 
 /**
- * Parse the undocumented `window.__RAMKA_VT_TIMING__` debug override (docs
- * wire this to `?vttiming=...`), four formats:
- *   - `'duration,x1,y1,x2,y2'` — plain cubic-bezier, e.g. `360,.44,.58,0,1`
- *   - `'duration,out,a,q'` — protected ease-out, e.g. `350,out,.28,.1`
- *   - `'duration,spring,zeta'` — UIKit-style spring, e.g. `500,spring,.8`
- *   - `'duration,pspring,zeta,a,q'` — spring with protected launch,
- *     e.g. `500,pspring,.8,.2,.08`
+ * The morph's active timing, identical in every browser: the Root's
+ * `viewTransition` preset, published on `documentElement` as
+ * `data-ramka-vt-preset` for the duration of the transition, falling back to
+ * the `default` preset.
  */
-function parseDebugTimingOverride(): { duration: number; ease: EasingFn; label: string } | null {
-  if (typeof window === 'undefined') return null;
-  const raw = (window as unknown as Record<string, unknown>).__RAMKA_VT_TIMING__;
-  if (typeof raw !== 'string') return null;
-  const parts = raw.split(',').map((p) => p.trim());
-  const nums = parts.map((p) => Number.parseFloat(p));
-  if (parts.length === 5 && nums.every((n) => Number.isFinite(n)) && nums[0]! > 0) {
-    return {
-      duration: nums[0]!,
-      ease: cubicBezierEasing(nums[1]!, nums[2]!, nums[3]!, nums[4]!),
-      label: `${nums[0]}ms cubic-bezier(${parts.slice(1).join(',')})`,
-    };
-  }
-  if (
-    parts.length === 4 &&
-    parts[1] === 'out' &&
-    Number.isFinite(nums[0]) &&
-    nums[0]! > 0 &&
-    Number.isFinite(nums[2]) &&
-    Number.isFinite(nums[3])
-  ) {
-    return {
-      duration: nums[0]!,
-      ease: protectedEaseOut(nums[2]!, nums[3]!),
-      label: `${nums[0]}ms protected-out(${nums[2]},${nums[3]})`,
-    };
-  }
-  if (
-    parts.length === 3 &&
-    parts[1] === 'spring' &&
-    Number.isFinite(nums[0]) &&
-    nums[0]! > 0 &&
-    Number.isFinite(nums[2])
-  ) {
-    return {
-      duration: nums[0]!,
-      ease: springEase(nums[2]!),
-      label: `${nums[0]}ms spring(${nums[2]})`,
-    };
-  }
-  if (
-    parts.length === 5 &&
-    parts[1] === 'pspring' &&
-    Number.isFinite(nums[0]) &&
-    nums[0]! > 0 &&
-    [nums[2], nums[3], nums[4]].every((n) => Number.isFinite(n))
-  ) {
-    return {
-      duration: nums[0]!,
-      ease: protectedSpring(nums[2]!, nums[3]!, nums[4]!),
-      label: `${nums[0]}ms protected-spring(${nums[2]},${nums[3]},${nums[4]})`,
-    };
-  }
-  return null;
-}
-
-/**
- * The morph's active timing, identical in every browser. Precedence:
- *   1. `window.__RAMKA_VT_TIMING__` debug override (live-tunable, undocumented)
- *   2. the Root's `viewTransition` preset, published on `documentElement` as
- *      `data-ramka-vt-preset` for the duration of the transition
- *   3. the `default` preset
- */
-function morphTiming(): { duration: number; ease: EasingFn; label: string } {
-  const override = parseDebugTimingOverride();
-  if (override) return override;
+function morphTiming(): { duration: number; ease: EasingFn } {
   const presetAttr =
     typeof document !== 'undefined'
       ? document.documentElement.getAttribute(LightboxDocumentDataAttributes.viewTransitionPreset)
       : null;
-  const { duration, ease, label } = resolveViewTransitionTiming(
+  const { duration, ease } = resolveViewTransitionTiming(
     isViewTransitionPreset(presetAttr) ? presetAttr : undefined,
   );
-  return { duration, ease, label };
+  return { duration, ease };
 }
 
 export {

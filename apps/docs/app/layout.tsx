@@ -31,25 +31,18 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         sit above page content without competing with in-app z-index values.
       */}
       <body className="relative min-h-screen bg-background text-foreground antialiased">
-        {/* View Transition debugging (see ramka's vt-debug.ts and
-            vt-composited-morph.ts): append ?vtdebug to stream per-frame morph
-            traces to /api/vt-log. The experimental transform-only compositor
-            morph is ON by default; append ?vtstock to fall back to the stock
-            UA morph for A/B comparison. Inline so the flags are set before
-            any user interaction can start a transition. */}
+        {/* The experimental transform-only compositor morph (see ramka's
+            vt-composited-morph.ts) is ON by default; append ?vtstock to fall
+            back to the stock UA morph for A/B comparison. Inline so the flag is
+            set before any user interaction can start a transition. */}
         <script
           dangerouslySetInnerHTML={{
             __html:
-              'if(/[?&]vtdebug/.test(location.search))window.__RAMKA_VT_DEBUG__=true;' +
               'if(/[?&]vtstock/.test(location.search))window.__RAMKA_VT_COMPOSITED__=false;' +
               // Blind A/B: ?vtab=q7 and ?vtab=k2 map to the two morph engines
               // without revealing which is which (see vt-composited-morph.ts).
               'if(/[?&]vtab=q7/.test(location.search))window.__RAMKA_VT_COMPOSITED__=false;' +
-              'if(/[?&]vtab=k2/.test(location.search))window.__RAMKA_VT_COMPOSITED__=true;' +
-              // Live-tune the composited morph timing (all browsers) without
-              // rebuilds: ?vttiming=duration,x1,y1,x2,y2 (e.g. 400,.5,0,.15,1).
-              'var vtt=/[?&]vttiming=([^&]+)/.exec(location.search);' +
-              'if(vtt)window.__RAMKA_VT_TIMING__=decodeURIComponent(vtt[1]);',
+              'if(/[?&]vtab=k2/.test(location.search))window.__RAMKA_VT_COMPOSITED__=true;',
           }}
         />
         <ThemeProvider>

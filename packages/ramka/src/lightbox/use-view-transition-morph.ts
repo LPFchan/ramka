@@ -6,7 +6,6 @@ import { flushSync } from 'react-dom';
 import { isAndroidBlinkSnapshotRoot } from './is-android-blink';
 import { isFirefox } from './is-firefox';
 import { acquireVtTouchGuard } from './vt-touch-guard';
-import { maybeTraceViewTransition } from './vt-debug';
 import { maybeUpgradeToCompositedMorph } from './vt-composited-morph';
 import { isViewTransitionPreset, resolveViewTransitionTiming } from './vt-timing';
 import type { LightboxViewTransitionPreset } from './vt-timing';
@@ -1028,7 +1027,6 @@ function createViewTransitionMorph(getConfig: () => ViewTransitionMorphConfig): 
         itemEl.setAttribute('data-skip-fade', '');
       }
     });
-    maybeTraceViewTransition(transition, 'opening');
     if (canMorph) {
       maybeUpgradeToCompositedMorph(transition);
     }
@@ -1169,7 +1167,6 @@ function createViewTransitionMorph(getConfig: () => ViewTransitionMorphConfig): 
         setMorphName(triggerTarget!);
       }
     });
-    maybeTraceViewTransition(transition, 'closing');
     if (canMorph) {
       maybeUpgradeToCompositedMorph(transition);
     }

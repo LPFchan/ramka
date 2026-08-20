@@ -1,21 +1,21 @@
 // ---------------------------------------------------------------------------
-// Morph-timing lab archive.
+// Morph-timing lab archive — historical record, not live configuration.
 //
-// Every preset explored while picking the composited morph's default timing
+// Every curve explored while picking the composited morph's default timing
 // (now the `default` entry of VIEW_TRANSITION_PRESETS in ramka's vt-timing.ts,
 // `360,.44,.58,0,1` — "launch tamed more"; consumers pick presets via the
-// `viewTransition` prop on Lightbox.Root). Each value is a
-// `window.__RAMKA_VT_TIMING__` string, applied live per open/close:
+// `viewTransition` prop on Lightbox.Root). Values are encoded as:
 //   - `duration,x1,y1,x2,y2`         plain cubic-bezier
 //   - `duration,out,windup,travel`   protected ease-out
 //   - `duration,spring,zeta`         UIKit-style damped spring
 //   - `duration,pspring,zeta,a,q`    spring with protected launch
 //
-// Try any of them on a running page via the URL, e.g. `?vttiming=500,spring,.8`,
-// or from the console: `window.__RAMKA_VT_TIMING__ = '500,spring,.8'`.
-// To bring the picker UI back, see the git history of the (since removed)
-// examples/lightbox/responsive-gallery/page.tsx — a radio list that assigned
-// the chosen value to `window.__RAMKA_VT_TIMING__`.
+// These were applied live through a `window.__RAMKA_VT_TIMING__` runtime
+// override, which has since been removed along with the rest of the morph
+// debug tooling — as have the `out` and `spring` easing implementations, so
+// only the bezier and `pspring` rows still correspond to shipped code. Kept
+// for the reasoning behind the shipped default; re-running any of these now
+// means editing the preset table directly.
 // ---------------------------------------------------------------------------
 
 export const ARCHIVED_TIMING_PRESETS = {

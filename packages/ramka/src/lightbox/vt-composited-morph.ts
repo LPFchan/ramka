@@ -124,38 +124,6 @@ function keyframesCss(
   return `@keyframes ${name} {\n${body}\n}`;
 }
 
-/**
- * Dev/debug visibility: when VT debug tracing is on, log upgrade decisions to
- * the console AND to the trace sink endpoint, so bail reasons are visible
- * from remote devices (phones) without a console attached.
- */
-function debugLog(...args: unknown[]) {
-  if (typeof window === 'undefined') return;
-  const flag = (window as unknown as Record<string, unknown>).__RAMKA_VT_DEBUG__;
-  if (!flag) return;
-  // eslint-disable-next-line no-console -- opt-in debug tracing
-  console.log('[ramka-vt-composited]', ...args);
-  const endpoint = typeof flag === 'string' ? flag : '/api/vt-log';
-  const safe = args.map((a) => {
-    if (typeof a === 'string') return a;
-    try {
-      return JSON.parse(JSON.stringify(a));
-    } catch {
-      return String(a);
-    }
-  });
-  try {
-    void fetch(endpoint, {
-      method: 'POST',
-      keepalive: true,
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ compositedLog: safe, t: Date.now() }),
-    });
-  } catch {
-    // Best-effort delivery.
-  }
-}
-
 let styleInjected = false;
 
 /**
@@ -274,10 +242,7 @@ const fmt = (n: number) => Number(n.toFixed(4));
  */
 function maybeUpgradeToCompositedMorph(transition: UpgradeableTransition): void {
   if (!isCompositedMorphEnabled()) return;
-  if (!transition.ready) {
-    debugLog('bail: transition.ready unavailable');
-    return;
-  }
+  if (!transition.ready) return;
 
   transition.ready
     .then(() => upgrade(transition))
@@ -293,10 +258,7 @@ function upgrade(transition: UpgradeableTransition): void {
   // `100%` + `object-fit: fill` contract (tracks the frozen box for free)
   // and their compositor-friendly UA opacity dissolve. See module docblock.
   const isCrossfade = docEl.hasAttribute(LightboxDocumentDataAttributes.crossfade);
-  if (typeof document.getAnimations !== 'function') {
-    debugLog('bail: getAnimations unsupported');
-    return;
-  }
+  if (typeof document.getAnimations !== 'function') return;
 
   const groupAnimations = document.getAnimations().filter((a) => {
     const effect = a.effect as KeyframeEffect | null;
@@ -305,10 +267,7 @@ function upgrade(transition: UpgradeableTransition): void {
   const uaAnim = groupAnimations.find((a) =>
     ((a as CSSAnimation).animationName ?? '').startsWith('-ua-view-transition-group-anim'),
   );
-  if (!uaAnim || !uaAnim.effect) {
-    debugLog('bail: UA group animation not found');
-    return;
-  }
+  if (!uaAnim || !uaAnim.effect) return;
 
   // --- Validate everything BEFORE mutating any state -----------------------
 
@@ -320,33 +279,20 @@ function upgrade(transition: UpgradeableTransition): void {
     uaKeyframes = [];
   }
   const fromFrame = uaKeyframes.find((kf) => (kf.computedOffset ?? kf.offset ?? 0) === 0);
-  if (!fromFrame) {
-    debugLog('bail: no from keyframe');
-    return;
-  }
+  if (!fromFrame) return;
 
   const fromT = parseScaleTranslate(fromFrame.transform);
   const w0 = parsePx(fromFrame.width);
   const h0 = parsePx(fromFrame.height);
-  if (!fromT || w0 == null || h0 == null) {
-    debugLog('bail: unparsable from geometry', {
-      transform: fromFrame.transform,
-      width: fromFrame.width,
-      height: fromFrame.height,
-    });
-    return;
-  }
+  if (!fromT || w0 == null || h0 == null) return;
 
   const uaTiming = effect.getComputedTiming();
   const uaDuration = typeof uaTiming.duration === 'number' ? uaTiming.duration : NaN;
-  if (!Number.isFinite(uaDuration) || uaDuration <= 0) {
-    debugLog('bail: no finite duration', String(uaTiming.duration));
-    return;
-  }
+  if (!Number.isFinite(uaDuration) || uaDuration <= 0) return;
 
   // The morph's own motion design — same duration and easing in every
   // browser, independent of the page's view-transition CSS.
-  const { duration, ease, label: timingLabel } = morphTiming();
+  const { duration, ease } = morphTiming();
 
   // Capture how far the UA animation has ACTUALLY progressed before touching
   // it. The replacements resume from this elapsed time below, so the swap is
@@ -384,9 +330,7 @@ function upgrade(transition: UpgradeableTransition): void {
   let toT = toFrame ? parseScaleTranslate(toFrame.transform) : null;
   let w1 = toFrame ? parsePx(toFrame.width) : null;
   let h1 = toFrame ? parsePx(toFrame.height) : null;
-  let endGeometrySource = 'to-keyframe';
   if (!toT || w1 == null || h1 == null) {
-    endGeometrySource = 'computed-end';
     uaAnim.pause();
     uaAnim.currentTime = uaDuration;
     const endStyle = getComputedStyle(docEl, GROUP_PSEUDO);
@@ -397,11 +341,6 @@ function upgrade(transition: UpgradeableTransition): void {
       // Restore the stock animation and bail.
       uaAnim.currentTime = 0;
       uaAnim.play();
-      debugLog('bail: unparsable end geometry', {
-        transform: endStyle.transform,
-        width: endStyle.width,
-        height: endStyle.height,
-      });
       return;
     }
   }
@@ -529,7 +468,6 @@ function upgrade(transition: UpgradeableTransition): void {
 
   let created: Animation[] = [];
   let styleEl: HTMLStyleElement | null = null;
-  let handover = 'natural';
 
   if (useCssAnimations) {
     // WebKit path: deliver the replacement as real CSS animations (WAAPI on
@@ -588,7 +526,6 @@ ${hasRadius ? keyframesCss(rName, radiusFrames, 'borderRadius') : ''}
 ${snapshotCss}`;
     document.head.appendChild(styleEl);
     docEl.setAttribute(COMPOSITED_CSS_ATTR, '');
-    handover = 'webkit-css';
   } else {
     try {
       created.push(docEl.animate(groupFrames, options(GROUP_PSEUDO)));
@@ -601,14 +538,13 @@ ${snapshotCss}`;
         created.push(docEl.animate(oldFrames, options(OLD_PSEUDO)));
         created.push(docEl.animate(newFrames, options(NEW_PSEUDO)));
       }
-    } catch (error) {
+    } catch {
       // Pseudo missing or engine refuses pseudo-element WAAPI — roll back to
       // the stock morph.
       for (const a of created) a.cancel();
       docEl.removeAttribute(COMPOSITED_ATTR);
       uaAnim.currentTime = 0;
       uaAnim.play();
-      debugLog('bail: animate() failed, rolled back', String(error));
       return;
     }
 
@@ -616,25 +552,11 @@ ${snapshotCss}`;
     // on healthy devices). See the `uaElapsed` capture above for why this is
     // progress-based rather than startTime-based.
     if (uaElapsed > 0) {
-      handover = `resume(${uaElapsed})`;
       for (const a of created) {
         a.currentTime = uaElapsed;
       }
     }
   }
-
-  debugLog('upgraded to composited morph', {
-    from: { ...fromT, w: w0, h: h0 },
-    to: { ...toT, w: w1, h: h1 },
-    crossfade: isCrossfade,
-    endGeometrySource,
-    origin: { fx: fmt(fx), fy: fmt(fy) },
-    timing: timingLabel,
-    uaDuration,
-    steps,
-    hasRadius,
-    handover,
-  });
 
   transition.finished.finally(() => {
     for (const a of created) a.cancel();
