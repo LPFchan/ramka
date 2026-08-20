@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Android VT abort — URL bar / snapshot root</title>
+  <style>
+    html, body { margin: 0; }
+    body {
+      font: 15px/1.45 system-ui, sans-serif;
+      padding: 16px 16px 200vh;
+      color: #111;
+    }
+    h1 { font-size: 18px; margin: 0 0 8px; }
+    p { max-width: 40em; }
+    code { font-size: 0.92em; }
+    #box {
+      width: 96px;
+      height: 96px;
+      background: #1a73e8;
+      view-transition-name: box;
+      border-radius: 8px;
+    }
+    body.on #box {
+      background: #d93025;
+      transform: translate(40vw, 20vh) scale(2);
+    }
+    pre {
+      font: 12px/1.35 ui-monospace, SFMono-Regular, monospace;
+      white-space: pre-wrap;
+      background: #f4f4f4;
+      padding: 10px;
+      border-radius: 6px;
+    }
+    .row { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+    button {
+      font: inherit;
+      padding: 8px 12px;
+      border: 1px solid #ccc;
+      background: #fff;
+      border-radius: 6px;
+    }
+  </style>
+</head>
+<body>
+  <h1>URL-bar View Transition abort</h1>
+  <p>
+    Chrome Android: flick-scroll the URL bar, then immediately start a VT.
+    Expect <code>InvalidStateError</code> / ~8ms <code>finished</code> while
+    <code>innerH</code> ≠ <code>vvH</code>. Wait until they agree, then start —
+    the morph should run ~300–400ms.
+  </p>
+  <div class="row">
+    <button type="button" id="go">Start view transition</button>
+    <button type="button" id="clear">Clear log</button>
+  </div>
+  <div id="box"></div>
+  <pre id="live"></pre>
+  <pre id="log"></pre>
+  <script>
+    const live = document.getElementById('live');
+    const logEl = document.getElementById('log');
+
+    function snap() {
+      const vv = window.visualViewport;
+      return {
+        inner: window.innerWidth + '×' + window.innerHeight,
+        vv: vv ? Math.round(vv.width) + '×' + Math.round(vv.height) : 'n/a',
+        aligned: !vv || Math.abs(window.innerHeight - vv.height) <= 1,
+      };
+    }
+
+    function line(msg) {
+      const s = snap();
+      logEl.textContent +=
+        `[${Math.round(performance.now())}] ${msg}  inner=${s.inner} vv=${s.vv} aligned=${s.aligned}\n`;
+    }
+
+    function tick() {
+      const s = snap();
+      live.textContent =
+        `inner=${s.inner}  vv=${s.vv}  aligned=${s.aligned}\nUA: ${navigator.userAgent}`;
+      requestAnimationFrame(tick);
+    }
+    tick();
+
+    window.addEventListener('resize', () => line('window.resize'));
+    window.visualViewport?.addEventListener('resize', () => line('visualViewport.resize'));
+
+    document.getElementById('go').onclick = () => {
+      if (typeof document.startViewTransition !== 'function') {
+        line('no startViewTransition');
+        return;
+      }
+      line('startViewTransition');
+      const t0 = performance.now();
+      const t = document.startViewTransition(() => {
+        document.body.classList.toggle('on');
+      });
+      t.ready.then(
+        () => line('ready-ok +' + Math.round(performance.now() - t0) + 'ms'),
+        (e) =>
+          line(
+            'ready-REJECT ' + e.name + ': ' + e.message + ' +' +
+              Math.round(performance.now() - t0) + 'ms',
+          ),
+      );
+      t.finished.then(() =>
+        line(
+          'finished +' + Math.round(performance.now() - t0) +
+            'ms (UA morph is ~300–400ms; <<100ms = skipped)',
+        ),
+      );
+    };
+
+    document.getElementById('clear').onclick = () => {
+      logEl.textContent = '';
+    };
+  </script>
+</body>
+</html>
