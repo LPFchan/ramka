@@ -2,187 +2,128 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
+  <!-- Match Next.js / the docs landing page. viewport-fit=cover puts Chrome
+       Android into a larger viewport where this overlay does not poke
+       browser controls (verified on emulator: 844px vs landing 820px). -->
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Android env(safe-area-inset) overlay → fake resize</title>
+  <title>Tap the button</title>
   <style>
+    html { color-scheme: light; }
     html, body { margin: 0; }
     body {
-      font: 15px/1.45 system-ui, sans-serif;
-      padding: 16px 16px 200vh;
+      font: 18px/1.35 system-ui, sans-serif;
+      background: #fff;
       color: #111;
+      text-align: center;
+      min-height: 300vh;
     }
-    h1 { font-size: 18px; margin: 0 0 8px; }
-    p { max-width: 42em; }
-    code { font-size: 0.92em; }
-    .overlay {
+    #status {
+      box-sizing: border-box;
+      height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 16px;
+      font: 700 20px/1.2 system-ui, sans-serif;
+      background: #eee;
+    }
+    #status.skip { background: #b3261e; color: #fff; }
+    #status.ok { background: #0d7a3f; color: #fff; }
+    main { padding: 32px 16px; }
+    #go {
+      display: block;
+      width: min(88vw, 360px);
+      margin: 32px auto;
+      padding: 28px 16px;
+      font: 700 22px/1.2 system-ui, sans-serif;
+      color: #fff;
+      background: #1a73e8;
+      border: 0;
+      border-radius: 14px;
+    }
+    .hint { opacity: 0.7; max-width: 22em; margin: 0 auto; }
+    .card {
+      height: 28vh;
+      margin: 16px;
+      border-radius: 12px;
+      background: #e8e8e8;
+    }
+    .lightbox-demo-content {
       position: fixed;
       inset: 0;
-      overflow: hidden;
-      background: rgba(0, 0, 0, 0.35);
       z-index: 10;
-    }
-    .env-pad {
-      padding-top: env(safe-area-inset-top, 0px);
-      padding-bottom: env(safe-area-inset-bottom, 0px);
-    }
-    .env-var {
+      overflow: hidden;
+      overscroll-behavior: contain;
+      background: rgba(0, 0, 0, 0.85);
       --lightbox-inset-top: calc(4rem + env(safe-area-inset-top, 0px));
       --lightbox-inset-bottom: calc(4rem + env(safe-area-inset-bottom, 0px));
-    }
-    .env-bare {
-      --x: env(safe-area-inset-top);
-    }
-    pre {
-      font: 12px/1.35 ui-monospace, SFMono-Regular, monospace;
-      white-space: pre-wrap;
-      background: #f4f4f4;
-      padding: 10px;
-      border-radius: 6px;
-    }
-    .row { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
-    button {
-      font: inherit;
-      padding: 8px 12px;
-      border: 1px solid #ccc;
-      background: #fff;
-      border-radius: 6px;
-    }
-    #thumb {
-      width: 96px;
-      height: 64px;
-      background: #1a73e8;
-      border-radius: 6px;
     }
   </style>
 </head>
 <body>
-  <h1>env() overlay fake resize</h1>
-  <p>
-    Chrome Android + URL bar <strong>visible</strong>. Plain overlay should be
-    0/0. env() padding or unused <code>calc(... + env())</code> custom props
-    should fire <code>window.resize</code> with unchanged sizes.
-  </p>
-  <div id="thumb"></div>
-  <div class="row">
-    <button type="button" data-kind="plain">Plain overlay</button>
-    <button type="button" data-kind="env-pad">env() padding</button>
-    <button type="button" data-kind="env-var">unused calc+env() vars</button>
-    <button type="button" data-kind="env-bare">unused bare env() var</button>
-    <button type="button" id="ab">Run A/B</button>
-    <button type="button" id="vt-env">VT close (env overlay)</button>
-    <button type="button" id="vt-plain">VT close (plain overlay)</button>
-    <button type="button" id="clear">Clear</button>
-  </div>
-  <pre id="live"></pre>
-  <pre id="log"></pre>
+  <div id="status">Tap the blue button</div>
+  <main>
+    <p class="hint">Stay at the top so the URL bar is showing, then tap once.</p>
+    <button type="button" id="go">Tap me</button>
+    <div class="card"></div>
+    <div class="card"></div>
+    <div class="card"></div>
+    <div class="card"></div>
+    <div class="card"></div>
+    <div class="card"></div>
+  </main>
   <script>
-    const logEl = document.getElementById('log');
-    const live = document.getElementById('live');
-    let overlay = null;
-    let resizeCount = 0;
+    const status = document.getElementById('status');
+    const go = document.getElementById('go');
+    let resizes = 0;
+    let fake = 0;
+    let baseline = '';
 
-    function sizes() {
+    function sizeKey() {
       const vv = window.visualViewport;
-      return {
-        inner: window.innerWidth + '×' + window.innerHeight,
-        vv: vv ? Math.round(vv.width) + '×' + Math.round(vv.height) : 'n/a',
-      };
+      const inner = window.innerWidth + '×' + window.innerHeight;
+      const vvs = vv ? Math.round(vv.width) + '×' + Math.round(vv.height) : 'n/a';
+      return inner + ' / ' + vvs;
     }
-
-    function line(msg) {
-      const s = sizes();
-      logEl.textContent +=
-        `[${Math.round(performance.now())}] ${msg}  inner=${s.inner} vv=${s.vv} resizes=${resizeCount}\n`;
-    }
-
-    function tick() {
-      const s = sizes();
-      live.textContent = `inner=${s.inner}  vv=${s.vv}\nUA: ${navigator.userAgent}`;
-      requestAnimationFrame(tick);
-    }
-    tick();
 
     window.addEventListener('resize', () => {
-      resizeCount += 1;
-      line('window.resize');
-    });
-    window.visualViewport?.addEventListener('resize', () => line('visualViewport.resize'));
-
-    function mount(kind) {
-      unmount(false);
-      overlay = document.createElement('div');
-      overlay.className = 'overlay' + (kind === 'plain' ? '' : ' ' + kind);
-      overlay.dataset.kind = kind;
-      document.body.append(overlay);
-      line('append ' + kind);
-    }
-
-    function unmount(useDisplayNone) {
-      if (!overlay) return;
-      const kind = overlay.dataset.kind;
-      if (useDisplayNone) overlay.style.display = 'none';
-      else overlay.remove();
-      overlay = null;
-      line((useDisplayNone ? 'display:none ' : 'remove ') + kind);
-    }
-
-    document.querySelectorAll('[data-kind]').forEach((btn) => {
-      btn.onclick = () => {
-        if (overlay) unmount(true);
-        else mount(btn.dataset.kind);
-      };
+      resizes += 1;
+      if (sizeKey() === baseline) fake += 1;
     });
 
-    document.getElementById('ab').onclick = async () => {
-      logEl.textContent = '';
-      resizeCount = 0;
-      for (const kind of ['plain', 'env-pad', 'env-var', 'env-bare']) {
-        line('--- ' + kind);
-        mount(kind);
-        await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
-        unmount(true);
-        await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
-      }
-    };
-
-    async function vtClose(kind) {
-      if (typeof document.startViewTransition !== 'function') {
-        line('no VT');
-        return;
-      }
-      mount(kind);
-      overlay.style.visibility = 'hidden';
-      document.getElementById('thumb').style.viewTransitionName = 'photo';
-      const t0 = performance.now();
-      const t = document.startViewTransition(() => {
-        document.getElementById('thumb').style.viewTransitionName = '';
-        overlay.style.visibility = 'visible';
-        overlay.style.viewTransitionName = 'photo';
-      });
-      await t.finished;
-      line('open finished +' + Math.round(performance.now() - t0) + 'ms');
-      const t1 = performance.now();
-      const tClose = document.startViewTransition(() => {
-        overlay.style.viewTransitionName = '';
-        document.getElementById('thumb').style.viewTransitionName = 'photo';
-        overlay.style.display = 'none';
-      });
-      tClose.ready.then(
-        () => line('close ready-ok'),
-        (e) => line('close ready-REJECT ' + e.name + ': ' + e.message),
-      );
-      await tClose.finished;
-      line('close finished +' + Math.round(performance.now() - t1) + 'ms (<<100ms = skipped)');
-      document.getElementById('thumb').style.viewTransitionName = '';
-      unmount(false);
+    function twoFrames() {
+      return new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
     }
 
-    document.getElementById('vt-env').onclick = () => vtClose('env-var');
-    document.getElementById('vt-plain').onclick = () => vtClose('plain');
-    document.getElementById('clear').onclick = () => {
-      logEl.textContent = '';
-      resizeCount = 0;
-    };
+    go.addEventListener('click', async () => {
+      baseline = sizeKey();
+      resizes = 0;
+      fake = 0;
+
+      const content = document.createElement('div');
+      content.className = 'lightbox-demo-content';
+      document.body.append(content);
+      document.documentElement.style.overflow = 'hidden';
+      void content.offsetHeight;
+      await twoFrames();
+
+      content.style.display = 'none';
+      await twoFrames();
+
+      content.remove();
+      document.documentElement.style.overflow = '';
+
+      if (fake) {
+        status.className = 'skip';
+        status.textContent = 'FAKE RESIZE  ×' + fake + '  size unchanged';
+      } else if (resizes) {
+        status.className = '';
+        status.textContent = 'resize ×' + resizes + '  (size changed)';
+      } else {
+        status.className = 'ok';
+        status.textContent = 'OK  no resize  innerH=' + window.innerHeight;
+      }
+    });
   </script>
 </body>
 </html>

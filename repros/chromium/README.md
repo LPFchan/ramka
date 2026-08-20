@@ -14,8 +14,8 @@ Each markdown is meant to be pasted into a **new Chromium issue** (one issue per
 With `pnpm dev` running, open these on Chrome Android (URL bar visible, tab in the foreground):
 
 - Launcher: `/debug/chromium`
-- [1. URL bar aborts View Transition](/debug/chromium-url-bar.html) — same bytes as `01-android-vt-url-bar-aborts-transition.html`
-- [2. env(safe-area-inset) overlay fires resize](/debug/chromium-safe-area-resize.html) — same bytes as `02-safe-area-inset-fixed-overlay-fires-resize.html`
+- [1. Tap the photo](/debug/chromium-url-bar.html) — same bytes as `01-android-vt-url-bar-aborts-transition.html`
+- [2. Tap the button](/debug/chromium-safe-area-resize.html) — same bytes as `02-safe-area-inset-fixed-overlay-fires-resize.html`
 
 Those two URLs are static files under `apps/docs/public/debug/` (no Next layout). If you edit a repro HTML, copy it to both places.
 

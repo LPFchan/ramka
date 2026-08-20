@@ -84,93 +84,28 @@ Typical JS sizes while it fails (Pixel / emulator, URL bar half-open):
 
 ## Steps to reproduce
 
-1. Serve `01-android-vt-url-bar-aborts-transition.html` over HTTP (not `file://`).
-2. Open it in **Chrome Android**. The page is taller than the screen.
-3. **Show the URL bar** (scroll to top, or fling down). Confirm the live readout: `innerH` and `vvH` often differ.
-4. Flick-scroll **just enough** that the URL bar starts moving. **Immediately** tap **Start view transition**.
-5. Watch the log.
+1. Open `01-android-vt-url-bar-aborts-transition.html` in Chrome Android (HTTP, tab in the foreground).
+2. Stay at the **top** of the page so the URL bar is showing (the page is long on purpose).
+3. Tap the blue photo once.
 
-**Control:** wait until `innerH` and `vvH` agree and stay still, then tap. The transition should run a full duration.
+One tap runs the same two steps as a lightbox:
 
-Hidden Chrome tabs (`document.hidden`) reject every VT — keep the tab foreground.
+1. **Open** — mount a covering `position:fixed; inset:0; overflow:hidden` box that has unused `--lightbox-inset-*: calc(4rem + env(safe-area-inset-*))` with `visibility:hidden` (layout box exists), flush layout, then `startViewTransition` and reveal inside the callback. `overflow:hidden` is set on `<html>` inside that callback.
+2. **Close** — with that box still in layout and `<html>` still overflow-hidden, `startViewTransition` and `display:none` the box inside the callback. Overflow is not restored until `finished`.
+
+Inserting the overlay *inside* the update callback does **not** reproduce. The skip is: env() covering box already in layout → capture → destroy the layout box (or capture while the insert twitch is still moving the URL bar).
+
+**Fail:** red bar — `OPEN SKIPPED` or `CLOSE SKIPPED`. That includes `ready` rejected (`InvalidStateError`) **and** skip-after-activation (`ready` ok, `finished` in ~8–50ms).
+
+**Pass:** green `OK` with both durations around the 450ms group animation. Desktop Chrome should pass.
+
+Do not add `viewport-fit=cover`. On Chrome Android that switches the page into a larger viewport (URL bar overlay / hidden). The overlay then does not fire a fake `resize` and the morph completes. The docs landing page — the original 100% case — uses Next’s default `width=device-width, initial-scale=1` with no `viewport-fit=cover`.
 
 ---
 
 ## Reduced test case
 
-Companion file: [`01-android-vt-url-bar-aborts-transition.html`](./01-android-vt-url-bar-aborts-transition.html)
-
-```html
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Android VT abort — URL bar / snapshot root</title>
-  <style>
-    html, body { margin: 0; }
-    body { font: 15px/1.4 system-ui; padding: 16px 16px 200vh; }
-    #box { width: 96px; height: 96px; background: #1a73e8; view-transition-name: box; }
-    body.on #box { background: #d93025; transform: translate(40vw, 20vh) scale(2); }
-    pre { font: 12px/1.35 ui-monospace, monospace; white-space: pre-wrap; }
-    .row { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
-  </style>
-</head>
-<body>
-  <h1>URL-bar View Transition abort</h1>
-  <p>Chrome Android: flick-scroll the URL bar, then immediately start a VT. Expect <code>InvalidStateError</code> / ~8ms <code>finished</code> while <code>innerH</code> ≠ <code>vvH</code>.</p>
-  <div class="row">
-    <button id="go">Start view transition</button>
-    <button id="clear">Clear log</button>
-  </div>
-  <div id="box"></div>
-  <pre id="live"></pre>
-  <pre id="log"></pre>
-  <script>
-    const live = document.getElementById('live');
-    const logEl = document.getElementById('log');
-    const box = document.getElementById('box');
-    function snap() {
-      const vv = window.visualViewport;
-      return {
-        inner: window.innerWidth + '×' + window.innerHeight,
-        vv: vv ? Math.round(vv.width) + '×' + Math.round(vv.height) : 'n/a',
-        aligned: !vv || Math.abs(window.innerHeight - vv.height) <= 1,
-      };
-    }
-    function line(msg) {
-      const s = snap();
-      logEl.textContent += `[${Math.round(performance.now())}] ${msg}  inner=${s.inner} vv=${s.vv} aligned=${s.aligned}\n`;
-    }
-    function tick() {
-      const s = snap();
-      live.textContent = `inner=${s.inner}  vv=${s.vv}  aligned=${s.aligned}\nUA: ${navigator.userAgent}`;
-      requestAnimationFrame(tick);
-    }
-    tick();
-    window.addEventListener('resize', () => line('window.resize'));
-    window.visualViewport?.addEventListener('resize', () => line('visualViewport.resize'));
-    document.getElementById('go').onclick = async () => {
-      if (typeof document.startViewTransition !== 'function') {
-        line('no startViewTransition');
-        return;
-      }
-      line('startViewTransition');
-      const t0 = performance.now();
-      const t = document.startViewTransition(() => {
-        document.body.classList.toggle('on');
-      });
-      t.ready.then(
-        () => line('ready-ok +' + Math.round(performance.now() - t0) + 'ms'),
-        (e) => line('ready-REJECT ' + e.name + ': ' + e.message + ' +' + Math.round(performance.now() - t0) + 'ms'),
-      );
-      t.finished.then(() => line('finished +' + Math.round(performance.now() - t0) + 'ms (UA morph is ~300–400ms; <<100ms = skipped)'));
-    };
-    document.getElementById('clear').onclick = () => { logEl.textContent = ''; };
-  </script>
-</body>
-</html>
-```
+[`01-android-vt-url-bar-aborts-transition.html`](./01-android-vt-url-bar-aborts-transition.html) — tap the photo.
 
 ---
 

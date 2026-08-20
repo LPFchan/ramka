@@ -20,21 +20,18 @@ export default function ChromiumReproIndexPage() {
       <div>
         <h1 className="text-xl font-semibold">Chromium repros</h1>
         <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">
-          Raw HTML — same files as <code>repros/chromium/</code>. Open on Chrome
-          Android with the URL bar visible. Keep this tab in the foreground.
+          One tap each. Stay at the top so the URL bar is showing. Keep the tab
+          in the foreground.
         </p>
       </div>
-      <a
-        className="rounded-lg border px-4 py-4 text-lg"
-        href="/debug/chromium-url-bar.html"
-      >
-        1. URL bar aborts View Transition
+      <a className="rounded-lg border px-4 py-4 text-lg" href="/debug/chromium-url-bar.html">
+        1. Tap the photo (View Transition skip)
       </a>
       <a
         className="rounded-lg border px-4 py-4 text-lg"
         href="/debug/chromium-safe-area-resize.html"
       >
-        2. env(safe-area-inset) overlay fires resize
+        2. Tap the button (fake resize)
       </a>
     </div>
   );
