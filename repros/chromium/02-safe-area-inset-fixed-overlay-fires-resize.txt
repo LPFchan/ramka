@@ -1,0 +1,62 @@
+Chrome version
+151.0.0.0
+
+Please enter a one line summary (100 character limit)
+Android: env(safe-area-inset) on a fixed overlay fires resize with unchanged innerHeight
+
+Did you send the Chrome feedback report?
+No - I didn't.
+
+Steps to reproduce problem (5000 character limit)
+1. On Chrome Android, keep the tab in the foreground. Stay at the top of the page so the URL bar is showing.
+2. Open:
+https://ramka-docs-git-chromium-bug-report-artur-bies-projects.vercel.app/debug/chromium-safe-area-resize.html
+3. Tap the blue button.
+
+Fail: red FAKE RESIZE (viewport size did not change).
+Pass: green OK no resize.
+
+The page appends a covering position:fixed; inset:0; overflow:hidden box with unused --inset: calc(4rem + env(safe-area-inset-top, 0px)), then display:none's it. Viewport meta is width=device-width, initial-scale=1 (no viewport-fit=cover).
+
+Please describe the problem (5000 character limit)
+Found while working on a lightbox component library.
+
+Inserting or display:none'ing a viewport-filling position:fixed box that uses env(safe-area-inset-*) — including an unused custom property calc(4rem + env(safe-area-inset-top, 0px)) — fires window.resize while innerWidth / innerHeight / visualViewport size do not change. visualViewport.resize often does not fire.
+
+A plain position:fixed; inset:0; overflow:hidden overlay does not.
+
+CSSOM View only fires resize when the viewport actually resizes. This looks like the overlay is treated as a dynamic safe-area / browser-controls client (crbug 324436581), and mounting or destroying that layout box pokes the URL bar.
+
+If that happens inside startViewTransition (old capture -> display:none in the callback -> new capture), the transition is skipped (SnapshotRootDidChangeSize). Filing that abort separately.
+
+Expected: no window.resize unless CSSOM viewport size changed. Unused env(safe-area-inset-*) on a covering box must not opt the page into controls updates. display:none / remove() must not skip a View Transition when JS sizes are unchanged. visibility:hidden already keeps the layout box and is quiet.
+
+Actual, URL bar showing, viewport width=device-width, initial-scale=1 (no viewport-fit=cover):
+
+- position:fixed; inset:0; overflow:hidden — 0 resize on append, 0 on display:none
+- same + padding-top/bottom: env(safe-area-inset-*) — 1 and 1
+- unused --x: calc(4rem + env(safe-area-inset-top, 0px)) — 1 and 1
+- unused --x: env(safe-area-inset-top) (bare, not in calc()) — 0 and 0
+- top: env(safe-area-inset-top) (not covering) — 0 and 0
+- covering box, those props overridden to 0px — 0 and 0
+
+Logged inner / visualViewport sizes (and CDP layout metrics) are identical before and after. Emptying the overlay's children still fires; it is the covering layout box, not descendants.
+
+visibility:hidden / opacity:0 / shrinking the box — no resize.
+display:none / remove() — resize. Emulator: 2 fake resize events, size unchanged (426x820).
+
+viewport-fit=cover uses a larger viewport (URL bar overlay/hidden, e.g. 844 vs 820) and this often does not fire.
+
+Suggested fix: mentioning env(safe-area-inset-*) on a covering fixed box must not enqueue a viewport resize or controls update when inset values and FrameView size did not change. Unused calc() custom properties should not opt the page in.
+
+OS: Android 14 (Pixel 6 Pro; also Mac Android emulator).
+Suggested components: Blink>Viewport, Blink>CSS, UI>Browser>Mobile, Blink>ViewTransitions.
+
+References:
+https://crbug.com/324436581
+https://groups.google.com/a/chromium.org/g/blink-dev/c/hXkimpjYaMg
+https://drafts.csswg.org/cssom-view/#event-resize
+https://crbug.com/1404957
+
+Did this work before?
+I don't know

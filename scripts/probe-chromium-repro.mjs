@@ -1,5 +1,6 @@
 const CDP_HOST = '127.0.0.1:9222';
-const BASE = 'http://192.168.3.219:3000';
+const URL =
+  'http://192.168.3.219:3000/debug/chromium-url-bar.html?t=' + Date.now();
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 async function pages() {
@@ -45,30 +46,6 @@ async function evaluate(cdp, expression) {
   return result.result.value;
 }
 
-const OVERLAY = `(async () => {
-  const size = () => [window.innerWidth, window.innerHeight];
-  const twoFrames = () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
-  let resizes = 0, fake = 0;
-  const base = String(size());
-  const onResize = () => { resizes += 1; if (String(size()) === base) fake += 1; };
-  window.addEventListener('resize', onResize);
-  const el = document.createElement('div');
-  el.className = 'lightbox-demo-content';
-  el.style.cssText = 'position:fixed;inset:0;overflow:hidden;z-index:99999;background:rgba(255,0,0,.3)';
-  el.style.setProperty('--lightbox-inset-top', 'calc(4rem + env(safe-area-inset-top, 0px))');
-  el.style.setProperty('--lightbox-inset-bottom', 'calc(4rem + env(safe-area-inset-bottom, 0px))');
-  document.body.append(el);
-  document.documentElement.style.overflow = 'hidden';
-  void el.offsetHeight;
-  await twoFrames();
-  el.style.display = 'none';
-  await twoFrames();
-  el.remove();
-  document.documentElement.style.overflow = '';
-  window.removeEventListener('resize', onResize);
-  return { resizes, fake, inner: size(), href: location.pathname };
-})()`;
-
 async function main() {
   const list = await pages();
   const page = list.find((p) => p.type === 'page' && p.url?.includes('3000')) || list.find((p) => p.type === 'page');
@@ -76,31 +53,49 @@ async function main() {
   await cdp.ready;
   await cdp.send('Runtime.enable');
   await cdp.send('Page.enable');
-
-  const t = Date.now();
-
-  await cdp.send('Page.navigate', { url: BASE + '/debug/chromium-safe-area-resize.html?t=' + t });
+  await cdp.send('Input.setIgnoreInputEvents', { ignore: false }).catch(() => {});
+  await cdp.send('Page.navigate', { url: URL });
   await sleep(2800);
-  const s1 = await evaluate(cdp, `({inner:window.innerHeight, viewport:document.querySelector('meta[name=viewport]').content})`);
-  const tap2 = await evaluate(cdp, `(async () => {
-    const status = document.getElementById('status');
-    document.getElementById('go').click();
-    await new Promise((r) => setTimeout(r, 500));
-    return { status: status.textContent, cls: status.className, inner: window.innerHeight };
-  })()`);
-  console.log('02 meta/size', JSON.stringify(s1));
-  console.log('02 tap', JSON.stringify(tap2));
-  console.log('02 inject', JSON.stringify(await evaluate(cdp, OVERLAY)));
 
-  await cdp.send('Page.navigate', { url: BASE + '/debug/chromium-url-bar.html?t=' + Date.now() });
-  await sleep(2800);
-  const tap1 = await evaluate(cdp, `(async () => {
-    const status = document.getElementById('status');
-    document.getElementById('thumb').click();
-    await new Promise((r) => setTimeout(r, 1800));
-    return { status: status.textContent, cls: status.className, inner: window.innerHeight };
-  })()`);
-  console.log('01 tap', JSON.stringify(tap1));
+  const start = await evaluate(cdp, `({inner:window.innerHeight, vv:window.visualViewport&&Math.round(window.visualViewport.height), y:window.scrollY})`);
+  console.log('at load', JSON.stringify(start));
+
+  // Flick the page so the URL bar animates, then tap a mid-page photo.
+  await evaluate(
+    cdp,
+    `(async () => {
+      const el = document.querySelectorAll('.thumb')[0];
+      const r = el.getBoundingClientRect();
+      const y = window.scrollY + r.top - 120;
+      window.scrollTo(0, Math.max(0, y));
+      await new Promise((res) => requestAnimationFrame(() => requestAnimationFrame(res)));
+      return { inner: window.innerHeight, vv: window.visualViewport && Math.round(window.visualViewport.height), y: window.scrollY };
+    })()`,
+  );
+  await sleep(50);
+  const mid = await evaluate(cdp, `({inner:window.innerHeight, vv:window.visualViewport&&Math.round(window.visualViewport.height), y:window.scrollY, msg:document.getElementById('msg').textContent})`);
+  console.log('after jump', JSON.stringify(mid));
+
+  // Smooth-ish scroll via several steps, then click immediately.
+  const afterFlick = await evaluate(
+    cdp,
+    `(async () => {
+      const startY = window.scrollY;
+      for (let i = 1; i <= 8; i++) {
+        window.scrollTo(0, startY + i * 24);
+        await new Promise((r) => requestAnimationFrame(r));
+      }
+      const sizes = { inner: window.innerHeight, vv: window.visualViewport && Math.round(window.visualViewport.height), y: window.scrollY };
+      document.querySelectorAll('.thumb')[0].click();
+      await new Promise((r) => setTimeout(r, 900));
+      return {
+        sizes,
+        msg: document.getElementById('msg').textContent,
+        cls: document.getElementById('status').className,
+      };
+    })()`,
+  );
+  console.log('flick+tap', JSON.stringify(afterFlick, null, 2));
   cdp.close();
 }
 

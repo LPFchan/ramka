@@ -1,20 +1,15 @@
-# Chromium bug reports (Android View Transitions)
+Chromium bug reports (Android View Transitions)
 
-Found while working on a lightbox component library. Two bugs on **Pixel 6 Pro / Android 14 / Chrome 151** (same on the Mac emulator). Desktop Chrome and Safari do not hit them.
+Two issues. File them separately on https://issues.chromium.org/issues/new
+Copy from the matching .txt (plain text, form field order).
 
-Skip-on-real-resize is specified ([CSSWG #8045](https://github.com/w3c/csswg-drafts/issues/8045), [crbug 1404957](https://crbug.com/1404957)). These are Android treating URL-bar motion / overlay teardown as a snapshot-root resize when JS viewport size has not changed.
+01  01-android-vt-url-bar-aborts-transition.txt
+    Repro: https://ramka-docs-git-chromium-bug-report-artur-bies-projects.vercel.app/debug/chromium-url-bar.html
+    Photos down the page. Scroll while the URL bar is moving, tap a photo, tap overlay to close.
 
-| # | Report | Reduced HTML |
-|---|--------|----------------|
-| 1 | [01-android-vt-url-bar-aborts-transition.md](./01-android-vt-url-bar-aborts-transition.md) | [01-….html](./01-android-vt-url-bar-aborts-transition.html) — tap the photo |
-| 2 | [02-safe-area-inset-fixed-overlay-fires-resize.md](./02-safe-area-inset-fixed-overlay-fires-resize.md) | [02-….html](./02-safe-area-inset-fixed-overlay-fires-resize.html) — tap the button |
+02  02-safe-area-inset-fixed-overlay-fires-resize.txt
+    Repro: https://ramka-docs-git-chromium-bug-report-artur-bies-projects.vercel.app/debug/chromium-safe-area-resize.html
 
-File as **two issues**. #2 can trigger #1; a half-open URL bar also aborts with no `env()`.
+Chrome Android, URL bar showing, tab in the foreground. Do not use viewport-fit=cover.
 
-`pnpm dev`, Chrome Android, URL bar showing, no `viewport-fit=cover`:
-
-- `/debug/chromium`
-- `/debug/chromium-url-bar.html` (copy of 01)
-- `/debug/chromium-safe-area-resize.html` (copy of 02)
-
-Static files live under `apps/docs/public/debug/`. Edit the HTML in both places.
+Local copies of the HTML: 01-android-vt-url-bar-aborts-transition.html and 02-safe-area-inset-fixed-overlay-fires-resize.html (also apps/docs/public/debug/).

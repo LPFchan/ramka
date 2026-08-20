@@ -1,0 +1,69 @@
+Chrome version
+151.0.0.0
+
+Please enter a one line summary (100 character limit)
+Android: same-document View Transition aborts when the URL bar moves
+
+Did you send the Chrome feedback report?
+No - I didn't.
+
+Steps to reproduce problem (5000 character limit)
+1. On Chrome Android, keep the tab in the foreground.
+2. Open:
+https://ramka-docs-git-chromium-bug-report-artur-bies-projects.vercel.app/debug/chromium-url-bar.html
+3. The photos sit down the page, not at the top. Scroll up and down so the URL bar is hiding or showing. While it is still moving (status bar innerH and vvH disagree / "gap"), tap a photo that is on screen. Do not wait for the bar to finish.
+4. Tap the overlay to close.
+5. Scroll again, tap a photo while the URL bar is moving.
+
+Repeat. It does not fail every time. If innerH and vvH agree, the open will usually pass.
+
+Fail: red OPEN SKIPPED. ready rejects with InvalidStateError, or ready succeeds and finished is ~8-50ms. Pixel example: innerH 867, vvH 923 at tap.
+Pass: green Open OK ~450ms. Desktop Chrome always passes.
+
+Please describe the problem (5000 character limit)
+Found while working on a lightbox component library.
+
+document.startViewTransition() is skipped when the Android URL bar is still moving (show/hide animation, or innerHeight and visualViewport.height disagree):
+
+InvalidStateError: Transition was aborted because of invalid state
+
+Typical product sequence: a photo sits on a long page. Scroll so the URL bar is mid-animation, tap to open. Capture runs while innerHeight and visualViewport.height disagree. Close the overlay, scroll, open again.
+
+That skip (ViewTransitionStyleTracker::SnapshotRootDidChangeSize, >1px) is specified for a real snapshot-containing-block resize (CSSWG 8045, crbug 1404957).
+
+The bug is that Android's snapshot root is not invariant to URL-bar show/hide. Blink's View Transitions README says:
+
+"The snapshot root is invariant with respect to whether viewport widgets are shown or not"
+
+On Android (ViewportEnabled) it is FrameView size + browser-control outsets (TopShownRatio / BottomShownRatio). GetFixedToSnapshotViewportOutsets has a TODO that this needs synchronization with URL-bar animations:
+https://github.com/chromium/chromium/commit/eeefabcd764a1ed3de9b0dcbd952de9fa0ca5474
+
+Cross-document capture cancels the controls animation:
+https://github.com/chromium/chromium/commit/34b55ca9b2e6045c65317cd82ac1337f7e63d4c4
+Same-document startViewTransition() does not. Desktop Chromium and WebKit do not abort.
+
+Expected: the transition completes (~UA duration) while the URL bar shows, hides, or is mid-animation. innerHeight vs visualViewport.height disagreeing should not skip it.
+
+Actual:
+- ready rejects with InvalidStateError, or
+- ready fulfills, then finished resolves in ~8-50ms (skip after activation).
+
+Do not use viewport-fit=cover on the test page; that overlays/hides the URL bar and the test passes.
+
+A covering overlay that uses env(safe-area-inset-*) can also start a URL-bar twitch (filing separately). This issue is the abort from the bar moving, including from a user scroll with no env().
+
+Workaround: wait until innerHeight and visualViewport.height agree and stay still before startViewTransition. Still races if the bar starts moving during capture.
+
+Suggested fix: compute snapshot root from fully-shown or fully-hidden extents, not the in-flight shown-ratio, matching the README.
+
+OS: Android 14 (Pixel 6 Pro; also Mac Android emulator).
+Suggested components: Blink>ViewTransitions, Internals>Views.
+
+References:
+https://chromium.googlesource.com/chromium/src/+/HEAD/third_party/blink/renderer/core/view_transition/README.md
+https://crbug.com/1404957
+https://drafts.csswg.org/css-view-transitions-1/#snapshot-containing-block
+https://github.com/w3c/csswg-drafts/issues/8045
+
+Did this work before?
+I don't know

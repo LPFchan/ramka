@@ -2,9 +2,6 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <!-- Match Next.js / the docs landing page. viewport-fit=cover puts Chrome
-       Android into a larger viewport where this overlay does not poke
-       browser controls (verified on emulator: 844px vs landing 820px). -->
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Tap the photo</title>
   <style>
@@ -17,20 +14,26 @@
       min-height: 300vh;
     }
     #status {
+      position: sticky;
+      top: 0;
+      z-index: 20;
       box-sizing: border-box;
-      height: 56px;
+      min-height: 56px;
       display: flex;
+      flex-direction: column;
       align-items: center;
       justify-content: center;
-      padding: 0 16px;
-      font: 700 20px/1.2 system-ui, sans-serif;
+      gap: 2px;
+      padding: 8px 16px;
+      font: 700 18px/1.2 system-ui, sans-serif;
       text-align: center;
       background: #eee;
     }
     #status.skip { background: #b3261e; color: #fff; }
     #status.ok { background: #0d7a3f; color: #fff; }
+    #sizes { font: 500 14px/1.2 ui-monospace, monospace; opacity: 0.8; }
     main { padding: 24px 16px 80px; text-align: center; }
-    #thumb {
+    .thumb {
       width: min(72vw, 280px);
       height: calc(min(72vw, 280px) * 0.66);
       margin: 24px auto;
@@ -38,7 +41,7 @@
       background: #1a73e8;
       cursor: pointer;
     }
-    .hint { opacity: 0.7; max-width: 22em; margin: 0 auto; }
+    .hint { opacity: 0.7; max-width: 24em; margin: 0 auto; }
     .card {
       height: 28vh;
       margin: 16px;
@@ -51,12 +54,12 @@
       z-index: 10;
       background: #000;
     }
+    /* Same covering env() box as a typical lightbox skin. */
     .overlay {
       position: fixed;
       inset: 0;
       z-index: 11;
       overflow: hidden;
-      overscroll-behavior: contain;
       --lightbox-inset-top: calc(4rem + env(safe-area-inset-top, 0px));
       --lightbox-inset-bottom: calc(4rem + env(safe-area-inset-bottom, 0px));
     }
@@ -70,26 +73,60 @@
   </style>
 </head>
 <body>
-  <div id="status">Tap the photo</div>
+  <div id="status">
+    <span id="msg">Scroll, then tap a photo while the URL bar is moving</span>
+    <span id="sizes"></span>
+  </div>
   <main>
-    <p class="hint">Stay at the top so the URL bar is showing, then tap once.</p>
-    <div id="thumb" role="button" tabindex="0" aria-label="Open"></div>
+    <p class="hint">
+      Photos are down the page on purpose. Scroll so the URL bar is hiding or
+      showing, and tap a photo before it settles. Tap the overlay to close.
+    </p>
     <div class="card"></div>
     <div class="card"></div>
+    <div class="thumb" role="button" tabindex="0" aria-label="Open"></div>
+    <div class="card"></div>
+    <div class="thumb" role="button" tabindex="0" aria-label="Open"></div>
     <div class="card"></div>
     <div class="card"></div>
+    <div class="thumb" role="button" tabindex="0" aria-label="Open"></div>
     <div class="card"></div>
     <div class="card"></div>
   </main>
   <script>
+    const msg = document.getElementById('msg');
+    const sizes = document.getElementById('sizes');
     const status = document.getElementById('status');
-    const thumb = document.getElementById('thumb');
     let busy = false;
+    let session = null;
+
+    function readSizes() {
+      const vv = window.visualViewport;
+      const innerH = window.innerHeight;
+      const vvH = vv ? Math.round(vv.height) : innerH;
+      return { innerH, vvH, gap: innerH - vvH };
+    }
+
+    function sizeLine() {
+      const s = readSizes();
+      return 'innerH ' + s.innerH + '  vvH ' + s.vvH + (s.gap ? '  gap ' + s.gap : '');
+    }
+
+    function paintSizes() {
+      sizes.textContent = sizeLine();
+    }
 
     function setStatus(text, kind) {
-      status.textContent = text;
+      msg.textContent = text;
       status.className = kind || '';
+      paintSizes();
     }
+
+    window.addEventListener('resize', paintSizes);
+    window.addEventListener('scroll', paintSizes, { passive: true });
+    window.visualViewport?.addEventListener('resize', paintSizes);
+    window.visualViewport?.addEventListener('scroll', paintSizes);
+    paintSizes();
 
     function name(el) {
       el.style.setProperty('view-transition-name', 'photo', 'important');
@@ -111,9 +148,6 @@
       );
       return t.finished.then(() => {
         const ms = Math.round(performance.now() - t0);
-        // Skip-after-activation: ready fulfills, then Blink aborts during the
-        // animation (SnapshotRootDidChangeSize). finished is ~8–50ms instead
-        // of the 450ms group duration. ready-reject is the other skip path.
         if (!skip && ms < 120) {
           skip = 'finished in ' + ms + 'ms (aborted after ready)';
         }
@@ -121,7 +155,11 @@
       });
     }
 
-    function make() {
+    async function open(thumb) {
+      if (busy || session) return;
+      busy = true;
+      const atStart = readSizes();
+
       const backdrop = document.createElement('div');
       backdrop.className = 'backdrop';
       const content = document.createElement('div');
@@ -129,21 +167,13 @@
       const hero = document.createElement('div');
       hero.className = 'hero';
       content.append(hero);
-      return { backdrop, content, hero };
-    }
-
-    thumb.addEventListener('click', async () => {
-      if (busy) return;
-      busy = true;
-
-      const { backdrop, content, hero } = make();
       backdrop.style.visibility = 'hidden';
       content.style.visibility = 'hidden';
       document.body.append(backdrop, content);
       void content.offsetHeight;
 
       name(thumb);
-      const open = await runVT(() => {
+      const result = await runVT(() => {
         backdrop.style.visibility = '';
         content.style.visibility = '';
         document.documentElement.style.overflow = 'hidden';
@@ -151,29 +181,54 @@
         name(hero);
       });
 
-      if (open.skip) {
-        setStatus('OPEN SKIPPED — ' + open.skip, 'skip');
+      if (result.skip) {
         backdrop.remove();
         content.remove();
         document.documentElement.style.overflow = '';
+        unname(hero);
+        unname(thumb);
+        setStatus(
+          'OPEN SKIPPED — ' + result.skip +
+            '  (at tap innerH ' + atStart.innerH + ' vvH ' + atStart.vvH + ')',
+          'skip',
+        );
         busy = false;
         return;
       }
 
+      session = { backdrop, content, hero, thumb };
+      content.addEventListener('click', close);
+      backdrop.addEventListener('click', close);
+      setStatus('Open OK  ' + result.ms + 'ms. Tap overlay to close.', 'ok');
+      busy = false;
+    }
+
+    async function close() {
+      if (busy || !session) return;
+      busy = true;
+      const { backdrop, content, hero, thumb } = session;
       name(hero);
-      const close = await runVT(() => {
+      const result = await runVT(() => {
         unname(hero);
         name(thumb);
         content.style.display = 'none';
       });
-
       backdrop.remove();
       content.remove();
       document.documentElement.style.overflow = '';
-
-      if (close.skip) setStatus('CLOSE SKIPPED — ' + close.skip, 'skip');
-      else setStatus('OK  open ' + open.ms + 'ms  close ' + close.ms + 'ms', 'ok');
+      unname(hero);
+      unname(thumb);
+      session = null;
+      if (result.skip) {
+        setStatus('CLOSE SKIPPED — ' + result.skip, 'skip');
+      } else {
+        setStatus('Closed. Scroll and tap a photo while the URL bar is moving.', 'ok');
+      }
       busy = false;
+    }
+
+    document.querySelectorAll('.thumb').forEach((el) => {
+      el.addEventListener('click', () => open(el));
     });
   </script>
 </body>
