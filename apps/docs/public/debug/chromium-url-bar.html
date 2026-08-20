@@ -51,7 +51,7 @@
       z-index: 10;
       background: #000;
     }
-    .lightbox-demo-content {
+    .overlay {
       position: fixed;
       inset: 0;
       z-index: 11;
@@ -125,7 +125,7 @@
       const backdrop = document.createElement('div');
       backdrop.className = 'backdrop';
       const content = document.createElement('div');
-      content.className = 'lightbox-demo-content';
+      content.className = 'overlay';
       const hero = document.createElement('div');
       hero.className = 'hero';
       content.append(hero);

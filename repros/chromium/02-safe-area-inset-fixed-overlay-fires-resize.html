@@ -48,7 +48,7 @@
       border-radius: 12px;
       background: #e8e8e8;
     }
-    .lightbox-demo-content {
+    .overlay {
       position: fixed;
       inset: 0;
       z-index: 10;
@@ -101,7 +101,7 @@
       fake = 0;
 
       const content = document.createElement('div');
-      content.className = 'lightbox-demo-content';
+      content.className = 'overlay';
       document.body.append(content);
       document.documentElement.style.overflow = 'hidden';
       void content.offsetHeight;
