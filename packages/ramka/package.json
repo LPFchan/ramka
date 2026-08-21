@@ -13,6 +13,11 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
       "require": "./dist/index.cjs"
+    },
+    "./lightbox": {
+      "types": "./dist/lightbox/lightbox.d.ts",
+      "import": "./dist/lightbox/lightbox.js",
+      "require": "./dist/lightbox/lightbox.cjs"
     }
   },
   "files": [

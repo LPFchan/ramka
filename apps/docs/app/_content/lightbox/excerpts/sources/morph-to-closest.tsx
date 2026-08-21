@@ -1,4 +1,4 @@
-import { Lightbox } from 'ramka';
+import * as Lightbox from 'ramka/lightbox';
 
 /**
  * Root morphTo="closest" for indexes without their own trigger.

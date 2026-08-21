@@ -150,7 +150,7 @@ Zoomed media can cover the full Content surface only if Slide → Item → Zoom 
 [ZoomIn](docs/lightbox/api.md#api-zoom-in) / [ZoomOut](docs/lightbox/api.md#api-zoom-out) can sit in toolbar chrome outside Zoom — they target the *active* slide via Root’s active-zoom bridge. Content reflects `data-zooming` / `data-zoomed` for styling.
 
 ```tsx Active-zoom bridge
-import { Lightbox } from 'ramka';
+import * as Lightbox from 'ramka/lightbox';
 
 <Lightbox.Root>
   <Lightbox.Portal>

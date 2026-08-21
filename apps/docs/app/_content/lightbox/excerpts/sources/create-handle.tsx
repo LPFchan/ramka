@@ -1,4 +1,4 @@
-import { Lightbox } from 'ramka';
+import * as Lightbox from 'ramka/lightbox';
 
 declare const images: { id: string; src: string; alt: string }[];
 

@@ -10,7 +10,8 @@
  */
 
 import * as React from 'react';
-import { Lightbox as RamkaLightbox, useLightboxContext } from 'ramka';
+import * as RamkaLightbox from 'ramka/lightbox';
+import { useLightboxContext } from 'ramka';
 
 import './lightbox.css';
 
@@ -308,7 +309,7 @@ function Gallery({ items, ariaLabel }: { items: LightboxItem[]; ariaLabel: strin
 }
 
 /**
- * Styled Lightbox namespace — drop-in replacement for `import { Lightbox } from 'ramka'`
+ * Styled Lightbox namespace — drop-in replacement for `import * as Lightbox from 'ramka/lightbox'`
  * with this preset’s styles and composed Gallery.
  */
 export const Lightbox = {

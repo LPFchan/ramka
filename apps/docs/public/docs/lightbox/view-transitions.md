@@ -12,7 +12,7 @@ Morph is on by default (`viewTransition` on [Root](docs/lightbox/api.md#api-root
 Nested wrappers can use [useLightboxTriggerContext](docs/lightbox/api.md#api-use-trigger-context) / [useLightboxItemContext](docs/lightbox/api.md#api-use-item-context) instead of threading the render prop. Use `awaitImageDecode` on [Root](docs/lightbox/api.md#api-root) when you want a short wait for the destination image before the morph starts (default ~200ms cap).
 
 ```tsx Minimal morph
-import { Lightbox } from 'ramka';
+import * as Lightbox from 'ramka/lightbox';
 
 <Lightbox.Root morphTo="active">
   <Lightbox.Trigger index={0}>{({ imageRef }) => <img ref={imageRef} src={thumb} alt="" />}</Lightbox.Trigger>
@@ -43,7 +43,7 @@ The morph snapshots whatever pixels are on the trigger `<img>` and interpolates 
 A CDN-cropped 1∶1 thumb against a 3∶2 lightbox image will reframe mid-animation: Ramka paints the square thumb into the landscape box, then the full file lands with a different crop. Element boxes may differ. Intrinsic aspect must not.
 
 ```tsx Do — same source aspect
-import { Lightbox } from 'ramka';
+import * as Lightbox from 'ramka/lightbox';
 
 <Lightbox.Root>
   <Lightbox.Trigger index={0}>
@@ -78,7 +78,7 @@ import { Lightbox } from 'ramka';
 ```
 
 ```tsx Don’t — baked square crop
-import { Lightbox } from 'ramka';
+import * as Lightbox from 'ramka/lightbox';
 
 <Lightbox.Root>
   <Lightbox.Trigger index={0}>
@@ -118,7 +118,7 @@ Controls whether the morph *dissolves* between trigger and item snapshots or har
 Keep trigger and item images on `object-fit: cover` (or the same fit) so crops stay coherent. Put border-radius on the morph target itself — the library interpolates `--lightbox-morph-border-radius-from/to` on `<html>`.
 
 ```tsx crossfade="both"
-import { Lightbox } from 'ramka';
+import * as Lightbox from 'ramka/lightbox';
 
 <Lightbox.Root morphTo="closest">
   <Lightbox.Trigger index={0} crossfade="both">
@@ -153,7 +153,7 @@ Picks which trigger receives the *close* morph:
 - `closest` — active index if registered, otherwise the nearest registered trigger.
 
 ```tsx morphTo="closest"
-import { Lightbox } from 'ramka';
+import * as Lightbox from 'ramka/lightbox';
 
 <Lightbox.Root morphTo="closest">
   <Lightbox.Trigger index={0}>{/* first thumb */}</Lightbox.Trigger>
@@ -189,7 +189,7 @@ When the page scrolls while the lightbox is open, the close morph can land off-s
 Pass one option or an array. Each option also accepts `block` / `inline` alignment (defaults `nearest`) — use `inline: 'center'` for horizontal snap strips with variable-width tiles. Pair with `morphTo` so the scrolled element is the same one that receives the morph.
 
 ```tsx scrollTriggerIntoView
-import { Lightbox } from 'ramka';
+import * as Lightbox from 'ramka/lightbox';
 
 <Lightbox.Root
   scrollTriggerIntoView={[

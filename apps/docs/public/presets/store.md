@@ -20,7 +20,7 @@ A full commerce viewer: the media stage (vertical thumbnail rail, pager, corner 
  */
 
 import * as React from 'react';
-import { Lightbox as RamkaLightbox } from 'ramka';
+import * as RamkaLightbox from 'ramka/lightbox';
 
 import './lightbox.css';
 
@@ -335,7 +335,7 @@ function Gallery({
 }
 
 /**
- * Styled Lightbox namespace — drop-in replacement for `import { Lightbox } from 'ramka'`
+ * Styled Lightbox namespace — drop-in replacement for `import * as Lightbox from 'ramka/lightbox'`
  * with this preset’s styles and composed Gallery.
  */
 export const Lightbox = {

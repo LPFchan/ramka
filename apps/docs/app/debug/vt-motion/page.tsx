@@ -3,7 +3,7 @@
 import { notFound } from 'next/navigation';
 import * as React from 'react';
 import Image from 'next/image';
-import { Lightbox } from 'ramka';
+import * as Lightbox from 'ramka/lightbox';
 import { X } from 'lucide-react';
 
 import { lightboxChromeButton } from '../../_components/lightbox-chrome';

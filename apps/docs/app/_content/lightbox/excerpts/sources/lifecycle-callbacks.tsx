@@ -1,4 +1,4 @@
-import { Lightbox } from 'ramka';
+import * as Lightbox from 'ramka/lightbox';
 
 /**
  * Immediate vs post-motion open callbacks.

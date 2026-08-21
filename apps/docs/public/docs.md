@@ -13,7 +13,7 @@ Peer dependencies: `react` and `react-dom` >= 18.
 ## Quick start
 
 ```tsx App.tsx
-import { Lightbox } from 'ramka';
+import * as Lightbox from 'ramka/lightbox';
 
 <Lightbox.Root>
   {items.map((item, i) => (

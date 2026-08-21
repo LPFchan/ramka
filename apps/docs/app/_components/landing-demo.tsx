@@ -1,7 +1,7 @@
 'use client';
 
 import Image from 'next/image';
-import { Lightbox } from 'ramka';
+import * as Lightbox from 'ramka/lightbox';
 
 import { setGlassShinePaused } from './broken-glass-shine';
 import {

@@ -1,5 +1,5 @@
 import Image, { type StaticImageData } from 'next/image';
-import { Lightbox } from 'ramka';
+import * as Lightbox from 'ramka/lightbox';
 
 declare const photos: StaticImageData[];
 declare const visible: number;

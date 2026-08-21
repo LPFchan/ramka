@@ -2,7 +2,7 @@
 
 import { notFound } from 'next/navigation';
 import Image from 'next/image';
-import { Lightbox } from 'ramka';
+import * as Lightbox from 'ramka/lightbox';
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';

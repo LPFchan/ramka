@@ -19,7 +19,15 @@ yarn add ramka
 ## Usage
 
 ```tsx
-import { Lightbox } from 'ramka';
+import * as Lightbox from 'ramka/lightbox';
+```
+
+The parts ship as a flat module and you name the namespace yourself, so your bundler can drop every part your gallery does not render. Importing a pre-built namespace out of a package defeats tree-shaking in esbuild-based bundlers (Vite dev, Remix), which is why `ramka` itself exports no `Lightbox` object.
+
+Composition hooks (`useLightboxContext`, `useLightboxItemContext`, …) and shared types come from the package root:
+
+```tsx
+import { useLightboxContext } from 'ramka';
 ```
 
 `Lightbox.*` is a fullscreen modal image viewer composed of headless parts:

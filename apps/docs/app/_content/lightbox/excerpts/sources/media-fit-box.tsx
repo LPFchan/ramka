@@ -1,4 +1,4 @@
-import { Lightbox } from 'ramka';
+import * as Lightbox from 'ramka/lightbox';
 
 declare const src: string;
 declare const alt: string;

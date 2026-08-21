@@ -1,4 +1,4 @@
-import { Lightbox } from 'ramka';
+import * as Lightbox from 'ramka/lightbox';
 
 declare const items: { id: string; src: string; thumb: string; alt: string; caption: string }[];
 

@@ -1,5 +1,5 @@
 import Image, { type StaticImageData } from 'next/image';
-import { Lightbox } from 'ramka';
+import * as Lightbox from 'ramka/lightbox';
 
 // Static import in apps: `import photo from './photo.jpg'` (blurDataURL is free).
 declare const photo: StaticImageData;
