@@ -1,8 +1,7 @@
 /**
  * Async chunk entry for the zoom engine.
- * Loaded when `Lightbox.Zoom` first mounts, or earlier — on Root mount, trigger
- * press or `handle.open()` — but only in bundles that contain `Lightbox.Zoom`.
- * See `lightbox-zoom-loader.ts`.
+ * Loaded when `Lightbox.Zoom` first mounts, or earlier on trigger press /
+ * `handle.open()` — never on Root mount.
  */
 
 import { mergeProps } from '@base-ui/react/merge-props';
