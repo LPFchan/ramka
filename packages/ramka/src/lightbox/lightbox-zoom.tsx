@@ -10,8 +10,14 @@ import { ZoomContext, type ZoomContextValue } from './lightbox-zoom-context';
 import {
   getZoomRuntimeSync,
   loadZoomRuntime,
+  requestZoomRuntime,
   type ZoomRuntime,
 } from './lightbox-zoom-loader';
+
+// Tells Root/Trigger that this bundle can zoom, so their prefetch is worth the
+// bytes. Runs on module evaluation — before any Root mounts — because the
+// prefetch has to beat the first `Lightbox.Zoom` mount to be useful at all.
+requestZoomRuntime();
 
 // ---------------------------------------------------------------------------
 // Types
@@ -48,9 +54,10 @@ interface LightboxZoomState extends Record<string, unknown> {
  * consumer-configurable; pass your (typically `<img>`) content as `children`.
  * `children` may also be a render function receiving the current zoom state.
  *
- * The zoom engine loads when Zoom first mounts (usually the first open), or
- * earlier on trigger press / `handle.open()`. It is not downloaded with the
- * initial lightbox bundle.
+ * The zoom engine is a separate chunk, not part of the initial lightbox bundle.
+ * Using this part anywhere in your app is what tells Root to warm that chunk on
+ * mount, well before the first open; a gallery built without `Lightbox.Zoom`
+ * never downloads it at all. Failing that, it loads when Zoom first mounts.
  */
 interface LightboxZoomProps
   extends Omit<useRender.ComponentProps<'div', LightboxZoomState>, 'children' | 'ref'> {

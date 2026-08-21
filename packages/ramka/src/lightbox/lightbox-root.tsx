@@ -796,7 +796,8 @@ function LightboxRoot(props: LightboxRootProps) {
         lastInternalOpenRef.current = nextOpen;
 
         // Start Zoom with the open, not after Zoom mounts. A late engine swap
-        // remounts Media and tears down the fallback canvas. Independent of VT.
+        // remounts Media and tears down the fallback canvas. Independent of VT,
+        // and a no-op unless the bundle actually contains `Lightbox.Zoom`.
         if (nextOpen) prefetchZoomRuntime();
 
         // Open-transition gate for `Lightbox.Item` placeholders: mark it pending
@@ -941,9 +942,15 @@ function LightboxRoot(props: LightboxRootProps) {
     }, []);
 
     // Warm chunks after paint so the first open is not gated on the network.
-    // Morph only when VT will actually run. Zoom is its own engine — prefetch
-    // it even when VT is off, so the placeholder→engine swap does not remount
-    // Media mid-open and drop the fallback canvas.
+    // Morph only when VT will actually run. Zoom is its own engine — warm it
+    // even when VT is off, so the placeholder→engine swap does not remount
+    // Media mid-open and drop the fallback canvas. This is the prefetch that
+    // does the work: the ones on trigger press and open fire too late to beat
+    // the first Zoom mount on a cold network.
+    //
+    // Both calls self-gate on whether the feature is reachable at all — Zoom on
+    // `lightbox-zoom.tsx` being in the bundle, morph on `viewTransition` — so a
+    // gallery that uses neither downloads neither.
     React.useEffect(() => {
       prefetchZoomRuntime();
       if (viewTransition !== false && supportsViewTransitions() && !isLowEndDevice()) {
