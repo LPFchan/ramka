@@ -1,199 +1,176 @@
 /**
- * Async chunk entry for the zoom engine.
- * Loaded when `Lightbox.Zoom` first mounts, or earlier on trigger press /
- * `handle.open()` — never on Root mount.
+ * Async chunk for the zoom engine — behaviour only, renders `null`.
+ *
+ * `Lightbox.Zoom` owns the host element, the transform wrapper and the children
+ * permanently and hands them here by ref; this module attaches gestures to those
+ * nodes and publishes pose back through the store it is given. That split is
+ * deliberate and load-bearing: a component that renders no DOM can arrive at any
+ * point in the lightbox's life without React remounting anything, so a chunk
+ * that lands mid-open cannot take the consumer's `<img>` or the canvas underlay
+ * `Lightbox.Item` inserted with it. See the note in lightbox-zoom.tsx and
+ * zoom-engine-swap.test.tsx.
+ *
+ * Loaded when `Lightbox.Zoom` first mounts, or earlier on hover / focus /
+ * trigger press / `handle.open()`.
  */
 
-import { mergeProps } from '@base-ui/react/merge-props';
-import { useRender } from '@base-ui/react/use-render';
 import * as React from 'react';
 
-import {
-  clampOffsetToViewport,
-  computeMaxZoom,
-  panOffsetRange,
-} from './gesture-math';
-import { LightboxZoomDataAttributes } from './lightbox-data-attributes';
+import { clampOffsetToViewport, computeMaxZoom, panOffsetRange } from './gesture-math';
 import { useLightboxContext } from './lightbox-context';
 import { useOptionalLightboxItemContext } from './lightbox-item';
-import { ignoreStateAttribute } from './lightbox-state-attributes';
 import {
-  ZoomContext,
   useLightboxZoomPublish,
   type ActiveZoomControls,
-  type ZoomContextValue,
 } from './lightbox-zoom-context';
-import type { LightboxZoomProps, LightboxZoomRef, LightboxZoomState } from './lightbox-zoom';
+import type {
+  ZoomEngineControls,
+  ZoomEnginePose,
+  ZoomEngineProps,
+} from './lightbox-zoom';
 import { PoseController } from './pose-controller';
 import { useZoomGestures, type ZoomGestureConfig } from './use-zoom-gestures';
 import { bindZoomChrome } from './zoom-chrome';
 import { createZoomSession, type ZoomSessionDeps } from './zoom-session';
 
-const stateAttributesMapping = {
-  zoom: (value: unknown) => (typeof value === 'number' && value > 1 ? { 'data-zoom': '' } : null),
-  dragging: (value: unknown) => (value ? { 'data-dragging': '' } : null),
-  // Render-prop / imperative state — must not leak as data-maxzoom, etc.
-  maxZoom: ignoreStateAttribute,
-  offsetX: ignoreStateAttribute,
-  offsetY: ignoreStateAttribute,
-  canZoomIn: ignoreStateAttribute,
-  canZoomOut: ignoreStateAttribute,
-};
-
-// ---------------------------------------------------------------------------
-// Constants
-// ---------------------------------------------------------------------------
-
-const DEFAULT_MIN_ZOOM = 1;
 const DEFAULT_MAX_ZOOM_FALLBACK = 4;
-const DEFAULT_ZOOM_STEP = 2;
-const DEFAULT_WHEEL_SENSITIVITY = 100;
-const DEFAULT_KEYBOARD_PAN = 50;
-const DEFAULT_DOUBLE_CLICK_DELAY = 300;
 const DEFAULT_ANIMATION_DURATION = 300;
 
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
-const LightboxZoomEngine = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
-  function LightboxZoomEngine(props, forwardedRef) {
-    const {
-      children,
-      render,
-      minZoom = DEFAULT_MIN_ZOOM,
-      maxZoom: maxZoomProp,
-      zoomStep = DEFAULT_ZOOM_STEP,
-      scrollToZoom = false,
-      wheelSensitivity = DEFAULT_WHEEL_SENSITIVITY,
-      keyboardPanDistance = DEFAULT_KEYBOARD_PAN,
-      doubleClickDelay = DEFAULT_DOUBLE_CLICK_DELAY,
-      onZoomChange,
-      ...elementProps
-    } = props;
+function ZoomEngine({ options, containerRef, wrapperRef, store }: ZoomEngineProps) {
+  const {
+    minZoom,
+    maxZoom: maxZoomProp,
+    zoomStep,
+    scrollToZoom,
+    wheelSensitivity,
+    keyboardPanDistance,
+    doubleClickDelay,
+    onZoomChange,
+  } = options;
 
-    const { activeIndex, dialogElementRef, stageElementRef, navigationLockedRef } =
-      useLightboxContext();
-    const itemContext = useOptionalLightboxItemContext();
-    const { publish: publishActiveZoom } = useLightboxZoomPublish();
-    const isActive = itemContext ? itemContext.active : true;
+  const { activeIndex, dialogElementRef, stageElementRef, navigationLockedRef } =
+    useLightboxContext();
+  const itemContext = useOptionalLightboxItemContext();
+  const { publish: publishActiveZoom } = useLightboxZoomPublish();
+  const isActive = itemContext ? itemContext.active : true;
 
-    // ----- Pose engine (sole writer of style.transform) -----
-    const reducedMotionPan =
-      typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const controllerRef = React.useRef<PoseController | null>(null);
-    if (controllerRef.current == null) {
-      controllerRef.current = new PoseController(
-        { zoom: minZoom, offsetX: 0, offsetY: 0 },
-        { reducedMotion: reducedMotionPan, defaultDiscreteDuration: DEFAULT_ANIMATION_DURATION },
+  // ----- Pose engine (sole writer of style.transform) -----
+  const reducedMotionPan =
+    typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const controllerRef = React.useRef<PoseController | null>(null);
+  if (controllerRef.current == null) {
+    controllerRef.current = new PoseController(
+      { zoom: minZoom, offsetX: 0, offsetY: 0 },
+      { reducedMotion: reducedMotionPan, defaultDiscreteDuration: DEFAULT_ANIMATION_DURATION },
+    );
+  }
+  const controller = controllerRef.current;
+
+  const poseSnap = React.useSyncExternalStore(
+    controller.subscribeCommit,
+    controller.getSnapshot,
+    controller.getSnapshot,
+  );
+  const zoom = poseSnap.zoom;
+
+  // The wrapper node outlives this component, so attaching here rather than from
+  // a callback ref is safe — and it is the only way round, since the shell owns
+  // the element and cannot reach the controller.
+  React.useEffect(() => {
+    controller.attach(wrapperRef.current);
+    return () => controller.attach(null);
+  }, [controller, wrapperRef]);
+
+  const [dragging, setDragging] = React.useState(false);
+  const draggingRef = React.useRef(false);
+
+  const layoutCacheRef = React.useRef<{
+    stage: DOMRect;
+    viewport: DOMRect;
+    contentW: number;
+    contentH: number;
+  } | null>(null);
+  const layoutCacheRafRef = React.useRef<number | null>(null);
+
+  const [imageDimensions, setImageDimensions] = React.useState<{ w: number; h: number } | null>(
+    null,
+  );
+  const [containerSize, setContainerSize] = React.useState<{ w: number; h: number } | null>(null);
+
+  const onZoomChangeRef = React.useRef(onZoomChange);
+  onZoomChangeRef.current = onZoomChange;
+
+  // ----- maxZoom -----
+  React.useEffect(() => {
+    if (maxZoomProp !== undefined) return;
+    const el = containerRef.current;
+    if (!el) return;
+
+    const measure = () => {
+      const rect = el.getBoundingClientRect();
+      setContainerSize((prev) =>
+        prev && prev.w === rect.width && prev.h === rect.height
+          ? prev
+          : { w: rect.width, h: rect.height },
       );
-    }
-    const controller = controllerRef.current;
+    };
 
-    const poseSnap = React.useSyncExternalStore(
-      controller.subscribeCommit,
-      controller.getSnapshot,
-      controller.getSnapshot,
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [maxZoomProp, containerRef]);
+
+  const maxZoom = React.useMemo(() => {
+    if (maxZoomProp !== undefined) return maxZoomProp;
+    if (!imageDimensions || !containerSize) return DEFAULT_MAX_ZOOM_FALLBACK;
+    return computeMaxZoom(
+      imageDimensions.w,
+      imageDimensions.h,
+      containerSize.w,
+      containerSize.h,
+      minZoom,
+      DEFAULT_MAX_ZOOM_FALLBACK,
     );
-    const zoom = poseSnap.zoom;
-    const offsetX = poseSnap.offsetX;
-    const offsetY = poseSnap.offsetY;
+  }, [maxZoomProp, imageDimensions, containerSize, minZoom]);
 
-    const [dragging, setDragging] = React.useState(false);
-    const draggingRef = React.useRef(false);
+  React.useEffect(() => {
+    const wrapper = wrapperRef.current;
+    if (!wrapper || maxZoomProp !== undefined) return;
 
-    const layoutCacheRef = React.useRef<{
-      stage: DOMRect;
-      viewport: DOMRect;
-      contentW: number;
-      contentH: number;
-    } | null>(null);
-    const layoutCacheRafRef = React.useRef<number | null>(null);
+    const detect = () => {
+      const img = wrapper.querySelector('img');
+      if (img && img.naturalWidth > 0) {
+        setImageDimensions({ w: img.naturalWidth, h: img.naturalHeight });
+      }
+    };
 
-    const [imageDimensions, setImageDimensions] = React.useState<{ w: number; h: number } | null>(
-      null,
-    );
-    const [containerSize, setContainerSize] = React.useState<{ w: number; h: number } | null>(null);
+    detect();
 
-    const containerRef = React.useRef<HTMLDivElement | null>(null);
-    const wrapperRef = React.useRef<HTMLDivElement | null>(null);
-    const setWrapperRef = React.useCallback(
-      (node: HTMLDivElement | null) => {
-        wrapperRef.current = node;
-        controller.attach(node);
-      },
-      [controller],
-    );
+    const observer = new MutationObserver(detect);
+    observer.observe(wrapper, { childList: true, subtree: true });
 
-    const onZoomChangeRef = React.useRef(onZoomChange);
-    onZoomChangeRef.current = onZoomChange;
+    const imgs = wrapper.querySelectorAll('img');
+    const handlers: Array<() => void> = [];
+    imgs.forEach((img) => {
+      const handler = () => detect();
+      img.addEventListener('load', handler);
+      handlers.push(() => img.removeEventListener('load', handler));
+    });
 
-    // ----- maxZoom -----
-    React.useEffect(() => {
-      if (maxZoomProp !== undefined) return;
-      const el = containerRef.current;
-      if (!el) return;
+    return () => {
+      observer.disconnect();
+      handlers.forEach((h) => h());
+    };
+  }, [maxZoomProp, activeIndex, wrapperRef]);
 
-      const measure = () => {
-        const rect = el.getBoundingClientRect();
-        setContainerSize((prev) =>
-          prev && prev.w === rect.width && prev.h === rect.height
-            ? prev
-            : { w: rect.width, h: rect.height },
-        );
-      };
-
-      measure();
-      const observer = new ResizeObserver(measure);
-      observer.observe(el);
-      return () => observer.disconnect();
-    }, [maxZoomProp]);
-
-    const maxZoom = React.useMemo(() => {
-      if (maxZoomProp !== undefined) return maxZoomProp;
-      if (!imageDimensions || !containerSize) return DEFAULT_MAX_ZOOM_FALLBACK;
-      return computeMaxZoom(
-        imageDimensions.w,
-        imageDimensions.h,
-        containerSize.w,
-        containerSize.h,
-        minZoom,
-        DEFAULT_MAX_ZOOM_FALLBACK,
-      );
-    }, [maxZoomProp, imageDimensions, containerSize, minZoom]);
-
-    React.useEffect(() => {
-      const wrapper = wrapperRef.current;
-      if (!wrapper || maxZoomProp !== undefined) return;
-
-      const detect = () => {
-        const img = wrapper.querySelector('img');
-        if (img && img.naturalWidth > 0) {
-          setImageDimensions({ w: img.naturalWidth, h: img.naturalHeight });
-        }
-      };
-
-      detect();
-
-      const observer = new MutationObserver(detect);
-      observer.observe(wrapper, { childList: true, subtree: true });
-
-      const imgs = wrapper.querySelectorAll('img');
-      const handlers: Array<() => void> = [];
-      imgs.forEach((img) => {
-        const handler = () => detect();
-        img.addEventListener('load', handler);
-        handlers.push(() => img.removeEventListener('load', handler));
-      });
-
-      return () => {
-        observer.disconnect();
-        handlers.forEach((h) => h());
-      };
-    }, [maxZoomProp, activeIndex]);
-
-    // ----- Layout measure (frame-scoped cache) -----
-    const resolveContentSize = React.useCallback((fallbackRect: DOMRect) => {
+  // ----- Layout measure (frame-scoped cache) -----
+  const resolveContentSize = React.useCallback(
+    (fallbackRect: DOMRect) => {
       const wrapper = wrapperRef.current;
       if (wrapper) {
         const media = wrapper.querySelector('[data-ramka-media]');
@@ -206,270 +183,248 @@ const LightboxZoomEngine = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
         }
       }
       return { w: fallbackRect.width, h: fallbackRect.height };
-    }, []);
+    },
+    [wrapperRef],
+  );
 
-    const measureStageLayout = React.useCallback(() => {
-      const cached = layoutCacheRef.current;
-      if (cached) return cached;
-      const stage = containerRef.current?.getBoundingClientRect() ?? null;
-      if (!stage) return null;
-      const panViewportEl = stageElementRef.current ?? dialogElementRef.current;
-      const viewport = panViewportEl?.getBoundingClientRect() ?? stage;
-      const { w: contentW, h: contentH } = resolveContentSize(stage);
-      const measured = { stage, viewport, contentW, contentH };
-      layoutCacheRef.current = measured;
-      if (typeof requestAnimationFrame === 'function' && layoutCacheRafRef.current == null) {
-        layoutCacheRafRef.current = requestAnimationFrame(() => {
-          layoutCacheRafRef.current = null;
-          layoutCacheRef.current = null;
-        });
-      }
-      return measured;
-    }, [resolveContentSize, dialogElementRef, stageElementRef]);
+  const measureStageLayout = React.useCallback(() => {
+    const cached = layoutCacheRef.current;
+    if (cached) return cached;
+    const stage = containerRef.current?.getBoundingClientRect() ?? null;
+    if (!stage) return null;
+    const panViewportEl = stageElementRef.current ?? dialogElementRef.current;
+    const viewport = panViewportEl?.getBoundingClientRect() ?? stage;
+    const { w: contentW, h: contentH } = resolveContentSize(stage);
+    const measured = { stage, viewport, contentW, contentH };
+    layoutCacheRef.current = measured;
+    if (typeof requestAnimationFrame === 'function' && layoutCacheRafRef.current == null) {
+      layoutCacheRafRef.current = requestAnimationFrame(() => {
+        layoutCacheRafRef.current = null;
+        layoutCacheRef.current = null;
+      });
+    }
+    return measured;
+  }, [resolveContentSize, dialogElementRef, stageElementRef, containerRef]);
 
-    const invalidateStageLayout = React.useCallback(() => {
+  const invalidateStageLayout = React.useCallback(() => {
+    layoutCacheRef.current = null;
+  }, []);
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return;
+    window.addEventListener('resize', invalidateStageLayout);
+    return () => window.removeEventListener('resize', invalidateStageLayout);
+  }, [invalidateStageLayout]);
+
+  const measurePanGeometry = React.useCallback(
+    (z: number) => {
+      const layout = measureStageLayout();
+      if (!layout) return null;
+      const { stage, viewport, contentW, contentH } = layout;
+      const cx = stage.left + stage.width / 2;
+      const cy = stage.top + stage.height / 2;
+      return {
+        viewport,
+        stage,
+        contentW,
+        contentH,
+        x: panOffsetRange(contentW, z, viewport.left, viewport.right, cx, minZoom),
+        y: panOffsetRange(contentH, z, viewport.top, viewport.bottom, cy, minZoom),
+      };
+    },
+    [measureStageLayout, minZoom],
+  );
+
+  const clampOffsets = React.useCallback(
+    (newOffsetX: number, newOffsetY: number, newZoom: number) => {
+      const geo = measurePanGeometry(newZoom);
+      if (!geo) return { x: 0, y: 0 };
+      return clampOffsetToViewport(
+        newOffsetX,
+        newOffsetY,
+        geo.contentW,
+        geo.contentH,
+        newZoom,
+        geo.viewport,
+        geo.stage,
+        minZoom,
+      );
+    },
+    [measurePanGeometry, minZoom],
+  );
+
+  // ----- Zoom session (policy) -----
+  const sessionDepsRef = React.useRef<ZoomSessionDeps>(null!);
+  sessionDepsRef.current = {
+    controller,
+    measureStageLayout,
+    measurePanGeometry,
+    clampOffsets,
+    minZoom,
+    maxZoom,
+    zoomStep,
+    reducedMotion: reducedMotionPan,
+    isDragging: () => draggingRef.current,
+    setDraggingUi: (value) => {
+      draggingRef.current = value;
+      setDragging(value);
+    },
+    invalidateLayoutCache: () => {
       layoutCacheRef.current = null;
-    }, []);
-    React.useEffect(() => {
-      if (typeof window === 'undefined') return;
-      window.addEventListener('resize', invalidateStageLayout);
-      return () => window.removeEventListener('resize', invalidateStageLayout);
-    }, [invalidateStageLayout]);
+    },
+  };
 
-    const measurePanGeometry = React.useCallback(
-      (z: number) => {
-        const layout = measureStageLayout();
-        if (!layout) return null;
-        const { stage, viewport, contentW, contentH } = layout;
-        const cx = stage.left + stage.width / 2;
-        const cy = stage.top + stage.height / 2;
-        return {
-          viewport,
-          stage,
-          contentW,
-          contentH,
-          x: panOffsetRange(contentW, z, viewport.left, viewport.right, cx, minZoom),
-          y: panOffsetRange(contentH, z, viewport.top, viewport.bottom, cy, minZoom),
-        };
-      },
-      [measureStageLayout, minZoom],
-    );
+  const sessionRef = React.useRef<ReturnType<typeof createZoomSession> | null>(null);
+  if (sessionRef.current == null) {
+    sessionRef.current = createZoomSession(() => sessionDepsRef.current);
+  }
+  const session = sessionRef.current;
 
-    const clampOffsets = React.useCallback(
-      (newOffsetX: number, newOffsetY: number, newZoom: number) => {
-        const geo = measurePanGeometry(newZoom);
-        if (!geo) return { x: 0, y: 0 };
-        return clampOffsetToViewport(
-          newOffsetX,
-          newOffsetY,
-          geo.contentW,
-          geo.contentH,
-          newZoom,
-          geo.viewport,
-          geo.stage,
-          minZoom,
-        );
-      },
-      [measurePanGeometry, minZoom],
-    );
+  React.useEffect(() => () => session.dispose(), [session]);
 
-    // ----- Zoom session (policy) -----
-    const sessionDepsRef = React.useRef<ZoomSessionDeps>(null!);
-    sessionDepsRef.current = {
+  // ----- Slide reset -----
+  React.useEffect(() => {
+    session.dispose();
+    controller.replacePose({ zoom: minZoom, offsetX: 0, offsetY: 0 });
+    setImageDimensions(null);
+  }, [activeIndex, minZoom, controller, session]);
+
+  React.useEffect(() => {
+    onZoomChangeRef.current?.(zoom);
+  }, [zoom]);
+
+  // ----- Chrome (Content data-zoomed / progress) -----
+  // useEffect (not layout): Content assigns dialogElementRef in its own
+  // layout pass — layout here would see null and never subscribe.
+  React.useEffect(() => {
+    return bindZoomChrome({
       controller,
-      measureStageLayout,
-      measurePanGeometry,
-      clampOffsets,
+      dialogElement: dialogElementRef.current,
+      wrapperElement: wrapperRef.current,
+      minZoom,
+      maxZoom,
+      isActive,
+    });
+    // Re-bind after commit epochs so a late-mounted dialog still attaches.
+  }, [isActive, minZoom, maxZoom, dialogElementRef, controller, zoom, wrapperRef]);
+
+  const gestureConfig = React.useMemo<ZoomGestureConfig>(
+    () => ({
       minZoom,
       maxZoom,
       zoomStep,
-      reducedMotion: reducedMotionPan,
-      isDragging: () => draggingRef.current,
-      setDraggingUi: (value) => {
-        draggingRef.current = value;
-        setDragging(value);
-      },
-      invalidateLayoutCache: () => {
-        layoutCacheRef.current = null;
-      },
+      scrollToZoom,
+      wheelSensitivity,
+      keyboardPanDistance,
+      doubleClickDelay,
+    }),
+    [
+      minZoom,
+      maxZoom,
+      zoomStep,
+      scrollToZoom,
+      wheelSensitivity,
+      keyboardPanDistance,
+      doubleClickDelay,
+    ],
+  );
+
+  useZoomGestures(
+    containerRef,
+    wrapperRef,
+    gestureConfig,
+    session.actions,
+    !isActive,
+    dialogElementRef,
+    zoom,
+    navigationLockedRef,
+    stageElementRef,
+  );
+
+  // ----- Publish to the shell -----
+  const controls = React.useMemo<ZoomEngineControls>(
+    () => ({
+      zoomIn: session.zoomIn,
+      zoomOut: session.zoomOut,
+      zoomTo: (target, opts) => session.changeZoom(target, opts?.rapid ?? false, opts?.dx, opts?.dy),
+      reset: session.reset,
+      changeOffsets: session.changeOffsets,
+      getPose: () => controller.getPose(),
+    }),
+    [session, controller],
+  );
+
+  // Read through refs so the publish callback stays stable across commits.
+  const controlsRef = React.useRef(controls);
+  controlsRef.current = controls;
+  const maxZoomRef = React.useRef(maxZoom);
+  maxZoomRef.current = maxZoom;
+  const publishedRef = React.useRef<ZoomEnginePose | null>(null);
+
+  const publish = React.useCallback(() => {
+    const snap = controller.getSnapshot();
+    const next: ZoomEnginePose = {
+      zoom: snap.zoom,
+      offsetX: snap.offsetX,
+      offsetY: snap.offsetY,
+      maxZoom: maxZoomRef.current,
+      dragging: draggingRef.current,
+      animating: snap.phase !== 'idle',
     };
-
-    const sessionRef = React.useRef<ReturnType<typeof createZoomSession> | null>(null);
-    if (sessionRef.current == null) {
-      sessionRef.current = createZoomSession(() => sessionDepsRef.current);
+    const prev = publishedRef.current;
+    if (
+      prev &&
+      prev.zoom === next.zoom &&
+      prev.offsetX === next.offsetX &&
+      prev.offsetY === next.offsetY &&
+      prev.maxZoom === next.maxZoom &&
+      prev.dragging === next.dragging &&
+      prev.animating === next.animating
+    ) {
+      return;
     }
-    const session = sessionRef.current;
+    publishedRef.current = next;
+    store.publish({ pose: next, controls: controlsRef.current });
+  }, [controller, store]);
 
-    React.useEffect(() => () => session.dispose(), [session]);
+  // Straight off the controller rather than off this component's render, so the
+  // shell's re-render batches with this one instead of trailing a frame behind.
+  React.useEffect(() => controller.subscribeCommit(publish), [controller, publish]);
 
-    // ----- Slide reset -----
-    React.useEffect(() => {
-      session.dispose();
-      controller.replacePose({ zoom: minZoom, offsetX: 0, offsetY: 0 });
-      setImageDimensions(null);
-    }, [activeIndex, minZoom, controller, session]);
+  // Covers what the controller doesn't drive: the handover of `controls` on
+  // mount, and maxZoom / dragging, which are React state here.
+  React.useEffect(() => {
+    publish();
+  }, [publish, maxZoom, dragging, controls]);
 
-    React.useEffect(() => {
-      onZoomChangeRef.current?.(zoom);
-    }, [zoom]);
+  // ----- Chrome outside the Zoom subtree (Lightbox.ZoomIn / ZoomOut) -----
+  const canZoomIn = zoom < maxZoom;
+  const canZoomOut = zoom > minZoom;
 
-    // ----- Chrome (Content data-zoomed / progress) -----
-    // useEffect (not layout): Content assigns dialogElementRef in its own
-    // layout pass — layout here would see null and never subscribe.
-    React.useEffect(() => {
-      return bindZoomChrome({
-        controller,
-        dialogElement: dialogElementRef.current,
-        wrapperElement: wrapperRef.current,
-        minZoom,
-        maxZoom,
-        isActive,
-      });
-      // Re-bind after commit epochs so a late-mounted dialog still attaches.
-    }, [isActive, minZoom, maxZoom, dialogElementRef, controller, zoom]);
+  const activeControls = React.useMemo<ActiveZoomControls>(
+    () => ({
+      canZoomIn,
+      canZoomOut,
+      zoomIn: session.zoomIn,
+      zoomOut: session.zoomOut,
+      reset: (rapid?: boolean) => session.reset(rapid),
+      panBy: (dx: number, dy: number) => session.changeOffsets(dx, dy),
+      keyboardPanDistance,
+      getZoom: session.getLiveZoom,
+    }),
+    [canZoomIn, canZoomOut, session, keyboardPanDistance],
+  );
 
-    const gestureConfig = React.useMemo<ZoomGestureConfig>(
-      () => ({
-        minZoom,
-        maxZoom,
-        zoomStep,
-        scrollToZoom,
-        wheelSensitivity,
-        keyboardPanDistance,
-        doubleClickDelay,
-      }),
-      [minZoom, maxZoom, zoomStep, scrollToZoom, wheelSensitivity, keyboardPanDistance, doubleClickDelay],
-    );
+  React.useEffect(() => {
+    if (!isActive) return;
+    publishActiveZoom(activeControls);
+    return () => {
+      publishActiveZoom((prev) => (prev === activeControls ? null : prev));
+    };
+  }, [isActive, activeControls, publishActiveZoom]);
 
-    useZoomGestures(
-      containerRef,
-      wrapperRef,
-      gestureConfig,
-      session.actions,
-      !isActive,
-      dialogElementRef,
-      zoom,
-      navigationLockedRef,
-      stageElementRef,
-    );
+  return null;
+}
 
-    React.useImperativeHandle(
-      forwardedRef,
-      () => ({
-        get zoom() {
-          return controller.getPose().zoom;
-        },
-        maxZoom,
-        get offsetX() {
-          return controller.getPose().offsetX;
-        },
-        get offsetY() {
-          return controller.getPose().offsetY;
-        },
-        zoomIn: session.zoomIn,
-        zoomOut: session.zoomOut,
-        zoomTo: (target, opts) =>
-          session.changeZoom(target, opts?.rapid ?? false, opts?.dx, opts?.dy),
-        reset: session.reset,
-      }),
-      [maxZoom, session, controller],
-    );
+ZoomEngine.displayName = 'LightboxZoomEngine';
 
-    const canZoomIn = zoom < maxZoom;
-    const canZoomOut = zoom > minZoom;
-
-    const contextValue = React.useMemo<ZoomContextValue>(
-      () => ({
-        zoom,
-        maxZoom,
-        offsetX,
-        offsetY,
-        canZoomIn,
-        canZoomOut,
-        zoomIn: session.zoomIn,
-        zoomOut: session.zoomOut,
-        zoomTo: (target, opts) =>
-          session.changeZoom(target, opts?.rapid ?? false, opts?.dx, opts?.dy),
-        reset: session.reset,
-        changeOffsets: session.changeOffsets,
-      }),
-      [zoom, maxZoom, offsetX, offsetY, canZoomIn, canZoomOut, session],
-    );
-
-    const activeControls = React.useMemo<ActiveZoomControls>(
-      () => ({
-        canZoomIn,
-        canZoomOut,
-        zoomIn: session.zoomIn,
-        zoomOut: session.zoomOut,
-        reset: (rapid?: boolean) => session.reset(rapid),
-        panBy: (dx: number, dy: number) => session.changeOffsets(dx, dy),
-        keyboardPanDistance,
-        getZoom: session.getLiveZoom,
-      }),
-      [canZoomIn, canZoomOut, session, keyboardPanDistance],
-    );
-
-    React.useEffect(() => {
-      if (!isActive) return;
-      publishActiveZoom(activeControls);
-      return () => {
-        publishActiveZoom((prev) => (prev === activeControls ? null : prev));
-      };
-    }, [isActive, activeControls, publishActiveZoom]);
-
-    const state = React.useMemo<LightboxZoomState>(
-      () => ({ zoom, maxZoom, offsetX, offsetY, canZoomIn, canZoomOut, dragging }),
-      [zoom, maxZoom, offsetX, offsetY, canZoomIn, canZoomOut, dragging],
-    );
-
-    const resolvedChildren = typeof children === 'function' ? children(state) : children;
-
-    const wrapper = (
-      <div
-        ref={setWrapperRef}
-        style={{
-          width: '100%',
-          height: '100%',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          transformOrigin: 'center center',
-          willChange: zoom > 1 || poseSnap.phase !== 'idle' ? 'transform' : undefined,
-        }}
-      >
-        {resolvedChildren}
-      </div>
-    );
-
-    const element = useRender({
-      render,
-      ref: containerRef,
-      state,
-      stateAttributesMapping,
-      props: mergeProps<'div'>(
-        {
-          [LightboxZoomDataAttributes.host]: '',
-          style: {
-            position: 'relative',
-            width: '100%',
-            height: '100%',
-            containerType: 'size',
-            touchAction: zoom > minZoom ? 'none' : 'pan-x pan-y',
-            cursor: dragging ? 'grabbing' : zoom > 1 ? 'grab' : undefined,
-            userSelect: 'none',
-          },
-        } as React.ComponentPropsWithRef<'div'>,
-        elementProps as React.ComponentPropsWithRef<'div'>,
-        { children: wrapper } as React.ComponentPropsWithRef<'div'>,
-      ),
-      defaultTagName: 'div',
-    });
-
-    return <ZoomContext.Provider value={contextValue}>{element}</ZoomContext.Provider>;
-  },
-);
-
-LightboxZoomEngine.displayName = 'LightboxZoom';
-
-export { LightboxZoomEngine };
+export { ZoomEngine };

@@ -796,8 +796,10 @@ function LightboxRoot(props: LightboxRootProps) {
         // controlled `open` prop subsequently updates via onOpenChange.
         lastInternalOpenRef.current = nextOpen;
 
-        // Start Zoom with the open, not after Zoom mounts. A late engine swap
-        // remounts Media and tears down the fallback canvas. Independent of VT.
+        // Request Zoom with the open rather than waiting for Zoom to mount and
+        // ask for itself, so gestures are live as early as the network allows.
+        // A miss is not a correctness problem, only a brief unresponsive
+        // window — see the handover note in lightbox-zoom.tsx.
         if (nextOpen) prefetchZoomRuntime();
 
         // Open-transition gate for `Lightbox.Item` placeholders: mark it pending
@@ -959,25 +961,22 @@ function LightboxRoot(props: LightboxRootProps) {
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    // Warm chunks once the page is idle so the first open is not gated on the
-    // network — deliberately not during hydration, where the fetch and its
-    // evaluation compete with the LCP image (see schedule-warm-up.ts). Trigger
-    // warms on hover / focus / pointerdown, which covers interaction that
-    // beats idle.
+    // Warm the morph once the page is idle — deliberately not during hydration,
+    // where the fetch and its evaluation compete with the LCP image (see
+    // schedule-warm-up.ts). It has to be resident *before* the click, because
+    // the morph starts inside the click handler: arriving late means that open
+    // degrades to the plain path. Only when VT will actually run.
     //
-    // Morph only when VT will actually run. Zoom is its own engine — warm it
-    // even when VT is off, so the placeholder→engine swap does not remount
-    // Media mid-open and drop the fallback canvas.
-    React.useEffect(
-      () =>
-        scheduleWarmUp(() => {
-          prefetchZoomRuntime();
-          if (viewTransition !== false && supportsViewTransitions() && !isLowEndDevice()) {
-            prefetchMorphRuntime();
-          }
-        }),
-      [viewTransition],
-    );
+    // Zoom is not warmed here. It is needed the first time someone pinches or
+    // double-taps, never in the same tick as the click, and a chunk that lands
+    // after the open now costs nothing (see lightbox-zoom.tsx — the engine
+    // renders no DOM, so handover cannot remount anything). Trigger warms it on
+    // hover / focus / pointerdown and setOpen requests it, so intent still buys
+    // a head start; a visitor who never opens the gallery pays nothing.
+    React.useEffect(() => {
+      if (viewTransition === false || !supportsViewTransitions() || isLowEndDevice()) return;
+      return scheduleWarmUp(prefetchMorphRuntime);
+    }, [viewTransition]);
 
     const performOpen = React.useCallback(
       (index?: number, options?: LightboxHandleOpenOptions) => {

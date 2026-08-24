@@ -13,9 +13,14 @@ const MUTATIONS = [
   {
     name: 'warm eagerly on mount again (pre-change behaviour)',
     path: file('lightbox-root.tsx'),
-    find: /React\.useEffect\(\n      \(\) =>\n        scheduleWarmUp\(\(\) => \{\n([\s\S]*?)\n        \}\),\n      \[viewTransition\],\n    \);/,
-    replace: (m, body) =>
-      `React.useEffect(() => {\n${body.replace(/^ {4}/gm, '')}\n    }, [viewTransition]);`,
+    find: 'return scheduleWarmUp(prefetchMorphRuntime);',
+    replace: 'prefetchMorphRuntime();\n      return;',
+  },
+  {
+    name: 'warm zoom from idle again (pre-change behaviour)',
+    path: file('lightbox-root.tsx'),
+    find: 'return scheduleWarmUp(prefetchMorphRuntime);',
+    replace: 'return scheduleWarmUp(() => {\n        prefetchZoomRuntime();\n        prefetchMorphRuntime();\n      });',
   },
   {
     name: 'drop the hover warm-up',

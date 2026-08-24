@@ -14,10 +14,18 @@ import { lightboxImageFiles } from '../../../_data/images.generated';
  * genuinely optional (Backdrop, Stage, Caption, thumbnails), so it is the
  * realistic floor for a full-featured lightbox rather than a stripped demo.
  *
- * Both lazy engines are exercised here: the morph loads because
- * `viewTransition` is left at its default, and zoom loads because Zoom is
- * mounted. Everything else is nearly free — Slides/Slide are layout, and the
- * chrome parts read Root's state and render one element each.
+ * Worth being precise about when the lazy engines land, since the three differ.
+ * The morph is warmed from a Root effect scheduled at browser idle, so it is on
+ * the wire shortly after first paint but out of hydration's way — it has to be
+ * resident before the click, because the morph starts inside the click handler.
+ * Zoom and pull-to-dismiss are genuinely deferred: zoom on hover / focus /
+ * press of a trigger (and again at open), pull when Content mounts. Neither is
+ * downloaded by a visitor who never reaches for the gallery. Everything else is
+ * nearly free — Slides/Slide are layout, and the chrome parts read Root's state
+ * and render one element each.
+ *
+ * The zoom check below verifies that, by comparing the chunk's resource timing
+ * against the moment the trigger first saw intent.
  *
  * The audit panel scans for every `data-ramka-*` marker in
  * `LIGHTBOX_PART_IDENTITY_ATTRIBUTES`, so a part mounting something extra shows
@@ -71,16 +79,23 @@ type Audit = {
   failed: number;
 };
 
-function engineRequests(): string[] {
+type EngineRequest = { label: string; startTime: number };
+
+// `startTime` is what makes the warm-up policy observable rather than asserted:
+// both it and performance.now() are measured from timeOrigin, so a request can
+// be placed before or after the moment the trigger first saw intent.
+function engineRequests(): EngineRequest[] {
   if (typeof performance === 'undefined' || !performance.getEntriesByType) return [];
   return performance
     .getEntriesByType('resource')
-    .map((entry) => entry.name)
-    .filter((name) => ENGINE_CHUNK.test(name))
-    .map((name) => name.replace(/^.*\/static\//, 'static/').replace(/\?.*$/, ''));
+    .filter((entry) => ENGINE_CHUNK.test(entry.name))
+    .map((entry) => ({
+      label: entry.name.replace(/^.*\/static\//, 'static/').replace(/\?.*$/, ''),
+      startTime: entry.startTime,
+    }));
 }
 
-function runAudit(itemCount: number, activeIndex: number): Audit {
+function runAudit(itemCount: number, activeIndex: number, firstIntentAt: number | null): Audit {
   const count = (attribute: string) => document.querySelectorAll(`[${attribute}]`).length;
   const counts = Lightbox.LIGHTBOX_PART_IDENTITY_ATTRIBUTES.map((attribute) => ({
     attribute: attribute as string,
@@ -103,8 +118,8 @@ function runAudit(itemCount: number, activeIndex: number): Audit {
   const contentName = content?.getAttribute('aria-label') ?? content?.getAttribute('aria-labelledby') ?? '';
 
   const requests = engineRequests();
-  const morphFetched = requests.filter((r) => MORPH_CHUNK.test(r));
-  const zoomFetched = requests.filter((r) => ZOOM_CHUNK.test(r));
+  const morphFetched = requests.filter((r) => MORPH_CHUNK.test(r.label));
+  const zoomFetched = requests.filter((r) => ZOOM_CHUNK.test(r.label));
 
   // Only meaningful once *some* engine chunk has been seen — otherwise this
   // build does not surface them as separate resources and the absence of a
@@ -154,22 +169,28 @@ function runAudit(itemCount: number, activeIndex: number): Audit {
     },
     {
       id: 'morph-fetch',
-      label: 'The morph engine is fetched, because viewTransition is on',
+      label: 'The morph engine was warmed at browser idle, because viewTransition is on',
       pass: enginesVisible ? morphFetched.length > 0 : null,
       detail: enginesVisible
         ? morphFetched.length > 0
-          ? morphFetched.join(', ')
+          ? describeRequests(morphFetched)
           : 'no morph chunk seen — unsupported browser, a low-end device, or stale patterns'
         : 'this build does not emit engines as separate resources',
     },
     {
       id: 'zoom-fetch',
-      label: 'The zoom engine is fetched, because Zoom is mounted',
-      pass: enginesVisible ? zoomFetched.length > 0 : null,
+      label: 'The zoom engine waited for intent — it is not part of the idle warm-up',
+      pass: enginesVisible
+        ? zoomFetched.length > 0 &&
+          firstIntentAt != null &&
+          zoomFetched.every((r) => r.startTime >= firstIntentAt)
+        : null,
       detail: enginesVisible
-        ? zoomFetched.length > 0
-          ? zoomFetched.join(', ')
-          : 'no zoom chunk seen — the patterns above may be stale'
+        ? zoomFetched.length === 0
+          ? 'no zoom chunk seen — the patterns above may be stale'
+          : firstIntentAt == null
+            ? 'opened without touching a trigger, so there is no intent to compare against'
+            : `${describeRequests(zoomFetched)}; first trigger intent at ${Math.round(firstIntentAt)}ms`
         : 'this build does not emit engines as separate resources',
     },
     {
@@ -223,11 +244,14 @@ function runAudit(itemCount: number, activeIndex: number): Audit {
 
   return {
     counts,
-    engineRequests: requests,
+    engineRequests: requests.map((r) => describeRequests([r])),
     checks,
     failed: checks.filter((c) => c.pass === false).length,
   };
 }
+
+const describeRequests = (requests: EngineRequest[]) =>
+  requests.map((r) => `${r.label} @ ${Math.round(r.startTime)}ms`).join(', ');
 
 const BUTTON =
   'grid size-11 place-items-center rounded-full bg-white/10 text-white backdrop-blur transition hover:bg-white/20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white data-disabled:pointer-events-none data-disabled:opacity-30';
@@ -245,6 +269,29 @@ export default function MinimalCompositionDebugPage() {
   const [open, setOpen] = React.useState(false);
   const [value, setValue] = React.useState(0);
   const [audit, setAudit] = React.useState<Audit | null>(null);
+  const firstIntentAtRef = React.useRef<number | null>(null);
+
+  // When the trigger first saw hover, focus or a press — the moment Trigger's
+  // own warm-up fires. Capture phase on the document so this always runs before
+  // the handlers that start the fetch, otherwise the comparison in the audit
+  // could lose by a fraction of a millisecond.
+  React.useEffect(() => {
+    const types = ['pointerenter', 'pointerdown', 'focusin'] as const;
+    const record = (event: Event) => {
+      if (firstIntentAtRef.current != null) return;
+      const target = event.target;
+      if (
+        target instanceof Element &&
+        target.closest(`[${Lightbox.LightboxTriggerDataAttributes.trigger}]`)
+      ) {
+        firstIntentAtRef.current = performance.now();
+      }
+    };
+    for (const type of types) document.addEventListener(type, record, true);
+    return () => {
+      for (const type of types) document.removeEventListener(type, record, true);
+    };
+  }, []);
 
   // The portal subtree only exists while open, so scan on open and then on any
   // mount or state-attribute change inside it. Coalesced to one scan per frame.
@@ -256,7 +303,9 @@ export default function MinimalCompositionDebugPage() {
     let frame = 0;
     const schedule = () => {
       cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(() => setAudit(runAudit(lightboxImageFiles.length, value)));
+      frame = requestAnimationFrame(() =>
+        setAudit(runAudit(lightboxImageFiles.length, value, firstIntentAtRef.current)),
+      );
     };
     schedule();
     const observer = new MutationObserver(schedule);
@@ -287,7 +336,7 @@ export default function MinimalCompositionDebugPage() {
         </h1>
         <p className="mt-3 max-w-2xl text-base leading-relaxed text-neutral-600 dark:text-neutral-400">
           Morph, swipe, zoom and chrome from {COMPOSITION.length + 1} parts — {COMPOSITION.length} of the{' '}
-          {Lightbox.LIGHTBOX_PART_IDENTITY_ATTRIBUTES.length} part markers, for 15.5 KB gzipped eager. This is the
+          {Lightbox.LIGHTBOX_PART_IDENTITY_ATTRIBUTES.length} part markers, for 16.1 KB gzipped eager. This is the
           realistic floor for a gallery you would actually ship, not a stripped demo: what is left out is genuinely
           optional.
         </p>
@@ -297,11 +346,18 @@ export default function MinimalCompositionDebugPage() {
         <section className="rounded-lg border border-neutral-200 p-4 dark:border-neutral-800">
           <h2 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">What this costs</h2>
           <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-neutral-600 dark:text-neutral-400">
-            <li>15.5 KB gz eager — only 1.2 KB more than Root/Trigger/Portal/Content/Item/Media</li>
+            <li>16.1 KB gz eager — only 1.6 KB more than Root/Trigger/Portal/Content/Item/Media</li>
             <li>Slides and Slide are layout; the chrome parts render one element each</li>
-            <li>~11.5 KB gz fetched for the zoom engine, because Zoom is mounted</li>
-            <li>~7.7 KB gz fetched for the morph engine, warmed after paint rather than on open</li>
-            <li>All 22 parts would be 19.7 KB gz, so this is most of the library</li>
+            <li>
+              ~7.7 KB gz for the morph lands at browser idle after first paint — it has to be resident before the
+              click, because the morph starts inside the click handler
+            </li>
+            <li>
+              ~11.1 KB gz for zoom and ~2.7 KB gz for pull-to-dismiss are the genuinely deferred ones: zoom on hover /
+              focus / press of a trigger, pull when Content mounts. A visitor who never opens the gallery downloads
+              neither.
+            </li>
+            <li>Everything the package exports would be 20.3 KB gz eager, so this is most of the library</li>
           </ul>
         </section>
         <section className="rounded-lg border border-neutral-200 p-4 dark:border-neutral-800">
@@ -322,7 +378,7 @@ export default function MinimalCompositionDebugPage() {
             </li>
             <li>
               Drop <code className="text-xs">viewTransition</code> to <code className="text-xs">{'{false}'}</code> and
-              the morph engine never reaches the network — the one cheap opt-out left
+              the morph engine never reaches the network either, leaving no engine code on page load at all
             </li>
           </ul>
         </section>

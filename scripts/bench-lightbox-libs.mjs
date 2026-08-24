@@ -16,13 +16,17 @@
 //     so neither fact is hidden.
 //   * Lazily `import()`ed code is separated from the eager payload, because a
 //     chunk fetched on first open is not the same as bytes in the entry.
-//   * Three feature tiers, so a headless kit is not credited for being small
+//   * Four feature tiers, so a headless kit is not credited for being small
 //     while doing less:
 //       minimal   — open/close a full-screen image, prev/next, swipe
 //       parity    — the above plus pinch-zoom, thumbnails, captions, counter
 //       everything — every plugin the library ships
+//       page      — the exact feature set of the /debug/minimal-composition
+//                   page: open/close morphing from the thumbnail, swipe
+//                   carousel, pinch zoom plus zoom in/out buttons, counter,
+//                   prev/next/close. No thumbnails, no captions.
 //
-// Usage: node scripts/bench-lightbox-libs.mjs
+// Usage: node scripts/bench-lightbox-libs.mjs [--tier=page]
 // Expects the competitors installed in /tmp/lightbox-bench (see BENCH_DIR).
 
 import { gzipSync } from 'node:zlib';
@@ -66,6 +70,12 @@ const RAMKA_MINIMAL = `Lightbox.Root, Lightbox.Trigger, Lightbox.Portal, Lightbo
   Lightbox.Close, Lightbox.Previous, Lightbox.Next`;
 const RAMKA_PARITY = `${RAMKA_MINIMAL}, Lightbox.Zoom, Lightbox.ThumbnailGroup,
   Lightbox.Thumbnail, Lightbox.Caption, Lightbox.Counter`;
+// Mirrors apps/docs/app/(docs)/debug/minimal-composition exactly — no Backdrop
+// (Content carries the scrim), no thumbnails, no captions.
+const RAMKA_PAGE = `Lightbox.Root, Lightbox.Trigger, Lightbox.Portal, Lightbox.Content,
+  Lightbox.Slides, Lightbox.Slide, Lightbox.Item, Lightbox.Media,
+  Lightbox.Zoom, Lightbox.ZoomIn, Lightbox.ZoomOut,
+  Lightbox.Previous, Lightbox.Next, Lightbox.Counter, Lightbox.Close`;
 
 const YARL_ALL = [
   'captions',
@@ -204,6 +214,48 @@ const SCENARIOS = [
     tier: 'everything',
     code: named(['lightgallery/react', ...LG_ALL.map((p) => `lightgallery/plugins/${p}`)]),
     css: css(...LG_ALL_CSS),
+  },
+
+  // ---- `page` tier: the /debug/minimal-composition feature set ----------
+  //
+  // How close each library can get, since none of them decompose the same way:
+  //   ramka         exact — the 15 parts the page mounts
+  //   photoswipe    exact on features; its core is indivisible, so this is the
+  //                 same row as `parity*` (it cannot be made smaller)
+  //   lightgallery  exact — core ships `zoomFromOrigin: true` (the open-from-
+  //                 thumbnail animation) and `counter: true`, so only zoom is
+  //                 a plugin. Its core also drags in captions/download/etc.
+  //   YARL          everything but the morph — it has no shared-element
+  //                 transition at any price, so this row buys strictly less
+  {
+    lib: 'ramka',
+    tier: 'page',
+    code: `import * as Lightbox from 'ramka/lightbox';\nexport default [${RAMKA_PAGE}];`,
+    css: [],
+  },
+  {
+    lib: 'yet-another-react-lightbox',
+    tier: 'page†',
+    code: named([
+      'yet-another-react-lightbox',
+      ...['zoom', 'counter'].map((p) => `yet-another-react-lightbox/plugins/${p}`),
+    ]),
+    css: css(
+      'yet-another-react-lightbox/dist/styles.css',
+      'yet-another-react-lightbox/dist/plugins/counter/counter.css',
+    ),
+  },
+  {
+    lib: 'photoswipe (react-photoswipe-gallery)',
+    tier: 'page',
+    code: `import { Gallery, Item } from 'react-photoswipe-gallery';\nexport default [Gallery, Item];`,
+    css: css('photoswipe/dist/photoswipe.css'),
+  },
+  {
+    lib: 'lightgallery',
+    tier: 'page',
+    code: named(['lightgallery/react', 'lightgallery/plugins/zoom']),
+    css: css('lightgallery/css/lightgallery.css', 'lightgallery/css/lg-zoom.css'),
   },
 
   {
@@ -417,8 +469,13 @@ async function measure({ lib, tier, code, css: cssFiles }) {
   };
 }
 
+const tierFilter = process.argv.find((a) => a.startsWith('--tier='))?.slice('--tier='.length);
+const selected = tierFilter
+  ? SCENARIOS.filter((s) => s.tier.replace(/[†*]/g, '') === tierFilter)
+  : SCENARIOS;
+
 const rows = [];
-for (const scenario of SCENARIOS) rows.push(await measure(scenario));
+for (const scenario of selected) rows.push(await measure(scenario));
 
 const kb = (n) => (n === 0 ? '—' : (n / 1024).toFixed(1));
 const pad = (s, n) => String(s).padEnd(n);

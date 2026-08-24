@@ -87,9 +87,18 @@ function TestLightbox({ viewTransition = true }: { viewTransition?: boolean } = 
 beforeEach(() => {
   loaders.zoom.mockClear();
   loaders.morph.mockClear();
+  // Root doesn't warm a morph that could never run, and jsdom has no View
+  // Transitions — so without this the scheduling tests below would measure the
+  // unsupported path instead of the one they mean to.
+  Object.defineProperty(document, 'startViewTransition', {
+    value: () => ({ finished: new Promise(() => {}), ready: new Promise(() => {}) }),
+    writable: true,
+    configurable: true,
+  });
 });
 
 afterEach(() => {
+  delete (document as unknown as Record<string, unknown>).startViewTransition;
   removeIdleCallback();
   vi.restoreAllMocks();
   vi.useRealTimers();
@@ -106,14 +115,28 @@ describe('engine warm-up timing', () => {
     expect(loaders.morph).not.toHaveBeenCalled();
   });
 
-  it('warms once the browser reports idle', () => {
+  it('warms the morph once the browser reports idle', () => {
     const { requestIdleCallback, runIdle } = stubIdleCallback();
 
     render(<TestLightbox />);
     expect(requestIdleCallback).toHaveBeenCalled();
     runIdle();
 
-    expect(loaders.zoom).toHaveBeenCalled();
+    // The morph has to be resident before the click, because it starts inside
+    // the click handler.
+    expect(loaders.morph).toHaveBeenCalled();
+  });
+
+  it('never warms zoom from idle, only from intent', () => {
+    const { runIdle } = stubIdleCallback();
+
+    render(<TestLightbox />);
+    runIdle();
+
+    // Zoom is first needed on a pinch or a double-tap, and a late chunk is
+    // harmless now that handover renders no DOM — so a visitor who never opens
+    // the gallery should not download it.
+    expect(loaders.zoom).not.toHaveBeenCalled();
   });
 
   it('bounds the idle wait with a timeout, so an always-busy page still warms', () => {
@@ -135,7 +158,7 @@ describe('engine warm-up timing', () => {
     expect(cancelIdleCallback).toHaveBeenCalled();
     // A gallery that left the page should not fetch engines for itself.
     runIdle();
-    expect(loaders.zoom).not.toHaveBeenCalled();
+    expect(loaders.morph).not.toHaveBeenCalled();
   });
 
   it('falls back to a short timer where requestIdleCallback is missing', () => {
@@ -144,21 +167,23 @@ describe('engine warm-up timing', () => {
     vi.useFakeTimers();
 
     render(<TestLightbox />);
-    expect(loaders.zoom).not.toHaveBeenCalled();
+    expect(loaders.morph).not.toHaveBeenCalled();
 
     vi.advanceTimersByTime(WARM_UP_FALLBACK_DELAY_MS);
 
-    expect(loaders.zoom).toHaveBeenCalled();
+    expect(loaders.morph).toHaveBeenCalled();
   });
 
-  it('skips the morph engine when view transitions are off', () => {
+  it('warms nothing at all when view transitions are off', () => {
     const { runIdle } = stubIdleCallback();
 
     render(<TestLightbox viewTransition={false} />);
     runIdle();
 
-    expect(loaders.zoom).toHaveBeenCalled();
+    // Morph would never run, and zoom waits for intent, so such a gallery
+    // downloads no engine code until someone reaches for it.
     expect(loaders.morph).not.toHaveBeenCalled();
+    expect(loaders.zoom).not.toHaveBeenCalled();
   });
 });
 

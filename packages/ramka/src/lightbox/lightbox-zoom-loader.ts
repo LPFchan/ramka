@@ -1,13 +1,12 @@
 'use client';
 
-import type { ForwardRefExoticComponent, RefAttributes } from 'react';
+import type { ComponentType } from 'react';
 
-import type { LightboxZoomProps, LightboxZoomRef } from './lightbox-zoom';
+import type { ZoomEngineProps } from './lightbox-zoom';
 
 export interface ZoomRuntime {
-  LightboxZoomEngine: ForwardRefExoticComponent<
-    LightboxZoomProps & RefAttributes<LightboxZoomRef>
-  >;
+  /** Behaviour only — renders no DOM, so it can arrive at any time. */
+  ZoomEngine: ComponentType<ZoomEngineProps>;
 }
 
 let cached: ZoomRuntime | null = null;
@@ -17,7 +16,7 @@ function loadZoomRuntime(): Promise<ZoomRuntime> {
   if (cached) return Promise.resolve(cached);
   pending ??= import('./lightbox-zoom-runtime').then(
     (mod) => {
-      cached = { LightboxZoomEngine: mod.LightboxZoomEngine };
+      cached = { ZoomEngine: mod.ZoomEngine };
       return cached;
     },
     (error: unknown) => {
