@@ -388,6 +388,15 @@ const LightboxTrigger = React.forwardRef<HTMLButtonElement, LightboxTriggerProps
       openingTriggerImageRef,
     ]);
 
+    // Intent warm-up. Wired to hover and focus as well as pointerdown: hover
+    // buys a few hundred milliseconds over pointerdown's ~50–150ms, and focus
+    // covers keyboard users, who otherwise reach the open with a cold chunk.
+    // The loaders memoize, so a grid of triggers only ever does the work once.
+    const warmEngines = React.useCallback(() => {
+      if (rootContext?.viewTransition) prefetchMorphRuntime();
+      prefetchZoomRuntime();
+    }, [rootContext?.viewTransition]);
+
     const active = open && activeIndex === index;
 
     // Disclosure semantics matching Base UI's Dialog.Trigger: the button
@@ -471,10 +480,9 @@ const LightboxTrigger = React.forwardRef<HTMLButtonElement, LightboxTriggerProps
           'aria-expanded': openedByThisTrigger,
           ...(open && contentId ? { 'aria-controls': contentId } : null),
           onClick: handleClick,
-          onPointerDown: () => {
-            if (rootContext?.viewTransition) prefetchMorphRuntime();
-            prefetchZoomRuntime();
-          },
+          onPointerEnter: warmEngines,
+          onFocus: warmEngines,
+          onPointerDown: warmEngines,
           // Stable styling hook — consumer CSS can target every trigger
           // (e.g. for a default focus outline) without relying on
           // state-only attributes like `data-popup-open` or `data-active`.

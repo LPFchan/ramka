@@ -42,6 +42,7 @@ import {
 } from './scroll-trigger';
 import { isAndroidBlinkSnapshotRoot } from './is-android-blink';
 import { findDestinationMorphTarget } from './morph-target';
+import { scheduleWarmUp } from './schedule-warm-up';
 import { DEFAULT_DECODE_MAX_WAIT, isLowEndDevice, supportsViewTransitions } from './vt-constants';
 import type { LightboxViewTransitionPreset } from './vt-timing';
 import type { ViewTransitionMorph, ViewTransitionMorphConfig } from './use-view-transition-morph';
@@ -958,16 +959,25 @@ function LightboxRoot(props: LightboxRootProps) {
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    // Warm chunks after paint so the first open is not gated on the network.
-    // Morph only when VT will actually run. Zoom is its own engine — prefetch
-    // it even when VT is off, so the placeholder→engine swap does not remount
+    // Warm chunks once the page is idle so the first open is not gated on the
+    // network — deliberately not during hydration, where the fetch and its
+    // evaluation compete with the LCP image (see schedule-warm-up.ts). Trigger
+    // warms on hover / focus / pointerdown, which covers interaction that
+    // beats idle.
+    //
+    // Morph only when VT will actually run. Zoom is its own engine — warm it
+    // even when VT is off, so the placeholder→engine swap does not remount
     // Media mid-open and drop the fallback canvas.
-    React.useEffect(() => {
-      prefetchZoomRuntime();
-      if (viewTransition !== false && supportsViewTransitions() && !isLowEndDevice()) {
-        prefetchMorphRuntime();
-      }
-    }, [viewTransition]);
+    React.useEffect(
+      () =>
+        scheduleWarmUp(() => {
+          prefetchZoomRuntime();
+          if (viewTransition !== false && supportsViewTransitions() && !isLowEndDevice()) {
+            prefetchMorphRuntime();
+          }
+        }),
+      [viewTransition],
+    );
 
     const performOpen = React.useCallback(
       (index?: number, options?: LightboxHandleOpenOptions) => {
