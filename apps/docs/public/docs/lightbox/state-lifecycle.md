@@ -7,7 +7,7 @@ Control open state and the active index from React, `createHandle()`, or both �
 Pass `open` / `onOpenChange` and `value` / `onValueChange` on [Root](docs/lightbox/api.md#api-root) to drive the lightbox from URL params, a store, or sibling UI. Omit them for uncontrolled defaults ( `defaultOpen` / `defaultValue`).
 
 ```tsx Controlled open + value
-import { Lightbox } from 'ramka';
+import * as Lightbox from '@ramka/react/lightbox';
 
 <Lightbox.Root open={open} onOpenChange={setOpen} value={value} onValueChange={setValue}>
   {/* triggers + content */}
@@ -19,7 +19,7 @@ import { Lightbox } from 'ramka';
 [Lightbox.createHandle()](docs/lightbox/api.md#api-create-handle) lets Triggers and Root live apart — pass the same handle to both. Call `open(index, { triggerId })` from any button so the open still morphs from the matching [Trigger](docs/lightbox/api.md#api-trigger).
 
 ```tsx createHandle
-import { Lightbox } from 'ramka';
+import * as Lightbox from '@ramka/react/lightbox';
 
 const lightbox = Lightbox.createHandle();
 
@@ -63,7 +63,7 @@ const lightbox = Lightbox.createHandle();
 `onOpenChange` fires immediately when open flips — use it to sync URL or external state. `onOpenChangeComplete` fires after enter/exit motion settles — use it for cleanup and focus. `onValueChange` reports the new index plus a [NavigationSource](docs/lightbox/api.md#types) (including `imperative` for handle navigation).
 
 ```tsx Lifecycle callbacks
-import { Lightbox } from 'ramka';
+import * as Lightbox from '@ramka/react/lightbox';
 
 <Lightbox.Root
   onOpenChange={(open) => {

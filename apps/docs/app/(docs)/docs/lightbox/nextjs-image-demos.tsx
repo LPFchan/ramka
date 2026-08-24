@@ -2,7 +2,7 @@
 
 import Image, { type StaticImageData } from 'next/image';
 import * as React from 'react';
-import { Lightbox } from 'ramka';
+import * as Lightbox from '@ramka/react/lightbox';
 
 import {
   LightboxGallery,

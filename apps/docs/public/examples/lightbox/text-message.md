@@ -8,7 +8,7 @@ iMessage-style chat with a single morphTo="origin" trigger over a stack of attac
 'use client';
 
 import Image from 'next/image';
-import { Lightbox } from 'ramka';
+import * as Lightbox from '@ramka/react/lightbox';
 
 import { ExampleShell } from '../../../../_components/example-shell';
 import {

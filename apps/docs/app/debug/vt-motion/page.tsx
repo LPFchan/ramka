@@ -3,7 +3,7 @@
 import { notFound } from 'next/navigation';
 import * as React from 'react';
 import Image from 'next/image';
-import { Lightbox } from 'ramka';
+import * as Lightbox from '@ramka/react/lightbox';
 import { X } from 'lucide-react';
 
 import { lightboxChromeButton } from '../../_components/lightbox-chrome';
@@ -29,10 +29,10 @@ export default function VtMotionDebugPage() {
     <div className="fixed inset-0 flex flex-col items-center justify-center gap-10 overflow-hidden bg-background">
       {/* One-tap variant switching for on-device A/B recording sessions. */}
       <div className="flex gap-4 text-lg">
-        <a className="rounded border px-4 py-2" href="/debug/vt-motion?vtab=q7&vtdebug">
+        <a className="rounded border px-4 py-2" href="/debug/vt-motion?vtab=q7">
           Variant Q7
         </a>
-        <a className="rounded border px-4 py-2" href="/debug/vt-motion?vtab=k2&vtdebug">
+        <a className="rounded border px-4 py-2" href="/debug/vt-motion?vtab=k2">
           Variant K2
         </a>
       </div>

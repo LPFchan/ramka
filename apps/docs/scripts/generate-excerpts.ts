@@ -150,7 +150,7 @@ function extractTaggedFunctions(filePath: string, sourceText: string): Excerpt[]
       throw new Error(`${rel}: @docsExcerpt ${id} — could not extract return JSX`);
     }
     const title = jsDocTag(docs, 'docsExcerptTitle') || titleFromId(id);
-    const code = `import { Lightbox } from 'ramka';\n\n${jsx}`;
+    const code = `import * as Lightbox from '@ramka/react/lightbox';\n\n${jsx}`;
     out.push({ id, title, code: code.endsWith('\n') ? code : `${code}\n`, source: rel });
   };
 

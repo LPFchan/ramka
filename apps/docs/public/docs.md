@@ -5,7 +5,7 @@ Unstyled, accessible lightbox primitives for React — in the style of Radix UI 
 ## Installation
 
 ```bash
-pnpm add ramka
+pnpm add @ramka/react
 ```
 
 Peer dependencies: `react` and `react-dom` >= 18.
@@ -13,7 +13,7 @@ Peer dependencies: `react` and `react-dom` >= 18.
 ## Quick start
 
 ```tsx App.tsx
-import { Lightbox } from 'ramka';
+import * as Lightbox from '@ramka/react/lightbox';
 
 <Lightbox.Root>
   {items.map((item, i) => (

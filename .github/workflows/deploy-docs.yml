@@ -35,10 +35,10 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # Docs imports `ramka` from package exports (`dist/`). That output is
+      # Docs imports `@ramka/react` from package exports (`dist/`). That output is
       # gitignored, so build the library before Next.js resolves the workspace dep.
       - name: Build package
-        run: pnpm --filter ramka build
+        run: pnpm --filter @ramka/react build
 
       - name: Build docs
         # Route handlers are incompatible with `output: 'export'`. Strip the

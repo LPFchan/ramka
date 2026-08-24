@@ -14,7 +14,7 @@
  */
 
 import * as React from 'react';
-import { Lightbox as RamkaLightbox } from 'ramka';
+import * as RamkaLightbox from '@ramka/react/lightbox';
 
 import './lightbox.css';
 
@@ -362,7 +362,7 @@ function Gallery({
 }
 
 /**
- * Styled Lightbox namespace — drop-in replacement for `import { Lightbox } from 'ramka'`
+ * Styled Lightbox namespace — drop-in replacement for `import * as Lightbox from '@ramka/react/lightbox'`
  * with this preset’s styles and composed Gallery.
  */
 export const Lightbox = {

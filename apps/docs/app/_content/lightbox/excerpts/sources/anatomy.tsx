@@ -1,4 +1,4 @@
-import { Lightbox } from 'ramka';
+import * as Lightbox from '@ramka/react/lightbox';
 
 /**
  * Canonical compound-parts sketch for the Overview page.

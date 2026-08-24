@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { Lightbox } from 'ramka';
+import * as Lightbox from '@ramka/react/lightbox';
 
 import { lightboxImages } from '../../../_data/lightbox-images';
 import {

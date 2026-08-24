@@ -3,7 +3,7 @@
 import { notFound } from 'next/navigation';
 import * as React from 'react';
 import Image, { type StaticImageData } from 'next/image';
-import { useLightboxContext } from 'ramka';
+import { useLightboxContext } from '@ramka/react';
 
 import { Lightbox, type LightboxItem } from '../../presets/default/css/lightbox';
 

@@ -10,7 +10,7 @@ macOS Photos–style square grid under a sticky, blurred toolbar with a fade gra
 import * as React from 'react';
 import { flushSync } from 'react-dom';
 import Image, { type StaticImageData } from 'next/image';
-import { Lightbox } from 'ramka';
+import * as Lightbox from '@ramka/react/lightbox';
 import { Heart, Minus, Plus } from 'lucide-react';
 
 import {

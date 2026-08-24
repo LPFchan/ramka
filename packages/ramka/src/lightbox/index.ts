@@ -1,4 +1,14 @@
-export * as Lightbox from './lightbox';
+// The parts deliberately do not pass through this entry. They ship as the
+// `@ramka/react/lightbox` subpath, so consumers write the namespace themselves:
+//
+//   import * as Lightbox from '@ramka/react/lightbox';
+//
+// Handing out a ready-made namespace instead (`export * as Lightbox`) reads the
+// same at the call site and costs real bytes: esbuild cannot tell which members
+// of a package-owned namespace a consumer touched, so `Lightbox.Root` retains
+// every part — 20.4 KB gzipped instead of 14.4 on a six-part gallery. Rollup
+// shakes both shapes, which is why the regression ships unnoticed.
+// scripts/probe-export-shape.mjs guards this.
 
 // Composition hooks: let nested wrapper components read the refs/state a
 // `Lightbox.Trigger` / `Lightbox.Item` render function would provide, without

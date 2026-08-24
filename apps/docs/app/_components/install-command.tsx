@@ -5,7 +5,7 @@ import { Check, Copy } from 'lucide-react';
 
 import { copyText } from '@/lib/copy-text';
 
-const COMMAND = 'pnpm add ramka';
+const COMMAND = 'pnpm add @ramka/react';
 
 /** Minimal one-line install snippet with copy-to-clipboard. */
 export function InstallCommand() {

@@ -229,9 +229,18 @@ const LightboxContent = React.forwardRef<HTMLDivElement, LightboxContentProps>(
     React.useEffect(() => {
       if (!pullToClose || PullRuntime) return;
       let cancelled = false;
-      void loadPullRuntime().then((runtime) => {
-        if (!cancelled) setPullRuntime(() => runtime.PullToDismiss);
-      });
+      void loadPullRuntime().then(
+        (runtime) => {
+          if (!cancelled) setPullRuntime(() => runtime.PullToDismiss);
+        },
+        (error: unknown) => {
+          // Pull-to-dismiss is additive — Close and Escape still work, so drop
+          // the gesture rather than surfacing an unhandled rejection.
+          if (process.env.NODE_ENV !== 'production') {
+            console.warn('Lightbox: the pull-to-dismiss runtime failed to load.', error);
+          }
+        },
+      );
       return () => {
         cancelled = true;
       };

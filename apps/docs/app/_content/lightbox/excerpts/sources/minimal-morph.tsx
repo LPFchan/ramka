@@ -1,4 +1,4 @@
-import { Lightbox } from 'ramka';
+import * as Lightbox from '@ramka/react/lightbox';
 
 declare const thumb: string;
 declare const src: string;

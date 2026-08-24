@@ -47,6 +47,112 @@ jobs:
       - name: Test
         run: pnpm test
 
+  # Reports what a consumer's bundle would gain or lose from this PR. Runs
+  # alongside `test` rather than after it: size feedback should not wait on the
+  # suite.
+  size:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # The base commit has to be in the clone to build the "before" side.
+          fetch-depth: 0
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build head
+        run: pnpm --filter @ramka/react build
+
+      # Filtered by directory rather than by package name, because a base commit
+      # from before a rename would match no project — and pnpm exits 0 on that,
+      # so it would silently build nothing and look like a missing baseline.
+      - name: Build base
+        run: |
+          git worktree add "$RUNNER_TEMP/base" '${{ github.event.pull_request.base.sha }}'
+          cd "$RUNNER_TEMP/base"
+          pnpm install --frozen-lockfile
+          pnpm --filter "./packages/ramka" build
+
+      # Head's copy of the script measures both sides, so editing the
+      # measurement cannot masquerade as a change in size.
+      - name: Measure
+        id: report
+        continue-on-error: true
+        run: |
+          node scripts/size-report.mjs \
+            --head packages/ramka/dist/lightbox/lightbox.js \
+            --base "$RUNNER_TEMP/base/packages/ramka/dist/lightbox/lightbox.js" \
+            --markdown "$RUNNER_TEMP/size.md" \
+            --json "$RUNNER_TEMP/size.json"
+
+      - name: Publish to job summary
+        if: always()
+        run: |
+          if [ -f "$RUNNER_TEMP/size.md" ]; then
+            cat "$RUNNER_TEMP/size.md" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo 'The size report did not run; see the Measure step.' >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      # Fork PRs get a read-only token, so for those the job summary above is
+      # the whole report. Posting from a trusted context instead would mean
+      # `pull_request_target`, which is not worth the secret-exfiltration risk
+      # for a size comment.
+      - name: Comment
+        if: ${{ always() && !github.event.pull_request.head.repo.fork }}
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const path = `${process.env.RUNNER_TEMP}/size.md`;
+            if (!fs.existsSync(path)) return;
+            const body = fs.readFileSync(path, 'utf8');
+            const marker = '<!-- ramka-size -->';
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              ...context.repo,
+              issue_number: context.issue.number,
+              per_page: 100,
+            });
+            // One comment, edited in place, rather than one per push.
+            const existing = comments.find((c) => (c.body ?? '').startsWith(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({
+                ...context.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                ...context.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }
+
+      # Size itself is reported without judgement for now. The export shape is
+      # different: it is a structural regression that costs esbuild consumers
+      # every unused part, and the byte totals cannot show it.
+      - name: Fail on a structural regression
+        if: steps.report.outcome == 'failure'
+        run: |
+          echo 'The size report failed — most likely the export-shape guard. See the comment on the PR.'
+          exit 1
+
   preview:
     needs: test
     runs-on: ubuntu-latest
@@ -69,7 +175,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build package
-        run: pnpm --filter ramka build
+        run: pnpm --filter @ramka/react build
 
       - name: Publish preview
         run: >

@@ -2,7 +2,7 @@
 
 import { notFound } from 'next/navigation';
 import * as React from 'react';
-import { Lightbox } from 'ramka';
+import * as Lightbox from '@ramka/react/lightbox';
 
 /** Small intrinsic size on purpose: if Media wrongly used natural pixels
  *  instead of the cqw/cqh fit-box, the image would stay tiny in a large stage.

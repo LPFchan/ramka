@@ -1,5 +1,11 @@
 /** Dev-only debug pages — linked from the sidebar in development only. */
 export const debugPages = {
+  minimalComposition: {
+    href: '/debug/minimal-composition',
+    title: 'Minimal composition',
+    description:
+      'Morph, swipe, zoom and chrome from 15 parts, with a live part-identity and engine-fetch audit.',
+  },
   mediaStretch: {
     href: '/debug/media-stretch',
     title: 'Media stretch',

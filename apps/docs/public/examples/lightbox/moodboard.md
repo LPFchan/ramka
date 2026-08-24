@@ -9,7 +9,7 @@ Masonry wall of images with unknown dimensions (no width/height, no reserved asp
 
 import * as React from 'react';
 import Image from 'next/image';
-import { Lightbox } from 'ramka';
+import * as Lightbox from '@ramka/react/lightbox';
 
 import { ExampleShell } from '../../../../_components/example-shell';
 import {

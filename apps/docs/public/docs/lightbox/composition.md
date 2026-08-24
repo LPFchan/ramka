@@ -12,7 +12,7 @@ Prefer [Slides](docs/lightbox/api.md#api-slides) + [Slide](docs/lightbox/api.md#
 - Item render-prop `active` is the current index (drive expensive work here). `visible` means the item is in the preload window — use it for lightweight prefetch, not video autoplay.
 
 ```tsx Slides + Slide nesting
-import { Lightbox } from 'ramka';
+import * as Lightbox from '@ramka/react/lightbox';
 
 <Lightbox.Root>
   <Lightbox.Portal>
@@ -65,7 +65,7 @@ Set HTML `width` and `height` on the destination `<img>` (from known pixel dims 
 To fill the maximum available space without distorting the source aspect ratio, nest Media under [Lightbox.Zoom](docs/lightbox/api.md#api-zoom) (a size container for `cqw` /`cqh`) and pass `width` /`height` to [Lightbox.Media](docs/lightbox/api.md#api-media). Media applies the inscribed fit-box ( `min(100cqw, 100cqh × w/h)` + `aspect-ratio: w / h`). Or put HTML `width` / `height` on the child image and omit the Media props — Media derives the box. When the box matches the source aspect, child `object-fit` is a no-op and Media’s grid stretch fills the box (no `size-full` needed on a direct media child). Put border-radius on Media (morph target). Leave chrome outside Media. Resting insets belong on Slide padding / safe-area so zoomed media can paint into that padding under chrome.
 
 ```tsx Media fill + fit-box
-import { Lightbox } from 'ramka';
+import * as Lightbox from '@ramka/react/lightbox';
 
 <Lightbox.Root>
   <Lightbox.Portal>
@@ -125,7 +125,7 @@ Live examples: [Twitter preset](presets/twitter.md), [Stories preset](presets/st
 The site default viewer is Slides + Zoom with Counter (top-left), Close / ZoomIn / ZoomOut, Caption, and a desktop [ThumbnailStrip](docs/lightbox/api.md#api-thumbnail-strip) (scroll-linked midline track) as siblings inside [Content](docs/lightbox/api.md#api-content). Midline selection chrome is plain consumer markup on the strip root. Prefer [ThumbnailGroup](docs/lightbox/api.md#api-thumbnail-group) when you want a static tablist without scroll-linking. Thumbnails register by `index` like Triggers. Put Backdrop and Content in [Portal](docs/lightbox/api.md#api-portal). Stacking follows Base UI: `isolation: isolate` on the app layout root, and — when using `keepMounted` — a consumer `z-index` on the Portal host (e.g. `className="relative z-[1]"`). Inside the portal, document order keeps Backdrop under Content.
 
 ```tsx Chrome composition
-import { Lightbox } from 'ramka';
+import * as Lightbox from '@ramka/react/lightbox';
 
 <Lightbox.Root>
   <Lightbox.Portal>

@@ -42,6 +42,7 @@ import {
 } from './scroll-trigger';
 import { isAndroidBlinkSnapshotRoot } from './is-android-blink';
 import { findDestinationMorphTarget } from './morph-target';
+import { scheduleWarmUp } from './schedule-warm-up';
 import { DEFAULT_DECODE_MAX_WAIT, isLowEndDevice, supportsViewTransitions } from './vt-constants';
 import type { LightboxViewTransitionPreset } from './vt-timing';
 import type { ViewTransitionMorph, ViewTransitionMorphConfig } from './use-view-transition-morph';
@@ -795,8 +796,10 @@ function LightboxRoot(props: LightboxRootProps) {
         // controlled `open` prop subsequently updates via onOpenChange.
         lastInternalOpenRef.current = nextOpen;
 
-        // Start Zoom with the open, not after Zoom mounts. A late engine swap
-        // remounts Media and tears down the fallback canvas. Independent of VT.
+        // Request Zoom with the open rather than waiting for Zoom to mount and
+        // ask for itself, so gestures are live as early as the network allows.
+        // A miss is not a correctness problem, only a brief unresponsive
+        // window — see the handover note in lightbox-zoom.tsx.
         if (nextOpen) prefetchZoomRuntime();
 
         // Open-transition gate for `Lightbox.Item` placeholders: mark it pending
@@ -814,27 +817,10 @@ function LightboxRoot(props: LightboxRootProps) {
         // back to the plain fade path, which is far cheaper to composite.
         const useVT = viewTransition && supportsViewTransitions() && !isLowEndDevice();
 
-        if (useVT) {
-          // The generation was bumped above; the morph captures it on call.
-          const gen = closeGenRef.current;
-          const startMorph = (runtime: MorphRuntime) => {
-            if (closeGenRef.current !== gen) return;
-            runtime.ensureVtStructuralStyles();
-            morphRef.current ??= runtime.createViewTransitionMorph(() => morphConfigRef.current);
-            if (nextOpen) {
-              morphRef.current.open();
-            } else {
-              morphRef.current.close();
-            }
-          };
-          const runtime = getMorphRuntimeSync();
-          if (runtime) {
-            startMorph(runtime);
-          } else {
-            void loadMorphRuntime().then(startMorph);
-          }
-        } else {
-          // --- No view transition ---
+        // --- No view transition ---
+        // Also where a failed morph-chunk load lands: the commit lives here, so
+        // without this fallback a missing chunk would drop the open entirely.
+        const runWithoutViewTransition = () => {
           if (nextOpen) {
             commitOpen();
             // Wait a frame for the enter animation to register before
@@ -888,6 +874,41 @@ function LightboxRoot(props: LightboxRootProps) {
               onOpenChangeCompleteRef.current?.(false);
             });
           }
+        };
+
+        if (useVT) {
+          // The generation was bumped above; the morph captures it on call.
+          const gen = closeGenRef.current;
+          const startMorph = (runtime: MorphRuntime) => {
+            if (closeGenRef.current !== gen) return;
+            runtime.ensureVtStructuralStyles();
+            morphRef.current ??= runtime.createViewTransitionMorph(() => morphConfigRef.current);
+            if (nextOpen) {
+              morphRef.current.open();
+            } else {
+              morphRef.current.close();
+            }
+          };
+          const runtime = getMorphRuntimeSync();
+          if (runtime) {
+            startMorph(runtime);
+          } else {
+            void loadMorphRuntime().then(startMorph, (error: unknown) => {
+              // Chunk never arrived (deploy landed mid-session, offline, CDN
+              // blocked). Degrade to the plain path so the click still opens
+              // the lightbox instead of looking dead.
+              if (closeGenRef.current !== gen) return;
+              if (process.env.NODE_ENV !== 'production') {
+                console.warn(
+                  'Lightbox: the view-transition runtime failed to load; opening without the morph.',
+                  error,
+                );
+              }
+              runWithoutViewTransition();
+            });
+          }
+        } else {
+          runWithoutViewTransition();
         }
       },
       [isControlledOpen, viewTransition, scrollTriggerIntoView, morphTo, commitOpen, unlockScroll, settleOpenTransition, focusReturnTarget, notifyBeforeClose],
@@ -940,15 +961,21 @@ function LightboxRoot(props: LightboxRootProps) {
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    // Warm chunks after paint so the first open is not gated on the network.
-    // Morph only when VT will actually run. Zoom is its own engine — prefetch
-    // it even when VT is off, so the placeholder→engine swap does not remount
-    // Media mid-open and drop the fallback canvas.
+    // Warm the morph once the page is idle — deliberately not during hydration,
+    // where the fetch and its evaluation compete with the LCP image (see
+    // schedule-warm-up.ts). It has to be resident *before* the click, because
+    // the morph starts inside the click handler: arriving late means that open
+    // degrades to the plain path. Only when VT will actually run.
+    //
+    // Zoom is not warmed here. It is needed the first time someone pinches or
+    // double-taps, never in the same tick as the click, and a chunk that lands
+    // after the open now costs nothing (see lightbox-zoom.tsx — the engine
+    // renders no DOM, so handover cannot remount anything). Trigger warms it on
+    // hover / focus / pointerdown and setOpen requests it, so intent still buys
+    // a head start; a visitor who never opens the gallery pays nothing.
     React.useEffect(() => {
-      prefetchZoomRuntime();
-      if (viewTransition !== false && supportsViewTransitions() && !isLowEndDevice()) {
-        prefetchMorphRuntime();
-      }
+      if (viewTransition === false || !supportsViewTransitions() || isLowEndDevice()) return;
+      return scheduleWarmUp(prefetchMorphRuntime);
     }, [viewTransition]);
 
     const performOpen = React.useCallback(

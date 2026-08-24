@@ -9,7 +9,6 @@ import {
 
 describe('vt-timing', () => {
   afterEach(() => {
-    delete (window as unknown as Record<string, unknown>).__RAMKA_VT_TIMING__;
     document.documentElement.removeAttribute('data-ramka-vt-preset');
   });
 
@@ -55,7 +54,7 @@ describe('vt-timing', () => {
     });
   });
 
-  describe('morphTiming precedence', () => {
+  describe('morphTiming', () => {
     it('falls back to the default preset', () => {
       const t = morphTiming();
       expect(t.duration).toBe(VIEW_TRANSITION_PRESETS.default.duration);
@@ -67,16 +66,8 @@ describe('vt-timing', () => {
       expect(t.duration).toBe(VIEW_TRANSITION_PRESETS.relaxed.duration);
     });
 
-    it('prefers the __RAMKA_VT_TIMING__ debug override over the preset', () => {
-      document.documentElement.setAttribute('data-ramka-vt-preset', 'relaxed');
-      (window as unknown as Record<string, unknown>).__RAMKA_VT_TIMING__ = '500,.5,0,.15,1';
-      const t = morphTiming();
-      expect(t.duration).toBe(500);
-      expect(t.label).toContain('cubic-bezier(.5,0,.15,1)');
-    });
-
-    it('ignores malformed debug overrides', () => {
-      (window as unknown as Record<string, unknown>).__RAMKA_VT_TIMING__ = 'not-a-timing';
+    it('ignores an unknown promoted preset attribute', () => {
+      document.documentElement.setAttribute('data-ramka-vt-preset', 'bogus');
       const t = morphTiming();
       expect(t.duration).toBe(VIEW_TRANSITION_PRESETS.default.duration);
     });

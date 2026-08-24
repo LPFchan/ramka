@@ -17,7 +17,7 @@ Work through these decisions in order:
 Import the namespace and compose parts. The sketch below is the default gallery shape (Slides + Zoom + chrome). Every part is optional except Root for state.
 
 ```tsx Anatomy
-import { Lightbox } from 'ramka';
+import * as Lightbox from '@ramka/react/lightbox';
 
 <Lightbox.Root>
   <Lightbox.Trigger index={0}>{/* thumb */}</Lightbox.Trigger>

@@ -1,8 +1,13 @@
 {
-  "name": "ramka",
+  "name": "@ramka/react",
   "version": "0.0.0",
   "description": "Unstyled, accessible image gallery primitives for React. (\"ramka\" — Polish for \"frame\".)",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/arturbien/ramka.git",
+    "directory": "packages/ramka"
+  },
   "sideEffects": false,
   "type": "module",
   "main": "./dist/index.cjs",
@@ -13,6 +18,11 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
       "require": "./dist/index.cjs"
+    },
+    "./lightbox": {
+      "types": "./dist/lightbox/lightbox.d.ts",
+      "import": "./dist/lightbox/lightbox.js",
+      "require": "./dist/lightbox/lightbox.cjs"
     }
   },
   "files": [
@@ -20,8 +30,8 @@
     "README.md"
   ],
   "scripts": {
-    "build": "tsup",
-    "dev": "tsup --watch",
+    "build": "tsup && tsc -p tsconfig.build.json && node scripts/fix-dist-specifiers.mjs",
+    "dev": "trap 'kill 0' EXIT; tsc -p tsconfig.build.json --watch --preserveWatchOutput & tsup --watch --onSuccess 'node scripts/fix-dist-specifiers.mjs'",
     "typecheck": "tsc --noEmit",
     "lint": "tsc --noEmit",
     "test": "vitest run",
