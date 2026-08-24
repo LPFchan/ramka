@@ -15,6 +15,12 @@
 // The rejected shapes are reconstructed here in /tmp rather than imported from
 // the package, so this keeps measuring the tradeoff after the package stopped
 // offering them.
+//
+// The last variant is not a shape we choose but one a consumer can fall into:
+// the namespace stays free only while every access is a static member
+// expression, so destructuring it into locals hands the savings straight back.
+// The README documents that, and this pins it so we notice if esbuild ever
+// makes the caveat obsolete.
 
 import { gzipSync } from 'node:zlib';
 import { writeFileSync, mkdirSync, rmSync, existsSync, statSync, readFileSync } from 'node:fs';
@@ -62,6 +68,12 @@ const VARIANTS = {
   'rejected: package exports namespace object': `
     import { Lightbox } from '${IMPORT_STAR_ENTRY}';
     export default [${PARTS.map((p) => `Lightbox.${p}`).join(', ')}];
+  `,
+  // Shipped shape, used in a way that forces the namespace to materialize.
+  'caveat: consumer destructures the namespace': `
+    import * as Lightbox from '${FLAT}';
+    const { ${PARTS.join(', ')} } = Lightbox;
+    export default [${PARTS.join(', ')}];
   `,
 };
 
@@ -178,4 +190,17 @@ if (overhead > 1.15) {
   process.exitCode = 1;
 } else {
   console.log(`PASS shipped shape costs the same on both bundlers (esbuild/Rollup = ${overhead.toFixed(2)}).`);
+}
+
+// Docs drift rather than a regression, so this reports without failing: a
+// consumer never gets a worse bundle because esbuild improved.
+const destructured = results['caveat: consumer destructures the namespace'];
+const penalty = destructured.esbuild - shipped.esbuild;
+if (penalty < 1024) {
+  console.log(
+    `NOTE destructuring the namespace now costs ${kb(penalty)} KB on esbuild, down from ~6 KB.\n` +
+      "     If it has reached zero, drop the caveat from the package README's Usage section.",
+  );
+} else {
+  console.log(`PASS the documented caveat still holds (destructuring costs ${kb(penalty)} KB extra on esbuild).`);
 }

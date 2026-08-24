@@ -9,7 +9,7 @@ const basePath = isGithubPages ? '/ramka' : '';
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
-  transpilePackages: ['ramka'],
+  transpilePackages: ['@ramka/react'],
   ...(isGithubPages
     ? {
         output: 'export',

@@ -69,7 +69,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build package
-        run: pnpm --filter ramka build
+        run: pnpm --filter @ramka/react build
 
       - name: Publish preview
         run: >

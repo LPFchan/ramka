@@ -24,6 +24,18 @@ import * as Lightbox from '@ramka/react/lightbox';
 
 The parts ship as a flat module and you name the namespace yourself, so your bundler can drop every part your gallery does not render. Importing a pre-built namespace out of a package defeats tree-shaking in esbuild-based bundlers (Vite dev, Remix), which is why `@ramka/react` itself exports no `Lightbox` object.
 
+That only holds while the accesses stay statically visible, so reach for `Lightbox.Root` directly rather than pulling names off the namespace:
+
+```tsx
+// Shakeable: esbuild rewrites each access into a direct reference.
+<Lightbox.Root>…</Lightbox.Root>;
+
+// Not shakeable: destructuring needs a real object, so every part is retained.
+const { Root, Trigger } = Lightbox;
+```
+
+Spreading the namespace or passing it to a function costs the same. If you prefer bare local names, take them as named imports — `import { Root, Trigger } from '@ramka/react/lightbox'` — which shakes exactly like the namespace form.
+
 Composition hooks (`useLightboxContext`, `useLightboxItemContext`, …) and shared types come from the package root:
 
 ```tsx
