@@ -10,6 +10,11 @@ one other project, listed below with its license.
 rendering and ref merging utilities. The behaviour is deliberately close to Base
 UI's, so a part composes the way Base UI and Radix users expect.
 
+Three Base UI features are deliberately left out, since nothing here uses them:
+props getters, `event.preventBaseUIHandler()`, and unwrapping a bare
+`React.lazy` object passed as `render` (which relies on React 19's `Children`
+and so could not hold on React 18, which this package supports).
+
 ```
 The MIT License (MIT)
 

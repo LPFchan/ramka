@@ -53,8 +53,6 @@ interface UseRenderParameters<State, RenderedElementType extends Element> {
 
 const EMPTY_STATE = Object.freeze({});
 
-/** The symbol React tags lazy components with. */
-const REACT_LAZY_TYPE = Symbol.for('react.lazy');
 const COMPONENT_IDENTIFIER_PATTERN = /^[A-Z][A-Za-z0-9$]*$/;
 const LOWERCASE_CHARACTER_PATTERN = /[a-z]/;
 
@@ -97,15 +95,8 @@ function renderElement<State>(
     // The merge treats `ref` as an ordinary prop, so put the merged ref back.
     merged.ref = props.ref;
 
-    let element: React.ReactNode = render;
-    // cloneElement cannot see through a lazy element's type, but Children
-    // .toArray unwraps it. https://github.com/facebook/react/issues/32392
-    if ((element as { $$typeof?: symbol })?.$$typeof === REACT_LAZY_TYPE) {
-      element = React.Children.toArray(render)[0];
-    }
-
     if (process.env.NODE_ENV !== 'production') {
-      if (!React.isValidElement(element)) {
+      if (!React.isValidElement(render)) {
         throw new Error(
           '[ramka] The `render` prop got something that is not a React element. It is cloned ' +
             'with the part’s props, so it has to be an element — or a function returning one.',
@@ -113,7 +104,7 @@ function renderElement<State>(
       }
     }
 
-    return React.cloneElement(element as React.ReactElement, merged);
+    return React.cloneElement(render, merged);
   }
 
   if (tagName === 'button') {

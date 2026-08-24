@@ -51,6 +51,21 @@ describe('default element', () => {
 
     expect(screen.getByTestId('probe')).toHaveAttribute('type', 'button');
   });
+
+  it('falls back to a div when no default tag is named', () => {
+    function Bare() {
+      return useRender({ props: { 'data-testid': 'probe' } });
+    }
+    render(<Bare />);
+
+    expect(screen.getByTestId('probe').tagName).toBe('DIV');
+  });
+
+  it('lets a render element override the default tag', () => {
+    render(<Probe tag="button" data-testid="probe" render={<span />} />);
+
+    expect(screen.getByTestId('probe').tagName).toBe('SPAN');
+  });
 });
 
 describe('state as data attributes', () => {
@@ -60,6 +75,28 @@ describe('state as data attributes', () => {
     const el = screen.getByTestId('probe');
     expect(el).toHaveAttribute('data-active', '');
     expect(el).toHaveAttribute('data-index', '2');
+  });
+
+  // The DOM lowercases attribute names on its own, so the only place the
+  // casing is observable is the props object — which a `render` callback sees,
+  // and which a consumer spreads onto something that is not an HTML element.
+  it('lowercases a camelCase state field', () => {
+    const seen: Array<Record<string, unknown>> = [];
+    render(
+      <Probe
+        state={{ zoomLevel: 2, isOpen: true }}
+        render={(props) => {
+          seen.push(props);
+          return <span data-testid="probe" {...props} />;
+        }}
+      />,
+    );
+
+    expect(Object.keys(seen[0]!)).toEqual(
+      expect.arrayContaining(['data-zoomlevel', 'data-isopen']),
+    );
+    expect(seen[0]!['data-zoomlevel']).toBe('2');
+    expect(screen.getByTestId('probe')).toHaveAttribute('data-isopen', '');
   });
 
   it('omits falsy state so a presence selector means what it says', () => {
@@ -104,15 +141,16 @@ describe('render prop as an element', () => {
         className="internal"
         onClick={() => order.push('internal')}
         render={
-          // eslint-disable-next-line jsx-a11y/anchor-is-valid
-          <a href="/x" className="theirs" onClick={() => order.push('render')} />
+          // A hash target: jsdom refuses to navigate anywhere else, and the
+          // click below is what proves both handlers ran.
+          <a href="#x" className="theirs" onClick={() => order.push('render')} />
         }
       />,
     );
 
     const el = screen.getByTestId('probe');
     expect(el.tagName).toBe('A');
-    expect(el).toHaveAttribute('href', '/x');
+    expect(el).toHaveAttribute('href', '#x');
     expect(el.className).toBe('theirs internal');
 
     el.click();
@@ -142,6 +180,25 @@ describe('render prop as an element', () => {
       render(<Probe render={'just a string' as unknown as React.ReactElement} />),
     ).toThrow(/not a React element/);
   });
+
+  // A code-split component is the realistic lazy case, and the one that works
+  // the same on React 18 and 19.
+  it('clones an element whose type is lazy, once it has loaded', async () => {
+    function LazyDiv(props: React.ComponentProps<'div'>) {
+      return <div data-lazy="true" {...props} />;
+    }
+    const Lazy = React.lazy(async () => ({ default: LazyDiv }));
+
+    render(
+      <React.Suspense fallback={<span>loading</span>}>
+        <Probe className="internal" render={<Lazy data-testid="probe" />} />
+      </React.Suspense>,
+    );
+
+    const el = await screen.findByTestId('probe');
+    expect(el).toHaveAttribute('data-lazy', 'true');
+    expect(el).toHaveClass('internal');
+  });
 });
 
 describe('render prop as a function', () => {
@@ -164,6 +221,37 @@ describe('render prop as a function', () => {
     expect((seen[0]!.props as Record<string, unknown>)['data-active']).toBe('');
   });
 
+  it('hands the function an empty state object when the part has none', () => {
+    const seen: unknown[] = [];
+    render(
+      <Probe
+        data-testid="probe"
+        render={(props, state) => {
+          seen.push(state);
+          return <span {...props} />;
+        }}
+      />,
+    );
+
+    expect(seen[0]).toEqual({});
+  });
+
+  // That empty state is a frozen module-level object, so anything that wrote to
+  // it would throw here rather than in a consumer's app.
+  it('does not write to the shared empty state', () => {
+    expect(() =>
+      render(<Probe data-testid="probe" className="mine" style={{ color: 'red' }} />),
+    ).not.toThrow();
+
+    expect(screen.getByTestId('probe')).toHaveClass('mine');
+  });
+
+  it('leaves an absent className absent rather than rendering "undefined"', () => {
+    render(<Probe render={(props) => <span {...props} data-testid="probe" />} />);
+
+    expect(screen.getByTestId('probe').className).toBe('');
+  });
+
   it('warns when the function looks like a component, since its hooks would misfire', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
@@ -176,6 +264,42 @@ describe('render prop as a function', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
     render(<Probe render={function renderSpan(props) { return <span {...props} />; }} />);
+
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it('warns for an acronym-prefixed component name', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    render(<Probe render={function SVGThing(props) { return <span {...props} />; }} />);
+
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('looks like a component'));
+  });
+
+  // A name that is not a plain identifier is not a component reference, so
+  // there is nothing to warn about.
+  it.each(['RENDER_THING', 'render_thing'])('stays quiet for a callback named %s', (name) => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const fn = Object.defineProperty(
+      (props: Record<string, unknown>) => <span {...props} />,
+      'name',
+      { value: name },
+    );
+
+    render(<Probe render={fn} />);
+
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it('stays quiet for an anonymous callback', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const fn = Object.defineProperty(
+      (props: Record<string, unknown>) => <span {...props} />,
+      'name',
+      { value: '' },
+    );
+
+    render(<Probe render={fn} />);
 
     expect(warn).not.toHaveBeenCalled();
   });
