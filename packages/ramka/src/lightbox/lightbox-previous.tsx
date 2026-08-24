@@ -6,6 +6,7 @@ import * as React from 'react';
 
 import { LightboxPreviousDataAttributes } from './lightbox-data-attributes';
 import { useLightboxContext } from './lightbox-context';
+import { useAccessibleNameWarning } from './use-accessible-name-warning';
 
 interface LightboxPreviousState extends Record<string, unknown> {
   disabled: boolean;
@@ -20,6 +21,8 @@ const stateAttributesMapping = {
 /**
  * Navigates to the previous item in the lightbox.
  * Auto-disables at the first item unless `loop` is enabled on Root.
+ *
+ * Ships no `aria-label` — give it visible text or your own localized label.
  */
 const LightboxPrevious = React.forwardRef<HTMLButtonElement, LightboxPreviousProps>(
   function LightboxPrevious(props, forwardedRef) {
@@ -35,10 +38,11 @@ const LightboxPrevious = React.forwardRef<HTMLButtonElement, LightboxPreviousPro
     }, [activeIndex, disabled, itemCount, loop, navigate]);
 
     const state = React.useMemo<LightboxPreviousState>(() => ({ disabled }), [disabled]);
+    const ref = useAccessibleNameWarning('Lightbox.Previous', forwardedRef);
 
     return useRender({
       render,
-      ref: forwardedRef,
+      ref,
       state,
       stateAttributesMapping,
       props: mergeProps<'button'>(
@@ -46,7 +50,6 @@ const LightboxPrevious = React.forwardRef<HTMLButtonElement, LightboxPreviousPro
           type: 'button',
           [LightboxPreviousDataAttributes.previous]: '',
           disabled,
-          'aria-label': 'Previous',
           onClick: handleClick,
         } as React.ComponentPropsWithRef<'button'>,
         elementProps as React.ComponentPropsWithRef<'button'>,

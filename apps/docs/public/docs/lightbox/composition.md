@@ -97,10 +97,10 @@ Use [Lightbox.Stage](docs/lightbox/api.md#api-stage) when Content holds more tha
 ```tsx Stage + side panel
 <Lightbox.Content aria-label="Post">
   <Lightbox.Stage className="media-pane">
-    <Lightbox.Close />
+    <Lightbox.Close aria-label="Close" />
     <Lightbox.Slides>{/* media */}</Lightbox.Slides>
-    <Lightbox.Previous />
-    <Lightbox.Next />
+    <Lightbox.Previous aria-label="Previous" />
+    <Lightbox.Next aria-label="Next" />
   </Lightbox.Stage>
   <aside>{/* thread / details */}</aside>
 </Lightbox.Content>
@@ -146,9 +146,9 @@ import * as Lightbox from '@ramka/react/lightbox';
       </Lightbox.Slides>
 
       <Lightbox.Counter />
-      <Lightbox.ZoomOut />
-      <Lightbox.ZoomIn />
-      <Lightbox.Close />
+      <Lightbox.ZoomOut aria-label="Zoom out" />
+      <Lightbox.ZoomIn aria-label="Zoom in" />
+      <Lightbox.Close aria-label="Close" />
 
       <Lightbox.Caption />
       <Lightbox.ThumbnailStrip>

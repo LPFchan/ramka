@@ -147,7 +147,11 @@ function Media({ className, ...props }: React.ComponentProps<typeof RamkaLightbo
 
 function Previous({ className, children, ...props }: React.ComponentProps<typeof RamkaLightbox.Previous>) {
   return (
-    <RamkaLightbox.Previous className={cx('stl-nav', 'stl-nav-prev', className)} {...props}>
+    <RamkaLightbox.Previous
+      className={cx('stl-nav', 'stl-nav-prev', className)}
+      aria-label="Previous"
+      {...props}
+    >
       {children ?? <IconChevronLeft />}
     </RamkaLightbox.Previous>
   );
@@ -155,7 +159,11 @@ function Previous({ className, children, ...props }: React.ComponentProps<typeof
 
 function Next({ className, children, ...props }: React.ComponentProps<typeof RamkaLightbox.Next>) {
   return (
-    <RamkaLightbox.Next className={cx('stl-nav', 'stl-nav-next', className)} {...props}>
+    <RamkaLightbox.Next
+      className={cx('stl-nav', 'stl-nav-next', className)}
+      aria-label="Next"
+      {...props}
+    >
       {children ?? <IconChevronRight />}
     </RamkaLightbox.Next>
   );

@@ -6,6 +6,7 @@ import * as React from 'react';
 
 import { LightboxNextDataAttributes } from './lightbox-data-attributes';
 import { useLightboxContext } from './lightbox-context';
+import { useAccessibleNameWarning } from './use-accessible-name-warning';
 
 interface LightboxNextState extends Record<string, unknown> {
   disabled: boolean;
@@ -20,6 +21,8 @@ const stateAttributesMapping = {
 /**
  * Navigates to the next item in the lightbox.
  * Auto-disables at the last item unless `loop` is enabled on Root.
+ *
+ * Ships no `aria-label` — give it visible text or your own localized label.
  */
 const LightboxNext = React.forwardRef<HTMLButtonElement, LightboxNextProps>(
   function LightboxNext(props, forwardedRef) {
@@ -35,10 +38,11 @@ const LightboxNext = React.forwardRef<HTMLButtonElement, LightboxNextProps>(
     }, [activeIndex, disabled, itemCount, loop, navigate]);
 
     const state = React.useMemo<LightboxNextState>(() => ({ disabled }), [disabled]);
+    const ref = useAccessibleNameWarning('Lightbox.Next', forwardedRef);
 
     return useRender({
       render,
-      ref: forwardedRef,
+      ref,
       state,
       stateAttributesMapping,
       props: mergeProps<'button'>(
@@ -46,7 +50,6 @@ const LightboxNext = React.forwardRef<HTMLButtonElement, LightboxNextProps>(
           type: 'button',
           [LightboxNextDataAttributes.next]: '',
           disabled,
-          'aria-label': 'Next',
           onClick: handleClick,
         } as React.ComponentPropsWithRef<'button'>,
         elementProps as React.ComponentPropsWithRef<'button'>,

@@ -121,10 +121,10 @@ function OverlayDebugGallery({ items }: { items: OverlayItem[] }) {
             </svg>
           </button>
           <div className="lb-control-group lb-control-md">
-            <Lightbox.ZoomOut />
-            <Lightbox.ZoomIn />
+            <Lightbox.ZoomOut aria-label="Zoom out" />
+            <Lightbox.ZoomIn aria-label="Zoom in" />
           </div>
-          <Lightbox.Close />
+          <Lightbox.Close aria-label="Close" />
         </div>
 
         <div className="lb-bottom lb-chrome-gesture-hide">

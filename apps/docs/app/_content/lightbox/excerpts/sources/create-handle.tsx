@@ -40,7 +40,7 @@ export function CreateHandleExcerpt() {
                 </Lightbox.Slide>
               ))}
             </Lightbox.Slides>
-            <Lightbox.Close />
+            <Lightbox.Close aria-label="Close" />
           </Lightbox.Content>
         </Lightbox.Portal>
       </Lightbox.Root>

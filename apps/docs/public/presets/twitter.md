@@ -220,6 +220,7 @@ function Previous({
   return (
     <RamkaLightbox.Previous
       className={cx('xlb-control', 'xlb-nav', 'xlb-nav-prev', className)}
+      aria-label="Previous"
       {...props}
     >
       {children ?? <IconChevronLeft />}
@@ -229,7 +230,11 @@ function Previous({
 
 function Next({ className, children, ...props }: React.ComponentProps<typeof RamkaLightbox.Next>) {
   return (
-    <RamkaLightbox.Next className={cx('xlb-control', 'xlb-nav', 'xlb-nav-next', className)} {...props}>
+    <RamkaLightbox.Next
+      className={cx('xlb-control', 'xlb-nav', 'xlb-nav-next', className)}
+      aria-label="Next"
+      {...props}
+    >
       {children ?? <IconChevronRight />}
     </RamkaLightbox.Next>
   );

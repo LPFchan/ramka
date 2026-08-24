@@ -315,14 +315,15 @@ describe('Lightbox', () => {
       expect(thumb).toHaveAttribute('aria-selected');
     });
 
-    it('Previous and Next render as buttons with aria-label', () => {
+    it('Previous and Next render as buttons that ship no label of their own', () => {
       render(<TestLightbox defaultOpen />);
       const prev = screen.getByTestId('prev');
       const next = screen.getByTestId('next');
       expect(prev.tagName).toBe('BUTTON');
       expect(next.tagName).toBe('BUTTON');
-      expect(prev).toHaveAttribute('aria-label', 'Previous');
-      expect(next).toHaveAttribute('aria-label', 'Next');
+      // Naming these is the consumer's job — the library never ships English.
+      expect(prev).not.toHaveAttribute('aria-label');
+      expect(next).not.toHaveAttribute('aria-label');
     });
   });
 

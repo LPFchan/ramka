@@ -572,8 +572,8 @@ describe('Lightbox.ThumbnailStrip', () => {
                 </LightboxSlide>
               ))}
             </LightboxSlides>
-            <LightboxPrevious data-testid="prev" />
-            <LightboxNext data-testid="next" />
+            <LightboxPrevious data-testid="prev" aria-label="Previous" />
+            <LightboxNext data-testid="next" aria-label="Next" />
             <LightboxThumbnailStrip data-testid="thumbnail-strip">
               <LightboxThumbnailStripTrack data-testid="thumbnail-strip-track" aria-label="Thumbs">
                 {Array.from({ length: 4 }, (_, i) => (

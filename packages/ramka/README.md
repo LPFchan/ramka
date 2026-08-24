@@ -48,6 +48,20 @@ import { useLightboxContext } from '@ramka/react';
 - `Lightbox.Slides` / `Lightbox.Slide` — a swipeable, snapping carousel wired directly to the lightbox's active index. Snap alignment is built in; slide width (full-bleed, aspect cards, …) is consumer CSS.
 - `Lightbox.Zoom`, `Lightbox.Caption`, `Lightbox.ThumbnailGroup`, `Lightbox.Previous` / `Lightbox.Next` — zoom, captions, thumbnails, and navigation, plus built-in pull-to-dismiss.
 
+### Labels and localization
+
+The library ships no user-facing copy: `Lightbox.Close`, `Previous`, `Next`, `ZoomIn`
+and `ZoomOut` render without an `aria-label`, so nothing English lands in your UI and
+there is no default wording to override. Give each control visible text or your own
+localized `aria-label` / `aria-labelledby`. In development a nameless control logs a
+warning, the same way `Lightbox.Content` does for a dialog with no accessible name.
+
+```tsx
+<Lightbox.Close aria-label={t('gallery.close')}>
+  <XIcon aria-hidden />
+</Lightbox.Close>
+```
+
 ### Content Security Policy
 
 Works under a strict style policy — `style-src 'self'; style-src-attr 'none'`, no

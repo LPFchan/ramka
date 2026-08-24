@@ -40,9 +40,9 @@ import * as Lightbox from '@ramka/react/lightbox';
       </Lightbox.Slides>
 
       <Lightbox.Counter />
-      <Lightbox.ZoomOut />
-      <Lightbox.ZoomIn />
-      <Lightbox.Close />
+      <Lightbox.ZoomOut aria-label="Zoom out" />
+      <Lightbox.ZoomIn aria-label="Zoom in" />
+      <Lightbox.Close aria-label="Close" />
       <Lightbox.Caption />
     </Lightbox.Content>
   </Lightbox.Portal>

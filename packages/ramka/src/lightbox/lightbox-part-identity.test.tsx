@@ -41,13 +41,13 @@ function FullChromeLightbox() {
         <LightboxBackdrop />
         <LightboxContent aria-label="Gallery">
           <LightboxStage>
-            <LightboxClose />
-            <LightboxPrevious />
-            <LightboxNext />
+            <LightboxClose aria-label="Close" />
+            <LightboxPrevious aria-label="Previous" />
+            <LightboxNext aria-label="Next" />
             <LightboxCounter />
             <LightboxCaption />
-            <LightboxZoomIn />
-            <LightboxZoomOut />
+            <LightboxZoomIn aria-label="Zoom in" />
+            <LightboxZoomOut aria-label="Zoom out" />
             <LightboxSlides aria-label="Slides">
               <LightboxSlide>
                 <LightboxItem index={0} caption="One">
