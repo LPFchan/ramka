@@ -11,7 +11,7 @@ import {
   resolvePinchZoom,
   scaleZoom,
 } from './gesture-math';
-import type { InitializedRef } from './react-compat';
+import type { InitializedRef } from '../react-compat';
 
 // ---------------------------------------------------------------------------
 // Config type

@@ -1,12 +1,12 @@
 'use client';
 
-import { mergeProps } from '@base-ui/react/merge-props';
-import { useRender } from '@base-ui/react/use-render';
 import * as React from 'react';
 
 import { LightboxMediaDataAttributes } from './lightbox-data-attributes';
 import { useOptionalLightboxItemContext } from './lightbox-item';
 import { insertLibrarySheet } from './lightbox-style-sheets';
+import { mergeProps } from '../render/merge-props';
+import { useRender } from '../render/use-render';
 
 /** Only used by the <style> fallback in environments without CSSOM sheets. */
 const MEDIA_FILL_MARKER = 'data-ramka-media-fill';

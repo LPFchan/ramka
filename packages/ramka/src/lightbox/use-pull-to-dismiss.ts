@@ -12,7 +12,7 @@ import {
   wheelAxis,
 } from './pull-math';
 import { LightboxContentCssVars } from './lightbox-css-vars';
-import type { InitializedRef } from './react-compat';
+import type { InitializedRef } from '../react-compat';
 
 // ---------------------------------------------------------------------------
 // Constants

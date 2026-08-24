@@ -25,7 +25,7 @@ import {
   resolveTriggerIndex,
   scrollTriggerEl,
 } from './scroll-trigger';
-import type { InitializedRef } from './react-compat';
+import type { InitializedRef } from '../react-compat';
 import type { ScrollTriggerIntoView } from './scroll-trigger';
 
 // ---------------------------------------------------------------------------

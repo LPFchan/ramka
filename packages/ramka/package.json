@@ -27,7 +27,8 @@
   },
   "files": [
     "dist",
-    "README.md"
+    "README.md",
+    "THIRD-PARTY-NOTICES.md"
   ],
   "scripts": {
     "build": "tsup && tsc -p tsconfig.build.json && node scripts/fix-dist-specifiers.mjs",
@@ -37,9 +38,6 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "clean": "rm -rf dist .turbo"
-  },
-  "dependencies": {
-    "@base-ui/react": "^1.5.0"
   },
   "peerDependencies": {
     "react": ">=18",

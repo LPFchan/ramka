@@ -4,7 +4,7 @@ import * as React from 'react';
 
 import type { LightboxCloseOptions, NavigationSource } from './lightbox-context';
 import type { ActiveZoomControls } from './lightbox-zoom-context';
-import type { InitializedRef } from './react-compat';
+import type { InitializedRef } from '../react-compat';
 
 interface UseContentKeyboardOptions {
   mounted: boolean;

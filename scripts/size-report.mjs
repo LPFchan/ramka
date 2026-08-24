@@ -117,6 +117,20 @@ const lazyRows = headResults[LAZY_SCENARIO].lazyChunks.map((c) => ({
 
 const shape = exportShape();
 
+// A runtime dependency the probe cannot resolve is missing from the totals, on
+// whichever side has it. Say so rather than let the diff read as a regression
+// when a dependency is vendored, or as free when one is added.
+const unmeasured = (results) => [...new Set(Object.values(results ?? {}).flatMap((r) => r.unmeasured ?? []))];
+const headUnmeasured = unmeasured(headResults);
+const baseUnmeasured = unmeasured(baseResults);
+const list = (deps) => deps.map((d) => `\`${d}\``).join(', ');
+const caveats = [
+  headUnmeasured.length > 0 &&
+    `**Head totals are understated.** ${list(headUnmeasured)} ${headUnmeasured.length === 1 ? 'is a runtime dependency' : 'are runtime dependencies'} this probe cannot resolve, so a consumer downloads bytes that are not counted above.`,
+  baseUnmeasured.length > 0 &&
+    `**Base totals are understated** by ${list(baseUnmeasured)}, which the base commit depended on and this probe cannot resolve. An increase here can therefore be a dependency being vendored — smaller for the consumer, larger in this table.`,
+].filter(Boolean);
+
 const table = (title, list) =>
   [
     `| ${title} | Base | Head | Δ |`,
@@ -141,9 +155,10 @@ const markdown = `<!-- ramka-size -->
 
 ${headline}
 
-What a consumer actually ships, gzipped, after tree-shaking — measured with Rollup, \`react\` and \`@base-ui/*\` external. Lazily \`import()\`ed engine chunks are excluded from these totals and listed separately.
+What a consumer actually ships, gzipped, after tree-shaking — measured with Rollup, \`react\` external and nothing else, since the package has no runtime dependencies. Lazily \`import()\`ed engine chunks are excluded from these totals and listed separately.
 
 ${table('Scenario', rows)}
+${caveats.length > 0 ? `\n${caveats.map((c) => `> ${c}`).join('\n>\n')}` : ''}
 
 <details>
 <summary>Lazy engine chunks — fetched on intent, not on load</summary>
@@ -163,6 +178,7 @@ const json = {
   base: haveBase ? base : null,
   head,
   exportShape: shape,
+  unmeasuredDependencies: { base: baseUnmeasured, head: headUnmeasured },
   scenarios: Object.fromEntries(
     Object.keys(SCENARIOS).map((label) => [label, { base: baseResults?.[label] ?? null, head: headResults[label] }]),
   ),

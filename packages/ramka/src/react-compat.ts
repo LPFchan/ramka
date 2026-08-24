@@ -3,6 +3,10 @@
  * so the package can honestly claim `react >= 18`.
  */
 
+import * as React from 'react';
+
+const REACT_MAJOR = parseInt(React.version, 10);
+
 /**
  * `inert` props that survive both versions.
  *
@@ -37,5 +41,21 @@ function inertWhen(condition: boolean): { inert?: boolean } {
  */
 type InitializedRef<T> = { current: T };
 
-export { inertWhen };
+/**
+ * The ref on a React element, wherever this version keeps it.
+ *
+ * React 19 made `ref` an ordinary prop; React 18 stored it beside the props on
+ * the element itself (and reading `props.ref` there warns). Needed when a
+ * `render` element is cloned: its own ref has to keep working.
+ */
+function getElementRef<T>(element: unknown): React.Ref<T> | null {
+  if (!React.isValidElement(element)) return null;
+  const withRef = element as React.ReactElement & {
+    ref?: React.Ref<T> | null;
+    props?: { ref?: React.Ref<T> | null };
+  };
+  return (REACT_MAJOR >= 19 ? withRef.props?.ref : withRef.ref) ?? null;
+}
+
+export { getElementRef, inertWhen };
 export type { InitializedRef };

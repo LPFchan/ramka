@@ -1,7 +1,5 @@
 'use client';
 
-import { mergeProps } from '@base-ui/react/merge-props';
-import { useRender } from '@base-ui/react/use-render';
 import * as React from 'react';
 
 import { LightboxZoomDataAttributes } from './lightbox-data-attributes';
@@ -12,6 +10,8 @@ import {
   loadZoomRuntime,
   type ZoomRuntime,
 } from './lightbox-zoom-loader';
+import { mergeProps } from '../render/merge-props';
+import { useRender } from '../render/use-render';
 
 // ---------------------------------------------------------------------------
 // Types

@@ -10,7 +10,7 @@
 import * as React from 'react';
 
 import type { SlidesGeometry } from './lightbox-slides-geometry';
-import type { InitializedRef } from './react-compat';
+import type { InitializedRef } from '../react-compat';
 import type { LightboxViewTransitionPreset } from './vt-timing';
 
 type NavigationSource = 'trigger' | 'keyboard' | 'thumbnail' | 'button' | 'scroll' | 'imperative';

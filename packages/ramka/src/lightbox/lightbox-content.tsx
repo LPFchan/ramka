@@ -1,6 +1,5 @@
 'use client';
 
-import { mergeProps } from '@base-ui/react/merge-props';
 import * as React from 'react';
 
 import { LightboxContentCssVars } from './lightbox-css-vars';
@@ -13,10 +12,11 @@ import {
   loadPullRuntime,
   type PullRuntime,
 } from './lightbox-pull-loader';
-import { inertWhen } from './react-compat';
+import { inertWhen } from '../react-compat';
 import { useContentKeyboard } from './use-content-keyboard';
 import { useNativePinchGuard } from './use-native-pinch-guard';
 import { useTouchScrollContainment } from './use-touch-scroll-containment';
+import { mergeProps } from '../render/merge-props';
 
 /** Imperative chrome vars (pull / zoom) — React style reconciliation must not wipe them. */
 const CONTENT_CHROME_STYLE_VARS = [

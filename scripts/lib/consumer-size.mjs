@@ -6,7 +6,7 @@
 // page quotes these numbers in its prose.
 import { gzipSync } from 'node:zlib';
 import { writeFileSync, mkdirSync, existsSync, statSync } from 'node:fs';
-import { join, dirname, basename, resolve as resolvePath } from 'node:path';
+import { join, dirname, basename, isAbsolute, resolve as resolvePath } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 export const repoRoot = resolvePath(import.meta.dirname, '../..');
@@ -41,15 +41,27 @@ export const SCENARIOS = {
 // every dynamic import, so it enumerates all of them.
 export const LAZY_SCENARIO = 'everything';
 
-const isExternal = (id) => ['react', 'react-dom', 'react/jsx-runtime'].includes(id) || id.startsWith('@base-ui/');
+// Only the peer dependencies are free: a consumer already ships React. Runtime
+// dependencies are not — leaving them external would hide their bytes, which is
+// exactly what happened while `@base-ui/react` was a dependency and the totals
+// below excluded its prop merging and element rendering.
+const isExternal = (id) => ['react', 'react-dom', 'react/jsx-runtime'].includes(id);
 
 // Bundler-style resolution for relative specifiers: try as-is, then common
 // extensions, then directory index. Real consumer bundlers all do this, so a
 // build that emits extensionless specifiers still resolves for them.
-const resolverPlugin = {
+const resolver = (unmeasured) => ({
   name: 'relative-resolver',
   resolveId(source, importer) {
-    if (!importer || !source.startsWith('.')) return null;
+    if (!importer) return null;
+    // A bare specifier that is not a peer is a runtime dependency: bytes the
+    // consumer downloads. This probe cannot resolve one, so it falls out of the
+    // totals — which is how `@base-ui/react` stayed invisible here for as long
+    // as it was a dependency. Report it instead of hiding it.
+    if (!source.startsWith('.') && !isAbsolute(source)) {
+      unmeasured.add(source);
+      return null;
+    }
     const abs = resolvePath(dirname(importer), source);
     const candidates = [abs, `${abs}.js`, `${abs}.cjs`, `${abs}.mjs`, join(abs, 'index.js'), join(abs, 'index.cjs')];
     for (const c of candidates) {
@@ -57,7 +69,7 @@ const resolverPlugin = {
     }
     return null;
   },
-};
+});
 
 // Walk static import edges from the entry chunk; import() edges stay lazy.
 function partition(chunks, entryName) {
@@ -92,7 +104,8 @@ const chunkLabel = (chunk) =>
 /**
  * Bundle one scenario against one built copy of the library.
  *
- * @returns eager payload size, plus each lazily-loaded chunk on its own.
+ * @returns eager payload size, each lazily-loaded chunk on its own, and any
+ * runtime dependency whose bytes the totals therefore leave out.
  */
 export async function measureScenario({ entry, code, tag, tmpBase }) {
   const dir = join(tmpBase, tag.replace(/\W+/g, '_'));
@@ -100,10 +113,11 @@ export async function measureScenario({ entry, code, tag, tmpBase }) {
   const app = join(dir, 'app.js');
   writeFileSync(app, code.replaceAll('LIB', entry));
 
+  const unmeasured = new Set();
   const bundle = await rollup({
     input: app,
     external: isExternal,
-    plugins: [resolverPlugin],
+    plugins: [resolver(unmeasured)],
     // The package declares "sideEffects": false.
     treeshake: { moduleSideEffects: false },
     onwarn: () => {},
@@ -122,5 +136,5 @@ export async function measureScenario({ entry, code, tag, tmpBase }) {
   }
   lazyChunks.sort((a, b) => b.gz - a.gz);
 
-  return { ...eagerSizes, lazyCount: lazy.length, lazyChunks };
+  return { ...eagerSizes, lazyCount: lazy.length, lazyChunks, unmeasured: [...unmeasured] };
 }

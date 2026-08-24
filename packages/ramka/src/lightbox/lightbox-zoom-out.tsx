@@ -1,13 +1,13 @@
 'use client';
 
-import { mergeProps } from '@base-ui/react/merge-props';
-import { useRender } from '@base-ui/react/use-render';
 import * as React from 'react';
 
 import { LightboxZoomOutDataAttributes } from './lightbox-data-attributes';
 import { useLightboxContext } from './lightbox-context';
 import { useOptionalActiveZoom, useOptionalZoomContext } from './lightbox-zoom-context';
 import { useAccessibleNameWarning } from './use-accessible-name-warning';
+import { mergeProps } from '../render/merge-props';
+import { useRender } from '../render/use-render';
 
 interface LightboxZoomOutState extends Record<string, unknown> {
   disabled: boolean;
