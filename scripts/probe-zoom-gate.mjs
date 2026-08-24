@@ -8,15 +8,13 @@
 // For each scenario this reports whether the zoom runtime is reachable at all
 // (statically or lazily) and whether the gate is armed, plus the eager payload.
 
+import * as esbuild from 'esbuild';
+import { rollup } from 'rollup';
 import { gzipSync } from 'node:zlib';
 import { writeFileSync, mkdirSync, rmSync, existsSync, statSync } from 'node:fs';
 import { join, dirname, resolve as resolvePath } from 'node:path';
-import { pathToFileURL } from 'node:url';
 
 const repoRoot = resolvePath(import.meta.dirname, '..');
-const dep = (rel) => pathToFileURL(join(repoRoot, 'node_modules/.pnpm', rel)).href;
-const esbuild = await import(dep('esbuild@0.28.1/node_modules/esbuild/lib/main.js'));
-const { rollup } = await import(dep('rollup@4.60.4/node_modules/rollup/dist/es/rollup.js'));
 
 const LIB = process.argv[2] ?? join(repoRoot, 'packages/ramka/dist/lightbox/lightbox.js');
 

@@ -3,17 +3,13 @@
 // esbuild consumer and a Rollup consumer.
 //
 // Answers: which combination actually lets a consumer drop unused parts?
+import * as esbuild from 'esbuild';
+import { rollup } from 'rollup';
 import { gzipSync } from 'node:zlib';
 import { writeFileSync, mkdirSync, readFileSync, rmSync, readdirSync } from 'node:fs';
 import { basename, join } from 'node:path';
 
 const root = import.meta.url.replace(/scripts\/[^/]+$/, '');
-const esbuild = await import(
-  new URL('./node_modules/.pnpm/esbuild@0.28.1/node_modules/esbuild/lib/main.js', root).href
-);
-const { rollup } = await import(
-  new URL('./node_modules/.pnpm/rollup@4.60.4/node_modules/rollup/dist/es/rollup.js', root).href
-);
 
 const src = new URL('./packages/ramka/src/', root).pathname;
 const base = '/tmp/matrix-probe';

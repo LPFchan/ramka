@@ -9,17 +9,14 @@
 // assignment while charging nothing for the config object that would replace
 // them, nor for the factory module itself.
 
+import * as esbuild from 'esbuild';
+import { rollup } from 'rollup';
 import { gzipSync } from 'node:zlib';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
-import { pathToFileURL } from 'node:url';
 
 const repoRoot = path.resolve(import.meta.dirname, '..');
 const distDir = path.join(repoRoot, 'packages/ramka/dist');
-const dep = (rel) => pathToFileURL(path.join(repoRoot, 'node_modules/.pnpm', rel)).href;
-
-const esbuild = await import(dep('esbuild@0.28.1/node_modules/esbuild/lib/main.js'));
-const { rollup } = await import(dep('rollup@4.60.4/node_modules/rollup/dist/es/rollup.js'));
 
 const PARTS = [
   ['Close', 'close'],

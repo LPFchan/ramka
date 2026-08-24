@@ -12,19 +12,13 @@
 //
 // Usage: node scripts/compare-engine-bytes.mjs
 
+import * as esbuild from 'esbuild';
 import { readFileSync } from 'node:fs';
 import { join, resolve as resolvePath } from 'node:path';
-import { pathToFileURL } from 'node:url';
 import { gzipSync } from 'node:zlib';
 
 const repoRoot = resolvePath(import.meta.dirname, '..');
 const PSWP = '/tmp/lightbox-bench/node_modules/photoswipe/dist';
-
-const esbuild = await import(
-  pathToFileURL(
-    join(repoRoot, 'node_modules/.pnpm/esbuild@0.28.1/node_modules/esbuild/lib/main.js'),
-  ).href
-);
 
 const gz = (s) => gzipSync(Buffer.from(s), { level: 9 }).length;
 
