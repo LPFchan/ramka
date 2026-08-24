@@ -1012,7 +1012,7 @@ describe('Lightbox', () => {
       });
 
       expect(focusSpy).toHaveBeenCalled();
-      expect(focusSpy.mock.calls.at(-1)?.[0]).toMatchObject({
+      expect(focusSpy.mock.calls[focusSpy.mock.calls.length - 1]?.[0]).toMatchObject({
         preventScroll: true,
         focusVisible: true,
       });
@@ -1036,7 +1036,7 @@ describe('Lightbox', () => {
       });
 
       expect(focusSpy).toHaveBeenCalled();
-      expect(focusSpy.mock.calls.at(-1)?.[0]).toMatchObject({
+      expect(focusSpy.mock.calls[focusSpy.mock.calls.length - 1]?.[0]).toMatchObject({
         preventScroll: true,
         focusVisible: false,
       });
