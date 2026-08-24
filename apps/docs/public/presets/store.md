@@ -175,7 +175,11 @@ function Counter({ className, ...props }: React.ComponentProps<typeof RamkaLight
 
 function Previous({ className, children, ...props }: React.ComponentProps<typeof RamkaLightbox.Previous>) {
   return (
-    <RamkaLightbox.Previous className={cx('slb-control', 'slb-nav', className)} {...props}>
+    <RamkaLightbox.Previous
+      className={cx('slb-control', 'slb-nav', className)}
+      aria-label="Previous"
+      {...props}
+    >
       {children ?? <IconChevronLeft />}
     </RamkaLightbox.Previous>
   );
@@ -183,7 +187,11 @@ function Previous({ className, children, ...props }: React.ComponentProps<typeof
 
 function Next({ className, children, ...props }: React.ComponentProps<typeof RamkaLightbox.Next>) {
   return (
-    <RamkaLightbox.Next className={cx('slb-control', 'slb-nav', className)} {...props}>
+    <RamkaLightbox.Next
+      className={cx('slb-control', 'slb-nav', className)}
+      aria-label="Next"
+      {...props}
+    >
       {children ?? <IconChevronRight />}
     </RamkaLightbox.Next>
   );

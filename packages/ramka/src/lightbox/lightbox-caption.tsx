@@ -1,12 +1,12 @@
 'use client';
 
-import { mergeProps } from '@base-ui/react/merge-props';
-import { useRender } from '@base-ui/react/use-render';
 import * as React from 'react';
 
 import { LightboxCaptionDataAttributes } from './lightbox-data-attributes';
 import { useLightboxContext } from './lightbox-context';
 import { ignoreStateAttribute } from './lightbox-state-attributes';
+import { mergeProps } from '../render/merge-props';
+import { useRender } from '../render/use-render';
 
 interface LightboxCaptionState extends Record<string, unknown> {
   index: number;

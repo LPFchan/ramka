@@ -1,12 +1,13 @@
 'use client';
 
-import { mergeProps } from '@base-ui/react/merge-props';
-import { useRender } from '@base-ui/react/use-render';
 import * as React from 'react';
 
 import { LightboxZoomInDataAttributes } from './lightbox-data-attributes';
 import { useLightboxContext } from './lightbox-context';
 import { useOptionalActiveZoom, useOptionalZoomContext } from './lightbox-zoom-context';
+import { useAccessibleNameWarning } from './use-accessible-name-warning';
+import { mergeProps } from '../render/merge-props';
+import { useRender } from '../render/use-render';
 
 interface LightboxZoomInState extends Record<string, unknown> {
   disabled: boolean;
@@ -18,6 +19,11 @@ const stateAttributesMapping = {
   disabled: (value: unknown) => (value ? { 'data-disabled': '' } : null),
 };
 
+/**
+ * Zooms the active media in.
+ *
+ * Ships no `aria-label` — give it visible text or your own localized label.
+ */
 const LightboxZoomIn = React.forwardRef<HTMLButtonElement, LightboxZoomInProps>(
   function LightboxZoomIn(props, forwardedRef) {
     const { render, ...elementProps } = props;
@@ -38,17 +44,17 @@ const LightboxZoomIn = React.forwardRef<HTMLButtonElement, LightboxZoomInProps>(
     }, [ctx, navigationLockedRef]);
 
     const state = React.useMemo<LightboxZoomInState>(() => ({ disabled }), [disabled]);
+    const ref = useAccessibleNameWarning('Lightbox.ZoomIn', forwardedRef);
 
     return useRender({
       render,
-      ref: forwardedRef,
+      ref,
       state,
       stateAttributesMapping,
       props: mergeProps<'button'>(
         {
           type: 'button',
           [LightboxZoomInDataAttributes.zoomIn]: '',
-          'aria-label': 'Zoom in',
           disabled,
           onClick: handleClick,
         } as React.ComponentPropsWithRef<'button'>,

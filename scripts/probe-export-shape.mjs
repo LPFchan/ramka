@@ -77,8 +77,7 @@ const VARIANTS = {
   `,
 };
 
-const isExternal = (id) =>
-  ['react', 'react-dom', 'react/jsx-runtime'].includes(id) || id.startsWith('@base-ui/');
+const isExternal = (id) => ['react', 'react-dom', 'react/jsx-runtime'].includes(id);
 
 const resolver = {
   name: 'relative-resolver',
@@ -147,7 +146,7 @@ async function viaEsbuild(entry, outdir) {
     minify: true,
     metafile: true,
     logLevel: 'silent',
-    external: ['react', 'react-dom', 'react/*', 'react-dom/*', '@base-ui/*'],
+    external: ['react', 'react-dom', 'react/*', 'react-dom/*'],
   });
   const outputs = metafile.outputs;
   const entryOut = Object.keys(outputs).find((k) => outputs[k].entryPoint);

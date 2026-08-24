@@ -1,11 +1,12 @@
 'use client';
 
-import { mergeProps } from '@base-ui/react/merge-props';
-import { useRender } from '@base-ui/react/use-render';
 import * as React from 'react';
 
 import { LightboxCloseDataAttributes } from './lightbox-data-attributes';
 import { useLightboxContext } from './lightbox-context';
+import { useAccessibleNameWarning } from './use-accessible-name-warning';
+import { mergeProps } from '../render/merge-props';
+import { useRender } from '../render/use-render';
 
 interface LightboxCloseState extends Record<string, unknown> {}
 
@@ -13,6 +14,8 @@ interface LightboxCloseProps extends useRender.ComponentProps<'button', Lightbox
 
 /**
  * Closes the lightbox when clicked.
+ *
+ * Ships no `aria-label` — give it visible text or your own localized label.
  */
 const LightboxClose = React.forwardRef<HTMLButtonElement, LightboxCloseProps>(
   function LightboxClose(props, forwardedRef) {
@@ -30,16 +33,16 @@ const LightboxClose = React.forwardRef<HTMLButtonElement, LightboxCloseProps>(
     );
 
     const state = React.useMemo<LightboxCloseState>(() => ({}), []);
+    const ref = useAccessibleNameWarning('Lightbox.Close', forwardedRef);
 
     return useRender({
       render,
-      ref: forwardedRef,
+      ref,
       state,
       props: mergeProps<'button'>(
         {
           type: 'button',
           [LightboxCloseDataAttributes.close]: '',
-          'aria-label': 'Close',
           onClick: handleClick,
         } as React.ComponentPropsWithRef<'button'>,
         elementProps as React.ComponentPropsWithRef<'button'>,

@@ -154,10 +154,10 @@ export default function LightboxCompositionPage() {
         <CodeBlock
           code={`<Lightbox.Content aria-label="Post">
   <Lightbox.Stage className="media-pane">
-    <Lightbox.Close />
+    <Lightbox.Close aria-label="Close" />
     <Lightbox.Slides>{/* media */}</Lightbox.Slides>
-    <Lightbox.Previous />
-    <Lightbox.Next />
+    <Lightbox.Previous aria-label="Previous" />
+    <Lightbox.Next aria-label="Next" />
   </Lightbox.Stage>
   <aside>{/* thread / details */}</aside>
 </Lightbox.Content>`}

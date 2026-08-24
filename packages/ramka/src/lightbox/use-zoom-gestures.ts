@@ -11,6 +11,7 @@ import {
   resolvePinchZoom,
   scaleZoom,
 } from './gesture-math';
+import type { InitializedRef } from '../react-compat';
 
 // ---------------------------------------------------------------------------
 // Config type
@@ -126,7 +127,7 @@ function useZoomGestures(
   /** True while a `Lightbox.Slides` user scroll/fling is in flight. Gesture
    *  starts (pinch / pan / double-tap / scroll-to-zoom) are ignored while this
    *  is set, so an in-progress swipe can't be hijacked mid-scroll. */
-  isScrollingRef?: React.RefObject<boolean>,
+  isScrollingRef?: InitializedRef<boolean>,
   /**
    * Optional `Lightbox.Stage` host. When set, wheel / Safari GestureEvent zoom
    * attach here (not Content) so side panels outside Stage don't pinch-zoom

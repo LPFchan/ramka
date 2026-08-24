@@ -10,6 +10,7 @@
 import * as React from 'react';
 
 import type { SlidesGeometry } from './lightbox-slides-geometry';
+import type { InitializedRef } from '../react-compat';
 import type { LightboxViewTransitionPreset } from './vt-timing';
 
 type NavigationSource = 'trigger' | 'keyboard' | 'thumbnail' | 'button' | 'scroll' | 'imperative';
@@ -119,7 +120,7 @@ interface LightboxStateSlice {
    * false once the last tablist unmounts.
    */
   registerTablist: () => () => void;
-  captionsRef: React.RefObject<Map<number, React.ReactNode>>;
+  captionsRef: InitializedRef<Map<number, React.ReactNode>>;
   registerCaption: (index: number, caption: React.ReactNode) => () => void;
   /**
    * Subscribe to caption-registry changes. Lets `Lightbox.Caption` read the
@@ -157,14 +158,14 @@ interface LightboxMorphSlice {
    */
   transitionPreset: boolean | LightboxViewTransitionPreset | undefined;
   morphTo: 'active' | 'origin' | 'closest';
-  triggerElementsRef: React.RefObject<Map<number, HTMLElement>>;
+  triggerElementsRef: InitializedRef<Map<number, HTMLElement>>;
   /**
    * Registry mapping each trigger element → the descendant it should morph
    * into, as designated by the trigger render-prop's `morphRef`. Keyed
    * by the trigger *element* (not its index) so it stays correct when several
    * triggers share an index. A trigger with no entry morphs itself.
    */
-  triggerMorphElementsRef: React.RefObject<WeakMap<HTMLElement, HTMLElement>>;
+  triggerMorphElementsRef: InitializedRef<WeakMap<HTMLElement, HTMLElement>>;
   activeItemElementRef: React.MutableRefObject<HTMLElement | null>;
   /**
    * Registry mapping each item element → the descendant it should morph into.
@@ -174,7 +175,7 @@ interface LightboxMorphSlice {
    * `querySelector('img'/'video')` scan, then the container. See
    * findItemMorphTarget.
    */
-  itemMorphElementsRef: React.RefObject<WeakMap<HTMLElement, HTMLElement>>;
+  itemMorphElementsRef: InitializedRef<WeakMap<HTMLElement, HTMLElement>>;
   /**
    * Shared capture destination (Stage `morphRef`). When set, the View
    * Transition names this node instead of the active item. Decode /
@@ -204,13 +205,13 @@ interface LightboxMorphSlice {
    * source when a specific item opens without a clicked element (controlled /
    * programmatic open) or for preloaded adjacent slides.
    */
-  triggerImageElementsRef: React.RefObject<Map<number, HTMLImageElement>>;
+  triggerImageElementsRef: InitializedRef<Map<number, HTMLImageElement>>;
   /**
    * Triggers that declared a stable `id` (for `handle.open` / Root `triggerId`
    * association). Keyed by id; used when the Trigger is under Root without
    * going through a detached handle registration.
    */
-  triggerIdsRef: React.RefObject<
+  triggerIdsRef: InitializedRef<
     Map<
       string,
       {

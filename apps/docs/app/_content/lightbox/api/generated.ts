@@ -126,7 +126,7 @@ export const generatedProps: Record<string, PropRow[]> = {
     {
       name: "render",
       type: "ReactElement | ComponentRenderFn",
-      description: "Allows you to replace the component's HTML element with a different tag, or compose it with another component.\n\nAccepts a `ReactElement` or a function that returns the element to render.",
+      description: "Replaces the part's default element with another tag or component. Accepts an element to clone, or a function that returns one.",
     },
   ],
   "api-portal": [
@@ -170,21 +170,21 @@ export const generatedProps: Record<string, PropRow[]> = {
     {
       name: "render",
       type: "ReactElement | ComponentRenderFn",
-      description: "Allows you to replace the component's HTML element with a different tag, or compose it with another component.\n\nAccepts a `ReactElement` or a function that returns the element to render.",
+      description: "Replaces the part's default element with another tag or component. Accepts an element to clone, or a function that returns one.",
     },
   ],
   "api-backdrop": [
     {
       name: "render",
       type: "ReactElement | ComponentRenderFn",
-      description: "Allows you to replace the component's HTML element with a different tag, or compose it with another component.\n\nAccepts a `ReactElement` or a function that returns the element to render.",
+      description: "Replaces the part's default element with another tag or component. Accepts an element to clone, or a function that returns one.",
     },
   ],
   "api-close": [
     {
       name: "render",
       type: "ReactElement | ComponentRenderFn",
-      description: "Allows you to replace the component's HTML element with a different tag, or compose it with another component.\n\nAccepts a `ReactElement` or a function that returns the element to render.",
+      description: "Replaces the part's default element with another tag or component. Accepts an element to clone, or a function that returns one.",
     },
   ],
   "api-item": [
@@ -207,7 +207,7 @@ export const generatedProps: Record<string, PropRow[]> = {
     {
       name: "render",
       type: "ReactElement | ComponentRenderFn",
-      description: "Allows you to replace the component's HTML element with a different tag, or compose it with another component.\n\nAccepts a `ReactElement` or a function that returns the element to render.",
+      description: "Replaces the part's default element with another tag or component. Accepts an element to clone, or a function that returns one.",
     },
   ],
   "api-media": [
@@ -224,7 +224,7 @@ export const generatedProps: Record<string, PropRow[]> = {
     {
       name: "render",
       type: "ReactElement | ComponentRenderFn",
-      description: "Allows you to replace the component's HTML element with a different tag, or compose it with another component.\n\nAccepts a `ReactElement` or a function that returns the element to render.",
+      description: "Replaces the part's default element with another tag or component. Accepts an element to clone, or a function that returns one.",
     },
   ],
   "api-slides": [
@@ -237,7 +237,7 @@ export const generatedProps: Record<string, PropRow[]> = {
     {
       name: "render",
       type: "ReactElement | ComponentRenderFn",
-      description: "Allows you to replace the component's HTML element with a different tag, or compose it with another component.\n\nAccepts a `ReactElement` or a function that returns the element to render.",
+      description: "Replaces the part's default element with another tag or component. Accepts an element to clone, or a function that returns one.",
     },
   ],
   "api-slide": [],
@@ -245,14 +245,14 @@ export const generatedProps: Record<string, PropRow[]> = {
     {
       name: "render",
       type: "ReactElement | ComponentRenderFn",
-      description: "Allows you to replace the component's HTML element with a different tag, or compose it with another component.\n\nAccepts a `ReactElement` or a function that returns the element to render.",
+      description: "Replaces the part's default element with another tag or component. Accepts an element to clone, or a function that returns one.",
     },
   ],
   "api-next": [
     {
       name: "render",
       type: "ReactElement | ComponentRenderFn",
-      description: "Allows you to replace the component's HTML element with a different tag, or compose it with another component.\n\nAccepts a `ReactElement` or a function that returns the element to render.",
+      description: "Replaces the part's default element with another tag or component. Accepts an element to clone, or a function that returns one.",
     },
   ],
   "api-counter": [
@@ -265,21 +265,21 @@ export const generatedProps: Record<string, PropRow[]> = {
     {
       name: "render",
       type: "ReactElement | ComponentRenderFn",
-      description: "Allows you to replace the component's HTML element with a different tag, or compose it with another component.\n\nAccepts a `ReactElement` or a function that returns the element to render.",
+      description: "Replaces the part's default element with another tag or component. Accepts an element to clone, or a function that returns one.",
     },
   ],
   "api-caption": [
     {
       name: "render",
       type: "ReactElement | ComponentRenderFn",
-      description: "Allows you to replace the component's HTML element with a different tag, or compose it with another component.\n\nAccepts a `ReactElement` or a function that returns the element to render.",
+      description: "Replaces the part's default element with another tag or component. Accepts an element to clone, or a function that returns one.",
     },
   ],
   "api-thumbnail-group": [
     {
       name: "render",
       type: "ReactElement | ComponentRenderFn",
-      description: "Allows you to replace the component's HTML element with a different tag, or compose it with another component.\n\nAccepts a `ReactElement` or a function that returns the element to render.",
+      description: "Replaces the part's default element with another tag or component. Accepts an element to clone, or a function that returns one.",
     },
   ],
   "api-thumbnail": [
@@ -292,7 +292,7 @@ export const generatedProps: Record<string, PropRow[]> = {
     {
       name: "render",
       type: "ReactElement | ComponentRenderFn",
-      description: "Allows you to replace the component's HTML element with a different tag, or compose it with another component.\n\nAccepts a `ReactElement` or a function that returns the element to render.",
+      description: "Replaces the part's default element with another tag or component. Accepts an element to clone, or a function that returns one.",
     },
   ],
   "api-thumbnail-strip": [
@@ -314,14 +314,14 @@ export const generatedProps: Record<string, PropRow[]> = {
     {
       name: "render",
       type: "ReactElement | ComponentRenderFn",
-      description: "Allows you to replace the component's HTML element with a different tag, or compose it with another component.\n\nAccepts a `ReactElement` or a function that returns the element to render.",
+      description: "Replaces the part's default element with another tag or component. Accepts an element to clone, or a function that returns one.",
     },
   ],
   "api-thumbnail-strip-track": [
     {
       name: "render",
       type: "ReactElement | ComponentRenderFn",
-      description: "Allows you to replace the component's HTML element with a different tag, or compose it with another component.\n\nAccepts a `ReactElement` or a function that returns the element to render.",
+      description: "Replaces the part's default element with another tag or component. Accepts an element to clone, or a function that returns one.",
     },
   ],
   "api-zoom": [
@@ -380,21 +380,21 @@ export const generatedProps: Record<string, PropRow[]> = {
     {
       name: "render",
       type: "ReactElement | ComponentRenderFn",
-      description: "Allows you to replace the component's HTML element with a different tag, or compose it with another component.\n\nAccepts a `ReactElement` or a function that returns the element to render.",
+      description: "Replaces the part's default element with another tag or component. Accepts an element to clone, or a function that returns one.",
     },
   ],
   "api-zoom-in": [
     {
       name: "render",
       type: "ReactElement | ComponentRenderFn",
-      description: "Allows you to replace the component's HTML element with a different tag, or compose it with another component.\n\nAccepts a `ReactElement` or a function that returns the element to render.",
+      description: "Replaces the part's default element with another tag or component. Accepts an element to clone, or a function that returns one.",
     },
   ],
   "api-zoom-out": [
     {
       name: "render",
       type: "ReactElement | ComponentRenderFn",
-      description: "Allows you to replace the component's HTML element with a different tag, or compose it with another component.\n\nAccepts a `ReactElement` or a function that returns the element to render.",
+      description: "Replaces the part's default element with another tag or component. Accepts an element to clone, or a function that returns one.",
     },
   ],
   "api-view-transition-document": [],

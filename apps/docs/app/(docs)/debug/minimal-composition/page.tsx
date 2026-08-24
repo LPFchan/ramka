@@ -521,21 +521,27 @@ export default function MinimalCompositionDebugPage() {
 
             {/* Chrome sits beside Slides and targets the active slide's Zoom. */}
             <Lightbox.Counter className="absolute left-4 top-4 z-10 rounded-full bg-white/10 px-3 py-1.5 text-sm tabular-nums text-white backdrop-blur" />
-            <Lightbox.Close className={`${EDGE_BUTTON} right-4 top-4`}>
+            <Lightbox.Close aria-label="Close" className={`${EDGE_BUTTON} right-4 top-4`}>
               <X className="size-5" aria-hidden />
             </Lightbox.Close>
-            <Lightbox.Previous className={`${EDGE_BUTTON} left-4 top-1/2 -translate-y-1/2`}>
+            <Lightbox.Previous
+              aria-label="Previous"
+              className={`${EDGE_BUTTON} left-4 top-1/2 -translate-y-1/2`}
+            >
               <ChevronLeft className="size-6" aria-hidden />
             </Lightbox.Previous>
-            <Lightbox.Next className={`${EDGE_BUTTON} right-4 top-1/2 -translate-y-1/2`}>
+            <Lightbox.Next
+              aria-label="Next"
+              className={`${EDGE_BUTTON} right-4 top-1/2 -translate-y-1/2`}
+            >
               <ChevronRight className="size-6" aria-hidden />
             </Lightbox.Next>
 
             <div className="absolute bottom-6 left-1/2 z-10 flex -translate-x-1/2 gap-2">
-              <Lightbox.ZoomOut className={BUTTON}>
+              <Lightbox.ZoomOut aria-label="Zoom out" className={BUTTON}>
                 <Minus className="size-5" aria-hidden />
               </Lightbox.ZoomOut>
-              <Lightbox.ZoomIn className={BUTTON}>
+              <Lightbox.ZoomIn aria-label="Zoom in" className={BUTTON}>
                 <Plus className="size-5" aria-hidden />
               </Lightbox.ZoomIn>
             </div>

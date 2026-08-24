@@ -25,6 +25,7 @@ import {
   resolveTriggerIndex,
   scrollTriggerEl,
 } from './scroll-trigger';
+import type { InitializedRef } from '../react-compat';
 import type { ScrollTriggerIntoView } from './scroll-trigger';
 
 // ---------------------------------------------------------------------------
@@ -705,30 +706,30 @@ interface ViewTransitionMorphConfig {
    * Optional consumer wait after prepare + decode, before the View Transition.
    * See `Lightbox.Root` `onBeforeOpen`.
    */
-  onBeforeOpenRef: React.RefObject<
+  onBeforeOpenRef: InitializedRef<
     | ((ctx: { destination: Element | null; signal: AbortSignal }) => void | Promise<void>)
     | undefined
   >;
   /** Holds the AbortController for the in-flight `onBeforeOpen` (if any). */
   beforeOpenAbortRef: React.MutableRefObject<AbortController | null>;
-  triggerElementsRef: React.RefObject<Map<number, HTMLElement>>;
+  triggerElementsRef: InitializedRef<Map<number, HTMLElement>>;
   /** Trigger element → its designated morph descendant (see findTriggerMorphTarget). */
-  triggerMorphElementsRef: React.RefObject<WeakMap<HTMLElement, HTMLElement>>;
+  triggerMorphElementsRef: InitializedRef<WeakMap<HTMLElement, HTMLElement>>;
   activeItemElementRef: React.RefObject<HTMLElement | null>;
   /** Item element → its designated morph descendant (see findItemMorphTarget). */
-  itemMorphElementsRef: React.RefObject<WeakMap<HTMLElement, HTMLElement>>;
+  itemMorphElementsRef: InitializedRef<WeakMap<HTMLElement, HTMLElement>>;
   /**
    * Shared capture destination from Stage `morphRef`. When set, the VT
    * names this node instead of the active item.
    */
   destinationMorphElementRef: React.RefObject<HTMLElement | null>;
-  openingTriggerIndexRef: React.RefObject<number>;
+  openingTriggerIndexRef: InitializedRef<number>;
   /**
    * Exact opening trigger (click or handle + triggerId). Preferred over the
    * index map so morph is correct when several triggers share one index.
    */
   openingTriggerElementRef: React.RefObject<HTMLElement | null>;
-  activeIndexRef: React.RefObject<number>;
+  activeIndexRef: InitializedRef<number>;
   /**
    * The Root's `viewTransition` prop value. Named presets select the morph
    * timing (see vt-timing.ts); `true`/unknown values run the default preset.

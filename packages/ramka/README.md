@@ -14,7 +14,11 @@ pnpm add @ramka/react
 yarn add @ramka/react
 ```
 
-`react` and `react-dom` (>= 18) are peer dependencies.
+`react` and `react-dom` (>= 18) are peer dependencies, and they are the only
+dependencies: nothing else is installed, so nothing else can pull in a
+transitive tree, break under a version bump, or need auditing. CI runs the full
+suite, the typecheck and the build against React 18.3 as well as React 19, so
+the floor is a tested claim rather than an aspiration.
 
 ## Usage
 
@@ -47,6 +51,20 @@ import { useLightboxContext } from '@ramka/react';
 - `Lightbox.Trigger` / `Lightbox.Portal` / `Lightbox.Content` / `Lightbox.Backdrop` — the modal shell with an optional View Transition morph from the trigger.
 - `Lightbox.Slides` / `Lightbox.Slide` — a swipeable, snapping carousel wired directly to the lightbox's active index. Snap alignment is built in; slide width (full-bleed, aspect cards, …) is consumer CSS.
 - `Lightbox.Zoom`, `Lightbox.Caption`, `Lightbox.ThumbnailGroup`, `Lightbox.Previous` / `Lightbox.Next` — zoom, captions, thumbnails, and navigation, plus built-in pull-to-dismiss.
+
+### Labels and localization
+
+The library ships no user-facing copy: `Lightbox.Close`, `Previous`, `Next`, `ZoomIn`
+and `ZoomOut` render without an `aria-label`, so nothing English lands in your UI and
+there is no default wording to override. Give each control visible text or your own
+localized `aria-label` / `aria-labelledby`. In development a nameless control logs a
+warning, the same way `Lightbox.Content` does for a dialog with no accessible name.
+
+```tsx
+<Lightbox.Close aria-label={t('gallery.close')}>
+  <XIcon aria-hidden />
+</Lightbox.Close>
+```
 
 ### Content Security Policy
 

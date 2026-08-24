@@ -1,7 +1,5 @@
 'use client';
 
-import { mergeProps } from '@base-ui/react/merge-props';
-import { useRender } from '@base-ui/react/use-render';
 import * as React from 'react';
 
 import { LightboxContext } from './lightbox-context';
@@ -18,6 +16,8 @@ import {
 import { prefetchMorphRuntime } from './lightbox-morph-loader';
 import { prefetchZoomRuntime } from './lightbox-zoom-loader';
 import { ignoreStateAttribute } from './lightbox-state-attributes';
+import { mergeProps } from '../render/merge-props';
+import { useRender } from '../render/use-render';
 
 /** Direction(s) in which the trigger↔item morph should crossfade snapshots. */
 type LightboxCrossfade = 'open' | 'close' | 'both';

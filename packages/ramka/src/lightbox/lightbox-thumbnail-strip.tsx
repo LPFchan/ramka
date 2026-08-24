@@ -1,7 +1,5 @@
 'use client';
 
-import { mergeProps } from '@base-ui/react/merge-props';
-import { useRender } from '@base-ui/react/use-render';
 import * as React from 'react';
 import { flushSync } from 'react-dom';
 
@@ -22,6 +20,8 @@ import {
   thumbTravelsEqual,
   trackTransformKeyframes,
 } from './lightbox-thumbnail-strip-geometry';
+import { mergeProps } from '../render/merge-props';
+import { useRender } from '../render/use-render';
 
 interface LightboxThumbnailStripState extends Record<string, unknown> {
   /** True while a discrete-nav WAAPI scrub is in flight. */

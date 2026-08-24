@@ -47,6 +47,72 @@ jobs:
       - name: Test
         run: pnpm test
 
+  # `peerDependencies` claims react >= 18, so the oldest supported version has
+  # to be exercised. It catches things React 19 hides: React 18 drops
+  # `inert={true}`, its `useId()` values contain `:`, and @types/react 18 reads
+  # `RefObject<T>` as nullable.
+  react18:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      # Workspace-wide overrides rather than a package-level install: a single
+      # copy of @types/react has to win, or nested React 19 types leak in and
+      # the run fails on duplicate-type mismatches that no consumer would see.
+      - name: Pin the workspace to React 18
+        run: |
+          node -e "
+            const fs = require('fs');
+            const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+            pkg.pnpm = {
+              ...pkg.pnpm,
+              overrides: {
+                ...pkg.pnpm?.overrides,
+                react: '18.3.1',
+                'react-dom': '18.3.1',
+                '@types/react': '18.3.12',
+                '@types/react-dom': '18.3.1',
+              },
+            };
+            fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
+          "
+          pnpm install --no-frozen-lockfile
+
+      # From the package, not the repo root: pnpm installs react into the
+      # workspace that depends on it and hoists nothing, so resolving from the
+      # root finds no react at all and says so in a way that looks like the
+      # override failed.
+      - name: Verify React 18 is what got installed
+        working-directory: packages/ramka
+        run: |
+          version=$(node -p "require('react').version")
+          echo "react $version"
+          case "$version" in
+            18.*) ;;
+            *) echo "expected React 18, got $version"; exit 1 ;;
+          esac
+
+      - name: Typecheck against @types/react 18
+        run: pnpm --filter @ramka/react typecheck
+
+      - name: Test
+        run: pnpm --filter @ramka/react test
+
+      - name: Build
+        run: pnpm --filter @ramka/react build
+
   # Reports what a consumer's bundle would gain or lose from this PR. Runs
   # alongside `test` rather than after it: size feedback should not wait on the
   # suite.

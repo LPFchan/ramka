@@ -1,13 +1,13 @@
 'use client';
 
-import { mergeProps } from '@base-ui/react/merge-props';
-import { useRender } from '@base-ui/react/use-render';
 import * as React from 'react';
 
 import { LightboxThumbnailGroupDataAttributes } from './lightbox-data-attributes';
 import { useLightboxContext } from './lightbox-context';
 import { LightboxThumbnailGroupContext } from './lightbox-thumbnail-group-context';
 import { useLightboxThumbnailStripContextOptional } from './lightbox-thumbnail-strip-context';
+import { mergeProps } from '../render/merge-props';
+import { useRender } from '../render/use-render';
 
 interface LightboxThumbnailGroupState extends Record<string, unknown> {
   focusWithin: boolean;

@@ -1,7 +1,5 @@
 'use client';
 
-import { mergeProps } from '@base-ui/react/merge-props';
-import { useRender } from '@base-ui/react/use-render';
 import * as React from 'react';
 
 import { LightboxSlidesDataAttributes } from './lightbox-data-attributes';
@@ -13,6 +11,8 @@ import {
   SLIDE_SELECTOR,
 } from './lightbox-slides-geometry';
 import { useLightboxZoomPublish } from './lightbox-zoom-context';
+import { mergeProps } from '../render/merge-props';
+import { useRender } from '../render/use-render';
 
 /**
  * `Lightbox.Slides` — a dedicated, lightbox-only horizontal snap scroller.

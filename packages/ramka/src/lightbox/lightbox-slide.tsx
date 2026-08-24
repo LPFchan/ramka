@@ -1,10 +1,10 @@
 'use client';
 
-import { mergeProps } from '@base-ui/react/merge-props';
-import { useRender } from '@base-ui/react/use-render';
 import * as React from 'react';
 
 import { LightboxSlideDataAttributes } from './lightbox-data-attributes';
+import { mergeProps } from '../render/merge-props';
+import { useRender } from '../render/use-render';
 
 /**
  * `Lightbox.Slide` — one snap box inside `Lightbox.Slides`.

@@ -16,8 +16,8 @@ export function ZoomBridgeExcerpt() {
         <Lightbox.Backdrop />
         <Lightbox.Content>
           {/* Toolbar chrome — targets the active slide's Zoom */}
-          <Lightbox.ZoomOut />
-          <Lightbox.ZoomIn />
+          <Lightbox.ZoomOut aria-label="Zoom out" />
+          <Lightbox.ZoomIn aria-label="Zoom in" />
 
           <Lightbox.Slides>
             <Lightbox.Slide>

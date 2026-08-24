@@ -25,7 +25,7 @@ export default defineConfig({
   clean: true,
   bundle: false,
   target: 'es2020',
-  external: ['react', 'react-dom', /^@base-ui\/react/],
+  external: ['react', 'react-dom'],
   outExtension: ({ format }) => ({
     js: format === 'cjs' ? '.cjs' : '.js',
   }),

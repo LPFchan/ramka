@@ -1,6 +1,5 @@
 'use client';
 
-import { mergeProps } from '@base-ui/react/merge-props';
 import * as React from 'react';
 
 import { LightboxContentCssVars } from './lightbox-css-vars';
@@ -13,9 +12,11 @@ import {
   loadPullRuntime,
   type PullRuntime,
 } from './lightbox-pull-loader';
+import { inertWhen } from '../react-compat';
 import { useContentKeyboard } from './use-content-keyboard';
 import { useNativePinchGuard } from './use-native-pinch-guard';
 import { useTouchScrollContainment } from './use-touch-scroll-containment';
+import { mergeProps } from '../render/merge-props';
 
 /** Imperative chrome vars (pull / zoom) — React style reconciliation must not wipe them. */
 const CONTENT_CHROME_STYLE_VARS = [
@@ -334,7 +335,7 @@ const LightboxContent = React.forwardRef<HTMLDivElement, LightboxContentProps>(
         'aria-modal': parked ? undefined : 'true',
         'aria-hidden': parked ? true : undefined,
         // Parked keepMounted content must not steal clicks/focus from the page.
-        inert: parked || undefined,
+        ...inertWhen(parked),
         className,
         // Establish a scroll-containment boundary. `overflow: hidden` makes
         // the content a scroll container that is permanently at its scroll

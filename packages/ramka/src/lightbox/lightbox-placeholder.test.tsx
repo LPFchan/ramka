@@ -660,7 +660,9 @@ describe('Lightbox.Media (morph + placeholder host)', () => {
     );
 
     // Child is a direct Media descendant so the `#id > ${tag}` rule applies.
-    const el = media.querySelector(`:scope > ${name}`);
+    // Walked rather than queried: React 18 ids contain `:`, which jsdom's
+    // selector engine mangles when it expands `:scope`.
+    const el = Array.from(media.children).find((node) => node.tagName.toLowerCase() === name);
     expect(el).toBeTruthy();
     expect(el!.parentElement).toBe(media);
   });
