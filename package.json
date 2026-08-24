@@ -17,7 +17,9 @@
     "docs:excerpts": "pnpm --filter docs docs:excerpts",
     "docs:excerpts:check": "pnpm --filter docs docs:excerpts:check",
     "docs:llms": "pnpm --filter docs docs:llms",
-    "docs:llms:check": "pnpm --filter docs docs:llms:check"
+    "docs:llms:check": "pnpm --filter docs docs:llms:check",
+    "sbom": "node scripts/generate-sbom.mjs",
+    "sbom:check": "node scripts/generate-sbom.mjs --check"
   },
   "devDependencies": {
     "pkg-pr-new": "^0.0.78",

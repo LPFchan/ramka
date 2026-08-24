@@ -1,0 +1,190 @@
+name: Release
+
+# Publishing runs here and nowhere else. `publishConfig.provenance` makes
+# `npm publish` fail outside a supported CI, so a laptop cannot ship a release
+# even by accident, and every published version carries a provenance attestation
+# tying it to the commit and workflow run that built it.
+#
+# Authentication is npm trusted publishing (OIDC): the job trades a short-lived
+# GitHub identity token for a publish credential, so there is no NPM_TOKEN to
+# store, rotate or leak. It needs a trusted publisher configured on npmjs.com
+# for this repository *and this filename* — renaming this file breaks publishing
+# until the publisher config is updated. See RELEASING.md.
+#
+# To cut a release: bump `packages/ramka/package.json`, land it on main, then
+# push a matching `vX.Y.Z` tag. Running the workflow by hand is a rehearsal —
+# it packs and validates, and never publishes.
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  # Runs on the Node version CI uses, so a release is verified by the same setup
+  # that verified the commit — the publish job below only builds and ships.
+  verify:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          # Needed to prove the tag is an ancestor of main.
+          fetch-depth: 0
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
+
+      - name: Setup Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # A tag whose name disagrees with the manifest publishes a version nobody
+      # can trace back, and npm has no undo: 1.2.0 can never mean anything else.
+      - name: Check the tag matches the package version
+        if: github.ref_type == 'tag'
+        run: |
+          tag_version="${GITHUB_REF_NAME#v}"
+          pkg_version="$(node -p "require('./packages/ramka/package.json').version")"
+          if [ "$tag_version" != "$pkg_version" ]; then
+            echo "::error::tag $GITHUB_REF_NAME says $tag_version, packages/ramka/package.json says $pkg_version"
+            exit 1
+          fi
+          echo "Releasing $pkg_version"
+
+      # Tags are cheap and can point anywhere. Requiring the commit to be on
+      # main keeps releases to code that went through review and CI.
+      - name: Check the tag is on main
+        if: github.ref_type == 'tag'
+        run: |
+          # Explicit refspec: a tag push leaves the clone without an origin/main
+          # to compare against.
+          git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "::error::$GITHUB_SHA is not an ancestor of origin/main"
+            exit 1
+          fi
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Test
+        run: pnpm test
+
+      - name: Validate the SBOM document
+        run: node scripts/generate-sbom.mjs --check
+
+  publish:
+    needs: verify
+    if: github.repository == 'arturbien/ramka'
+    runs-on: ubuntu-latest
+    permissions:
+      # Mints the OIDC token npm trades for a publish credential, and signs the
+      # provenance attestation.
+      id-token: write
+      # Creates the GitHub release the SBOM is attached to.
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
+
+      - name: Setup Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          # Trusted publishing needs Node >= 22.14 and npm >= 11.5.1. Nothing is
+          # built here that cares about the Node version; the suite ran on 20 in
+          # the job above.
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+          cache: pnpm
+
+      # An npm older than 11.5.1 does not know about trusted publishing: it
+      # looks for a token that was deliberately never created and fails with an
+      # authentication error that says nothing about the real cause.
+      - name: Check npm can do trusted publishing
+        run: |
+          npm install -g npm@^11
+          version="$(npm --version)"
+          echo "npm $version"
+          if [ "$(printf '%s\n11.5.1\n' "$version" | sort -V | head -1)" != "11.5.1" ]; then
+            echo "::error::npm $version cannot do trusted publishing (need >= 11.5.1)"
+            exit 1
+          fi
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build package
+        run: pnpm --filter @ramka/react build
+
+      # Written into the package directory so it ships in the tarball as well as
+      # on the release: a consumer who vendors the package from the registry
+      # should not have to come here to find out what is inside it.
+      - name: Generate SBOM
+        if: github.event_name == 'push'
+        run: node scripts/generate-sbom.mjs
+
+      # No NODE_AUTH_TOKEN: with none set, npm detects the OIDC environment and
+      # authenticates through the trusted publisher. Provenance is attached
+      # automatically, so `--provenance` is not passed.
+      - name: Publish to npm
+        if: github.event_name == 'push'
+        working-directory: packages/ramka
+        run: npm publish
+
+      # Manual runs stop here, having exercised everything except the publish
+      # itself. `pack` rather than `publish --dry-run` because packing is the
+      # part worth rehearsing — whether `files` puts the right things in the
+      # tarball — and it cannot be tripped up by provenance config.
+      - name: Rehearse the packaging
+        if: github.event_name != 'push'
+        working-directory: packages/ramka
+        run: npm pack --dry-run
+
+      # Closes the loop. Provenance being *configured* is not the same as the
+      # registry having recorded an attestation, and the difference is invisible
+      # until a customer runs the check for us.
+      - name: Verify the published provenance
+        if: github.event_name == 'push'
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          for attempt in 1 2 3; do
+            url="$(npm view "@ramka/react@${version}" dist.attestations.url 2>/dev/null || true)"
+            if [ -n "$url" ]; then
+              echo "Attestation recorded: $url"
+              exit 0
+            fi
+            echo "No attestation yet (attempt ${attempt}); the registry may still be catching up"
+            sleep 15
+          done
+          echo "::error::@ramka/react@${version} published without a provenance attestation"
+          exit 1
+
+      - name: Attach the SBOM to the release
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          sbom=packages/ramka/sbom.cdx.json
+          if gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" "$sbom" --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" "$sbom" --generate-notes
+          fi

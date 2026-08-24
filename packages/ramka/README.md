@@ -76,6 +76,23 @@ markup. Note that constructed stylesheets are adopted, so they cascade after you
 stylesheets; tune them through the documented `--lightbox-*` custom properties
 rather than by relying on source order.
 
+### Supply chain
+
+Every version is published from a GitHub Actions workflow using npm trusted
+publishing, so the tarball carries a signed provenance attestation naming the
+commit and the run that built it. Nobody can publish `@ramka/react` from a
+laptop, with or without a stolen token:
+
+```bash
+npm audit signatures
+```
+
+A CycloneDX SBOM ships inside the package as `sbom.cdx.json` and is attached to
+each GitHub release. It records the zero installed dependencies, the peer
+dependencies your app supplies, and the Base UI code adapted into `src/render/` —
+which a lockfile-reading scanner cannot see, because it was vendored precisely so
+it would not be a dependency. See [THIRD-PARTY-NOTICES.md](./THIRD-PARTY-NOTICES.md).
+
 Docs: run the [docs site](../../apps/docs) and open `/docs/lightbox` (overview → composition → view transitions → gestures → API). Live demos live under `/examples/lightbox/*`.
 
 API tables (props, data attributes, CSS variables) are generated from this package’s TypeScript + JSDoc — including the `*DataAttributes` / `*CssVars` enums. Usage code excerpts are extracted from typechecked sources under `apps/docs/app/_content/lightbox/excerpts/sources/`. After changing public APIs or excerpt sources, run `pnpm docs:api` and `pnpm docs:excerpts` from the repo root (CI fails if generated files are stale).

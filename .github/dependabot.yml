@@ -1,0 +1,65 @@
+version: 2
+
+updates:
+  # pnpm workspaces keep a single lockfile at the repository root, and Dependabot
+  # has to run from there. Adding entries for `/packages/*` or `/apps/*` makes it
+  # try to resolve inside a workspace member, which either errors out or opens a
+  # PR that edits a `package.json` without touching the lockfile.
+  # See https://github.com/dependabot/dependabot-core/pull/11487.
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: '06:00'
+      timezone: Europe/Warsaw
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+    # Most npm supply-chain attacks are a version published minutes ago from a
+    # hijacked maintainer account and unpublished once someone notices. Waiting
+    # lets that happen to somebody else. Cooldown does not apply to Dependabot
+    # security updates, so real vulnerability fixes still arrive immediately.
+    cooldown:
+      default-days: 7
+      semver-major-days: 30
+    groups:
+      # React and its types have to move together: a major bump to one without
+      # the other typechecks as garbage, and split PRs would each fail alone.
+      react:
+        patterns:
+          - react
+          - react-dom
+          - '@types/react'
+          - '@types/react-dom'
+      # Everything else in this repo is build/test tooling — the published
+      # package has no runtime dependencies — so minor and patch bumps are one
+      # PR that CI either passes or does not. Majors stay separate by default.
+      tooling:
+        patterns:
+          - '*'
+        exclude-patterns:
+          - react
+          - react-dom
+          - '@types/react'
+          - '@types/react-dom'
+        update-types:
+          - minor
+          - patch
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: '06:00'
+      timezone: Europe/Warsaw
+    open-pull-requests-limit: 5
+    labels:
+      - ci
+    cooldown:
+      default-days: 7
+    groups:
+      actions:
+        patterns:
+          - '*'

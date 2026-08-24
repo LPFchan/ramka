@@ -8,6 +8,10 @@ dist
 out
 .turbo
 
+# Generated at release time from the version being published, so a committed
+# copy could only ever be stale.
+sbom.cdx.json
+
 # Editor / OS
 .DS_Store
 .vscode

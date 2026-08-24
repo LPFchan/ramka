@@ -47,6 +47,11 @@ jobs:
       - name: Test
         run: pnpm test
 
+      # The SBOM ships with the release, so a generator that has drifted out of
+      # spec should fail here rather than at the moment of publishing.
+      - name: Check the SBOM document
+        run: pnpm sbom:check
+
   # `peerDependencies` claims react >= 18, so the oldest supported version has
   # to be exercised. It catches things React 19 hides: React 18 drops
   # `inert={true}`, its `useId()` values contain `:`, and @types/react 18 reads
