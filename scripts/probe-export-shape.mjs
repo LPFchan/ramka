@@ -22,17 +22,18 @@
 // The README documents that, and this pins it so we notice if esbuild ever
 // makes the caveat obsolete.
 
+// esbuild and rollup are root devDependencies, so these are plain specifiers.
+// They used to be absolute paths into pnpm's store with the version baked in,
+// which broke the moment anything bumped the installed version — including
+// Dependabot bumping esbuild itself.
+import * as esbuild from 'esbuild';
+import { rollup } from 'rollup';
 import { gzipSync } from 'node:zlib';
 import { writeFileSync, mkdirSync, rmSync, existsSync, statSync, readFileSync } from 'node:fs';
 import { join, dirname, resolve as resolvePath } from 'node:path';
-import { pathToFileURL } from 'node:url';
 
 const repoRoot = resolvePath(import.meta.dirname, '..');
 const FLAT = join(repoRoot, 'packages/ramka/dist/lightbox/lightbox.js');
-const dep = (rel) => pathToFileURL(join(repoRoot, 'node_modules/.pnpm', rel)).href;
-
-const esbuild = await import(dep('esbuild@0.28.1/node_modules/esbuild/lib/main.js'));
-const { rollup } = await import(dep('rollup@4.60.4/node_modules/rollup/dist/es/rollup.js'));
 
 const PARTS = ['Root', 'Trigger', 'Portal', 'Content', 'Item', 'Media'];
 

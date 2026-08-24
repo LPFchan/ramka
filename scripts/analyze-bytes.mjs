@@ -1,13 +1,7 @@
 // Bundles packages/ramka with esbuild (same externals as tsup) and reports
 // per-source-module byte contribution, split by eager vs lazily-loaded chunk.
+import * as esbuild from 'esbuild';
 import { gzipSync } from 'node:zlib';
-
-const esbuild = await import(
-  new URL(
-    './node_modules/.pnpm/esbuild@0.28.1/node_modules/esbuild/lib/main.js',
-    import.meta.url.replace(/scripts\/[^/]+$/, ''),
-  ).href
-);
 
 const result = await esbuild.build({
   entryPoints: ['packages/ramka/src/index.ts'],

@@ -1,13 +1,8 @@
 // Measures minified + gzipped size of each built ESM chunk in packages/ramka/dist.
+import { transform } from 'esbuild';
 import { readdirSync, readFileSync } from 'node:fs';
 import { gzipSync, brotliCompressSync } from 'node:zlib';
 import { join } from 'node:path';
-const { transform } = await import(
-  new URL(
-    './node_modules/.pnpm/esbuild@0.28.1/node_modules/esbuild/lib/main.js',
-    import.meta.url.replace(/scripts\/[^/]+$/, ''),
-  ).href
-);
 
 const dist = process.argv[2] ?? 'packages/ramka/dist';
 const files = readdirSync(dist)

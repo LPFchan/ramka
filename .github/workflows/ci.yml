@@ -146,6 +146,16 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # A version-pinned path into pnpm's store resolves fine until something
+      # bumps that version, and then the size job fails for a reason that has
+      # nothing to do with size. Import the toolchain by name instead.
+      - name: Guard against pinned toolchain paths
+        run: |
+          if grep -rn '\.pnpm/\(esbuild\|rollup\)@' scripts/; then
+            echo "::error::Import esbuild/rollup by bare specifier; they are root devDependencies."
+            exit 1
+          fi
+
       - name: Build head
         run: pnpm --filter @ramka/react build
 

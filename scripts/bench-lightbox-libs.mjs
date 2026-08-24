@@ -45,11 +45,9 @@ const RAMKA_ENTRIES = {
   'ramka/lightbox': join(repoRoot, 'packages/ramka/dist/lightbox/lightbox.js'),
 };
 
-const esbuild = await import(
-  pathToFileURL(
-    join(repoRoot, 'node_modules/.pnpm/esbuild@0.28.1/node_modules/esbuild/lib/main.js'),
-  ).href
-);
+// rollup and the resolve plugin come from the bench directory, alongside the
+// competitors they have to resolve. esbuild is a root devDependency.
+const esbuild = await import('esbuild');
 const { rollup } = await import(pathToFileURL(join(MODULES, 'rollup/dist/es/rollup.js')).href);
 const nodeResolve = (
   await import(pathToFileURL(join(MODULES, '@rollup/plugin-node-resolve/dist/es/index.js')).href)
