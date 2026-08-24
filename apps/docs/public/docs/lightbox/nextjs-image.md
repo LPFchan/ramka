@@ -2,6 +2,8 @@
 
 Use `next/image` with Ramka. Lightbox-side blur depends on whether that item has a trigger image. Part of [Lightbox](docs/lightbox.md).
 
+The demos on this page intentionally delay every full-size lightbox image by ~500ms and bypass the browser cache on each open, so you can watch the placeholder mechanisms work on every open — no DevTools throttling needed.
+
 ## When to use blurDataURL
 
 Decide **per item index**, not per gallery. Ramka paints an open bridge only when that index has a registered trigger image (`imageRef`).

@@ -392,6 +392,8 @@ Items register on mount. The root `itemCount` is derived from registered items �
 
 Use `next/image` with Ramka. Lightbox-side blur depends on whether that item has a trigger image. Part of [Lightbox](docs/lightbox.md).
 
+The demos on this page intentionally delay every full-size lightbox image by ~500ms and bypass the browser cache on each open, so you can watch the placeholder mechanisms work on every open — no DevTools throttling needed.
+
 ## When to use blurDataURL
 
 Decide **per item index**, not per gallery. Ramka paints an open bridge only when that index has a registered trigger image (`imageRef`).
@@ -617,6 +619,8 @@ import * as Lightbox from '@ramka/react/lightbox';
 The morph snapshots whatever pixels are on the trigger `<img>` and interpolates them into the destination Media box. That only looks like one photo when both sides share the *same intrinsic aspect ratio* — the same file, or srcset candidates of that file. A square tile is fine; crop it with CSS ( `object-fit: cover`), not by baking `w=h&fit=crop` into a different image.
 
 A CDN-cropped 1∶1 thumb against a 3∶2 lightbox image will reframe mid-animation: Ramka paints the square thumb into the landscape box, then the full file lands with a different crop. Element boxes may differ. Intrinsic aspect must not.
+
+These demos delay the lightbox image by ~500ms so the handoff is visible on every open.
 
 ```tsx Do — same source aspect
 import * as Lightbox from '@ramka/react/lightbox';

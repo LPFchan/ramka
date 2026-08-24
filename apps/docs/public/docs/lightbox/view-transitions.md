@@ -42,6 +42,8 @@ The morph snapshots whatever pixels are on the trigger `<img>` and interpolates 
 
 A CDN-cropped 1∶1 thumb against a 3∶2 lightbox image will reframe mid-animation: Ramka paints the square thumb into the landscape box, then the full file lands with a different crop. Element boxes may differ. Intrinsic aspect must not.
 
+These demos delay the lightbox image by ~500ms so the handoff is visible on every open.
+
 ```tsx Do — same source aspect
 import * as Lightbox from '@ramka/react/lightbox';
 

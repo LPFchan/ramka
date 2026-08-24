@@ -8,10 +8,8 @@ import { LightboxGallery, triggerFocusClass } from '../../../_components/lightbo
 import { xfadeA, xfadeASquare } from './images.generated';
 
 const LOAD_DELAY_MS = 500;
-const USE_SLOW_PROXY = process.env.NEXT_PUBLIC_GITHUB_PAGES !== 'true';
 
 function slowSrc(photo: StaticImageData, nonce: string) {
-  if (!USE_SLOW_PROXY) return photo.src;
   return `/api/slow-image?ms=${LOAD_DELAY_MS}&url=${encodeURIComponent(photo.src)}&n=${encodeURIComponent(nonce)}`;
 }
 
