@@ -86,11 +86,9 @@ export default function LightboxViewTransitionsPage() {
           paints the square thumb into the landscape box, then the full file lands with a different
           crop. Element boxes may differ. Intrinsic aspect must not.
         </p>
-        {process.env.NEXT_PUBLIC_GITHUB_PAGES !== 'true' ? (
-          <p>
-            These demos delay the lightbox image by ~500ms so the handoff is visible on every open.
-          </p>
-        ) : null}
+        <p>
+          These demos delay the lightbox image by ~500ms so the handoff is visible on every open.
+        </p>
         <DocsDemo
           code={lightboxExcerpts['morph-aspect-do'].code}
           title={lightboxExcerpts['morph-aspect-do'].title}

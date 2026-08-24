@@ -32,13 +32,11 @@ export default function LightboxNextjsImagePage() {
       }
       toc={toc}
     >
-      {process.env.NEXT_PUBLIC_GITHUB_PAGES !== 'true' ? (
-        <div className="rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-3 text-sm text-neutral-700 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300">
-          The demos on this page intentionally delay every full-size lightbox image by ~500ms and
-          bypass the browser cache on each open, so you can watch the placeholder mechanisms work
-          on every open — no DevTools throttling needed.
-        </div>
-      ) : null}
+      <div className="rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-3 text-sm text-neutral-700 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300">
+        The demos on this page intentionally delay every full-size lightbox image by ~500ms and
+        bypass the browser cache on each open, so you can watch the placeholder mechanisms work on
+        every open — no DevTools throttling needed.
+      </div>
 
       <DocsSection id="rule" title="When to use blurDataURL">
         <p>
