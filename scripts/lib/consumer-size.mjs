@@ -4,16 +4,17 @@
 // size-report.mjs diffs two builds for the PR comment. The scenario list lives
 // here so those two can never drift — and because the minimal-composition debug
 // page quotes these numbers in its prose.
+// esbuild and rollup are root devDependencies rather than transitive finds, so
+// these are plain specifiers. They used to be absolute paths into pnpm's store
+// with the version baked in, which broke the moment anything bumped the version
+// that happened to be installed.
+import * as esbuild from 'esbuild';
+import { rollup } from 'rollup';
 import { gzipSync } from 'node:zlib';
 import { writeFileSync, mkdirSync, existsSync, statSync } from 'node:fs';
 import { join, dirname, basename, isAbsolute, resolve as resolvePath } from 'node:path';
-import { pathToFileURL } from 'node:url';
 
 export const repoRoot = resolvePath(import.meta.dirname, '../..');
-
-const dep = (rel) => pathToFileURL(join(repoRoot, 'node_modules/.pnpm', rel)).href;
-const esbuild = await import(dep('esbuild@0.28.1/node_modules/esbuild/lib/main.js'));
-const { rollup } = await import(dep('rollup@4.60.4/node_modules/rollup/dist/es/rollup.js'));
 
 export const SCENARIOS = {
   everything: `import * as Lightbox from 'LIB'; export default Object.values(Lightbox);`,

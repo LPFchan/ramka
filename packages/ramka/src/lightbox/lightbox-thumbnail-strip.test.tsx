@@ -345,7 +345,7 @@ describe('Lightbox.ThumbnailStrip', () => {
     setupThumbnailStripRoot(root);
     setupThumbGeometry(track, 5);
 
-    const link = linkCalls.at(-1);
+    const link = linkCalls[linkCalls.length - 1];
     expect(link).toBeTruthy();
     expect(link!.target).toBe(track);
     expect(link!.timeline.source).toBe(slides);
@@ -393,7 +393,7 @@ describe('Lightbox.ThumbnailStrip', () => {
     setupThumbGeometry(track, 5);
     endScroll(slides);
 
-    const link = linkCalls.at(-1);
+    const link = linkCalls[linkCalls.length - 1];
     expect(link).toBeTruthy();
     const linksBefore = linkCalls.length;
 
@@ -461,7 +461,7 @@ describe('Lightbox.ThumbnailStrip', () => {
     setupThumbGeometry(track, 5);
     endScroll(slides);
 
-    const link = linkCalls.at(-1);
+    const link = linkCalls[linkCalls.length - 1];
     expect(link).toBeTruthy();
 
     vi.spyOn(window, 'getComputedStyle').mockReturnValue({

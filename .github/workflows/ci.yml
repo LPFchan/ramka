@@ -221,7 +221,7 @@ jobs:
       - name: Fail on a structural regression
         if: steps.report.outcome == 'failure'
         run: |
-          echo 'The size report failed — most likely the export-shape guard. See the comment on the PR.'
+          echo 'The size report failed: either the export-shape guard tripped, or the measurement itself did not run. Check the Measure step log and the comment on the PR.'
           exit 1
 
   preview:
