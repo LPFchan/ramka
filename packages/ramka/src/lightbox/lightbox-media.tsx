@@ -6,6 +6,10 @@ import * as React from 'react';
 
 import { LightboxMediaDataAttributes } from './lightbox-data-attributes';
 import { useOptionalLightboxItemContext } from './lightbox-item';
+import { insertLibrarySheet } from './lightbox-style-sheets';
+
+/** Only used by the <style> fallback in environments without CSSOM sheets. */
+const MEDIA_FILL_MARKER = 'data-ramka-media-fill';
 
 /**
  * Context published by `Lightbox.Media` for descendants / advanced wrappers.
@@ -71,11 +75,14 @@ function escapeCssIdent(value: string): string {
 
 /**
  * Structural fill for a direct media child. HTML `width`/`height` are
- * presentational hints that defeat Grid stretch; this author rule wins on
- * first paint (including SSR) without cloning children.
+ * presentational hints that defeat Grid stretch; this author rule beats them
+ * without cloning children.
  *
  * `min-width/min-height: 0` overrides Grid’s default `min-*: auto` so a broken
  * WebKit `<img>` (square content minimum) cannot overflow the fit-box.
+ *
+ * Scoped by id rather than `[data-ramka-media]` so consumer CSS cannot
+ * accidentally outrank it and collapse the fit-box.
  */
 function mediaChildFillCss(mediaId: string): string {
   const id = escapeCssIdent(mediaId);
@@ -268,7 +275,17 @@ const LightboxMedia = React.forwardRef<HTMLDivElement, LightboxMediaProps>(
       return next;
     }, [hasFitBox, height, width]);
 
-    const fillStyle = mediaChildFillCss(mediaId);
+    // Rendering these rules as a <style> child would be markup, which a strict
+    // `style-src` refuses — and the fill is load-bearing, so the media would
+    // size to its intrinsic dimensions instead of the fit-box. Insertion-effect
+    // timing lands the rules before any layout effect measures. Under Portal
+    // (the documented placement) there is no server output at all, so nothing
+    // can paint without them; Media rendered inline on a server-rendered page
+    // would paint once unfilled before hydration.
+    React.useInsertionEffect(() => {
+      const sheet = insertLibrarySheet(mediaChildFillCss(mediaId), MEDIA_FILL_MARKER);
+      return () => sheet.release();
+    }, [mediaId]);
 
     const rendered = useRender({
       render,
@@ -291,14 +308,7 @@ const LightboxMedia = React.forwardRef<HTMLDivElement, LightboxMediaProps>(
           },
         } as React.ComponentPropsWithRef<'div'>,
         elementProps as React.ComponentPropsWithRef<'div'>,
-        {
-          children: (
-            <>
-              <style>{fillStyle}</style>
-              {children}
-            </>
-          ),
-        } as React.ComponentPropsWithRef<'div'>,
+        { children } as React.ComponentPropsWithRef<'div'>,
       ),
       defaultTagName: 'div',
     });

@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { LightboxDocumentCssVars } from './lightbox-css-vars';
 import { LightboxDocumentDataAttributes } from './lightbox-data-attributes';
+import { stubConstructedSheets } from './lightbox-style-sheets-test-utils';
 
 /**
  * The composited morph is the morph ramka ships, and every browser that cannot
@@ -570,6 +571,31 @@ describe('composited morph — WebKit CSS path', () => {
     expect(nameOf(first)).toBeDefined();
     expect(nameOf(second)).toBeDefined();
     expect(nameOf(first)).not.toBe(nameOf(second));
+  });
+
+  it('adopts the per-transition keyframes in a browser, and releases them on teardown', async () => {
+    // The generated keyframes are computed per open, so no CSP hash allowlist
+    // could ever cover them — they have to stay out of the document entirely.
+    const stub = stubConstructedSheets();
+    try {
+      const { transition, finish } = fakeTransition();
+
+      const upgrade = await loadUpgrade();
+      upgrade(transition);
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(document.querySelectorAll('style')).toHaveLength(0);
+      expect(stub.adoptedCss().join('')).toContain('@keyframes ramka-vtg-');
+
+      await finish();
+
+      expect(stub.adoptedCss()).toHaveLength(0);
+      expect(document.documentElement.hasAttribute(COMPOSITED_CSS_ATTR)).toBe(false);
+    } finally {
+      stub.restore();
+    }
   });
 
   it('removes its per-transition stylesheet on teardown', async () => {

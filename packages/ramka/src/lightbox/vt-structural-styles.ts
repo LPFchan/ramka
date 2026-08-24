@@ -6,6 +6,7 @@ import {
   LightboxTriggerDataAttributes,
 } from './lightbox-data-attributes';
 import { VIEW_TRANSITION_PRESETS } from './vt-timing';
+import { ensureLibrarySheet } from './vt-style-sheets';
 
 // ---------------------------------------------------------------------------
 // Injected structural view-transition styles.
@@ -16,10 +17,12 @@ import { VIEW_TRANSITION_PRESETS } from './vt-timing';
 // read the library-written vars (`--lightbox-vt-*`, `data-ramka-vt-preset`)
 // for their own fades.
 //
-// Override story: the <style> element is PREPENDED to <head>, so any consumer
-// stylesheet loads after it and wins ties by source order (or trivially by
-// specificity). The lone exception is the isolation rule's `!important`, which
-// is load-bearing (see below) and should not be casually beaten.
+// Override story: skins tune this through the `--lightbox-vt-*` custom
+// properties every rule below reads, which works no matter where this sheet
+// sits in the cascade. Overriding a rule outright needs higher specificity or
+// `!important`, since the sheet is adopted and so sorts after consumer CSS —
+// see lightbox-style-sheets.ts. The isolation rule's `!important` is load-bearing
+// (see below) and should not be beaten at all.
 // ---------------------------------------------------------------------------
 
 const STYLE_MARKER = 'data-ramka-lightbox-vt-styles';
@@ -172,23 +175,19 @@ function buildCss(): string {
 }
 
 /**
- * Inject the structural view-transition stylesheet once per document.
+ * Add the structural view-transition stylesheet once per document.
  *
- * Called from `Lightbox.Root` on mount (client only — safe under SSR). The
- * <style> element is inserted at the START of <head> so every consumer
- * stylesheet cascades after it: overriding any injected default takes an
- * ordinary CSS rule of equal specificity, no `!important` fights.
+ * Called when the morph engine starts a transition (client only — safe under
+ * SSR). Delivered as a constructed stylesheet so it survives a strict CSP; see
+ * vt-style-sheets.ts for what that costs in cascade order.
  *
  * All selectors are gated behind transition-time attributes or lightbox part
- * markers, so injection timing can never flash unstyled content.
+ * markers, so timing can never flash unstyled content.
  */
 function ensureVtStructuralStyles(): void {
-  if (typeof document === 'undefined') return;
-  if (document.head.querySelector(`style[${STYLE_MARKER}]`)) return;
-  const style = document.createElement('style');
-  style.setAttribute(STYLE_MARKER, '');
-  style.textContent = buildCss();
-  document.head.insertBefore(style, document.head.firstChild);
+  // Prepend only applies to the <style> fallback; an adopted sheet always
+  // sorts last regardless.
+  ensureLibrarySheet(STYLE_MARKER, buildCss, true);
 }
 
 export { ensureVtStructuralStyles };
