@@ -4,6 +4,7 @@ import * as React from 'react';
 
 import type { LightboxCloseOptions, NavigationSource } from './lightbox-context';
 import type { ActiveZoomControls } from './lightbox-zoom-context';
+import type { InitializedRef } from './react-compat';
 
 interface UseContentKeyboardOptions {
   mounted: boolean;
@@ -21,7 +22,7 @@ interface UseContentKeyboardOptions {
    * zoom) — applying a zoom animation mid-swipe aborts compositor scrolling
    * without `scrollend` and freezes pull/pinch/thumbs.
    */
-  isScrollingRef?: React.RefObject<boolean>;
+  isScrollingRef?: InitializedRef<boolean>;
 }
 
 /**

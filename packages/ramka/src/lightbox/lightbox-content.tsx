@@ -13,6 +13,7 @@ import {
   loadPullRuntime,
   type PullRuntime,
 } from './lightbox-pull-loader';
+import { inertWhen } from './react-compat';
 import { useContentKeyboard } from './use-content-keyboard';
 import { useNativePinchGuard } from './use-native-pinch-guard';
 import { useTouchScrollContainment } from './use-touch-scroll-containment';
@@ -334,7 +335,7 @@ const LightboxContent = React.forwardRef<HTMLDivElement, LightboxContentProps>(
         'aria-modal': parked ? undefined : 'true',
         'aria-hidden': parked ? true : undefined,
         // Parked keepMounted content must not steal clicks/focus from the page.
-        inert: parked || undefined,
+        ...inertWhen(parked),
         className,
         // Establish a scroll-containment boundary. `overflow: hidden` makes
         // the content a scroll container that is permanently at its scroll

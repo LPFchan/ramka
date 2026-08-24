@@ -8,6 +8,7 @@ import { LightboxItemDataAttributes } from './lightbox-data-attributes';
 import { useLightboxContext } from './lightbox-context';
 import { tryPaintCanvasPlaceholder } from './lightbox-placeholder';
 import { useSlidesPreload } from './lightbox-slides';
+import { inertWhen } from './react-compat';
 
 interface LightboxItemState extends Record<string, unknown> {
   active: boolean;
@@ -490,7 +491,7 @@ const LightboxItem = React.forwardRef<HTMLDivElement, LightboxItemProps>(
           // the tab order) so a screen reader never reads an off-screen slide,
           // and the active one is exposed. `inert` also blocks pointer/focus.
           'aria-hidden': !isActive,
-          inert: !isActive ? true : undefined,
+          ...inertWhen(!isActive),
           style: {
             // Fill the Slide so Zoom’s 100% has a definite box.
             width: '100%',

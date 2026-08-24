@@ -14,7 +14,9 @@ pnpm add @ramka/react
 yarn add @ramka/react
 ```
 
-`react` and `react-dom` (>= 18) are peer dependencies.
+`react` and `react-dom` (>= 18) are peer dependencies. CI runs the full suite,
+the typecheck and the build against React 18.3 as well as React 19, so the floor
+is a tested claim rather than an aspiration.
 
 ## Usage
 

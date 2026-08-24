@@ -18,7 +18,12 @@ import { LightboxCounter } from './lightbox-counter';
 import { LightboxPortal } from './lightbox-portal';
 import { LightboxItem } from './lightbox-item';
 import { LightboxNext } from './lightbox-next';
-import { installSlidesLayoutMocks, resetSlidesLayoutMocks, SlidesHost } from './lightbox-slides-test-utils';
+import {
+  installSlidesLayoutMocks,
+  resetSlidesLayoutMocks,
+  SlidesHost,
+  type ZoomRefObject,
+} from './lightbox-slides-test-utils';
 import { LightboxPrevious } from './lightbox-previous';
 import { createHandle } from './lightbox-handle';
 import { LightboxRoot } from './lightbox-root';
@@ -1060,6 +1065,30 @@ describe('Lightbox', () => {
       // focusable inside a slide, focus never lives there and `inert` on a
       // deactivated slide can never eject focus to <body>.
       expect(screen.getByTestId('item-0').querySelector('[tabindex]')).toBeNull();
+    });
+
+    it('marks inactive slides inert and exposes only the active one', () => {
+      render(
+        <LightboxRoot defaultOpen defaultValue={0}>
+          <LightboxPortal>
+            <LightboxContent data-testid="content" aria-label="Inert slide test">
+              <SlidesHost>
+                <LightboxItem index={0} data-testid="item-0">
+                  <img src="a.jpg" alt="a" />
+                </LightboxItem>
+                <LightboxItem index={1} data-testid="item-1">
+                  <img src="b.jpg" alt="b" />
+                </LightboxItem>
+              </SlidesHost>
+            </LightboxContent>
+          </LightboxPortal>
+        </LightboxRoot>,
+      );
+
+      // The `inert` prop has to survive both React 18 and 19, which express it
+      // differently — assert the attribute actually reached the DOM.
+      expect(screen.getByTestId('item-0')).not.toHaveAttribute('inert');
+      expect(screen.getByTestId('item-1')).toHaveAttribute('inert');
     });
 
     it('pulls focus back into the dialog if it escapes (e.g. a focusable control inside an inert slide)', async () => {
@@ -4504,7 +4533,7 @@ describe('Lightbox', () => {
           }
         }
 
-        function renderZoomPan(ref: React.RefObject<LightboxZoomRef | null>) {
+        function renderZoomPan(ref: ZoomRefObject<LightboxZoomRef>) {
           const panRef = { current: null as OverscrollPan | null };
           render(
             <LightboxRoot defaultOpen>
@@ -5832,7 +5861,7 @@ describe('Lightbox', () => {
       refs,
       maxZoom = 4,
     }: {
-      refs?: Array<React.RefObject<LightboxZoomRef | null>>;
+      refs?: Array<ZoomRefObject<LightboxZoomRef>>;
       maxZoom?: number;
     } = {}) {
       return (
@@ -6023,7 +6052,7 @@ describe('Lightbox', () => {
       pullToClose,
       withZoom,
       zoomRef,
-    }: { pullToClose?: boolean; withZoom?: boolean; zoomRef?: React.RefObject<LightboxZoomRef | null> } = {}) {
+    }: { pullToClose?: boolean; withZoom?: boolean; zoomRef?: ZoomRefObject<LightboxZoomRef> } = {}) {
       return (
         <LightboxRoot defaultOpen>
           <LightboxPortal>
@@ -6915,7 +6944,7 @@ describe('Lightbox', () => {
     function StageZoomLightbox({
       zoomRef,
     }: {
-      zoomRef: React.RefObject<LightboxZoomRef | null>;
+      zoomRef: ZoomRefObject<LightboxZoomRef>;
     }) {
       return (
         <LightboxRoot defaultOpen>

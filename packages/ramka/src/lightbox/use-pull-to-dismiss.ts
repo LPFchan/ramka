@@ -12,6 +12,7 @@ import {
   wheelAxis,
 } from './pull-math';
 import { LightboxContentCssVars } from './lightbox-css-vars';
+import type { InitializedRef } from './react-compat';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -132,7 +133,7 @@ interface PullToDismissOptions {
    * Stays `false` for non-`Slides` lightboxes, so their pull-to-dismiss is
    * never gated.
    */
-  isScrollingRef?: React.RefObject<boolean>;
+  isScrollingRef?: InitializedRef<boolean>;
 }
 
 // ---------------------------------------------------------------------------

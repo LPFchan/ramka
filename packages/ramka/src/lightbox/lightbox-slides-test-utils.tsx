@@ -14,6 +14,14 @@ import { LightboxSlides } from './lightbox-slides';
 
 export const SLIDE_TEST_WIDTH = 100;
 
+/**
+ * A ref object a fixture can both pass to `ref` and read `.current` from under
+ * either React version. `React.RefObject<T | null>` cannot: @types/react 18
+ * compares it to the `ref` prop's `RefObject<T>` by variance and rejects it,
+ * while 19 needs the `| null`. A structural shape satisfies both.
+ */
+export type ZoomRefObject<T = unknown> = { current: T | null };
+
 const roInstances = new Set<{ cb: ResizeObserverCallback }>();
 
 let rafSeq = 0;

@@ -22,6 +22,7 @@ import {
   fireResizeObservers,
   setupGeometry,
   swipeTo,
+  type ZoomRefObject,
 } from './lightbox-slides-test-utils';
 
 beforeEach(() => {
@@ -535,7 +536,7 @@ describe('Lightbox.Slides', () => {
     }: {
       withZoom?: boolean;
       withButtons?: boolean;
-      zoomRef?: React.RefObject<LightboxZoomRef | null>;
+      zoomRef?: ZoomRefObject<LightboxZoomRef>;
       observedIndex?: number;
       itemCount?: number;
     } = {}) {
