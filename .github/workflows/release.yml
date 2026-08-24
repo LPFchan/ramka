@@ -113,7 +113,12 @@ jobs:
           # the job above.
           node-version: 24
           registry-url: https://registry.npmjs.org
-          cache: pnpm
+          # No dependency cache in the job that publishes. A restored cache is
+          # writable by any workflow on the repo, so a poisoned entry would end
+          # up inside the tarball this job signs — and the provenance would
+          # faithfully attest to it. The verify job above caches freely; here the
+          # cold install costs seconds, once per release.
+          package-manager-cache: false
 
       # An npm older than 11.5.1 does not know about trusted publishing: it
       # looks for a token that was deliberately never created and fails with an
