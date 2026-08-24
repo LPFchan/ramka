@@ -9,7 +9,7 @@ pnpm docs:excerpts:check    # CI
 
 ## JSX / TS sources
 
-Create `sources/my-snippet.tsx` that typechecks against `ramka`, then tag:
+Create `sources/my-snippet.tsx` that typechecks against `@ramka/react`, then tag:
 
 ```tsx
 /**

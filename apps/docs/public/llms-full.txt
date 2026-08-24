@@ -11,7 +11,7 @@ Unstyled, accessible lightbox primitives for React — in the style of Radix UI 
 ## Installation
 
 ```bash
-pnpm add ramka
+pnpm add @ramka/react
 ```
 
 Peer dependencies: `react` and `react-dom` >= 18.
@@ -19,7 +19,7 @@ Peer dependencies: `react` and `react-dom` >= 18.
 ## Quick start
 
 ```tsx App.tsx
-import * as Lightbox from 'ramka/lightbox';
+import * as Lightbox from '@ramka/react/lightbox';
 
 <Lightbox.Root>
   {items.map((item, i) => (
@@ -79,7 +79,7 @@ Work through these decisions in order:
 Import the namespace and compose parts. The sketch below is the default gallery shape (Slides + Zoom + chrome). Every part is optional except Root for state.
 
 ```tsx Anatomy
-import * as Lightbox from 'ramka/lightbox';
+import * as Lightbox from '@ramka/react/lightbox';
 
 <Lightbox.Root>
   <Lightbox.Trigger index={0}>{/* thumb */}</Lightbox.Trigger>
@@ -127,7 +127,7 @@ Control open state and the active index from React, `createHandle()`, or both �
 Pass `open` / `onOpenChange` and `value` / `onValueChange` on [Root](docs/lightbox/api.md#api-root) to drive the lightbox from URL params, a store, or sibling UI. Omit them for uncontrolled defaults ( `defaultOpen` / `defaultValue`).
 
 ```tsx Controlled open + value
-import * as Lightbox from 'ramka/lightbox';
+import * as Lightbox from '@ramka/react/lightbox';
 
 <Lightbox.Root open={open} onOpenChange={setOpen} value={value} onValueChange={setValue}>
   {/* triggers + content */}
@@ -139,7 +139,7 @@ import * as Lightbox from 'ramka/lightbox';
 [Lightbox.createHandle()](docs/lightbox/api.md#api-create-handle) lets Triggers and Root live apart — pass the same handle to both. Call `open(index, { triggerId })` from any button so the open still morphs from the matching [Trigger](docs/lightbox/api.md#api-trigger).
 
 ```tsx createHandle
-import * as Lightbox from 'ramka/lightbox';
+import * as Lightbox from '@ramka/react/lightbox';
 
 const lightbox = Lightbox.createHandle();
 
@@ -183,7 +183,7 @@ const lightbox = Lightbox.createHandle();
 `onOpenChange` fires immediately when open flips — use it to sync URL or external state. `onOpenChangeComplete` fires after enter/exit motion settles — use it for cleanup and focus. `onValueChange` reports the new index plus a [NavigationSource](docs/lightbox/api.md#types) (including `imperative` for handle navigation).
 
 ```tsx Lifecycle callbacks
-import * as Lightbox from 'ramka/lightbox';
+import * as Lightbox from '@ramka/react/lightbox';
 
 <Lightbox.Root
   onOpenChange={(open) => {
@@ -227,7 +227,7 @@ Prefer [Slides](docs/lightbox/api.md#api-slides) + [Slide](docs/lightbox/api.md#
 - Item render-prop `active` is the current index (drive expensive work here). `visible` means the item is in the preload window — use it for lightweight prefetch, not video autoplay.
 
 ```tsx Slides + Slide nesting
-import * as Lightbox from 'ramka/lightbox';
+import * as Lightbox from '@ramka/react/lightbox';
 
 <Lightbox.Root>
   <Lightbox.Portal>
@@ -280,7 +280,7 @@ Set HTML `width` and `height` on the destination `<img>` (from known pixel dims 
 To fill the maximum available space without distorting the source aspect ratio, nest Media under [Lightbox.Zoom](docs/lightbox/api.md#api-zoom) (a size container for `cqw` /`cqh`) and pass `width` /`height` to [Lightbox.Media](docs/lightbox/api.md#api-media). Media applies the inscribed fit-box ( `min(100cqw, 100cqh × w/h)` + `aspect-ratio: w / h`). Or put HTML `width` / `height` on the child image and omit the Media props — Media derives the box. When the box matches the source aspect, child `object-fit` is a no-op and Media’s grid stretch fills the box (no `size-full` needed on a direct media child). Put border-radius on Media (morph target). Leave chrome outside Media. Resting insets belong on Slide padding / safe-area so zoomed media can paint into that padding under chrome.
 
 ```tsx Media fill + fit-box
-import * as Lightbox from 'ramka/lightbox';
+import * as Lightbox from '@ramka/react/lightbox';
 
 <Lightbox.Root>
   <Lightbox.Portal>
@@ -340,7 +340,7 @@ Live examples: [Twitter preset](presets/twitter.md), [Stories preset](presets/st
 The site default viewer is Slides + Zoom with Counter (top-left), Close / ZoomIn / ZoomOut, Caption, and a desktop [ThumbnailStrip](docs/lightbox/api.md#api-thumbnail-strip) (scroll-linked midline track) as siblings inside [Content](docs/lightbox/api.md#api-content). Midline selection chrome is plain consumer markup on the strip root. Prefer [ThumbnailGroup](docs/lightbox/api.md#api-thumbnail-group) when you want a static tablist without scroll-linking. Thumbnails register by `index` like Triggers. Put Backdrop and Content in [Portal](docs/lightbox/api.md#api-portal). Stacking follows Base UI: `isolation: isolate` on the app layout root, and — when using `keepMounted` — a consumer `z-index` on the Portal host (e.g. `className="relative z-[1]"`). Inside the portal, document order keeps Backdrop under Content.
 
 ```tsx Chrome composition
-import * as Lightbox from 'ramka/lightbox';
+import * as Lightbox from '@ramka/react/lightbox';
 
 <Lightbox.Root>
   <Lightbox.Portal>
@@ -407,7 +407,7 @@ Decide **per item index**, not per gallery. Ramka paints an open bridge only whe
 Static-import the same asset for trigger and destination (Next fills in `blurDataURL`). Blur the trigger; leave the destination clean. Square trigger crop is CSS only — keep source aspect matched to Media. See [View transitions → Source aspect](docs/lightbox/view-transitions.md#source-aspect) for a live Do / Don't.
 
 ```tsx Do — blur on trigger only
-import * as Lightbox from 'ramka/lightbox';
+import * as Lightbox from '@ramka/react/lightbox';
 
 <Lightbox.Root>
   <Lightbox.Trigger index={0}>
@@ -452,7 +452,7 @@ import * as Lightbox from 'ramka/lightbox';
 `placeholder="blur"` on a lightbox image whose index has a trigger image covers Ramka’s bridge with Next’s LQIP while the full image loads.
 
 ```tsx Don’t — blur on lightbox Image
-import * as Lightbox from 'ramka/lightbox';
+import * as Lightbox from '@ramka/react/lightbox';
 
 <Lightbox.Root>
   <Lightbox.Trigger index={0}>
@@ -496,7 +496,7 @@ If an index has no trigger `imageRef`, Ramka has nothing to paint. Use destinati
 Open the +N tile, then swipe past the triggered photos. Overflow slides show Next’s LQIP; indexes 0–1 stay on Ramka’s trigger-image bridge. Close uses [morphTo="closest"](docs/lightbox/view-transitions.md#morph-to).
 
 ```tsx Destination blur for +N extras
-import * as Lightbox from 'ramka/lightbox';
+import * as Lightbox from '@ramka/react/lightbox';
 
 <Lightbox.Root morphTo="closest">
   {photos.slice(0, visible).map((photo, i) => (
@@ -538,7 +538,7 @@ import * as Lightbox from 'ramka/lightbox';
 Initials / swatches have a Trigger but no trigger image. Blur on the lightbox image is the loading placeholder.
 
 ```tsx Destination blur for non-image triggers
-import * as Lightbox from 'ramka/lightbox';
+import * as Lightbox from '@ramka/react/lightbox';
 
 <Lightbox.Root>
   <Lightbox.Trigger index={0} crossfade="both">
@@ -588,7 +588,7 @@ Morph is on by default (`viewTransition` on [Root](docs/lightbox/api.md#api-root
 Nested wrappers can use [useLightboxTriggerContext](docs/lightbox/api.md#api-use-trigger-context) / [useLightboxItemContext](docs/lightbox/api.md#api-use-item-context) instead of threading the render prop. Use `awaitImageDecode` on [Root](docs/lightbox/api.md#api-root) when you want a short wait for the destination image before the morph starts (default ~200ms cap).
 
 ```tsx Minimal morph
-import * as Lightbox from 'ramka/lightbox';
+import * as Lightbox from '@ramka/react/lightbox';
 
 <Lightbox.Root morphTo="active">
   <Lightbox.Trigger index={0}>{({ imageRef }) => <img ref={imageRef} src={thumb} alt="" />}</Lightbox.Trigger>
@@ -619,7 +619,7 @@ The morph snapshots whatever pixels are on the trigger `<img>` and interpolates 
 A CDN-cropped 1∶1 thumb against a 3∶2 lightbox image will reframe mid-animation: Ramka paints the square thumb into the landscape box, then the full file lands with a different crop. Element boxes may differ. Intrinsic aspect must not.
 
 ```tsx Do — same source aspect
-import * as Lightbox from 'ramka/lightbox';
+import * as Lightbox from '@ramka/react/lightbox';
 
 <Lightbox.Root>
   <Lightbox.Trigger index={0}>
@@ -654,7 +654,7 @@ import * as Lightbox from 'ramka/lightbox';
 ```
 
 ```tsx Don’t — baked square crop
-import * as Lightbox from 'ramka/lightbox';
+import * as Lightbox from '@ramka/react/lightbox';
 
 <Lightbox.Root>
   <Lightbox.Trigger index={0}>
@@ -694,7 +694,7 @@ Controls whether the morph *dissolves* between trigger and item snapshots or har
 Keep trigger and item images on `object-fit: cover` (or the same fit) so crops stay coherent. Put border-radius on the morph target itself — the library interpolates `--lightbox-morph-border-radius-from/to` on `<html>`.
 
 ```tsx crossfade="both"
-import * as Lightbox from 'ramka/lightbox';
+import * as Lightbox from '@ramka/react/lightbox';
 
 <Lightbox.Root morphTo="closest">
   <Lightbox.Trigger index={0} crossfade="both">
@@ -729,7 +729,7 @@ Picks which trigger receives the *close* morph:
 - `closest` — active index if registered, otherwise the nearest registered trigger.
 
 ```tsx morphTo="closest"
-import * as Lightbox from 'ramka/lightbox';
+import * as Lightbox from '@ramka/react/lightbox';
 
 <Lightbox.Root morphTo="closest">
   <Lightbox.Trigger index={0}>{/* first thumb */}</Lightbox.Trigger>
@@ -765,7 +765,7 @@ When the page scrolls while the lightbox is open, the close morph can land off-s
 Pass one option or an array. Each option also accepts `block` / `inline` alignment (defaults `nearest`) — use `inline: 'center'` for horizontal snap strips with variable-width tiles. Pair with `morphTo` so the scrolled element is the same one that receives the morph.
 
 ```tsx scrollTriggerIntoView
-import * as Lightbox from 'ramka/lightbox';
+import * as Lightbox from '@ramka/react/lightbox';
 
 <Lightbox.Root
   scrollTriggerIntoView={[
@@ -975,7 +975,7 @@ Zoomed media can cover the full Content surface only if Slide → Item → Zoom 
 [ZoomIn](docs/lightbox/api.md#api-zoom-in) / [ZoomOut](docs/lightbox/api.md#api-zoom-out) can sit in toolbar chrome outside Zoom — they target the *active* slide via Root’s active-zoom bridge. Content reflects `data-zooming` / `data-zoomed` for styling.
 
 ```tsx Active-zoom bridge
-import * as Lightbox from 'ramka/lightbox';
+import * as Lightbox from '@ramka/react/lightbox';
 
 <Lightbox.Root>
   <Lightbox.Portal>
@@ -1616,7 +1616,7 @@ While a view-transition morph runs, ramka sets attributes and CSS variables on <
 
 ## Types
 
-Helper types you will see in callbacks and render props (exported from `ramka` / the Lightbox module):
+Helper types you will see in callbacks and render props (exported from `@ramka/react` / the Lightbox module):
 
 - `NavigationSource` — `'trigger' | 'keyboard' | 'thumbnail' | 'button' | 'scroll' | 'imperative'` . Second argument to Root `onValueChange`. Handle `open` /`goTo` use `'imperative'`; scroll-driven Slides use `'scroll'`.
 - `LightboxCrossfade` — `'open' | 'close' | 'both'` for Trigger `crossfade`. See [View transitions → crossfade](docs/lightbox/view-transitions.md#crossfade).
@@ -2035,7 +2035,7 @@ import {
   ZoomInIcon,
   ZoomOutIcon,
 } from 'lucide-react';
-import * as RamkaLightbox from 'ramka/lightbox';
+import * as RamkaLightbox from '@ramka/react/lightbox';
 
 import { cn } from '@/lib/utils';
 
@@ -2653,7 +2653,7 @@ function Gallery({
 }
 
 /**
- * Styled Lightbox namespace — drop-in replacement for `import * as Lightbox from 'ramka/lightbox'`
+ * Styled Lightbox namespace — drop-in replacement for `import * as Lightbox from '@ramka/react/lightbox'`
  * with this preset’s styles and composed Gallery.
  */
 export const Lightbox = {
@@ -2699,7 +2699,7 @@ export const Lightbox = {
  */
 
 import * as React from 'react';
-import * as RamkaLightbox from 'ramka/lightbox';
+import * as RamkaLightbox from '@ramka/react/lightbox';
 
 import './lightbox.css';
 
@@ -3047,7 +3047,7 @@ function Gallery({
 }
 
 /**
- * Styled Lightbox namespace — drop-in replacement for `import * as Lightbox from 'ramka/lightbox'`
+ * Styled Lightbox namespace — drop-in replacement for `import * as Lightbox from '@ramka/react/lightbox'`
  * with this preset’s styles and composed Gallery.
  */
 export const Lightbox = {
@@ -3766,7 +3766,7 @@ X-style split viewer: a semi-translucent dark media pane with close (top-left) a
  */
 
 import * as React from 'react';
-import * as RamkaLightbox from 'ramka/lightbox';
+import * as RamkaLightbox from '@ramka/react/lightbox';
 
 import './lightbox.css';
 
@@ -4964,7 +4964,7 @@ export const Lightbox = {
 'use client';
 
 import * as React from 'react';
-import * as RamkaLightbox from 'ramka/lightbox';
+import * as RamkaLightbox from '@ramka/react/lightbox';
 import { Heart, MessageCircle, Repeat2, Share } from 'lucide-react';
 
 import { Lightbox, type LightboxItem, type ThreadPost } from './lightbox';
@@ -5360,7 +5360,7 @@ A full commerce viewer: the media stage (vertical thumbnail rail, pager, corner 
  */
 
 import * as React from 'react';
-import * as RamkaLightbox from 'ramka/lightbox';
+import * as RamkaLightbox from '@ramka/react/lightbox';
 
 import './lightbox.css';
 
@@ -5675,7 +5675,7 @@ function Gallery({
 }
 
 /**
- * Styled Lightbox namespace — drop-in replacement for `import * as Lightbox from 'ramka/lightbox'`
+ * Styled Lightbox namespace — drop-in replacement for `import * as Lightbox from '@ramka/react/lightbox'`
  * with this preset’s styles and composed Gallery.
  */
 export const Lightbox = {
@@ -6570,7 +6570,7 @@ The viewer newsrooms use for article figures: a near-black surface in both color
  */
 
 import * as React from 'react';
-import * as RamkaLightbox from 'ramka/lightbox';
+import * as RamkaLightbox from '@ramka/react/lightbox';
 
 import './lightbox.css';
 
@@ -6755,7 +6755,7 @@ function Gallery({ items, ariaLabel }: { items: LightboxItem[]; ariaLabel: strin
 }
 
 /**
- * Styled Lightbox namespace — drop-in replacement for `import * as Lightbox from 'ramka/lightbox'`
+ * Styled Lightbox namespace — drop-in replacement for `import * as Lightbox from '@ramka/react/lightbox'`
  * with this preset’s styles and composed Gallery.
  */
 export const Lightbox = {
@@ -7227,8 +7227,8 @@ Instagram-style stories: a horizontal row of avatars, each dissolving into a ver
  */
 
 import * as React from 'react';
-import * as RamkaLightbox from 'ramka/lightbox';
-import { useLightboxContext } from 'ramka';
+import * as RamkaLightbox from '@ramka/react/lightbox';
+import { useLightboxContext } from '@ramka/react';
 
 import './lightbox.css';
 
@@ -7526,7 +7526,7 @@ function Gallery({ items, ariaLabel }: { items: LightboxItem[]; ariaLabel: strin
 }
 
 /**
- * Styled Lightbox namespace — drop-in replacement for `import * as Lightbox from 'ramka/lightbox'`
+ * Styled Lightbox namespace — drop-in replacement for `import * as Lightbox from '@ramka/react/lightbox'`
  * with this preset’s styles and composed Gallery.
  */
 export const Lightbox = {
@@ -8246,7 +8246,7 @@ macOS Photos–style square grid under a sticky, blurred toolbar with a fade gra
 import * as React from 'react';
 import { flushSync } from 'react-dom';
 import Image, { type StaticImageData } from 'next/image';
-import * as Lightbox from 'ramka/lightbox';
+import * as Lightbox from '@ramka/react/lightbox';
 import { Heart, Minus, Plus } from 'lucide-react';
 
 import {
@@ -8481,7 +8481,7 @@ Masonry wall of images with unknown dimensions (no width/height, no reserved asp
 
 import * as React from 'react';
 import Image from 'next/image';
-import * as Lightbox from 'ramka/lightbox';
+import * as Lightbox from '@ramka/react/lightbox';
 
 import { ExampleShell } from '../../../../_components/example-shell';
 import {
@@ -8607,7 +8607,7 @@ iMessage-style chat with a single morphTo="origin" trigger over a stack of attac
 'use client';
 
 import Image from 'next/image';
-import * as Lightbox from 'ramka/lightbox';
+import * as Lightbox from '@ramka/react/lightbox';
 
 import { ExampleShell } from '../../../../_components/example-shell';
 import {
@@ -8742,7 +8742,7 @@ Movie posters morph into a fullscreen <video> that auto-plays on becoming active
 
 import * as React from 'react';
 import Image from 'next/image';
-import * as Lightbox from 'ramka/lightbox';
+import * as Lightbox from '@ramka/react/lightbox';
 import { Play } from 'lucide-react';
 
 import { ExampleShell } from '../../../../_components/example-shell';
@@ -8991,7 +8991,7 @@ import * as THREE from 'three';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { TrackballControls } from 'three/examples/jsm/controls/TrackballControls.js';
-import * as Lightbox from 'ramka/lightbox';
+import * as Lightbox from '@ramka/react/lightbox';
 
 import { ExampleShell } from '../../../../_components/example-shell';
 import {

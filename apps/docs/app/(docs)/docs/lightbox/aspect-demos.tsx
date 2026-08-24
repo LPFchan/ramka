@@ -2,7 +2,7 @@
 
 import Image, { type StaticImageData } from 'next/image';
 import * as React from 'react';
-import * as Lightbox from 'ramka/lightbox';
+import * as Lightbox from '@ramka/react/lightbox';
 
 import { LightboxGallery, triggerFocusClass } from '../../../_components/lightbox-chrome';
 import { xfadeA, xfadeASquare } from './images.generated';

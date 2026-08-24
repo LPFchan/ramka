@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import Image from 'next/image';
-import * as Lightbox from 'ramka/lightbox';
+import * as Lightbox from '@ramka/react/lightbox';
 import { Play } from 'lucide-react';
 
 import { ExampleShell } from '../../../../_components/example-shell';

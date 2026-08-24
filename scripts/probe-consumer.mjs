@@ -2,7 +2,7 @@
 //
 // Usage: node scripts/probe-consumer.mjs <label>=<path/to/dist/lightbox/lightbox.js> ...
 //
-// Point it at the flat parts module — the one published as `ramka/lightbox` —
+// Point it at the flat parts module — the one published as `@ramka/react/lightbox` —
 // and mirror how consumers import it (`import * as Lightbox`). Measuring a
 // namespace re-exported by the package instead would inflate the esbuild
 // numbers for reasons that have nothing to do with the code under test; see

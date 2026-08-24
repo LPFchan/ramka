@@ -39,7 +39,7 @@ const BENCH_DIR = '/tmp/lightbox-bench';
 const MODULES = join(BENCH_DIR, 'node_modules');
 // ramka is not installed into the bench directory, so its entries are aliased
 // straight at the workspace build. Both are needed: the parts ship as the
-// `ramka/lightbox` subpath, the root holds the composition hooks.
+// `@ramka/react/lightbox` subpath, the root holds the composition hooks.
 const RAMKA_ENTRIES = {
   ramka: join(repoRoot, 'packages/ramka/dist/index.js'),
   'ramka/lightbox': join(repoRoot, 'packages/ramka/dist/lightbox/lightbox.js'),
@@ -128,19 +128,19 @@ const SCENARIOS = [
   {
     lib: 'ramka',
     tier: 'minimal',
-    code: `import * as Lightbox from 'ramka/lightbox';\nexport default [${RAMKA_MINIMAL}];`,
+    code: `import * as Lightbox from '@ramka/react/lightbox';\nexport default [${RAMKA_MINIMAL}];`,
     css: [],
   },
   {
     lib: 'ramka',
     tier: 'parity',
-    code: `import * as Lightbox from 'ramka/lightbox';\nexport default [${RAMKA_PARITY}];`,
+    code: `import * as Lightbox from '@ramka/react/lightbox';\nexport default [${RAMKA_PARITY}];`,
     css: [],
   },
   {
     lib: 'ramka',
     tier: 'everything',
-    code: `import * as Lightbox from 'ramka/lightbox';\nexport default Object.values(Lightbox);`,
+    code: `import * as Lightbox from '@ramka/react/lightbox';\nexport default Object.values(Lightbox);`,
     css: [],
   },
 
@@ -230,7 +230,7 @@ const SCENARIOS = [
   {
     lib: 'ramka',
     tier: 'page',
-    code: `import * as Lightbox from 'ramka/lightbox';\nexport default [${RAMKA_PAGE}];`,
+    code: `import * as Lightbox from '@ramka/react/lightbox';\nexport default [${RAMKA_PAGE}];`,
     css: [],
   },
   {

@@ -26,6 +26,9 @@ importers:
       '@base-ui/react':
         specifier: ^1.5.0
         version: 1.5.0(@types/react@19.2.15)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
+      '@ramka/react':
+        specifier: workspace:*
+        version: link:../../packages/ramka
       class-variance-authority:
         specifier: ^0.7.1
         version: 0.7.1
@@ -41,9 +44,6 @@ importers:
       next-themes:
         specifier: ^0.4.6
         version: 0.4.6(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
-      ramka:
-        specifier: workspace:*
-        version: link:../../packages/ramka
       react:
         specifier: ^19.0.0
         version: 19.2.6

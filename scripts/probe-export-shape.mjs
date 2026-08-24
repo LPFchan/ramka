@@ -1,9 +1,9 @@
 // Guards the export shape of the public API.
 //
-// ramka publishes its parts as a flat module (`ramka/lightbox`) and lets the
-// consumer name the namespace: `import * as Lightbox from 'ramka/lightbox'`.
+// ramka publishes its parts as a flat module (`@ramka/react/lightbox`) and lets the
+// consumer name the namespace: `import * as Lightbox from '@ramka/react/lightbox'`.
 // The obvious alternative — hand out a ready-made namespace so people can
-// write `import { Lightbox } from 'ramka'` — reads identically at the call
+// write `import { Lightbox } from '@ramka/react'` — reads identically at the call
 // site and costs real bytes, because once the namespace object is built
 // *inside* the package esbuild can no longer tell which members a consumer
 // touched and retains every part.
@@ -46,7 +46,7 @@ writeFileSync(IMPORT_STAR_ENTRY, `import * as Lightbox from '${FLAT}';\nexport {
 
 const VARIANTS = {
   // What ramka publishes.
-  "shipped: import * as Lightbox from 'ramka/lightbox'": `
+  "shipped: import * as Lightbox from '@ramka/react/lightbox'": `
     import * as Lightbox from '${FLAT}';
     export default [${PARTS.map((p) => `Lightbox.${p}`).join(', ')}];
   `,
@@ -167,7 +167,7 @@ for (const [label, code] of Object.entries(VARIANTS)) {
 
 // The property that matters: the shipped shape must not make esbuild pay more
 // than Rollup. Allow a little slack for the two bundlers' differing output.
-const shipped = results["shipped: import * as Lightbox from 'ramka/lightbox'"];
+const shipped = results["shipped: import * as Lightbox from '@ramka/react/lightbox'"];
 const overhead = shipped.esbuild / shipped.rollup;
 console.log();
 if (overhead > 1.15) {

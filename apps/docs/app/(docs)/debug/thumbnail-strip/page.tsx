@@ -3,7 +3,7 @@
 import { notFound } from 'next/navigation';
 import * as React from 'react';
 import Image, { type StaticImageData } from 'next/image';
-import * as Lightbox from 'ramka/lightbox';
+import * as Lightbox from '@ramka/react/lightbox';
 import { X } from 'lucide-react';
 
 import {

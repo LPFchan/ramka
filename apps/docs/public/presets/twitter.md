@@ -15,7 +15,7 @@ X-style split viewer: a semi-translucent dark media pane with close (top-left) a
  */
 
 import * as React from 'react';
-import * as RamkaLightbox from 'ramka/lightbox';
+import * as RamkaLightbox from '@ramka/react/lightbox';
 
 import './lightbox.css';
 
@@ -1213,7 +1213,7 @@ export const Lightbox = {
 'use client';
 
 import * as React from 'react';
-import * as RamkaLightbox from 'ramka/lightbox';
+import * as RamkaLightbox from '@ramka/react/lightbox';
 import { Heart, MessageCircle, Repeat2, Share } from 'lucide-react';
 
 import { Lightbox, type LightboxItem, type ThreadPost } from './lightbox';

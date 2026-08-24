@@ -2,8 +2,8 @@
 
 import * as React from 'react';
 import Image, { type StaticImageData } from 'next/image';
-import * as Lightbox from 'ramka/lightbox';
-import { useLightboxContext } from 'ramka';
+import * as Lightbox from '@ramka/react/lightbox';
+import { useLightboxContext } from '@ramka/react';
 
 import './aspect-frame-strip.css';
 

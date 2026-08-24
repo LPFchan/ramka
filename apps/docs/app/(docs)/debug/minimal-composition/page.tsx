@@ -4,7 +4,7 @@ import { ChevronLeft, ChevronRight, Minus, Plus, X } from 'lucide-react';
 import Image from 'next/image';
 import { notFound } from 'next/navigation';
 import * as React from 'react';
-import * as Lightbox from 'ramka/lightbox';
+import * as Lightbox from '@ramka/react/lightbox';
 
 import { lightboxImageFiles } from '../../../_data/images.generated';
 

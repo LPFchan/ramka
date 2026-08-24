@@ -1,7 +1,7 @@
 'use client';
 
 import Image from 'next/image';
-import * as Lightbox from 'ramka/lightbox';
+import * as Lightbox from '@ramka/react/lightbox';
 
 import {
   LightboxGallery,

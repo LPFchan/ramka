@@ -333,7 +333,7 @@ import {
   ZoomInIcon,
   ZoomOutIcon,
 } from 'lucide-react';
-import * as RamkaLightbox from 'ramka/lightbox';
+import * as RamkaLightbox from '@ramka/react/lightbox';
 
 import { cn } from '@/lib/utils';
 
@@ -951,7 +951,7 @@ function Gallery({
 }
 
 /**
- * Styled Lightbox namespace — drop-in replacement for `import * as Lightbox from 'ramka/lightbox'`
+ * Styled Lightbox namespace — drop-in replacement for `import * as Lightbox from '@ramka/react/lightbox'`
  * with this preset’s styles and composed Gallery.
  */
 export const Lightbox = {
@@ -997,7 +997,7 @@ export const Lightbox = {
  */
 
 import * as React from 'react';
-import * as RamkaLightbox from 'ramka/lightbox';
+import * as RamkaLightbox from '@ramka/react/lightbox';
 
 import './lightbox.css';
 
@@ -1345,7 +1345,7 @@ function Gallery({
 }
 
 /**
- * Styled Lightbox namespace — drop-in replacement for `import * as Lightbox from 'ramka/lightbox'`
+ * Styled Lightbox namespace — drop-in replacement for `import * as Lightbox from '@ramka/react/lightbox'`
  * with this preset’s styles and composed Gallery.
  */
 export const Lightbox = {

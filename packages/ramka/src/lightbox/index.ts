@@ -1,7 +1,7 @@
 // The parts deliberately do not pass through this entry. They ship as the
-// `ramka/lightbox` subpath, so consumers write the namespace themselves:
+// `@ramka/react/lightbox` subpath, so consumers write the namespace themselves:
 //
-//   import * as Lightbox from 'ramka/lightbox';
+//   import * as Lightbox from '@ramka/react/lightbox';
 //
 // Handing out a ready-made namespace instead (`export * as Lightbox`) reads the
 // same at the call site and costs real bytes: esbuild cannot tell which members

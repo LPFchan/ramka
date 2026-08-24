@@ -1,4 +1,4 @@
-import * as Lightbox from 'ramka/lightbox';
+import * as Lightbox from '@ramka/react/lightbox';
 
 declare const open: boolean;
 declare const setOpen: (open: boolean) => void;

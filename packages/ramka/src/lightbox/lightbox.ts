@@ -4,9 +4,9 @@
  * Combines modal dialog semantics (overlay, scroll lock, Escape to close,
  * backdrop) with gallery navigation (prev/next, thumbnails, counter).
  *
- * This module is published flat, as the `ramka/lightbox` subpath:
+ * This module is published flat, as the `@ramka/react/lightbox` subpath:
  *
- *   import * as Lightbox from 'ramka/lightbox';
+ *   import * as Lightbox from '@ramka/react/lightbox';
  *
  * The namespace is assembled in the consumer's module rather than re-exported
  * from ours, so every bundler can drop the parts a gallery never renders. See

@@ -17,7 +17,7 @@ Decide **per item index**, not per gallery. Ramka paints an open bridge only whe
 Static-import the same asset for trigger and destination (Next fills in `blurDataURL`). Blur the trigger; leave the destination clean. Square trigger crop is CSS only — keep source aspect matched to Media. See [View transitions → Source aspect](docs/lightbox/view-transitions.md#source-aspect) for a live Do / Don't.
 
 ```tsx Do — blur on trigger only
-import * as Lightbox from 'ramka/lightbox';
+import * as Lightbox from '@ramka/react/lightbox';
 
 <Lightbox.Root>
   <Lightbox.Trigger index={0}>
@@ -62,7 +62,7 @@ import * as Lightbox from 'ramka/lightbox';
 `placeholder="blur"` on a lightbox image whose index has a trigger image covers Ramka’s bridge with Next’s LQIP while the full image loads.
 
 ```tsx Don’t — blur on lightbox Image
-import * as Lightbox from 'ramka/lightbox';
+import * as Lightbox from '@ramka/react/lightbox';
 
 <Lightbox.Root>
   <Lightbox.Trigger index={0}>
@@ -106,7 +106,7 @@ If an index has no trigger `imageRef`, Ramka has nothing to paint. Use destinati
 Open the +N tile, then swipe past the triggered photos. Overflow slides show Next’s LQIP; indexes 0–1 stay on Ramka’s trigger-image bridge. Close uses [morphTo="closest"](docs/lightbox/view-transitions.md#morph-to).
 
 ```tsx Destination blur for +N extras
-import * as Lightbox from 'ramka/lightbox';
+import * as Lightbox from '@ramka/react/lightbox';
 
 <Lightbox.Root morphTo="closest">
   {photos.slice(0, visible).map((photo, i) => (
@@ -148,7 +148,7 @@ import * as Lightbox from 'ramka/lightbox';
 Initials / swatches have a Trigger but no trigger image. Blur on the lightbox image is the loading placeholder.
 
 ```tsx Destination blur for non-image triggers
-import * as Lightbox from 'ramka/lightbox';
+import * as Lightbox from '@ramka/react/lightbox';
 
 <Lightbox.Root>
   <Lightbox.Trigger index={0} crossfade="both">

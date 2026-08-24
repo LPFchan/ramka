@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import * as RamkaLightbox from 'ramka/lightbox';
+import * as RamkaLightbox from '@ramka/react/lightbox';
 import { Heart, MessageCircle, Repeat2, Share } from 'lucide-react';
 
 import { Lightbox, type LightboxItem, type ThreadPost } from './lightbox';

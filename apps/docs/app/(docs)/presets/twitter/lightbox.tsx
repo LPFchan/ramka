@@ -8,7 +8,7 @@
  */
 
 import * as React from 'react';
-import * as RamkaLightbox from 'ramka/lightbox';
+import * as RamkaLightbox from '@ramka/react/lightbox';
 
 import './lightbox.css';
 

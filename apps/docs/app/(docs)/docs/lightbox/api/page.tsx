@@ -135,7 +135,7 @@ export default function LightboxApiPage() {
       <DocsSection id="types" title="Types">
         <p>
           Helper types you will see in callbacks and render props (exported from{' '}
-          <code className="text-xs">ramka</code> / the Lightbox module):
+          <code className="text-xs">@ramka/react</code> / the Lightbox module):
         </p>
         <ul className="list-disc space-y-2 pl-5">
           <li>

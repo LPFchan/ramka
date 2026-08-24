@@ -1,4 +1,4 @@
-# ramka
+# @ramka/react
 
 Unstyled, accessible lightbox primitives for React — in the style of [Radix UI](https://www.radix-ui.com/) and [Base UI](https://base-ui.com/).
 
@@ -7,11 +7,11 @@ Unstyled, accessible lightbox primitives for React — in the style of [Radix UI
 ## Installation
 
 ```bash
-npm install ramka
+npm install @ramka/react
 # or
-pnpm add ramka
+pnpm add @ramka/react
 # or
-yarn add ramka
+yarn add @ramka/react
 ```
 
 `react` and `react-dom` (>= 18) are peer dependencies.
@@ -19,15 +19,15 @@ yarn add ramka
 ## Usage
 
 ```tsx
-import * as Lightbox from 'ramka/lightbox';
+import * as Lightbox from '@ramka/react/lightbox';
 ```
 
-The parts ship as a flat module and you name the namespace yourself, so your bundler can drop every part your gallery does not render. Importing a pre-built namespace out of a package defeats tree-shaking in esbuild-based bundlers (Vite dev, Remix), which is why `ramka` itself exports no `Lightbox` object.
+The parts ship as a flat module and you name the namespace yourself, so your bundler can drop every part your gallery does not render. Importing a pre-built namespace out of a package defeats tree-shaking in esbuild-based bundlers (Vite dev, Remix), which is why `@ramka/react` itself exports no `Lightbox` object.
 
 Composition hooks (`useLightboxContext`, `useLightboxItemContext`, …) and shared types come from the package root:
 
 ```tsx
-import { useLightboxContext } from 'ramka';
+import { useLightboxContext } from '@ramka/react';
 ```
 
 `Lightbox.*` is a fullscreen modal image viewer composed of headless parts:

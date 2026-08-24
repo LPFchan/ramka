@@ -17,8 +17,8 @@ Instagram-style stories: a horizontal row of avatars, each dissolving into a ver
  */
 
 import * as React from 'react';
-import * as RamkaLightbox from 'ramka/lightbox';
-import { useLightboxContext } from 'ramka';
+import * as RamkaLightbox from '@ramka/react/lightbox';
+import { useLightboxContext } from '@ramka/react';
 
 import './lightbox.css';
 
@@ -316,7 +316,7 @@ function Gallery({ items, ariaLabel }: { items: LightboxItem[]; ariaLabel: strin
 }
 
 /**
- * Styled Lightbox namespace — drop-in replacement for `import * as Lightbox from 'ramka/lightbox'`
+ * Styled Lightbox namespace — drop-in replacement for `import * as Lightbox from '@ramka/react/lightbox'`
  * with this preset’s styles and composed Gallery.
  */
 export const Lightbox = {

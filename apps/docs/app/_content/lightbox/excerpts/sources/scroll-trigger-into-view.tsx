@@ -1,4 +1,4 @@
-import * as Lightbox from 'ramka/lightbox';
+import * as Lightbox from '@ramka/react/lightbox';
 
 /**
  * Keep the close-morph trigger on-screen while navigating.

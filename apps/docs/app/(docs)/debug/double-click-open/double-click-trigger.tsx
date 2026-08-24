@@ -2,8 +2,8 @@
 
 import * as React from 'react';
 import Image, { type StaticImageData } from 'next/image';
-import * as Lightbox from 'ramka/lightbox';
-import type { LightboxHandle, LightboxTriggerRenderState } from 'ramka';
+import * as Lightbox from '@ramka/react/lightbox';
+import type { LightboxHandle, LightboxTriggerRenderState } from '@ramka/react';
 
 import { triggerFocusClass, type LightboxImageSource } from '../../../_components/lightbox-chrome';
 

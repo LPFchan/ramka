@@ -1,5 +1,5 @@
 import Image, { type StaticImageData } from 'next/image';
-import * as Lightbox from 'ramka/lightbox';
+import * as Lightbox from '@ramka/react/lightbox';
 
 declare const photo: StaticImageData;
 declare const extras: number;

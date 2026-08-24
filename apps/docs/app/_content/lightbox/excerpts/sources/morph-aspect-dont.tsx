@@ -1,5 +1,5 @@
 import Image, { type StaticImageData } from 'next/image';
-import * as Lightbox from 'ramka/lightbox';
+import * as Lightbox from '@ramka/react/lightbox';
 
 // Static import in apps: `import photo from './photo.jpg'`
 declare const photo: StaticImageData;

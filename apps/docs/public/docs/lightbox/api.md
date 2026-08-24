@@ -480,7 +480,7 @@ While a view-transition morph runs, ramka sets attributes and CSS variables on <
 
 ## Types
 
-Helper types you will see in callbacks and render props (exported from `ramka` / the Lightbox module):
+Helper types you will see in callbacks and render props (exported from `@ramka/react` / the Lightbox module):
 
 - `NavigationSource` — `'trigger' | 'keyboard' | 'thumbnail' | 'button' | 'scroll' | 'imperative'` . Second argument to Root `onValueChange`. Handle `open` /`goTo` use `'imperative'`; scroll-driven Slides use `'scroll'`.
 - `LightboxCrossfade` — `'open' | 'close' | 'both'` for Trigger `crossfade`. See [View transitions → crossfade](docs/lightbox/view-transitions.md#crossfade).
