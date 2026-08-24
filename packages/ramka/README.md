@@ -48,6 +48,16 @@ import { useLightboxContext } from '@ramka/react';
 - `Lightbox.Slides` / `Lightbox.Slide` — a swipeable, snapping carousel wired directly to the lightbox's active index. Snap alignment is built in; slide width (full-bleed, aspect cards, …) is consumer CSS.
 - `Lightbox.Zoom`, `Lightbox.Caption`, `Lightbox.ThumbnailGroup`, `Lightbox.Previous` / `Lightbox.Next` — zoom, captions, thumbnails, and navigation, plus built-in pull-to-dismiss.
 
+### Content Security Policy
+
+Works under a strict style policy — `style-src 'self'; style-src-attr 'none'`, no
+`unsafe-inline` and no nonce to configure. The library's own CSS (view-transition
+rules, morph keyframes, media fill) is delivered as constructed stylesheets, and
+element styling goes through CSSOM, so nothing ramka writes reaches the document as
+markup. Note that constructed stylesheets are adopted, so they cascade after your
+stylesheets; tune them through the documented `--lightbox-*` custom properties
+rather than by relying on source order.
+
 Docs: run the [docs site](../../apps/docs) and open `/docs/lightbox` (overview → composition → view transitions → gestures → API). Live demos live under `/examples/lightbox/*`.
 
 API tables (props, data attributes, CSS variables) are generated from this package’s TypeScript + JSDoc — including the `*DataAttributes` / `*CssVars` enums. Usage code excerpts are extracted from typechecked sources under `apps/docs/app/_content/lightbox/excerpts/sources/`. After changing public APIs or excerpt sources, run `pnpm docs:api` and `pnpm docs:excerpts` from the repo root (CI fails if generated files are stale).

@@ -1,13 +1,33 @@
 import { render } from '@testing-library/react';
 import * as React from 'react';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 
 import { LightboxRoot } from './lightbox-root';
 import { ensureVtStructuralStyles } from './vt-structural-styles';
+import { stubConstructedSheets, type ConstructedSheetsStub } from './lightbox-style-sheets-test-utils';
 
 const selector = 'style[data-ramka-lightbox-vt-styles]';
 
+let stub: ConstructedSheetsStub | null = null;
+
+afterEach(() => {
+  stub?.restore();
+  stub = null;
+  // The fallback path re-creates a removed element, so these tests stay
+  // independent of each other's leftovers.
+  document.head.querySelectorAll(selector).forEach((el) => el.remove());
+});
+
 describe('vt-structural-styles', () => {
+  it('adopts the sheet in a browser, so a strict CSP has no <style> to block', () => {
+    stub = stubConstructedSheets();
+
+    ensureVtStructuralStyles();
+
+    expect(document.querySelectorAll(selector)).toHaveLength(0);
+    expect(stub.adoptedCss().join('')).toContain('view-transition-name: none !important');
+  });
+
   it('does not inject on Root mount — styles load with the morph engine', () => {
     render(
       <>
@@ -18,7 +38,7 @@ describe('vt-structural-styles', () => {
     expect(document.head.querySelectorAll(selector)).toHaveLength(0);
   });
 
-  it('injects the stylesheet once, at the start of <head>', () => {
+  it('falls back to a single <style> at the start of <head> without constructable sheets', () => {
     ensureVtStructuralStyles();
     ensureVtStructuralStyles();
     const sheets = document.head.querySelectorAll(selector);

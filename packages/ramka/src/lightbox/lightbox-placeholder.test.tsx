@@ -7,6 +7,7 @@ import { LightboxPortal } from './lightbox-portal';
 import { LightboxItem } from './lightbox-item';
 import { LightboxMedia } from './lightbox-media';
 import { SlidesHost } from './lightbox-slides-test-utils';
+import { stubConstructedSheets } from './lightbox-style-sheets-test-utils';
 import { LightboxRoot } from './lightbox-root';
 import { LightboxTrigger } from './lightbox-trigger';
 import { LightboxZoom } from './lightbox-zoom';
@@ -645,7 +646,10 @@ describe('Lightbox.Media (morph + placeholder host)', () => {
     expect(media.style.display).toBe('grid');
     expect(media.id).toBeTruthy();
 
-    const fillStyle = media.querySelector('style');
+    // Delivered as a sheet rather than a <style> child, so a strict `style-src`
+    // cannot refuse it. jsdom has no CSSOM sheets, so this is the fallback.
+    expect(media.querySelector('style')).toBeNull();
+    const fillStyle = document.head.querySelector('style[data-ramka-media-fill]');
     expect(fillStyle).toBeTruthy();
     const css = fillStyle!.textContent ?? '';
     const id = CSS.escape(media.id);
@@ -659,6 +663,38 @@ describe('Lightbox.Media (morph + placeholder host)', () => {
     const el = media.querySelector(`:scope > ${name}`);
     expect(el).toBeTruthy();
     expect(el!.parentElement).toBe(media);
+  });
+
+  it('adopts the fill rules in a browser, and drops them when Media unmounts', () => {
+    const stub = stubConstructedSheets();
+    try {
+      const view = render(
+        <LightboxRoot defaultOpen>
+          <LightboxPortal>
+            <LightboxContent aria-label="viewer">
+              <SlidesHost>
+                <LightboxItem index={0}>
+                  <LightboxMedia data-testid="media" width={800} height={600}>
+                    <img width={800} height={600} src="/full.jpg" alt="full" />
+                  </LightboxMedia>
+                </LightboxItem>
+              </SlidesHost>
+            </LightboxContent>
+          </LightboxPortal>
+        </LightboxRoot>,
+      );
+
+      const media = document.querySelector('[data-testid="media"]') as HTMLElement;
+      expect(media.querySelector('style')).toBeNull();
+      expect(document.querySelectorAll('style[data-ramka-media-fill]')).toHaveLength(0);
+      expect(stub.adoptedCss().join('')).toContain(`#${CSS.escape(media.id)} > img`);
+
+      view.unmount();
+
+      expect(stub.adoptedCss()).toHaveLength(0);
+    } finally {
+      stub.restore();
+    }
   });
 
   it('derives fit-box from child img width/height when Media props are omitted', () => {

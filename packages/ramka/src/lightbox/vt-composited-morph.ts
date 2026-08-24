@@ -3,6 +3,8 @@ import { LightboxDocumentCssVars } from './lightbox-css-vars';
 import { LightboxDocumentDataAttributes } from './lightbox-data-attributes';
 import { compensatedMorphRadiusAt, parseMorphRadiusList } from './vt-morph-radius';
 import { morphTiming } from './vt-timing';
+import { insertLibrarySheet, type LibrarySheet } from './lightbox-style-sheets';
+import { ensureLibrarySheet } from './vt-style-sheets';
 
 // ---------------------------------------------------------------------------
 // Composited (transform-only) morph — the morph ramka ships everywhere.
@@ -129,10 +131,8 @@ function keyframesCss(
   return `@keyframes ${name} {\n${body}\n}`;
 }
 
-let styleInjected = false;
-
 /**
- * Pseudo-element overrides for the composited path. Injected lazily (only
+ * Pseudo-element overrides for the composited path. Added lazily (only
  * when the flag is on and an upgrade commits) and gated on the root
  * attribute so the stock morph is untouched otherwise.
  *
@@ -148,11 +148,9 @@ let styleInjected = false;
  *   the frozen box) and their UA opacity dissolve.
  */
 function ensureStyleInjected() {
-  if (styleInjected || typeof document === 'undefined') return;
-  styleInjected = true;
-  const style = document.createElement('style');
-  style.setAttribute('data-ramka-vt-composited-style', '');
-  style.textContent = `
+  ensureLibrarySheet(
+    'data-ramka-vt-composited-style',
+    () => `
 :root[${COMPOSITED_ATTR}]${GROUP_PSEUDO} {
   animation: none !important;
   transform-origin: 0 0 !important;
@@ -164,8 +162,8 @@ function ensureStyleInjected() {
   transform-origin: 0 0 !important;
   animation: none !important;
 }
-`;
-  document.head.appendChild(style);
+`,
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -472,7 +470,7 @@ function upgrade(transition: UpgradeableTransition): void {
   });
 
   let created: Animation[] = [];
-  let styleEl: HTMLStyleElement | null = null;
+  let styleEl: LibrarySheet | null = null;
 
   if (useCssAnimations) {
     // WebKit path: deliver the replacement as real CSS animations (WAAPI on
@@ -519,17 +517,17 @@ ${keyframesCss(nName, newFrames, 'transform')}
 }
 `;
 
-    styleEl = document.createElement('style');
-    styleEl.setAttribute('data-ramka-vt-composited-css', '');
-    styleEl.textContent = `
+    styleEl = insertLibrarySheet(
+      `
 ${keyframesCss(gName, groupFrames, 'transform')}
 ${hasRadius ? keyframesCss(rName, radiusFrames, 'borderRadius') : ''}
 :root[${COMPOSITED_CSS_ATTR}]${GROUP_PSEUDO} {
   transform-origin: 0 0 !important;
   animation: ${groupTracks} !important;
 }
-${snapshotCss}`;
-    document.head.appendChild(styleEl);
+${snapshotCss}`,
+      'data-ramka-vt-composited-css',
+    );
     docEl.setAttribute(COMPOSITED_CSS_ATTR, '');
   } else {
     try {
@@ -567,7 +565,7 @@ ${snapshotCss}`;
     for (const a of created) a.cancel();
     docEl.removeAttribute(COMPOSITED_ATTR);
     docEl.removeAttribute(COMPOSITED_CSS_ATTR);
-    styleEl?.remove();
+    styleEl?.release();
   });
 }
 
