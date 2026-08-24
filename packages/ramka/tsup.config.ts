@@ -1,5 +1,3 @@
-import { globSync } from 'node:fs';
-
 import { defineConfig } from 'tsup';
 
 // One output module per source module (`bundle: false`) rather than a handful
@@ -16,10 +14,11 @@ import { defineConfig } from 'tsup';
 // emits `declare const` aliases for type-only exports (`LightboxRootProps`
 // et al.), which consumers can't compile against. `tsc` mirrors the module
 // graph the rest of this build preserves anyway.
-const entry = globSync('src/**/*.{ts,tsx}').filter((file) => !/\.test\.|test-utils|test-setup/.test(file));
-
+//
+// tsup globs an entry array itself, so this stays off `node:fs` — reading the
+// tree with `globSync` required Node 22 and broke the build on CI's Node 20.
 export default defineConfig({
-  entry,
+  entry: ['src/**/*.{ts,tsx}', '!src/**/*.test.*', '!src/**/*test-utils*', '!src/**/*test-setup*'],
   format: ['esm', 'cjs'],
   dts: false,
   sourcemap: true,
