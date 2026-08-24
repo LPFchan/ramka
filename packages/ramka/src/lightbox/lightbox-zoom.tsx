@@ -225,9 +225,19 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
     React.useEffect(() => {
       if (Engine) return;
       let cancelled = false;
-      void loadZoomRuntime().then((runtime) => {
-        if (!cancelled) setEngine(() => runtime.LightboxZoomEngine);
-      });
+      void loadZoomRuntime().then(
+        (runtime) => {
+          if (!cancelled) setEngine(() => runtime.LightboxZoomEngine);
+        },
+        (error: unknown) => {
+          // Keep the placeholder: the image still renders and the lightbox
+          // still works, just without zoom. Swallowed rather than rethrown so
+          // a missing chunk isn't an unhandled rejection in the consumer's app.
+          if (process.env.NODE_ENV !== 'production') {
+            console.warn('Lightbox.Zoom: the zoom runtime failed to load.', error);
+          }
+        },
+      );
       return () => {
         cancelled = true;
       };

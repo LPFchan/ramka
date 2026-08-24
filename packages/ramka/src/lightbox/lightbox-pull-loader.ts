@@ -11,10 +11,18 @@ let pending: Promise<PullRuntime> | null = null;
 
 function loadPullRuntime(): Promise<PullRuntime> {
   if (cached) return Promise.resolve(cached);
-  pending ??= import('./lightbox-pull-runtime').then((mod) => {
-    cached = { PullToDismiss: mod.PullToDismiss };
-    return cached;
-  });
+  pending ??= import('./lightbox-pull-runtime').then(
+    (mod) => {
+      cached = { PullToDismiss: mod.PullToDismiss };
+      return cached;
+    },
+    (error: unknown) => {
+      // See lightbox-morph-loader: a remembered rejection would disable
+      // pull-to-dismiss for the rest of the page, so let the next open retry.
+      pending = null;
+      throw error;
+    },
+  );
   return pending;
 }
 
@@ -23,7 +31,8 @@ function getPullRuntimeSync(): PullRuntime | null {
 }
 
 function prefetchPullRuntime(): void {
-  void loadPullRuntime();
+  // Best-effort warm-up — see lightbox-morph-loader.
+  loadPullRuntime().catch(() => {});
 }
 
 export { loadPullRuntime, getPullRuntimeSync, prefetchPullRuntime };

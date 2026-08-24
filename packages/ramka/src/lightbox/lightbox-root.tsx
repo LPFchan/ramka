@@ -814,27 +814,10 @@ function LightboxRoot(props: LightboxRootProps) {
         // back to the plain fade path, which is far cheaper to composite.
         const useVT = viewTransition && supportsViewTransitions() && !isLowEndDevice();
 
-        if (useVT) {
-          // The generation was bumped above; the morph captures it on call.
-          const gen = closeGenRef.current;
-          const startMorph = (runtime: MorphRuntime) => {
-            if (closeGenRef.current !== gen) return;
-            runtime.ensureVtStructuralStyles();
-            morphRef.current ??= runtime.createViewTransitionMorph(() => morphConfigRef.current);
-            if (nextOpen) {
-              morphRef.current.open();
-            } else {
-              morphRef.current.close();
-            }
-          };
-          const runtime = getMorphRuntimeSync();
-          if (runtime) {
-            startMorph(runtime);
-          } else {
-            void loadMorphRuntime().then(startMorph);
-          }
-        } else {
-          // --- No view transition ---
+        // --- No view transition ---
+        // Also where a failed morph-chunk load lands: the commit lives here, so
+        // without this fallback a missing chunk would drop the open entirely.
+        const runWithoutViewTransition = () => {
           if (nextOpen) {
             commitOpen();
             // Wait a frame for the enter animation to register before
@@ -888,6 +871,41 @@ function LightboxRoot(props: LightboxRootProps) {
               onOpenChangeCompleteRef.current?.(false);
             });
           }
+        };
+
+        if (useVT) {
+          // The generation was bumped above; the morph captures it on call.
+          const gen = closeGenRef.current;
+          const startMorph = (runtime: MorphRuntime) => {
+            if (closeGenRef.current !== gen) return;
+            runtime.ensureVtStructuralStyles();
+            morphRef.current ??= runtime.createViewTransitionMorph(() => morphConfigRef.current);
+            if (nextOpen) {
+              morphRef.current.open();
+            } else {
+              morphRef.current.close();
+            }
+          };
+          const runtime = getMorphRuntimeSync();
+          if (runtime) {
+            startMorph(runtime);
+          } else {
+            void loadMorphRuntime().then(startMorph, (error: unknown) => {
+              // Chunk never arrived (deploy landed mid-session, offline, CDN
+              // blocked). Degrade to the plain path so the click still opens
+              // the lightbox instead of looking dead.
+              if (closeGenRef.current !== gen) return;
+              if (process.env.NODE_ENV !== 'production') {
+                console.warn(
+                  'Lightbox: the view-transition runtime failed to load; opening without the morph.',
+                  error,
+                );
+              }
+              runWithoutViewTransition();
+            });
+          }
+        } else {
+          runWithoutViewTransition();
         }
       },
       [isControlledOpen, viewTransition, scrollTriggerIntoView, morphTo, commitOpen, unlockScroll, settleOpenTransition, focusReturnTarget, notifyBeforeClose],
