@@ -31,10 +31,11 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         sit above page content without competing with in-app z-index values.
       */}
       <body className="relative min-h-screen bg-background text-foreground antialiased">
-        {/* The experimental transform-only compositor morph (see ramka's
-            vt-composited-morph.ts) is ON by default; append ?vtstock to fall
-            back to the stock UA morph for A/B comparison. Inline so the flag is
-            set before any user interaction can start a transition. */}
+        {/* ramka's composited transform-only morph (see vt-composited-morph.ts)
+            is the shipped morph; append ?vtstock to force the stock UA morph
+            instead, for debugging a suspected regression in the composited
+            path. Inline so the flag is set before any user interaction can
+            start a transition. */}
         <script
           dangerouslySetInnerHTML={{
             __html:

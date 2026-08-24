@@ -5,9 +5,14 @@ import { compensatedMorphRadiusAt, parseMorphRadiusList } from './vt-morph-radiu
 import { morphTiming } from './vt-timing';
 
 // ---------------------------------------------------------------------------
-// Composited (transform-only) morph upgrade — EXPERIMENTAL, on by default.
+// Composited (transform-only) morph — the morph ramka ships everywhere.
 //
-// Opt out with `window.__RAMKA_VT_COMPOSITED__ = false` (docs: `?vtstock`).
+// The stock UA morph is not an alternative engine, it is the fallback: this
+// upgrade replaces the browser's own group animation at runtime and bails back
+// to it whenever a precondition below fails (see the validation block in
+// `upgrade`). `window.__RAMKA_VT_COMPOSITED__ = false` (docs: `?vtstock`)
+// forces that fallback, which is a debugging escape hatch rather than a
+// supported configuration.
 //
 // Why: the UA-generated `::view-transition-group` animation interpolates
 // `width`/`height` alongside `transform`. Layout properties can never run on
@@ -566,4 +571,4 @@ ${snapshotCss}`;
   });
 }
 
-export { maybeUpgradeToCompositedMorph, isCompositedMorphEnabled };
+export { maybeUpgradeToCompositedMorph, isCompositedMorphEnabled, parseScaleTranslate };
