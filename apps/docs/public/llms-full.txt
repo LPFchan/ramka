@@ -1188,7 +1188,7 @@ Opens the lightbox at a given index and is the morph source (view transitions on
 | handle | `LightboxHandle` |  | Handle from `Lightbox.createHandle()`. Pass the same handle as Root to use this Trigger outside the Root tree (Base UI Dialog-style detached triggers). |
 | crossfade | `'open' \| 'close' \| 'both'` |  | Crossfade between trigger and item snapshots during the view-transition morph. Omit (default) for a hard-cut morph — ideal when trigger and item show the same image at the same intrinsic aspect (a CSS `object-cover` window or smaller srcset is fine; a CDN-baked crop that changes the aspect is not). Use a direction when they differ visually: - `'both'` — crossfade on open and close (e.g. a stack → single photo) - `'open'` — crossfade only when opening - `'close'` — crossfade only when closing (e.g. poster → live video) Sets `data-crossfade` on the trigger and `data-ramka-crossfade` on `<html>` during phases that dissolve (omitted for hard-cut). |
 | children | `ReactNode \| ((state: LightboxTriggerRenderState) => ReactNode)` |  | Static children, or a render function that receives `imageRef` / `morphRef` (attach them to designate the placeholder source and the morph element) plus `open` / `active` state. The render function is the recommended form: it wires the flash-free placeholder without any DOM guessing. |
-| render | `ReactElement \| ComponentRenderFn` |  | Allows you to replace the component's HTML element with a different tag, or compose it with another component. Accepts a `ReactElement` or a function that returns the element to render. |
+| render | `ReactElement \| ComponentRenderFn` |  | Replaces the part's default element with another tag or component. Accepts an element to clone, or a function that returns one. |
 
 #### Data attributes
 
@@ -1260,7 +1260,7 @@ Optional media interaction surface inside Content. Scopes touch and trackpad whe
 | Name | Type | Default | Description |
 | --- | --- | --- | --- |
 | children | `ReactNode \| ((state: LightboxStageRenderState) => ReactNode)` |  | Static children, or a render function that receives `morphRef`. Attach `morphRef` to morph the Stage surface (or a descendant) instead of the active item. |
-| render | `ReactElement \| ComponentRenderFn` |  | Allows you to replace the component's HTML element with a different tag, or compose it with another component. Accepts a `ReactElement` or a function that returns the element to render. |
+| render | `ReactElement \| ComponentRenderFn` |  | Replaces the part's default element with another tag or component. Accepts an element to clone, or a function that returns one. |
 
 #### Data attributes
 
@@ -1276,7 +1276,7 @@ Optional scrim (place inside Lightbox.Portal, typically beside Content). Click c
 
 | Name | Type | Default | Description |
 | --- | --- | --- | --- |
-| render | `ReactElement \| ComponentRenderFn` |  | Allows you to replace the component's HTML element with a different tag, or compose it with another component. Accepts a `ReactElement` or a function that returns the element to render. |
+| render | `ReactElement \| ComponentRenderFn` |  | Replaces the part's default element with another tag or component. Accepts an element to clone, or a function that returns one. |
 
 #### Data attributes
 
@@ -1304,7 +1304,7 @@ Button that closes the lightbox. Defaults to aria-label="Close".
 
 | Name | Type | Default | Description |
 | --- | --- | --- | --- |
-| render | `ReactElement \| ComponentRenderFn` |  | Allows you to replace the component's HTML element with a different tag, or compose it with another component. Accepts a `ReactElement` or a function that returns the element to render. |
+| render | `ReactElement \| ComponentRenderFn` |  | Replaces the part's default element with another tag or component. Accepts an element to clone, or a function that returns one. |
 
 #### Data attributes
 
@@ -1323,7 +1323,7 @@ A single lightbox item. Registers captions and morph/placeholder refs. ARIA adap
 | index | `number` |  | The index of this item in the collection. |
 | caption | `ReactNode` |  | Optional caption for this item, displayed by Lightbox.Caption. |
 | children | `ReactNode \| ((state: LightboxItemRenderState) => ReactNode)` |  | Static children, or a render function that receives per-item state plus `imageRef` / `morphRef`. Prefer the render function and attach `imageRef` to your `<img>` so the open transition bridges the blank frame with the trigger's thumbnail (see `Lightbox.Trigger`'s `imageRef`). |
-| render | `ReactElement \| ComponentRenderFn` |  | Allows you to replace the component's HTML element with a different tag, or compose it with another component. Accepts a `ReactElement` or a function that returns the element to render. |
+| render | `ReactElement \| ComponentRenderFn` |  | Replaces the part's default element with another tag or component. Accepts an element to clone, or a function that returns one. |
 
 #### Data attributes
 
@@ -1344,7 +1344,7 @@ Sized destination media host — morph target and placeholder canvas container. 
 | --- | --- | --- | --- |
 | width | `number` |  | Intrinsic pixel width of the media (same idea as Next.js `<Image width>`). With `height`, applies a structural inscribed fit-box. When omitted, dims are taken from the child `<img>`’s HTML `width`/`height` if present. |
 | height | `number` |  | Intrinsic pixel height of the media (same idea as Next.js `<Image height>`). |
-| render | `ReactElement \| ComponentRenderFn` |  | Allows you to replace the component's HTML element with a different tag, or compose it with another component. Accepts a `ReactElement` or a function that returns the element to render. |
+| render | `ReactElement \| ComponentRenderFn` |  | Replaces the part's default element with another tag or component. Accepts an element to clone, or a function that returns one. |
 
 #### Data attributes
 
@@ -1364,7 +1364,7 @@ Default layout: horizontal snap carousel wired to the active index. Exposes the 
 | Name | Type | Default | Description |
 | --- | --- | --- | --- |
 | preload | `number` | `1` | How many slides on each side of the active one keep their `Lightbox.Item` content mounted. Slide *boxes* are always present (so scroll extent is correct); only their content is preload-gated. `1` keeps the neighbours you can swipe to ready. |
-| render | `ReactElement \| ComponentRenderFn` |  | Allows you to replace the component's HTML element with a different tag, or compose it with another component. Accepts a `ReactElement` or a function that returns the element to render. |
+| render | `ReactElement \| ComponentRenderFn` |  | Replaces the part's default element with another tag or component. Accepts an element to clone, or a function that returns one. |
 
 #### Data attributes
 
@@ -1393,7 +1393,7 @@ Navigate to the previous item. Disabled at the start when loop is false.
 
 | Name | Type | Default | Description |
 | --- | --- | --- | --- |
-| render | `ReactElement \| ComponentRenderFn` |  | Allows you to replace the component's HTML element with a different tag, or compose it with another component. Accepts a `ReactElement` or a function that returns the element to render. |
+| render | `ReactElement \| ComponentRenderFn` |  | Replaces the part's default element with another tag or component. Accepts an element to clone, or a function that returns one. |
 
 #### Data attributes
 
@@ -1410,7 +1410,7 @@ Navigate to the next item. Disabled at the end when loop is false.
 
 | Name | Type | Default | Description |
 | --- | --- | --- | --- |
-| render | `ReactElement \| ComponentRenderFn` |  | Allows you to replace the component's HTML element with a different tag, or compose it with another component. Accepts a `ReactElement` or a function that returns the element to render. |
+| render | `ReactElement \| ComponentRenderFn` |  | Replaces the part's default element with another tag or component. Accepts an element to clone, or a function that returns one. |
 
 #### Data attributes
 
@@ -1428,7 +1428,7 @@ Shows the active position (e.g. "1 / 12") with an aria-live region.
 | Name | Type | Default | Description |
 | --- | --- | --- | --- |
 | children | `(state: { current: number; total: number }) => ReactNode` | `renders "1 / 12"` | Render function for custom counter format. |
-| render | `ReactElement \| ComponentRenderFn` |  | Allows you to replace the component's HTML element with a different tag, or compose it with another component. Accepts a `ReactElement` or a function that returns the element to render. |
+| render | `ReactElement \| ComponentRenderFn` |  | Replaces the part's default element with another tag or component. Accepts an element to clone, or a function that returns one. |
 
 #### Data attributes
 
@@ -1444,7 +1444,7 @@ Renders the active item’s caption from the Item caption registry.
 
 | Name | Type | Default | Description |
 | --- | --- | --- | --- |
-| render | `ReactElement \| ComponentRenderFn` |  | Allows you to replace the component's HTML element with a different tag, or compose it with another component. Accepts a `ReactElement` or a function that returns the element to render. |
+| render | `ReactElement \| ComponentRenderFn` |  | Replaces the part's default element with another tag or component. Accepts an element to clone, or a function that returns one. |
 
 #### Data attributes
 
@@ -1461,7 +1461,7 @@ Accessible tablist of thumbnails with arrow / Home / End keyboard support.
 
 | Name | Type | Default | Description |
 | --- | --- | --- | --- |
-| render | `ReactElement \| ComponentRenderFn` |  | Allows you to replace the component's HTML element with a different tag, or compose it with another component. Accepts a `ReactElement` or a function that returns the element to render. |
+| render | `ReactElement \| ComponentRenderFn` |  | Replaces the part's default element with another tag or component. Accepts an element to clone, or a function that returns one. |
 
 #### Data attributes
 
@@ -1479,7 +1479,7 @@ A single thumbnail tab that activates the given index.
 | Name | Type | Default | Description |
 | --- | --- | --- | --- |
 | index | `number` |  | The index of the item this thumbnail navigates to. |
-| render | `ReactElement \| ComponentRenderFn` |  | Allows you to replace the component's HTML element with a different tag, or compose it with another component. Accepts a `ReactElement` or a function that returns the element to render. |
+| render | `ReactElement \| ComponentRenderFn` |  | Replaces the part's default element with another tag or component. Accepts an element to clone, or a function that returns one. |
 
 #### Data attributes
 
@@ -1500,7 +1500,7 @@ Scroll-linked thumbnail strip root. Always centers the active thumbnail on the m
 | scrubOnSelect | `boolean` |  | When true (default), discrete navigation (thumbnail pointer, keyboard, Previous/Next) WAAPI-scrubs the track to the target index. When false, the strip follows the Slides jump via the scroll link. |
 | selectViewTransition | `boolean` |  | When true (default), pointer thumbnail selection runs an element-scoped View Transition on Slides around the active-index commit (stage crossfade). Falls back to a plain commit when unsupported or `prefers-reduced-motion`. Tune with `--lightbox-select-vt-duration` / `--lightbox-select-vt-easing` on Slides. Keyboard and Previous / Next navigation always keep an instant stage commit (the strip still scrubs when `scrubOnSelect` is on). |
 | wrapSelectCommit | `(commit: () => void, slides: HTMLElement \| null, index: number) => void` |  | Optional wrapper around the active-index commit so consumers can arm custom WAAPI (e.g. an indicator scrub) *before* `commit` jumps Slides. `commit` already includes the baked Slides view transition when `selectViewTransition` is on. Track scrub still runs outside this callback. Defaults to invoking `commit` immediately. |
-| render | `ReactElement \| ComponentRenderFn` |  | Allows you to replace the component's HTML element with a different tag, or compose it with another component. Accepts a `ReactElement` or a function that returns the element to render. |
+| render | `ReactElement \| ComponentRenderFn` |  | Replaces the part's default element with another tag or component. Accepts an element to clone, or a function that returns one. |
 
 #### Data attributes
 
@@ -1526,7 +1526,7 @@ Linked tablist track for ThumbnailStrip. A ThumbnailGroup that registers as the 
 
 | Name | Type | Default | Description |
 | --- | --- | --- | --- |
-| render | `ReactElement \| ComponentRenderFn` |  | Allows you to replace the component's HTML element with a different tag, or compose it with another component. Accepts a `ReactElement` or a function that returns the element to render. |
+| render | `ReactElement \| ComponentRenderFn` |  | Replaces the part's default element with another tag or component. Accepts an element to clone, or a function that returns one. |
 
 ### Zoom
 
@@ -1545,7 +1545,7 @@ Pinch, wheel, double-tap, and keyboard zoom/pan surface. Fills its host and is a
 | keyboardPanDistance | `number` | `50` | Keyboard pan distance in px per keypress. |
 | doubleClickDelay | `number` | `300` | Max delay between clicks for double-click detection (ms). |
 | onZoomChange | `(zoom: number) => void` |  | Callback when zoom level changes. |
-| render | `ReactElement \| ComponentRenderFn` |  | Allows you to replace the component's HTML element with a different tag, or compose it with another component. Accepts a `ReactElement` or a function that returns the element to render. |
+| render | `ReactElement \| ComponentRenderFn` |  | Replaces the part's default element with another tag or component. Accepts an element to clone, or a function that returns one. |
 
 #### Data attributes
 
@@ -1563,7 +1563,7 @@ Increments zoom. Works inside Zoom, or as global chrome via the active-slide zoo
 
 | Name | Type | Default | Description |
 | --- | --- | --- | --- |
-| render | `ReactElement \| ComponentRenderFn` |  | Allows you to replace the component's HTML element with a different tag, or compose it with another component. Accepts a `ReactElement` or a function that returns the element to render. |
+| render | `ReactElement \| ComponentRenderFn` |  | Replaces the part's default element with another tag or component. Accepts an element to clone, or a function that returns one. |
 
 #### Data attributes
 
@@ -1580,7 +1580,7 @@ Decrements zoom. Works inside Zoom, or as global chrome via the active-slide zoo
 
 | Name | Type | Default | Description |
 | --- | --- | --- | --- |
-| render | `ReactElement \| ComponentRenderFn` |  | Allows you to replace the component's HTML element with a different tag, or compose it with another component. Accepts a `ReactElement` or a function that returns the element to render. |
+| render | `ReactElement \| ComponentRenderFn` |  | Replaces the part's default element with another tag or component. Accepts an element to clone, or a function that returns one. |
 
 #### Data attributes
 

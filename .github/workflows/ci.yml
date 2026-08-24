@@ -90,7 +90,12 @@ jobs:
           "
           pnpm install --no-frozen-lockfile
 
+      # From the package, not the repo root: pnpm installs react into the
+      # workspace that depends on it and hoists nothing, so resolving from the
+      # root finds no react at all and says so in a way that looks like the
+      # override failed.
       - name: Verify React 18 is what got installed
+        working-directory: packages/ramka
         run: |
           version=$(node -p "require('react').version")
           echo "react $version"
