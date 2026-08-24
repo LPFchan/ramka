@@ -35,6 +35,11 @@ if (!existsSync(head)) {
   process.exit(1);
 }
 const haveBase = Boolean(base && existsSync(base));
+// Distinguish "no baseline asked for" from "asked for one and it wasn't there".
+// The second is expected only while the base predates the per-module layout;
+// after that it means the path moved, and a silent "no baseline" on every PR
+// would hide the fact that the guard had stopped comparing anything.
+const baseMissing = Boolean(base) && !haveBase;
 
 const tmpBase = '/tmp/size-report';
 rmSync(tmpBase, { recursive: true, force: true });
@@ -122,11 +127,14 @@ const table = (title, list) =>
   ].join('\n');
 
 const changed = rows.filter((r) => r.base != null && r.base !== r.head);
-const headline = !haveBase
-  ? 'No baseline for this branch, so this is an absolute reading rather than a diff.'
-  : changed.length === 0
-    ? 'No change to what a consumer ships.'
-    : `${changed.length} of ${rows.length} scenarios changed.`;
+const headline = baseMissing
+  ? `No baseline: the base commit built no \`${base.split('/').slice(-4).join('/')}\`, so this is an absolute reading rather than a diff. ` +
+    'Expected while the base predates the per-module build; otherwise the entry path moved and this job has stopped comparing anything.'
+  : !haveBase
+    ? 'No baseline requested, so this is an absolute reading rather than a diff.'
+    : changed.length === 0
+      ? 'No change to what a consumer ships.'
+      : `${changed.length} of ${rows.length} scenarios changed.`;
 
 const markdown = `<!-- ramka-size -->
 ### Bundle size
