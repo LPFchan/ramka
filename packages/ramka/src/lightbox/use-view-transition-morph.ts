@@ -755,6 +755,14 @@ interface ViewTransitionMorphConfig {
   commitAbortPrepare: () => void;
   /** flushSync body that hides the viewer; unmount waits for onCloseComplete. */
   commitClose: () => void;
+  /**
+   * flushSync body that marks the lightbox closed but keeps the viewer mounted
+   * **and painting**. Used by the FLIP engine (see flip-morph.ts): without a
+   * snapshot the closing morph *is* the live element, so it can only be hidden
+   * once the animation settles. `commitClose` is the snapshot-era equivalent —
+   * it may hide or unmount immediately, which a FLIP close cannot survive.
+   */
+  commitCloseKeepMounted: () => void;
   /** Fired once the open morph settles (and its generation is still current). */
   onOpenComplete: () => void;
   /**
@@ -1193,6 +1201,10 @@ export {
   createViewTransitionMorph,
   startViewTransition,
   waitForImageDecode,
+  getPendingDecodeImage,
+  isMorphTargetSizeResolvable,
+  warnCollapsedMediaMorph,
+  warnUnwiredItemMorph,
   scrollTriggerEl,
   resolveTriggerIndex,
   resolveScrollTriggerOption,

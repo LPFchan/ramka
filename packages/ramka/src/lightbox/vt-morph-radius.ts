@@ -37,16 +37,35 @@ function roundness(r: number, minSide: number): number {
 }
 
 /**
- * Compensated `border-radius` for the frozen destination group at eased
- * progress `q`. `w`/`h` are the UA-interpolated box at `q`.
+ * Compensated `border-radius` for the frozen morph box at eased progress `q`.
+ * `w`/`h` are the interpolated box at `q`.
+ *
+ * `w1`/`h1` are the **radius endpoint** box (where `rTo` was measured).
+ * `restW`/`restH` are the box the element actually rests at — the one the
+ * animated scale divides out of. They are the same box for the view-transition
+ * group, which freezes at the destination, and for a FLIP *open*, whose
+ * destination is also its resting box. They diverge on a FLIP *close*, where
+ * the element rests at the item box but the radius travels toward the
+ * trigger's; default to `w1`/`h1` so existing callers are unaffected.
  */
 export function compensatedMorphRadiusAt(
   rFrom: MorphRadiusCorners,
   rTo: MorphRadiusCorners,
   q: number,
-  box: { w0: number; h0: number; w: number; h: number; w1: number; h1: number },
+  box: {
+    w0: number;
+    h0: number;
+    w: number;
+    h: number;
+    w1: number;
+    h1: number;
+    restW?: number;
+    restH?: number;
+  },
 ): string {
   const { w0, h0, w, h, w1, h1 } = box;
+  const restW = box.restW ?? w1;
+  const restH = box.restH ?? h1;
   const min0 = Math.min(w0, h0);
   const min1 = Math.min(w1, h1);
   const minQ = Math.min(w, h);
@@ -58,7 +77,7 @@ export function compensatedMorphRadiusAt(
     return n * minQ;
   });
 
-  const rH = rUa.map((r) => fmt((r * w1) / divW));
-  const rV = rUa.map((r) => fmt((r * h1) / divH));
+  const rH = rUa.map((r) => fmt((r * restW) / divW));
+  const rV = rUa.map((r) => fmt((r * restH) / divH));
   return `${rH.map((px) => `${px}px`).join(' ')} / ${rV.map((px) => `${px}px`).join(' ')}`;
 }

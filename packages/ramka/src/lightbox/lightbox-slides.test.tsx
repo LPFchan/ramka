@@ -603,6 +603,100 @@ describe('Lightbox.Slides', () => {
       expect(content).toHaveAttribute('data-pulling');
     });
 
+    it('ignores scroll-derived navigation once the viewer is closing', () => {
+      // Regression: Slides answers an index change by re-snapping the scroller to
+      // that slide's offset. A fling landing *after* close therefore scrolled the
+      // scrollport out from under the closing morph — and re-rendered the tree
+      // while it played. The VT engine unmounts the viewer immediately, so no
+      // fling can outlive its close; an engine that keeps it mounted for the exit
+      // has to decline the navigation explicitly.
+      const onValueChange = vi.fn();
+      render(
+        <LightboxRoot defaultOpen defaultValue={0} onValueChange={onValueChange}>
+          <LightboxTrigger index={0}>Trigger 0</LightboxTrigger>
+          <LightboxPortal>
+            <LightboxContent data-testid="content" aria-label="Closing lightbox">
+              <LightboxSlides data-testid="slides" preload={8}>
+                {Array.from({ length: 8 }, (_, i) => (
+                  <LightboxSlide key={`s-${i}`}>
+                    <LightboxItem index={i}>
+                      <img src={`p${i}.jpg`} alt={`photo ${i}`} />
+                    </LightboxItem>
+                  </LightboxSlide>
+                ))}
+              </LightboxSlides>
+            </LightboxContent>
+          </LightboxPortal>
+        </LightboxRoot>,
+      );
+      const viewport = screen.getByTestId('slides');
+      setupGeometry(viewport, 8);
+
+      // While open, a swipe navigates as usual.
+      swipeTo(viewport, 1);
+      expect(onValueChange).toHaveBeenCalledWith(1, { source: 'scroll' });
+      onValueChange.mockClear();
+
+      // Close, then let the fling carry on and settle somewhere else entirely.
+      act(() => {
+        fireEvent.keyDown(screen.getByTestId('content'), { key: 'Escape' });
+      });
+      swipeTo(viewport, 3);
+      endScroll(viewport);
+
+      expect(onValueChange).not.toHaveBeenCalled();
+    });
+
+    it('releases the scroll lock when Slides unmounts mid-fling, so a reopen can pull', () => {
+      // Regression: the lock lives on the Root context, so it outlives Content —
+      // and a close mid-fling never gets the `scrollend` that would have cleared
+      // it. It stayed latched, and pull-to-dismiss (plus pinch and keyboard nav)
+      // was dead on every later open.
+      // Content stays mounted throughout, so this isolates the contract — Slides
+      // going away must release the lock — from close/exit-animation timing.
+      function Fixture({ withSlides }: { withSlides: boolean }) {
+        return (
+          <LightboxRoot defaultOpen defaultValue={0}>
+            <LightboxTrigger index={0}>Trigger 0</LightboxTrigger>
+            <LightboxPortal>
+              <LightboxContent data-testid="content" aria-label="Reopen lightbox">
+                {withSlides ? (
+                  <LightboxSlides data-testid="slides" preload={8}>
+                    {Array.from({ length: 8 }, (_, i) => (
+                      <LightboxSlide key={`s-${i}`}>
+                        <LightboxItem index={i} data-testid={`item-${i}`}>
+                          <img src={`p${i}.jpg`} alt={`photo ${i}`} data-testid={`img-${i}`} />
+                        </LightboxItem>
+                      </LightboxSlide>
+                    ))}
+                  </LightboxSlides>
+                ) : (
+                  <LightboxItem index={0} data-testid="item-0">
+                    <img src="p0.jpg" alt="photo 0" data-testid="img-0" />
+                  </LightboxItem>
+                )}
+              </LightboxContent>
+            </LightboxPortal>
+          </LightboxRoot>
+        );
+      }
+
+      const { rerender } = render(<Fixture withSlides />);
+      const content = screen.getByTestId('content');
+      setupGeometry(screen.getByTestId('slides'), 8);
+
+      // Lock the scroller, then take Slides away mid-fling — no `scrollend` will
+      // ever arrive to clear it.
+      swipeTo(screen.getByTestId('slides'), 2);
+      rerender(<Fixture withSlides={false} />);
+
+      act(() => {
+        dispatchPointer(screen.getByTestId('img-0'), 'pointerdown', { clientX: 200, clientY: 200 });
+        dispatchPointer(content, 'pointermove', { clientX: 200, clientY: 240 });
+      });
+      expect(content).toHaveAttribute('data-pulling');
+    });
+
     function dispatchTrackpadWheel(
       target: Element,
       deltaX: number,

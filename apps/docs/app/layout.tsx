@@ -43,7 +43,13 @@ export default function RootLayout({ children }: { children: ReactNode }) {
               // Blind A/B: ?vtab=q7 and ?vtab=k2 map to the two morph engines
               // without revealing which is which (see vt-composited-morph.ts).
               'if(/[?&]vtab=q7/.test(location.search))window.__RAMKA_VT_COMPOSITED__=false;' +
-              'if(/[?&]vtab=k2/.test(location.search))window.__RAMKA_VT_COMPOSITED__=true;',
+              'if(/[?&]vtab=k2/.test(location.search))window.__RAMKA_VT_COMPOSITED__=true;' +
+              // ?flip runs the experimental CSS/WAAPI morph (see flip-morph.ts)
+              // instead of View Transitions — same trigger↔item motion, no
+              // document capture. ?vtab=m4 is its blind-A/B alias, so m4 vs k2
+              // compares engines rather than revealing which is which.
+              'if(/[?&]flip/.test(location.search))window.__RAMKA_FLIP__=true;' +
+              'if(/[?&]vtab=m4/.test(location.search))window.__RAMKA_FLIP__=true;',
           }}
         />
         <ThemeProvider>

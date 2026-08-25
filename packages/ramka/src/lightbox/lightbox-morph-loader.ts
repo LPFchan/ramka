@@ -5,6 +5,9 @@ import type { ViewTransitionMorph, ViewTransitionMorphConfig } from './use-view-
 export interface MorphRuntime {
   createViewTransitionMorph: (getConfig: () => ViewTransitionMorphConfig) => ViewTransitionMorph;
   ensureVtStructuralStyles: () => void;
+  /** Experimental CSS/WAAPI engine — same surface, no View Transitions. */
+  createFlipMorph: (getConfig: () => ViewTransitionMorphConfig) => ViewTransitionMorph;
+  ensureFlipStructuralStyles: () => void;
 }
 
 let cached: MorphRuntime | null = null;

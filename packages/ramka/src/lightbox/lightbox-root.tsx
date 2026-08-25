@@ -44,6 +44,7 @@ import { isAndroidBlinkSnapshotRoot } from './is-android-blink';
 import { findDestinationMorphTarget } from './morph-target';
 import { scheduleWarmUp } from './schedule-warm-up';
 import { DEFAULT_DECODE_MAX_WAIT, isLowEndDevice, supportsViewTransitions } from './vt-constants';
+import { shouldUseFlipMorph } from './flip-enabled';
 import type { LightboxViewTransitionPreset } from './vt-timing';
 import type { ViewTransitionMorph, ViewTransitionMorphConfig } from './use-view-transition-morph';
 
@@ -295,6 +296,10 @@ function LightboxRoot(props: LightboxRootProps) {
     const isControlledOpen = openProp !== undefined;
     const [uncontrolledOpen, setUncontrolledOpen] = React.useState(defaultOpen);
     const open = isControlledOpen ? openProp : uncontrolledOpen;
+    // Declared here rather than beside the other mirrors below: `setActiveIndex`
+    // reads it to reject scroll-derived navigation once the viewer is closing.
+    const openRef = React.useRef(open);
+    openRef.current = open;
 
     const onOpenChangeRef = React.useRef(onOpenChange);
     React.useEffect(() => {
@@ -345,6 +350,17 @@ function LightboxRoot(props: LightboxRootProps) {
         ) {
           return;
         }
+
+        // Closing: a swipe that is still settling has nothing left to navigate,
+        // and adopting its index actively breaks the exit. `Lightbox.Slides`
+        // answers an index change by re-snapping the scroller to that slide's
+        // offset, so a fling landing mid-close scrolls the scrollport out from
+        // under the closing morph — and re-renders the tree while it plays. The
+        // VT engine never sees this: it animates a snapshot and unmounts the
+        // viewer immediately, so no fling can outlive the close. An engine that
+        // keeps the viewer mounted for the exit has to decline explicitly.
+        if (!openRef.current && source === 'scroll') return;
+
         if (!isControlledValue) {
           setUncontrolledValue(index);
         }
@@ -639,8 +655,6 @@ function LightboxRoot(props: LightboxRootProps) {
     );
     const activeIndexRef = React.useRef(activeIndex);
     activeIndexRef.current = activeIndex;
-    const openRef = React.useRef(open);
-    openRef.current = open;
 
     // --- Active-zoom bridge ---
     // The active slide's Lightbox.Zoom publishes its controls here so a single
@@ -714,6 +728,17 @@ function LightboxRoot(props: LightboxRootProps) {
       setMounted(false);
     }, []);
 
+    // FLIP close: mark the lightbox closed (so the skin starts its scrim/chrome
+    // fade) while the viewer keeps painting. That engine animates the live
+    // destination element rather than a snapshot, so it can only be torn down
+    // once the animation settles — `handleCloseComplete` does that.
+    const commitCloseKeepMounted = React.useCallback(() => {
+      if (!isControlledOpen) {
+        setUncontrolledOpen(false);
+      }
+      onOpenChangeRef.current?.(false);
+    }, [isControlledOpen]);
+
     const commitClose = React.useCallback(() => {
       if (!isControlledOpen) {
         setUncontrolledOpen(false);
@@ -755,6 +780,8 @@ function LightboxRoot(props: LightboxRootProps) {
     );
 
     const morphRef = React.useRef<ViewTransitionMorph | null>(null);
+    /** Which engine built `morphRef`, so a flag flip can't split open/close. */
+    const morphEngineRef = React.useRef<'vt' | 'flip' | null>(null);
     const morphConfigRef = React.useRef<ViewTransitionMorphConfig>(null!);
     morphConfigRef.current = {
       morphTo,
@@ -776,6 +803,7 @@ function LightboxRoot(props: LightboxRootProps) {
       commitReveal,
       commitAbortPrepare,
       commitClose,
+      commitCloseKeepMounted,
       onOpenComplete: handleOpenComplete,
       onCloseComplete: handleCloseComplete,
       activeZoomRef,
@@ -813,9 +841,14 @@ function LightboxRoot(props: LightboxRootProps) {
           notifyBeforeClose();
         }
 
+        // Experimental CSS/WAAPI morph (see flip-morph.ts). Deliberately gated
+        // on its own terms: it needs no View Transition support and no low-end
+        // opt-out, so it runs where `useVT` would decline.
+        const useFlip = !!viewTransition && shouldUseFlipMorph();
+
         // Skip the (document-snapshotting) morph on low-end hardware and fall
         // back to the plain fade path, which is far cheaper to composite.
-        const useVT = viewTransition && supportsViewTransitions() && !isLowEndDevice();
+        const useVT = !useFlip && viewTransition && supportsViewTransitions() && !isLowEndDevice();
 
         // --- No view transition ---
         // Also where a failed morph-chunk load lands: the commit lives here, so
@@ -876,13 +909,25 @@ function LightboxRoot(props: LightboxRootProps) {
           }
         };
 
-        if (useVT) {
+        if (useVT || useFlip) {
           // The generation was bumped above; the morph captures it on call.
           const gen = closeGenRef.current;
+          const engine = useFlip ? 'flip' : 'vt';
           const startMorph = (runtime: MorphRuntime) => {
             if (closeGenRef.current !== gen) return;
-            runtime.ensureVtStructuralStyles();
-            morphRef.current ??= runtime.createViewTransitionMorph(() => morphConfigRef.current);
+            // Rebuild on an engine switch: the two write different DOM, so an
+            // open started by one must never be closed by the other.
+            if (morphEngineRef.current !== engine) {
+              morphRef.current = null;
+              morphEngineRef.current = engine;
+            }
+            if (useFlip) {
+              runtime.ensureFlipStructuralStyles();
+              morphRef.current ??= runtime.createFlipMorph(() => morphConfigRef.current);
+            } else {
+              runtime.ensureVtStructuralStyles();
+              morphRef.current ??= runtime.createViewTransitionMorph(() => morphConfigRef.current);
+            }
             if (nextOpen) {
               morphRef.current.open();
             } else {
@@ -974,7 +1019,8 @@ function LightboxRoot(props: LightboxRootProps) {
     // hover / focus / pointerdown and setOpen requests it, so intent still buys
     // a head start; a visitor who never opens the gallery pays nothing.
     React.useEffect(() => {
-      if (viewTransition === false || !supportsViewTransitions() || isLowEndDevice()) return;
+      if (viewTransition === false) return;
+      if (!shouldUseFlipMorph() && (!supportsViewTransitions() || isLowEndDevice())) return;
       return scheduleWarmUp(prefetchMorphRuntime);
     }, [viewTransition]);
 

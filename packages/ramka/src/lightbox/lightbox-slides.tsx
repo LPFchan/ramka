@@ -196,12 +196,17 @@ const LightboxSlides = React.forwardRef<HTMLDivElement, LightboxSlidesProps>(
           // Unmount mid-jump: never leave the host with snap suppressed.
           snapSuppressDepthRef.current = 0;
           prev.style.scrollSnapType = SLIDES_SCROLL_SNAP_TYPE;
+          // Nor the scroll lock latched. It lives on the Root context, so it
+          // outlives this unmount, and a close mid-fling never gets the
+          // `scrollend` that would have cleared it — leaving pull-to-dismiss,
+          // pinch and keyboard navigation dead on every later open.
+          navigationLockedRef.current = false;
         }
         notifySlidesViewport();
         if (typeof forwardedRef === 'function') forwardedRef(node);
         else if (forwardedRef) forwardedRef.current = node;
       },
-      [forwardedRef, slidesViewportRef, notifySlidesViewport],
+      [forwardedRef, slidesViewportRef, notifySlidesViewport, navigationLockedRef],
     );
 
     const indexFromScroll = React.useCallback((viewport: HTMLElement): number => {
