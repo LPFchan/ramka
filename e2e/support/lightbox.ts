@@ -127,6 +127,7 @@ declare global {
   interface Window {
     __ramkaMorphPhases?: MorphPhase[];
     __ramkaMorphObserved?: boolean;
+    __ramkaCompositedSeen?: string[];
   }
 }
 
@@ -157,6 +158,46 @@ export async function recordMorphPhases(page: Page): Promise<void> {
 
 export async function morphPhases(page: Page): Promise<MorphPhase[]> {
   return page.evaluate(() => window.__ramkaMorphPhases ?? []);
+}
+
+/** The WAAPI composited path — every engine except WebKit. */
+export const COMPOSITED_WAAPI = 'data-ramka-vt-composited';
+/** The WebKit path, which carries its animations as generated CSS instead. */
+export const COMPOSITED_CSS = 'data-ramka-vt-composited-css';
+
+/**
+ * Records which composited-morph path engaged.
+ *
+ * The composited morph is the default engine, and it publishes a *different*
+ * root attribute per platform: WebKit gets generated CSS animations because
+ * accelerated animations on a fresh view-transition pseudo tree are unreliable
+ * there, everything else gets WAAPI. Without this, a silent fall back to the
+ * stock morph — or WebKit quietly taking the WAAPI path — looks identical to
+ * success, because the phase log only says a transition ran.
+ *
+ * Both attributes are transient, set for the morph's duration and removed
+ * after, so this has to be an in-page observer rather than a poll. Install
+ * before opening.
+ */
+export async function recordCompositedPath(page: Page): Promise<void> {
+  await page.evaluate(
+    ([waapi, css]) => {
+      window.__ramkaCompositedSeen = [];
+      const el = document.documentElement;
+      new MutationObserver(() => {
+        for (const attr of [waapi!, css!]) {
+          if (el.hasAttribute(attr) && !window.__ramkaCompositedSeen!.includes(attr)) {
+            window.__ramkaCompositedSeen!.push(attr);
+          }
+        }
+      }).observe(el, { attributes: true, attributeFilter: [waapi!, css!] });
+    },
+    [COMPOSITED_WAAPI, COMPOSITED_CSS],
+  );
+}
+
+export async function compositedPathsSeen(page: Page): Promise<string[]> {
+  return page.evaluate(() => window.__ramkaCompositedSeen ?? []);
 }
 
 /**

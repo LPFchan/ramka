@@ -1,5 +1,15 @@
 import { expect, test } from '../support/test';
-import { PHOTOS_APP, morphIdle, morphPhases, phaseDuration, recordMorphPhases } from '../support/lightbox';
+import {
+  COMPOSITED_CSS,
+  COMPOSITED_WAAPI,
+  PHOTOS_APP,
+  compositedPathsSeen,
+  morphIdle,
+  morphPhases,
+  phaseDuration,
+  recordCompositedPath,
+  recordMorphPhases,
+} from '../support/lightbox';
 
 /**
  * The morph at a mobile viewport, with touch enabled.
@@ -43,6 +53,21 @@ test.describe('mobile morph', () => {
     await expect(content).toHaveAttribute('data-open', '');
     await expect(content).toHaveAttribute('aria-modal', 'true');
     await expect(page.locator('[style*="lightbox-morph"]')).toHaveCount(0);
+  });
+
+  test('takes the composited path its platform is meant to take', async ({ page, browserName }) => {
+    // The clearest statement of the platform split this project pair exists for:
+    // the iPhone arm must take WebKit's generated-CSS path and the Pixel arm the
+    // WAAPI one, on the same page, from the same tap.
+    await recordCompositedPath(page);
+    await page.locator('[data-ramka-trigger]').first().tap();
+    await page.locator('[data-ramka-content]').waitFor({ state: 'attached' });
+    await morphIdle(page);
+
+    const expected = browserName === 'webkit' ? COMPOSITED_CSS : COMPOSITED_WAAPI;
+    const seen = await compositedPathsSeen(page);
+    expect(seen).toContain(expected);
+    expect(seen).not.toContain(browserName === 'webkit' ? COMPOSITED_WAAPI : COMPOSITED_CSS);
   });
 
   test('reverses the morph and cleans up when closed', async ({ page }) => {
