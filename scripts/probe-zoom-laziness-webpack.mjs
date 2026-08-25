@@ -1,16 +1,14 @@
-// Companion to probe-zoom-gate.mjs: checks the arming call against webpack.
+// Companion to probe-zoom-laziness.mjs: same question, asked of webpack.
 //
-// Worth checking separately. Webpack reads `"sideEffects": false` from
-// package.json itself, and its rule ("skip a module when none of its exports
-// are used") is not Rollup's ("top-level statements are pure"). Either could
-// legally discard `requestZoomRuntime()` at the top of lightbox-zoom.tsx, which
-// would silently un-arm the prefetch for consumers who do use Zoom.
+// Worth asking twice. Webpack reads `"sideEffects": false` from package.json
+// itself, and its rule ("skip a module when none of its exports are used") is
+// not Rollup's ("top-level statements are pure"). The two also split chunks
+// differently, so "the engine is a separate chunk under Rollup" does not imply
+// the same under webpack — and webpack is what Next consumers actually get.
 //
-// Minification is off so the check can grep for the real symbol instead of
-// pattern-matching mangled output. Tree-shaking (sideEffects / usedExports) is
-// left on, since that is the behaviour under test.
-//
-// Uses the webpack Next ships, so this reflects what a Next consumer gets.
+// Minification is off so this can grep for real symbols instead of pattern-
+// matching mangled output. Tree-shaking is left on, since that is the
+// behaviour under test.
 
 import { writeFileSync, mkdirSync, rmSync, readFileSync, readdirSync, globSync } from 'node:fs';
 import { join, resolve as resolvePath } from 'node:path';
@@ -36,7 +34,7 @@ const SCENARIOS = {
   'same gallery + Zoom': `import * as Lightbox from ${LIB};\nexport default [${GALLERY}, Lightbox.Zoom];`,
 };
 
-const base = '/tmp/zoom-gate-webpack';
+const base = '/tmp/zoom-laziness-webpack';
 rmSync(base, { recursive: true, force: true });
 
 const run = (config) =>
@@ -80,17 +78,19 @@ async function probe(label, source) {
   const code = Object.fromEntries(files.map((f) => [f, readFileSync(join(outDir, f), 'utf8')]));
   const entryFile = files.find((f) => /^main\./.test(f));
   if (!entryFile) throw new Error(`no entry chunk among: ${files.join(', ')}`);
-  const all = Object.values(code).join('\n');
+
+  // A chunk that merely *reaches* the engine still names it, inside the
+  // argument comment webpack writes next to the chunk-loading call:
+  //   __webpack_require__.e(/*! import() */ 513)
+  // Only a chunk that actually contains the module gets the `pathinfo` banner
+  // (`!*** ./path ***!`), so that is what distinguishes holding from pointing.
+  const engineIn = (contents) => /!\*{3}[^\n]*lightbox-zoom-runtime\.js/.test(contents);
 
   return {
     label,
-    zoomPartBundled: /lightbox-zoom\.js/.test(all),
-    // A *call*, not the declaration — `function requestZoomRuntime()` survives
-    // as dead code in the no-Zoom bundle and would match a naive pattern.
-    armingCallKept: /(?<!function\s)requestZoomRuntime\(\)/.test(all),
-    engineChunkEmitted: Object.entries(code).some(
-      ([f, c]) => f !== entryFile && /LightboxZoomEngine/.test(c),
-    ),
+    zoomPartBundled: /lightbox-zoom\.js/.test(Object.values(code).join('\n')),
+    engineEager: engineIn(code[entryFile]),
+    engineChunked: Object.entries(code).some(([f, c]) => f !== entryFile && engineIn(c)),
   };
 }
 
@@ -98,28 +98,32 @@ const rows = [];
 for (const [label, src] of Object.entries(SCENARIOS)) rows.push(await probe(label, src));
 
 console.log('webpack 5 (as shipped by Next), production tree-shaking, minify off\n');
-console.log(`${'scenario'.padEnd(22)}${'Zoom bundled'.padEnd(15)}${'arming kept'.padEnd(14)}engine chunk emitted`);
+console.log(`${'scenario'.padEnd(22)}${'Zoom bundled'.padEnd(15)}${'engine eager'.padEnd(14)}engine in its own chunk`);
 for (const r of rows) {
   console.log(
     r.label.padEnd(22) +
       String(r.zoomPartBundled).padEnd(15) +
-      String(r.armingCallKept).padEnd(14) +
-      String(r.engineChunkEmitted),
+      String(r.engineEager).padEnd(14) +
+      String(r.engineChunked),
   );
 }
 
 const [noZoom, withZoom] = rows;
 const checks = [
   ['no-Zoom gallery leaves lightbox-zoom.js out', noZoom.zoomPartBundled === false],
-  ['no-Zoom gallery leaves the gate disarmed', noZoom.armingCallKept === false],
-  ['Zoom gallery keeps the arming call', withZoom.armingCallKept === true],
+  ['the engine never lands in the entry chunk', !noZoom.engineEager && !withZoom.engineEager],
+  ['the engine gets its own chunk once Zoom is used', withZoom.engineChunked === true],
 ];
 console.log('');
 for (const [name, pass] of checks) console.log(`  ${pass ? 'ok  ' : 'FAIL'}  ${name}`);
-const ok = checks.every(([, pass]) => pass);
+
+// Same trade as the Rollup probe records: the prefetch is unconditional, so
+// webpack emits the engine chunk for a non-zoom gallery too.
 console.log(
-  `\n${ok ? 'PASS' : 'FAIL'} — note: webpack may still *emit* the engine chunk for a non-zoom` +
-    `\ngallery (it does not constant-fold the flag across modules the way Rollup does).` +
-    `\nWhat matters is that it is never fetched — lightbox-zoom-loader.test.ts covers that.`,
+  `\nKnown cost: the engine chunk is emitted without Zoom as well (${noZoom.engineChunked}),` +
+    `\nbecause Root and Trigger call prefetchZoomRuntime() unconditionally.`,
 );
+
+const ok = checks.every(([, pass]) => pass);
+console.log(`\n${ok ? 'PASS' : 'FAIL'} — engine kept out of webpack's entry chunk`);
 process.exit(ok ? 0 : 1);
