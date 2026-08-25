@@ -12,6 +12,9 @@ import { useRender } from './use-render';
 
 afterEach(() => {
   vi.restoreAllMocks();
+  // The production-mode cases stub NODE_ENV, which would otherwise leak into
+  // every test that runs after them in this file.
+  vi.unstubAllEnvs();
 });
 
 interface ProbeState extends Record<string, unknown> {
@@ -181,6 +184,22 @@ describe('render prop as an element', () => {
     ).toThrow(/not a React element/);
   });
 
+  // The check exists only to replace React's message with one that names the
+  // prop, so production drops it and lets React object on its own terms.
+  it('leaves the diagnostic out of production, where React reports it instead', () => {
+    vi.stubEnv('NODE_ENV', 'production');
+
+    let message = '';
+    try {
+      render(<Probe render={'just a string' as unknown as React.ReactElement} />);
+    } catch (error) {
+      message = (error as Error).message;
+    }
+
+    expect(message).not.toBe('');
+    expect(message).not.toMatch(/not a React element/);
+  });
+
   // A code-split component is the realistic lazy case, and the one that works
   // the same on React 18 and 19.
   it('clones an element whose type is lazy, once it has loaded', async () => {
@@ -301,6 +320,18 @@ describe('render prop as a function', () => {
 
     render(<Probe render={fn} />);
 
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  // The warning is a development aid, so it costs consumers nothing in a
+  // production build even when the callback would have tripped it.
+  it('stays quiet in production for a callback that would warn in development', () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    render(<Probe data-testid="probe" render={function Thing(props) { return <span {...props} />; }} />);
+
+    expect(screen.getByTestId('probe')).toBeInTheDocument();
     expect(warn).not.toHaveBeenCalled();
   });
 });
