@@ -12,6 +12,7 @@ import * as React from 'react';
 import type { SlidesGeometry } from './lightbox-slides-geometry';
 import type { InitializedRef } from '../react-compat';
 import type { LightboxViewTransitionPreset } from './vt-timing';
+import type { TextDirection } from './lightbox-direction';
 
 type NavigationSource = 'trigger' | 'keyboard' | 'thumbnail' | 'button' | 'scroll' | 'imperative';
 
@@ -72,8 +73,15 @@ interface LightboxStateSlice {
   /**
    * Last navigation direction, updated in the same commit as `activeIndex`.
    * `Lightbox.Slides` exposes it as `data-direction` for consumer CSS.
+   *
+   * Navigation order, *not* reading direction — see `dir` for the latter.
    */
   direction: 'forward' | 'backward';
+  /**
+   * Resolved reading direction from the `dir` prop on `Lightbox.Root`.
+   * Mirrors scroll geometry, thumbnail-strip travel, and arrow keys.
+   */
+  dir: TextDirection;
   setActiveIndex: (index: number, source: NavigationSource) => void;
   /**
    * Set by a scroller (e.g. `Lightbox.Slides`) while a *user* scroll/fling is in

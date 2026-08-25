@@ -6,6 +6,7 @@ import { LightboxThumbnailGroupDataAttributes } from './lightbox-data-attributes
 import { useLightboxContext } from './lightbox-context';
 import { LightboxThumbnailGroupContext } from './lightbox-thumbnail-group-context';
 import { useLightboxThumbnailStripContextOptional } from './lightbox-thumbnail-strip-context';
+import { arrowKeyIndexDelta } from './lightbox-direction';
 import { mergeProps } from '../render/merge-props';
 import { useRender } from '../render/use-render';
 
@@ -28,8 +29,15 @@ const thumbnailGroupStateAttributesMapping = {
 const LightboxThumbnailGroup = React.forwardRef<HTMLDivElement, LightboxThumbnailGroupProps>(
   function LightboxThumbnailGroup(props, forwardedRef) {
     const { render, ...elementProps } = props;
-    const { activeIndex, setActiveIndex, navigationLockedRef, itemCount, loop, registerTablist } =
-      useLightboxContext();
+    const {
+      activeIndex,
+      setActiveIndex,
+      navigationLockedRef,
+      itemCount,
+      loop,
+      registerTablist,
+      dir,
+    } = useLightboxContext();
     const thumbnailStrip = useLightboxThumbnailStripContextOptional();
 
     const [focusWithin, setFocusWithin] = React.useState(false);
@@ -55,26 +63,20 @@ const LightboxThumbnailGroup = React.forwardRef<HTMLDivElement, LightboxThumbnai
     const handleKeyDown = React.useCallback(
       (event: React.KeyboardEvent<HTMLDivElement>) => {
         let nextIndex: number | null = null;
+        // Same mapping as Content's handler (shared helper) so the tablist and
+        // the stage can never disagree about which key advances.
+        const delta = arrowKeyIndexDelta(event.key, dir);
 
-        switch (event.key) {
-          case 'ArrowRight':
-          case 'ArrowDown':
-            nextIndex = loop ? (activeIndex + 1) % itemCount : Math.min(activeIndex + 1, itemCount - 1);
-            break;
-          case 'ArrowLeft':
-          case 'ArrowUp':
-            nextIndex = loop
-              ? (activeIndex - 1 + itemCount) % itemCount
-              : Math.max(activeIndex - 1, 0);
-            break;
-          case 'Home':
-            nextIndex = 0;
-            break;
-          case 'End':
-            nextIndex = itemCount - 1;
-            break;
-          default:
-            return;
+        if (delta !== 0) {
+          nextIndex = loop
+            ? (activeIndex + delta + itemCount) % itemCount
+            : Math.min(Math.max(activeIndex + delta, 0), itemCount - 1);
+        } else if (event.key === 'Home') {
+          nextIndex = 0;
+        } else if (event.key === 'End') {
+          nextIndex = itemCount - 1;
+        } else {
+          return;
         }
 
         // We own these keys in the tablist: always block native scroll / signal
@@ -104,7 +106,16 @@ const LightboxThumbnailGroup = React.forwardRef<HTMLDivElement, LightboxThumbnai
 
         getThumb(nextIndex)?.focus();
       },
-      [activeIndex, itemCount, loop, navigationLockedRef, setActiveIndex, getThumb, thumbnailStrip],
+      [
+        activeIndex,
+        itemCount,
+        loop,
+        navigationLockedRef,
+        setActiveIndex,
+        getThumb,
+        thumbnailStrip,
+        dir,
+      ],
     );
 
     const state = React.useMemo<LightboxThumbnailGroupState>(() => ({ focusWithin }), [focusWithin]);

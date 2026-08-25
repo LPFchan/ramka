@@ -4,6 +4,7 @@ import { vi } from 'vitest';
 
 import { LightboxSlide } from './lightbox-slide';
 import { LightboxSlides } from './lightbox-slides';
+import type { TextDirection } from './lightbox-direction';
 
 /**
  * jsdom has no layout engine, no ResizeObserver callbacks, and no scroll
@@ -50,11 +51,22 @@ export function flushResizeObservers() {
 }
 
 /**
- * Install uniform full-viewport geometry (slide i at offsetLeft `i*WIDTH`) and a
- * writable `scrollLeft` on the viewport, then trigger a re-measure so the
- * scroller adopts it (mount measured jsdom's zeroed layout).
+ * Install uniform full-viewport geometry and a writable `scrollLeft` on the
+ * viewport, then trigger a re-measure so the scroller adopts it (mount measured
+ * jsdom's zeroed layout).
+ *
+ * `offsetLeft` is measured from the scroller's padding-box left edge. An RTL
+ * flex row packs slide 0 against the right edge of the client box and overflows
+ * *leftward*, so with full-bleed slides slide 0 sits at 0 and slide `i` at
+ * `-i * WIDTH`, with `scrollLeft` running `[-(count − 1) * WIDTH, 0]`. LTR is
+ * slide `i` at `i * WIDTH` with `scrollLeft` in `[0, …]`.
  */
-export function applySlideGeometry(viewport: HTMLElement, count: number, width = SLIDE_TEST_WIDTH) {
+export function applySlideGeometry(
+  viewport: HTMLElement,
+  count: number,
+  width = SLIDE_TEST_WIDTH,
+  dir: TextDirection = 'ltr',
+) {
   let scrollLeft = 0;
   Object.defineProperty(viewport, 'clientWidth', { configurable: true, get: () => width });
   Object.defineProperty(viewport, 'scrollWidth', { configurable: true, get: () => width * count });
@@ -67,7 +79,8 @@ export function applySlideGeometry(viewport: HTMLElement, count: number, width =
   });
   const slides = viewport.querySelectorAll<HTMLElement>('[data-ramka-slide]');
   slides.forEach((slide, i) => {
-    Object.defineProperty(slide, 'offsetLeft', { configurable: true, get: () => i * width });
+    const offsetLeft = (dir === 'rtl' ? -i : i) * width;
+    Object.defineProperty(slide, 'offsetLeft', { configurable: true, get: () => offsetLeft });
     Object.defineProperty(slide, 'offsetWidth', { configurable: true, get: () => width });
   });
 }
@@ -76,18 +89,33 @@ export function fireResizeObservers() {
   roInstances.forEach((o) => o.cb([], o as unknown as ResizeObserver));
 }
 
-export function setupGeometry(viewport: HTMLElement, count: number, width = SLIDE_TEST_WIDTH) {
-  applySlideGeometry(viewport, count, width);
+export function setupGeometry(
+  viewport: HTMLElement,
+  count: number,
+  width = SLIDE_TEST_WIDTH,
+  dir: TextDirection = 'ltr',
+) {
+  applySlideGeometry(viewport, count, width, dir);
   flushResizeObservers();
 }
 
 /** Move the viewport and dispatch a scroll (as a physical swipe would). */
-export function swipeTo(viewport: HTMLElement, index: number, width = SLIDE_TEST_WIDTH) {
+export function swipeTo(
+  viewport: HTMLElement,
+  index: number,
+  width = SLIDE_TEST_WIDTH,
+  dir: TextDirection = 'ltr',
+) {
   act(() => {
-    viewport.scrollLeft = index * width;
+    viewport.scrollLeft = inlineToPhysicalScroll(index * width, dir);
     fireEvent.scroll(viewport);
     flushRaf();
   });
+}
+
+/** Physical `scrollLeft` for an inline position, matching the browser's sign. */
+export function inlineToPhysicalScroll(inline: number, dir: TextDirection = 'ltr'): number {
+  return dir === 'rtl' ? -inline || 0 : inline;
 }
 
 /** Signal that scrolling has fully stopped (unlocks discrete navigation). */
@@ -141,15 +169,20 @@ export function resetSlidesLayoutMocks() {
 export function SlidesHost({
   children,
   slideCount,
+  dir = 'ltr',
   ...props
-}: React.ComponentProps<typeof LightboxSlides> & { slideCount?: number }) {
+}: React.ComponentProps<typeof LightboxSlides> & {
+  slideCount?: number;
+  /** Lay the mocked geometry out for this direction (match Root's `dir`). */
+  dir?: TextDirection;
+}) {
   const ref = React.useRef<HTMLDivElement>(null);
   const items = React.Children.toArray(children);
   const count = slideCount ?? items.length;
 
   React.useLayoutEffect(() => {
-    if (ref.current) applySlideGeometry(ref.current, count);
-  }, [count]);
+    if (ref.current) applySlideGeometry(ref.current, count, SLIDE_TEST_WIDTH, dir);
+  }, [count, dir]);
 
   return (
     <LightboxSlides ref={ref} {...props}>

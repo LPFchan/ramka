@@ -14,6 +14,7 @@ import { LightboxSlide } from './lightbox-slide';
 import { LightboxSlides } from './lightbox-slides';
 import { LightboxThumbnail } from './lightbox-thumbnail';
 import { LightboxTrigger } from './lightbox-trigger';
+import type { TextDirection } from './lightbox-direction';
 
 const WIDTH = 100;
 const THUMB = 40;
@@ -54,7 +55,7 @@ function flushResizeObservers() {
   act(() => flushRaf());
 }
 
-function setupSlidesGeometry(viewport: HTMLElement, count: number) {
+function setupSlidesGeometry(viewport: HTMLElement, count: number, dir: TextDirection = 'ltr') {
   let scrollLeft = 0;
   Object.defineProperty(viewport, 'clientWidth', { configurable: true, get: () => WIDTH });
   Object.defineProperty(viewport, 'scrollWidth', { configurable: true, get: () => WIDTH * count });
@@ -67,7 +68,10 @@ function setupSlidesGeometry(viewport: HTMLElement, count: number) {
   });
   const slides = viewport.querySelectorAll<HTMLElement>('[data-ramka-slide]');
   slides.forEach((slide, i) => {
-    Object.defineProperty(slide, 'offsetLeft', { configurable: true, get: () => i * WIDTH });
+    // RTL packs slide 0 against the client box's right edge and overflows
+    // leftward, so `offsetLeft` runs negative from 0. See applySlideGeometry.
+    const offsetLeft = (dir === 'rtl' ? -i : i) * WIDTH;
+    Object.defineProperty(slide, 'offsetLeft', { configurable: true, get: () => offsetLeft });
     Object.defineProperty(slide, 'offsetWidth', { configurable: true, get: () => WIDTH });
   });
   flushResizeObservers();
@@ -75,7 +79,12 @@ function setupSlidesGeometry(viewport: HTMLElement, count: number) {
 
 const THUMBNAIL_STRIP_WIDTH = 320;
 
-function setupThumbGeometry(track: HTMLElement, count: number, widths?: number[]) {
+function setupThumbGeometry(
+  track: HTMLElement,
+  count: number,
+  widths?: number[],
+  dir: TextDirection = 'ltr',
+) {
   const tabs = track.querySelectorAll<HTMLElement>('[role="tab"]');
   const resolved =
     widths ??
@@ -83,11 +92,15 @@ function setupThumbGeometry(track: HTMLElement, count: number, widths?: number[]
   expect(tabs.length).toBe(count);
   expect(resolved.length).toBe(count);
 
-  let left = 0;
+  const trackWidth =
+    resolved.reduce((total, w) => total + w, 0) + THUMB_GAP * Math.max(0, count - 1);
+  // RTL packs thumb 0 against the right edge and walks left from there.
+  let left = dir === 'rtl' ? trackWidth : 0;
   const lefts: number[] = [];
   for (let i = 0; i < count; i++) {
+    if (dir === 'rtl') left -= resolved[i]!;
     lefts.push(left);
-    left += resolved[i]! + THUMB_GAP;
+    left += dir === 'rtl' ? -THUMB_GAP : resolved[i]! + THUMB_GAP;
   }
 
   tabs.forEach((tab, i) => {
@@ -120,9 +133,10 @@ function setupThumbnailStripRoot(root: HTMLElement, width = THUMBNAIL_STRIP_WIDT
   flushResizeObservers();
 }
 
-function swipeTo(viewport: HTMLElement, index: number) {
+function swipeTo(viewport: HTMLElement, index: number, dir: TextDirection = 'ltr') {
   act(() => {
-    viewport.scrollLeft = index * WIDTH;
+    const inline = index * WIDTH;
+    viewport.scrollLeft = dir === 'rtl' ? -inline || 0 : inline;
     fireEvent.scroll(viewport);
     flushRaf();
   });
@@ -197,12 +211,14 @@ class MockAnimation {
 function Gallery({
   count = 5,
   scrubOnSelect,
+  dir,
 }: {
   count?: number;
   scrubOnSelect?: boolean;
+  dir?: TextDirection;
 }) {
   return (
-    <LightboxRoot defaultOpen>
+    <LightboxRoot defaultOpen dir={dir}>
       <LightboxTrigger index={0}>open</LightboxTrigger>
       <LightboxPortal>
         <LightboxContent aria-label="ThumbnailStrip test">
@@ -329,8 +345,8 @@ describe('Lightbox.ThumbnailStrip', () => {
     swipeTo(slides, 2);
     expect(readTranslateX(track)).toBeCloseTo(-136, 5);
 
-    expect(track.style.paddingLeft).toBe('120px'); // (320 - 80) / 2
-    expect(track.style.paddingRight).toBe('120px');
+    expect(track.style.paddingInlineStart).toBe('120px'); // (320 - 80) / 2
+    expect(track.style.paddingInlineEnd).toBe('120px');
   });
 
   it('links the track to Slides via ScrollTimeline when available', () => {
@@ -349,7 +365,8 @@ describe('Lightbox.ThumbnailStrip', () => {
     expect(link).toBeTruthy();
     expect(link!.target).toBe(track);
     expect(link!.timeline.source).toBe(slides);
-    expect(link!.timeline.axis).toBe('x');
+    // Logical axis so progress runs from the inline-start edge under RTL.
+    expect(link!.timeline.axis).toBe('inline');
     expect(link!.anim.play).toHaveBeenCalled();
 
     const travel = 4 * THUMB_STEP;
@@ -773,5 +790,110 @@ describe('Lightbox.ThumbnailStrip', () => {
       await Promise.resolve();
     });
     expect(screen.getByTestId('thumb-4')).toHaveAttribute('data-active');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Reading direction
+// ---------------------------------------------------------------------------
+
+/**
+ * Travels are inline distances, so they stay identical between directions — the
+ * mirroring lives entirely in the sign of the physical `translateX` that pulls
+ * the active thumb onto the midline. These assert both halves: index order is
+ * unchanged, and the track moves the opposite way.
+ */
+describe.each<[TextDirection, 1 | -1]>([
+  ['ltr', -1],
+  ['rtl', 1],
+])('Lightbox.ThumbnailStrip (dir=%s)', (dir, sign) => {
+  function setup(count = 5) {
+    render(<Gallery count={count} dir={dir} />);
+    const slides = screen.getByTestId('slides');
+    setupSlidesGeometry(slides, count, dir);
+    const root = screen.getByTestId('thumbnail-strip');
+    const track = screen.getByTestId('thumbnail-strip-track');
+    setupThumbnailStripRoot(root);
+    setupThumbGeometry(track, count, undefined, dir);
+    return { slides, track };
+  }
+
+  it('centers the active thumb as Slides scrolls', () => {
+    const { slides, track } = setup();
+
+    expect(readTranslateX(track)).toBe(0);
+
+    swipeTo(slides, 1, dir);
+    expect(readTranslateX(track)).toBeCloseTo(sign * THUMB_STEP, 5);
+
+    swipeTo(slides, 4, dir);
+    expect(readTranslateX(track)).toBeCloseTo(sign * 4 * THUMB_STEP, 5);
+
+    swipeTo(slides, 0, dir);
+    expect(readTranslateX(track)).toBeCloseTo(0, 5);
+  });
+
+  it('pads both ends so the first and last thumb reach the midline', () => {
+    const { track } = setup();
+    // (320 − 40) / 2 on each side, expressed logically.
+    expect(track.style.paddingInlineStart).toBe('140px');
+    expect(track.style.paddingInlineEnd).toBe('140px');
+  });
+
+  it('publishes the end travel as a physical transform distance', () => {
+    const { track } = setup();
+    expect(track.style.getPropertyValue('--lightbox-thumbnail-strip-travel')).toBe(
+      `${sign * 4 * THUMB_STEP}px`,
+    );
+  });
+
+  it('builds ScrollTimeline keyframes on the logical axis', () => {
+    enableScrollTimeline();
+    const { slides, track } = setup();
+
+    const link = linkCalls[linkCalls.length - 1];
+    expect(link).toBeTruthy();
+    expect(link!.target).toBe(track);
+    expect(link!.timeline.source).toBe(slides);
+    expect(link!.timeline.axis).toBe('inline');
+    expect(link!.keyframes[0]).toMatchObject({ transform: 'translate3d(0px, 0, 0)' });
+    expect(link!.keyframes[1]).toMatchObject({
+      transform: `translate3d(${sign * 4 * THUMB_STEP}px, 0, 0)`,
+    });
+  });
+
+  it('scrubs to the thumbnail a click selects', async () => {
+    const scrubKeyframes: Keyframe[][] = [];
+    const elementAnimate = vi.fn((keyframes: Keyframe[]) => {
+      scrubKeyframes.push(keyframes);
+      return {
+        pause: vi.fn(),
+        play: vi.fn(),
+        cancel: vi.fn(),
+        commitStyles: vi.fn(),
+        finished: Promise.resolve(),
+        currentTime: 0,
+      } as unknown as Animation;
+    });
+    Object.defineProperty(HTMLElement.prototype, 'animate', {
+      configurable: true,
+      writable: true,
+      value: elementAnimate,
+    });
+
+    setup();
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('thumb-3'));
+      await Promise.resolve();
+    });
+
+    const scrub = scrubKeyframes[scrubKeyframes.length - 1];
+    expect(scrub).toBeTruthy();
+    // Starts where the track already sits, lands on the mirrored destination.
+    expect(scrub![0]).toMatchObject({ transform: 'translate3d(0px, 0, 0)' });
+    expect(scrub![1]).toMatchObject({
+      transform: `translate3d(${sign * 3 * THUMB_STEP}px, 0, 0)`,
+    });
   });
 });

@@ -1751,7 +1751,9 @@ describe('Lightbox', () => {
         configurable: true,
         get: () => 1000,
       });
-      document.body.style.paddingRight = '10px';
+      // Logical padding: the gutter is on the inline-end edge in both reading
+      // directions, so the lock compensates `padding-inline-end`.
+      document.body.style.paddingInlineEnd = '10px';
 
       try {
         render(<TestLightbox />);
@@ -1759,15 +1761,15 @@ describe('Lightbox', () => {
 
         expect(document.documentElement.style.overflow).toBe('hidden');
         // Existing 10px + 20px scrollbar width.
-        expect(document.body.style.paddingRight).toBe('30px');
+        expect(document.body.style.paddingInlineEnd).toBe('30px');
 
         fireEvent.click(screen.getByTestId('close'));
         await flushMicrotasks();
 
         expect(document.documentElement.style.overflow).toBe('');
-        expect(document.body.style.paddingRight).toBe('10px');
+        expect(document.body.style.paddingInlineEnd).toBe('10px');
       } finally {
-        document.body.style.paddingRight = '';
+        document.body.style.paddingInlineEnd = '';
         if (origInnerWidth) Object.defineProperty(window, 'innerWidth', origInnerWidth);
         else delete (window as unknown as { innerWidth?: number }).innerWidth;
         if (origClientWidth) {

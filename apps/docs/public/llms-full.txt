@@ -1172,6 +1172,7 @@ Groups all parts of the lightbox and owns open state, active index, view-transit
 | value | `number` |  | Controlled active index. |
 | onValueChange | `(value: number, metadata: { source: NavigationSource }) => void` |  | Callback when active index changes. |
 | loop | `boolean` | `false` | Wrap navigation at boundaries. |
+| dir | `TextDirection` | `'ltr'` | Reading direction. `'rtl'` mirrors slide navigation, thumbnail-strip travel, and the horizontal arrow keys (so `ArrowLeft` advances). This drives *behavior* only. CSS direction is yours to set — put `dir="rtl"` on `<html>` (or a `direction: rtl` rule) as well, the same split Base UI uses. The two must agree: `Lightbox.Portal` renders into `document.body`, so a `dir` on an app wrapper element never reaches the lightbox and would leave CSS and behavior disagreeing. In development a mismatch logs a warning. |
 | viewTransition | `boolean \| LightboxViewTransitionPreset` | `true` | Morph between trigger and lightbox item via the View Transitions API. On by default: clicking a trigger morphs into the fullscreen item, and close morphs back. The morph engine is loaded on first use — pass `false` to skip that download. Falls back to a plain fade when unsupported, when prefers-reduced-motion is set, or on low-end devices. Pass a preset name to pick the morph's motion (duration + easing): - `"default"` — 360ms, sheet curve with a tamed launch (same as `true`) - `"snappy"` — 340ms, hotter launch; reads quicker - `"relaxed"` — 400ms, softer launch and longer settle - `"spring"` — 450ms, critically damped spring; Photos-style settle Timing is preset-based (not free-form CSS) on purpose: each preset is vetted on-device to stay smooth and skip-safe on iOS Safari (including Low Power Mode) and Android, where arbitrary curves stutter or teleport. The chosen timing drives the morph, the crossfade and the root fade together so they always stay in sync. |
 | scrollTriggerIntoView | `ScrollTriggerIntoView` | `null` | Scroll the active trigger element into the viewport so close animations land on-screen instead of animating off-viewport. Accepts a single option or an array of options, so you can combine the moments below. Per option: - `behavior` — `"smooth"` (default) or `"instant"` - `block` / `inline` — `scrollIntoView` alignment (`"nearest"` default). Use `inline: "center"` for horizontal snap strips with variable-width tiles. - `null` (default) — no automatic scrolling - `{ type: "onChange" }` — scroll to the trigger the close morph will land on whenever the active index changes while the lightbox is open (preemptive; respects `morphTo`, so `closest` scrolls the nearest registered trigger when the active index has none) - `{ type: "onOpenComplete" }` — scroll to that same trigger once the open transition finishes. The viewer covers the page and scroll is locked, so this reposition is invisible — it only pays off by ensuring the close morph lands on-screen without a jump when the trigger was partially off-screen at open time. `"instant"` recommended. - `{ type: "onClose" }` — scroll to that trigger just before the close morph runs (visible reposition at close start) |
 | morphTo | `'active' \| 'origin' \| 'closest'` | `'active'` | Controls which trigger receives the View Transition morph on close. - `'active'` (default) — morph to the trigger matching the current active index. No morph if no trigger exists for that index. - `'origin'` — always morph back to the trigger that originally opened the lightbox, regardless of which item is active. - `'closest'` — morph to the trigger at the active index if it exists, otherwise fall back to the nearest registered trigger. |
@@ -8268,230 +8269,35 @@ macOS Photos–style square grid under a sticky, blurred toolbar with a fade gra
 ```tsx examples/lightbox/photos-app/page.tsx
 'use client';
 
-import * as React from 'react';
-import { flushSync } from 'react-dom';
-import Image, { type StaticImageData } from 'next/image';
-import * as Lightbox from '@ramka/react/lightbox';
-import { Heart, Minus, Plus } from 'lucide-react';
-
-import {
-  LightboxGallery,
-  triggerFocusClass,
-} from '../../../../_components/lightbox-chrome';
-import { photoImages } from './images.generated';
-
-/**
- * A macOS Photos–style app surface: a dense grid of square thumbnails under a
- * sticky, blurred toolbar. The whole page *is* the app — no docs chrome. The
- * toolbar `−`/`+` buttons change the grid density (crossfaded via a View
- * Transition), and tapping any photo opens the shared docs fullscreen viewer
- * (`LightboxGallery`): swipe navigation, desktop thumbnails, a View
- * Transition morph, pinch / scroll / keyboard zoom, and pull-to-dismiss.
- */
-
-interface Photo {
-  id: string;
-  /**
-   * One local asset per photo (varied natural aspect ratios). The grid trigger
-   * and the viewer share the same source image — next/image serves each at the
-   * right resolution via `sizes`/srcset — so the trigger→viewer morph never
-   * crossfades between differently-cropped images.
-   */
-  image: StaticImageData;
-  alt: string;
-  caption: string;
-  favorite?: boolean;
-}
-
-const photos: Photo[] = photoImages.map((image, i) => ({
-  id: `photo-${i}`,
-  image,
-  alt: `Photo ${i + 1}`,
-  caption: `July ${(i % 28) + 1}, 2024`,
-  favorite: i === 0 || i === 15 || i === 24,
-}));
-
-// Small toolbar buttons (grid density).
-const toolbarButton =
-  'inline-flex h-7 w-7 items-center justify-center rounded-full text-neutral-600 transition hover:bg-black/5 disabled:pointer-events-none disabled:opacity-30 dark:text-neutral-300 dark:hover:bg-white/10';
-
-// Grid density (columns). Fewer columns = larger photos. The zoom buttons
-// step between these bounds; `+` grows the photos, `−` shrinks them.
-const MIN_COLUMNS = 2;
-const MAX_COLUMNS = 10;
-const DEFAULT_COLUMNS = 5;
-
-const clampColumns = (c: number) => Math.min(MAX_COLUMNS, Math.max(MIN_COLUMNS, c));
-
-const supportsViewTransitions = () =>
-  typeof document !== 'undefined' &&
-  typeof (document as Document & { startViewTransition?: unknown }).startViewTransition === 'function';
-
-const prefersReducedMotion = () =>
-  typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+import { PhotosAppView } from './photos-app-view';
 
 export default function PhotosAppPage() {
-  const [columns, setColumns] = React.useState(DEFAULT_COLUMNS);
+  return <PhotosAppView />;
+}
+```
 
-  const zoomTo = (next: number) => {
-    const target = clampColumns(next);
-    if (target === columns) return;
+# Photos app (RTL)
 
-    if (!supportsViewTransitions() || prefersReducedMotion()) {
-      setColumns(target);
-      return;
-    }
+The same photos app mirrored for a right-to-left locale — dir="rtl" on Lightbox.Root mirrors navigation, the thumbnail strip, and the arrow keys.
 
-    // The grid carries a single `view-transition-name`, so the browser
-    // captures it as one unit and simply crossfades the old layout into the
-    // new one. `flushSync` commits the column change inside the transition.
-    (document as Document & { startViewTransition: (cb: () => void) => unknown }).startViewTransition(() =>
-      flushSync(() => setColumns(target)),
-    );
-  };
+## Source
 
-  const zoomIn = () => zoomTo(columns - 1);
-  const zoomOut = () => zoomTo(columns + 1);
+```tsx examples/lightbox/photos-app-rtl/page.tsx
+'use client';
 
-  return (
-    <div className="min-h-screen select-none">
-      <Lightbox.Root
-        loop
-        scrollTriggerIntoView={[
-          { type: 'onChange', behavior: 'instant' },
-          { type: 'onOpenComplete', behavior: 'instant' },
-        ]}
-        awaitImageDecode={false}
-      >
-        {/* The toolbar and the grid get *separate* `view-transition-name`s.
-            Sharing one group would stretch the snapshot when the grid height
-            changes with the column count, visibly dragging the stuck header;
-            naming the toolbar separately keeps it static (its box doesn't
-            change) and — since it paints above the grid — its group also
-            layers above the grid's crossfade. */}
-        <div>
-          {/* Apple Photos-style large-title toolbar: solid surface (no
-              backdrop-filter on this site), hairline bottom edge, title +
-              count on the left, density capsule on the right. Sticky below
-              the mobile docs nav (top-14) and at the viewport top on md+. */}
-          <div
-            style={{ viewTransitionName: 'photos-toolbar' }}
-            className="pointer-events-auto sticky top-14 z-30 flex shrink-0 items-center gap-3 border-b border-black/[0.06] bg-background px-4 py-2.5 md:top-0 dark:border-white/[0.08]"
-          >
-            <div className="flex flex-col">
-              <span className="text-[19px] font-bold leading-6 tracking-tight text-neutral-900 dark:text-neutral-50">
-                Library
-              </span>
-              <span className="text-[11px] font-medium leading-4 text-neutral-500 dark:text-neutral-400">
-                {photos.length} Photos · July 2024
-              </span>
-            </div>
+import { PhotosAppView } from '../photos-app/photos-app-view';
 
-            <div className="flex flex-1 items-center justify-end">
-              <div className="flex items-center gap-0.5 rounded-full bg-black/[0.05] p-0.5 dark:bg-white/[0.09]">
-                <button
-                  type="button"
-                  aria-label="Smaller photos"
-                  onClick={zoomOut}
-                  disabled={columns >= MAX_COLUMNS}
-                  className={toolbarButton}
-                >
-                  <Minus aria-hidden className="h-4 w-4" />
-                </button>
-                <button
-                  type="button"
-                  aria-label="Larger photos"
-                  onClick={zoomIn}
-                  disabled={columns <= MIN_COLUMNS}
-                  className={toolbarButton}
-                >
-                  <Plus aria-hidden className="h-4 w-4" />
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* Every tile is a `Lightbox.Trigger`, so tapping one morphs into
-              the viewer. The grid carries its own VT name for the density
-              crossfade. */}
-          <div
-            className="grid gap-0.5"
-            style={{
-              gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
-              viewTransitionName: 'photos-grid',
-            }}
-          >
-            {photos.map((photo, i) => (
-              <Lightbox.Trigger
-                key={photo.id}
-                index={i}
-                // scroll-margin clears the sticky toolbar so scrollTriggerIntoView
-                // doesn't leave a tile tucked under it. On mobile the docs
-                // MobileNav overlaps the toolbar and is handled by the document's
-                // scroll-pt-14, so this only needs to kick in at md+.
-                className={`relative block aspect-square cursor-pointer overflow-hidden bg-transparent p-0 md:scroll-mt-16 ${triggerFocusClass}`}
-              >
-                {({ imageRef }) => (
-                  <>
-                    <Image
-                      ref={imageRef}
-                      src={photo.image}
-                      alt={photo.alt}
-                      placeholder="blur"
-                      sizes={`${Math.round(100 / columns)}vw`}
-                      loading="lazy"
-                      className="block size-full object-cover"
-                    />
-                    {photo.favorite ? (
-                      <Heart
-                        aria-hidden
-                        className="pointer-events-none absolute bottom-1.5 left-1.5 h-4 w-4 fill-white text-white drop-shadow"
-                      />
-                    ) : null}
-                  </>
-                )}
-              </Lightbox.Trigger>
-            ))}
-          </div>
-        </div>
-
-        <LightboxGallery
-          items={photos.map((photo) => ({
-            id: photo.id,
-            src: photo.image,
-            thumb: photo.image,
-            alt: photo.alt,
-            caption: photo.caption,
-          }))}
-          ariaLabel="Library photos"
-          backdrop="solid"
-          renderItem={(_item, i) => {
-            const photo = photos[i]!;
-            return (
-              <Lightbox.Zoom maxZoom={6}>
-                <Lightbox.Media
-                  width={photo.image.width}
-                  height={photo.image.height}
-                  className="overflow-hidden rounded-none md:rounded-lg"
-                >
-                  {/* Destination Image: no placeholder — every index has a
-                      trigger thumb, so Ramka owns the open bridge. */}
-                  <Image
-                    src={photo.image}
-                    alt={photo.alt}
-                    sizes="100vw"
-                    priority
-                    draggable={false}
-                    className="select-none"
-                  />
-                </Lightbox.Media>
-              </Lightbox.Zoom>
-            );
-          }}
-        />
-      </Lightbox.Root>
-    </div>
-  );
+/**
+ * The photos app mirrored for a right-to-left locale.
+ *
+ * Same composition, two changes: `dir="rtl"` on `Lightbox.Root` (which mirrors
+ * navigation, the thumbnail strip, and the arrow keys) and `dir="rtl"` on
+ * `<html>` (which mirrors the layout). Both are needed — the prop drives
+ * behavior and CSS drives paint, and the library warns in development when they
+ * disagree.
+ */
+export default function PhotosAppRtlPage() {
+  return <PhotosAppView dir="rtl" />;
 }
 ```
 

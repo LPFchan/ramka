@@ -46,6 +46,7 @@ import { scheduleWarmUp } from './schedule-warm-up';
 import { DEFAULT_DECODE_MAX_WAIT, isLowEndDevice, supportsViewTransitions } from './vt-constants';
 import type { LightboxViewTransitionPreset } from './vt-timing';
 import type { ViewTransitionMorph, ViewTransitionMorphConfig } from './use-view-transition-morph';
+import type { TextDirection } from './lightbox-direction';
 
 interface LightboxRootProps {
   /** Lightbox parts and page content (triggers typically live as children of Root). */
@@ -78,6 +79,19 @@ interface LightboxRootProps {
   onValueChange?: (value: number, metadata: { source: NavigationSource }) => void;
   /** Wrap navigation at boundaries. @default false */
   loop?: boolean;
+  /**
+   * Reading direction. `'rtl'` mirrors slide navigation, thumbnail-strip
+   * travel, and the horizontal arrow keys (so `ArrowLeft` advances).
+   *
+   * This drives *behavior* only. CSS direction is yours to set — put
+   * `dir="rtl"` on `<html>` (or a `direction: rtl` rule) as well, the same
+   * split Base UI uses. The two must agree: `Lightbox.Portal` renders into
+   * `document.body`, so a `dir` on an app wrapper element never reaches the
+   * lightbox and would leave CSS and behavior disagreeing. In development a
+   * mismatch logs a warning.
+   * @default 'ltr'
+   */
+  dir?: TextDirection;
   /**
    * Morph between trigger and lightbox item via the View Transitions API.
    * On by default: clicking a trigger morphs into the fullscreen item, and
@@ -261,6 +275,7 @@ function LightboxRoot(props: LightboxRootProps) {
       value: valueProp,
       onValueChange,
       loop = false,
+      dir = 'ltr',
       viewTransition = true,
       scrollTriggerIntoView = null,
       morphTo = 'active',
@@ -519,11 +534,15 @@ function LightboxRoot(props: LightboxRootProps) {
       const body = document.body;
       // Width freed when the classic scrollbar disappears under
       // `overflow: hidden`. Compensate with body padding so locking doesn't
-      // shift page content left. Zero on overlay-scrollbar platforms
+      // shift page content sideways. Zero on overlay-scrollbar platforms
       // (mobile / macOS overlay), so this is a no-op there.
+      //
+      // `padding-inline-end` rather than `padding-right`: the gutter sits on
+      // whichever side the scrollbar does, which is the inline-end edge in both
+      // reading directions.
       const scrollbarWidth = Math.max(0, window.innerWidth - html.clientWidth);
       const originalOverflow = html.style.overflow;
-      const originalPaddingRight = body.style.paddingRight;
+      const originalPaddingInlineEnd = body.style.paddingInlineEnd;
       const originalUserSelect = html.style.userSelect;
       const originalWebkitUserSelect = html.style.getPropertyValue('-webkit-user-select');
       html.style.overflow = 'hidden';
@@ -541,12 +560,12 @@ function LightboxRoot(props: LightboxRootProps) {
       // recovers. The macOS scroller was fixed (WebKit/WebKit#36030); the iOS
       // one was not. Revisit if the iOS fix ships.
       if (scrollbarWidth > 0) {
-        const currentPadding = parseFloat(window.getComputedStyle(body).paddingRight) || 0;
-        body.style.paddingRight = `${currentPadding + scrollbarWidth}px`;
+        const currentPadding = parseFloat(window.getComputedStyle(body).paddingInlineEnd) || 0;
+        body.style.paddingInlineEnd = `${currentPadding + scrollbarWidth}px`;
       }
       scrollLockCleanupRef.current = () => {
         html.style.overflow = originalOverflow;
-        body.style.paddingRight = originalPaddingRight;
+        body.style.paddingInlineEnd = originalPaddingInlineEnd;
         html.style.userSelect = originalUserSelect;
         if (originalWebkitUserSelect) {
           html.style.setProperty('-webkit-user-select', originalWebkitUserSelect);
@@ -1102,6 +1121,7 @@ function LightboxRoot(props: LightboxRootProps) {
         subscribeOpenComplete,
         activeIndex,
         direction,
+        dir,
         setActiveIndex,
         navigationLockedRef,
         itemCount,
@@ -1125,6 +1145,7 @@ function LightboxRoot(props: LightboxRootProps) {
         subscribeOpenComplete,
         activeIndex,
         direction,
+        dir,
         setActiveIndex,
         itemCount,
         registerItem,

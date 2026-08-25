@@ -62,6 +62,12 @@ export const generatedProps: Record<string, PropRow[]> = {
       description: "Wrap navigation at boundaries.",
     },
     {
+      name: "dir",
+      type: "TextDirection",
+      default: "'ltr'",
+      description: "Reading direction. `'rtl'` mirrors slide navigation, thumbnail-strip travel, and the horizontal arrow keys (so `ArrowLeft` advances).\n\nThis drives *behavior* only. CSS direction is yours to set — put `dir=\"rtl\"` on `<html>` (or a `direction: rtl` rule) as well, the same split Base UI uses. The two must agree: `Lightbox.Portal` renders into `document.body`, so a `dir` on an app wrapper element never reaches the lightbox and would leave CSS and behavior disagreeing. In development a mismatch logs a warning.",
+    },
+    {
       name: "viewTransition",
       type: "boolean | LightboxViewTransitionPreset",
       default: "true",

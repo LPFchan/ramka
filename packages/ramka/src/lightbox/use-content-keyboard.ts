@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 
+import { arrowKeyIndexDelta, type TextDirection } from './lightbox-direction';
 import type { LightboxCloseOptions, NavigationSource } from './lightbox-context';
 import type { ActiveZoomControls } from './lightbox-zoom-context';
 import type { InitializedRef } from '../react-compat';
@@ -16,6 +17,8 @@ interface UseContentKeyboardOptions {
   loop: boolean;
   activeIndex: number;
   navigate: (index: number, source: NavigationSource) => void;
+  /** Reading direction — mirrors the horizontal arrow keys. */
+  dir: TextDirection;
   /**
    * True while a `Lightbox.Slides` user scroll/fling is in flight. Discrete
    * keyboard zoom is dropped (⌘+/- still preventDefault so the page doesn't
@@ -41,6 +44,7 @@ export function useContentKeyboard({
   loop,
   activeIndex,
   navigate,
+  dir,
   isScrollingRef,
 }: UseContentKeyboardOptions): (event: React.KeyboardEvent) => void {
   return React.useCallback(
@@ -118,6 +122,9 @@ export function useContentKeyboard({
       }
 
       // While zoomed in, arrows pan the active slide instead of navigating.
+      // Panning stays *physical* in both reading directions: this is direct
+      // manipulation of a 2D surface, not travel through an ordered list, so
+      // ArrowRight moves the viewport right the way it does on a map.
       if (isArrow && (zoomCtl?.getZoom() ?? 1) > 1 && zoomCtl) {
         const d = zoomCtl.keyboardPanDistance;
         switch (event.key) {
@@ -143,24 +150,20 @@ export function useContentKeyboard({
       if (itemCount === 0) return;
 
       let nextIndex: number | null = null;
+      // Horizontal arrows follow the reading direction, so ArrowLeft advances
+      // an RTL gallery. Vertical arrows always follow index order.
+      const delta = arrowKeyIndexDelta(event.key, dir);
 
-      switch (event.key) {
-        case 'ArrowRight':
-        case 'ArrowDown':
-          nextIndex = loop ? (activeIndex + 1) % itemCount : Math.min(activeIndex + 1, itemCount - 1);
-          break;
-        case 'ArrowLeft':
-        case 'ArrowUp':
-          nextIndex = loop ? (activeIndex - 1 + itemCount) % itemCount : Math.max(activeIndex - 1, 0);
-          break;
-        case 'Home':
-          nextIndex = 0;
-          break;
-        case 'End':
-          nextIndex = itemCount - 1;
-          break;
-        default:
-          return;
+      if (delta !== 0) {
+        nextIndex = loop
+          ? (activeIndex + delta + itemCount) % itemCount
+          : Math.min(Math.max(activeIndex + delta, 0), itemCount - 1);
+      } else if (event.key === 'Home') {
+        nextIndex = 0;
+      } else if (event.key === 'End') {
+        nextIndex = itemCount - 1;
+      } else {
+        return;
       }
 
       if (nextIndex !== null && nextIndex !== activeIndex) {
@@ -180,6 +183,7 @@ export function useContentKeyboard({
       activeZoomRef,
       stageElementRef,
       isScrollingRef,
+      dir,
     ],
   );
 }

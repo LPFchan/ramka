@@ -92,6 +92,33 @@ const COMPOSITED_CSS_ATTR = 'data-ramka-vt-composited-css';
 /** Unique suffix for per-transition @keyframes names (forces fresh starts). */
 let cssAnimationSeq = 0;
 
+/**
+ * Physical top-left anchor for the old/new snapshots, `top`/`left` only.
+ *
+ * The UA stylesheet pins the snapshots with `inset: 0`. That is harmless under
+ * the structural `width/height: 100%` contract (the box fills the group either
+ * way), but this module replaces it with the intrinsic captured size — and a
+ * definite width against `left: 0` *and* `right: 0` is over-constrained, so
+ * one inset has to be dropped. CSS resolves that by direction: `right` loses
+ * under `ltr`, `left` loses under `rtl` (and it is the *containing block's*
+ * direction that decides, i.e. the group's — Firefox reports `direction: ltr`
+ * on the snapshot itself while still flipping it).
+ *
+ * Under `dir="rtl"` that anchored the snapshot to the group's right edge,
+ * displacing it by `groupWidth - snapshotWidth` — while the counter transforms
+ * below are all computed from the physical top-left, with `transform-origin:
+ * 0 0`. The `new` snapshot escaped it (the group is frozen at final geometry,
+ * which *is* the new element's box, so the widths match and there is nothing to
+ * over-constrain), but `old` was displaced by the full trigger↔destination size
+ * difference: a first-frame flicker on open, where `old` is only the paint
+ * fallback under an opaque `new`, and a grossly misplaced photo on close, where
+ * `old` is the visible layer.
+ *
+ * Dropping `right`/`bottom` to `auto` removes the over-constraint entirely, so
+ * `top`/`left` win in both reading directions.
+ */
+const SNAPSHOT_ANCHOR = 'inset: 0 auto auto 0 !important;';
+
 const GROUP_PSEUDO = `::view-transition-group(${VIEW_TRANSITION_NAME})`;
 const OLD_PSEUDO = `::view-transition-old(${VIEW_TRANSITION_NAME})`;
 const NEW_PSEUDO = `::view-transition-new(${VIEW_TRANSITION_NAME})`;
@@ -146,6 +173,9 @@ function keyframesCss(
  *   mid-flight. Crossfade morphs are excluded: their snapshots must keep the
  *   structural sheet's `100%` + `object-fit: fill` contract (which tracks
  *   the frozen box) and their UA opacity dissolve.
+ *   Anchoring is pinned to the physical top-left (`inset: 0 auto auto 0`)
+ *   because the counter transforms are computed from that corner — see
+ *   {@link SNAPSHOT_ANCHOR}.
  */
 function ensureStyleInjected() {
   ensureLibrarySheet(
@@ -159,6 +189,7 @@ function ensureStyleInjected() {
 :root[${COMPOSITED_ATTR}]:not([${LightboxDocumentDataAttributes.crossfade}])${NEW_PSEUDO} {
   width: auto !important;
   height: auto !important;
+  ${SNAPSHOT_ANCHOR}
   transform-origin: 0 0 !important;
   animation: none !important;
 }
@@ -506,12 +537,14 @@ ${keyframesCss(nName, newFrames, 'transform')}
 :root[${COMPOSITED_CSS_ATTR}]${OLD_PSEUDO} {
   width: ${fmt(w0)}px;
   height: ${fmt(h0)}px;
+  ${SNAPSHOT_ANCHOR}
   transform-origin: 0 0 !important;
   animation: ${track(oName)} !important;
 }
 :root[${COMPOSITED_CSS_ATTR}]${NEW_PSEUDO} {
   width: ${fmt(w1)}px;
   height: ${fmt(h1)}px;
+  ${SNAPSHOT_ANCHOR}
   transform-origin: 0 0 !important;
   animation: ${track(nName)} !important;
 }

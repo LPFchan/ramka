@@ -6,10 +6,12 @@ import { LightboxSlidesDataAttributes } from './lightbox-data-attributes';
 import { useLightboxContext } from './lightbox-context';
 import {
   measureSlidesGeometry,
-  slideIndexFromScrollLeft,
-  slideScrollLeftForIndex,
+  slideIndexFromInlinePosition,
+  slideInlinePositionForIndex,
   SLIDE_SELECTOR,
 } from './lightbox-slides-geometry';
+import { readInlineScroll, writeInlineScroll } from './lightbox-direction';
+import { useDirectionMismatchWarning } from './use-direction-mismatch-warning';
 import { useLightboxZoomPublish } from './lightbox-zoom-context';
 import { mergeProps } from '../render/merge-props';
 import { useRender } from '../render/use-render';
@@ -32,9 +34,13 @@ import { useRender } from '../render/use-render';
  * The scroller is `position: relative` so it is the slides' `offsetParent`;
  * measurements also subtract a shared ancestor inset when it is not:
  *
- *   offsets[i] = leftInScroller(slideᵢ) + widthᵢ/2 − clientWidth/2
- *   index      = nearest offsets[i] to scrollLeft
- *   (uniform full-bleed tracks still use the O(1) round((scrollLeft−base)/step) path)
+ *   offsets[i] = inlineStart(slideᵢ) + widthᵢ/2 − clientWidth/2
+ *   index      = nearest offsets[i] to the inline scroll position
+ *   (uniform full-bleed tracks still use the O(1) round((inline−base)/step) path)
+ *
+ * Positions are **inline** (distance from the inline-start edge), so index order
+ * and position order agree in both reading directions. `lightbox-direction.ts`
+ * converts to and from physical `scrollLeft`, which runs negative under RTL.
  *
  * ## Eventual-scroll-position authority (the reliability core)
  *
@@ -128,6 +134,7 @@ const LightboxSlides = React.forwardRef<HTMLDivElement, LightboxSlidesProps>(
     const {
       activeIndex,
       direction,
+      dir,
       setActiveIndex,
       navigationLockedRef,
       itemCount,
@@ -204,9 +211,14 @@ const LightboxSlides = React.forwardRef<HTMLDivElement, LightboxSlidesProps>(
       [forwardedRef, slidesViewportRef, notifySlidesViewport],
     );
 
-    const indexFromScroll = React.useCallback((viewport: HTMLElement): number => {
-      return slideIndexFromScrollLeft(viewport.scrollLeft, geometryRef.current);
-    }, []);
+    useDirectionMismatchWarning(viewportRef, dir);
+
+    const indexFromScroll = React.useCallback(
+      (viewport: HTMLElement): number => {
+        return slideIndexFromInlinePosition(readInlineScroll(viewport, dir), geometryRef.current);
+      },
+      [dir],
+    );
 
     // Force WebKit to re-rasterize a slide's tile (a synchronous visibility
     // toggle with a reflow between — no frame ever paints it hidden, so it can't
@@ -236,13 +248,16 @@ const LightboxSlides = React.forwardRef<HTMLDivElement, LightboxSlidesProps>(
       (index: number) => {
         const viewport = viewportRef.current;
         if (!viewport) return;
+        // `max` is the largest *inline* position, which is direction-agnostic —
+        // the physical range is `[0, max]` in LTR and `[-max, 0]` in RTL, and
+        // `writeInlineScroll` handles that.
         const max = viewport.scrollWidth - viewport.clientWidth;
         const target = clamp(
-          slideScrollLeftForIndex(index, geometryRef.current),
+          slideInlinePositionForIndex(index, geometryRef.current),
           0,
           max > 0 ? max : 0,
         );
-        if (Math.abs(viewport.scrollLeft - target) < 1) {
+        if (Math.abs(readInlineScroll(viewport, dir) - target) < 1) {
           return;
         }
 
@@ -255,7 +270,7 @@ const LightboxSlides = React.forwardRef<HTMLDivElement, LightboxSlidesProps>(
         }
         snapSuppressDepthRef.current += 1;
 
-        viewport.scrollLeft = target;
+        writeInlineScroll(viewport, dir, target);
         requestAnimationFrame(() => {
           const vp = viewportRef.current;
           // Always release our suppress slot — even when this jump was
@@ -265,12 +280,12 @@ const LightboxSlides = React.forwardRef<HTMLDivElement, LightboxSlidesProps>(
             vp.style.scrollSnapType = SLIDES_SCROLL_SNAP_TYPE;
           }
           if (!vp || gen !== jumpGenRef.current) return;
-          if (Math.abs(vp.scrollLeft - target) >= 1) {
+          if (Math.abs(readInlineScroll(vp, dir) - target) >= 1) {
             // Keep the programmatic window open through the restore write so its
             // scroll event can't take the user-fling lock.
             programmaticRef.current = true;
             jumpTargetRef.current = target;
-            vp.scrollLeft = target;
+            writeInlineScroll(vp, dir, target);
           }
           requestAnimationFrame(() => {
             if (gen !== jumpGenRef.current) return;
@@ -283,7 +298,7 @@ const LightboxSlides = React.forwardRef<HTMLDivElement, LightboxSlidesProps>(
           });
         });
       },
-      [repaintSlide],
+      [repaintSlide, dir],
     );
 
     // Measure on mount / item-count change, and re-center on viewport resize so
@@ -292,7 +307,7 @@ const LightboxSlides = React.forwardRef<HTMLDivElement, LightboxSlidesProps>(
     React.useLayoutEffect(() => {
       const viewport = viewportRef.current;
       if (!viewport) return;
-      geometryRef.current = measureSlidesGeometry(viewport);
+      geometryRef.current = measureSlidesGeometry(viewport, dir);
       notifySlidesViewport();
 
       // ResizeObserver fires an initial callback on `observe()` with the current
@@ -304,7 +319,7 @@ const LightboxSlides = React.forwardRef<HTMLDivElement, LightboxSlidesProps>(
       // callback is skipped. See LIGHTBOX_PERF.md.
       const observer = new ResizeObserver(() => {
         const prev = geometryRef.current;
-        const next = measureSlidesGeometry(viewport);
+        const next = measureSlidesGeometry(viewport, dir);
         geometryRef.current = next;
         if (
           prev &&
@@ -342,7 +357,7 @@ const LightboxSlides = React.forwardRef<HTMLDivElement, LightboxSlidesProps>(
       });
       observer.observe(viewport);
       return () => observer.disconnect();
-    }, [itemCount, scrollToIndex, notifySlidesViewport, navigationLockedRef]);
+    }, [itemCount, scrollToIndex, notifySlidesViewport, navigationLockedRef, dir]);
 
     // Drive scroll position from the active index. Skip when the viewport is
     // already showing it (our own swipe-derived updates, which must not
@@ -413,7 +428,7 @@ const LightboxSlides = React.forwardRef<HTMLDivElement, LightboxSlidesProps>(
       };
 
       const isParkedOnJumpTarget = () =>
-        Math.abs(viewport.scrollLeft - jumpTargetRef.current) < 1;
+        Math.abs(readInlineScroll(viewport, dir) - jumpTargetRef.current) < 1;
 
       const process = () => {
         frame = 0;
@@ -560,7 +575,7 @@ const LightboxSlides = React.forwardRef<HTMLDivElement, LightboxSlidesProps>(
         viewport.removeEventListener('touchend', onTouchEnd, true);
         viewport.removeEventListener('touchcancel', onTouchEnd, true);
       };
-    }, [indexFromScroll, setActiveIndex, navigationLockedRef, activeZoomRef]);
+    }, [indexFromScroll, setActiveIndex, navigationLockedRef, activeZoomRef, dir]);
 
     const state = React.useMemo<LightboxSlidesState>(
       () => ({ activeIndex, direction }),
