@@ -35,3 +35,9 @@ pnpm-debug.log*
 
 # Coverage
 coverage
+
+# Playwright: traces and videos kept only for local failure triage
+test-results
+playwright-report
+blob-report
+.playwright

@@ -9,6 +9,9 @@
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
+    "test:e2e": "playwright test",
+    "test:e2e:build": "pnpm --filter @ramka/react build && pnpm --filter docs build",
+    "typecheck:e2e": "tsc -p tsconfig.e2e.json",
     "clean": "turbo run clean && rm -rf node_modules",
     "format": "prettier --write \"**/*.{ts,tsx,md,json,css,mjs,cjs}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,md,json,css,mjs,cjs}\"",
@@ -22,10 +25,12 @@
     "sbom:check": "node scripts/generate-sbom.mjs --check"
   },
   "devDependencies": {
+    "@playwright/test": "^1.62.1",
+    "@types/node": "^26.2.0",
     "esbuild": "^0.28.2",
     "pkg-pr-new": "^0.0.88",
-    "rollup": "^4.62.4",
     "prettier": "^3.9.6",
+    "rollup": "^4.62.4",
     "turbo": "^2.10.10",
     "typescript": "^5.6.3"
   },
