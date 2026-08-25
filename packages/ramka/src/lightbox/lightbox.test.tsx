@@ -5723,6 +5723,44 @@ describe('Lightbox', () => {
           }
         });
 
+        it('ctrl+wheel snap-back does not pan toward center from an off-center cursor', () => {
+          vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+          try {
+            withViewport(() => {
+              const ref = React.createRef<LightboxZoomRef>();
+              renderZoomPan(ref);
+              const img = screen.getByTestId('zoom-img');
+              setupOverflowGeometry(img);
+
+              act(() => ref.current!.zoomTo(4, { rapid: true }));
+              expect(ref.current!.offsetX).toBe(0);
+
+              act(() => {
+                img.dispatchEvent(
+                  new WheelEvent('wheel', {
+                    bubbles: true,
+                    cancelable: true,
+                    ctrlKey: true,
+                    deltaY: -100,
+                    clientX: 350,
+                    clientY: 200,
+                  }),
+                );
+              });
+              expect(ref.current!.zoom).toBeGreaterThan(4);
+              expect(ref.current!.offsetX).not.toBeCloseTo(0, 5);
+
+              act(() => {
+                vi.advanceTimersByTime(WHEEL_PINCH_END_MS);
+              });
+              expect(ref.current!.zoom).toBe(4);
+              expect(ref.current!.offsetX).toBeCloseTo(0, 2);
+            });
+          } finally {
+            vi.useRealTimers();
+          }
+        });
+
         it('ctrl+wheel rubber-bands below minZoom and snaps back on idle', () => {
           vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
           try {

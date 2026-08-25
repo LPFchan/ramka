@@ -656,6 +656,13 @@ export interface BakeSettleInput {
   geometryAt: (zoom: number) => { x: SettleAxisGeometry; y: SettleAxisGeometry } | null;
   /** Clamped rest offsets at a given zoom (viewport-aware). */
   restOffsetsAt: (zoom: number, x: number, y: number) => { x: number; y: number };
+  /**
+   * Last pinch/wheel focal (px from stage center). Zoom snap-back keeps this
+   * screen point glued — without it the scale returns about the origin and
+   * the image slides toward center, more the farther the cursor was.
+   */
+  focalX?: number;
+  focalY?: number;
 }
 
 export interface BakedSettle {
@@ -707,6 +714,14 @@ export function bakeSettlePath(input: BakeSettleInput): BakedSettle | null {
 
   if (!zoomActive && !panActive) return null;
 
+  const gBound = geometryAt(bound);
+  // Keep the pinch/wheel focal glued only on axes that can pan at rest.
+  // Under-min / letterboxed snap must scale about home — otherwise offsets
+  // wander with the cursor, then the rest-glide yanks them back (a visible
+  // x/y drift every time you pinch out at 1×).
+  const glueX = input.focalX != null && gBound?.x.overflows === true;
+  const glueY = input.focalY != null && gBound?.y.overflows === true;
+
   const path: SettlePose[] = [];
   let frames = 0;
   while ((zoomActive || panActive) && frames < SETTLE_BAKE_MAX_FRAMES) {
@@ -732,6 +747,11 @@ export function bakeSettlePath(input: BakeSettleInput): BakedSettle | null {
         zoomActive = false;
         vz = 0;
       }
+    }
+
+    if (zPrev !== z && (glueX || glueY)) {
+      if (glueX) x = focalOffset(x, input.focalX!, zPrev, z);
+      if (glueY) y = focalOffset(y, input.focalY!, zPrev, z);
     }
 
     if (panActive) {
@@ -774,6 +794,10 @@ export function bakeSettlePath(input: BakeSettleInput): BakedSettle | null {
     path.push({ zoom: z, offsetX: x, offsetY: y });
   }
 
+  if (z !== bound && (glueX || glueY)) {
+    if (glueX) x = focalOffset(x, input.focalX!, z, bound);
+    if (glueY) y = focalOffset(y, input.focalY!, z, bound);
+  }
   const rest = restOffsetsAt(bound, x, y);
 
   // The rest pose lands one step after the last simulated pose; total

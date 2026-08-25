@@ -964,6 +964,58 @@ describe('bakeSettlePath', () => {
     }
   });
 
+  it('zoom snap-back keeps an off-center focal glued (no pan toward origin)', () => {
+    // Focal zoom from 4× at rest to 4.8× at cursor x=80, then snap to 4×.
+    // Without retargeting offsets as scale returns, the image slides toward
+    // center by ~(1 - 4/4.8)*80 px — worse the farther the cursor is.
+    const fromZ = 4.8;
+    const bound = 4;
+    const focalX = 80;
+    const startX = focalOffset(0, focalX, bound, fromZ);
+    expect(startX).not.toBeCloseTo(0, 5);
+
+    const baked = bakeSettlePath({
+      ...base,
+      zoom: fromZ,
+      offsetX: startX,
+      offsetY: 0,
+      focalX,
+      focalY: 0,
+    });
+    expect(baked).not.toBeNull();
+    expect(baked!.offsetX).toBeCloseTo(focalOffset(startX, focalX, fromZ, bound), 5);
+    expect(baked!.offsetX).toBeCloseTo(0, 5);
+    for (const pose of baked!.path) {
+      expect(pose.offsetX).toBeCloseTo(focalOffset(startX, focalX, fromZ, pose.zoom), 3);
+    }
+  });
+
+  it('under-min zoom snap-back does not pan when the image is not pannable', () => {
+    const letterbox = () => ({
+      x: { min: 0, max: 0, overflows: false as const },
+      y: { min: 0, max: 0, overflows: false as const },
+    });
+    const baked = bakeSettlePath({
+      ...base,
+      geometryAt: letterbox,
+      restOffsetsAt: () => ({ x: 0, y: 0 }),
+      minZoom: 1,
+      zoom: 0.8,
+      offsetX: 0,
+      offsetY: 0,
+      focalX: 80,
+      focalY: 60,
+    });
+    expect(baked).not.toBeNull();
+    expect(baked!.zoom).toBe(1);
+    expect(baked!.offsetX).toBe(0);
+    expect(baked!.offsetY).toBe(0);
+    for (const pose of baked!.path) {
+      expect(pose.offsetX).toBe(0);
+      expect(pose.offsetY).toBe(0);
+    }
+  });
+
   it('glides out-of-range offsets to rest together with the zoom return', () => {
     // At 6× offsets up to 600 are legal; at the 4× bound only 400 is. The
     // held overscroll must glide home as the scale returns — one motion.

@@ -1055,8 +1055,8 @@ ramka defaults to the canvas model: Ctrl/⌘+wheel and trackpad pinch zoom to th
 
 | Interaction | ramka | Consensus | Verdict |
 | --- | --- | --- | --- |
-| Ctrl / ⌘ + wheel | Zooms, focal at cursor | Zoom to cursor | Match |
-| Trackpad pinch | Zooms to cursor (Safari GestureEvent; Chrome/FF via ctrlKey+wheel) | Zoom to cursor | Match, cross-browser |
+| Trackpad pinch | Zooms to cursor (Safari GestureEvent; Chrome/FF via ctrlKey+wheel); elastic past bounds, snaps back | Zoom to cursor | Match, cross-browser |
+| Ctrl / ⌘ + wheel | Zooms, focal at cursor; hard-clamped at min/max (not a rubber-band pinch) | Zoom to cursor | Match |
 | Bare scroll wheel | Off by default (scrollToZoom=false): no-op at 1×, pans when zoomed | Split — media viewers zoom, canvas apps pan | Defensible default; opt-in covers the other |
 | Double-click | Toggles zoom, focal at cursor | Toggle, focal | Match |
 | Drag to pan | Yes — grab / grabbing cursor, elastic + momentum | Universal | Match |
