@@ -15,6 +15,12 @@ Run them with `pnpm test:e2e` (build first — `pnpm test:e2e:build`).
 | `android-chrome` | Pixel 7 (Chromium)    | `isAndroidBlinkSnapshotRoot()` + touch   |
 | `ios-safari`     | iPhone 15 (WebKit)    | WebKit **with** touch, mobile viewport   |
 
+Each row also asserts **which composited-morph path** it takes: WebKit gets
+generated CSS animations, every other engine gets WAAPI. Without that, a silent
+fall back to the stock morph would look exactly like success. The stock path is
+covered too, via the library's own `?vtstock` escape hatch — which is also what
+proves those assertions discriminate rather than pass vacuously.
+
 The mobile rows are not duplicates of the desktop ones. They exist because the
 library branches on the platform, and those branches are unreachable otherwise —
 `isAndroidBlinkSnapshotRoot()` is what makes close hold the overlay mounted until
