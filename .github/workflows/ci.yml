@@ -118,6 +118,59 @@ jobs:
       - name: Build
         run: pnpm --filter @ramka/react build
 
+  # Real browsers, because the unit suite runs in jsdom and jsdom has no
+  # compositor: the morph, the zoom transform and every gesture are invisible to
+  # it. A regression in any of them would otherwise reach a consumer before
+  # anything failed.
+  browser:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck the browser suite
+        run: pnpm typecheck:e2e
+
+      # Only the two engines the config declares. `--with-deps` because the
+      # runner has none of the system libraries either browser needs.
+      - name: Install browsers
+        run: pnpm exec playwright install --with-deps chromium webkit
+
+      # The specs run against the production build, so this is a prerequisite
+      # rather than something the Playwright web server should do lazily.
+      - name: Build the library and the docs site
+        run: pnpm test:e2e:build
+
+      - name: Run the browser suite
+        run: pnpm test:e2e
+
+      # Traces and videos are kept only for failures, and they are the only way
+      # to tell a real animation regression from a loaded runner after the fact.
+      - name: Upload failure artifacts
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-failures
+          path: |
+            test-results/
+            playwright-report/
+          retention-days: 7
+          if-no-files-found: ignore
+
   # Reports what a consumer's bundle would gain or lose from this PR. Runs
   # alongside `test` rather than after it: size feedback should not wait on the
   # suite.
