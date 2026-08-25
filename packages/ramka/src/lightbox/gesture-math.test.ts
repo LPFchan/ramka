@@ -17,6 +17,7 @@ import {
   distance,
   doubleTapTargetZoom,
   elasticClamp,
+  invertElasticClamp,
   elasticClampSymmetric,
   focalOffset,
   maxPanOffset,
@@ -36,6 +37,7 @@ import {
   rubberBandDistance,
   rubberBandPanDimension,
   scaleZoom,
+  isTrackpadPinchWheel,
 } from './gesture-math';
 import {
   PULL_DAMP_TRAVEL_RATIO,
@@ -271,6 +273,19 @@ describe('elasticClamp', () => {
   });
 });
 
+describe('invertElasticClamp', () => {
+  it('is the identity inside the range', () => {
+    expect(invertElasticClamp(3, 1, 4)).toBe(3);
+    expect(invertElasticClamp(1, 1, 4)).toBe(1);
+    expect(invertElasticClamp(4, 1, 4)).toBe(4);
+  });
+
+  it('round-trips elasticClamp past max and min', () => {
+    expect(invertElasticClamp(elasticClamp(8, 1, 4), 1, 4)).toBeCloseTo(8, 10);
+    expect(invertElasticClamp(elasticClamp(0.5, 1, 4), 1, 4)).toBeCloseTo(0.5, 10);
+  });
+});
+
 describe('rubberBandDistance', () => {
   it('is 0 for non-positive overscroll or dimension', () => {
     expect(rubberBandDistance(0, 400)).toBe(0);
@@ -471,6 +486,21 @@ describe('scaleZoom', () => {
 
   it('is a no-op for a zero delta', () => {
     expect(scaleZoom(3, 0, 100)).toBe(3);
+  });
+});
+
+describe('isTrackpadPinchWheel', () => {
+  it('treats synthesized ctrlKey (no physical Control) as a trackpad pinch', () => {
+    expect(isTrackpadPinchWheel(true, false)).toBe(true);
+  });
+
+  it('treats ctrlKey with a physical Control key as Ctrl+scroll', () => {
+    expect(isTrackpadPinchWheel(true, true)).toBe(false);
+  });
+
+  it('is false when ctrlKey is not set', () => {
+    expect(isTrackpadPinchWheel(false, false)).toBe(false);
+    expect(isTrackpadPinchWheel(false, true)).toBe(false);
   });
 });
 
@@ -931,6 +961,58 @@ describe('bakeSettlePath', () => {
     if (baked!.path.length >= 2) {
       const penultimate = baked!.path[baked!.path.length - 2]!;
       expect(Math.abs(penultimate.zoom - last.zoom)).toBeLessThan(0.05);
+    }
+  });
+
+  it('zoom snap-back keeps an off-center focal glued (no pan toward origin)', () => {
+    // Focal zoom from 4× at rest to 4.8× at cursor x=80, then snap to 4×.
+    // Without retargeting offsets as scale returns, the image slides toward
+    // center by ~(1 - 4/4.8)*80 px — worse the farther the cursor is.
+    const fromZ = 4.8;
+    const bound = 4;
+    const focalX = 80;
+    const startX = focalOffset(0, focalX, bound, fromZ);
+    expect(startX).not.toBeCloseTo(0, 5);
+
+    const baked = bakeSettlePath({
+      ...base,
+      zoom: fromZ,
+      offsetX: startX,
+      offsetY: 0,
+      focalX,
+      focalY: 0,
+    });
+    expect(baked).not.toBeNull();
+    expect(baked!.offsetX).toBeCloseTo(focalOffset(startX, focalX, fromZ, bound), 5);
+    expect(baked!.offsetX).toBeCloseTo(0, 5);
+    for (const pose of baked!.path) {
+      expect(pose.offsetX).toBeCloseTo(focalOffset(startX, focalX, fromZ, pose.zoom), 3);
+    }
+  });
+
+  it('under-min zoom snap-back does not pan when the image is not pannable', () => {
+    const letterbox = () => ({
+      x: { min: 0, max: 0, overflows: false as const },
+      y: { min: 0, max: 0, overflows: false as const },
+    });
+    const baked = bakeSettlePath({
+      ...base,
+      geometryAt: letterbox,
+      restOffsetsAt: () => ({ x: 0, y: 0 }),
+      minZoom: 1,
+      zoom: 0.8,
+      offsetX: 0,
+      offsetY: 0,
+      focalX: 80,
+      focalY: 60,
+    });
+    expect(baked).not.toBeNull();
+    expect(baked!.zoom).toBe(1);
+    expect(baked!.offsetX).toBe(0);
+    expect(baked!.offsetY).toBe(0);
+    for (const pose of baked!.path) {
+      expect(pose.offsetX).toBe(0);
+      expect(pose.offsetY).toBe(0);
     }
   });
 

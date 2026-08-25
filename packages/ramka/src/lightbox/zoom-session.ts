@@ -9,6 +9,7 @@ import {
   clamp,
   clampOffsetToViewport,
   elasticClamp,
+  focalOffset,
   PAN_PHYSICS_FRICTION,
   PAN_PHYSICS_SPRING_MOUSE,
   PAN_PHYSICS_SPRING_TOUCH,
@@ -96,6 +97,8 @@ export function createZoomSession(getDeps: () => ZoomSessionDeps): ZoomSession {
    */
   const pinchRebaseX = { current: null as PinchAxisOrigin | null };
   const pinchRebaseY = { current: null as PinchAxisOrigin | null };
+  /** Last cursor/centroid for zoom snap-back (keep that screen point glued). */
+  const lastFocal = { current: null as { x: number; y: number } | null };
 
   const resetPinchRebase = () => {
     pinchRebaseX.current = null;
@@ -296,6 +299,7 @@ export function createZoomSession(getDeps: () => ZoomSessionDeps): ZoomSession {
     const current = controller.getPose();
     let to: ZoomPose;
     if (dx !== undefined && dy !== undefined) {
+      lastFocal.current = { x: dx, y: dy };
       const geo = measurePanGeometry(nextZoom);
       if (geo) {
         const projected = projectFocalZoom(
@@ -372,6 +376,8 @@ export function createZoomSession(getDeps: () => ZoomSessionDeps): ZoomSession {
     } else if (controller.isDiscreteAnimating()) {
       return;
     }
+
+    lastFocal.current = { x: centroid.x, y: centroid.y };
 
     const nextZoom = round(elasticClamp(targetZoom, minZoom, maxZoom), 5);
     const geo = measurePanGeometry(nextZoom);
@@ -499,7 +505,15 @@ export function createZoomSession(getDeps: () => ZoomSessionDeps): ZoomSession {
     const freshZoomReturn = vz === undefined && Math.abs(z - bound) > 1e-6;
 
     if (reducedMotion) {
-      const rest = restOffsetsAt(bound, fromPose.offsetX, fromPose.offsetY);
+      let ox = fromPose.offsetX;
+      let oy = fromPose.offsetY;
+      const focal = lastFocal.current;
+      const gBound = geometryAt(bound);
+      if (focal && gBound) {
+        if (gBound.x.overflows) ox = focalOffset(ox, focal.x, z, bound);
+        if (gBound.y.overflows) oy = focalOffset(oy, focal.y, z, bound);
+      }
+      const rest = restOffsetsAt(bound, ox, oy);
       const to = { zoom: bound, offsetX: rest.x, offsetY: rest.y };
       controller.replacePose(to);
       syncPoseRefs(to);
@@ -518,6 +532,8 @@ export function createZoomSession(getDeps: () => ZoomSessionDeps): ZoomSession {
       panSpring: spring,
       geometryAt,
       restOffsetsAt,
+      focalX: lastFocal.current?.x,
+      focalY: lastFocal.current?.y,
     });
     if (!baked) return false;
 
