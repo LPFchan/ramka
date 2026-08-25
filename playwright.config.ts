@@ -23,6 +23,11 @@ import { defineConfig, devices } from '@playwright/test';
 // server for a port either reuses it by accident or kills it.
 const PORT = Number(process.env.PLAYWRIGHT_PORT ?? 3100);
 
+/** Specs written for a phone viewport and touch input. */
+const MOBILE = '**/mobile/**';
+/** Desktop projects run everything else. */
+const DESKTOP_IGNORES = [MOBILE];
+
 export default defineConfig({
   testDir: './e2e',
   // Animations are the thing under test, so a stray `.only` left in a spec
@@ -46,24 +51,51 @@ export default defineConfig({
     video: 'retain-on-failure',
   },
   projects: [
+    // ---------------------------------------------------------------------
+    // Desktop. All three engines ship the View Transition API, so each is a
+    // separate real implementation of the morph rather than a fallback arm.
+    // They disagree on scroll-snap rounding and on how much of a gesture
+    // reaches the scroller, which is precisely where the library keeps its
+    // platform-specific workarounds.
+    // ---------------------------------------------------------------------
     {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
+      testIgnore: DESKTOP_IGNORES,
     },
-    // Both engines Playwright ships now have the View Transition API, so this
-    // is not a fallback arm — it is a second real morph implementation. Worth
-    // running: the two differ on scroll-snap rounding and on how much of a
-    // gesture reaches the scroller, which is where the library's own
-    // platform-specific workarounds live.
     {
       name: 'webkit',
       use: { ...devices['Desktop Safari'] },
-      // Gestures Playwright can only drive in Chromium. Excluded as a directory
-      // rather than with `test.skip(browserName !== 'chromium')`, because a
-      // skipped test still leaves WebKit unable to launch a browser for whatever
-      // runs next — it surfaces as a segfault on an unrelated spec, which is a
-      // memorably bad afternoon.
-      testIgnore: '**/chromium-only/**',
+      testIgnore: DESKTOP_IGNORES,
+    },
+    // Gecko is the arm that flips `isFirefox()`, which gates its own set of
+    // View Transition workarounds. Nothing else in the matrix reaches them.
+    {
+      name: 'firefox',
+      use: { ...devices['Desktop Firefox'] },
+      testIgnore: DESKTOP_IGNORES,
+    },
+
+    // ---------------------------------------------------------------------
+    // Mobile. Emulated viewports with touch, not devices — see
+    // `e2e/mobile/morph.spec.ts` for what that does and does not buy. They
+    // are here because they flip platform gates no desktop project can:
+    // `isAndroidBlinkSnapshotRoot()` on Pixel 7, and WebKit-with-touch on
+    // iPhone.
+    // ---------------------------------------------------------------------
+    {
+      name: 'android-chrome',
+      use: { ...devices['Pixel 7'] },
+      testMatch: MOBILE,
+    },
+    {
+      name: 'ios-safari',
+      use: { ...devices['iPhone 15'] },
+      // `mobile/touch` drives touch sequences over CDP, which WebKit does not
+      // speak. A synthetic-event fallback would test our own dispatch rather
+      // than the browser's gesture handling, so those specs stay Chromium-only.
+      testMatch: MOBILE,
+      testIgnore: '**/mobile/touch/**',
     },
   ],
   webServer: {

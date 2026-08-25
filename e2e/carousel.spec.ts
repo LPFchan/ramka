@@ -30,6 +30,28 @@ test.describe('carousel', () => {
     await expect(counter).toHaveText('1 of 48');
   });
 
+  test('advances on a horizontal trackpad scroll', async ({ page, browserName }) => {
+    // `mouse.wheel` with a horizontal delta kills Playwright's WebKit process,
+    // and the failure lands on whatever test runs next. Vertical wheel is fine
+    // there — the ctrl+wheel zoom test uses it — so this is scoped as narrowly
+    // as the bug is. Chromium and Firefox both cover the path.
+    test.skip(browserName === 'webkit', 'horizontal mouse.wheel segfaults Playwright WebKit');
+
+    // The track is a native scroll-snap scroller, so the desktop gesture is a
+    // horizontal scroll rather than a mouse drag — and what is under test is the
+    // library's scroll→index mapping plus its fling detection, neither of which
+    // exists without a real scroller.
+    //
+    // Comfortably past the snap midpoint: a delta that only just clears it
+    // lands differently depending on how the browser rounds the gap.
+    const centre = await centreOf(activeZoom(page));
+    await page.mouse.move(centre.x, centre.y);
+    await page.mouse.wheel(1_000, 0);
+
+    await expect(page.locator('[data-ramka-slides]')).toHaveAttribute('data-active-index', '1');
+    await expect(page.locator('[data-ramka-counter]')).toHaveText('2 of 48');
+  });
+
   test('loops backward past the first slide', async ({ page }) => {
     // This gallery sets `loop`, so going back from 0 lands on the last slide.
     await page.keyboard.press('ArrowLeft');

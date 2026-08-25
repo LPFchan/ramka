@@ -21,12 +21,44 @@ export async function morphSettled(page: Page): Promise<void> {
   await page.waitForFunction(() => !document.documentElement.hasAttribute('data-ramka-view-transition'));
 }
 
-/** Opens the gallery at `index` and waits for the open morph to finish. */
+/**
+ * Waits for the lightbox to reach a resting state after an open or close.
+ *
+ * `morphSettled` alone is not enough, because "no morph is running" is also
+ * true *before* one starts. On Android Blink the library deliberately defers
+ * the transition until the URL-bar snapshot root stops moving — up to 1.5s — so
+ * a bare absence check returns immediately and every later assertion races a
+ * morph that has not begun. Desktop only got away with it because there the
+ * attribute lands before Content attaches.
+ *
+ * So: wait for a morph to start and finish, or for the grace period to pass
+ * with none started, which is the correct outcome on the reduced-motion,
+ * low-end and no-View-Transition paths.
+ */
+export async function morphIdle(page: Page, sinceIndex = 0, graceMs = 3_000): Promise<void> {
+  const deadline = Date.now() + graceMs;
+
+  while (Date.now() < deadline) {
+    const started = (await morphPhases(page)).slice(sinceIndex).some((p) => p.phase !== null);
+    if (started) {
+      await morphSettled(page);
+      return;
+    }
+    await page.waitForTimeout(50);
+  }
+
+  await morphSettled(page);
+}
+
+/** Opens the gallery at `index` and waits for the open to finish settling. */
 export async function openLightbox(page: Page, index = 0): Promise<Locator> {
+  await ensureMorphRecorder(page);
+  const sinceIndex = (await morphPhases(page)).length;
+
   const trigger = page.locator('[data-ramka-trigger]').nth(index);
   await trigger.click();
   await page.locator('[data-ramka-content]').waitFor({ state: 'attached' });
-  await morphSettled(page);
+  await morphIdle(page, sinceIndex);
   return trigger;
 }
 
@@ -94,6 +126,7 @@ export type MorphPhase = { phase: string | null; at: number };
 declare global {
   interface Window {
     __ramkaMorphPhases?: MorphPhase[];
+    __ramkaMorphObserved?: boolean;
   }
 }
 
@@ -109,6 +142,7 @@ declare global {
 export async function recordMorphPhases(page: Page): Promise<void> {
   await page.evaluate(() => {
     window.__ramkaMorphPhases = [];
+    window.__ramkaMorphObserved = true;
     new MutationObserver(() => {
       window.__ramkaMorphPhases!.push({
         phase: document.documentElement.getAttribute('data-ramka-view-transition'),
@@ -123,6 +157,15 @@ export async function recordMorphPhases(page: Page): Promise<void> {
 
 export async function morphPhases(page: Page): Promise<MorphPhase[]> {
   return page.evaluate(() => window.__ramkaMorphPhases ?? []);
+}
+
+/**
+ * Installs the recorder only if this page has none, so helpers can depend on it
+ * without resetting the log a spec is in the middle of asserting on.
+ */
+async function ensureMorphRecorder(page: Page): Promise<void> {
+  const present = await page.evaluate(() => window.__ramkaMorphObserved === true);
+  if (!present) await recordMorphPhases(page);
 }
 
 /** How long a phase stayed on `<html>`, or `null` if it never ran or is still running. */
@@ -151,4 +194,39 @@ export async function centreOf(locator: Locator): Promise<{ x: number; y: number
   const box = await locator.boundingBox();
   if (!box) throw new Error('element has no box');
   return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+}
+
+/**
+ * Drags with a real touch sequence.
+ *
+ * Needed because the gestures that matter most are touch-only by design — pull
+ * to dismiss ignores anything whose `pointerType` is not `touch` — and
+ * Playwright's `touchscreen` fixture can only tap. Dispatching the sequence
+ * means CDP, so this is Chromium-only; specs that use it live under
+ * `mobile/touch/`, which the WebKit projects do not run.
+ *
+ * Each move is a separate frame, as a real finger would produce. Sending them
+ * back to back collapses them into one frame, and a gesture with no
+ * intermediate positions reads as a teleport rather than a drag.
+ */
+export async function touchDrag(
+  page: Page,
+  from: { x: number; y: number },
+  delta: { x: number; y: number },
+  steps = 14,
+): Promise<void> {
+  const cdp = await page.context().newCDPSession(page);
+  const send = (type: 'touchStart' | 'touchMove' | 'touchEnd', x: number, y: number) =>
+    cdp.send('Input.dispatchTouchEvent', {
+      type,
+      touchPoints: type === 'touchEnd' ? [] : [{ x, y }],
+    });
+
+  await send('touchStart', from.x, from.y);
+  for (let i = 1; i <= steps; i++) {
+    await send('touchMove', from.x + (delta.x * i) / steps, from.y + (delta.y * i) / steps);
+    await page.waitForTimeout(8);
+  }
+  await send('touchEnd', from.x + delta.x, from.y + delta.y);
+  await cdp.detach();
 }
