@@ -23,6 +23,15 @@ updates:
     cooldown:
       default-days: 7
       semver-major-days: 30
+    ignore:
+      # TypeScript 7 is the native port, and Next 15.5 reaches into compiler
+      # internals it changed: `next build` dies with "Cannot read properties of
+      # undefined (reading 'fileExists')" before it compiles anything. The
+      # library itself is already clean under 7. Drop this once the docs app is
+      # on Next 16. See https://github.com/arturbien/ramka/pull/53.
+      - dependency-name: typescript
+        update-types:
+          - version-update:semver-major
     groups:
       # React and its types have to move together: a major bump to one without
       # the other typechecks as garbage, and split PRs would each fail alone.
