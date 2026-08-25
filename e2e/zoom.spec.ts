@@ -80,11 +80,15 @@ test.describe('zoom', () => {
     await page.locator('[data-ramka-zoom-in]').click();
     await expect(activeZoom(page)).toHaveAttribute('data-zoom', '');
 
-    // Arrows pan while zoomed, so navigate by a route that is not swallowed by
-    // the zoom gesture layer.
-    await page.locator('[data-ramka-thumbnail]').nth(1).click();
+    // `End` rather than an arrow or a thumbnail. Arrows pan while zoomed, and
+    // this gallery hides the bottom chrome — the thumbnail strip with it — as
+    // soon as zoom engages, on a 200ms `visibility` delay: clicking a thumbnail
+    // here is a race against that transition, which a fast machine wins and CI
+    // loses. Home/End are deliberately not swallowed by the zoom layer, so they
+    // are the navigation route that stays available while zoomed.
+    await page.keyboard.press('End');
 
-    await expect(page.locator('[data-ramka-slides]')).toHaveAttribute('data-active-index', '1');
+    await expect(page.locator('[data-ramka-slides]')).toHaveAttribute('data-active-index', '47');
     await expect(page.locator('[data-ramka-content]')).not.toHaveAttribute('data-zoomed');
     await expect(page.locator('[data-ramka-zoom-out]')).toBeDisabled();
     expect((await zoomSettled(page)).scale).toBeCloseTo(1, 1);
