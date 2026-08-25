@@ -6,12 +6,23 @@ import {
   computeMomentumVelocity,
   distance,
   doubleTapTargetZoom,
+  invertElasticClamp,
+  isTrackpadPinchWheel,
   pinchFingerAlignment,
   pinchMotionComponents,
   resolvePinchZoom,
   scaleZoom,
 } from './gesture-math';
 import type { InitializedRef } from '../react-compat';
+
+/**
+ * Quiet gap after the last ctrl+wheel / pinch-as-wheel sample treated as lift.
+ * Blink/Gecko have no GestureEvent, so this is the snap-back trigger. Long
+ * enough to absorb a missed frame; short enough that release still feels
+ * immediate. Chrome sends no events while fingers hold still, so a pause
+ * mid-overshoot can snap early — the closest equivalent to gestureend.
+ */
+const WHEEL_PINCH_END_MS = 120;
 
 // ---------------------------------------------------------------------------
 // Config type
@@ -756,13 +767,41 @@ function useZoomGestures(
   // -------------------------------------------------------------------
 
   // Safari provides GestureEvent for trackpad pinch — we handle zoom via
-  // gesturechange there. The wheel handler skips ctrlKey only while a
-  // gesture is active to avoid double-processing. Physical Ctrl+wheel
-  // (no gesture) is still handled normally on Safari.
+  // gesturechange there (elastic + snap on gestureend). The wheel handler
+  // skips ctrlKey only while a gesture is active to avoid double-processing.
+  // Blink/Gecko have no GestureEvent: pinch arrives as ctrl+wheel *without* a
+  // Control keydown (the browser synthesizes ctrlKey). That path accumulates
+  // unconstrained scale, rubber-bands, and snaps when the stream goes idle.
+  // A real Ctrl+scroll has a physical Control key — hard-clamp, no snap-back.
   const hasSafariGesturesRef = React.useRef(
     typeof window !== 'undefined' && 'GestureEvent' in window,
   );
   const gestureActiveRef = React.useRef(false);
+  /** True while a physical Control key is down (keydown/keyup, not event.ctrlKey). */
+  const physicalCtrlRef = React.useRef(false);
+  /**
+   * Blink/Gecko emit trackpad pinch as a ctrl+wheel *stream* with no
+   * gestureend. Accumulate unconstrained scale (Safari's `initialZoom *
+   * event.scale`) so elasticClamp isn't re-applied to an already-compressed
+   * displayed zoom — otherwise overshoot collapses to ~nothing. Idle timeout
+   * is the lift: Chrome sends no events while fingers hold still, so a short
+   * gap is the closest equivalent to gestureend.
+   */
+  const wheelPinchRef = React.useRef<{ unconstrainedZoom: number } | null>(null);
+  const wheelPinchSnapTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
+
+  const clearWheelPinchTimer = React.useCallback(() => {
+    if (wheelPinchSnapTimerRef.current == null) return;
+    clearTimeout(wheelPinchSnapTimerRef.current);
+    wheelPinchSnapTimerRef.current = null;
+  }, []);
+
+  const dropWheelPinchSession = React.useCallback(() => {
+    clearWheelPinchTimer();
+    wheelPinchRef.current = null;
+  }, [clearWheelPinchTimer]);
 
   const handleWheel = React.useCallback(
     (event: WheelEvent) => {
@@ -781,6 +820,8 @@ function useZoomGestures(
       // preventDefault when the listener is non-passive (see
       // needsNonPassiveWheel) to avoid Safari passive-listener warnings.
       if (actionsRef.current.isZoomAnimating()) {
+        // Don't let a pending pinch-as-wheel snap tear the discrete WAAPI.
+        dropWheelPinchSession();
         if (!hasSafariGesturesRef.current || zoom > 1 || scrollToZoom) {
           event.preventDefault();
         }
@@ -797,11 +838,43 @@ function useZoomGestures(
         if (Math.abs(event.deltaY) > Math.abs(event.deltaX)) {
           event.preventDefault();
           event.stopPropagation();
-          changeZoom(
-            scaleZoom(zoom, -event.deltaY, wheelSensitivity),
-            true,
-            ...translateCoordinates(event),
-          );
+          const focal = translateCoordinates(event);
+          // Synthesized ctrlKey (no Control keydown) = trackpad pinch.
+          // Physical Ctrl+scroll hard-clamps like keyboard zoom — no rubber-band.
+          if (isTrackpadPinchWheel(event.ctrlKey, physicalCtrlRef.current)) {
+            let session = wheelPinchRef.current;
+            if (!session) {
+              // Snap-back poses are already elastic-compressed. Seed unconstrained
+              // from the inverse so the next sample stays on the same pixels.
+              actionsRef.current.catchSettle();
+              const { minZoom, maxZoom } = configRef.current;
+              session = {
+                unconstrainedZoom: invertElasticClamp(
+                  actionsRef.current.getZoom(),
+                  minZoom,
+                  maxZoom,
+                ),
+              };
+              wheelPinchRef.current = session;
+            }
+            session.unconstrainedZoom = scaleZoom(
+              session.unconstrainedZoom,
+              -event.deltaY,
+              wheelSensitivity,
+            );
+            changeZoom(session.unconstrainedZoom, true, ...focal, true);
+            clearWheelPinchTimer();
+            wheelPinchSnapTimerRef.current = setTimeout(() => {
+              wheelPinchSnapTimerRef.current = null;
+              wheelPinchRef.current = null;
+              if (!actionsRef.current.isZoomAnimating()) {
+                actionsRef.current.snapToBounds();
+              }
+            }, WHEEL_PINCH_END_MS);
+          } else {
+            dropWheelPinchSession();
+            changeZoom(scaleZoom(zoom, -event.deltaY, wheelSensitivity), true, ...focal);
+          }
           return;
         }
       }
@@ -814,8 +887,32 @@ function useZoomGestures(
         }
       }
     },
-    [translateCoordinates, isScrollingRef],
+    [translateCoordinates, isScrollingRef, clearWheelPinchTimer, dropWheelPinchSession],
   );
+
+  // Track a physical Control key. Chrome/Firefox set `wheel.ctrlKey` on
+  // trackpad pinch without a keydown — that's the pinch vs Ctrl+scroll split.
+  React.useEffect(() => {
+    if (disabled) return;
+    const onDown = (event: KeyboardEvent) => {
+      if (event.key === 'Control') physicalCtrlRef.current = true;
+    };
+    const onUp = (event: KeyboardEvent) => {
+      if (event.key === 'Control') physicalCtrlRef.current = false;
+    };
+    const onReset = () => {
+      physicalCtrlRef.current = false;
+    };
+    window.addEventListener('keydown', onDown, true);
+    window.addEventListener('keyup', onUp, true);
+    window.addEventListener('blur', onReset);
+    return () => {
+      window.removeEventListener('keydown', onDown, true);
+      window.removeEventListener('keyup', onUp, true);
+      window.removeEventListener('blur', onReset);
+      physicalCtrlRef.current = false;
+    };
+  }, [disabled]);
 
   // -------------------------------------------------------------------
   // Attach / detach listeners
@@ -930,7 +1027,13 @@ function useZoomGestures(
       if (isScrollingRef?.current) return;
       gestureActiveRef.current = true;
       deferredForAnimation = actionsRef.current.isZoomAnimating();
-      initialZoom = actionsRef.current.getZoom();
+      if (deferredForAnimation) {
+        initialZoom = actionsRef.current.getZoom();
+      } else {
+        actionsRef.current.catchSettle();
+        const { minZoom, maxZoom } = configRef.current;
+        initialZoom = invertElasticClamp(actionsRef.current.getZoom(), minZoom, maxZoom);
+      }
     };
 
     const onGestureChange = (e: Event) => {
@@ -948,7 +1051,10 @@ function useZoomGestures(
         // Settled mid-gesture: rebase so `initialZoom * scale` equals the
         // settled zoom right now, and scaling continues seamlessly from it.
         deferredForAnimation = false;
-        initialZoom = actionsRef.current.getZoom() / Math.max(scale, 1e-6);
+        const { minZoom, maxZoom } = configRef.current;
+        initialZoom =
+          invertElasticClamp(actionsRef.current.getZoom(), minZoom, maxZoom) /
+          Math.max(scale, 1e-6);
       }
       const target = initialZoom * scale;
       const [cx, cy] = translateCoordinates(e as unknown as { clientX: number; clientY: number });
@@ -1001,10 +1107,15 @@ function useZoomGestures(
         clearTimeout(zoomingTimerRef.current);
         zoomingTimerRef.current = null;
       }
+      if (wheelPinchSnapTimerRef.current != null) {
+        clearTimeout(wheelPinchSnapTimerRef.current);
+        wheelPinchSnapTimerRef.current = null;
+      }
+      wheelPinchRef.current = null;
       contentEl?.removeAttribute('data-zooming');
     };
   }, [disabled, contentElementRef]);
 }
 
-export { useZoomGestures };
+export { useZoomGestures, WHEEL_PINCH_END_MS };
 export type { ZoomGestureConfig, ZoomGestureActions };

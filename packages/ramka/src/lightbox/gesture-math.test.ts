@@ -17,6 +17,7 @@ import {
   distance,
   doubleTapTargetZoom,
   elasticClamp,
+  invertElasticClamp,
   elasticClampSymmetric,
   focalOffset,
   maxPanOffset,
@@ -36,6 +37,7 @@ import {
   rubberBandDistance,
   rubberBandPanDimension,
   scaleZoom,
+  isTrackpadPinchWheel,
 } from './gesture-math';
 import {
   PULL_DAMP_TRAVEL_RATIO,
@@ -271,6 +273,19 @@ describe('elasticClamp', () => {
   });
 });
 
+describe('invertElasticClamp', () => {
+  it('is the identity inside the range', () => {
+    expect(invertElasticClamp(3, 1, 4)).toBe(3);
+    expect(invertElasticClamp(1, 1, 4)).toBe(1);
+    expect(invertElasticClamp(4, 1, 4)).toBe(4);
+  });
+
+  it('round-trips elasticClamp past max and min', () => {
+    expect(invertElasticClamp(elasticClamp(8, 1, 4), 1, 4)).toBeCloseTo(8, 10);
+    expect(invertElasticClamp(elasticClamp(0.5, 1, 4), 1, 4)).toBeCloseTo(0.5, 10);
+  });
+});
+
 describe('rubberBandDistance', () => {
   it('is 0 for non-positive overscroll or dimension', () => {
     expect(rubberBandDistance(0, 400)).toBe(0);
@@ -471,6 +486,21 @@ describe('scaleZoom', () => {
 
   it('is a no-op for a zero delta', () => {
     expect(scaleZoom(3, 0, 100)).toBe(3);
+  });
+});
+
+describe('isTrackpadPinchWheel', () => {
+  it('treats synthesized ctrlKey (no physical Control) as a trackpad pinch', () => {
+    expect(isTrackpadPinchWheel(true, false)).toBe(true);
+  });
+
+  it('treats ctrlKey with a physical Control key as Ctrl+scroll', () => {
+    expect(isTrackpadPinchWheel(true, true)).toBe(false);
+  });
+
+  it('is false when ctrlKey is not set', () => {
+    expect(isTrackpadPinchWheel(false, false)).toBe(false);
+    expect(isTrackpadPinchWheel(false, true)).toBe(false);
   });
 });
 

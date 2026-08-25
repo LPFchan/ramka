@@ -52,8 +52,8 @@ const appRows: {
 
 // --- Table B: ramka vs the consensus, per interaction ------------------------
 const ramkaRows: { interaction: string; ramka: string; consensus: string; verdict: string }[] = [
-  { interaction: 'Ctrl / ⌘ + wheel', ramka: 'Zooms, focal at cursor', consensus: 'Zoom to cursor', verdict: 'Match' },
-  { interaction: 'Trackpad pinch', ramka: 'Zooms to cursor (Safari GestureEvent; Chrome/FF via ctrlKey+wheel)', consensus: 'Zoom to cursor', verdict: 'Match, cross-browser' },
+  { interaction: 'Trackpad pinch', ramka: 'Zooms to cursor (Safari GestureEvent; Chrome/FF via ctrlKey+wheel); elastic past bounds, snaps back', consensus: 'Zoom to cursor', verdict: 'Match, cross-browser' },
+  { interaction: 'Ctrl / ⌘ + wheel', ramka: 'Zooms, focal at cursor; hard-clamped at min/max (not a rubber-band pinch)', consensus: 'Zoom to cursor', verdict: 'Match' },
   { interaction: 'Bare scroll wheel', ramka: 'Off by default (scrollToZoom=false): no-op at 1×, pans when zoomed', consensus: 'Split — media viewers zoom, canvas apps pan', verdict: 'Defensible default; opt-in covers the other' },
   { interaction: 'Double-click', ramka: 'Toggles zoom, focal at cursor', consensus: 'Toggle, focal', verdict: 'Match' },
   { interaction: 'Drag to pan', ramka: 'Yes — grab / grabbing cursor, elastic + momentum', consensus: 'Universal', verdict: 'Match' },

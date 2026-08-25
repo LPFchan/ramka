@@ -37,10 +37,13 @@ import { useZoomContext } from './lightbox-zoom-context';
 import { LightboxZoomIn } from './lightbox-zoom-in';
 import { LightboxZoomOut } from './lightbox-zoom-out';
 import {
+  elasticClamp,
   rubberBandClamp,
   rubberBandPanDimension,
+  scaleZoom,
   RUBBER_BAND_DIMENSION_FACTOR_MOUSE,
 } from './gesture-math';
+import { WHEEL_PINCH_END_MS } from './use-zoom-gestures';
 import { resetVtTouchGuardForTesting } from './vt-touch-guard';
 
 // ---------------------------------------------------------------------------
@@ -5630,6 +5633,300 @@ describe('Lightbox', () => {
             });
             expect(ref.current!.zoom).toBeLessThan(4);
           });
+        });
+
+        it('ctrl+wheel (Chrome/FF trackpad pinch) rubber-bands past maxZoom', () => {
+          withViewport(() => {
+            const ref = React.createRef<LightboxZoomRef>();
+            renderZoomPan(ref);
+            const img = screen.getByTestId('zoom-img');
+            setupOverflowGeometry(img);
+
+            act(() => ref.current!.zoomTo(4, { rapid: true }));
+
+            act(() => {
+              img.dispatchEvent(
+                new WheelEvent('wheel', {
+                  bubbles: true,
+                  cancelable: true,
+                  ctrlKey: true,
+                  deltaY: -100,
+                }),
+              );
+            });
+            // Unconstrained 4 → 8, displayed through elasticClamp — not hard-clamped.
+            expect(ref.current!.zoom).toBeCloseTo(elasticClamp(8, 1, 4), 5);
+            expect(ref.current!.zoom).toBeGreaterThan(4);
+          });
+        });
+
+        it('ctrl+wheel rubber-band accumulates unconstrained scale across events', () => {
+          withViewport(() => {
+            const ref = React.createRef<LightboxZoomRef>();
+            renderZoomPan(ref);
+            const img = screen.getByTestId('zoom-img');
+            setupOverflowGeometry(img);
+
+            act(() => ref.current!.zoomTo(4, { rapid: true }));
+
+            const dispatchPinch = (deltaY: number) => {
+              img.dispatchEvent(
+                new WheelEvent('wheel', {
+                  bubbles: true,
+                  cancelable: true,
+                  ctrlKey: true,
+                  deltaY,
+                }),
+              );
+            };
+
+            act(() => {
+              dispatchPinch(-50);
+              dispatchPinch(-50);
+            });
+            const unconstrained = scaleZoom(scaleZoom(4, 50, 100), 50, 100);
+            expect(ref.current!.zoom).toBeCloseTo(elasticClamp(unconstrained, 1, 4), 5);
+            // Compounding elastic onto the displayed zoom would undershoot this.
+            expect(ref.current!.zoom).toBeGreaterThan(elasticClamp(scaleZoom(4, 50, 100), 1, 4));
+          });
+        });
+
+        it('ctrl+wheel snaps back to maxZoom after the pinch stream goes idle', () => {
+          vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+          try {
+            withViewport(() => {
+              const ref = React.createRef<LightboxZoomRef>();
+              renderZoomPan(ref);
+              const img = screen.getByTestId('zoom-img');
+              setupOverflowGeometry(img);
+
+              act(() => ref.current!.zoomTo(4, { rapid: true }));
+              act(() => {
+                img.dispatchEvent(
+                  new WheelEvent('wheel', {
+                    bubbles: true,
+                    cancelable: true,
+                    ctrlKey: true,
+                    deltaY: -100,
+                  }),
+                );
+              });
+              expect(ref.current!.zoom).toBeGreaterThan(4);
+
+              act(() => {
+                vi.advanceTimersByTime(WHEEL_PINCH_END_MS);
+              });
+              expect(ref.current!.zoom).toBe(4);
+            });
+          } finally {
+            vi.useRealTimers();
+          }
+        });
+
+        it('ctrl+wheel rubber-bands below minZoom and snaps back on idle', () => {
+          vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+          try {
+            withViewport(() => {
+              const ref = React.createRef<LightboxZoomRef>();
+              renderZoomPan(ref);
+              const img = screen.getByTestId('zoom-img');
+              setupOverflowGeometry(img);
+
+              act(() => {
+                img.dispatchEvent(
+                  new WheelEvent('wheel', {
+                    bubbles: true,
+                    cancelable: true,
+                    ctrlKey: true,
+                    deltaY: 100,
+                  }),
+                );
+              });
+              expect(ref.current!.zoom).toBeCloseTo(elasticClamp(0.5, 1, 4), 5);
+              expect(ref.current!.zoom).toBeLessThan(1);
+
+              act(() => {
+                vi.advanceTimersByTime(WHEEL_PINCH_END_MS);
+              });
+              expect(ref.current!.zoom).toBe(1);
+            });
+          } finally {
+            vi.useRealTimers();
+          }
+        });
+
+        it('physical Ctrl+wheel hard-clamps at maxZoom (no rubber-band or snap-back)', () => {
+          vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+          try {
+            withViewport(() => {
+              const ref = React.createRef<LightboxZoomRef>();
+              renderZoomPan(ref);
+              const img = screen.getByTestId('zoom-img');
+              setupOverflowGeometry(img);
+
+              act(() => ref.current!.zoomTo(4, { rapid: true }));
+              act(() => {
+                window.dispatchEvent(
+                  new KeyboardEvent('keydown', { key: 'Control', ctrlKey: true, bubbles: true }),
+                );
+                img.dispatchEvent(
+                  new WheelEvent('wheel', {
+                    bubbles: true,
+                    cancelable: true,
+                    ctrlKey: true,
+                    deltaY: -100,
+                  }),
+                );
+              });
+              expect(ref.current!.zoom).toBe(4);
+
+              act(() => {
+                vi.advanceTimersByTime(WHEEL_PINCH_END_MS);
+              });
+              expect(ref.current!.zoom).toBe(4);
+            });
+          } finally {
+            vi.useRealTimers();
+          }
+        });
+
+        it('physical Ctrl+wheel hard-clamps at minZoom', () => {
+          withViewport(() => {
+            const ref = React.createRef<LightboxZoomRef>();
+            renderZoomPan(ref);
+            const img = screen.getByTestId('zoom-img');
+            setupOverflowGeometry(img);
+
+            act(() => {
+              window.dispatchEvent(
+                new KeyboardEvent('keydown', { key: 'Control', ctrlKey: true, bubbles: true }),
+              );
+              img.dispatchEvent(
+                new WheelEvent('wheel', {
+                  bubbles: true,
+                  cancelable: true,
+                  ctrlKey: true,
+                  deltaY: 100,
+                }),
+              );
+            });
+            expect(ref.current!.zoom).toBe(1);
+          });
+        });
+
+        it('ctrl+wheel rubber-bands again after Control is released', () => {
+          withViewport(() => {
+            const ref = React.createRef<LightboxZoomRef>();
+            renderZoomPan(ref);
+            const img = screen.getByTestId('zoom-img');
+            setupOverflowGeometry(img);
+
+            act(() => ref.current!.zoomTo(4, { rapid: true }));
+            act(() => {
+              window.dispatchEvent(
+                new KeyboardEvent('keydown', { key: 'Control', ctrlKey: true, bubbles: true }),
+              );
+              img.dispatchEvent(
+                new WheelEvent('wheel', {
+                  bubbles: true,
+                  cancelable: true,
+                  ctrlKey: true,
+                  deltaY: -100,
+                }),
+              );
+            });
+            expect(ref.current!.zoom).toBe(4);
+
+            act(() => {
+              window.dispatchEvent(new KeyboardEvent('keyup', { key: 'Control', bubbles: true }));
+              img.dispatchEvent(
+                new WheelEvent('wheel', {
+                  bubbles: true,
+                  cancelable: true,
+                  ctrlKey: true,
+                  deltaY: -100,
+                }),
+              );
+            });
+            expect(ref.current!.zoom).toBeGreaterThan(4);
+          });
+        });
+
+        it('ctrl+wheel pinch takes over an in-flight snap-back without jumping toward the bound', () => {
+          vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+          try {
+            withViewport(() => {
+              const ref = React.createRef<LightboxZoomRef>();
+              renderZoomPan(ref);
+              const img = screen.getByTestId('zoom-img');
+              setupOverflowGeometry(img);
+
+              const held: Array<{
+                cancel: ReturnType<typeof vi.fn>;
+                currentTime: number;
+                duration: number;
+              }> = [];
+              Element.prototype.animate = vi.fn(
+                (_keyframes: unknown, opts?: number | KeyframeAnimationOptions) => {
+                  const anim = {
+                    finished: new Promise<void>(() => {}),
+                    cancel: vi.fn(),
+                    play: vi.fn(),
+                    pause: vi.fn(),
+                    onfinish: null as (() => void) | null,
+                    oncancel: null as (() => void) | null,
+                    commitStyles: vi.fn(),
+                    currentTime: 0,
+                    duration: typeof opts === 'object' ? Number(opts?.duration ?? 0) : Number(opts ?? 0),
+                  };
+                  held.push(anim);
+                  return anim;
+                },
+              ) as unknown as typeof Element.prototype.animate;
+
+              act(() => ref.current!.zoomTo(4, { rapid: true }));
+              act(() => {
+                img.dispatchEvent(
+                  new WheelEvent('wheel', {
+                    bubbles: true,
+                    cancelable: true,
+                    ctrlKey: true,
+                    deltaY: -100,
+                  }),
+                );
+              });
+              const overshot = ref.current!.zoom;
+              expect(overshot).toBeGreaterThan(4);
+
+              act(() => {
+                vi.advanceTimersByTime(WHEEL_PINCH_END_MS);
+              });
+              expect(held.length).toBeGreaterThan(0);
+              const settleAnim = held[held.length - 1]!;
+              expect(settleAnim.duration).toBeGreaterThan(0);
+              settleAnim.currentTime = settleAnim.duration / 2;
+
+              const mid = ref.current!.zoom;
+              expect(mid).toBeGreaterThan(4);
+              expect(mid).toBeLessThan(overshot);
+
+              // Continue pinching out. Seeding unconstrained from the displayed
+              // mid-snap zoom (without invert) elastic-clamps back toward max.
+              act(() => {
+                img.dispatchEvent(
+                  new WheelEvent('wheel', {
+                    bubbles: true,
+                    cancelable: true,
+                    ctrlKey: true,
+                    deltaY: -20,
+                  }),
+                );
+              });
+              expect(ref.current!.zoom).toBeGreaterThanOrEqual(mid);
+            });
+          } finally {
+            vi.useRealTimers();
+          }
         });
 
         it('snaps an out-of-bounds pinch released in the same task as its moves', () => {

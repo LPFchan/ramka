@@ -104,6 +104,23 @@ export function elasticClamp(value: number, min: number, max: number, factor = E
 }
 
 /**
+ * Inverse of {@link elasticClamp}. A snap-back pose is already the compressed
+ * displayed zoom — treating it as unconstrained and clamping again yanks the
+ * image toward the bound (jitter when a new pinch takes over mid-snap).
+ */
+export function invertElasticClamp(
+  displayed: number,
+  min: number,
+  max: number,
+  factor = ELASTIC_FACTOR,
+): number {
+  if (factor <= 0) return displayed < min ? min : displayed > max ? max : displayed;
+  if (displayed < min) return min - (min - displayed) / factor;
+  if (displayed > max) return max + (displayed - max) / factor;
+  return displayed;
+}
+
+/**
  * Elastic clamp against a symmetric `±max` bound. The resistance is applied to
  * the magnitude so the sign is preserved.
  */
@@ -238,6 +255,15 @@ export function clampOffsetToViewport(
  */
 export function scaleZoom(value: number, delta: number, factor: number): number {
   return value * Math.min(1 + Math.abs(delta / factor), 2) ** Math.sign(delta);
+}
+
+/**
+ * Chrome/Firefox synthesize `ctrlKey` on trackpad pinch *without* a Control
+ * keydown. A real Ctrl+wheel has both `ctrlKey` and a physical Control key
+ * (tracked via keydown/keyup). Rubber-band only the synthesized pinch.
+ */
+export function isTrackpadPinchWheel(ctrlKey: boolean, physicalCtrlHeld: boolean): boolean {
+  return ctrlKey && !physicalCtrlHeld;
 }
 
 /**
