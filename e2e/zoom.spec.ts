@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './support/test';
 import { PHOTOS_APP, activeZoom, centreOf, dragBy, openLightbox, zoomSettled, zoomTransform } from './support/lightbox';
 
 /**

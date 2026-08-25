@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from '../support/test';
 import { PHOTOS_APP, morphIdle, morphPhases, phaseDuration, recordMorphPhases } from '../support/lightbox';
 
 /**
