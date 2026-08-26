@@ -33,7 +33,7 @@
     "sbom.cdx.json"
   ],
   "scripts": {
-    "build": "tsup && tsc -p tsconfig.build.json && node scripts/fix-dist-specifiers.mjs && node scripts/copy-license.mjs",
+    "build": "tsup && tsc -p tsconfig.build.json && node scripts/fix-dist-specifiers.mjs",
     "dev": "trap 'kill 0' EXIT; tsc -p tsconfig.build.json --watch --preserveWatchOutput & tsup --watch --onSuccess 'node scripts/fix-dist-specifiers.mjs'",
     "typecheck": "tsc --noEmit",
     "lint": "tsc --noEmit",
