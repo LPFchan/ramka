@@ -2,7 +2,7 @@
   "name": "@ramka/react",
   "version": "0.0.0",
   "description": "Unstyled, accessible image gallery primitives for React. (\"ramka\" — Polish for \"frame\".)",
-  "license": "MIT",
+  "license": "GPL-3.0-only",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/arturbien/ramka.git",
@@ -27,12 +27,13 @@
   },
   "files": [
     "dist",
+    "LICENSE",
     "README.md",
     "THIRD-PARTY-NOTICES.md",
     "sbom.cdx.json"
   ],
   "scripts": {
-    "build": "tsup && tsc -p tsconfig.build.json && node scripts/fix-dist-specifiers.mjs",
+    "build": "tsup && tsc -p tsconfig.build.json && node scripts/fix-dist-specifiers.mjs && node scripts/copy-license.mjs",
     "dev": "trap 'kill 0' EXIT; tsc -p tsconfig.build.json --watch --preserveWatchOutput & tsup --watch --onSuccess 'node scripts/fix-dist-specifiers.mjs'",
     "typecheck": "tsc --noEmit",
     "lint": "tsc --noEmit",

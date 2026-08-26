@@ -1,3 +1,44 @@
+## License
+
+ramka is dual-licensed. Pick the option that matches what you are building.
+
+#### Commercial license
+
+If you want to use ramka in a proprietary project — a commercial product, a
+client site, a paid theme or template, anything whose own source you keep
+closed — the commercial license is the appropriate license. With this option
+your source code stays proprietary: none of the copyleft obligations below
+apply to it, and you owe nobody your code.
+
+[Read more about the commercial license](https://ramka.dev/license)
+
+#### Open source license
+
+Otherwise ramka is free under the GNU General Public License v3.0 only. You can
+use, modify and redistribute it, including in a product you sell — the GPL does
+not restrict commercial use. What it does require is reciprocity: anything you
+distribute that includes ramka must itself be licensed under the GPL, with its
+source made available to the people you distribute it to. For a library that
+ships to the browser, that covers the application you build with it.
+
+Copyright (C) 2026 Artur Bień
+
+This program is free software: you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free Software
+Foundation, version 3.
+
+This program is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+PARTICULAR PURPOSE. See the GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License along with
+this program. If not, see <https://www.gnu.org/licenses/>.
+
+The complete and unmodified text of the GNU General Public License v3.0
+follows.
+
+---
+
                     GNU GENERAL PUBLIC LICENSE
                        Version 3, 29 June 2007
 

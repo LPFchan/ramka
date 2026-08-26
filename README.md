@@ -46,4 +46,6 @@ pnpm dev
 
 ## License
 
-MIT
+Dual-licensed: [GPL-3.0-only](./LICENSE) for open source, or a commercial
+license for proprietary projects whose source you keep closed. The header of
+[LICENSE](./LICENSE) explains which applies to you.

@@ -12,6 +12,10 @@ out
 # copy could only ever be stale.
 sbom.cdx.json
 
+# Copied from the repo root at build time so it ships in the tarball. Scoped to
+# the package, or this would ignore the real one two directories up.
+/packages/ramka/LICENSE
+
 # Editor / OS
 .DS_Store
 .vscode

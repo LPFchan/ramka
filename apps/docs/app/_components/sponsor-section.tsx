@@ -4,20 +4,21 @@ const SPONSOR_URL = 'https://github.com/sponsors/arturbien';
 const GITHUB_URL = 'https://github.com/arturbien/ramka';
 
 /**
- * Closing sponsorship ask, styled like an Apple product buy section: big
- * pricing headline, reassuring subline, one obvious button. "From $0/month"
- * parodies Apple's "From $999" pricing while being literally true for open
- * source.
+ * Closing ask, styled like an Apple product buy section: big pricing headline,
+ * reassuring subline, one obvious button. "From $0/month" parodies Apple's
+ * "From $999" while being literally true for the open-source half of the
+ * license.
  */
 export function SponsorSection() {
   return (
     <section className="mx-auto w-full max-w-3xl px-6 pb-24 text-center md:pb-32">
       <h2 className="text-balance text-4xl font-semibold tracking-tight text-neutral-950 md:text-5xl dark:text-neutral-50">
-        MIT licensed. From $0/month.
+        GPL licensed. From $0/month.
       </h2>
       <p className="mx-auto mt-6 max-w-xl text-pretty text-neutral-500 dark:text-neutral-400">
-        ramka is free and open source, and always will be. If it saved you a
-        sprint, a rewrite, or a jQuery plugin, sponsoring keeps it maintained.
+        ramka is free under the GPL, and always will be. Keeping your own source
+        closed — a product, a client site, a paid theme — takes a commercial
+        license instead, which is what funds the work.
       </p>
 
       <div className="mt-10 flex flex-wrap items-center justify-center gap-3">

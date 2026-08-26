@@ -101,4 +101,19 @@ LLM-oriented copies of the docs (`/llms.txt`, `/llms-full.txt`, and a `.md` twin
 
 ## License
 
-MIT
+Dual-licensed.
+
+**Commercial license** — for a proprietary project whose own source you keep
+closed: a commercial product, a client site, a paid theme or template. Your code
+stays yours, and none of the copyleft terms below apply to it.
+[Read more about the commercial license](https://ramka.dev/license)
+
+**GPL-3.0-only** — free otherwise, including in something you sell; the GPL does
+not restrict commercial use. It requires reciprocity instead: anything you
+distribute that includes ramka must also be GPL, with source available to the
+people you distribute it to. For a library that ships to the browser, that covers
+the application you build with it.
+
+The full text is in [LICENSE](./LICENSE), which ships inside this package. The
+vendored Base UI code noted in [THIRD-PARTY-NOTICES.md](./THIRD-PARTY-NOTICES.md)
+is MIT, which both options accommodate.
