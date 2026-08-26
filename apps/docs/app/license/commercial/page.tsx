@@ -6,9 +6,6 @@ import { SiteHeader } from '../../_components/site-header';
 export const metadata: Metadata = {
   title: 'Commercial License Agreement — ramka',
   description: 'The Ramka Commercial License Agreement.',
-  // A placeholder standing in for a legal document is not something to have
-  // indexed and cited. Lift this when the terms land.
-  robots: { index: false, follow: true },
 };
 
 export default function CommercialLicensePage() {
