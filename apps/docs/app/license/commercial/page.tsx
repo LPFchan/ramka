@@ -26,14 +26,13 @@ export default function CommercialLicensePage() {
               1. License grant
             </h2>
             <p className="mt-4 text-[15px] leading-7 text-neutral-600 dark:text-neutral-400">
-              Subject to payment of the applicable license fee and compliance with this Agreement,
-              Artur Bień grants the Licensee a non-exclusive, worldwide, non-transferable license to
-              use, reproduce, modify, and incorporate ramka into proprietary software products
-              covered by the purchased license tier.
+              Subject to payment of the applicable license fee and compliance with this Agreement, Artur Bień grants the
+              Licensee a non-exclusive, worldwide, non-transferable license to use, reproduce, modify, and incorporate
+              ramka into proprietary software products covered by the purchased license tier.
             </p>
             <p className="mt-4 text-[15px] leading-7 text-neutral-600 dark:text-neutral-400">
-              The Licensee may distribute those products to end users without making the Licensee’s
-              proprietary source code available under the GNU General Public License v3.0.
+              The Licensee may distribute those products to end users without making the Licensee’s proprietary source
+              code available under the GNU General Public License v3.0.
             </p>
           </section>
 
