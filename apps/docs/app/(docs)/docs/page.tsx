@@ -60,11 +60,12 @@ export default function HomePage() {
         <p className="text-[15px] leading-7 text-neutral-600 dark:text-neutral-400">
           If your use of ramka creates a work that is subject to the GPL, the GPL’s source-code and
           licensing requirements apply to that work when you distribute it. If you’re building
-          proprietary software and don’t want to rely on the GPL, use ramka under a{' '}
+          proprietary software and don’t want to rely on the GPL, you may purchase a{' '}
           <a href={COMMERCIAL_LICENSE_URL} target="_blank" rel="noreferrer" className={docsLinkClassName}>
             commercial license
           </a>{' '}
-          instead.
+          instead — a separate license grant from the copyright holder, permitting use under its own
+          terms rather than the GPL.
         </p>
         <p className="text-[15px] leading-7 text-neutral-700 dark:text-neutral-300">
           Most teams building closed-source products will therefore want the commercial license.
