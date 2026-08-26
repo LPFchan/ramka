@@ -144,7 +144,26 @@ export default function CommercialLicensePage() {
             </p>
           </section>
 
-          {/* Five clauses in, a reader should still not have to guess whether
+          <section id="termination" className="mt-12 scroll-mt-8">
+            <h2 className={clauseHeadingClassName}>6. Termination</h2>
+            <p className={bodyClassName}>
+              This Agreement remains in effect unless terminated in accordance with this section.
+            </p>
+            <p className={bodyClassName}>
+              The Licensee’s rights under this Agreement terminate if the Licensee materially breaches its terms and
+              does not cure that breach within 30 days after receiving written notice from the Licensor.
+            </p>
+            <p className={bodyClassName}>
+              Upon termination, the Licensee must stop any new use, copying, modification, or distribution of ramka
+              under the commercial license.
+            </p>
+            <p className={bodyClassName}>
+              Termination does not require the Licensee to remove ramka from products that were lawfully distributed
+              before termination, unless otherwise required by applicable law or agreed in writing.
+            </p>
+          </section>
+
+          {/* Six clauses in, a reader should still not have to guess whether
               this is the whole agreement. */}
           <p className="mt-12 border-t border-neutral-200 pt-8 text-[13px] leading-6 text-neutral-400 dark:border-neutral-800 dark:text-neutral-600">
             Remaining sections coming soon.
