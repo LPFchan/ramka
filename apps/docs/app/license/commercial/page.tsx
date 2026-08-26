@@ -88,7 +88,27 @@ export default function CommercialLicensePage() {
             </p>
           </section>
 
-          {/* Two clauses in, a reader should still not have to guess whether
+          <section id="source-code" className="mt-12 scroll-mt-8">
+            <h2 className={clauseHeadingClassName}>3. Source code and modifications</h2>
+            <p className={bodyClassName}>
+              The Licensee may access, copy, and modify the ramka source code for use in products and projects permitted
+              by the purchased license tier.
+            </p>
+            <p className={bodyClassName}>
+              The Licensee may maintain private forks and make internal modifications without publishing those
+              modifications.
+            </p>
+            <p className={bodyClassName}>
+              The Licensee may not sell, sublicense, publish, or distribute ramka itself, or a modified version of
+              ramka, as a standalone library or substantially similar developer product.
+            </p>
+            <p className={bodyClassName}>
+              Copyright, attribution, and third-party license notices included with ramka must be preserved where
+              required by applicable third-party licenses.
+            </p>
+          </section>
+
+          {/* Three clauses in, a reader should still not have to guess whether
               this is the whole agreement. */}
           <p className="mt-12 border-t border-neutral-200 pt-8 text-[13px] leading-6 text-neutral-400 dark:border-neutral-800 dark:text-neutral-600">
             Remaining sections coming soon.
