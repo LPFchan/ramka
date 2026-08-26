@@ -5,6 +5,10 @@ import { docsLinkClassName } from '../../_components/docs-link';
 import { lightboxDocsPages } from '../../_content/lightbox/docs-pages';
 import { lightboxExcerpts } from '../../_content/lightbox/excerpts/generated';
 
+const COMMERCIAL_LICENSE_URL = 'https://ramka.dev/license';
+const GPL_URL = 'https://www.gnu.org/licenses/gpl-3.0.html';
+const LICENSE_URL = 'https://github.com/arturbien/ramka/blob/main/LICENSE';
+
 export default function HomePage() {
   return (
     <div className="mx-auto w-full max-w-3xl px-6 py-14 md:px-10 md:py-16">
@@ -39,6 +43,42 @@ export default function HomePage() {
           code={lightboxExcerpts['quick-start'].code}
           title={lightboxExcerpts['quick-start'].title}
         />
+      </section>
+
+      <section className="mt-14 space-y-4">
+        <h2 className="text-2xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-50">
+          Licensing
+        </h2>
+        <p className="text-[15px] leading-7 text-neutral-600 dark:text-neutral-400">
+          ramka is dual-licensed. Under{' '}
+          <a href={GPL_URL} target="_blank" rel="noreferrer" className={docsLinkClassName}>
+            GPL-3.0-only
+          </a>{' '}
+          it is free, including in something you sell — the GPL does not restrict commercial use.
+          What it asks in return is reciprocity: a work that is subject to the GPL as a derivative or
+          combined work carries the same terms, and its source has to be available to the people you
+          distribute it to. A{' '}
+          <a href={COMMERCIAL_LICENSE_URL} target="_blank" rel="noreferrer" className={docsLinkClassName}>
+            commercial license
+          </a>{' '}
+          lifts that requirement, which is what you want if your own source stays closed.
+        </p>
+        <p className="text-[15px] leading-7 text-neutral-600 dark:text-neutral-400">
+          Worth knowing before you choose: ramka is not a service you call across a boundary, it is
+          code your bundler compiles into your application and ships to every visitor. Whether that
+          makes your app a combined work under the GPL depends on how you integrate it, and for
+          JavaScript bundling the question has never been settled in court. Teams shipping a
+          closed-source product generally buy the commercial license rather than ship on an
+          interpretation they would have to defend.
+        </p>
+        <p className="text-[15px] leading-7 text-neutral-500 dark:text-neutral-500">
+          This section is practical guidance, not legal advice, and it is not part of either
+          license — the terms are in{' '}
+          <a href={LICENSE_URL} target="_blank" rel="noreferrer" className={docsLinkClassName}>
+            LICENSE
+          </a>
+          , and they govern.
+        </p>
       </section>
 
       <section className="mt-14 rounded-2xl border border-neutral-200 p-6 dark:border-neutral-800">

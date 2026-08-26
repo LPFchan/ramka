@@ -56,6 +56,14 @@ import * as Lightbox from '@ramka/react/lightbox';
 </Lightbox.Root>
 ```
 
+## Licensing
+
+ramka is dual-licensed. Under [GPL-3.0-only](https://www.gnu.org/licenses/gpl-3.0.html) it is free, including in something you sell — the GPL does not restrict commercial use. What it asks in return is reciprocity: a work that is subject to the GPL as a derivative or combined work carries the same terms, and its source has to be available to the people you distribute it to. A [commercial license](https://ramka.dev/license) lifts that requirement, which is what you want if your own source stays closed.
+
+Worth knowing before you choose: ramka is not a service you call across a boundary, it is code your bundler compiles into your application and ships to every visitor. Whether that makes your app a combined work under the GPL depends on how you integrate it, and for JavaScript bundling the question has never been settled in court. Teams shipping a closed-source product generally buy the commercial license rather than ship on an interpretation they would have to defend.
+
+This section is practical guidance, not legal advice, and it is not part of either license — the terms are in [LICENSE](https://github.com/arturbien/ramka/blob/main/LICENSE) , and they govern.
+
 ## Next steps
 
 - [Lightbox overview](docs/lightbox.md) — guidelines and anatomy, then [Composition](docs/lightbox/composition.md).

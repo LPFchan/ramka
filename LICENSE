@@ -1,25 +1,29 @@
 ## License
 
-ramka is dual-licensed. Pick the option that matches what you are building.
+ramka is dual-licensed. Choose the license that matches how you intend to use it.
 
 #### Commercial license
 
-If you want to use ramka in a proprietary project — a commercial product, a
-client site, a paid theme or template, anything whose own source you keep
-closed — the commercial license is the appropriate license. With this option
-your source code stays proprietary: none of the copyleft obligations below
-apply to it, and you owe nobody your code.
+If you want to use ramka in a proprietary project — such as a commercial
+product, client project, paid theme or template, or other software whose source
+code you do not want to make available under the GPL — you can purchase a
+commercial license.
+
+The commercial license allows you to use ramka without being subject to the
+copyleft requirements of the GNU General Public License v3.0. It is a separate
+agreement between you and the copyright holder: its terms are not contained in
+this file, and it does not alter the GPL option below for anyone else.
 
 [Read more about the commercial license](https://ramka.dev/license)
 
 #### Open source license
 
-Otherwise ramka is free under the GNU General Public License v3.0 only. You can
-use, modify and redistribute it, including in a product you sell — the GPL does
-not restrict commercial use. What it does require is reciprocity: anything you
-distribute that includes ramka must itself be licensed under the GPL, with its
-source made available to the people you distribute it to. For a library that
-ships to the browser, that covers the application you build with it.
+ramka is also available under the GNU General Public License v3.0 only.
+
+The GPL permits commercial use, modification and redistribution. If you
+distribute ramka, or a work that is subject to the GPL as a derivative or
+combined work, you must comply with the GPL's requirements, including its
+source-code and licensing obligations.
 
 Copyright (C) 2026 Artur Bień
 
