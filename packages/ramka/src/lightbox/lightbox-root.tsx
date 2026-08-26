@@ -88,11 +88,11 @@ interface LightboxRootProps {
    * portal boundary even though the host mounts on `document.body`. That also
    * makes it the way to run one RTL lightbox inside an otherwise-LTR page.
    *
-   * Omit it in an app that is already RTL end to end (`dir="rtl"` on `<html>`)
-   * — no attribute is written, so the lightbox inherits the page's direction
-   * for layout. Behavior still resolves to `'ltr'` in that case, so pass the
-   * prop anyway to mirror navigation; in development a mismatch between the
-   * two logs a warning.
+   * Pass it whenever the surrounding UI is RTL, including in an app that is
+   * already RTL end to end (`dir="rtl"` on `<html>`) — behavior falls back to
+   * `'ltr'` without it, and navigation would run against the layout. Omitting
+   * it writes no attribute at all, so such an app still *lays out* RTL by
+   * inheritance; in development that disagreement logs a warning.
    * @default 'ltr' (behavior); no `dir` attribute is written when omitted
    */
   dir?: TextDirection;
