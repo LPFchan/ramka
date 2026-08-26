@@ -200,8 +200,27 @@ export default function CommercialLicensePage() {
             </p>
           </section>
 
+          <section id="ownership" className="mt-12 scroll-mt-8">
+            <h2 className={clauseHeadingClassName}>7. Ownership</h2>
+            <p className={bodyClassName}>
+              ramka and all intellectual property rights in ramka remain the property of the Licensor and its respective
+              third-party licensors.
+            </p>
+            <p className={bodyClassName}>
+              This Agreement grants the Licensee permission to use ramka only as expressly described in this Agreement.
+              It does not transfer ownership of ramka to the Licensee.
+            </p>
+            <p className={bodyClassName}>
+              The Licensee retains ownership of its own products, source code, modifications, and other materials,
+              excluding ramka itself and any portions derived from ramka.
+            </p>
+            <p className={bodyClassName}>
+              Third-party software included with ramka remains subject to its applicable third-party license terms.
+            </p>
+          </section>
+
           <section id="warranty-and-liability" className="mt-12 scroll-mt-8">
-            <h2 className={clauseHeadingClassName}>7. Warranty and liability</h2>
+            <h2 className={clauseHeadingClassName}>8. Warranty and liability</h2>
             <p className={bodyClassName}>
               ramka is provided “as is” and without warranties of any kind, express or implied, including warranties of
               merchantability, fitness for a particular purpose, and non-infringement, to the maximum extent permitted
@@ -219,7 +238,7 @@ export default function CommercialLicensePage() {
           </section>
 
           <section id="governing-law" className="mt-12 scroll-mt-8">
-            <h2 className={clauseHeadingClassName}>8. Governing law</h2>
+            <h2 className={clauseHeadingClassName}>9. Governing law</h2>
             <p className={bodyClassName}>
               This Agreement is governed by the laws of Poland, without regard to its conflict of laws rules.
             </p>
@@ -231,7 +250,7 @@ export default function CommercialLicensePage() {
           </section>
 
           <section id="licensor-and-acceptance" className="mt-12 scroll-mt-8">
-            <h2 className={clauseHeadingClassName}>9. Licensor and acceptance</h2>
+            <h2 className={clauseHeadingClassName}>10. Licensor and acceptance</h2>
             <p className={bodyClassName}>
               This Agreement is between the Licensee and Artur Bień, operating under the business name Expensive Toys,
               as the Licensor of ramka.
@@ -246,7 +265,7 @@ export default function CommercialLicensePage() {
           </section>
 
           <section id="miscellaneous" className="mt-12 scroll-mt-8">
-            <h2 className={clauseHeadingClassName}>10. Miscellaneous</h2>
+            <h2 className={clauseHeadingClassName}>11. Miscellaneous</h2>
             <p className={bodyClassName}>
               This Agreement, together with the applicable order, constitutes the entire agreement between the Licensor
               and Licensee regarding the commercial license for ramka and supersedes prior discussions or
