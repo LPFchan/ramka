@@ -401,6 +401,14 @@ export const Lightbox = {
   padding: calc(0.875rem + env(safe-area-inset-top, 0px)) 1rem 0;
 }
 
+/* The counter reads "1 / 7": two digit runs around a neutral separator, with no
+   strong-direction character to anchor them. An RTL base direction reorders
+   that into "7 / 1", so pin the ratio to LTR and isolate it from neighbours. */
+.elb-counter {
+  direction: ltr;
+  unicode-bidi: isolate;
+}
+
 .elb-counter {
   font-size: 0.8125rem;
   font-variant-numeric: tabular-nums;
@@ -523,12 +531,21 @@ export const Lightbox = {
   transform: translateY(-50%);
 }
 
+/* Inline axis, not physical: the previous item is the one nearer index 0,
+   which is the right-hand side under RTL. */
 .elb-nav-prev {
-  left: 1rem;
+  inset-inline-start: 1rem;
 }
 
 .elb-nav-next {
-  right: 1rem;
+  inset-inline-end: 1rem;
+}
+
+/* A chevron is a directional glyph, so mirroring the button positions is only
+   half of it — the icon has to point the other way too. Flip the icon rather
+   than the button: the button already carries a translate. */
+.elb-nav:dir(rtl) svg {
+  transform: scaleX(-1);
 }
 
 /* Edge chevrons are desktop-only; mobile swipes. */
@@ -608,7 +625,7 @@ function Figure({ index, className }: { index: number; className?: string }) {
 
 export function EditorialPresetDemo() {
   return (
-    <article className="w-full max-w-xl text-left">
+    <article className="w-full max-w-xl text-start">
       <Lightbox.Root
         loop
         // Thumbs are the same photographs at lower res (same seed + aspect),

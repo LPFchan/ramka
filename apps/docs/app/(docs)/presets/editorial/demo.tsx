@@ -66,7 +66,7 @@ function Figure({ index, className }: { index: number; className?: string }) {
 
 export function EditorialPresetDemo() {
   return (
-    <article className="w-full max-w-xl text-left">
+    <article className="w-full max-w-xl text-start">
       <Lightbox.Root
         loop
         // Thumbs are the same photographs at lower res (same seed + aspect),

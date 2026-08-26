@@ -90,7 +90,7 @@ function resolvePortalTarget(container: PortalContainer | undefined): ResolvedTa
 const LightboxPortal = React.forwardRef<HTMLDivElement, LightboxPortalProps>(
   function LightboxPortal(props, forwardedRef) {
     const { children, container, keepMounted = false, className, style, ...rest } = props;
-    const { mounted, transitionPreset } = useLightboxContext();
+    const { mounted, transitionPreset, dirAttribute } = useLightboxContext();
 
     // Publish the Root's `viewTransition` preset timing as CSS vars on the
     // portal host, so skins have ONE motion clock for open/close fades: during
@@ -124,6 +124,11 @@ const LightboxPortal = React.forwardRef<HTMLDivElement, LightboxPortalProps>(
           ref={forwardedRef}
           className={className}
           style={hostStyle}
+          // Carry the Root's `dir` across the portal boundary. Without this the
+          // host lands on `document.body` and inherits the page's direction, so
+          // `dir="rtl"` would mirror behavior inside an LTR box. Before `rest`,
+          // so an explicit `dir` on Portal still wins.
+          dir={dirAttribute}
           {...rest}
           {...{ [LightboxPortalDataAttributes.portal]: '' }}
         >

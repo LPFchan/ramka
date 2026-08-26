@@ -311,7 +311,7 @@
 
 .lb-top-right {
   position: absolute;
-  right: 0.75rem;
+  inset-inline-end: 0.75rem;
   top: calc(0.75rem + env(safe-area-inset-top, 0px));
   z-index: 1;
   display: flex;
@@ -367,6 +367,14 @@
 
 :is(.dark, [data-theme='dark']) .lb-caption {
   color: #fafafa;
+}
+
+/* The counter reads "1 / 7": two digit runs around a neutral separator, with no
+   strong-direction character to anchor them. An RTL base direction reorders
+   that into "7 / 1", so pin the ratio to LTR and isolate it from neighbours. */
+.lb-counter {
+  direction: ltr;
+  unicode-bidi: isolate;
 }
 
 .lb-counter {
@@ -530,11 +538,12 @@
   box-shadow: inset 0 0 0 2px rgb(0 0 0 / 0.25);
 }
 
-/* Hairline divider between segments. */
+/* Hairline divider between segments — on the segment's leading edge, so it
+   stays between the two buttons when the pill's order mirrors under RTL. */
 .lb-control-group .lb-control + .lb-control::before {
   content: '';
   position: absolute;
-  left: 0;
+  inset-inline-start: 0;
   top: 22%;
   bottom: 22%;
   width: 1px;

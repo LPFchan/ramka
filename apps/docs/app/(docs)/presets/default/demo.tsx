@@ -192,7 +192,7 @@ function ListingCardMorph({ Lightbox }: { Lightbox: StyledLightbox }) {
       </p>
       <Lightbox.Trigger
         index={0}
-        className="w-full overflow-hidden rounded-2xl border border-neutral-300 bg-white text-left shadow-[0_1px_2px_rgb(0_0_0/0.06),0_4px_12px_rgb(0_0_0/0.06)] dark:border-neutral-600 dark:bg-neutral-800 dark:shadow-[0_1px_2px_rgb(0_0_0/0.4),0_4px_16px_rgb(0_0_0/0.35)]"
+        className="w-full overflow-hidden rounded-2xl border border-neutral-300 bg-white text-start shadow-[0_1px_2px_rgb(0_0_0/0.06),0_4px_12px_rgb(0_0_0/0.06)] dark:border-neutral-600 dark:bg-neutral-800 dark:shadow-[0_1px_2px_rgb(0_0_0/0.4),0_4px_16px_rgb(0_0_0/0.35)]"
       >
         {({ imageRef, morphRef }) => (
           <>

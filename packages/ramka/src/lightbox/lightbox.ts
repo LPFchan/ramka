@@ -168,6 +168,7 @@ export type { LightboxThumbnailProps, LightboxThumbnailState } from './lightbox-
 export type { LightboxThumbnailStripProps, LightboxThumbnailStripState } from './lightbox-thumbnail-strip';
 export type { LightboxThumbnailStripTrackProps } from './lightbox-thumbnail-strip-track';
 export type { NavigationSource } from './lightbox-context';
+export type { TextDirection } from './lightbox-direction';
 export type { LightboxZoomProps, LightboxZoomState, LightboxZoomRef } from './lightbox-zoom';
 export type { LightboxZoomInProps, LightboxZoomInState } from './lightbox-zoom-in';
 export type { LightboxZoomOutProps, LightboxZoomOutState } from './lightbox-zoom-out';

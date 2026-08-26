@@ -22,8 +22,10 @@ import {
   fireResizeObservers,
   setupGeometry,
   swipeTo,
+  inlineToPhysicalScroll,
   type ZoomRefObject,
 } from './lightbox-slides-test-utils';
+import type { TextDirection } from './lightbox-direction';
 
 beforeEach(() => {
   installSlidesLayoutMocks();
@@ -64,15 +66,23 @@ function SlidesLightbox({
   itemCount = 8,
   defaultValue = 0,
   loop = false,
+  dir = 'ltr',
   onValueChange,
 }: {
   itemCount?: number;
   defaultValue?: number;
   loop?: boolean;
+  dir?: TextDirection;
   onValueChange?: (value: number, metadata: { source: string }) => void;
 } = {}) {
   return (
-    <LightboxRoot defaultOpen defaultValue={defaultValue} loop={loop} onValueChange={onValueChange}>
+    <LightboxRoot
+      defaultOpen
+      defaultValue={defaultValue}
+      loop={loop}
+      dir={dir}
+      onValueChange={onValueChange}
+    >
       {Array.from({ length: itemCount }, (_, i) => (
         <LightboxTrigger key={`t-${i}`} index={i} data-testid={`trigger-${i}`}>
           Trigger {i}
@@ -1157,5 +1167,152 @@ describe('Lightbox.Slides', () => {
         vi.useRealTimers();
       }
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Reading direction
+// ---------------------------------------------------------------------------
+
+/**
+ * The same navigation contract in both reading directions. Index order is the
+ * invariant: index 0 is always the inline-start slide and `ArrowRight` always
+ * moves *visually* right, which means it advances in LTR and retreats in RTL.
+ *
+ * Assertions go through `inlineToPhysicalScroll` so they state the inline
+ * position while still checking the real signed `scrollLeft` the browser would
+ * see — negative in RTL. Asserting inline positions directly would pass even if
+ * the physical sign were wrong.
+ */
+describe.each<TextDirection>(['ltr', 'rtl'])('Lightbox.Slides (dir=%s)', (dir) => {
+  const physical = (inline: number) => inlineToPhysicalScroll(inline, dir);
+  /** Key that moves one slide *forward* through the index order. */
+  const forwardKey = dir === 'rtl' ? 'ArrowLeft' : 'ArrowRight';
+  const backwardKey = dir === 'rtl' ? 'ArrowRight' : 'ArrowLeft';
+
+  function setup(props: Parameters<typeof SlidesLightbox>[0] = {}) {
+    render(<SlidesLightbox dir={dir} {...props} />);
+    const viewport = screen.getByTestId('slides');
+    setupGeometry(viewport, 8, WIDTH, dir);
+    return viewport;
+  }
+
+  it('starts parked on slide 0 at the inline-start edge', () => {
+    const viewport = setup();
+    expect(activeThumb()).toBe(0);
+    expect(viewport.scrollLeft).toBe(0);
+  });
+
+  it('derives the active index from a swipe', () => {
+    const viewport = setup();
+
+    swipeTo(viewport, 3, WIDTH, dir);
+    expect(activeThumb()).toBe(3);
+    expect(viewport.scrollLeft).toBe(physical(3 * WIDTH));
+
+    endScroll(viewport);
+    expect(activeThumb()).toBe(3);
+  });
+
+  it('scrolls to the slide a thumbnail selects', () => {
+    const viewport = setup();
+
+    act(() => {
+      fireEvent.click(screen.getByTestId('thumb-5'));
+    });
+    act(() => flushRaf());
+
+    expect(activeThumb()).toBe(5);
+    expect(viewport.scrollLeft).toBe(physical(5 * WIDTH));
+  });
+
+  it('mirrors the horizontal arrow keys', () => {
+    const viewport = setup({ defaultValue: 4 });
+    act(() => flushRaf());
+    const group = screen.getByTestId('thumb-group');
+
+    act(() => {
+      fireEvent.keyDown(group, { key: forwardKey });
+    });
+    act(() => flushRaf());
+    expect(activeThumb()).toBe(5);
+    expect(viewport.scrollLeft).toBe(physical(5 * WIDTH));
+
+    act(() => {
+      fireEvent.keyDown(group, { key: backwardKey });
+    });
+    act(() => flushRaf());
+    expect(activeThumb()).toBe(4);
+    expect(viewport.scrollLeft).toBe(physical(4 * WIDTH));
+  });
+
+  it('keeps ArrowDown / ArrowUp on index order', () => {
+    setup({ defaultValue: 4 });
+    act(() => flushRaf());
+    const group = screen.getByTestId('thumb-group');
+
+    act(() => {
+      fireEvent.keyDown(group, { key: 'ArrowDown' });
+    });
+    act(() => flushRaf());
+    expect(activeThumb()).toBe(5);
+
+    act(() => {
+      fireEvent.keyDown(group, { key: 'ArrowUp' });
+    });
+    act(() => flushRaf());
+    expect(activeThumb()).toBe(4);
+  });
+
+  it('clamps at both ends of the index range', () => {
+    const viewport = setup({ defaultValue: 0 });
+    const group = screen.getByTestId('thumb-group');
+
+    act(() => {
+      fireEvent.keyDown(group, { key: backwardKey });
+    });
+    act(() => flushRaf());
+    expect(activeThumb()).toBe(0);
+    expect(viewport.scrollLeft).toBe(0);
+
+    act(() => {
+      fireEvent.keyDown(group, { key: 'End' });
+    });
+    act(() => flushRaf());
+    expect(activeThumb()).toBe(7);
+    expect(viewport.scrollLeft).toBe(physical(7 * WIDTH));
+
+    act(() => {
+      fireEvent.keyDown(group, { key: forwardKey });
+    });
+    act(() => flushRaf());
+    expect(activeThumb()).toBe(7);
+    expect(viewport.scrollLeft).toBe(physical(7 * WIDTH));
+
+    act(() => {
+      fireEvent.keyDown(group, { key: 'Home' });
+    });
+    act(() => flushRaf());
+    expect(activeThumb()).toBe(0);
+    expect(viewport.scrollLeft).toBe(0);
+  });
+
+  it('wraps in both directions when loop is on', () => {
+    const viewport = setup({ loop: true, defaultValue: 0 });
+    const group = screen.getByTestId('thumb-group');
+
+    act(() => {
+      fireEvent.keyDown(group, { key: backwardKey });
+    });
+    act(() => flushRaf());
+    expect(activeThumb()).toBe(7);
+    expect(viewport.scrollLeft).toBe(physical(7 * WIDTH));
+
+    act(() => {
+      fireEvent.keyDown(group, { key: forwardKey });
+    });
+    act(() => flushRaf());
+    expect(activeThumb()).toBe(0);
+    expect(viewport.scrollLeft).toBe(0);
   });
 });

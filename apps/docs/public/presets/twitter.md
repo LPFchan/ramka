@@ -547,6 +547,19 @@ export const Lightbox = {
   --xlb-thread-width: 22.5rem;
   /* Clear media plane — dimming comes from `.xlb-backdrop` (mobile solid, desktop 0.5). */
   --xlb-media-bg: transparent;
+  /* Safe-area insets describe the device, not the text flow, so there is no
+     logical form of them. Map them onto the inline axis by hand: pairing
+     `inset-inline-start` directly with `safe-area-inset-left` would clear the
+     notch on the wrong side under RTL. */
+  --xlb-safe-inline-start: env(safe-area-inset-left, 0px);
+  --xlb-safe-inline-end: env(safe-area-inset-right, 0px);
+}
+
+/* `:dir()` rather than `[dir='rtl'] &` so this resolves from the element's own
+   directionality — the portal mounts on <body>, away from the app subtree. */
+.xlb-portal:dir(rtl) {
+  --xlb-safe-inline-start: env(safe-area-inset-right, 0px);
+  --xlb-safe-inline-end: env(safe-area-inset-left, 0px);
 }
 
 /* ── Trigger ────────────────────────────────────────────────────────────── */
@@ -702,7 +715,7 @@ export const Lightbox = {
   position: absolute;
   z-index: 2;
   top: calc(0.75rem + env(safe-area-inset-top, 0px));
-  left: calc(0.75rem + env(safe-area-inset-left, 0px));
+  inset-inline-start: calc(0.75rem + var(--xlb-safe-inline-start));
 }
 
 .xlb-nav {
@@ -712,12 +725,21 @@ export const Lightbox = {
   transform: translateY(-50%);
 }
 
+/* Prev/next sit on the inline axis, not the physical one: the previous item is
+   the one nearer index 0, which is the right-hand side under RTL. */
 .xlb-nav-prev {
-  left: calc(0.75rem + env(safe-area-inset-left, 0px));
+  inset-inline-start: calc(0.75rem + var(--xlb-safe-inline-start));
 }
 
 .xlb-nav-next {
-  right: calc(0.75rem + env(safe-area-inset-right, 0px));
+  inset-inline-end: calc(0.75rem + var(--xlb-safe-inline-end));
+}
+
+/* Mirroring the buttons' positions is only half of it — a chevron is a
+   directional glyph, so it has to point the other way too. Flip the icon
+   rather than the button: the button already carries a translate. */
+.xlb-nav:dir(rtl) svg {
+  transform: scaleX(-1);
 }
 
 .xlb-control {
@@ -777,6 +799,14 @@ export const Lightbox = {
   display: block;
   width: 1.125rem;
   height: 1.125rem;
+}
+
+/* The counter reads "1 / 7": two digit runs around a neutral separator, with no
+   strong-direction character to anchor them. An RTL base direction reorders
+   that into "7 / 1", so pin the ratio to LTR and isolate it from neighbours. */
+.xlb-counter {
+  direction: ltr;
+  unicode-bidi: isolate;
 }
 
 .xlb-counter {
@@ -915,7 +945,7 @@ export const Lightbox = {
     width: var(--xlb-thread-width);
     max-width: 40vw;
     flex: 0 0 var(--xlb-thread-width);
-    border-left: 1px solid rgb(239 243 244);
+    border-inline-start: 1px solid rgb(239 243 244);
     transform: none;
     visibility: visible;
     pointer-events: auto;
@@ -1178,7 +1208,7 @@ export const Lightbox = {
 :is(.dark, [data-theme='dark']) .xlb-thread-pane {
   background: #000;
   color: #e7e9ea;
-  border-left-color: #2f3336;
+  border-inline-start-color: #2f3336;
 }
 
 :is(.dark, [data-theme='dark'])
@@ -1356,7 +1386,7 @@ function ActionBar({
   onReply: () => void;
 }) {
   return (
-    <div className="-mb-1.5 -ml-2 mt-1 flex items-center gap-1 text-neutral-500">
+    <div className="-mb-1.5 -ms-2 mt-1 flex items-center gap-1 text-neutral-500">
       <button type="button" className={actionClass} aria-label="View replies" onClick={onReply}>
         <MessageCircle className="size-4" aria-hidden />
         <span>{formatCount(stats?.replies ?? 0)}</span>
@@ -1553,7 +1583,7 @@ function FeedPostGallery({ post }: { post: FeedPost }) {
       // morph immediately.
       awaitImageDecode={false}
     >
-      <article className="flex gap-3 px-4 py-3 text-left">
+      <article className="flex gap-3 px-4 py-3 text-start">
         <img src={author.avatar} alt="" className="size-10 shrink-0 rounded-full object-cover" draggable={false} />
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-baseline gap-x-1 text-sm">

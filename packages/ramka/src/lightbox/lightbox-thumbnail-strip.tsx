@@ -10,7 +10,7 @@ import {
   LightboxThumbnailStripContext,
   type LightboxThumbnailStripSelectOptions,
 } from './lightbox-thumbnail-strip-context';
-import { slidesGeometryIsUniform, slidesScrollProgress } from './lightbox-slides-geometry';
+import { slidesGeometryIsUniform, slidesScrollProgressAt } from './lightbox-slides-geometry';
 import {
   getScrollTimelineConstructor,
   measureThumbTravels,
@@ -18,8 +18,10 @@ import {
   readComputedTranslateX,
   thumbTravelAtProgress,
   thumbTravelsEqual,
+  trackTransform,
   trackTransformKeyframes,
 } from './lightbox-thumbnail-strip-geometry';
+import { inlineTrackTranslateX, readInlineScroll } from './lightbox-direction';
 import { mergeProps } from '../render/merge-props';
 import { useRender } from '../render/use-render';
 
@@ -99,12 +101,13 @@ const LightboxThumbnailStrip = React.forwardRef<HTMLDivElement, LightboxThumbnai
       itemCount,
       activeIndex,
       thumbnailStripSelectRef,
+      dir,
     } = useLightboxContext();
 
     const rootRef = React.useRef<HTMLElement | null>(null);
     const trackRef = React.useRef<HTMLElement | null>(null);
     const thumbsRef = React.useRef(new Map<number, HTMLElement>());
-    /** translateX magnitude to center each thumb (`travels[i]` → `-travels[i]`). */
+    /** Inline distance to center each thumb (see `inlineTrackTranslateX`). */
     const thumbTravelsRef = React.useRef<number[]>([]);
     const linkAnimRef = React.useRef<Animation | null>(null);
     const scrubAnimRef = React.useRef<Animation | null>(null);
@@ -168,7 +171,7 @@ const LightboxThumbnailStrip = React.forwardRef<HTMLDivElement, LightboxThumbnai
       if (!track) return false;
 
       const thumbs = orderedThumbs(thumbsRef.current);
-      const { travels, widths } = measureThumbTravels(thumbs);
+      const { travels, widths } = measureThumbTravels(thumbs, dir);
       const travelsChanged = !thumbTravelsEqual(thumbTravelsRef.current, travels);
       thumbTravelsRef.current = travels;
 
@@ -177,17 +180,24 @@ const LightboxThumbnailStrip = React.forwardRef<HTMLDivElement, LightboxThumbnai
       if (root && firstWidth > 0) {
         // Asymmetric pad so the first *and* last thumb (possibly different
         // widths) can both sit on the midline. Safe to update without touching ST.
+        // Logical padding: the first thumb pads the inline-start edge in both
+        // reading directions.
         const padStart = Math.max(0, (root.clientWidth - firstWidth) / 2);
         const padEnd = Math.max(0, (root.clientWidth - lastWidth) / 2);
-        track.style.paddingLeft = `${padStart}px`;
-        track.style.paddingRight = `${padEnd}px`;
-        track.style.removeProperty('padding-inline');
+        // Never `removeProperty('padding-inline')` here: CSSOM expands a
+        // shorthand removal into its longhands, which would wipe the two
+        // values just set.
+        track.style.paddingInlineStart = `${padStart}px`;
+        track.style.paddingInlineEnd = `${padEnd}px`;
       }
 
       const endTravel = travels[travels.length - 1] ?? 0;
-      track.style.setProperty(LightboxThumbnailStripCssVars.travel, `${-endTravel}px`);
+      track.style.setProperty(
+        LightboxThumbnailStripCssVars.travel,
+        `${inlineTrackTranslateX(endTravel, dir)}px`,
+      );
       return travelsChanged;
-    }, []);
+    }, [dir]);
 
     const syncNow = React.useCallback(() => {
       if (scrubAnimRef.current) return;
@@ -196,10 +206,10 @@ const LightboxThumbnailStrip = React.forwardRef<HTMLDivElement, LightboxThumbnai
       if (!track || !slides) return;
 
       const geometry = slidesGeometryRef.current;
-      const t = slidesScrollProgress(slides, geometry);
-      const x = thumbTravelAtProgress(thumbTravelsRef.current, t);
-      track.style.transform = `translate3d(${-x}px, 0, 0)`;
-    }, [slidesViewportRef, slidesGeometryRef]);
+      const t = slidesScrollProgressAt(readInlineScroll(slides, dir), geometry);
+      const travel = thumbTravelAtProgress(thumbTravelsRef.current, t);
+      track.style.transform = trackTransform(travel, dir);
+    }, [slidesViewportRef, slidesGeometryRef, dir]);
 
     const scheduleSync = React.useCallback(() => {
       if (rafRef.current !== 0) return;
@@ -257,10 +267,12 @@ const LightboxThumbnailStrip = React.forwardRef<HTMLDivElement, LightboxThumbnai
       linkAnimRef.current = null;
       track.style.removeProperty('animation');
 
-      const timeline = new ScrollTimeline({ source: slides, axis: 'x' });
+      // `inline`, not `x`: progress must run from the inline-start edge so it
+      // stays index-aligned under RTL. Identical to `x` in LTR horizontal-tb.
+      const timeline = new ScrollTimeline({ source: slides, axis: 'inline' });
       const effect = new KeyframeEffect(
         track,
-        trackTransformKeyframes(travels),
+        trackTransformKeyframes(travels, dir),
         // `duration` is ignored for scroll progress, but Firefox will not apply
         // a ScrollTimeline effect when duration is missing / 0 — after a thumb
         // scrub drops its fill:forwards, the track then sits at keyframe 0.
@@ -272,7 +284,7 @@ const LightboxThumbnailStrip = React.forwardRef<HTMLDivElement, LightboxThumbnai
       linkAnimRef.current = link;
       usesScrollTimelineRef.current = true;
       return true;
-    }, [slidesViewportRef, slidesGeometryRef]);
+    }, [slidesViewportRef, slidesGeometryRef, dir]);
 
     React.useLayoutEffect(() => {
       let ro: ResizeObserver | undefined;
@@ -372,9 +384,8 @@ const LightboxThumbnailStrip = React.forwardRef<HTMLDivElement, LightboxThumbnai
         if (track) {
           track.style.removeProperty('transform');
           track.style.removeProperty('animation');
-          track.style.removeProperty('padding-inline');
-          track.style.removeProperty('padding-left');
-          track.style.removeProperty('padding-right');
+          track.style.removeProperty('padding-inline-start');
+          track.style.removeProperty('padding-inline-end');
           track.style.removeProperty(LightboxThumbnailStripCssVars.travel);
         }
       };
@@ -402,8 +413,10 @@ const LightboxThumbnailStrip = React.forwardRef<HTMLDivElement, LightboxThumbnai
           typeof matchMedia === 'function' &&
           matchMedia('(prefers-reduced-motion: reduce)').matches;
 
+        // Both physical translateX values, used symmetrically — direction only
+        // enters via the travel the destination is derived from.
         const fromX = track ? readComputedTranslateX(track) : 0;
-        const toX = -(thumbTravelsRef.current[index] ?? 0);
+        const toX = inlineTrackTranslateX(thumbTravelsRef.current[index] ?? 0, dir);
         const canScrub =
           scrubOnSelect &&
           !reduceMotion &&
@@ -552,6 +565,7 @@ const LightboxThumbnailStrip = React.forwardRef<HTMLDivElement, LightboxThumbnai
         slidesViewportRef,
         startLinkAnimation,
         measureThumbs,
+        dir,
       ],
     );
 

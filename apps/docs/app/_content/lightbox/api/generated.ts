@@ -62,6 +62,12 @@ export const generatedProps: Record<string, PropRow[]> = {
       description: "Wrap navigation at boundaries.",
     },
     {
+      name: "dir",
+      type: "TextDirection",
+      default: "'ltr' (behavior); no `dir` attribute is written when omitted",
+      description: "Reading direction. `'rtl'` mirrors slide navigation, thumbnail-strip travel, and the horizontal arrow keys (so `ArrowLeft` advances).\n\nSetting this is enough on its own: the direction is written to the `Lightbox.Portal` host as a `dir` attribute, so CSS follows it across the portal boundary even though the host mounts on `document.body`. That also makes it the way to run one RTL lightbox inside an otherwise-LTR page.\n\nPass it whenever the surrounding UI is RTL, including in an app that is already RTL end to end (`dir=\"rtl\"` on `<html>`) — behavior falls back to `'ltr'` without it, and navigation would run against the layout. Omitting it writes no attribute at all, so such an app still *lays out* RTL by inheritance; in development that disagreement logs a warning.",
+    },
+    {
       name: "viewTransition",
       type: "boolean | LightboxViewTransitionPreset",
       default: "true",

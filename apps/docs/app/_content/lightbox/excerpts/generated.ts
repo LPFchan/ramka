@@ -102,6 +102,16 @@ export const lightboxExcerpts = {
     code: "import * as Lightbox from '@ramka/react/lightbox';\n\n<Lightbox.Root>\n  {items.map((item, i) => (\n    <Lightbox.Trigger key={item.id} index={i}>\n      {({ imageRef }) => <img ref={imageRef} src={item.thumb} alt={item.alt} />}\n    </Lightbox.Trigger>\n  ))}\n\n  <Lightbox.Portal>\n    <Lightbox.Backdrop />\n    <Lightbox.Content>\n      <Lightbox.Slides>\n        {items.map((item, i) => (\n          <Lightbox.Slide key={item.id}>\n            <Lightbox.Item index={i} caption={item.caption ?? item.alt}>\n              <Lightbox.Zoom>\n                <Lightbox.Media>\n                  <img src={item.src} alt={item.alt} />\n                </Lightbox.Media>\n              </Lightbox.Zoom>\n            </Lightbox.Item>\n          </Lightbox.Slide>\n        ))}\n      </Lightbox.Slides>\n\n      <Lightbox.Counter />\n      <Lightbox.ZoomOut aria-label=\"Zoom out\" />\n      <Lightbox.ZoomIn aria-label=\"Zoom in\" />\n      <Lightbox.Close aria-label=\"Close\" />\n      <Lightbox.Caption />\n    </Lightbox.Content>\n  </Lightbox.Portal>\n</Lightbox.Root>\n",
     source: "app/_content/lightbox/excerpts/sources/quick-start.tsx",
   },
+  "rtl-handle": {
+    title: "Imperative API under RTL",
+    code: "import * as Lightbox from '@ramka/react/lightbox';\n\nconst lightbox = Lightbox.createHandle();\n\n<>\n  {/* Opens the first item, at the inline-start (right) edge of the track. */}\n  <button type=\"button\" onClick={() => lightbox.open(0)}>\n    פתיחת הגלריה\n  </button>\n\n  {/* Jumps to the 4th item regardless of reading direction. */}\n  <button type=\"button\" onClick={() => lightbox.goTo(3)}>\n    מעבר לתמונה 4\n  </button>\n\n  <Lightbox.Root handle={lightbox} dir=\"rtl\">\n    {/* … Portal / Content / Slides … */}\n  </Lightbox.Root>\n</>\n",
+    source: "app/_content/lightbox/excerpts/sources/rtl-handle.tsx",
+  },
+  "rtl-setup": {
+    title: "Setting the direction",
+    code: "import * as Lightbox from '@ramka/react/lightbox';\n\n<Lightbox.Root dir=\"rtl\">\n  <Lightbox.Portal>\n    <Lightbox.Backdrop />\n    <Lightbox.Content aria-label=\"גלריית תמונות\">\n      <Lightbox.Slides>\n        {images.map((img, i) => (\n          <Lightbox.Slide key={img.id}>\n            <Lightbox.Item index={i}>\n              <Lightbox.Media>\n                <img src={img.src} alt={img.alt} />\n              </Lightbox.Media>\n            </Lightbox.Item>\n          </Lightbox.Slide>\n        ))}\n      </Lightbox.Slides>\n      <Lightbox.Close aria-label=\"סגירה\" />\n    </Lightbox.Content>\n  </Lightbox.Portal>\n</Lightbox.Root>\n",
+    source: "app/_content/lightbox/excerpts/sources/rtl-setup.tsx",
+  },
   "scroll-trigger-into-view": {
     title: "scrollTriggerIntoView",
     code: "import * as Lightbox from '@ramka/react/lightbox';\n\n<Lightbox.Root\n  scrollTriggerIntoView={[\n    { type: 'onChange', behavior: 'instant' },\n    { type: 'onOpenComplete', behavior: 'instant' },\n  ]}\n>\n  {/* triggers + content */}\n</Lightbox.Root>\n",

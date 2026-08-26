@@ -142,7 +142,7 @@ const controlSegmentClass = cn(
 
 /** Hairline divider on the leading edge of a follow-up capsule segment. */
 const controlSegmentDividerClass =
-  'before:absolute before:inset-y-[22%] before:left-0 before:w-px before:bg-black/15 dark:before:bg-white/20';
+  'before:absolute before:inset-y-[22%] before:start-0 before:w-px before:bg-black/15 dark:before:bg-white/20';
 
 /**
  * Chrome that gets out of the way during gestures. `visibility` (not just
@@ -588,7 +588,7 @@ function Gallery({
 
         <div
           className={cn(
-            'absolute top-[calc(0.75rem_+_env(safe-area-inset-top,0px))] right-3 z-[1] flex gap-2',
+            'absolute top-[calc(0.75rem_+_env(safe-area-inset-top,0px))] end-3 z-[1] flex gap-2',
             chromeGestureHideClass,
             // On mobile, zoom also hides the top controls — the media fills the screen.
             'max-md:group-data-zoomed/lb:invisible max-md:group-data-zoomed/lb:opacity-0',

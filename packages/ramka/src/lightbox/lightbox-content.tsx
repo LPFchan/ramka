@@ -67,7 +67,7 @@ const focusGuardStyle: React.CSSProperties = {
   width: 1,
   height: 1,
   top: 0,
-  left: 0,
+  insetInlineStart: 0,
   padding: 0,
   border: 0,
   clip: 'rect(0, 0, 0, 0)',
@@ -109,6 +109,7 @@ const LightboxContent = React.forwardRef<HTMLDivElement, LightboxContentProps>(
       destinationMorphElementRef,
       navigationLockedRef,
       baseId,
+      dir,
     } = useLightboxContext();
     const { keepMounted } = useLightboxPortalContext();
     // Present while open/animating, or parked closed when Portal.keepMounted.
@@ -268,6 +269,7 @@ const LightboxContent = React.forwardRef<HTMLDivElement, LightboxContentProps>(
       loop,
       activeIndex,
       navigate,
+      dir,
       isScrollingRef: navigationLockedRef,
     });
 

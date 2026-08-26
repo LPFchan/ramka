@@ -19,9 +19,12 @@ interface ScrollTriggerOption {
    */
   block?: ScrollTriggerAlign;
   /**
-   * Horizontal alignment for `scrollIntoView`. Use `'center'` for
+   * Inline-axis alignment for `scrollIntoView`. Use `'center'` for
    * variable-width horizontal strips with scroll-snap so a narrow tile
    * isn't re-snapped back to a wider sibling after a minimal `nearest` nudge.
+   *
+   * Logical, not physical: the browser mirrors it, so `'start'` is the left
+   * edge under `dir="ltr"` and the right edge under `dir="rtl"`.
    * @default 'nearest'
    */
   inline?: ScrollTriggerAlign;

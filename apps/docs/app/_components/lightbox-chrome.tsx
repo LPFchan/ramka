@@ -308,7 +308,7 @@ export function LightboxGallery({
           can’t win when a sibling slide creates a higher stacking context.
         */}
         <div
-          className={`lightbox-demo-chrome-top lightbox-demo-chrome-hide absolute right-3 top-[calc(0.75rem+env(safe-area-inset-top,0px))] z-30 flex gap-2`}
+          className={`lightbox-demo-chrome-top lightbox-demo-chrome-hide absolute end-3 top-[calc(0.75rem+env(safe-area-inset-top,0px))] z-30 flex gap-2`}
         >
           {zoomControls ? (
             <>
@@ -396,7 +396,7 @@ export function LightboxFrame({
 
 export function LightboxCloseButton() {
   return (
-    <div className={`absolute right-4 top-4 z-10 ${chromePullHide}`}>
+    <div className={`absolute end-4 top-4 z-10 ${chromePullHide}`}>
       <Lightbox.Close className={lightboxChromeButton} aria-label="Close">
         <X aria-hidden className="h-[18px] w-[18px]" strokeWidth={2.25} />
       </Lightbox.Close>

@@ -17,6 +17,12 @@ export const lightboxExamples: ExampleLink[] = [
     description: 'macOS Photos–style square grid under a sticky, blurred toolbar with a fade gradient and "Library" title.',
   },
   {
+    slug: 'photos-app-rtl',
+    title: 'Photos app (RTL)',
+    description:
+      'The same photos app mirrored for a right-to-left locale — dir="rtl" on Lightbox.Root mirrors navigation, the thumbnail strip, and the arrow keys.',
+  },
+  {
     slug: 'moodboard',
     title: 'Moodboard',
     description:
