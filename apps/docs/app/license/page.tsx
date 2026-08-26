@@ -12,7 +12,7 @@ const THIRD_PARTY_NOTICES_URL = 'https://github.com/arturbien/ramka/blob/main/pa
 // Checkout is not wired up yet, so every buy path is the same mailto until a
 // payment provider is in place. Kept in one block so switching to real
 // checkout URLs is a single edit, not a hunt through the markup.
-const CONTACT_EMAIL = 'license@ramka.dev';
+const CONTACT_EMAIL = 'artur.bien+ramka@gmail.com';
 const BUY_COMMERCIAL_URL = `mailto:${CONTACT_EMAIL}?subject=Commercial%20license`;
 const BUY_AGENCY_URL = `mailto:${CONTACT_EMAIL}?subject=Agency%20license`;
 const CONTACT_URL = `mailto:${CONTACT_EMAIL}?subject=Embedded%20%2F%20OEM%20license`;
