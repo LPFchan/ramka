@@ -148,17 +148,14 @@ export default function CommercialLicensePage() {
           <section id="term-and-updates" className="mt-12 scroll-mt-8">
             <h2 className={clauseHeadingClassName}>4. Term and updates</h2>
             <p className={bodyClassName}>
-              The commercial license is perpetual. Once purchased, the Licensee may continue using the versions of ramka
-              obtained under the license indefinitely.
+              The commercial license is perpetual. The Licensee may continue using any version of ramka obtained under
+              the license indefinitely.
             </p>
             <p className={bodyClassName}>
-              Unless otherwise stated at the time of purchase, the license includes access to updates released during
-              the first 12 months after purchase.
+              The license includes all updates released within the same major version of ramka that was current at the
+              time of purchase.
             </p>
-            <p className={bodyClassName}>
-              After that period, continued use of versions already obtained remains permitted. Access to future updates
-              may require a separate renewal or upgrade purchase.
-            </p>
+            <p className={bodyClassName}>Future major versions may require a separate upgrade purchase.</p>
           </section>
 
           <section id="licensee-and-transfer" className="mt-12 scroll-mt-8">
