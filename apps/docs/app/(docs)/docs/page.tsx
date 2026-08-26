@@ -54,30 +54,27 @@ export default function HomePage() {
           <a href={GPL_URL} target="_blank" rel="noreferrer" className={docsLinkClassName}>
             GPL-3.0-only
           </a>{' '}
-          it is free, including in something you sell — the GPL does not restrict commercial use.
-          What it asks in return is reciprocity: a work that is subject to the GPL as a derivative or
-          combined work carries the same terms, and its source has to be available to the people you
-          distribute it to. A{' '}
+          it is free to use, modify, and redistribute — including commercially, since the GPL does
+          not restrict commercial use — as long as you comply with the GPL.
+        </p>
+        <p className="text-[15px] leading-7 text-neutral-600 dark:text-neutral-400">
+          If your use of ramka creates a work that is subject to the GPL, the GPL’s source-code and
+          licensing requirements apply to that work when you distribute it. If you’re building
+          proprietary software and don’t want to rely on the GPL, use ramka under a{' '}
           <a href={COMMERCIAL_LICENSE_URL} target="_blank" rel="noreferrer" className={docsLinkClassName}>
             commercial license
           </a>{' '}
-          lifts that requirement, which is what you want if your own source stays closed.
+          instead.
         </p>
-        <p className="text-[15px] leading-7 text-neutral-600 dark:text-neutral-400">
-          Worth knowing before you choose: ramka is not a service you call across a boundary, it is
-          code your bundler compiles into your application and ships to every visitor. Whether that
-          makes your app a combined work under the GPL depends on how you integrate it, and for
-          JavaScript bundling the question has never been settled in court. Teams shipping a
-          closed-source product generally buy the commercial license rather than ship on an
-          interpretation they would have to defend.
+        <p className="text-[15px] leading-7 text-neutral-700 dark:text-neutral-300">
+          Most teams building closed-source products will therefore want the commercial license.
         </p>
         <p className="text-[15px] leading-7 text-neutral-500 dark:text-neutral-500">
-          This section is practical guidance, not legal advice, and it is not part of either
-          license — the terms are in{' '}
+          This is practical guidance, not legal advice. The applicable{' '}
           <a href={LICENSE_URL} target="_blank" rel="noreferrer" className={docsLinkClassName}>
-            LICENSE
-          </a>
-          , and they govern.
+            license terms
+          </a>{' '}
+          govern.
         </p>
       </section>
 

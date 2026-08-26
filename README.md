@@ -46,6 +46,6 @@ pnpm dev
 
 ## License
 
-Dual-licensed: [GPL-3.0-only](./LICENSE), or a commercial license for a
-proprietary project whose source you do not want to make available under the
-GPL. The header of [LICENSE](./LICENSE) explains which applies to you.
+Dual-licensed: [GPL-3.0-only](./LICENSE), or a commercial license if you are
+building proprietary software and do not want to rely on the GPL. The header of
+[LICENSE](./LICENSE) explains which applies to you.

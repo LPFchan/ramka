@@ -103,14 +103,15 @@ LLM-oriented copies of the docs (`/llms.txt`, `/llms-full.txt`, and a `.md` twin
 
 Dual-licensed — choose the one that matches how you intend to use ramka.
 
-**Commercial license** — for a proprietary project whose source you do not want
-to make available under the GPL: a commercial product, a client project, a paid
-theme or template. It lifts the GPL's copyleft requirements, under a separate
-agreement. [Read more about the commercial license](https://ramka.dev/license)
+**GPL-3.0-only** — free to use, modify and redistribute, including commercially;
+the GPL does not restrict commercial use. If your use of ramka creates a work
+that is subject to the GPL, the GPL's source-code and licensing requirements
+apply to that work when you distribute it.
 
-**GPL-3.0-only** — otherwise. The GPL permits commercial use, modification and
-redistribution; what it asks in return is that a work subject to it as a
-derivative or combined work carries the same terms, with source available.
+**Commercial license** — if you are building proprietary software and do not want
+to rely on the GPL, use ramka under a commercial license instead. It is a
+separate agreement between you and the copyright holder.
+[Read more about the commercial license](https://ramka.dev/license)
 
 The full text, and which option applies to you, is in [LICENSE](./LICENSE) —
 which ships inside this package. The vendored Base UI code noted in

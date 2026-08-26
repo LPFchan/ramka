@@ -16,9 +16,9 @@ export function SponsorSection() {
         GPL licensed. From $0/month.
       </h2>
       <p className="mx-auto mt-6 max-w-xl text-pretty text-neutral-500 dark:text-neutral-400">
-        ramka is free under the GPL, and always will be. Keeping your own source
-        closed — a product, a client site, a paid theme — takes a commercial
-        license instead, which is what funds the work.
+        ramka is free under the GPL, and always will be. Most teams building
+        closed-source products will want the commercial license instead — which
+        is what funds the work.
       </p>
 
       <div className="mt-10 flex flex-wrap items-center justify-center gap-3">

@@ -64,11 +64,13 @@ import * as Lightbox from '@ramka/react/lightbox';
 
 ## Licensing
 
-ramka is dual-licensed. Under [GPL-3.0-only](https://www.gnu.org/licenses/gpl-3.0.html) it is free, including in something you sell — the GPL does not restrict commercial use. What it asks in return is reciprocity: a work that is subject to the GPL as a derivative or combined work carries the same terms, and its source has to be available to the people you distribute it to. A [commercial license](https://ramka.dev/license) lifts that requirement, which is what you want if your own source stays closed.
+ramka is dual-licensed. Under [GPL-3.0-only](https://www.gnu.org/licenses/gpl-3.0.html) it is free to use, modify, and redistribute — including commercially, since the GPL does not restrict commercial use — as long as you comply with the GPL.
 
-Worth knowing before you choose: ramka is not a service you call across a boundary, it is code your bundler compiles into your application and ships to every visitor. Whether that makes your app a combined work under the GPL depends on how you integrate it, and for JavaScript bundling the question has never been settled in court. Teams shipping a closed-source product generally buy the commercial license rather than ship on an interpretation they would have to defend.
+If your use of ramka creates a work that is subject to the GPL, the GPL’s source-code and licensing requirements apply to that work when you distribute it. If you’re building proprietary software and don’t want to rely on the GPL, use ramka under a [commercial license](https://ramka.dev/license) instead.
 
-This section is practical guidance, not legal advice, and it is not part of either license — the terms are in [LICENSE](https://github.com/arturbien/ramka/blob/main/LICENSE) , and they govern.
+Most teams building closed-source products will therefore want the commercial license.
+
+This is practical guidance, not legal advice. The applicable [license terms](https://github.com/arturbien/ramka/blob/main/LICENSE) govern.
 
 ## Next steps
 
