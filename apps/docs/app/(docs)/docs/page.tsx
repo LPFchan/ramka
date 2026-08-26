@@ -5,7 +5,6 @@ import { docsLinkClassName } from '../../_components/docs-link';
 import { lightboxDocsPages } from '../../_content/lightbox/docs-pages';
 import { lightboxExcerpts } from '../../_content/lightbox/excerpts/generated';
 
-const COMMERCIAL_LICENSE_URL = 'https://ramka.dev/license';
 const GPL_URL = 'https://www.gnu.org/licenses/gpl-3.0.html';
 const LICENSE_URL = 'https://github.com/arturbien/ramka/blob/main/LICENSE';
 
@@ -61,9 +60,9 @@ export default function HomePage() {
           If your use of ramka creates a work that is subject to the GPL, the GPL’s source-code and
           licensing requirements apply to that work when you distribute it. If you’re building
           proprietary software and don’t want to rely on the GPL, you may purchase a{' '}
-          <a href={COMMERCIAL_LICENSE_URL} target="_blank" rel="noreferrer" className={docsLinkClassName}>
+          <Link href="/license" className={docsLinkClassName}>
             commercial license
-          </a>{' '}
+          </Link>{' '}
           instead — a separate license grant from the copyright holder, permitting use under its own
           terms rather than the GPL.
         </p>
