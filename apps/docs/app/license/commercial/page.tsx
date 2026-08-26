@@ -111,6 +111,14 @@ export default function CommercialLicensePage() {
               Licensee.
             </p>
             <p className={bodyClassName}>
+              The Licensee may deliver a completed Client Project containing ramka to the applicable client and may
+              grant that client the rights necessary to use and operate that Client Project.
+            </p>
+            <p className={bodyClassName}>
+              This does not grant the client a standalone license to use ramka in other products or projects. Any such
+              use requires the client to obtain its own applicable ramka license.
+            </p>
+            <p className={bodyClassName}>
               It does not permit redistribution of ramka as part of a component library, SDK, site builder, template
               system, or similar product.
             </p>
