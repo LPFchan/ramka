@@ -193,7 +193,22 @@ export default function CommercialLicensePage() {
             </p>
           </section>
 
-          {/* Eight clauses in, a reader should still not have to guess whether
+          <section id="licensor-and-acceptance" className="mt-12 scroll-mt-8">
+            <h2 className={clauseHeadingClassName}>9. Licensor and acceptance</h2>
+            <p className={bodyClassName}>
+              This Agreement is between the Licensee and Artur Bień, operating under the business name Expensive Toys,
+              as the Licensor of ramka.
+            </p>
+            <p className={bodyClassName}>
+              By purchasing a commercial license, the Licensee agrees to be bound by this Agreement.
+            </p>
+            <p className={bodyClassName}>
+              The applicable license tier, price, and Licensee identity are determined by the order placed at the time
+              of purchase.
+            </p>
+          </section>
+
+          {/* Nine clauses in, a reader should still not have to guess whether
               this is the whole agreement. */}
           <p className="mt-12 border-t border-neutral-200 pt-8 text-[13px] leading-6 text-neutral-400 dark:border-neutral-800 dark:text-neutral-600">
             Remaining sections coming soon.
