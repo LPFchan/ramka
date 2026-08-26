@@ -163,7 +163,25 @@ export default function CommercialLicensePage() {
             </p>
           </section>
 
-          {/* Six clauses in, a reader should still not have to guess whether
+          <section id="warranty-and-liability" className="mt-12 scroll-mt-8">
+            <h2 className={clauseHeadingClassName}>7. Warranty and liability</h2>
+            <p className={bodyClassName}>
+              ramka is provided “as is” and without warranties of any kind, express or implied, including warranties of
+              merchantability, fitness for a particular purpose, and non-infringement, to the maximum extent permitted
+              by applicable law.
+            </p>
+            <p className={bodyClassName}>
+              To the maximum extent permitted by applicable law, the Licensor will not be liable for any indirect,
+              incidental, special, consequential, or punitive damages, or for any loss of profits, revenue, data, or
+              business opportunities arising from or related to the use of ramka.
+            </p>
+            <p className={bodyClassName}>
+              The Licensor’s total liability arising out of or relating to this Agreement will not exceed the amount
+              paid by the Licensee for the applicable commercial license.
+            </p>
+          </section>
+
+          {/* Seven clauses in, a reader should still not have to guess whether
               this is the whole agreement. */}
           <p className="mt-12 border-t border-neutral-200 pt-8 text-[13px] leading-6 text-neutral-400 dark:border-neutral-800 dark:text-neutral-600">
             Remaining sections coming soon.
