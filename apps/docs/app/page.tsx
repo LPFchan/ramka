@@ -101,6 +101,12 @@ export default function HomePage() {
             >
               Examples
             </Link>
+            <Link
+              href="/license"
+              className="transition hover:text-neutral-900 dark:hover:text-neutral-100"
+            >
+              License
+            </Link>
             <a
               href={GITHUB_URL}
               target="_blank"
