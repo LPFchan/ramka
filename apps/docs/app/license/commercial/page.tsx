@@ -61,7 +61,7 @@ export default function CommercialLicensePage() {
               or other end-user product in which ramka is incorporated.
             </p>
             <p className={bodyClassName}>
-              <strong className={definedTermClassName}>Client project</strong> means a Product created by the Licensee
+              <strong className={definedTermClassName}>Client Project</strong> means a Product created by the Licensee
               for a third party.
             </p>
           </section>
