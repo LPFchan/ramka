@@ -4,10 +4,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { LightboxClose } from './lightbox-close';
 import { LightboxContent } from './lightbox-content';
+import { LightboxItem } from './lightbox-item';
 import { LightboxNext } from './lightbox-next';
 import { LightboxPortal } from './lightbox-portal';
 import { LightboxPrevious } from './lightbox-previous';
 import { LightboxRoot } from './lightbox-root';
+import { SlidesHost } from './lightbox-slides-test-utils';
 import { LightboxZoomIn } from './lightbox-zoom-in';
 import { LightboxZoomOut } from './lightbox-zoom-out';
 
@@ -110,5 +112,70 @@ describe('development nudge for a nameless control', () => {
     );
 
     expect(ref.current).toBeInstanceOf(HTMLButtonElement);
+  });
+});
+
+/**
+ * A slide is a `group`, and a `group` is not named by the text inside it — so
+ * the check that suffices for a button would let a captioned slide pass while
+ * a screen reader still announces it as nameless.
+ */
+describe('development nudge for a nameless slide', () => {
+  function Gallery({ children }: { children: React.ReactNode }) {
+    return (
+      <LightboxRoot defaultOpen>
+        <LightboxPortal>
+          <LightboxContent aria-label="viewer">
+            <SlidesHost aria-roledescription="karuzela" aria-label="zdjęcia">
+              {children}
+            </SlidesHost>
+          </LightboxContent>
+        </LightboxPortal>
+      </LightboxRoot>
+    );
+  }
+
+  it('warns when the slide has no name at all', () => {
+    render(
+      <Gallery>
+        <LightboxItem index={0} />
+      </Gallery>,
+    );
+
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('Lightbox.Item has no accessible name'));
+  });
+
+  it('still warns when the slide only has content, which does not name a group', () => {
+    render(
+      <Gallery>
+        <LightboxItem index={0}>Zachód słońca nad morzem</LightboxItem>
+      </Gallery>,
+    );
+
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('Lightbox.Item has no accessible name'));
+  });
+
+  it('stays quiet once the consumer names the slide', () => {
+    render(
+      <Gallery>
+        <LightboxItem index={0} aria-roledescription="slajd" aria-label="1 z 1" />
+      </Gallery>,
+    );
+
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  // Inactive slides are `aria-hidden`, so a long gallery nudges once for the
+  // slide on screen rather than once per slide.
+  it('nudges only for the slide that is not aria-hidden', () => {
+    render(
+      <Gallery>
+        <LightboxItem index={0} aria-label="1 z 3" />
+        <LightboxItem index={1} />
+        <LightboxItem index={2} />
+      </Gallery>,
+    );
+
+    expect(warn).not.toHaveBeenCalled();
   });
 });

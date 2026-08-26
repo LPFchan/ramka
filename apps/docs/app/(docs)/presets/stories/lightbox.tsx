@@ -274,10 +274,20 @@ function Gallery({ items, ariaLabel }: { items: LightboxItem[]; ariaLabel: strin
       <Content aria-label={ariaLabel}>
         {multiple ? <Previous className="stl-chrome-gesture-hide" /> : null}
         <Stage>
-          <Slides aria-label="Stories" preload={1}>
+          <Slides
+            aria-label="Stories"
+            // The library ships no copy, so the words announcing the carousel
+            // and its slides live here, next to the rest of your UI strings.
+            aria-roledescription="carousel"
+            preload={1}
+          >
             {items.map((item, i) => (
               <Slide key={item.id ?? i}>
-                <Item index={i}>
+                <Item
+                  index={i}
+                  aria-roledescription="slide"
+                  aria-label={`${i + 1} of ${items.length}`}
+                >
                   {({ active }) => (
                     <Media
                       width={item.width}

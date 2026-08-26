@@ -6,6 +6,7 @@ import { LightboxItemDataAttributes } from './lightbox-data-attributes';
 import { useLightboxContext } from './lightbox-context';
 import { tryPaintCanvasPlaceholder } from './lightbox-placeholder';
 import { useSlidesPreload } from './lightbox-slides';
+import { useAccessibleNameWarning } from './use-accessible-name-warning';
 import { inertWhen } from '../react-compat';
 import { mergeProps } from '../render/merge-props';
 import { useRender } from '../render/use-render';
@@ -190,6 +191,17 @@ const LightboxItem = React.forwardRef<HTMLDivElement, LightboxItemProps>(
       },
       [forwardedRef, itemMorphElementsRef, registerMorphElement],
     );
+
+    // Only the standalone-carousel shape can be nameless: a `tabpanel` is named
+    // by its tab. Inactive items are `aria-hidden`, which the hook skips, so a
+    // gallery nudges once for the slide on screen rather than once per slide.
+    const nameCheckedRef = useAccessibleNameWarning<HTMLDivElement>('Lightbox.Item', mergedRefCallback, {
+      namedByContent: false,
+      hint:
+        'A slide is a `group`, so its caption does not name it — pass `aria-label` ' +
+        'carrying the position (the APG carousel pattern puts it in the name, e.g. ' +
+        '`${i + 1} of ${photos.length}` in your own wording).',
+    });
 
     const imageRef = React.useCallback(
       (node: HTMLImageElement | null) => {
@@ -453,19 +465,18 @@ const LightboxItem = React.forwardRef<HTMLDivElement, LightboxItemProps>(
     //    `tab` sets `aria-controls` back to this panel's id.
     //  - Standalone carousel (no thumbnails): a `tabpanel` with no owning `tab`
     //    is invalid ARIA, so the item becomes a carousel slide instead —
-    //    `role="group"` + `aria-roledescription="slide"` with an `N of total`
-    //    accessible name (group elements can't use aria-posinset/setsize, so the
-    //    APG carousel pattern folds the position into the label).
-    const total = itemCount;
+    //    `role="group"`, which the APG carousel pattern expects to carry both
+    //    `aria-roledescription="slide"` and a position in its name (a `group`
+    //    can't use aria-posinset/setsize, so the position folds into the label).
+    //
+    // Both of those are human-language copy — "slide" and the "of" in "3 of 12"
+    // — so they are the consumer's to pass, translated. The position itself is
+    // yours already: you render the items, so you have the index and the count.
     const panelId = `${baseId}-panel-${index}`;
     const tabId = `${baseId}-tab-${index}`;
     const semanticProps: Record<string, string> = hasTablist
       ? { role: 'tabpanel', 'aria-labelledby': tabId }
-      : {
-          role: 'group',
-          'aria-roledescription': 'slide',
-          'aria-label': total > 0 ? `${index + 1} of ${total}` : `${index + 1}`,
-        };
+      : { role: 'group' };
 
     const itemContextValue = React.useMemo<LightboxItemContextValue>(
       () => ({ index, active: isActive, imageRef, morphRef, registerMedia, registerPlaceholder }),
@@ -475,7 +486,7 @@ const LightboxItem = React.forwardRef<HTMLDivElement, LightboxItemProps>(
     // useRender is a hook — must always be called regardless of visibility
     const rendered = useRender({
       render,
-      ref: mergedRefCallback,
+      ref: nameCheckedRef,
       state,
       stateAttributesMapping: itemStateAttributesMapping,
       props: mergeProps<'div'>(

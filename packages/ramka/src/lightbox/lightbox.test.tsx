@@ -258,21 +258,45 @@ describe('Lightbox', () => {
       expect(screen.queryByTestId('content')).toBeNull();
     });
 
-    it('renders Slides with role="group" and aria-roledescription="carousel"', () => {
+    // The roles are structural and the library's to set; the words announcing
+    // them are copy and the consumer's, so no English ships by default.
+    it('renders Slides with role="group" and no roledescription of its own', () => {
       render(<TestLightbox defaultOpen />);
       const group = screen.getByTestId('slides');
       expect(group).toHaveAttribute('role', 'group');
-      expect(group).toHaveAttribute('aria-roledescription', 'carousel');
+      expect(group).not.toHaveAttribute('aria-roledescription');
     });
 
-    it('renders Item as a carousel slide (role="group") with an "N of total" name when no tablist is present', () => {
+    it('renders Item as a carousel slide (role="group") with no name of its own when no tablist is present', () => {
       render(<TestLightbox defaultOpen itemCount={3} />);
       const item = screen.getByTestId('item-0');
       expect(item).toHaveAttribute('role', 'group');
-      expect(item).toHaveAttribute('aria-roledescription', 'slide');
-      expect(item).toHaveAttribute('aria-label', '1 of 3');
+      expect(item).not.toHaveAttribute('aria-roledescription');
+      expect(item).not.toHaveAttribute('aria-label');
       // A tabpanel with no owning tab would be invalid ARIA.
       expect(item).not.toHaveAttribute('role', 'tabpanel');
+    });
+
+    it('lets the consumer supply the carousel and slide copy in their own language', () => {
+      render(
+        <LightboxRoot defaultOpen>
+          <LightboxPortal>
+            <LightboxContent data-testid="content" aria-label="מציג תמונות">
+              <SlidesHost data-testid="slides" aria-roledescription="קרוסלה" aria-label="תמונות">
+                <LightboxItem index={0} data-testid="item-0" aria-roledescription="שקופית" aria-label="1 מתוך 1">
+                  Item 0
+                </LightboxItem>
+              </SlidesHost>
+            </LightboxContent>
+          </LightboxPortal>
+        </LightboxRoot>,
+      );
+      expect(screen.getByTestId('slides')).toHaveAttribute('aria-roledescription', 'קרוסלה');
+      const item = screen.getByTestId('item-0');
+      expect(item).toHaveAttribute('aria-roledescription', 'שקופית');
+      expect(item).toHaveAttribute('aria-label', '1 מתוך 1');
+      // Still the library's structural role underneath the consumer's copy.
+      expect(item).toHaveAttribute('role', 'group');
     });
 
     it('renders Item as a tabpanel wired to its thumbnail tab when a ThumbnailGroup is present', () => {
