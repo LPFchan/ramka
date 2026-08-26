@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { Check } from 'lucide-react';
 
 import { SiteFooter } from '../_components/site-footer';
@@ -15,7 +16,6 @@ const CONTACT_EMAIL = 'license@ramka.dev';
 const BUY_COMMERCIAL_URL = `mailto:${CONTACT_EMAIL}?subject=Commercial%20license`;
 const BUY_AGENCY_URL = `mailto:${CONTACT_EMAIL}?subject=Agency%20license`;
 const CONTACT_URL = `mailto:${CONTACT_EMAIL}?subject=Embedded%20%2F%20OEM%20license`;
-const COMMERCIAL_AGREEMENT_URL = `mailto:${CONTACT_EMAIL}?subject=Commercial%20License%20Agreement`;
 
 export const metadata: Metadata = {
   title: 'License — ramka',
@@ -237,13 +237,13 @@ export default function LicensePage() {
 
         <section className="mx-auto w-full max-w-2xl px-6 pt-16 pb-20 text-center md:pb-24">
           <p className="text-[13px] leading-6 text-neutral-400 dark:text-neutral-600">
-            Purchases are governed by the ramka Commercial License Agreement. The GPL license and commercial license are
+            Purchases are governed by the Ramka Commercial License Agreement. The GPL license and commercial license are
             alternative license grants.
           </p>
           <p className="mt-3 text-[13px] leading-6 text-neutral-400 dark:text-neutral-600">
-            <a href={COMMERCIAL_AGREEMENT_URL} className={quietLinkClassName}>
+            <Link href="/license/commercial" className={quietLinkClassName}>
               Commercial License Agreement
-            </a>
+            </Link>
             <span aria-hidden className="px-2">
               ·
             </span>
