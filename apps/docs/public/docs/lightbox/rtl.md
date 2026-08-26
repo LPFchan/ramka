@@ -86,3 +86,63 @@ const lightbox = Lightbox.createHandle();
 The library ships no styles, so mirroring your own chrome is your job — and logical properties do nearly all of it. Reach for `inset-inline-start` / `inset-inline-end` over `left` / `right`, `padding-inline` over `padding-left`, and `border-inline-start` for a divider beside a panel that changes sides. In Tailwind those are `start-*`, `end-*`, `ps-*`, `pe-*`, `ms-*`, and `text-start`. Every preset in this documentation is written this way.
 
 Three things logical properties will not fix. Directional glyphs need flipping — `.nav:dir(rtl) svg &#123; transform: scaleX(-1); &#125;` turns a chevron around, since mirroring only the button’s position leaves it pointing the wrong way. Safe-area insets are physical, so pairing `inset-inline-start` with `env(safe-area-inset-left)` clears the notch on the wrong side; map them to the inline axis through a custom property that you swap under `:dir(rtl)`. And a counter like `1 / 7` is two digit runs around a neutral separator with nothing to anchor them, so an RTL base direction reorders it into `7 / 1` — give [Counter](docs/lightbox/api.md#api-counter) `direction: ltr; unicode-bidi: isolate;`.
+
+## Copy is yours
+
+Direction is only half of internationalization. The other half is words, and the library ships none of them — not a label, not a role description, not a slide name. A headless library cannot know your language, and a string baked into a primitive is copy you never approved: an English “carousel” announced inside Hebrew speech is worse than no announcement at all, and there is no prop-drilling escape once it is compiled in.
+
+So every string a screen reader reads comes from you. Two of them are easy to miss because they are not visible on screen: `aria-roledescription` on [Slides](docs/lightbox/api.md#api-slides) and [Item](docs/lightbox/api.md#api-item), which replaces the word for the role, and the slide’s `aria-label`, which is where the [APG carousel pattern](https://www.w3.org/WAI/ARIA/apg/patterns/carousel/) puts the position, because a `group` cannot carry `aria-posinset`. A slide’s caption does not name it either, so a captioned slide with no label is still nameless. In development the library says so rather than letting it ship silently.
+
+Add a thumbnail strip and the naming moves: each item becomes a `tabpanel` named by its thumbnail tab, so label the thumbnails and leave the items to inherit it.
+
+```tsx viewer.tsx
+import * as Lightbox from '@ramka/react/lightbox';
+
+<Lightbox.Root dir="rtl">
+  <Lightbox.Portal>
+    <Lightbox.Content aria-label={t('viewer.dialog')}>
+      {/* `aria-roledescription` replaces the word a screen reader would
+          otherwise use for the role ("group"), so it has to be translated
+          — an English "carousel" inside Hebrew speech is worse than the
+          default. Name the carousel itself with `aria-label`, and leave
+          the word "carousel" out of that name; the roledescription
+          already says it. */}
+      <Lightbox.Slides
+        aria-label={t('viewer.photos')}
+        aria-roledescription={t('viewer.carousel')}
+      >
+        {items.map((item, i) => (
+          <Lightbox.Slide key={item.id}>
+            {/* A slide is a `group`, and a group is not named by the text
+                inside it, so the caption names nothing. The APG carousel
+                pattern puts the position in the name instead — you have
+                the index and the count already. */}
+            <Lightbox.Item
+              index={i}
+              aria-roledescription={t('viewer.slide')}
+              aria-label={t('viewer.position', { current: i + 1, total: items.length })}
+            >
+              <Lightbox.Media>
+                <img src={item.src} alt={item.alt} />
+              </Lightbox.Media>
+            </Lightbox.Item>
+          </Lightbox.Slide>
+        ))}
+      </Lightbox.Slides>
+
+      {/* Counter renders "1 / 7" by default. Digits are not English, but
+          their formatting is a locale decision — pass children to run the
+          numbers through Intl. */}
+      <Lightbox.Counter>
+        {({ current, total }) =>
+          t('viewer.position', { current, total })
+        }
+      </Lightbox.Counter>
+
+      <Lightbox.Previous aria-label={t('viewer.previous')} />
+      <Lightbox.Next aria-label={t('viewer.next')} />
+      <Lightbox.Close aria-label={t('viewer.close')} />
+    </Lightbox.Content>
+  </Lightbox.Portal>
+</Lightbox.Root>
+```

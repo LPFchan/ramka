@@ -1,3 +1,4 @@
+import { CodeBlock } from '../../../../_components/code-block';
 import { DocsDemo } from '../../../../_components/docs-demo';
 import { DocsLink } from '../../../../_components/docs-link';
 import { DocsPager } from '../../../../_components/docs-pager';
@@ -12,6 +13,7 @@ const toc: DocsTocItem[] = [
   { id: 'mirrors', title: 'What mirrors' },
   { id: 'imperative', title: 'Indices never mirror' },
   { id: 'styling', title: 'Styling for RTL' },
+  { id: 'copy', title: 'Copy is yours' },
 ];
 
 const tableWrap = 'overflow-x-auto rounded-xl border border-neutral-200 dark:border-neutral-800';
@@ -202,6 +204,45 @@ export default function LightboxRtlPage() {
           <DocsLink href={lightboxApiHref.counter}>Counter</DocsLink>{' '}
           <code className="text-xs">direction: ltr; unicode-bidi: isolate;</code>.
         </p>
+      </DocsSection>
+
+      <DocsSection id="copy" title="Copy is yours">
+        <p>
+          Direction is only half of internationalization. The other half is words, and the library
+          ships none of them — not a label, not a role description, not a slide name. A headless
+          library cannot know your language, and a string baked into a primitive is copy you never
+          approved: an English “carousel” announced inside Hebrew speech is worse than no
+          announcement at all, and there is no prop-drilling escape once it is compiled in.
+        </p>
+        <p>
+          So every string a screen reader reads comes from you. Two of them are easy to miss because
+          they are not visible on screen:{' '}
+          <code className="text-xs">aria-roledescription</code> on{' '}
+          <DocsLink href={lightboxApiHref.slides}>Slides</DocsLink> and{' '}
+          <DocsLink href={lightboxApiHref.item}>Item</DocsLink>, which replaces the word for the
+          role, and the slide’s <code className="text-xs">aria-label</code>, which is where the{' '}
+          <a
+            className="underline decoration-neutral-300 underline-offset-2 hover:decoration-neutral-500 dark:decoration-neutral-700 dark:hover:decoration-neutral-500"
+            href="https://www.w3.org/WAI/ARIA/apg/patterns/carousel/"
+            target="_blank"
+            rel="noreferrer"
+          >
+            APG carousel pattern
+          </a>{' '}
+          puts the position, because a <code className="text-xs">group</code> cannot carry{' '}
+          <code className="text-xs">aria-posinset</code>. A slide’s caption does not name it either,
+          so a captioned slide with no label is still nameless. In development the library says so
+          rather than letting it ship silently.
+        </p>
+        <p>
+          Add a thumbnail strip and the naming moves: each item becomes a{' '}
+          <code className="text-xs">tabpanel</code> named by its thumbnail tab, so label the
+          thumbnails and leave the items to inherit it.
+        </p>
+        <CodeBlock
+          code={lightboxExcerpts['i18n-copy'].code}
+          title={lightboxExcerpts['i18n-copy'].title}
+        />
       </DocsSection>
 
       <DocsPager prev={lightboxDocsPages.zoom} next={lightboxDocsPages.api} />

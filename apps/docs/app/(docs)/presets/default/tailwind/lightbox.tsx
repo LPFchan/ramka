@@ -548,6 +548,9 @@ function Gallery({
         <Slides
           key={slidesLayout}
           aria-label="Full-size images"
+          // The library ships no copy, so the words announcing the carousel and
+          // its slides live here, next to the rest of your UI strings.
+          aria-roledescription="carousel"
           preload={2}
           className={snug ? snugSlidesClass : undefined}
           style={
@@ -567,7 +570,15 @@ function Gallery({
                 className={snug ? snugSlideClass : undefined}
                 style={snug ? ({ '--lb-snug-ratio': ratio } as React.CSSProperties) : undefined}
               >
-                <Item index={i} caption={item.caption ?? item.alt} className={snug ? snugItemClass : undefined}>
+                <Item
+                  index={i}
+                  caption={item.caption ?? item.alt}
+                  className={snug ? snugItemClass : undefined}
+                  aria-roledescription="slide"
+                  // With the strip the item is a `tabpanel` its thumbnail tab
+                  // already names, so only the solo shape needs a name here.
+                  {...(solo ? { 'aria-label': `${i + 1} of ${items.length}` } : {})}
+                >
                   <Zoom maxZoom={6}>
                     <Media width={item.width} height={item.height}>
                       <img
