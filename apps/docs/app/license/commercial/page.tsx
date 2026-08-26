@@ -263,12 +263,6 @@ export default function CommercialLicensePage() {
               retroactively alter licenses already purchased unless the Licensee agrees to those changes.
             </p>
           </section>
-
-          {/* Ten clauses in, a reader should still not have to guess whether
-              this is the whole agreement. */}
-          <p className="mt-12 border-t border-neutral-200 pt-8 text-[13px] leading-6 text-neutral-400 dark:border-neutral-800 dark:text-neutral-600">
-            Remaining sections coming soon.
-          </p>
         </section>
       </main>
 
