@@ -2,25 +2,41 @@
 
 import * as React from 'react';
 
+interface AccessibleNameWarningOptions {
+  /**
+   * Whether text rendered inside the element names it. True for a button, where
+   * the label is its content. False for a container role such as `group`, where
+   * descendant text is the slide's content and names nothing — counting it
+   * would let a captioned slide pass the check while still being nameless.
+   *
+   * @default true
+   */
+  namedByContent?: boolean;
+  /** Appended to the warning, to say what a good name looks like for the part. */
+  hint?: string;
+}
+
 /**
- * Warn in development when a control part renders with no accessible name.
+ * Warn in development when a part renders with no accessible name.
  *
  * The library ships no `aria-label` defaults: an English string baked into a
  * primitive is wrong for most of the world, silently ships copy the consumer
  * never approved, and cannot be localized without prop drilling. Naming these
- * controls is the consumer's job.
+ * parts is the consumer's job.
  *
  * A nameless icon button is still a WCAG 4.1.2 failure though, so nudge in
- * development the way `Lightbox.Content` does for the dialog. Visible text,
- * `aria-label`, `aria-labelledby` and `title` all count — only a control with
- * none of them warns.
+ * development the way `Lightbox.Content` does for the dialog. `aria-label`,
+ * `aria-labelledby` and `title` always count; visible text counts only where
+ * content names the element (see `namedByContent`).
  *
  * Returns a ref callback to hand to `useRender` in place of the forwarded ref.
  */
 function useAccessibleNameWarning<T extends HTMLElement>(
   partName: string,
   forwardedRef: React.Ref<T> | null | undefined,
+  options?: AccessibleNameWarningOptions,
 ): (node: T | null) => void {
+  const { namedByContent = true, hint } = options ?? {};
   const elementRef = React.useRef<T | null>(null);
 
   const setRef = React.useCallback(
@@ -42,13 +58,13 @@ function useAccessibleNameWarning<T extends HTMLElement>(
       !!el.getAttribute('aria-label')?.trim() ||
       !!el.getAttribute('aria-labelledby')?.trim() ||
       !!el.getAttribute('title')?.trim() ||
-      !!el.textContent?.trim();
+      (namedByContent && !!el.textContent?.trim());
     if (!named) {
       // eslint-disable-next-line no-console
       console.warn(
-        `[ramka] ${partName} has no accessible name. Give it visible text, or pass ` +
-          '`aria-label` / `aria-labelledby` in your own copy — the library ships no ' +
-          'default label so it never hard-codes English into your UI.',
+        `[ramka] ${partName} has no accessible name. ` +
+          (hint ?? 'Give it visible text, or pass `aria-label` / `aria-labelledby`.') +
+          ' The library ships no default label so it never hard-codes English into your UI.',
       );
     }
   });

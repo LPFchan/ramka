@@ -225,6 +225,10 @@ export function LightboxGallery({
       >
         <Lightbox.Slides
           aria-label="Full-size images"
+          // The library ships no copy for these, so the words are ours to pass
+          // (see the slide's `aria-roledescription` / `aria-label` below). In a
+          // localized app they would come from your translation catalogue.
+          aria-roledescription="carousel"
           preload={preload}
           className={
             snug
@@ -258,7 +262,15 @@ export function LightboxGallery({
                     : undefined
                 }
               >
-                <Lightbox.Item index={i} caption={item.caption ?? item.alt}>
+                <Lightbox.Item
+                  index={i}
+                  caption={item.caption ?? item.alt}
+                  aria-roledescription="slide"
+                  // Only the strip-less shape needs naming here: with a strip
+                  // the item is a `tabpanel` already named by its thumbnail
+                  // tab, and `aria-labelledby` outranks `aria-label` anyway.
+                  {...(showStrip ? {} : { 'aria-label': `${i + 1} of ${items.length}` })}
+                >
                   {({ imageRef, morphRef }) =>
                     renderItem ? (
                       renderItem(item, i, { imageRef, morphRef })
