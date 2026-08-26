@@ -108,7 +108,23 @@ export default function CommercialLicensePage() {
             </p>
           </section>
 
-          {/* Three clauses in, a reader should still not have to guess whether
+          <section id="term-and-updates" className="mt-12 scroll-mt-8">
+            <h2 className={clauseHeadingClassName}>4. Term and updates</h2>
+            <p className={bodyClassName}>
+              The commercial license is perpetual. Once purchased, the Licensee may continue using the versions of ramka
+              obtained under the license indefinitely.
+            </p>
+            <p className={bodyClassName}>
+              Unless otherwise stated at the time of purchase, the license includes access to updates released during
+              the first 12 months after purchase.
+            </p>
+            <p className={bodyClassName}>
+              After that period, continued use of versions already obtained remains permitted. Access to future updates
+              may require a separate renewal or upgrade purchase.
+            </p>
+          </section>
+
+          {/* Four clauses in, a reader should still not have to guess whether
               this is the whole agreement. */}
           <p className="mt-12 border-t border-neutral-200 pt-8 text-[13px] leading-6 text-neutral-400 dark:border-neutral-800 dark:text-neutral-600">
             Remaining sections coming soon.
