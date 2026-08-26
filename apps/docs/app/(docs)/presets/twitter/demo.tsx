@@ -139,7 +139,7 @@ function ActionBar({
   onReply: () => void;
 }) {
   return (
-    <div className="-mb-1.5 -ml-2 mt-1 flex items-center gap-1 text-neutral-500">
+    <div className="-mb-1.5 -ms-2 mt-1 flex items-center gap-1 text-neutral-500">
       <button type="button" className={actionClass} aria-label="View replies" onClick={onReply}>
         <MessageCircle className="size-4" aria-hidden />
         <span>{formatCount(stats?.replies ?? 0)}</span>
@@ -336,7 +336,7 @@ function FeedPostGallery({ post }: { post: FeedPost }) {
       // morph immediately.
       awaitImageDecode={false}
     >
-      <article className="flex gap-3 px-4 py-3 text-left">
+      <article className="flex gap-3 px-4 py-3 text-start">
         <img src={author.avatar} alt="" className="size-10 shrink-0 rounded-full object-cover" draggable={false} />
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-baseline gap-x-1 text-sm">

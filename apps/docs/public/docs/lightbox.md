@@ -52,6 +52,7 @@ import * as Lightbox from '@ramka/react/lightbox';
 - [Next.js Image](docs/lightbox/nextjs-image.md): next/image with Ramka — destination blur only when that item has no trigger image.
 - [View transitions](docs/lightbox/view-transitions.md): Morph refs (on by default), crossfade, morphTo, and scrollTriggerIntoView.
 - [Gestures](docs/lightbox/gestures.md): Pull-to-dismiss, zoom bridge, keyboard, and what wins when.
+- [RTL support](docs/lightbox/rtl.md): Reading direction, what mirrors and what stays physical, and styling notes.
 - [API reference](docs/lightbox/api.md): Props, data attributes, and CSS variables for every part.
 
 Browse product demos under [Examples](examples/lightbox/photos-app.md). Guides above are canonical for behavior; examples are compositions.

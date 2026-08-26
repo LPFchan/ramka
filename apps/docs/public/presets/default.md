@@ -199,7 +199,7 @@ function ListingCardMorph({ Lightbox }: { Lightbox: StyledLightbox }) {
       </p>
       <Lightbox.Trigger
         index={0}
-        className="w-full overflow-hidden rounded-2xl border border-neutral-300 bg-white text-left shadow-[0_1px_2px_rgb(0_0_0/0.06),0_4px_12px_rgb(0_0_0/0.06)] dark:border-neutral-600 dark:bg-neutral-800 dark:shadow-[0_1px_2px_rgb(0_0_0/0.4),0_4px_16px_rgb(0_0_0/0.35)]"
+        className="w-full overflow-hidden rounded-2xl border border-neutral-300 bg-white text-start shadow-[0_1px_2px_rgb(0_0_0/0.06),0_4px_12px_rgb(0_0_0/0.06)] dark:border-neutral-600 dark:bg-neutral-800 dark:shadow-[0_1px_2px_rgb(0_0_0/0.4),0_4px_16px_rgb(0_0_0/0.35)]"
       >
         {({ imageRef, morphRef }) => (
           <>
@@ -442,7 +442,7 @@ const controlSegmentClass = cn(
 
 /** Hairline divider on the leading edge of a follow-up capsule segment. */
 const controlSegmentDividerClass =
-  'before:absolute before:inset-y-[22%] before:left-0 before:w-px before:bg-black/15 dark:before:bg-white/20';
+  'before:absolute before:inset-y-[22%] before:start-0 before:w-px before:bg-black/15 dark:before:bg-white/20';
 
 /**
  * Chrome that gets out of the way during gestures. `visibility` (not just
@@ -888,7 +888,7 @@ function Gallery({
 
         <div
           className={cn(
-            'absolute top-[calc(0.75rem_+_env(safe-area-inset-top,0px))] right-3 z-[1] flex gap-2',
+            'absolute top-[calc(0.75rem_+_env(safe-area-inset-top,0px))] end-3 z-[1] flex gap-2',
             chromeGestureHideClass,
             // On mobile, zoom also hides the top controls — the media fills the screen.
             'max-md:group-data-zoomed/lb:invisible max-md:group-data-zoomed/lb:opacity-0',
@@ -1688,7 +1688,7 @@ export const Lightbox = {
 
 .lb-top-right {
   position: absolute;
-  right: 0.75rem;
+  inset-inline-end: 0.75rem;
   top: calc(0.75rem + env(safe-area-inset-top, 0px));
   z-index: 1;
   display: flex;
@@ -1744,6 +1744,14 @@ export const Lightbox = {
 
 :is(.dark, [data-theme='dark']) .lb-caption {
   color: #fafafa;
+}
+
+/* The counter reads "1 / 7": two digit runs around a neutral separator, with no
+   strong-direction character to anchor them. An RTL base direction reorders
+   that into "7 / 1", so pin the ratio to LTR and isolate it from neighbours. */
+.lb-counter {
+  direction: ltr;
+  unicode-bidi: isolate;
 }
 
 .lb-counter {
@@ -1907,11 +1915,12 @@ export const Lightbox = {
   box-shadow: inset 0 0 0 2px rgb(0 0 0 / 0.25);
 }
 
-/* Hairline divider between segments. */
+/* Hairline divider between segments — on the segment's leading edge, so it
+   stays between the two buttons when the pill's order mirrors under RTL. */
 .lb-control-group .lb-control + .lb-control::before {
   content: '';
   position: absolute;
-  left: 0;
+  inset-inline-start: 0;
   top: 22%;
   bottom: 22%;
   width: 1px;

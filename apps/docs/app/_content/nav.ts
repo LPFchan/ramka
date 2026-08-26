@@ -44,6 +44,7 @@ const baseNavSections: NavSection[] = [
       lightboxDocsPages.viewTransitions,
       lightboxDocsPages.gestures,
       lightboxDocsPages.zoom,
+      lightboxDocsPages.rtl,
       lightboxDocsPages.api,
     ],
   },

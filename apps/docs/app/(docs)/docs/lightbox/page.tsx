@@ -39,6 +39,11 @@ const guideLinks: {
     href: lightboxDocsPages.gestures.href,
   },
   {
+    title: 'RTL support',
+    description: 'Reading direction, what mirrors and what stays physical, and styling notes.',
+    href: lightboxDocsPages.rtl.href,
+  },
+  {
     title: 'API reference',
     description: 'Props, data attributes, and CSS variables for every part.',
     href: lightboxDocsPages.api.href,

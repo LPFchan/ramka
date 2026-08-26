@@ -363,7 +363,7 @@
   flex-shrink: 0;
   align-items: center;
   justify-content: center;
-  margin-left: auto;
+  margin-inline-start: auto;
   border: 0;
   border-radius: 9999px;
   background: rgb(0 0 0 / 0.35);
@@ -482,7 +482,21 @@
   height: 1.25rem;
 }
 
+/* A chevron is a directional glyph, so it has to point the other way under
+   RTL — mirroring the button positions alone would leave it backwards. */
+.stl-nav:dir(rtl) svg {
+  transform: scaleX(-1);
+}
+
 /* ── Counter (desktop only — mobile uses the HUD segments) ─────────────── */
+
+/* The counter reads "1 / 7": two digit runs around a neutral separator, with no
+   strong-direction character to anchor them. An RTL base direction reorders
+   that into "7 / 1", so pin the ratio to LTR and isolate it from neighbours. */
+.stl-counter {
+  direction: ltr;
+  unicode-bidi: isolate;
+}
 
 .stl-counter {
   display: none;

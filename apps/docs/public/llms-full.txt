@@ -114,6 +114,7 @@ import * as Lightbox from '@ramka/react/lightbox';
 - [Next.js Image](docs/lightbox/nextjs-image.md): next/image with Ramka — destination blur only when that item has no trigger image.
 - [View transitions](docs/lightbox/view-transitions.md): Morph refs (on by default), crossfade, morphTo, and scrollTriggerIntoView.
 - [Gestures](docs/lightbox/gestures.md): Pull-to-dismiss, zoom bridge, keyboard, and what wins when.
+- [RTL support](docs/lightbox/rtl.md): Reading direction, what mirrors and what stays physical, and styling notes.
 - [API reference](docs/lightbox/api.md): Props, data attributes, and CSS variables for every part.
 
 Browse product demos under [Examples](examples/lightbox/photos-app.md). Guides above are canonical for behavior; examples are compositions.
@@ -1138,6 +1139,130 @@ These are the WCAG 2.2 success criteria that govern zoom & pan. ramka ships the 
 
 **Note on 2.5.7.** Pan-by-drag has a keyboard alternative (arrows), which satisfies [2.1.1 Keyboard](https://www.w3.org/WAI/WCAG22/Understanding/keyboard.html), but 2.5.7 specifically wants a *single-pointer, non-drag* alternative — keyboard does not count for it. If you must meet AA strictly, add pointer pan controls (e.g. edge/arrow buttons) alongside [ZoomIn](docs/lightbox/api.md#api-zoom-in) / [ZoomOut](docs/lightbox/api.md#api-zoom-out). Many shipping viewers do not either, but for enterprise targets it is worth flagging.
 
+# RTL support
+
+Run the lightbox in a right-to-left reading direction — Arabic, Hebrew, Persian, Urdu. Part of [Lightbox](docs/lightbox.md).
+
+## Setting the direction
+
+RTL takes two things, and they are deliberately separate. The `dir` prop on [Root](docs/lightbox/api.md#api-root) mirrors the lightbox’s *behaviour* — scroll geometry, arrow keys, the thumbnail strip. CSS `direction` mirrors the *layout*. Setting `dir="rtl"` on `<html>` gives you the second one for the whole app, including the portaled viewer.
+
+Keep them in agreement. A `dir` attribute on an app wrapper *looks* like it should be enough, but [Portal](docs/lightbox/api.md#api-portal) mounts on `document.body`, so the viewer never inherits it — you get RTL behaviour inside an LTR box. In development the library detects that mismatch and warns with the fix.
+
+```tsx Whole-app RTL
+import * as Lightbox from '@ramka/react/lightbox';
+
+<Lightbox.Root dir="rtl">
+  <Lightbox.Portal>
+    <Lightbox.Backdrop />
+    <Lightbox.Content aria-label="גלריית תמונות">
+      <Lightbox.Slides>
+        {images.map((img, i) => (
+          <Lightbox.Slide key={img.id}>
+            <Lightbox.Item index={i}>
+              <Lightbox.Media>
+                <img src={img.src} alt={img.alt} />
+              </Lightbox.Media>
+            </Lightbox.Item>
+          </Lightbox.Slide>
+        ))}
+      </Lightbox.Slides>
+      <Lightbox.Close aria-label="סגירה" />
+    </Lightbox.Content>
+  </Lightbox.Portal>
+</Lightbox.Root>
+```
+
+## Scoping RTL to one viewer
+
+If the surrounding app is LTR and only one surface is RTL, you cannot flip `<html>`. Give [Portal](docs/lightbox/api.md#api-portal) a `container` that carries `dir="rtl"` itself: the viewer then mounts inside an element whose direction it can inherit, and the CSS direction matches the `dir` prop again.
+
+Mount the host on `document.body` rather than inside your own layout. A fixed-position viewer is positioned against the viewport, but any ancestor with a `transform`, `filter`, or `contain` becomes its containing block instead — which would shrink the viewer to that box.
+
+```tsx Scoping RTL to one viewer
+import * as Lightbox from '@ramka/react/lightbox';
+
+const [host, setHost] = React.useState<HTMLElement | null>(null);
+
+React.useEffect(() => {
+    const el = document.createElement('div');
+    el.dir = 'rtl';
+    document.body.append(el);
+    setHost(el);
+    return () => el.remove();
+  }, []);
+
+<Lightbox.Root dir="rtl">
+  {/* Until the host exists, leave `container` unset so the viewer still
+      portals to <body> — `container={null}` means "render in place". */}
+  <Lightbox.Portal container={host ?? undefined}>
+    <Lightbox.Backdrop />
+    <Lightbox.Content aria-label="גלריית תמונות">
+      <Lightbox.Slides>
+        {images.map((img, i) => (
+          <Lightbox.Slide key={img.id}>
+            <Lightbox.Item index={i}>
+              <Lightbox.Media>
+                <img src={img.src} alt={img.alt} />
+              </Lightbox.Media>
+            </Lightbox.Item>
+          </Lightbox.Slide>
+        ))}
+      </Lightbox.Slides>
+    </Lightbox.Content>
+  </Lightbox.Portal>
+</Lightbox.Root>
+```
+
+## What mirrors
+
+Not everything flips, and the split is not arbitrary. Moving through an ordered list follows reading order, so it mirrors. Manipulating a surface directly — panning a zoomed photo, dragging a sheet away — does not: a drag follows your hand, and mirroring it would fight the gesture. The arrow keys serve both, which is why they mirror while navigating and stay physical while zoomed.
+
+| Surface | Under RTL | Why |
+| --- | --- | --- |
+| Slide order & scroll | Mirrored | Index 0 sits at the inline-start (right) edge; the scroller runs right-to-left. |
+| Horizontal arrow keys | Mirrored | ArrowLeft advances, ArrowRight goes back — travel follows reading order. |
+| Home / End | Not mirrored | Home is always the first item, End the last. They address indices, not sides. |
+| Thumbnail strip | Mirrored | Track, padding, and the active-thumb indicator all run on the inline axis. |
+| Previous / Next | Mirrored position | Previous is the item nearer index 0, so it belongs on the inline-start side. |
+| Zoomed panning | Not mirrored | Direct manipulation of a surface: ArrowRight pans right, as on a map. |
+| Pull-to-dismiss | Not mirrored | The sheet follows your finger, which has no reading direction. |
+| Morph / view transitions | Mirrored | The morph measures the trigger and the slide, so it follows whatever they do. |
+
+## Indices never mirror
+
+The imperative API is index-based, and indices are not sides. [createHandle()](docs/lightbox/api.md#api-create-handle)’s `open(3)` and `goTo(3)` land on the fourth item in either direction; what changes is that RTL renders it further left and the track travels the other way to reach it. The same holds for `value` / `onValueChange` and for [Trigger](docs/lightbox/api.md#api-trigger)’s `index`.
+
+The buttons inside the viewer below jump by index. Open it, then watch the strip: the photo you land on is the same one an LTR gallery would show.
+
+```tsx Imperative API under RTL
+import * as Lightbox from '@ramka/react/lightbox';
+
+const lightbox = Lightbox.createHandle();
+
+<>
+  {/* Opens the first item, at the inline-start (right) edge of the track. */}
+  <button type="button" onClick={() => lightbox.open(0)}>
+    פתיחת הגלריה
+  </button>
+
+  {/* Jumps to the 4th item regardless of reading direction. */}
+  <button type="button" onClick={() => lightbox.goTo(3)}>
+    מעבר לתמונה 4
+  </button>
+
+  <Lightbox.Root handle={lightbox} dir="rtl">
+    {/* … Portal / Content / Slides … */}
+  </Lightbox.Root>
+</>
+```
+
+## Styling for RTL
+
+The library ships no styles, so mirroring your own chrome is your job — and logical properties do nearly all of it. Reach for `inset-inline-start` / `inset-inline-end` over `left` / `right`, `padding-inline` over `padding-left`, and `border-inline-start` for a divider beside a panel that changes sides. In Tailwind those are `start-*`, `end-*`, `ps-*`, `pe-*`, `ms-*`, and `text-start`. Every preset in this documentation is written this way.
+
+Three things logical properties will not fix. Directional glyphs need flipping — `.nav:dir(rtl) svg &#123; transform: scaleX(-1); &#125;` turns a chevron around, since mirroring only the button’s position leaves it pointing the wrong way. Safe-area insets are physical, so pairing `inset-inline-start` with `env(safe-area-inset-left)` clears the notch on the wrong side; map them to the inline axis through a custom property that you swap under `:dir(rtl)`. And a counter like `1 / 7` is two digit runs around a neutral separator with nothing to anchor them, so an RTL base direction reorders it into `7 / 1` — give [Counter](docs/lightbox/api.md#api-counter) `direction: ltr; unicode-bidi: isolate;`.
+
 # API reference
 
 Props, data attributes, and CSS variables for every [Lightbox](docs/lightbox.md) part. Tables are generated from package TypeScript + JSDoc.
@@ -1906,7 +2031,7 @@ function ListingCardMorph({ Lightbox }: { Lightbox: StyledLightbox }) {
       </p>
       <Lightbox.Trigger
         index={0}
-        className="w-full overflow-hidden rounded-2xl border border-neutral-300 bg-white text-left shadow-[0_1px_2px_rgb(0_0_0/0.06),0_4px_12px_rgb(0_0_0/0.06)] dark:border-neutral-600 dark:bg-neutral-800 dark:shadow-[0_1px_2px_rgb(0_0_0/0.4),0_4px_16px_rgb(0_0_0/0.35)]"
+        className="w-full overflow-hidden rounded-2xl border border-neutral-300 bg-white text-start shadow-[0_1px_2px_rgb(0_0_0/0.06),0_4px_12px_rgb(0_0_0/0.06)] dark:border-neutral-600 dark:bg-neutral-800 dark:shadow-[0_1px_2px_rgb(0_0_0/0.4),0_4px_16px_rgb(0_0_0/0.35)]"
       >
         {({ imageRef, morphRef }) => (
           <>
@@ -2149,7 +2274,7 @@ const controlSegmentClass = cn(
 
 /** Hairline divider on the leading edge of a follow-up capsule segment. */
 const controlSegmentDividerClass =
-  'before:absolute before:inset-y-[22%] before:left-0 before:w-px before:bg-black/15 dark:before:bg-white/20';
+  'before:absolute before:inset-y-[22%] before:start-0 before:w-px before:bg-black/15 dark:before:bg-white/20';
 
 /**
  * Chrome that gets out of the way during gestures. `visibility` (not just
@@ -2595,7 +2720,7 @@ function Gallery({
 
         <div
           className={cn(
-            'absolute top-[calc(0.75rem_+_env(safe-area-inset-top,0px))] right-3 z-[1] flex gap-2',
+            'absolute top-[calc(0.75rem_+_env(safe-area-inset-top,0px))] end-3 z-[1] flex gap-2',
             chromeGestureHideClass,
             // On mobile, zoom also hides the top controls — the media fills the screen.
             'max-md:group-data-zoomed/lb:invisible max-md:group-data-zoomed/lb:opacity-0',
@@ -3395,7 +3520,7 @@ export const Lightbox = {
 
 .lb-top-right {
   position: absolute;
-  right: 0.75rem;
+  inset-inline-end: 0.75rem;
   top: calc(0.75rem + env(safe-area-inset-top, 0px));
   z-index: 1;
   display: flex;
@@ -3451,6 +3576,14 @@ export const Lightbox = {
 
 :is(.dark, [data-theme='dark']) .lb-caption {
   color: #fafafa;
+}
+
+/* The counter reads "1 / 7": two digit runs around a neutral separator, with no
+   strong-direction character to anchor them. An RTL base direction reorders
+   that into "7 / 1", so pin the ratio to LTR and isolate it from neighbours. */
+.lb-counter {
+  direction: ltr;
+  unicode-bidi: isolate;
 }
 
 .lb-counter {
@@ -3614,11 +3747,12 @@ export const Lightbox = {
   box-shadow: inset 0 0 0 2px rgb(0 0 0 / 0.25);
 }
 
-/* Hairline divider between segments. */
+/* Hairline divider between segments — on the segment's leading edge, so it
+   stays between the two buttons when the pill's order mirrors under RTL. */
 .lb-control-group .lb-control + .lb-control::before {
   content: '';
   position: absolute;
-  left: 0;
+  inset-inline-start: 0;
   top: 22%;
   bottom: 22%;
   width: 1px;
@@ -4303,6 +4437,19 @@ export const Lightbox = {
   --xlb-thread-width: 22.5rem;
   /* Clear media plane — dimming comes from `.xlb-backdrop` (mobile solid, desktop 0.5). */
   --xlb-media-bg: transparent;
+  /* Safe-area insets describe the device, not the text flow, so there is no
+     logical form of them. Map them onto the inline axis by hand: pairing
+     `inset-inline-start` directly with `safe-area-inset-left` would clear the
+     notch on the wrong side under RTL. */
+  --xlb-safe-inline-start: env(safe-area-inset-left, 0px);
+  --xlb-safe-inline-end: env(safe-area-inset-right, 0px);
+}
+
+/* `:dir()` rather than `[dir='rtl'] &` so this resolves from the element's own
+   directionality — the portal mounts on <body>, away from the app subtree. */
+.xlb-portal:dir(rtl) {
+  --xlb-safe-inline-start: env(safe-area-inset-right, 0px);
+  --xlb-safe-inline-end: env(safe-area-inset-left, 0px);
 }
 
 /* ── Trigger ────────────────────────────────────────────────────────────── */
@@ -4458,7 +4605,7 @@ export const Lightbox = {
   position: absolute;
   z-index: 2;
   top: calc(0.75rem + env(safe-area-inset-top, 0px));
-  left: calc(0.75rem + env(safe-area-inset-left, 0px));
+  inset-inline-start: calc(0.75rem + var(--xlb-safe-inline-start));
 }
 
 .xlb-nav {
@@ -4468,12 +4615,21 @@ export const Lightbox = {
   transform: translateY(-50%);
 }
 
+/* Prev/next sit on the inline axis, not the physical one: the previous item is
+   the one nearer index 0, which is the right-hand side under RTL. */
 .xlb-nav-prev {
-  left: calc(0.75rem + env(safe-area-inset-left, 0px));
+  inset-inline-start: calc(0.75rem + var(--xlb-safe-inline-start));
 }
 
 .xlb-nav-next {
-  right: calc(0.75rem + env(safe-area-inset-right, 0px));
+  inset-inline-end: calc(0.75rem + var(--xlb-safe-inline-end));
+}
+
+/* Mirroring the buttons' positions is only half of it — a chevron is a
+   directional glyph, so it has to point the other way too. Flip the icon
+   rather than the button: the button already carries a translate. */
+.xlb-nav:dir(rtl) svg {
+  transform: scaleX(-1);
 }
 
 .xlb-control {
@@ -4533,6 +4689,14 @@ export const Lightbox = {
   display: block;
   width: 1.125rem;
   height: 1.125rem;
+}
+
+/* The counter reads "1 / 7": two digit runs around a neutral separator, with no
+   strong-direction character to anchor them. An RTL base direction reorders
+   that into "7 / 1", so pin the ratio to LTR and isolate it from neighbours. */
+.xlb-counter {
+  direction: ltr;
+  unicode-bidi: isolate;
 }
 
 .xlb-counter {
@@ -4671,7 +4835,7 @@ export const Lightbox = {
     width: var(--xlb-thread-width);
     max-width: 40vw;
     flex: 0 0 var(--xlb-thread-width);
-    border-left: 1px solid rgb(239 243 244);
+    border-inline-start: 1px solid rgb(239 243 244);
     transform: none;
     visibility: visible;
     pointer-events: auto;
@@ -4934,7 +5098,7 @@ export const Lightbox = {
 :is(.dark, [data-theme='dark']) .xlb-thread-pane {
   background: #000;
   color: #e7e9ea;
-  border-left-color: #2f3336;
+  border-inline-start-color: #2f3336;
 }
 
 :is(.dark, [data-theme='dark'])
@@ -5112,7 +5276,7 @@ function ActionBar({
   onReply: () => void;
 }) {
   return (
-    <div className="-mb-1.5 -ml-2 mt-1 flex items-center gap-1 text-neutral-500">
+    <div className="-mb-1.5 -ms-2 mt-1 flex items-center gap-1 text-neutral-500">
       <button type="button" className={actionClass} aria-label="View replies" onClick={onReply}>
         <MessageCircle className="size-4" aria-hidden />
         <span>{formatCount(stats?.replies ?? 0)}</span>
@@ -5309,7 +5473,7 @@ function FeedPostGallery({ post }: { post: FeedPost }) {
       // morph immediately.
       awaitImageDecode={false}
     >
-      <article className="flex gap-3 px-4 py-3 text-left">
+      <article className="flex gap-3 px-4 py-3 text-start">
         <img src={author.avatar} alt="" className="size-10 shrink-0 rounded-full object-cover" draggable={false} />
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-baseline gap-x-1 text-sm">
@@ -6001,7 +6165,7 @@ export const Lightbox = {
 .slb-close {
   position: absolute;
   top: calc(0.875rem + env(safe-area-inset-top, 0px));
-  right: 0.875rem;
+  inset-inline-end: 0.875rem;
   z-index: 2;
 }
 
@@ -6014,7 +6178,7 @@ export const Lightbox = {
 @media (min-width: 1024px) {
   .slb-rail {
     position: absolute;
-    left: 1.25rem;
+    inset-inline-start: 1.25rem;
     top: 50%;
     z-index: 1;
     transform: translateY(-50%);
@@ -6115,6 +6279,20 @@ export const Lightbox = {
   }
 }
 
+/* A chevron is a directional glyph: the pager's buttons mirror with the flex
+   row, but the icons inside them have to point the other way too. */
+.slb-nav:dir(rtl) svg {
+  transform: scaleX(-1);
+}
+
+/* The counter reads "1 / 7": two digit runs around a neutral separator, with no
+   strong-direction character to anchor them. An RTL base direction reorders
+   that into "7 / 1", so pin the ratio to LTR and isolate it from neighbours. */
+.slb-counter {
+  direction: ltr;
+  unicode-bidi: isolate;
+}
+
 .slb-counter {
   min-width: 3rem;
   text-align: center;
@@ -6136,7 +6314,7 @@ export const Lightbox = {
 @media (min-width: 768px) {
   .slb-zoom-group {
     position: absolute;
-    right: 1.25rem;
+    inset-inline-end: 1.25rem;
     bottom: 1.25rem;
     z-index: 1;
     display: flex;
@@ -6157,12 +6335,14 @@ export const Lightbox = {
     flex-shrink: 0;
     flex-direction: column;
     min-height: 0;
-    border-left: 1px solid rgb(0 0 0 / 0.08);
+    /* Logical: the panel sits after the stage in a flex row, so under RTL it
+       moves to the left and its divider has to follow it. */
+    border-inline-start: 1px solid rgb(0 0 0 / 0.08);
     background-color: #fff;
   }
 
   :is(.dark, [data-theme='dark']) .slb-panel {
-    border-left-color: rgb(255 255 255 / 0.1);
+    border-inline-start-color: rgb(255 255 255 / 0.1);
     background-color: #171717;
   }
 }
@@ -6235,7 +6415,7 @@ export const Lightbox = {
 
 .slb-highlights li {
   position: relative;
-  padding-left: 1rem;
+  padding-inline-start: 1rem;
   font-size: 0.8125rem;
   line-height: 1.5;
   color: #525252;
@@ -6248,7 +6428,7 @@ export const Lightbox = {
 .slb-highlights li::before {
   content: '';
   position: absolute;
-  left: 0;
+  inset-inline-start: 0;
   top: 0.5em;
   width: 4px;
   height: 4px;
@@ -6971,6 +7151,14 @@ export const Lightbox = {
   padding: calc(0.875rem + env(safe-area-inset-top, 0px)) 1rem 0;
 }
 
+/* The counter reads "1 / 7": two digit runs around a neutral separator, with no
+   strong-direction character to anchor them. An RTL base direction reorders
+   that into "7 / 1", so pin the ratio to LTR and isolate it from neighbours. */
+.elb-counter {
+  direction: ltr;
+  unicode-bidi: isolate;
+}
+
 .elb-counter {
   font-size: 0.8125rem;
   font-variant-numeric: tabular-nums;
@@ -7093,12 +7281,21 @@ export const Lightbox = {
   transform: translateY(-50%);
 }
 
+/* Inline axis, not physical: the previous item is the one nearer index 0,
+   which is the right-hand side under RTL. */
 .elb-nav-prev {
-  left: 1rem;
+  inset-inline-start: 1rem;
 }
 
 .elb-nav-next {
-  right: 1rem;
+  inset-inline-end: 1rem;
+}
+
+/* A chevron is a directional glyph, so mirroring the button positions is only
+   half of it — the icon has to point the other way too. Flip the icon rather
+   than the button: the button already carries a translate. */
+.elb-nav:dir(rtl) svg {
+  transform: scaleX(-1);
 }
 
 /* Edge chevrons are desktop-only; mobile swipes. */
@@ -7178,7 +7375,7 @@ function Figure({ index, className }: { index: number; className?: string }) {
 
 export function EditorialPresetDemo() {
   return (
-    <article className="w-full max-w-xl text-left">
+    <article className="w-full max-w-xl text-start">
       <Lightbox.Root
         loop
         // Thumbs are the same photographs at lower res (same seed + aspect),
@@ -7940,7 +8137,7 @@ export const Lightbox = {
   flex-shrink: 0;
   align-items: center;
   justify-content: center;
-  margin-left: auto;
+  margin-inline-start: auto;
   border: 0;
   border-radius: 9999px;
   background: rgb(0 0 0 / 0.35);
@@ -8059,7 +8256,21 @@ export const Lightbox = {
   height: 1.25rem;
 }
 
+/* A chevron is a directional glyph, so it has to point the other way under
+   RTL — mirroring the button positions alone would leave it backwards. */
+.stl-nav:dir(rtl) svg {
+  transform: scaleX(-1);
+}
+
 /* ── Counter (desktop only — mobile uses the HUD segments) ─────────────── */
+
+/* The counter reads "1 / 7": two digit runs around a neutral separator, with no
+   strong-direction character to anchor them. An RTL base direction reorders
+   that into "7 / 1", so pin the ratio to LTR and isolate it from neighbours. */
+.stl-counter {
+  direction: ltr;
+  unicode-bidi: isolate;
+}
 
 .stl-counter {
   display: none;

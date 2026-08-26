@@ -920,6 +920,11 @@ function collectOutputs(): Map<string, string> {
       file: path.join(docsPagesDir, 'lightbox/zoom/page.tsx'),
     },
     {
+      href: lightboxDocsPages.rtl.href,
+      title: lightboxDocsPages.rtl.title,
+      file: path.join(docsPagesDir, 'lightbox/rtl/page.tsx'),
+    },
+    {
       href: lightboxDocsPages.api.href,
       title: lightboxDocsPages.api.title,
       file: path.join(docsPagesDir, 'lightbox/api/page.tsx'),

@@ -14,6 +14,7 @@ import { PHOTOS_APP, morphSettled, openLightbox, zoomSettled } from './support/l
  */
 
 const RTL_APP = '/examples/lightbox/photos-app-rtl';
+const RTL_DOCS = '/docs/lightbox/rtl';
 
 const slides = '[data-ramka-slides]';
 
@@ -325,5 +326,67 @@ test.describe('rtl thumbnail selection', () => {
       '5',
     );
     await expect(tabs.nth(5)).toHaveAttribute('data-active', '');
+  });
+});
+
+/**
+ * The imperative API under RTL, on the RTL guide page — which also covers the
+ * scoped-portal pattern that page documents: the viewer mounts in a host the
+ * demo owns rather than on `<body>`, because these docs are an LTR page.
+ *
+ * `open`/`goTo` take indices, and indices do not mirror. The risk is not the
+ * handle itself (it holds no geometry) but that it reaches the same navigation
+ * path the arrow keys use, so an index has to resolve to the same photo in
+ * either direction.
+ */
+test.describe('rtl imperative api', () => {
+  const gallery = '[data-rtl-portal-host]';
+
+  test('opens and navigates by index inside a scoped RTL portal', async ({ page }) => {
+    const warnings: string[] = [];
+    page.on('console', (msg) => {
+      if (msg.type() === 'warning' || msg.type() === 'error') warnings.push(msg.text());
+    });
+
+    await page.goto(RTL_DOCS);
+    await page.getByRole('button', { name: 'פתיחת הגלריה' }).click();
+
+    const viewport = page.locator(slides);
+    await expect(viewport).toBeVisible();
+
+    // Scoped host worked: the portaled viewer inherits RTL from the host the
+    // demo created, not from the document — these docs stay LTR around it.
+    // Compared as computed direction because the docs never set a `dir`
+    // attribute at all; LTR is the inherited default.
+    const [documentDir, viewerDir] = await page.evaluate(
+      (s) => [
+        getComputedStyle(document.documentElement).direction,
+        getComputedStyle(document.querySelector(s)!).direction,
+      ],
+      slides,
+    );
+    expect(documentDir).toBe('ltr');
+    expect(viewerDir).toBe('rtl');
+    await expect(page.locator(gallery)).toHaveCount(1);
+
+    // `open(0)` is the first photo, which RTL parks at the inline-start edge.
+    await expect(viewport).toHaveAttribute('data-active-index', '0');
+    expect(await scrollLeft(page)).toBe(0);
+
+    // `goTo(3)` is the 4th photo in either direction. Reached by travelling
+    // left, so physical scroll has to have gone negative to get there.
+    await page.locator('[data-rtl-goto="3"]').click();
+    await expect(viewport).toHaveAttribute('data-active-index', '3');
+    expect(await scrollLeft(page)).toBeLessThan(0);
+    await expect(page.locator('[data-ramka-item][data-active]')).toHaveAttribute('data-index', '3');
+
+    await page.locator('[data-rtl-goto="0"]').click();
+    await expect(viewport).toHaveAttribute('data-active-index', '0');
+    expect(await scrollLeft(page)).toBe(0);
+
+    // The `dir` prop and the CSS direction agree, so the library's development
+    // mismatch warning must stay silent — the assertion that the documented
+    // scoped-portal recipe is actually correct, not merely working by luck.
+    expect(warnings.filter((w) => w.includes('[ramka]'))).toEqual([]);
   });
 });

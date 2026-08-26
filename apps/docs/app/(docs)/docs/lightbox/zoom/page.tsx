@@ -451,7 +451,7 @@ export default function LightboxZoomPage() {
         </p>
       </DocsSection>
 
-      <DocsPager prev={lightboxDocsPages.gestures} next={lightboxDocsPages.api} />
+      <DocsPager prev={lightboxDocsPages.gestures} next={lightboxDocsPages.rtl} />
     </DocsShell>
   );
 }

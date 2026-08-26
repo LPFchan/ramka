@@ -28,6 +28,10 @@ export const lightboxDocsPages = {
     href: '/docs/lightbox/zoom',
     title: 'Zoom & a11y',
   },
+  rtl: {
+    href: '/docs/lightbox/rtl',
+    title: 'RTL support',
+  },
   api: {
     href: '/docs/lightbox/api',
     title: 'API reference',
@@ -43,6 +47,7 @@ export const lightboxDocsPagerOrder = [
   lightboxDocsPages.viewTransitions,
   lightboxDocsPages.gestures,
   lightboxDocsPages.zoom,
+  lightboxDocsPages.rtl,
   lightboxDocsPages.api,
 ] as const;
 
