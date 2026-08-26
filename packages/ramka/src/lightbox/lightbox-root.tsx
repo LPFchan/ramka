@@ -83,13 +83,17 @@ interface LightboxRootProps {
    * Reading direction. `'rtl'` mirrors slide navigation, thumbnail-strip
    * travel, and the horizontal arrow keys (so `ArrowLeft` advances).
    *
-   * This drives *behavior* only. CSS direction is yours to set — put
-   * `dir="rtl"` on `<html>` (or a `direction: rtl` rule) as well, the same
-   * split Base UI uses. The two must agree: `Lightbox.Portal` renders into
-   * `document.body`, so a `dir` on an app wrapper element never reaches the
-   * lightbox and would leave CSS and behavior disagreeing. In development a
-   * mismatch logs a warning.
-   * @default 'ltr'
+   * Setting this is enough on its own: the direction is written to the
+   * `Lightbox.Portal` host as a `dir` attribute, so CSS follows it across the
+   * portal boundary even though the host mounts on `document.body`. That also
+   * makes it the way to run one RTL lightbox inside an otherwise-LTR page.
+   *
+   * Omit it in an app that is already RTL end to end (`dir="rtl"` on `<html>`)
+   * — no attribute is written, so the lightbox inherits the page's direction
+   * for layout. Behavior still resolves to `'ltr'` in that case, so pass the
+   * prop anyway to mirror navigation; in development a mismatch between the
+   * two logs a warning.
+   * @default 'ltr' (behavior); no `dir` attribute is written when omitted
    */
   dir?: TextDirection;
   /**
@@ -275,7 +279,7 @@ function LightboxRoot(props: LightboxRootProps) {
       value: valueProp,
       onValueChange,
       loop = false,
-      dir = 'ltr',
+      dir: dirProp,
       viewTransition = true,
       scrollTriggerIntoView = null,
       morphTo = 'active',
@@ -283,6 +287,12 @@ function LightboxRoot(props: LightboxRootProps) {
       onBeforeOpen,
       onBeforeClose,
     } = props;
+
+    // Behavior always needs a concrete direction; the attribute is only written
+    // when the consumer asked for one. Defaulting the attribute to `'ltr'` would
+    // pin the portal LTR and break an app that sets `dir="rtl"` on <html> and
+    // relies on inheritance — the omitted case has to stay silent in the DOM.
+    const dir: TextDirection = dirProp ?? 'ltr';
 
     const onBeforeOpenRef = React.useRef(onBeforeOpen);
     React.useEffect(() => {
@@ -1122,6 +1132,7 @@ function LightboxRoot(props: LightboxRootProps) {
         activeIndex,
         direction,
         dir,
+        dirAttribute: dirProp,
         setActiveIndex,
         navigationLockedRef,
         itemCount,
@@ -1146,6 +1157,7 @@ function LightboxRoot(props: LightboxRootProps) {
         activeIndex,
         direction,
         dir,
+        dirProp,
         setActiveIndex,
         itemCount,
         registerItem,

@@ -82,6 +82,13 @@ interface LightboxStateSlice {
    * Mirrors scroll geometry, thumbnail-strip travel, and arrow keys.
    */
   dir: TextDirection;
+  /**
+   * The `dir` prop exactly as given — `undefined` when omitted. `Lightbox.Portal`
+   * writes it to the portal host so CSS direction follows the prop across the
+   * portal boundary, and omits the attribute entirely when there is no prop, so
+   * an inherited `direction` still reaches the lightbox.
+   */
+  dirAttribute?: TextDirection;
   setActiveIndex: (index: number, source: NavigationSource) => void;
   /**
    * Set by a scroller (e.g. `Lightbox.Slides`) while a *user* scroll/fling is in

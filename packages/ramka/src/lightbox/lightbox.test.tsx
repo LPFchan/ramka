@@ -348,6 +348,49 @@ describe('Lightbox', () => {
       expect(host?.parentElement).toBe(document.body);
     });
 
+    it('writes the Root dir to the host so CSS direction crosses the portal', () => {
+      render(
+        <LightboxRoot defaultOpen dir="rtl">
+          <LightboxPortal>
+            <LightboxContent data-testid="content" aria-label="RTL">
+              <SlidesHost>
+                <LightboxItem index={0}>Item 0</LightboxItem>
+              </SlidesHost>
+            </LightboxContent>
+          </LightboxPortal>
+        </LightboxRoot>,
+      );
+      const host = screen.getByTestId('content').closest('[data-ramka-portal]');
+      // The host lands on document.body, so without this the lightbox would
+      // inherit the page's direction and mirror behavior inside an LTR box.
+      expect(host).toHaveAttribute('dir', 'rtl');
+    });
+
+    it('writes no dir attribute when the prop is omitted', () => {
+      render(<TestLightbox defaultOpen />);
+      const host = screen.getByTestId('content').closest('[data-ramka-portal]');
+      // Defaulting the attribute to the behavioral `'ltr'` default would pin an
+      // already-RTL app (dir on <html>) to LTR layout, breaking a case that
+      // works today. Absent prop has to stay absent in the DOM.
+      expect(host).not.toHaveAttribute('dir');
+    });
+
+    it('lets an explicit dir on Portal override Root', () => {
+      render(
+        <LightboxRoot defaultOpen dir="rtl">
+          <LightboxPortal dir="ltr">
+            <LightboxContent data-testid="content" aria-label="Override">
+              <SlidesHost>
+                <LightboxItem index={0}>Item 0</LightboxItem>
+              </SlidesHost>
+            </LightboxContent>
+          </LightboxPortal>
+        </LightboxRoot>,
+      );
+      const host = screen.getByTestId('content').closest('[data-ramka-portal]');
+      expect(host).toHaveAttribute('dir', 'ltr');
+    });
+
     it('renders in place when container is null', () => {
       const { container } = render(
         <LightboxRoot defaultOpen>

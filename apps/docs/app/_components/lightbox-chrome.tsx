@@ -181,11 +181,6 @@ export function LightboxGallery({
   renderItem,
   /** Portaled inside Content — e.g. debug tooling or in-viewer controls. */
   overlay,
-  /**
-   * Portal target. Left unset the viewer lands on `document.body`; pass an
-   * element to put it somewhere that carries its own `dir` (see the RTL guide).
-   */
-  portalContainer,
 }: {
   items: LightboxGalleryItem[];
   ariaLabel: string;
@@ -200,7 +195,6 @@ export function LightboxGallery({
   slidesLayout?: 'bleed' | 'snug';
   renderItem?: (item: LightboxGalleryItem, index: number, ctx: GalleryItemRenderCtx) => React.ReactNode;
   overlay?: React.ReactNode;
-  portalContainer?: HTMLElement | null;
 }) {
   // Viewport visibility only — linked layout/sync live in Lightbox.ThumbnailStrip.
   const thumbClass =
@@ -222,9 +216,7 @@ export function LightboxGallery({
       : null;
 
   return (
-    // `?? undefined` keeps the default body portal while a container is still
-    // mounting — `container={null}` would mean "render in place" instead.
-    <Lightbox.Portal container={portalContainer ?? undefined}>
+    <Lightbox.Portal>
       <Lightbox.Backdrop className={`lightbox-demo-backdrop ${backdropTone} fixed inset-0`} />
       <Lightbox.Content
         aria-label={ariaLabel}

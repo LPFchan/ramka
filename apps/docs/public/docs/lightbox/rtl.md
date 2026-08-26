@@ -4,11 +4,11 @@ Run the lightbox in a right-to-left reading direction — Arabic, Hebrew, Persia
 
 ## Setting the direction
 
-RTL takes two things, and they are deliberately separate. The `dir` prop on [Root](docs/lightbox/api.md#api-root) mirrors the lightbox’s *behaviour* — scroll geometry, arrow keys, the thumbnail strip. CSS `direction` mirrors the *layout*. Setting `dir="rtl"` on `<html>` gives you the second one for the whole app, including the portaled viewer.
+One prop. `dir="rtl"` on [Root](docs/lightbox/api.md#api-root) mirrors the lightbox’s behaviour — scroll geometry, arrow keys, thumbnail-strip travel — and is written to the [Portal](docs/lightbox/api.md#api-portal) host as a `dir` attribute, so CSS direction follows it too. That matters because the host mounts on `document.body`: a `dir` on your own layout wrapper would style the page and never reach the viewer.
 
-Keep them in agreement. A `dir` attribute on an app wrapper *looks* like it should be enough, but [Portal](docs/lightbox/api.md#api-portal) mounts on `document.body`, so the viewer never inherits it — you get RTL behaviour inside an LTR box. In development the library detects that mismatch and warns with the fix.
+Because the prop crosses the portal boundary on its own, it is also all you need to run a single RTL lightbox inside an otherwise-LTR page — no wrapper element, no portal `container`. The demo further down this page does exactly that: these docs are LTR.
 
-```tsx Whole-app RTL
+```tsx Setting the direction
 import * as Lightbox from '@ramka/react/lightbox';
 
 <Lightbox.Root dir="rtl">
@@ -32,46 +32,11 @@ import * as Lightbox from '@ramka/react/lightbox';
 </Lightbox.Root>
 ```
 
-## Scoping RTL to one viewer
+## Already-RTL apps
 
-If the surrounding app is LTR and only one surface is RTL, you cannot flip `<html>`. Give [Portal](docs/lightbox/api.md#api-portal) a `container` that carries `dir="rtl"` itself: the viewer then mounts inside an element whose direction it can inherit, and the CSS direction matches the `dir` prop again.
+If the whole app is RTL — `dir="rtl"` on `<html>` — you can omit the prop and the lightbox will still *look* right: nothing is written to the portal host when the prop is absent, so it inherits the document’s direction. Layout mirrors, and the page keeps control of it.
 
-Mount the host on `document.body` rather than inside your own layout. A fixed-position viewer is positioned against the viewport, but any ancestor with a `transform`, `filter`, or `contain` becomes its containing block instead — which would shrink the viewer to that box.
-
-```tsx Scoping RTL to one viewer
-import * as Lightbox from '@ramka/react/lightbox';
-
-const [host, setHost] = React.useState<HTMLElement | null>(null);
-
-React.useEffect(() => {
-    const el = document.createElement('div');
-    el.dir = 'rtl';
-    document.body.append(el);
-    setHost(el);
-    return () => el.remove();
-  }, []);
-
-<Lightbox.Root dir="rtl">
-  {/* Until the host exists, leave `container` unset so the viewer still
-      portals to <body> — `container={null}` means "render in place". */}
-  <Lightbox.Portal container={host ?? undefined}>
-    <Lightbox.Backdrop />
-    <Lightbox.Content aria-label="גלריית תמונות">
-      <Lightbox.Slides>
-        {images.map((img, i) => (
-          <Lightbox.Slide key={img.id}>
-            <Lightbox.Item index={i}>
-              <Lightbox.Media>
-                <img src={img.src} alt={img.alt} />
-              </Lightbox.Media>
-            </Lightbox.Item>
-          </Lightbox.Slide>
-        ))}
-      </Lightbox.Slides>
-    </Lightbox.Content>
-  </Lightbox.Portal>
-</Lightbox.Root>
-```
+Pass the prop anyway. Behaviour has no way to read your CSS during render, so it stays on its `'ltr'` default — and RTL layout with LTR behaviour is the one misconfiguration with no visible symptom. The carousel still renders and still scrolls; it just resolves the wrong index for a scroll position, so the active marker and the visible slide drift apart. In development the library compares the two and warns.
 
 ## What mirrors
 

@@ -18,34 +18,15 @@ const overlayBtnClass =
   'rounded-full bg-black/60 px-3 py-1.5 text-xs font-medium text-white backdrop-blur transition hover:bg-black/75';
 
 /**
- * These docs are an LTR page, so the demos below cannot flip `<html>` — they
- * mount a portal host that carries `dir="rtl"` itself. That is the same
- * technique an LTR app uses to scope one RTL surface; a fully RTL app should
- * set `dir="rtl"` on `<html>` instead and skip all of this.
- */
-function useRtlPortalHost() {
-  const [host, setHost] = React.useState<HTMLElement | null>(null);
-
-  React.useEffect(() => {
-    const el = document.createElement('div');
-    el.dir = 'rtl';
-    el.setAttribute('data-rtl-portal-host', '');
-    document.body.append(el);
-    setHost(el);
-    return () => el.remove();
-  }, []);
-
-  return host;
-}
-
-/**
  * Navigation mirrors, indices do not. The in-viewer buttons jump by index and
  * land on the same photo they would in an LTR gallery — only the direction the
  * track travels to get there is flipped.
+ *
+ * These docs are an LTR page, and nothing here compensates for that: `dir` on
+ * Root reaches the portaled viewer by itself.
  */
 export function RtlHandleDemo() {
   const lightbox = React.useMemo(() => Lightbox.createHandle(), []);
-  const host = useRtlPortalHost();
   const [index, setIndex] = React.useState(0);
 
   const last = lightboxImages.length - 1;
@@ -84,7 +65,6 @@ export function RtlHandleDemo() {
         <LightboxGallery
           items={lightboxImages}
           ariaLabel="גלריית תמונות בגודל מלא"
-          portalContainer={host}
           overlay={
             <div className="pointer-events-none absolute inset-x-0 top-3 z-40 flex justify-center">
               <div className="pointer-events-auto flex gap-2" dir="ltr">

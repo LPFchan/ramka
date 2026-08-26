@@ -3,15 +3,18 @@ import * as Lightbox from '@ramka/react/lightbox';
 declare const images: { id: string; src: string; alt: string }[];
 
 /**
- * A fully RTL app: `dir` on <html> styles every layer, including the portaled
- * viewer, and the matching `dir` prop mirrors the lightbox's own behaviour.
+ * `dir` on Root is the whole setup. It mirrors navigation, and it is written to
+ * the Portal host as a `dir` attribute — so CSS direction follows it across the
+ * portal boundary, even though the host mounts on `document.body`.
+ *
+ * This works whether the surrounding page is RTL or LTR, which makes it also
+ * the way to scope one RTL viewer inside an LTR app.
  *
  * @docsExcerpt rtl-setup
- * @docsExcerptTitle Whole-app RTL
+ * @docsExcerptTitle Setting the direction
  */
 export function RtlSetupExcerpt() {
   return (
-    // In Next.js this is `<html lang="he" dir="rtl">` in your root layout.
     <Lightbox.Root dir="rtl">
       <Lightbox.Portal>
         <Lightbox.Backdrop />

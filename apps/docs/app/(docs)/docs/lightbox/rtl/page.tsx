@@ -8,7 +8,7 @@ import { RtlHandleDemo } from '../rtl-demos';
 
 const toc: DocsTocItem[] = [
   { id: 'setup', title: 'Setting the direction' },
-  { id: 'scoped', title: 'Scoping RTL to one viewer' },
+  { id: 'scoped', title: 'Already-RTL apps' },
   { id: 'mirrors', title: 'What mirrors' },
   { id: 'imperative', title: 'Indices never mirror' },
   { id: 'styling', title: 'Styling for RTL' },
@@ -77,56 +77,45 @@ export default function LightboxRtlPage() {
     >
       <DocsSection id="setup" title="Setting the direction">
         <p>
-          RTL takes two things, and they are deliberately separate. The{' '}
-          <code className="text-xs">dir</code> prop on{' '}
-          <DocsLink href={lightboxApiHref.root}>Root</DocsLink> mirrors the lightbox’s{' '}
-          <em>behaviour</em> — scroll geometry, arrow keys, the thumbnail strip. CSS{' '}
-          <code className="text-xs">direction</code> mirrors the <em>layout</em>. Setting{' '}
-          <code className="text-xs">dir=&quot;rtl&quot;</code> on <code className="text-xs">&lt;html&gt;</code>{' '}
-          gives you the second one for the whole app, including the portaled viewer.
+          One prop. <code className="text-xs">dir=&quot;rtl&quot;</code> on{' '}
+          <DocsLink href={lightboxApiHref.root}>Root</DocsLink> mirrors the lightbox’s behaviour —
+          scroll geometry, arrow keys, thumbnail-strip travel — and is written to the{' '}
+          <DocsLink href={lightboxApiHref.portal}>Portal</DocsLink> host as a{' '}
+          <code className="text-xs">dir</code> attribute, so CSS direction follows it too. That matters
+          because the host mounts on <code className="text-xs">document.body</code>: a{' '}
+          <code className="text-xs">dir</code> on your own layout wrapper would style the page and
+          never reach the viewer.
         </p>
         <p>
-          Keep them in agreement. A <code className="text-xs">dir</code> attribute on an app wrapper{' '}
-          <em>looks</em> like it should be enough, but <DocsLink href={lightboxApiHref.portal}>Portal</DocsLink>{' '}
-          mounts on <code className="text-xs">document.body</code>, so the viewer never inherits it — you get
-          RTL behaviour inside an LTR box. In development the library detects that mismatch and warns
-          with the fix.
+          Because the prop crosses the portal boundary on its own, it is also all you need to run a
+          single RTL lightbox inside an otherwise-LTR page — no wrapper element, no portal{' '}
+          <code className="text-xs">container</code>. The demo further down this page does exactly
+          that: these docs are LTR.
         </p>
         <DocsDemo
           code={lightboxExcerpts['rtl-setup'].code}
           title={lightboxExcerpts['rtl-setup'].title}
         >
           <p className="text-sm text-neutral-600 dark:text-neutral-400">
-            These docs are an LTR page, so the live demo below uses the scoped technique instead.
+            Behaviour and layout both follow the prop — see the live gallery below.
           </p>
         </DocsDemo>
       </DocsSection>
 
-      <DocsSection id="scoped" title="Scoping RTL to one viewer">
+      <DocsSection id="scoped" title="Already-RTL apps">
         <p>
-          If the surrounding app is LTR and only one surface is RTL, you cannot flip{' '}
-          <code className="text-xs">&lt;html&gt;</code>. Give{' '}
-          <DocsLink href={lightboxApiHref.portal}>Portal</DocsLink> a{' '}
-          <code className="text-xs">container</code> that carries{' '}
-          <code className="text-xs">dir=&quot;rtl&quot;</code> itself: the viewer then mounts inside an
-          element whose direction it can inherit, and the CSS direction matches the{' '}
-          <code className="text-xs">dir</code> prop again.
+          If the whole app is RTL — <code className="text-xs">dir=&quot;rtl&quot;</code> on{' '}
+          <code className="text-xs">&lt;html&gt;</code> — you can omit the prop and the lightbox will
+          still <em>look</em> right: nothing is written to the portal host when the prop is absent, so
+          it inherits the document’s direction. Layout mirrors, and the page keeps control of it.
         </p>
         <p>
-          Mount the host on <code className="text-xs">document.body</code> rather than inside your own
-          layout. A fixed-position viewer is positioned against the viewport, but any ancestor with a{' '}
-          <code className="text-xs">transform</code>, <code className="text-xs">filter</code>, or{' '}
-          <code className="text-xs">contain</code> becomes its containing block instead — which would
-          shrink the viewer to that box.
+          Pass the prop anyway. Behaviour has no way to read your CSS during render, so it stays on
+          its <code className="text-xs">&apos;ltr&apos;</code> default — and RTL layout with LTR
+          behaviour is the one misconfiguration with no visible symptom. The carousel still renders and
+          still scrolls; it just resolves the wrong index for a scroll position, so the active marker
+          and the visible slide drift apart. In development the library compares the two and warns.
         </p>
-        <DocsDemo
-          code={lightboxExcerpts['rtl-scoped-portal'].code}
-          title={lightboxExcerpts['rtl-scoped-portal'].title}
-        >
-          <p className="text-sm text-neutral-600 dark:text-neutral-400">
-            This is the technique powering the demo further down the page.
-          </p>
-        </DocsDemo>
       </DocsSection>
 
       <DocsSection id="mirrors" title="What mirrors">

@@ -330,9 +330,10 @@ test.describe('rtl thumbnail selection', () => {
 });
 
 /**
- * The imperative API under RTL, on the RTL guide page — which also covers the
- * scoped-portal pattern that page documents: the viewer mounts in a host the
- * demo owns rather than on `<body>`, because these docs are an LTR page.
+ * The imperative API under RTL, on the RTL guide page — which doubles as the
+ * proof that `dir` on Root crosses the portal boundary. These docs are an LTR
+ * page and the demo compensates in no way, so the viewer can only come out RTL
+ * if the prop reached the portal host by itself.
  *
  * `open`/`goTo` take indices, and indices do not mirror. The risk is not the
  * handle itself (it holds no geometry) but that it reaches the same navigation
@@ -340,9 +341,7 @@ test.describe('rtl thumbnail selection', () => {
  * either direction.
  */
 test.describe('rtl imperative api', () => {
-  const gallery = '[data-rtl-portal-host]';
-
-  test('opens and navigates by index inside a scoped RTL portal', async ({ page }) => {
+  test('opens and navigates by index in an RTL viewer on an LTR page', async ({ page }) => {
     const warnings: string[] = [];
     page.on('console', (msg) => {
       if (msg.type() === 'warning' || msg.type() === 'error') warnings.push(msg.text());
@@ -354,10 +353,9 @@ test.describe('rtl imperative api', () => {
     const viewport = page.locator(slides);
     await expect(viewport).toBeVisible();
 
-    // Scoped host worked: the portaled viewer inherits RTL from the host the
-    // demo created, not from the document — these docs stay LTR around it.
-    // Compared as computed direction because the docs never set a `dir`
-    // attribute at all; LTR is the inherited default.
+    // The prop crossed the portal: an LTR document, an RTL viewer. Compared as
+    // computed direction because the docs never set a `dir` attribute at all —
+    // LTR is the inherited default, not something written down.
     const [documentDir, viewerDir] = await page.evaluate(
       (s) => [
         getComputedStyle(document.documentElement).direction,
@@ -367,7 +365,7 @@ test.describe('rtl imperative api', () => {
     );
     expect(documentDir).toBe('ltr');
     expect(viewerDir).toBe('rtl');
-    await expect(page.locator(gallery)).toHaveCount(1);
+    await expect(page.locator('[data-ramka-portal]')).toHaveAttribute('dir', 'rtl');
 
     // `open(0)` is the first photo, which RTL parks at the inline-start edge.
     await expect(viewport).toHaveAttribute('data-active-index', '0');
