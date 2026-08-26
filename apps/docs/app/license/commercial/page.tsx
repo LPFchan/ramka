@@ -17,6 +17,10 @@ const subheadingClassName =
 
 const bodyClassName = 'mt-4 text-[15px] leading-7 text-neutral-600 dark:text-neutral-400';
 
+// Defined terms carry the body colour's darker sibling, so the word being
+// defined is findable when skimming without turning the list into headings.
+const definedTermClassName = 'font-semibold text-neutral-900 dark:text-neutral-100';
+
 export default function CommercialLicensePage() {
   return (
     <div className="isolate flex min-h-screen flex-col">
@@ -28,6 +32,39 @@ export default function CommercialLicensePage() {
             Ramka Commercial License Agreement
           </h1>
           <p className="mt-4 text-sm text-neutral-500 dark:text-neutral-400">Version 1.0</p>
+
+          {/* Unnumbered, so adding it ahead of the grant does not renumber the
+              clauses that buyers may already have been sent. */}
+          <section id="definitions" className="mt-12 scroll-mt-8">
+            <h2 className={clauseHeadingClassName}>Definitions</h2>
+            <p className={bodyClassName}>
+              <strong className={definedTermClassName}>ramka</strong> means the software distributed under the{' '}
+              {/* A step above the docs' text-xs: monospace at 12px reads undersized
+                  beside 15px Inter, and this is the package a buyer is licensing. */}
+              <code className="text-[13px]">@ramka/react</code> package and any updates or versions provided under the
+              purchased commercial license.
+            </p>
+            <p className={bodyClassName}>
+              <strong className={definedTermClassName}>Licensor</strong> means Artur Bień, operating under the business
+              name Expensive Toys.
+            </p>
+            <p className={bodyClassName}>
+              <strong className={definedTermClassName}>Licensee</strong> means the individual or legal entity that
+              purchases the commercial license.
+            </p>
+            <p className={bodyClassName}>
+              <strong className={definedTermClassName}>Commercial license</strong> means the paid proprietary license
+              granted under this Agreement.
+            </p>
+            <p className={bodyClassName}>
+              <strong className={definedTermClassName}>Product</strong> means a software application, website, service,
+              or other end-user product in which ramka is incorporated.
+            </p>
+            <p className={bodyClassName}>
+              <strong className={definedTermClassName}>Client project</strong> means a Product created by the Licensee
+              for a third party.
+            </p>
+          </section>
 
           {/* Numbered so clauses can be cited, with ids so they can be linked. */}
           <section id="license-grant" className="mt-12 scroll-mt-8">
