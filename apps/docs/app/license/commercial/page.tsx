@@ -181,7 +181,19 @@ export default function CommercialLicensePage() {
             </p>
           </section>
 
-          {/* Seven clauses in, a reader should still not have to guess whether
+          <section id="governing-law" className="mt-12 scroll-mt-8">
+            <h2 className={clauseHeadingClassName}>8. Governing law</h2>
+            <p className={bodyClassName}>
+              This Agreement is governed by the laws of Poland, without regard to its conflict of laws rules.
+            </p>
+            <p className={bodyClassName}>
+              Any dispute arising out of or relating to this Agreement will be subject to the exclusive jurisdiction of
+              the courts competent for the Licensor’s registered place of business, unless applicable law requires
+              otherwise.
+            </p>
+          </section>
+
+          {/* Eight clauses in, a reader should still not have to guess whether
               this is the whole agreement. */}
           <p className="mt-12 border-t border-neutral-200 pt-8 text-[13px] leading-6 text-neutral-400 dark:border-neutral-800 dark:text-neutral-600">
             Remaining sections coming soon.
