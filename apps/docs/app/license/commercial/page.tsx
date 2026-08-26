@@ -245,7 +245,26 @@ export default function CommercialLicensePage() {
             </p>
           </section>
 
-          {/* Nine clauses in, a reader should still not have to guess whether
+          <section id="miscellaneous" className="mt-12 scroll-mt-8">
+            <h2 className={clauseHeadingClassName}>10. Miscellaneous</h2>
+            <p className={bodyClassName}>
+              This Agreement, together with the applicable order, constitutes the entire agreement between the Licensor
+              and Licensee regarding the commercial license for ramka and supersedes prior discussions or
+              representations about that license.
+            </p>
+            <p className={bodyClassName}>
+              If any provision of this Agreement is found unenforceable, the remaining provisions will remain in effect.
+            </p>
+            <p className={bodyClassName}>
+              A failure to enforce any provision of this Agreement does not waive the right to enforce it later.
+            </p>
+            <p className={bodyClassName}>
+              Any amendment to this Agreement must be made in writing. Changes to published license terms do not
+              retroactively alter licenses already purchased unless the Licensee agrees to those changes.
+            </p>
+          </section>
+
+          {/* Ten clauses in, a reader should still not have to guess whether
               this is the whole agreement. */}
           <p className="mt-12 border-t border-neutral-200 pt-8 text-[13px] leading-6 text-neutral-400 dark:border-neutral-800 dark:text-neutral-600">
             Remaining sections coming soon.
