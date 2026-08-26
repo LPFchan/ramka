@@ -19,8 +19,28 @@ export default function CommercialLicensePage() {
             Ramka Commercial License Agreement
           </h1>
           <p className="mt-4 text-sm text-neutral-500 dark:text-neutral-400">Version 1.0</p>
-          <p className="mt-8 text-[17px] leading-7 text-neutral-600 dark:text-neutral-400">
-            Commercial license terms coming soon.
+
+          {/* Numbered so clauses can be cited, with ids so they can be linked. */}
+          <section id="license-grant" className="mt-12 scroll-mt-8">
+            <h2 className="text-xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-50">
+              1. License grant
+            </h2>
+            <p className="mt-4 text-[15px] leading-7 text-neutral-600 dark:text-neutral-400">
+              Subject to payment of the applicable license fee and compliance with this Agreement,
+              Artur Bień grants the Licensee a non-exclusive, worldwide, non-transferable license to
+              use, reproduce, modify, and incorporate ramka into proprietary software products
+              covered by the purchased license tier.
+            </p>
+            <p className="mt-4 text-[15px] leading-7 text-neutral-600 dark:text-neutral-400">
+              The Licensee may distribute those products to end users without making the Licensee’s
+              proprietary source code available under the GNU General Public License v3.0.
+            </p>
+          </section>
+
+          {/* The agreement is one clause long, and a buyer reading it should not
+              have to guess whether that is all of it. */}
+          <p className="mt-12 border-t border-neutral-200 pt-8 text-[13px] leading-6 text-neutral-400 dark:border-neutral-800 dark:text-neutral-600">
+            Remaining sections coming soon.
           </p>
         </section>
       </main>
