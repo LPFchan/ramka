@@ -113,7 +113,8 @@ to rely on the GPL, you may purchase a commercial license instead. The commercia
 license is a separate license grant from the copyright holder and permits use
 under its own terms rather than the GPL.
 
-[Read more about the commercial license](https://ramka.dev/license)
+[Read more about the commercial license](https://ramka.dev/license) ·
+[Commercial License Agreement](https://ramka.dev/license/commercial)
 
 The GPLv3 text and licensing overview are in [LICENSE](./LICENSE), which ships
 inside this package. The vendored Base UI code noted in
