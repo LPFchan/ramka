@@ -467,10 +467,20 @@ function Gallery({
         <Stage>
           <Close className="xlb-chrome-pull-hide" />
 
-          <Slides aria-label="Post media" preload={1}>
+          <Slides
+            aria-label="Post media"
+            // The library ships no copy, so the words announcing the carousel
+            // and its slides live here, next to the rest of your UI strings.
+            aria-roledescription="carousel"
+            preload={1}
+          >
             {items.map((item, i) => (
               <Slide key={item.id ?? i}>
-                <Item index={i}>
+                <Item
+                  index={i}
+                  aria-roledescription="slide"
+                  aria-label={`${i + 1} of ${items.length}`}
+                >
                   <Zoom>
                     <Media width={item.width} height={item.height}>
                       <img

@@ -156,10 +156,21 @@ function Gallery({ items, ariaLabel }: { items: LightboxItem[]; ariaLabel: strin
     <Portal>
       <Backdrop />
       <Content aria-label={ariaLabel}>
-        <Slides aria-label="Article photographs" preload={2}>
+        <Slides
+          aria-label="Article photographs"
+          // The library ships no copy, so the words announcing the carousel and
+          // its slides live here, next to the rest of your UI strings.
+          aria-roledescription="carousel"
+          preload={2}
+        >
           {items.map((item, i) => (
             <Slide key={item.id ?? i}>
-              <Item index={i} caption={figureCaption(item)}>
+              <Item
+                index={i}
+                caption={figureCaption(item)}
+                aria-roledescription="slide"
+                aria-label={`${i + 1} of ${items.length}`}
+              >
                 <Media width={item.width} height={item.height}>
                   <img
                     width={item.width}

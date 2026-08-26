@@ -24,11 +24,18 @@ import * as Lightbox from '@ramka/react/lightbox';
 
   <Lightbox.Portal>
     <Lightbox.Backdrop />
-    <Lightbox.Content>
-      <Lightbox.Slides>
+    {/* Every string here is yours — the library ships none, so nothing it
+        renders is ever in the wrong language. */}
+    <Lightbox.Content aria-label="Photo viewer">
+      <Lightbox.Slides aria-label="Photos" aria-roledescription="carousel">
         {items.map((item, i) => (
           <Lightbox.Slide key={item.id}>
-            <Lightbox.Item index={i} caption={item.caption ?? item.alt}>
+            <Lightbox.Item
+              index={i}
+              caption={item.caption ?? item.alt}
+              aria-roledescription="slide"
+              aria-label={`${i + 1} of ${items.length}`}
+            >
               <Lightbox.Zoom>
                 <Lightbox.Media>
                   <img src={item.src} alt={item.alt} />

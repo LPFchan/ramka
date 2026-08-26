@@ -252,10 +252,22 @@ function Gallery({
       <Backdrop />
       <Content aria-label={ariaLabel}>
         <Stage>
-          <Slides aria-label="Product images" preload={2}>
+          <Slides
+            aria-label="Product images"
+            // The library ships no copy, so the words announcing the carousel
+            // and its slides live here, next to the rest of your UI strings.
+            aria-roledescription="carousel"
+            preload={2}
+          >
             {items.map((item, i) => (
               <Slide key={item.id ?? i}>
-                <Item index={i}>
+                <Item
+                  index={i}
+                  aria-roledescription="slide"
+                  // With the rail the item is a `tabpanel` its thumbnail tab
+                  // already names, so only the single-image shape needs a name.
+                  {...(multiple ? {} : { 'aria-label': `${i + 1} of ${items.length}` })}
+                >
                   <Zoom maxZoom={5}>
                     <Media width={item.width} height={item.height}>
                       <img
