@@ -2,7 +2,7 @@
 
 An unstyled, accessible image gallery primitive library for React — in the style of Radix UI and Base UI.
 
-> _ramka_ (РАмка) is Polish for "frame".
+> _ramka_ — Polish for "frame".
 
 This repository is a pnpm + Turborepo monorepo containing:
 

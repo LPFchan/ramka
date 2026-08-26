@@ -2,7 +2,7 @@
 
 Unstyled, accessible lightbox primitives for React — in the style of [Radix UI](https://www.radix-ui.com/) and [Base UI](https://base-ui.com/).
 
-> _ramka_ (РАмка) is Polish for "frame".
+> _ramka_ — Polish for "frame".
 
 ## Installation
 
@@ -112,6 +112,7 @@ apply to that work when you distribute it.
 to rely on the GPL, you may purchase a commercial license instead. The commercial
 license is a separate license grant from the copyright holder and permits use
 under its own terms rather than the GPL.
+
 [Read more about the commercial license](https://ramka.dev/license)
 
 The GPLv3 text and licensing overview are in [LICENSE](./LICENSE), which ships
