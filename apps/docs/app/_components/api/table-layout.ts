@@ -19,6 +19,10 @@ export const apiTableShellClass =
 export const apiTableHeaderClass =
   'items-center border-b border-neutral-200 bg-neutral-50 py-2.5 text-xs font-medium text-neutral-500 dark:border-neutral-800 dark:bg-neutral-900/80 dark:text-neutral-400';
 
+/** First-column identifier cells — wrap long names instead of truncating. */
+export const apiNameCellClass =
+  'min-w-0 break-all font-mono text-[13px] font-medium text-neutral-900 dark:text-neutral-50';
+
 const rowPad = 'gap-x-4 px-4';
 
 /** Props accordion: Name | Type | Default | icon */

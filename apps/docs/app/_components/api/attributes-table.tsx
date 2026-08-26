@@ -5,6 +5,7 @@ import { DocDescription } from './doc-description';
 import {
   API_TABLE_STYLE,
   apiAttrsGridClass,
+  apiNameCellClass,
   apiTableHeaderClass,
   apiTableShellClass,
 } from './table-layout';
@@ -33,10 +34,7 @@ export function AttributesTable({ attributes }: { attributes: AttrRow[] }) {
               'items-start border-b border-neutral-200 py-3 last:border-b-0 dark:border-neutral-800',
             )}
           >
-            <div
-              role="cell"
-              className="min-w-0 truncate font-mono text-[13px] font-medium text-neutral-900 dark:text-neutral-50"
-            >
+            <div role="cell" className={apiNameCellClass}>
               <code>{attr.name}</code>
             </div>
             <div role="cell" className="min-w-0 text-[13px] leading-6 text-neutral-700 dark:text-neutral-200">
