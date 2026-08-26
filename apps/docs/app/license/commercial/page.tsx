@@ -124,7 +124,27 @@ export default function CommercialLicensePage() {
             </p>
           </section>
 
-          {/* Four clauses in, a reader should still not have to guess whether
+          <section id="licensee-and-transfer" className="mt-12 scroll-mt-8">
+            <h2 className={clauseHeadingClassName}>5. Licensee and transfer</h2>
+            <p className={bodyClassName}>
+              The license is granted to the individual or legal entity identified at the time of purchase.
+            </p>
+            <p className={bodyClassName}>
+              The license may be used by that Licensee’s employees and contractors solely on behalf of the Licensee and
+              within the scope of the purchased license tier.
+            </p>
+            <p className={bodyClassName}>
+              The license may not be sold, assigned, sublicensed, or transferred to another person or legal entity
+              without prior written permission from the Licensor.
+            </p>
+            <p className={bodyClassName}>
+              If the Licensee is acquired, merged, or reorganized, the license may continue to be used by its legal
+              successor for the same products and projects, provided the license is not transferred as a standalone
+              asset.
+            </p>
+          </section>
+
+          {/* Five clauses in, a reader should still not have to guess whether
               this is the whole agreement. */}
           <p className="mt-12 border-t border-neutral-200 pt-8 text-[13px] leading-6 text-neutral-400 dark:border-neutral-800 dark:text-neutral-600">
             Remaining sections coming soon.
