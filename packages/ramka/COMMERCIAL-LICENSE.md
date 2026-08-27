@@ -18,29 +18,29 @@ Version 1.0
 
 ## 1. License grant
 
-Subject to payment of the applicable license fee and compliance with this Agreement, Artur Bień grants the Licensee a non-exclusive, worldwide, non-transferable except as expressly permitted by this Agreement license to use, reproduce, modify, and incorporate ramka into proprietary software products covered by the purchased license tier.
+Subject to payment of the applicable license fee and compliance with this Agreement, Artur Bień grants the Licensee a non-exclusive, worldwide, non-transferable except as expressly permitted by this Agreement license to use, reproduce, modify, and incorporate ramka into proprietary Products covered by the purchased license tier.
 
-The Licensee may distribute those products to end users without making the Licensee’s proprietary source code available under the GNU General Public License v3.0.
+The Licensee may distribute those Products to end users without making the Licensee’s proprietary source code available under the GNU General Public License v3.0.
 
 ## 2. License tiers
 
 ### Commercial
 
-The Commercial license permits one company or legal entity to use ramka in any number of proprietary products that it owns and operates.
+The Commercial license permits one company or legal entity to use ramka in any number of proprietary Products that it owns and operates.
 
-The license covers any number of employees and contractors working on those products on behalf of the Licensee.
+The license covers any number of employees and contractors working on those Products on behalf of the Licensee.
 
-It does not permit use in products created for third-party clients, or redistribution of ramka as part of a component library, SDK, site builder, template system, or similar product.
+It does not permit use in Products created for third-party clients, or redistribution of ramka as part of a component library, SDK, site builder, template system, or similar product.
 
 ### Agency
 
-The Agency license permits one company, agency, or individual to use ramka in any number of proprietary projects created for itself or for third-party clients.
+The Agency license permits one company, agency, or individual to use ramka in any number of proprietary Products, including Client Projects, created for itself or for third-party clients.
 
-The license covers any number of employees and contractors working on those projects on behalf of the Licensee.
+The license covers any number of employees and contractors working on those Products on behalf of the Licensee.
 
 The Licensee may deliver a completed Client Project containing ramka to the applicable client and may grant that client the rights necessary to use and operate that Client Project.
 
-This does not grant the client a standalone license to use ramka in other products or projects. Any such use requires the client to obtain its own applicable ramka license.
+This does not grant the client a standalone license to use ramka in other Products. Any such use requires the client to obtain its own applicable ramka license.
 
 It does not permit redistribution of ramka as part of a component library, SDK, site builder, template system, or similar product.
 
@@ -50,19 +50,21 @@ Use of ramka in a product that redistributes ramka, exposes ramka for use by thi
 
 ## 3. Source code and modifications
 
-The Licensee may access, copy, and modify the ramka source code for use in products and projects permitted by the purchased license tier.
+The Licensee may access, copy, and modify the ramka source code for use in Products permitted by the purchased license tier.
 
 The Licensee may maintain private forks and make internal modifications without publishing those modifications.
 
 The Licensee may not sell, sublicense, publish, or distribute ramka itself, or a modified version of ramka, as a standalone library or substantially similar developer product.
 
-Copyright, attribution, and third-party license notices included with ramka must be preserved where required by applicable third-party licenses.
+Copyright, attribution, and third-party license notices included with ramka must be preserved where required by applicable third-party licenses. Those notices ship with the package as `THIRD-PARTY-NOTICES.md` and are published at [ramka.dev/license/notices](https://ramka.dev/license/notices).
 
 ## 4. Term and updates
 
 The commercial license is perpetual. The Licensee may continue using any version of ramka obtained under the license indefinitely.
 
-The license includes all updates released within the same major version of ramka that was current at the time of purchase.
+For purchases made before ramka reaches version 1.0.0, the license includes all updates released up to and including the last release before version 1.0.0.
+
+For purchases made from version 1.0.0 onward, the license includes all updates released within the same major version of ramka that was current at the time of purchase.
 
 Future major versions may require a separate upgrade purchase.
 
@@ -74,7 +76,7 @@ The license may be used by that Licensee’s employees and contractors solely on
 
 The license may not be sold, assigned, sublicensed, or transferred to another person or legal entity without prior written permission from the Licensor, except for the limited rights granted to clients under the Agency license in Section 2.
 
-If the Licensee is acquired, merged, or reorganized, the license may continue to be used by its legal successor for the same products and projects, provided the license is not transferred as a standalone asset.
+If the Licensee is acquired, merged, or reorganized, the license may continue to be used by its legal successor for the same Products, provided the license is not transferred as a standalone asset.
 
 ## 6. Termination
 
@@ -92,7 +94,7 @@ ramka and all intellectual property rights in ramka remain the property of the L
 
 This Agreement grants the Licensee permission to use ramka only as expressly described in this Agreement. It does not transfer ownership of ramka to the Licensee.
 
-The Licensee retains ownership of its own products, source code, and original material created by the Licensee. The Licensor retains ownership of ramka and the underlying ramka source code.
+The Licensee retains ownership of its own Products, source code, and original material created by the Licensee. The Licensor retains ownership of ramka and the underlying ramka source code.
 
 To the extent the Licensee creates modifications to ramka, the Licensee retains any rights it may have in its original contributions to those modifications, while ownership of the underlying ramka code remains with the Licensor.
 
@@ -100,21 +102,21 @@ Third-party software included with ramka remains subject to its applicable third
 
 ## 8. Warranty and liability
 
-ramka is provided “as is” and without warranties of any kind, express or implied, including warranties of merchantability, fitness for a particular purpose, and non-infringement, to the maximum extent permitted by applicable law.
+RAMKA IS PROVIDED “AS IS” AND WITHOUT WARRANTIES OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT, TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW.
 
-To the maximum extent permitted by applicable law, the Licensor will not be liable for any indirect, incidental, special, consequential, or punitive damages, or for any loss of profits, revenue, data, or business opportunities arising from or related to the use of ramka.
+TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, THE LICENSOR WILL NOT BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES, OR FOR ANY LOSS OF PROFITS, REVENUE, DATA, OR BUSINESS OPPORTUNITIES ARISING FROM OR RELATED TO THE USE OF RAMKA.
 
-The Licensor’s total liability arising out of or relating to this Agreement will not exceed the amount paid by the Licensee for the applicable commercial license.
+THE LICENSOR’S TOTAL LIABILITY ARISING OUT OF OR RELATING TO THIS AGREEMENT WILL NOT EXCEED THE AMOUNT PAID BY THE LICENSEE FOR THE APPLICABLE COMMERCIAL LICENSE.
 
 ## 9. Governing law
 
 This Agreement is governed by the laws of Poland, without regard to its conflict of laws rules.
 
-Any dispute arising out of or relating to this Agreement will be subject to the exclusive jurisdiction of the courts competent for the Licensor’s registered place of business, unless applicable law requires otherwise.
+Any dispute arising out of or relating to this Agreement will be subject to the exclusive jurisdiction of the courts competent for the Licensor’s registered place of business in Poland or, if the Licensor has no registered place of business, the Licensor’s place of residence, unless applicable law requires otherwise.
 
 ## 10. Licensor and acceptance
 
-This Agreement is between the Licensee and Artur Bień, operating under the business name Expensive Toys, as the Licensor of ramka.
+This Agreement is between the Licensee and the Licensor.
 
 By purchasing a commercial license, the Licensee agrees to be bound by this Agreement.
 
