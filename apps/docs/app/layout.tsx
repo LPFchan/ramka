@@ -4,15 +4,33 @@ import { Inter } from 'next/font/google';
 import { Analytics } from '@vercel/analytics/next';
 
 import { ThemeProvider } from './_components/theme-provider';
+import { siteUrl } from './_content/site';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import './globals.css';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-sans' });
 
+const title = 'ramka';
+const description = 'Unstyled, accessible image gallery primitives for React.';
+
 export const metadata: Metadata = {
-  title: 'ramka',
-  description: 'Unstyled, accessible image gallery primitives for React.',
+  metadataBase: new URL(siteUrl),
+  title,
+  description,
+  openGraph: {
+    title,
+    description,
+    url: siteUrl,
+    siteName: title,
+    type: 'website',
+    locale: 'en_US',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title,
+    description,
+  },
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
