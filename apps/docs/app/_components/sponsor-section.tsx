@@ -1,7 +1,11 @@
+import Link from 'next/link';
 import { Heart } from 'lucide-react';
 
 const SPONSOR_URL = 'https://github.com/sponsors/arturbien';
 const GITHUB_URL = 'https://github.com/arturbien/ramka';
+
+const linkClassName =
+  'underline decoration-neutral-300 underline-offset-2 transition hover:decoration-neutral-500 dark:decoration-neutral-700 dark:hover:decoration-neutral-500';
 
 /**
  * Closing ask, styled like an Apple product buy section: big pricing headline,
@@ -17,8 +21,11 @@ export function SponsorSection() {
       </h2>
       <p className="mx-auto mt-6 max-w-xl text-pretty text-neutral-500 dark:text-neutral-400">
         ramka is free under the GPL, and always will be. Most teams building
-        closed-source products will want the commercial license instead — which
-        is what funds the work.
+        closed-source products will want the{' '}
+        <Link href="/license" className={linkClassName}>
+          commercial license
+        </Link>{' '}
+        instead — which is what funds the work.
       </p>
 
       <div className="mt-10 flex flex-wrap items-center justify-center gap-3">

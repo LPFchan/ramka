@@ -6,8 +6,6 @@ import { lightboxDocsPages } from '../../_content/lightbox/docs-pages';
 import { lightboxExcerpts } from '../../_content/lightbox/excerpts/generated';
 
 const GPL_URL = 'https://www.gnu.org/licenses/gpl-3.0.html';
-const LICENSE_URL = 'https://github.com/arturbien/ramka/blob/main/LICENSE';
-
 export default function HomePage() {
   return (
     <div className="mx-auto w-full max-w-3xl px-6 py-14 md:px-10 md:py-16">
@@ -70,11 +68,16 @@ export default function HomePage() {
           Most teams building closed-source products will therefore want the commercial license.
         </p>
         <p className="text-[15px] leading-7 text-neutral-500 dark:text-neutral-500">
-          This is practical guidance, not legal advice. The applicable{' '}
-          <a href={LICENSE_URL} target="_blank" rel="noreferrer" className={docsLinkClassName}>
-            license terms
+          This is practical guidance, not legal advice. The applicable license terms
+          govern: the{' '}
+          <a href={GPL_URL} target="_blank" rel="noreferrer" className={docsLinkClassName}>
+            GPL
           </a>{' '}
-          govern.
+          for open-source use, or the{' '}
+          <Link href="/license/commercial" className={docsLinkClassName}>
+            Commercial License Agreement
+          </Link>{' '}
+          if you purchase one.
         </p>
       </section>
 

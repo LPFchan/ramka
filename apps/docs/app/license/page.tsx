@@ -4,39 +4,30 @@ import { Check } from 'lucide-react';
 
 import { SiteFooter } from '../_components/site-footer';
 import { SiteHeader } from '../_components/site-header';
-import { readAgreement } from './commercial/agreement';
+import { readAgreement } from './documents';
 import { cn } from '@/lib/utils';
 
 const GPL_URL = 'https://www.gnu.org/licenses/gpl-3.0.html';
-const THIRD_PARTY_NOTICES_URL = 'https://github.com/arturbien/ramka/blob/main/packages/ramka/THIRD-PARTY-NOTICES.md';
 
-// Checkout is not wired up yet, so every buy path is the same mailto until a
-// payment provider is in place. Kept in one block so switching to real
-// checkout URLs is a single edit, not a hunt through the markup.
+// Checkout is not wired up yet, so buying happens over email. Until then the
+// enquiry carries what an order has to record: the tier, the agreement version
+// in force, and room for the purchaser's identity. The version matters most —
+// it is the only way to know which terms a customer bought under once the
+// agreement is revised.
 const CONTACT_EMAIL = 'artur.bien+ramka@gmail.com';
-const CONTACT_URL = `mailto:${CONTACT_EMAIL}?subject=Embedded%20%2F%20OEM%20license`;
 
-/**
- * Until a payment provider is in place, the order is an email — so it carries
- * the fields an order has to record: tier, price, the agreement version in
- * force, and room for the purchaser's identity. The version matters most: it is
- * the only way to know which terms a customer bought under once the agreement
- * is revised.
- */
-function buyUrl(tier: Tier, agreementVersion: string): string {
-  const price = tier.term ? `${tier.price} ${tier.term}` : tier.price;
+function enquiryUrl(agreementVersion: string): string {
   const body = [
-    `Tier: ${tier.name}`,
-    `Price: ${price}`,
-    `Agreement: ${agreementVersion}`,
-    '',
+    'Tier (Commercial / Agency / Embedded — OEM):',
     'Name / company:',
     'Billing email:',
+    '',
+    `Agreement: ${agreementVersion}`,
   ].join('\n');
 
   // Hand-encoded rather than via URLSearchParams, which spells a space `+` —
   // mail clients render that literally instead of as a space.
-  const subject = encodeURIComponent(`ramka ${tier.name} license`);
+  const subject = encodeURIComponent('ramka commercial license');
   return `mailto:${CONTACT_EMAIL}?subject=${subject}&body=${encodeURIComponent(body)}`;
 }
 
@@ -48,54 +39,37 @@ export const metadata: Metadata = {
 const primaryCtaClassName =
   'inline-flex h-11 w-full items-center justify-center rounded-full bg-neutral-900 px-4 text-sm font-medium text-white transition hover:bg-neutral-700 dark:bg-neutral-50 dark:text-neutral-900 dark:hover:bg-neutral-300';
 
-const secondaryCtaClassName =
-  'inline-flex h-11 w-full items-center justify-center rounded-full border border-neutral-200 px-4 text-sm font-medium text-neutral-900 transition hover:bg-neutral-100 dark:border-neutral-800 dark:text-neutral-50 dark:hover:bg-neutral-900';
-
 const quietLinkClassName =
   'underline decoration-neutral-300 underline-offset-2 transition hover:decoration-neutral-500 dark:decoration-neutral-700 dark:hover:decoration-neutral-500';
 
 interface Tier {
   name: string;
-  price: string;
-  /** Sits under the price. Omitted for the quote-based tier, which has no term. */
-  term?: string;
   description: string;
   /** Heading above the list, since the OEM tier lists examples rather than what is included. */
   listTitle: string;
   items: string[];
-  ctaLabel: string;
-  /**
-   * The tier whose CTA opens a negotiation rather than a purchase, so it shows
-   * no acceptance notice: its terms are settled in a separate agreement.
-   */
-  quoteOnly?: boolean;
-  /** The one tier that carries the filled button and the raised card. */
+  /** The one tier that carries the raised card. */
   featured?: boolean;
 }
 
 const tiers: Tier[] = [
   {
     name: 'Commercial',
-    price: '$129',
-    term: 'one-time',
     description: 'For companies building their own proprietary products.',
     listTitle: 'Includes',
     items: [
       'Unlimited developers',
       'Unlimited products owned by the licensee',
       'Lifetime license',
-      'All updates for the current major version',
+      'All updates until version 1.0',
       'No subscription',
       'No runtime fees',
       'Commercial and proprietary use',
     ],
-    ctaLabel: 'Buy Commercial',
     featured: true,
   },
   {
     name: 'Agency',
-    price: '$299',
-    term: 'one-time',
     description: 'For freelancers and agencies building proprietary products for clients.',
     listTitle: 'Includes',
     items: [
@@ -103,20 +77,16 @@ const tiers: Tier[] = [
       'Unlimited client projects',
       'Commercial and proprietary use',
       'Lifetime license',
-      'All updates for the current major version',
+      'All updates until version 1.0',
       'No subscription',
       'No runtime fees',
     ],
-    ctaLabel: 'Buy Agency',
   },
   {
     name: 'Embedded / OEM',
-    price: 'Custom',
     description: 'For products that redistribute ramka or make it available to their own users.',
     listTitle: 'For example',
     items: ['Component libraries', 'SDKs', 'Site builders', 'Template systems', 'White-label products'],
-    ctaLabel: 'Contact us',
-    quoteOnly: true,
   },
 ];
 
@@ -144,7 +114,7 @@ const faqs = [
   },
 ];
 
-function PricingCard({ tier, agreementVersion }: { tier: Tier; agreementVersion: string }) {
+function TierCard({ tier }: { tier: Tier }) {
   return (
     <div
       className={cn(
@@ -168,16 +138,9 @@ function PricingCard({ tier, agreementVersion }: { tier: Tier; agreementVersion:
         ) : null}
       </div>
 
-      <div className="mt-6">
-        <div className="text-5xl font-semibold tracking-tight text-neutral-950 dark:text-neutral-50">{tier.price}</div>
-        {/* Reserve the term line's height on the quote-based card too, so the
-            three prices sit on one baseline and the lists start together. */}
-        <div className="mt-2 h-5 text-sm text-neutral-500 dark:text-neutral-400">{tier.term}</div>
-      </div>
-
       {/* Three lines' worth of room, so the descriptions' differing lengths
           don't leave the three lists starting at three different heights. */}
-      <p className="mt-6 text-pretty text-[15px] leading-6 text-neutral-600 lg:min-h-18 dark:text-neutral-400">
+      <p className="mt-5 text-pretty text-[15px] leading-6 text-neutral-600 lg:min-h-18 dark:text-neutral-400">
         {tier.description}
       </p>
 
@@ -192,35 +155,6 @@ function PricingCard({ tier, agreementVersion }: { tier: Tier; agreementVersion:
           </li>
         ))}
       </ul>
-
-      {/* mt-auto pins every CTA to the bottom edge, so uneven list lengths
-          don't leave the buttons on three different lines. */}
-      <div className="mt-10 pt-2 lg:mt-auto">
-        <a
-          href={tier.quoteOnly ? CONTACT_URL : buyUrl(tier, agreementVersion)}
-          className={tier.featured ? primaryCtaClassName : secondaryCtaClassName}
-        >
-          {tier.ctaLabel}
-        </a>
-
-        {/* Acceptance sits with the button rather than in the page's legal
-            note, so the terms are stated where the commitment is made. The
-            quote tier gets a line of its own height, keeping the three buttons
-            on one baseline. */}
-        <p className="mt-3 text-center text-xs leading-5 text-neutral-400 dark:text-neutral-500">
-          {tier.quoteOnly ? (
-            'Terms are agreed as part of your Embedded / OEM license.'
-          ) : (
-            <>
-              By purchasing, you agree to the{' '}
-              <Link href="/license/commercial" className={quietLinkClassName}>
-                Ramka Commercial License Agreement
-              </Link>
-              .
-            </>
-          )}
-        </p>
-      </div>
     </div>
   );
 }
@@ -249,11 +183,32 @@ export default async function LicensePage() {
         </section>
 
         <section className="mx-auto w-full max-w-5xl px-6 pt-14 md:pt-16">
-          <h2 className="sr-only">Pricing</h2>
+          <h2 className="sr-only">License tiers</h2>
           <div className="grid gap-4 lg:grid-cols-3 lg:items-stretch lg:gap-5">
             {tiers.map((tier) => (
-              <PricingCard key={tier.name} tier={tier} agreementVersion={version} />
+              <TierCard key={tier.name} tier={tier} />
             ))}
+          </div>
+
+          {/* One CTA rather than three: until checkout exists the tier, the
+              price and the purchaser's details are all settled in the same
+              email, so a per-card button would promise a flow that isn't
+              there. */}
+          <div className="mx-auto mt-10 max-w-md text-center">
+            <a href={enquiryUrl(version)} className={primaryCtaClassName}>
+              Email us about a commercial license
+            </a>
+            <p className="mt-4 text-[13px] leading-6 text-neutral-500 dark:text-neutral-400">
+              Pricing and checkout are on the way. Until then, tell us which tier you need and we will send terms and an
+              invoice.
+            </p>
+            <p className="mt-2 text-[13px] leading-6 text-neutral-400 dark:text-neutral-500">
+              Licenses are granted under the{' '}
+              <Link href="/license/commercial" className={quietLinkClassName}>
+                Ramka Commercial License Agreement
+              </Link>
+              .
+            </p>
           </div>
         </section>
 
@@ -309,9 +264,9 @@ export default async function LicensePage() {
             <span aria-hidden className="px-2">
               ·
             </span>
-            <a href={THIRD_PARTY_NOTICES_URL} target="_blank" rel="noreferrer" className={quietLinkClassName}>
+            <Link href="/license/notices" className={quietLinkClassName}>
               Third-party notices
-            </a>
+            </Link>
           </p>
         </section>
       </main>

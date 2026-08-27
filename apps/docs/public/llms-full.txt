@@ -70,7 +70,7 @@ If your use of ramka creates a work that is subject to the GPL, the GPL’s sour
 
 Most teams building closed-source products will therefore want the commercial license.
 
-This is practical guidance, not legal advice. The applicable [license terms](https://github.com/arturbien/ramka/blob/main/LICENSE) govern.
+This is practical guidance, not legal advice. The applicable license terms govern: the [GPL](https://www.gnu.org/licenses/gpl-3.0.html) for open-source use, or the [Commercial License Agreement](https://ramka.dev/license/commercial) if you purchase one.
 
 ## Next steps
 
