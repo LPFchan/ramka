@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import type { ReactNode } from 'react';
 import { Inter } from 'next/font/google';
 import { Analytics } from '@vercel/analytics/next';
@@ -14,10 +14,28 @@ const inter = Inter({ subsets: ['latin'], variable: '--font-sans' });
 const title = 'ramka';
 const description = 'Unstyled, accessible image gallery primitives for React.';
 
+export const viewport: Viewport = {
+  themeColor: '#0A0A0A',
+};
+
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title,
   description,
+  icons: {
+    icon: [
+      { url: '/icon.svg', type: 'image/svg+xml' },
+      { url: '/favicon.ico', sizes: '32x32', type: 'image/x-icon' },
+    ],
+    apple: { url: '/apple-icon.png', sizes: '180x180', type: 'image/png' },
+    other: [
+      {
+        rel: 'mask-icon',
+        url: '/safari-pinned-tab.svg',
+        color: '#0A0A0A',
+      },
+    ],
+  },
   openGraph: {
     title,
     description,
@@ -44,6 +62,11 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       className={cn('scroll-pt-14 font-sans md:scroll-pt-0', inter.variable)}
       suppressHydrationWarning
     >
+      {/* Next streams metadata `manifest` into the body; Chrome only sees a
+          parser-head <link rel="manifest">. `app/manifest.ts` serves the JSON. */}
+      <head>
+        <link rel="manifest" href="/manifest.webmanifest" />
+      </head>
       {/*
         Base UI portal stacking: `position: relative` on body (iOS 26+ absolute
         backdrops) + `isolation: isolate` on the app root so portaled overlays
