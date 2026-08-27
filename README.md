@@ -2,7 +2,7 @@
 
 An unstyled, accessible image gallery primitive library for React — in the style of Radix UI and Base UI.
 
-> _ramka_ (РАмка) is Polish for "frame".
+> _ramka_ — Polish for "frame".
 
 This repository is a pnpm + Turborepo monorepo containing:
 
@@ -46,4 +46,8 @@ pnpm dev
 
 ## License
 
-MIT
+Dual-licensed: [GPL-3.0-only](./LICENSE), or a commercial license you may
+purchase if you are building proprietary software and do not want to rely on the
+GPL. The header of [LICENSE](./LICENSE) is the overview, and
+[COMMERCIAL-LICENSE.md](./packages/ramka/COMMERCIAL-LICENSE.md) is the
+commercial agreement.

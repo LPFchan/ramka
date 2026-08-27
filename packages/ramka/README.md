@@ -2,7 +2,7 @@
 
 Unstyled, accessible lightbox primitives for React — in the style of [Radix UI](https://www.radix-ui.com/) and [Base UI](https://base-ui.com/).
 
-> _ramka_ (РАмка) is Polish for "frame".
+> _ramka_ — Polish for "frame".
 
 ## Installation
 
@@ -101,4 +101,23 @@ LLM-oriented copies of the docs (`/llms.txt`, `/llms-full.txt`, and a `.md` twin
 
 ## License
 
-MIT
+Dual-licensed — choose the license that matches how you intend to use ramka.
+
+**GPL-3.0-only** — free to use, modify and redistribute, including commercially;
+the GPL does not restrict commercial use. If your use of ramka creates a work
+that is subject to the GPL, the GPL's source-code and licensing requirements
+apply to that work when you distribute it.
+
+**Commercial license** — if you are building proprietary software and do not want
+to rely on the GPL, you may purchase a commercial license instead. The commercial
+license is a separate license grant from the copyright holder and permits use
+under its own terms rather than the GPL.
+
+[Read more about the commercial license](https://ramka.dev/license) ·
+[Commercial License Agreement](https://ramka.dev/license/commercial)
+
+The GPLv3 text and licensing overview are in [LICENSE](./LICENSE), which ships
+inside this package. The vendored Base UI code noted in
+[THIRD-PARTY-NOTICES.md](./THIRD-PARTY-NOTICES.md), also published at
+[ramka.dev/license/notices](https://ramka.dev/license/notices), is MIT-licensed
+and remains subject to its own license terms.

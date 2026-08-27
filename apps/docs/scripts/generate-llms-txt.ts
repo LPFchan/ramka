@@ -111,11 +111,24 @@ function fence(code: string, lang = 'tsx', title?: string): string {
   return `${ticks}${info}\n${body}\n${ticks}`;
 }
 
+const siteUrl = 'https://ramka.dev';
+
+/**
+ * Only these route trees get `.md` twins (see `hrefToPublicFile`). Pages outside
+ * them — the licensing pages, for instance — have no Markdown mirror, so they
+ * are linked absolutely rather than pointed at a file that does not exist.
+ */
+const mirroredRoutes = ['/docs', '/examples', '/presets'];
+
 function toMdHref(href: string): string {
   if (!href) return href;
   if (/^https?:\/\//.test(href) || href.startsWith('mailto:')) return href;
   if (href.startsWith('#')) return href;
   const [pathname, hash] = href.split('#');
+  const isMirrored = mirroredRoutes.some(
+    (route) => pathname === route || pathname.startsWith(`${route}/`),
+  );
+  if (!isMirrored) return `${siteUrl}${href}`;
   const trimmed = pathname.replace(/^\//, '').replace(/\/$/, '');
   const mdPath = trimmed.endsWith('.md') || trimmed.endsWith('.txt') ? trimmed : `${trimmed}.md`;
   return hash ? `${mdPath}#${hash}` : mdPath;

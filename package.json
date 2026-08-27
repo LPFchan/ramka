@@ -22,7 +22,8 @@
     "docs:llms": "pnpm --filter docs docs:llms",
     "docs:llms:check": "pnpm --filter docs docs:llms:check",
     "sbom": "node scripts/generate-sbom.mjs",
-    "sbom:check": "node scripts/generate-sbom.mjs --check"
+    "sbom:check": "node scripts/generate-sbom.mjs --check",
+    "license:check": "node scripts/check-license-copies.mjs"
   },
   "devDependencies": {
     "@playwright/test": "^1.62.1",

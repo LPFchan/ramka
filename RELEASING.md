@@ -101,6 +101,22 @@ npx ajv-cli validate --spec=draft7 --strict=false -c ajv-formats \
   -d packages/ramka/sbom.cdx.json
 ```
 
+## The license in the tarball
+
+`npm publish` runs in `packages/ramka`, so the root `LICENSE` is not in the
+published artifact — the package keeps its own copy, and a GPL release that
+conveyed no license text would not satisfy GPL section 4. Editing the license
+means editing both, and `pnpm license:check` (which CI runs) fails when they
+disagree.
+
+Deliberately a committed copy rather than one written at build time, unlike the
+SBOM. The SBOM has no choice: it names the version being published, so a
+checked-in copy could only be stale. A license is static, and the two risks are
+not comparable — a copy can drift, which the check turns into a failed run on the
+PR that caused it, while a generated file can be *absent* (build reordered, tsup
+run directly, a fresh clone packed) with nothing to show for it, since the file
+would be gitignored and invisible to review.
+
 ## Dependency updates
 
 [`dependabot.yml`](.github/dependabot.yml) opens weekly PRs for tooling and
