@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 import { Inter } from 'next/font/google';
+import { Analytics } from '@vercel/analytics/next';
 
 import { ThemeProvider } from './_components/theme-provider';
 import { TooltipProvider } from '@/components/ui/tooltip';
@@ -49,6 +50,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <ThemeProvider>
           <TooltipProvider delay={150}>{children}</TooltipProvider>
         </ThemeProvider>
+        <Analytics />
       </body>
     </html>
   );
