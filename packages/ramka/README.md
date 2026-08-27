@@ -118,5 +118,6 @@ under its own terms rather than the GPL.
 
 The GPLv3 text and licensing overview are in [LICENSE](./LICENSE), which ships
 inside this package. The vendored Base UI code noted in
-[THIRD-PARTY-NOTICES.md](./THIRD-PARTY-NOTICES.md) is MIT-licensed and remains
-subject to its own license terms.
+[THIRD-PARTY-NOTICES.md](./THIRD-PARTY-NOTICES.md), also published at
+[ramka.dev/license/notices](https://ramka.dev/license/notices), is MIT-licensed
+and remains subject to its own license terms.
