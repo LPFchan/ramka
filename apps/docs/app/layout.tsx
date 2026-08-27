@@ -32,6 +32,17 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         sit above page content without competing with in-app z-index values.
       */}
       <body className="relative min-h-screen bg-background text-foreground antialiased">
+        {/* Whop pixel (business biz_k1Wgt8FGamwpvh), verbatim from Whop's
+            install snippet. Inline rather than next/script so it runs on the
+            first paint of every full page load; it appends its own async
+            <script> for t.whop.tw. Note this fires one "page" event per
+            document load, not per client-side route change. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              '!function(w,d,s,u,n,a,b){if(w[n])return;a=w[n]={q:[],t:+new Date,s:[],o:u,track:function(){a.q.push([+new Date].concat([].slice.call(arguments)))},setScope:function(){a.s=[].slice.call(arguments).filter(function(x){return typeof x==="string"});a.q.push([+new Date,"setScope"].concat(a.s))},scope:function(){var c=[].slice.call(arguments);return{track:function(){a.q.push([+new Date].concat([].slice.call(arguments)).concat([{__scope:c}]))}}}};b=d.createElement(s);b.async=1;b.src=u+"/s.js";d.getElementsByTagName(s)[0].parentNode.insertBefore(b,d.getElementsByTagName(s)[0])}(window,document,"script","https://t.whop.tw","whop");whop.setScope("biz_k1Wgt8FGamwpvh");whop.track("page");',
+          }}
+        />
         {/* ramka's composited transform-only morph (see vt-composited-morph.ts)
             is the shipped morph; append ?vtstock to force the stock UA morph
             instead, for debugging a suspected regression in the composited
