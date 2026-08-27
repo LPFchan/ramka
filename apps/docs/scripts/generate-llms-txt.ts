@@ -35,6 +35,7 @@ import {
 import type { AttrRow, CssVarRow, PropRow } from '../app/_content/lightbox/api/types';
 import { lightboxApiHref, lightboxDocsPages, lightboxDocsPagerOrder } from '../app/_content/lightbox/docs-pages';
 import { lightboxExcerpts } from '../app/_content/lightbox/excerpts/generated';
+import { siteUrl } from '../app/_content/site';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const docsRoot = path.resolve(__dirname, '..');
@@ -110,8 +111,6 @@ function fence(code: string, lang = 'tsx', title?: string): string {
   const info = title ? `${lang} ${title}` : lang;
   return `${ticks}${info}\n${body}\n${ticks}`;
 }
-
-const siteUrl = 'https://ramka.dev';
 
 /**
  * Only these route trees get `.md` twins (see `hrefToPublicFile`). Pages outside
