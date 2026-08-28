@@ -92,7 +92,8 @@ const tiers: Tier[] = [
   },
   {
     name: 'Embedded / OEM',
-    description: 'For products that redistribute ramka or make it available to their own users.',
+    description:
+      'For proprietary redistribution — such as component libraries, SDKs, site builders, template systems, white-label products, or other products that expose Ramka for use by third parties.',
     listTitle: 'For example',
     items: ['Component libraries', 'SDKs', 'Site builders', 'Template systems', 'White-label products'],
   },
@@ -117,8 +118,14 @@ const faqs = [
     answer: 'No. Use the Agency license for work delivered to clients.',
   },
   {
+    question: 'Can I include Ramka in my open-source component library?',
+    answer:
+      'Yes, if you comply with GPL-3.0-only. Downstream users of that library do not automatically receive proprietary-use rights to Ramka. If they use Ramka in proprietary software and do not want to rely on the GPL, they need an applicable commercial license.',
+  },
+  {
     question: 'Can I include ramka in my component library or site builder?',
-    answer: 'Not under the standard Commercial or Agency licenses. Contact us for an Embedded / OEM license.',
+    answer:
+      'GPL-compliant open-source redistribution is allowed under GPL-3.0-only. Proprietary redistribution that exposes ramka for use by third parties is not covered by the standard Commercial or Agency licenses. Contact us for an Embedded / OEM license.',
   },
 ];
 
@@ -241,6 +248,19 @@ export default async function LicensePage() {
             >
               View the GPL license
             </a>
+            <div className="mx-auto mt-8 max-w-lg border-t border-neutral-200 pt-6 text-left dark:border-neutral-800">
+              <p className="text-[13px] font-medium text-neutral-700 dark:text-neutral-300">
+                Using Ramka inside an open-source library?
+              </p>
+              <p className="mt-2 text-[13px] leading-6 text-neutral-500 dark:text-neutral-500">
+                That’s allowed under GPL-3.0-only, but the GPL obligations continue downstream. Wrapping Ramka in
+                another open-source package does not change Ramka’s license or remove its copyleft terms.
+              </p>
+              <p className="mt-2 text-[13px] leading-6 text-neutral-500 dark:text-neutral-500">
+                If a downstream user wants to use Ramka in proprietary software without relying on the GPL, they need
+                an applicable commercial license.
+              </p>
+            </div>
           </div>
         </section>
 
