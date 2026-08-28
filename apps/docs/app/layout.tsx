@@ -28,6 +28,12 @@ export const metadata: Metadata = {
     template: '%s — ramka',
   },
   description,
+  // Emits a per-page canonical resolved against `metadataBase` (the apex
+  // domain), so even if a duplicate host or query-string URL gets crawled,
+  // Google consolidates signals onto the canonical apex URL.
+  alternates: {
+    canonical: './',
+  },
   icons: {
     icon: [
       { url: '/icon.svg', type: 'image/svg+xml' },

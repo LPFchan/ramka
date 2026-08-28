@@ -3,6 +3,19 @@ import type { NextConfig } from 'next';
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   transpilePackages: ['@ramka/react'],
+  async redirects() {
+    return [
+      {
+        // www serves a second full copy of the site, and Google indexes it
+        // (splitting ranking signals across two hosts). 308 everything to
+        // the apex, which is the canonical origin in `app/_content/site.ts`.
+        source: '/:path*',
+        has: [{ type: 'host', value: 'www.ramka.dev' }],
+        destination: 'https://ramka.dev/:path*',
+        permanent: true,
+      },
+    ];
+  },
   async headers() {
     return [
       {
