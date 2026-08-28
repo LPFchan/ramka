@@ -10,9 +10,9 @@ const footerLinkClassName = 'transition hover:text-neutral-900 dark:hover:text-n
 export function SiteFooter() {
   return (
     <footer className="border-t border-neutral-200 dark:border-neutral-800">
-      <div className="mx-auto flex w-full max-w-5xl flex-wrap items-center justify-between gap-4 px-6 py-8 text-sm text-neutral-500 dark:text-neutral-400">
+      <div className="mx-auto flex w-full min-w-0 max-w-5xl flex-col gap-4 px-6 py-8 text-sm text-neutral-500 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between dark:text-neutral-400">
         <FooterWordplay />
-        <nav className="flex items-center gap-5">
+        <nav className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2">
           <Link href="/docs" className={footerLinkClassName}>
             Docs
           </Link>

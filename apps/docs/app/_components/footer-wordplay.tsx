@@ -31,7 +31,7 @@ export function FooterWordplay() {
 
   return (
     <p
-      className="cursor-default select-none text-neutral-400 dark:text-neutral-600"
+      className="min-w-0 max-w-full cursor-default select-none text-neutral-400 dark:text-neutral-600"
       onMouseEnter={showNextTease}
       onMouseLeave={() => setTease(null)}
       onClick={() => (tease === null ? showNextTease() : setTease(null))}
