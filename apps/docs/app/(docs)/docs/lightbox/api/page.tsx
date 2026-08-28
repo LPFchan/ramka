@@ -1,3 +1,5 @@
+import type { Metadata } from 'next';
+
 import { ApiPartSection } from '../../../../_components/api/api-part';
 import { DocsLink } from '../../../../_components/docs-link';
 import { DocsPager } from '../../../../_components/docs-pager';
@@ -9,6 +11,12 @@ import {
   lightboxApiParts,
 } from '../../../../_content/lightbox/api/parts';
 import { lightboxApiHref, lightboxDocsPages } from '../../../../_content/lightbox/docs-pages';
+
+export const metadata: Metadata = {
+  title: 'Lightbox API reference',
+  description:
+    'Full API reference for ramka lightbox primitives: Root, Trigger, Slides, Zoom, Thumbnails, Captions, Counter, hooks, types, and imperative handles.',
+};
 
 const byConcern: { label: string; links: { href: string; title: string }[] }[] = [
   {

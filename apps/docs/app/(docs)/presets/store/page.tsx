@@ -1,7 +1,15 @@
+import type { Metadata } from 'next';
+
 import { ComponentPreview } from '../../../_components/component-preview';
 import { ExampleShell } from '../../../_components/example-shell';
 import { readSourceFiles } from '../../../_components/read-source-files';
 import { StorePresetDemo } from './demo';
+
+export const metadata: Metadata = {
+  title: 'Store gallery lightbox preset',
+  description:
+    'An e-commerce product gallery lightbox for React: thumbnail rail and a buy panel with price, highlights, and a CTA, built from ramka lightbox primitives.',
+};
 
 export default async function StoreLightboxPresetPage() {
   const files = await readSourceFiles([

@@ -1,7 +1,15 @@
+import type { Metadata } from 'next';
+
 import { ComponentPreview } from '../../../_components/component-preview';
 import { ExampleShell } from '../../../_components/example-shell';
 import { readSourceFiles } from '../../../_components/read-source-files';
 import { StoriesPresetDemo } from './demo';
+
+export const metadata: Metadata = {
+  title: 'Stories lightbox preset',
+  description:
+    'An Instagram Stories-style viewer for React: an avatar tray that crossfades into 9:16 video with a scroll-driven 3D page turn, built with ramka.',
+};
 
 export default async function StoriesLightboxPresetPage() {
   const files = await readSourceFiles([

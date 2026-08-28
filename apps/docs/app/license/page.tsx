@@ -194,8 +194,24 @@ export default async function LicensePage() {
   // against cannot drift from the version on file.
   const { version } = await readAgreement();
 
+  // FAQ rich-result markup, generated from the same `faqs` array the page
+  // renders so the schema can never drift from the visible content.
+  const faqStructuredData = {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: faqs.map((faq) => ({
+      '@type': 'Question',
+      name: faq.question,
+      acceptedAnswer: { '@type': 'Answer', text: faq.answer },
+    })),
+  };
+
   return (
     <div className="isolate flex min-h-screen flex-col">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqStructuredData) }}
+      />
       <SiteHeader home />
 
       <main className="flex-1">

@@ -1,7 +1,15 @@
+import type { Metadata } from 'next';
+
 import { ExampleShell } from '../../../_components/example-shell';
 import { PresetVariantPreview } from '../../../_components/preset-variant-preview';
 import { readSourceFiles } from '../../../_components/read-source-files';
 import { DefaultPresetDemo } from './demo';
+
+export const metadata: Metadata = {
+  title: 'Default lightbox preset',
+  description:
+    'A copy-paste React lightbox preset: morphing open, swipe navigation, zoom, thumbnails, and captions, styled like the ramka docs and ready for a design system.',
+};
 
 const demoFile = {
   path: 'app/(docs)/presets/default/demo.tsx',

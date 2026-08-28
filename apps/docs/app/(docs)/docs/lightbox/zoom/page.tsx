@@ -1,9 +1,16 @@
+import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 
 import { DocsLink, docsLinkClassName } from '../../../../_components/docs-link';
 import { DocsPager } from '../../../../_components/docs-pager';
 import { DocsSection, DocsShell, type DocsTocItem } from '../../../../_components/docs-shell';
 import { lightboxApiHref, lightboxDocsPages } from '../../../../_content/lightbox/docs-pages';
+
+export const metadata: Metadata = {
+  title: 'Pinch to zoom and accessibility',
+  description:
+    'Pinch to zoom UX in the ramka React lightbox: trackpad pinch, ctrl + wheel, double-click zoom, and pan, compared against desktop and mobile viewer conventions, with WCAG conformance notes.',
+};
 
 const toc: DocsTocItem[] = [
   { id: 'desktop-conventions', title: 'Desktop conventions' },

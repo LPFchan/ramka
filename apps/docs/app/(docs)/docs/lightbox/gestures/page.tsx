@@ -1,3 +1,5 @@
+import type { Metadata } from 'next';
+
 import { CodeBlock } from '../../../../_components/code-block';
 import { DocsLink } from '../../../../_components/docs-link';
 import { DocsPager } from '../../../../_components/docs-pager';
@@ -5,6 +7,12 @@ import { DocsSection, DocsShell, type DocsTocItem } from '../../../../_component
 import { PropSectionTitle } from '../../../../_components/prop-section-title';
 import { lightboxApiHref, lightboxDocsPages } from '../../../../_content/lightbox/docs-pages';
 import { lightboxExcerpts } from '../../../../_content/lightbox/excerpts/generated';
+
+export const metadata: Metadata = {
+  title: 'Gestures and pull to dismiss',
+  description:
+    'Swipe navigation and pull to dismiss in the ramka React lightbox: native scroll snapping, pull progress CSS variables, snap-back timing, and open/close fades.',
+};
 
 const toc: DocsTocItem[] = [
   { id: 'pull', title: 'Pull-to-dismiss' },

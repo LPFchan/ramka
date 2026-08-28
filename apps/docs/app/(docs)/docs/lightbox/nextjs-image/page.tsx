@@ -1,9 +1,17 @@
+import type { Metadata } from 'next';
+
 import { DocsDemo } from '../../../../_components/docs-demo';
 import { DocsLink } from '../../../../_components/docs-link';
 import { DocsPager } from '../../../../_components/docs-pager';
 import { DocsSection, DocsShell, type DocsTocItem } from '../../../../_components/docs-shell';
 import { lightboxApiHref, lightboxDocsPages } from '../../../../_content/lightbox/docs-pages';
 import { lightboxExcerpts } from '../../../../_content/lightbox/excerpts/generated';
+
+export const metadata: Metadata = {
+  title: 'Next.js Image lightbox',
+  description:
+    'Use next/image inside a React lightbox: responsive images, when blurDataURL placeholders help and when they hurt, and morphing view transitions with the Next.js Image component.',
+};
 import {
   NextjsImageDoDemo,
   NextjsImageDontDemo,

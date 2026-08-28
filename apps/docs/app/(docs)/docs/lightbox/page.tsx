@@ -1,3 +1,4 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
 
 import { CodeBlock } from '../../../_components/code-block';
@@ -7,6 +8,12 @@ import { DocsSection, DocsShell, type DocsTocItem } from '../../../_components/d
 import { lightboxDocsPages } from '../../../_content/lightbox/docs-pages';
 import { lightboxExcerpts } from '../../../_content/lightbox/excerpts/generated';
 import { LightboxHeroDemo } from './hero-demo';
+
+export const metadata: Metadata = {
+  title: 'React lightbox overview',
+  description:
+    'Headless lightbox primitives for React built on native scrolling and View Transitions: morphing open, swipe navigation, pinch to zoom, and pull to dismiss. Start here.',
+};
 
 const guideLinks: {
   title: string;

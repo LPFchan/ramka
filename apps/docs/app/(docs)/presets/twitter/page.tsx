@@ -1,7 +1,15 @@
+import type { Metadata } from 'next';
+
 import { ComponentPreview } from '../../../_components/component-preview';
 import { ExampleShell } from '../../../_components/example-shell';
 import { readSourceFiles } from '../../../_components/read-source-files';
 import { TwitterPresetDemo } from './demo';
+
+export const metadata: Metadata = {
+  title: 'Twitter-style lightbox preset',
+  description:
+    'A Twitter-style media viewer for React: split media and thread sidebar, translucent backdrop, and edge navigation, built from ramka lightbox primitives.',
+};
 
 export default async function TwitterLightboxPresetPage() {
   const files = await readSourceFiles([

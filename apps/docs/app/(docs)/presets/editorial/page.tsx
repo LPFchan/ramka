@@ -1,7 +1,15 @@
+import type { Metadata } from 'next';
+
 import { ComponentPreview } from '../../../_components/component-preview';
 import { ExampleShell } from '../../../_components/example-shell';
 import { readSourceFiles } from '../../../_components/read-source-files';
 import { EditorialPresetDemo } from './demo';
+
+export const metadata: Metadata = {
+  title: 'Editorial lightbox preset',
+  description:
+    'A newsroom article-figure lightbox for React: near-black surface with a caption and credit block, built from ramka lightbox primitives.',
+};
 
 export default async function EditorialLightboxPresetPage() {
   const files = await readSourceFiles([

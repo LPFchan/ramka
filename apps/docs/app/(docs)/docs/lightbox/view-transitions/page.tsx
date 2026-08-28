@@ -1,3 +1,5 @@
+import type { Metadata } from 'next';
+
 import { CodeBlock } from '../../../../_components/code-block';
 import { DocsDemo } from '../../../../_components/docs-demo';
 import { DocsLink } from '../../../../_components/docs-link';
@@ -6,6 +8,12 @@ import { DocsSection, DocsShell, type DocsTocItem } from '../../../../_component
 import { PropSectionTitle } from '../../../../_components/prop-section-title';
 import { lightboxApiHref, lightboxDocsPages } from '../../../../_content/lightbox/docs-pages';
 import { lightboxExcerpts } from '../../../../_content/lightbox/excerpts/generated';
+
+export const metadata: Metadata = {
+  title: 'Morph view transitions',
+  description:
+    'Shared element View Transitions in a React lightbox: morph refs, trigger crossfade, source aspect handling, morphTo, scrollTriggerIntoView, and programmatic opens.',
+};
 import { MorphAspectDoDemo, MorphAspectDontDemo } from '../aspect-demos';
 import { LightboxCrossfadeDemos } from '../crossfade-demos';
 import { LightboxMorphToDemos } from '../morph-to-demos';

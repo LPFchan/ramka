@@ -1,3 +1,5 @@
+import type { Metadata } from 'next';
+
 import { CodeBlock } from '../../../../_components/code-block';
 import { DocsDemo } from '../../../../_components/docs-demo';
 import { DocsLink } from '../../../../_components/docs-link';
@@ -6,6 +8,12 @@ import { DocsSection, DocsShell, type DocsTocItem } from '../../../../_component
 import { lightboxApiHref, lightboxDocsPages } from '../../../../_content/lightbox/docs-pages';
 import { lightboxExcerpts } from '../../../../_content/lightbox/excerpts/generated';
 import { RtlHandleDemo } from '../rtl-demos';
+
+export const metadata: Metadata = {
+  title: 'RTL support',
+  description:
+    'Right-to-left lightbox support in React: one dir="rtl" on Root mirrors slide order, arrow keys, thumbnails, and even the morph geometry.',
+};
 
 const toc: DocsTocItem[] = [
   { id: 'setup', title: 'Setting the direction' },

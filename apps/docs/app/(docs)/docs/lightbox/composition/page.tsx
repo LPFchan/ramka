@@ -1,9 +1,17 @@
+import type { Metadata } from 'next';
+
 import { CodeBlock } from '../../../../_components/code-block';
 import { DocsLink } from '../../../../_components/docs-link';
 import { DocsPager } from '../../../../_components/docs-pager';
 import { DocsSection, DocsShell, type DocsTocItem } from '../../../../_components/docs-shell';
 import { lightboxApiHref, lightboxDocsPages } from '../../../../_content/lightbox/docs-pages';
 import { lightboxExcerpts } from '../../../../_content/lightbox/excerpts/generated';
+
+export const metadata: Metadata = {
+  title: 'Composition',
+  description:
+    'Compose ramka lightbox primitives into any layout: Slides with Zoom, media fill and fit-box sizing, Stage for split layouts, custom chrome, and dynamic item counts.',
+};
 
 const toc: DocsTocItem[] = [
   { id: 'slides', title: 'Slides + Zoom' },

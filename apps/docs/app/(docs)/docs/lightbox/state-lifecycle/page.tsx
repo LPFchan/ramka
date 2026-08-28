@@ -1,9 +1,17 @@
+import type { Metadata } from 'next';
+
 import { DocsDemo } from '../../../../_components/docs-demo';
 import { DocsLink } from '../../../../_components/docs-link';
 import { DocsPager } from '../../../../_components/docs-pager';
 import { DocsSection, DocsShell, type DocsTocItem } from '../../../../_components/docs-shell';
 import { lightboxApiHref, lightboxDocsPages } from '../../../../_content/lightbox/docs-pages';
 import { lightboxExcerpts } from '../../../../_content/lightbox/excerpts/generated';
+
+export const metadata: Metadata = {
+  title: 'State and lifecycle',
+  description:
+    'Controlled and uncontrolled lightbox state in React: the open and index props, imperative handles with createHandle, and lifecycle callbacks like onBeforeOpen.',
+};
 import {
   ControlledStateDemo,
   CreateHandleDemo,

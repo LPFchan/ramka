@@ -1,3 +1,4 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
 
 import { CodeBlock } from '../../_components/code-block';
@@ -6,6 +7,13 @@ import { lightboxDocsPages } from '../../_content/lightbox/docs-pages';
 import { lightboxExcerpts } from '../../_content/lightbox/excerpts/generated';
 
 const GPL_URL = 'https://www.gnu.org/licenses/gpl-3.0.html';
+
+export const metadata: Metadata = {
+  title: 'Installation',
+  description:
+    'Install the ramka React lightbox with npm, pnpm, or yarn, declare your license, and open your first morphing image gallery in a few lines of code.',
+};
+
 export default function HomePage() {
   return (
     <div className="mx-auto w-full max-w-3xl px-6 py-14 md:px-10 md:py-16">
