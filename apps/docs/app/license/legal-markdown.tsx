@@ -37,6 +37,17 @@ export function LegalMarkdown({ children }: { children: string }) {
           </h3>
         ),
         p: ({ children }) => <p className={bodyClassName}>{children}</p>,
+        ul: ({ children }) => (
+          <ul className="mt-4 list-disc space-y-1 pl-5 text-[15px] leading-7 text-neutral-600 dark:text-neutral-400">
+            {children}
+          </ul>
+        ),
+        ol: ({ children }) => (
+          <ol className="mt-4 list-decimal space-y-1 pl-5 text-[15px] leading-7 text-neutral-600 dark:text-neutral-400">
+            {children}
+          </ol>
+        ),
+        li: ({ children }) => <li className="pl-0.5">{children}</li>,
         strong: ({ children }) => <strong className={definedTermClassName}>{children}</strong>,
         a: ({ href, children }) => (
           <a href={href} className={linkClassName}>

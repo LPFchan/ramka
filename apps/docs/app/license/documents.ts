@@ -2,14 +2,16 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 
 /**
- * The licensing documents are maintained as Markdown inside the package, so the
- * text a buyer reads on the site and the text shipped alongside the library can
- * never drift. This module is the only reader of those files.
+ * Legal documents are maintained as Markdown inside the package, so the text a
+ * buyer reads on the site and the text kept with the library can never drift.
+ * This module is the only reader of those files.
  *
  * Server Components only.
  */
 export const AGREEMENT_PATH = 'packages/ramka/COMMERCIAL-LICENSE.md';
 export const NOTICES_PATH = 'packages/ramka/THIRD-PARTY-NOTICES.md';
+export const PRIVACY_PATH = 'packages/ramka/PRIVACY.md';
+export const RETURN_POLICY_PATH = 'packages/ramka/RETURN-POLICY.md';
 
 export type MarkdownDoc = {
   /** The `# ` heading, rendered as the page title. */

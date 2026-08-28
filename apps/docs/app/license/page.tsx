@@ -267,6 +267,18 @@ export default async function LicensePage() {
             <Link href="/license/notices" className={quietLinkClassName}>
               Third-party notices
             </Link>
+            <span aria-hidden className="px-2">
+              ·
+            </span>
+            <Link href="/privacy" className={quietLinkClassName}>
+              Privacy Policy
+            </Link>
+            <span aria-hidden className="px-2">
+              ·
+            </span>
+            <Link href="/returns" className={quietLinkClassName}>
+              Return Policy
+            </Link>
           </p>
         </section>
       </main>
