@@ -4,16 +4,14 @@ import { Check } from 'lucide-react';
 
 import { SiteFooter } from '../_components/site-footer';
 import { SiteHeader } from '../_components/site-header';
+import { checkoutUrls, type PaidCheckoutPlan } from '../checkout/hosted-urls';
 import { readAgreement } from './documents';
 import { cn } from '@/lib/utils';
 
 const GPL_URL = 'https://www.gnu.org/licenses/gpl-3.0.html';
 
-// Checkout is not wired up yet, so buying happens over email. Until then the
-// enquiry carries what an order has to record: the tier, the agreement version
-// in force, and room for the purchaser's identity. The version matters most —
-// it is the only way to know which terms a customer bought under once the
-// agreement is revised.
+// Embedded / OEM is still quoted over email. The enquiry carries the agreement
+// version in force so an order can be recorded against the terms that applied.
 const CONTACT_EMAIL = 'artur.bien+ramka@gmail.com';
 
 function enquiryUrl(agreementVersion: string): string {
@@ -39,6 +37,9 @@ export const metadata: Metadata = {
 const primaryCtaClassName =
   'inline-flex h-11 w-full items-center justify-center rounded-full bg-neutral-900 px-4 text-sm font-medium text-white transition hover:bg-neutral-700 dark:bg-neutral-50 dark:text-neutral-900 dark:hover:bg-neutral-300';
 
+const secondaryCtaClassName =
+  'inline-flex h-11 w-full items-center justify-center rounded-full border border-neutral-200 px-4 text-sm font-medium text-neutral-900 transition hover:bg-neutral-100 dark:border-neutral-800 dark:text-neutral-50 dark:hover:bg-neutral-900';
+
 const quietLinkClassName =
   'underline decoration-neutral-300 underline-offset-2 transition hover:decoration-neutral-500 dark:decoration-neutral-700 dark:hover:decoration-neutral-500';
 
@@ -50,6 +51,9 @@ interface Tier {
   items: string[];
   /** The one tier that carries the raised card. */
   featured?: boolean;
+  /** Paid tiers go to Whop hosted checkout; OEM stays on email. */
+  checkoutPlan?: PaidCheckoutPlan;
+  buyLabel?: string;
 }
 
 const tiers: Tier[] = [
@@ -67,6 +71,8 @@ const tiers: Tier[] = [
       'Commercial and proprietary use',
     ],
     featured: true,
+    checkoutPlan: 'commercial',
+    buyLabel: 'Buy Commercial',
   },
   {
     name: 'Agency',
@@ -81,6 +87,8 @@ const tiers: Tier[] = [
       'No subscription',
       'No runtime fees',
     ],
+    checkoutPlan: 'agency',
+    buyLabel: 'Buy Agency',
   },
   {
     name: 'Embedded / OEM',
@@ -114,7 +122,7 @@ const faqs = [
   },
 ];
 
-function TierCard({ tier }: { tier: Tier }) {
+function TierCard({ tier, contactHref, checkoutHref }: { tier: Tier; contactHref: string; checkoutHref?: string }) {
   return (
     <div
       className={cn(
@@ -147,7 +155,7 @@ function TierCard({ tier }: { tier: Tier }) {
       <div className="mt-8 text-[11px] font-medium uppercase tracking-[0.08em] text-neutral-400 dark:text-neutral-500">
         {tier.listTitle}
       </div>
-      <ul className="mt-3 space-y-2.5">
+      <ul className="mt-3 flex-1 space-y-2.5">
         {tier.items.map((item) => (
           <li key={item} className="flex gap-2.5 text-[15px] leading-6 text-neutral-700 dark:text-neutral-300">
             <Check aria-hidden className="mt-1 size-3.5 shrink-0 text-neutral-400 dark:text-neutral-500" />
@@ -155,6 +163,18 @@ function TierCard({ tier }: { tier: Tier }) {
           </li>
         ))}
       </ul>
+
+      <div className="mt-auto pt-8">
+        {checkoutHref ? (
+          <a href={checkoutHref} className={primaryCtaClassName}>
+            {tier.buyLabel}
+          </a>
+        ) : tier.checkoutPlan ? null : (
+          <a href={contactHref} className={secondaryCtaClassName}>
+            Contact us
+          </a>
+        )}
+      </div>
     </div>
   );
 }
@@ -186,30 +206,22 @@ export default async function LicensePage() {
           <h2 className="sr-only">License tiers</h2>
           <div className="grid gap-4 lg:grid-cols-3 lg:items-stretch lg:gap-5">
             {tiers.map((tier) => (
-              <TierCard key={tier.name} tier={tier} />
+              <TierCard
+                key={tier.name}
+                tier={tier}
+                contactHref={enquiryUrl(version)}
+                checkoutHref={tier.checkoutPlan ? checkoutUrls[tier.checkoutPlan] : undefined}
+              />
             ))}
           </div>
 
-          {/* One CTA rather than three: until checkout exists the tier, the
-              price and the purchaser's details are all settled in the same
-              email, so a per-card button would promise a flow that isn't
-              there. */}
-          <div className="mx-auto mt-10 max-w-md text-center">
-            <a href={enquiryUrl(version)} className={primaryCtaClassName}>
-              Email us about a commercial license
-            </a>
-            <p className="mt-4 text-[13px] leading-6 text-neutral-500 dark:text-neutral-400">
-              Pricing and checkout are on the way. Until then, tell us which tier you need and we will send terms and an
-              invoice.
-            </p>
-            <p className="mt-2 text-[13px] leading-6 text-neutral-400 dark:text-neutral-500">
-              Licenses are granted under the{' '}
-              <Link href="/license/commercial" className={quietLinkClassName}>
-                Ramka Commercial License Agreement
-              </Link>
-              .
-            </p>
-          </div>
+          <p className="mt-10 text-center text-[13px] leading-6 text-neutral-400 dark:text-neutral-500">
+            Licenses are granted under the{' '}
+            <Link href="/license/commercial" className={quietLinkClassName}>
+              Ramka Commercial License Agreement
+            </Link>
+            .
+          </p>
         </section>
 
         <section className="mx-auto w-full max-w-5xl px-6 pt-16">
