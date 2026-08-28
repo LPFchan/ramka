@@ -1,30 +1,18 @@
 import type { CSSProperties } from 'react';
 
-import { Heart } from 'lucide-react';
+import Link from 'next/link';
 
 import { BrokenGlassShine } from './broken-glass-shine';
 
-const SPONSOR_URL = 'https://github.com/sponsors/arturbien';
 const X_URL = 'https://x.com/artur_bien';
 
 /**
- * Sponsor placement showcase. The maintainer's testimonial hangs in a
- * skeuomorphic gilded picture frame — a wink at the library's name (ramka is
- * Polish for "frame") — built entirely from CSS gradients and inset shadows:
- * gold molding, a thin dark lip, and a warm matte board. The matte keeps
- * fixed warm colors in both schemes, like a real object would. Below it,
- * the sponsor slots (one
- * featured banner plus a grid of logo spots) sit flat on the page and link
- * to GitHub Sponsors until real logos replace them.
+ * The maintainer's testimonial hangs in a skeuomorphic gilded picture frame —
+ * a wink at the library's name (ramka is Polish for "frame") — built entirely
+ * from CSS gradients and inset shadows: gold molding, a thin dark lip, and a
+ * warm matte board. The matte keeps fixed warm colors in both schemes, like a
+ * real object would.
  */
-
-const LOGO_SLOTS = 4;
-
-const slotClass =
-  'group flex items-center justify-center rounded-2xl bg-neutral-100 transition hover:bg-neutral-200/70 dark:bg-neutral-900 dark:hover:bg-neutral-800/70';
-
-const slotTextClass =
-  'text-neutral-400 transition group-hover:text-neutral-600 dark:text-neutral-500 dark:group-hover:text-neutral-300';
 
 /**
  * The gilded molding, drawn as an SVG and applied via CSS border-image.
@@ -106,7 +94,7 @@ function XLogo({ className }: { className?: string }) {
   );
 }
 
-export function SponsorsShowcase() {
+export function FramedTestimonial() {
   return (
     <section className="mx-auto w-full max-w-5xl px-6 pb-24 md:pb-32">
       {/* The framed testimonial. Colors inside the frame are fixed (not
@@ -163,24 +151,19 @@ export function SponsorsShowcase() {
               </p>
 
               <p className="mx-auto mt-6 max-w-xl text-pretty text-sm text-[#a8a69d] md:mt-10 md:text-base">
-                Exhibit A: what building a lightbox does to a person. Sponsors
-                keep{' '}
-                <span className="font-medium text-[#e9e7de]">ramka</span>{' '}
-                maintained, and their logo hangs in this gallery, in front of
-                React developers who care about polish.
+                Exhibit A: what building a lightbox does to a person.{' '}
+                <span className="font-medium text-[#e9e7de]">ramka</span> exists
+                so it never has to happen to you.
               </p>
 
               {/* Buttons keep fixed colors tuned for the dark matte. */}
               <div className="mt-6 flex flex-wrap items-center justify-center gap-2.5 md:mt-8 md:gap-3">
-                <a
-                  href={SPONSOR_URL}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex h-10 items-center gap-2 rounded-full bg-[#f5f3ec] pr-4 pl-3 text-sm font-medium text-neutral-900 transition hover:bg-[#dedcd2] md:h-11 md:pl-3.5"
+                <Link
+                  href="/docs"
+                  className="inline-flex h-10 items-center rounded-full bg-[#f5f3ec] px-4 text-sm font-medium text-neutral-900 transition hover:bg-[#dedcd2] md:h-11"
                 >
-                  <Heart aria-hidden className="size-4 fill-pink-500 text-pink-500" />
-                  Become a sponsor
-                </a>
+                  Use ramka instead
+                </Link>
                 <a
                   href={X_URL}
                   target="_blank"
@@ -192,39 +175,6 @@ export function SponsorsShowcase() {
                 </a>
               </div>
           </div>
-        </div>
-      </div>
-
-      {/* Layer 3: the sponsor space below, like Apple's product shot after
-          the buy buttons. The slots carry their own hairlines and shadows, so
-          they sit directly on the page with no tray around them. */}
-      <div className="mt-12 md:mt-14">
-        <a
-          href={SPONSOR_URL}
-          target="_blank"
-          rel="noreferrer"
-          className={`${slotClass} aspect-[3/1] flex-col gap-1.5 px-6 text-center md:aspect-[4/1]`}
-        >
-          <span className={`${slotTextClass} text-lg font-medium tracking-tight`}>
-            Your banner here
-          </span>
-          <span className="text-xs uppercase tracking-wide text-neutral-400/70 dark:text-neutral-500/70">
-            Featured sponsor &middot; one spot
-          </span>
-        </a>
-
-        <div className="mt-3 grid grid-cols-2 gap-3 md:mt-4 md:grid-cols-4 md:gap-4">
-          {Array.from({ length: LOGO_SLOTS }, (_, i) => (
-            <a
-              key={i}
-              href={SPONSOR_URL}
-              target="_blank"
-              rel="noreferrer"
-              className={`${slotClass} aspect-square px-4`}
-            >
-              <span className={`${slotTextClass} text-sm font-medium`}>Your logo</span>
-            </a>
-          ))}
         </div>
       </div>
     </section>

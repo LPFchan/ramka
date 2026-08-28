@@ -48,6 +48,20 @@ export function Sidebar() {
         <div className="min-h-0 flex-1 overflow-y-auto px-2.5 pb-5 pt-1 scrollbar-thin">
           <SidebarNav />
         </div>
+
+        {/* Pinned below the scrolling nav: the one buy entry point in the
+            docs, always in view while reading. */}
+        <div className="border-t border-black/[0.06] px-4 pb-4 pt-3.5 dark:border-white/[0.08]">
+          <Link
+            href="/license"
+            className="inline-flex h-9 w-full items-center justify-center rounded-full bg-neutral-900 text-[13px] font-medium text-white transition hover:bg-neutral-700 dark:bg-neutral-50 dark:text-neutral-900 dark:hover:bg-neutral-300"
+          >
+            Get a license
+          </Link>
+          <p className="mt-2 text-center text-[11px] text-neutral-400 dark:text-neutral-500">
+            Free for open source &middot; from $129
+          </p>
+        </div>
       </div>
     </aside>
   );

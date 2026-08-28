@@ -166,10 +166,10 @@ const ORIGIN = { x: 63, y: 34 };
 
 /**
  * When the click that breaks the glass lands on a link, navigation is held
- * back this long so the user sees the pane crack before the new tab steals
- * focus. 500ms: enough to register the shatter, short enough that the link
- * still feels responsive. Well within the browser's transient-activation
- * window, so the delayed open is not popup-blocked.
+ * back this long so the user sees the pane crack before leaving the page.
+ * 500ms: enough to register the shatter, short enough that the link still
+ * feels responsive. Well within the browser's transient-activation window,
+ * so a delayed new-tab open is not popup-blocked either.
  */
 const LINK_DELAY_MS = 500;
 
@@ -816,7 +816,9 @@ export function BrokenGlassShine({ className }: { className?: string }) {
       }
 
       // If this click was on a link, hold the navigation briefly so the
-      // shatter is seen before a new tab takes over. Modified clicks
+      // shatter is seen before the page changes. The link's own target is
+      // respected: external links marked _blank still open a new tab,
+      // everything else navigates in place. Modified clicks
       // (cmd/ctrl/shift, middle button) open in the background anyway, so
       // they pass through untouched.
       const link =
@@ -831,9 +833,13 @@ export function BrokenGlassShine({ className }: { className?: string }) {
         !event.altKey;
       if (link && host.contains(link) && plainClick) {
         event.preventDefault();
-        const { href } = link;
+        const { href, target } = link;
         window.setTimeout(() => {
-          window.open(href, '_blank', 'noopener,noreferrer');
+          if (target === '_blank') {
+            window.open(href, '_blank', 'noopener,noreferrer');
+          } else {
+            window.location.assign(href);
+          }
         }, LINK_DELAY_MS);
       }
     };

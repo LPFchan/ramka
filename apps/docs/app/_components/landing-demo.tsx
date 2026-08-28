@@ -143,7 +143,7 @@ export function LandingDemo() {
         { type: 'onChange', behavior: 'instant' },
         { type: 'onOpenComplete', behavior: 'instant' },
       ]}
-      // The sponsor frame's glass lighting redraws its canvas while the
+      // The testimonial frame's glass lighting redraws its canvas while the
       // cursor moves, and every redraw during a View Transition forces a
       // fresh layer snapshot. Pause it the moment the viewer opens and
       // resume only after the close transition fully lands (a close

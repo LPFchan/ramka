@@ -78,6 +78,20 @@ export function MobileNav() {
                 <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-6 pt-2">
                   <SidebarNav onNavigate={() => setOpen(false)} />
                 </div>
+                {/* Pinned below the scrolling nav, mirroring the desktop
+                    sidebar's buy entry point. */}
+                <div className="border-t border-neutral-200 px-4 pb-6 pt-4 dark:border-neutral-800">
+                  <Link
+                    href="/license"
+                    onClick={() => setOpen(false)}
+                    className="inline-flex h-10 w-full items-center justify-center rounded-full bg-neutral-900 text-sm font-medium text-white transition hover:bg-neutral-700 dark:bg-neutral-50 dark:text-neutral-900 dark:hover:bg-neutral-300"
+                  >
+                    Get a license
+                  </Link>
+                  <p className="mt-2 text-center text-[11px] text-neutral-400 dark:text-neutral-500">
+                    Free for open source &middot; from $129
+                  </p>
+                </div>
               </DrawerContent>
             </Drawer>
           </div>
