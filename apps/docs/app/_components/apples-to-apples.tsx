@@ -20,7 +20,7 @@ const ROWS: Row[] = [
   { feature: 'Native scrolling', ramka: true, diy: 'translateX', plugin: 'arrows' },
   { feature: 'Pinch, pan, flick', ramka: true, diy: 'sprint 14', plugin: 'mouse only' },
   { feature: 'Pull to dismiss', ramka: true, diy: 'in the backlog', plugin: 'Esc' },
-  { feature: 'Keyboard, a11y', ramka: true, diy: 'TODO', plugin: '\u2014' },
+  { feature: 'Keyboard, a11y', ramka: true, diy: 'TODO', plugin: 'nope' },
   { feature: 'Respects reduced motion', ramka: true, diy: 'oops', plugin: 'always has' },
   { feature: 'Your design, not a theme', ramka: true, diy: 'to be fair, yes', plugin: 'skin.css' },
 ];

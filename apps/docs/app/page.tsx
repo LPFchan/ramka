@@ -1,6 +1,7 @@
 import Link from 'next/link';
 
 import { ApplesToApples } from './_components/apples-to-apples';
+import { FeaturesBento } from './_components/features-bento';
 import { FramedTestimonial } from './_components/framed-testimonial';
 import { InstallCommand } from './_components/install-command';
 import { LandingDemo } from './_components/landing-demo';
@@ -49,6 +50,8 @@ export default function HomePage() {
           </p>
           <LandingDemo />
         </section>
+
+        <FeaturesBento />
 
         <FramedTestimonial />
 

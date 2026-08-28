@@ -15,7 +15,7 @@ export function LicenseCta() {
       </h2>
       <p className="mx-auto mt-6 max-w-xl text-pretty text-neutral-500 dark:text-neutral-400">
         Free for open source under the GPL. For proprietary software, a one-time
-        commercial license covers your whole team, forever — no subscription, no
+        commercial license covers your whole team, forever. No subscription, no
         per-seat pricing.
       </p>
 
