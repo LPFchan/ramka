@@ -1,5 +1,6 @@
 import Link from 'next/link';
 
+import { siteUrl } from './_content/site';
 import { ApplesToApples } from './_components/apples-to-apples';
 import { FeaturesBento } from './_components/features-bento';
 import { FramedTestimonial } from './_components/framed-testimonial';
@@ -9,9 +10,35 @@ import { LicenseCta } from './_components/license-cta';
 import { SiteFooter } from './_components/site-footer';
 import { SiteHeader } from './_components/site-header';
 
+/**
+ * schema.org entity markup for search engines. Deliberately no `offers`:
+ * ramka is free under the GPL with a paid commercial license, and a flat
+ * price in a search snippet would misrepresent the dual-license model.
+ */
+const structuredData = {
+  '@context': 'https://schema.org',
+  '@type': 'SoftwareApplication',
+  name: 'ramka',
+  url: siteUrl,
+  description:
+    'Headless React lightbox with View Transitions morph animations, pinch to zoom, swipe navigation, and pull to dismiss. Unstyled, accessible image gallery primitives built on native scrolling.',
+  applicationCategory: 'DeveloperApplication',
+  operatingSystem: 'Web',
+  sameAs: ['https://github.com/arturbien/ramka'],
+  author: {
+    '@type': 'Person',
+    name: 'Artur Bień',
+    url: 'https://github.com/arturbien',
+  },
+};
+
 export default function HomePage() {
   return (
     <div className="isolate flex min-h-screen flex-col">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
+      />
       <SiteHeader />
 
       <main className="flex-1">

@@ -6,7 +6,7 @@ import { PRIVACY_PATH, readMarkdownDoc } from '../license/documents';
 import { LegalMarkdown } from '../license/legal-markdown';
 
 export const metadata: Metadata = {
-  title: 'Privacy Policy — ramka',
+  title: 'Privacy Policy',
   description: 'How ramka collects, uses, and shares information on ramka.dev and for commercial licenses.',
 };
 

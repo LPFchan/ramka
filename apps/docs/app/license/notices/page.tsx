@@ -6,7 +6,7 @@ import { NOTICES_PATH, readMarkdownDoc } from '../documents';
 import { LegalMarkdown } from '../legal-markdown';
 
 export const metadata: Metadata = {
-  title: 'Third-party notices — ramka',
+  title: 'Third-party notices',
   description: 'Third-party code included in @ramka/react, with its license.',
 };
 

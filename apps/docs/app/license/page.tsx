@@ -30,7 +30,7 @@ function enquiryUrl(agreementVersion: string): string {
 }
 
 export const metadata: Metadata = {
-  title: 'License — ramka',
+  title: 'License',
   description:
     'ramka is free for open source under GPL-3.0-only. For proprietary software, buy once — lifetime license, unlimited developers, no subscription.',
 };

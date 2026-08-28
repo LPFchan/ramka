@@ -6,7 +6,7 @@ import { RETURN_POLICY_PATH, readMarkdownDoc } from '../license/documents';
 import { LegalMarkdown } from '../license/legal-markdown';
 
 export const metadata: Metadata = {
-  title: 'Return Policy — ramka',
+  title: 'Return Policy',
   description: 'Refunds and returns for ramka commercial software licenses.',
 };
 

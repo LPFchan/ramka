@@ -6,7 +6,7 @@ import { readAgreement } from '../documents';
 import { LegalMarkdown } from '../legal-markdown';
 
 export const metadata: Metadata = {
-  title: 'Commercial License Agreement — ramka',
+  title: 'Commercial License Agreement',
   description: 'The Ramka Commercial License Agreement.',
 };
 

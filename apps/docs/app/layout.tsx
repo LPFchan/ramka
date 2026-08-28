@@ -11,8 +11,9 @@ import './globals.css';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-sans' });
 
-const title = 'ramka';
-const description = 'Unstyled, accessible image gallery primitives for React.';
+const title = 'ramka — The lightbox for React';
+const description =
+  'Headless React lightbox with View Transitions morph animations, pinch to zoom, swipe navigation, and pull to dismiss. Unstyled, accessible image gallery primitives built on native scrolling.';
 
 export const viewport: Viewport = {
   themeColor: '#0A0A0A',
@@ -20,7 +21,12 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
-  title,
+  // Pages that set their own title get "<title> — ramka"; the homepage and
+  // pages without one get the keyword-carrying default.
+  title: {
+    default: title,
+    template: '%s — ramka',
+  },
   description,
   icons: {
     icon: [
@@ -40,7 +46,7 @@ export const metadata: Metadata = {
     title,
     description,
     url: siteUrl,
-    siteName: title,
+    siteName: 'ramka',
     type: 'website',
     locale: 'en_US',
   },

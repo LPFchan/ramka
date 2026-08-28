@@ -6,7 +6,7 @@ import { TERMS_PATH, readMarkdownDoc } from '../license/documents';
 import { LegalMarkdown } from '../license/legal-markdown';
 
 export const metadata: Metadata = {
-  title: 'Terms of Service — ramka',
+  title: 'Terms of Service',
   description: 'Terms for using ramka.dev and purchasing a commercial ramka license.',
 };
 

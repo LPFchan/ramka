@@ -11,7 +11,7 @@ const quietLinkClassName =
   'underline decoration-neutral-300 underline-offset-2 transition hover:decoration-neutral-500 dark:decoration-neutral-700 dark:hover:decoration-neutral-500';
 
 export const metadata: Metadata = {
-  title: 'Purchase complete — ramka',
+  title: 'Purchase complete',
   description: 'Thanks for purchasing a ramka commercial license.',
 };
 
