@@ -270,6 +270,12 @@ export default async function LicensePage() {
             <span aria-hidden className="px-2">
               ·
             </span>
+            <Link href="/terms" className={quietLinkClassName}>
+              Terms of Service
+            </Link>
+            <span aria-hidden className="px-2">
+              ·
+            </span>
             <Link href="/privacy" className={quietLinkClassName}>
               Privacy Policy
             </Link>

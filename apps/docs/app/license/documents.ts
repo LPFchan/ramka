@@ -12,6 +12,7 @@ export const AGREEMENT_PATH = 'packages/ramka/COMMERCIAL-LICENSE.md';
 export const NOTICES_PATH = 'packages/ramka/THIRD-PARTY-NOTICES.md';
 export const PRIVACY_PATH = 'packages/ramka/PRIVACY.md';
 export const RETURN_POLICY_PATH = 'packages/ramka/RETURN-POLICY.md';
+export const TERMS_PATH = 'packages/ramka/TERMS.md';
 
 export type MarkdownDoc = {
   /** The `# ` heading, rendered as the page title. */
