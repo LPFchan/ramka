@@ -9,6 +9,11 @@ import type { AttrRow, CssVarRow, PropRow } from './types';
 export const generatedProps: Record<string, PropRow[]> = {
   "api-root": [
     {
+      name: "license",
+      type: "LicenseType",
+      description: "Declares the license under which Ramka is being used.\n\nUse `\"gpl\"` for GPL-3.0-only compliant use, or `\"commercial\"` if you have purchased a commercial license.\n\nThis value is not a license key and is not validated remotely.\n\nhttps://ramka.dev/license",
+    },
+    {
       name: "children",
       type: "ReactNode",
       description: "Lightbox parts and page content (triggers typically live as children of Root).",

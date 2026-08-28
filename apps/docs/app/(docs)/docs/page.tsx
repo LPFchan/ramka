@@ -79,6 +79,12 @@ export default function HomePage() {
           </Link>{' '}
           if you purchase one.
         </p>
+        <p className="text-[15px] leading-7 text-neutral-600 dark:text-neutral-400">
+          Declare the license you are using on <code className="text-xs">Lightbox.Root</code> with{' '}
+          <code className="text-xs">license=&quot;gpl&quot;</code> or{' '}
+          <code className="text-xs">license=&quot;commercial&quot;</code>. This is an honor-system
+          declaration, not a license key, and is not validated remotely.
+        </p>
       </section>
 
       <section className="mt-14 rounded-2xl border border-neutral-200 p-6 dark:border-neutral-800">

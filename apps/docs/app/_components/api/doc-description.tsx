@@ -1,6 +1,7 @@
 import * as React from 'react';
 
 import { TypeHighlight } from './type-highlight';
+import { docsLinkClassName } from '../docs-link';
 
 /**
  * Renders JSDoc / docs prose with light formatting:
@@ -11,14 +12,16 @@ export function DocDescription({ text }: { text: string }) {
     return <span className="text-neutral-400">—</span>;
   }
 
-  const blocks = text.split(/\n{2,}/).map((b) => b.trim()).filter(Boolean);
+  const blocks = text
+    .split(/\n{2,}/)
+    .map((b) => b.trim())
+    .filter(Boolean);
 
   return (
     <div className="space-y-3 text-inherit">
       {blocks.map((block, i) => {
         const lines = block.split('\n');
-        const isList =
-          lines.every((l) => /^\s*-\s+/.test(l) || (l.startsWith('  ') && lines[0]?.startsWith('-')));
+        const isList = lines.every((l) => /^\s*-\s+/.test(l) || (l.startsWith('  ') && lines[0]?.startsWith('-')));
 
         if (isList || lines.some((l) => /^\s*-\s+/.test(l))) {
           const items = parseListItems(lines);
@@ -63,15 +66,13 @@ function looksLikeTypeOrValue(code: string): boolean {
   // Highlight TS-ish snippets; leave prose-y identifiers as neutral chips.
   return (
     /['"`]|=>|\||&|<|>|\(|\)|\{|\}|\[|\]|:/.test(code) ||
-    /^(true|false|null|undefined|boolean|string|number|function|void|never|any|unknown)$/.test(
-      code,
-    ) ||
+    /^(true|false|null|undefined|boolean|string|number|function|void|never|any|unknown)$/.test(code) ||
     /^[A-Z][A-Za-z0-9.]*$/.test(code)
   );
 }
 
 function InlineMarkdown({ text }: { text: string }) {
-  const parts = text.split(/(`[^`]+`|\*\*[^*]+\*\*)/g).filter(Boolean);
+  const parts = text.split(/(`[^`]+`|\*\*[^*]+\*\*|https?:\/\/[^\s]+)/g).filter(Boolean);
   return (
     <>
       {parts.map((part, i) => {
@@ -101,6 +102,13 @@ function InlineMarkdown({ text }: { text: string }) {
             <strong key={i} className="font-semibold text-neutral-900 dark:text-neutral-50">
               {part.slice(2, -2)}
             </strong>
+          );
+        }
+        if (/^https?:\/\//.test(part)) {
+          return (
+            <a key={i} href={part} className={docsLinkClassName}>
+              {part}
+            </a>
           );
         }
         return <React.Fragment key={i}>{part}</React.Fragment>;

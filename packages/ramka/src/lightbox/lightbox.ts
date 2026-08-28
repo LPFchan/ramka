@@ -139,6 +139,7 @@ export type {
   LightboxBeforeClose,
   LightboxBeforeCloseContext,
 } from './lightbox-root';
+export type { LicenseType } from './lightbox-license';
 export type { LightboxViewTransitionPreset } from './vt-timing';
 export type {
   LightboxTriggerProps,

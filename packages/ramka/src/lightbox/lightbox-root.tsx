@@ -47,8 +47,21 @@ import { DEFAULT_DECODE_MAX_WAIT, isLowEndDevice, supportsViewTransitions } from
 import type { LightboxViewTransitionPreset } from './vt-timing';
 import type { ViewTransitionMorph, ViewTransitionMorphConfig } from './use-view-transition-morph';
 import type { TextDirection } from './lightbox-direction';
+import type { LicenseType } from './lightbox-license';
+import { useLicenseDeclarationWarning } from './use-license-declaration-warning';
 
 interface LightboxRootProps {
+  /**
+   * Declares the license under which Ramka is being used.
+   *
+   * Use `"gpl"` for GPL-3.0-only compliant use, or `"commercial"` if you have purchased
+   * a commercial license.
+   *
+   * This value is not a license key and is not validated remotely.
+   *
+   * https://ramka.dev/license
+   */
+  license?: LicenseType;
   /** Lightbox parts and page content (triggers typically live as children of Root). */
   children?: React.ReactNode;
   /**
@@ -270,6 +283,7 @@ function runAfterAnimations(
 function LightboxRoot(props: LightboxRootProps) {
     const {
       children,
+      license,
       handle: handleProp,
       defaultOpen = false,
       open: openProp,
@@ -287,6 +301,8 @@ function LightboxRoot(props: LightboxRootProps) {
       onBeforeOpen,
       onBeforeClose,
     } = props;
+
+    useLicenseDeclarationWarning(license);
 
     // Behavior always needs a concrete direction; the attribute is only written
     // when the consumer asked for one. Defaulting the attribute to `'ltr'` would

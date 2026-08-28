@@ -21,6 +21,7 @@ export { useOptionalLightboxStageContext as useLightboxStageContext } from './li
 export type { LightboxHandle, LightboxHandleOpenOptions } from './lightbox-handle';
 export type { LightboxContextValue, NavigationSource } from './lightbox-context';
 export type { TextDirection } from './lightbox-direction';
+export type { LicenseType } from './lightbox-license';
 export type { LightboxItemContextValue } from './lightbox-item';
 export type { LightboxMediaContextValue } from './lightbox-media';
 export type { LightboxTriggerRenderState } from './lightbox-trigger';

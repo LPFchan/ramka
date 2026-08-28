@@ -72,6 +72,8 @@ Most teams building closed-source products will therefore want the commercial li
 
 This is practical guidance, not legal advice. The applicable license terms govern: the [GPL](https://www.gnu.org/licenses/gpl-3.0.html) for open-source use, or the [Commercial License Agreement](https://ramka.dev/license/commercial) if you purchase one.
 
+Declare the license you are using on `Lightbox.Root` with `license="gpl"` or `license="commercial"`. This is an honor-system declaration, not a license key, and is not validated remotely.
+
 ## Next steps
 
 - [Lightbox overview](docs/lightbox.md) — guidelines and anatomy, then [Composition](docs/lightbox/composition.md).
@@ -1329,6 +1331,7 @@ Groups all parts of the lightbox and owns open state, active index, view-transit
 
 | Name | Type | Default | Description |
 | --- | --- | --- | --- |
+| license | `LicenseType` |  | Declares the license under which Ramka is being used. Use `"gpl"` for GPL-3.0-only compliant use, or `"commercial"` if you have purchased a commercial license. This value is not a license key and is not validated remotely. https://ramka.dev/license |
 | children | `ReactNode` |  | Lightbox parts and page content (triggers typically live as children of Root). |
 | handle | `LightboxHandle` |  | Imperative handle from `Lightbox.createHandle()`. Pass the same handle to detached `Lightbox.Trigger`s outside this Root. |
 | defaultOpen | `boolean` | `false` | Uncontrolled initial open state. |

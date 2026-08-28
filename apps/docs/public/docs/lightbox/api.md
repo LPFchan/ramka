@@ -22,6 +22,7 @@ Groups all parts of the lightbox and owns open state, active index, view-transit
 
 | Name | Type | Default | Description |
 | --- | --- | --- | --- |
+| license | `LicenseType` |  | Declares the license under which Ramka is being used. Use `"gpl"` for GPL-3.0-only compliant use, or `"commercial"` if you have purchased a commercial license. This value is not a license key and is not validated remotely. https://ramka.dev/license |
 | children | `ReactNode` |  | Lightbox parts and page content (triggers typically live as children of Root). |
 | handle | `LightboxHandle` |  | Imperative handle from `Lightbox.createHandle()`. Pass the same handle to detached `Lightbox.Trigger`s outside this Root. |
 | defaultOpen | `boolean` | `false` | Uncontrolled initial open state. |

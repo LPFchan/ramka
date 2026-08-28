@@ -116,6 +116,10 @@ under its own terms rather than the GPL.
 [Read more about the commercial license](https://ramka.dev/license) ·
 [Commercial License Agreement](https://ramka.dev/license/commercial)
 
+Declare the license you are using on `Lightbox.Root` with `license="gpl"` or
+`license="commercial"`. This is an honor-system declaration, not a license key,
+and is not validated remotely.
+
 The GPLv3 text and licensing overview are in [LICENSE](./LICENSE), which ships
 inside this package. The vendored Base UI code noted in
 [THIRD-PARTY-NOTICES.md](./THIRD-PARTY-NOTICES.md), also published at

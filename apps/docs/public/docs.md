@@ -66,6 +66,8 @@ Most teams building closed-source products will therefore want the commercial li
 
 This is practical guidance, not legal advice. The applicable license terms govern: the [GPL](https://www.gnu.org/licenses/gpl-3.0.html) for open-source use, or the [Commercial License Agreement](https://ramka.dev/license/commercial) if you purchase one.
 
+Declare the license you are using on `Lightbox.Root` with `license="gpl"` or `license="commercial"`. This is an honor-system declaration, not a license key, and is not validated remotely.
+
 ## Next steps
 
 - [Lightbox overview](docs/lightbox.md) — guidelines and anatomy, then [Composition](docs/lightbox/composition.md).
