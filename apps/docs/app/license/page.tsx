@@ -31,7 +31,8 @@ function enquiryUrl(agreementVersion: string): string {
 
 export const metadata: Metadata = {
   title: 'License — ramka',
-  description: 'ramka is free under GPL-3.0-only. For proprietary software, choose a one-time commercial license.',
+  description:
+    'ramka is free for open source under GPL-3.0-only. For proprietary software, buy once — lifetime license, unlimited developers, no subscription.',
 };
 
 const primaryCtaClassName =
@@ -46,8 +47,10 @@ const quietLinkClassName =
 interface Tier {
   name: string;
   description: string;
-  /** Heading above the list, since the OEM tier lists examples rather than what is included. */
-  listTitle: string;
+  price: string;
+  /** Sits under the price: the payment model for paid tiers, the process for OEM. */
+  priceNote: string;
+  /** Short differentiators only — everything shared lives in the strip below the cards. */
   items: string[];
   /** The one tier that carries the raised card. */
   featured?: boolean;
@@ -60,15 +63,12 @@ const tiers: Tier[] = [
   {
     name: 'Commercial',
     description: 'For companies building their own proprietary products.',
-    listTitle: 'Includes',
+    price: '$129',
+    priceNote: 'One-time payment',
     items: [
-      'Unlimited developers',
-      'Unlimited products owned by the licensee',
-      'Lifetime license',
-      'All updates until version 1.0',
-      'No subscription',
-      'No runtime fees',
-      'Commercial and proprietary use',
+      'Unlimited products owned by your company',
+      'Use in proprietary, closed-source software',
+      'Not for client work or redistribution',
     ],
     featured: true,
     checkoutPlan: 'commercial',
@@ -76,34 +76,35 @@ const tiers: Tier[] = [
   },
   {
     name: 'Agency',
-    description: 'For freelancers and agencies building proprietary products for clients.',
-    listTitle: 'Includes',
+    description: 'For freelancers and agencies building products for clients.',
+    price: '$299',
+    priceNote: 'One-time payment',
     items: [
-      'Unlimited developers',
       'Unlimited client projects',
-      'Commercial and proprietary use',
-      'Lifetime license',
-      'All updates until version 1.0',
-      'No subscription',
-      'No runtime fees',
+      'Use in proprietary, closed-source software',
+      'Covers work delivered to any client',
     ],
     checkoutPlan: 'agency',
     buyLabel: 'Buy Agency',
   },
   {
     name: 'Embedded / OEM',
-    description:
-      'For proprietary redistribution — such as component libraries, SDKs, site builders, template systems, white-label products, or other products that expose Ramka for use by third parties.',
-    listTitle: 'For example',
-    items: ['Component libraries', 'SDKs', 'Site builders', 'Template systems', 'White-label products'],
+    description: 'For proprietary redistribution — products that expose ramka for use by third parties.',
+    price: 'Custom',
+    priceNote: 'Quoted over email',
+    items: ['Component libraries and SDKs', 'Site builders and template systems', 'White-label products'],
   },
 ];
+
+// What every paid license includes, pulled out of the cards so each card can
+// carry only what tells the tiers apart.
+const sharedInclusions = ['Lifetime license', 'Unlimited developers', 'No subscription', 'No runtime fees'];
 
 const faqs = [
   {
     question: 'Can I use ramka commercially for free?',
     answer:
-      'Yes, if your use complies with GPL-3.0-only. The paid licenses are for proprietary use without relying on the GPL.',
+      'Yes, but only under GPL-3.0-only — a copyleft license that requires the software using ramka to be released under the GPL as well. The paid licenses are for proprietary use without those obligations.',
   },
   {
     question: 'Is the license a subscription?',
@@ -118,9 +119,9 @@ const faqs = [
     answer: 'No. Use the Agency license for work delivered to clients.',
   },
   {
-    question: 'Can I include Ramka in my open-source component library?',
+    question: 'Can I include ramka in my open-source library?',
     answer:
-      'Yes, if you comply with GPL-3.0-only. Downstream users of that library do not automatically receive proprietary-use rights to Ramka. If they use Ramka in proprietary software and do not want to rely on the GPL, they need an applicable commercial license.',
+      'Yes, under GPL-3.0-only — but the GPL obligations continue downstream. Wrapping ramka in another open-source package does not change its license or remove its copyleft terms. Downstream users who want to use ramka in proprietary software without relying on the GPL need their own commercial license.',
   },
   {
     question: 'Can I include ramka in my component library or site builder?',
@@ -147,22 +148,24 @@ function TierCard({ tier, contactHref, checkoutHref }: { tier: Tier; contactHref
       <div className="flex min-h-6 items-center justify-between gap-3">
         <h3 className="text-[15px] font-semibold tracking-tight text-neutral-900 dark:text-neutral-50">{tier.name}</h3>
         {tier.featured ? (
-          <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-neutral-400 dark:text-neutral-500">
-            Recommended
+          <span className="inline-flex items-center rounded-full bg-emerald-100 px-2.5 py-1 text-[11px] font-medium leading-none text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+            Most popular
           </span>
         ) : null}
       </div>
 
-      {/* Three lines' worth of room, so the descriptions' differing lengths
+      <div className="mt-6">
+        <div className="text-4xl font-semibold tracking-tight text-neutral-950 dark:text-neutral-50">{tier.price}</div>
+        <div className="mt-1.5 text-[13px] text-neutral-400 dark:text-neutral-500">{tier.priceNote}</div>
+      </div>
+
+      {/* Two lines' worth of room, so the descriptions' differing lengths
           don't leave the three lists starting at three different heights. */}
-      <p className="mt-5 text-pretty text-[15px] leading-6 text-neutral-600 lg:min-h-18 dark:text-neutral-400">
+      <p className="mt-6 text-pretty text-[15px] leading-6 text-neutral-600 lg:min-h-12 dark:text-neutral-400">
         {tier.description}
       </p>
 
-      <div className="mt-8 text-[11px] font-medium uppercase tracking-[0.08em] text-neutral-400 dark:text-neutral-500">
-        {tier.listTitle}
-      </div>
-      <ul className="mt-3 flex-1 space-y-2.5">
+      <ul className="mt-6 flex-1 space-y-2.5 border-t border-neutral-100 pt-6 dark:border-neutral-900">
         {tier.items.map((item) => (
           <li key={item} className="flex gap-2.5 text-[15px] leading-6 text-neutral-700 dark:text-neutral-300">
             <Check aria-hidden className="mt-1 size-3.5 shrink-0 text-neutral-400 dark:text-neutral-500" />
@@ -173,7 +176,7 @@ function TierCard({ tier, contactHref, checkoutHref }: { tier: Tier; contactHref
 
       <div className="mt-auto pt-8">
         {checkoutHref ? (
-          <a href={checkoutHref} className={primaryCtaClassName}>
+          <a href={checkoutHref} className={tier.featured ? primaryCtaClassName : secondaryCtaClassName}>
             {tier.buyLabel}
           </a>
         ) : tier.checkoutPlan ? null : (
@@ -198,14 +201,14 @@ export default async function LicensePage() {
       <main className="flex-1">
         <section className="mx-auto w-full max-w-2xl px-6 pt-16 text-center md:pt-20">
           <h1 className="text-balance text-4xl font-semibold tracking-tight text-neutral-950 md:text-5xl dark:text-neutral-50">
-            Simple licensing. Yours forever.
+            Buy once. Yours forever.
           </h1>
           {/* Two sentences, two lines — the second is the one that sends a
               proprietary team to the pricing row, so it gets its own line
               rather than trailing off the end of the first. */}
           <p className="mx-auto mt-5 max-w-xl text-pretty text-[17px] leading-7 text-neutral-500 dark:text-neutral-400">
-            <span className="block">ramka is free under GPL-3.0-only.</span>
-            <span className="block">For proprietary software, choose a commercial license.</span>
+            <span className="block">ramka is free for open source under GPL-3.0-only.</span>
+            <span className="block">For proprietary software, one payment covers your whole team, for life.</span>
           </p>
         </section>
 
@@ -222,8 +225,20 @@ export default async function LicensePage() {
             ))}
           </div>
 
-          <p className="mt-10 text-center text-[13px] leading-6 text-neutral-400 dark:text-neutral-500">
-            Licenses are granted under the{' '}
+          <ul className="mx-auto mt-10 flex max-w-3xl flex-wrap items-center justify-center gap-x-7 gap-y-2.5">
+            {sharedInclusions.map((item) => (
+              <li
+                key={item}
+                className="flex items-center gap-2 text-[13px] leading-6 text-neutral-500 dark:text-neutral-400"
+              >
+                <Check aria-hidden className="size-3.5 shrink-0 text-neutral-400 dark:text-neutral-500" />
+                {item}
+              </li>
+            ))}
+          </ul>
+
+          <p className="mt-8 text-center text-[13px] leading-6 text-neutral-400 dark:text-neutral-500">
+            Prices exclude any applicable taxes, calculated at checkout. Licenses are granted under the{' '}
             <Link href="/license/commercial" className={quietLinkClassName}>
               Ramka Commercial License Agreement
             </Link>
@@ -231,40 +246,28 @@ export default async function LicensePage() {
           </p>
         </section>
 
-        <section className="mx-auto w-full max-w-5xl px-6 pt-16">
-          <div className="rounded-3xl border border-neutral-200 px-8 py-8 text-center dark:border-neutral-800">
-            <h2 className="text-xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-50">
-              Prefer open source?
-            </h2>
-            <p className="mx-auto mt-3 max-w-xl text-pretty text-[15px] leading-7 text-neutral-600 dark:text-neutral-400">
-              ramka is also available under GPL-3.0-only at no cost, including for commercial use, provided your use
-              complies with the GPL.
-            </p>
+        <section className="mx-auto w-full max-w-2xl px-6 pt-20 text-center md:pt-24">
+          <h2 className="text-xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-50">
+            Building open source?
+          </h2>
+          <p className="mx-auto mt-3 max-w-xl text-pretty text-[15px] leading-7 text-neutral-600 dark:text-neutral-400">
+            ramka is free under GPL-3.0-only — a copyleft license that requires software using ramka to be released
+            under the GPL as well, with full source code. Keeping your source closed? That&rsquo;s what the commercial
+            licenses are for.
+          </p>
+          <p className="mt-4 text-[15px]">
             <a
               href={GPL_URL}
               target="_blank"
               rel="noreferrer"
-              className="mt-6 inline-flex h-11 items-center justify-center rounded-full border border-neutral-200 px-5 text-sm font-medium text-neutral-900 transition hover:bg-neutral-100 dark:border-neutral-800 dark:text-neutral-50 dark:hover:bg-neutral-900"
+              className="font-medium text-neutral-900 underline decoration-neutral-300 underline-offset-2 transition hover:decoration-neutral-500 dark:text-neutral-50 dark:decoration-neutral-700 dark:hover:decoration-neutral-500"
             >
               View the GPL license
             </a>
-            <div className="mx-auto mt-8 max-w-lg border-t border-neutral-200 pt-6 text-left dark:border-neutral-800">
-              <p className="text-[13px] font-medium text-neutral-700 dark:text-neutral-300">
-                Using Ramka inside an open-source library?
-              </p>
-              <p className="mt-2 text-[13px] leading-6 text-neutral-500 dark:text-neutral-500">
-                That’s allowed under GPL-3.0-only, but the GPL obligations continue downstream. Wrapping Ramka in
-                another open-source package does not change Ramka’s license or remove its copyleft terms.
-              </p>
-              <p className="mt-2 text-[13px] leading-6 text-neutral-500 dark:text-neutral-500">
-                If a downstream user wants to use Ramka in proprietary software without relying on the GPL, they need
-                an applicable commercial license.
-              </p>
-            </div>
-          </div>
+          </p>
         </section>
 
-        <section className="mx-auto w-full max-w-5xl px-6 pt-16">
+        <section className="mx-auto w-full max-w-5xl px-6 pt-20 md:pt-24">
           <h2 className="text-center text-xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-50">
             Questions
           </h2>
