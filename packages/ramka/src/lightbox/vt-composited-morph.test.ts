@@ -336,7 +336,6 @@ describe('composited morph — bails that leave the stock UA morph running', () 
 
     expectStockMorphLeftAlone(ua);
   });
-
 });
 
 describe('composited morph — Android Chrome compositor hold', () => {

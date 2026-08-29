@@ -164,141 +164,6 @@ const GROUP_PSEUDO = `::view-transition-group(${VIEW_TRANSITION_NAME})`;
 const OLD_PSEUDO = `::view-transition-old(${VIEW_TRANSITION_NAME})`;
 const NEW_PSEUDO = `::view-transition-new(${VIEW_TRANSITION_NAME})`;
 
-/**
- * TEMP: Android Chrome morph investigation instrumentation. OPT-IN at runtime
- * via `window.__RAMKA_VT_DEBUG__ = true` — the frame sampler alone forces
- * five pseudo-element getComputedStyle reads plus a console.info per rAF for
- * the whole transition, which is enough main-thread + devtools-protocol
- * traffic to make the morph itself stutter on emulators. Off by default so
- * measurements reflect what users ship.
- */
-function vtDebugEnabled(): boolean {
-  if (typeof window === 'undefined') return false;
-  return (window as unknown as Record<string, unknown>).__RAMKA_VT_DEBUG__ === true;
-}
-
-function vtRound(n: number): number {
-  return Number(n.toFixed(2));
-}
-
-function viewportDump(): Record<string, unknown> {
-  const vv = window.visualViewport;
-  const de = document.documentElement;
-  return {
-    inner: [window.innerWidth, window.innerHeight],
-    client: [de.clientWidth, de.clientHeight],
-    scroll: [vtRound(window.scrollX), vtRound(window.scrollY)],
-    screen: [window.screen.width, window.screen.height],
-    avail: [window.screen.availWidth, window.screen.availHeight],
-    dpr: window.devicePixelRatio,
-    vv: vv
-      ? {
-          size: [vtRound(vv.width), vtRound(vv.height)],
-          offset: [vtRound(vv.offsetLeft), vtRound(vv.offsetTop)],
-          page: [vtRound(vv.pageLeft), vtRound(vv.pageTop)],
-          scale: vtRound(vv.scale),
-        }
-      : null,
-    aligned: vv ? Math.abs(window.innerHeight - vv.height) <= 1 : null,
-  };
-}
-
-function pseudoDump(pseudo: string): Record<string, unknown> {
-  const s = getComputedStyle(document.documentElement, pseudo);
-  return {
-    size: [s.width, s.height],
-    transform: s.transform,
-    origin: s.transformOrigin,
-    overflow: s.overflow,
-    inset: [s.top, s.right, s.bottom, s.left],
-    clip: s.clipPath,
-    opacity: s.opacity,
-    objectFit: s.objectFit,
-    mixBlend: s.mixBlendMode,
-    animation: s.animationName,
-    animationDuration: s.animationDuration,
-  };
-}
-
-function elDump(el: Element | null | undefined): Record<string, unknown> | null {
-  if (!el) return null;
-  const r = el.getBoundingClientRect();
-  const s = getComputedStyle(el);
-  return {
-    tag: el.tagName,
-    vtName: s.viewTransitionName,
-    rect: [vtRound(r.x), vtRound(r.y), vtRound(r.width), vtRound(r.height)],
-    size: [s.width, s.height],
-    transform: s.transform,
-    overflow: s.overflow,
-    objectFit: s.objectFit,
-  };
-}
-
-function vtDebug(event: string, data?: Record<string, unknown>): void {
-  if (!vtDebugEnabled()) return;
-  const payload = { t: vtRound(performance.now()), event, vp: viewportDump(), ...data };
-  console.info(`[ramka-vt] ${JSON.stringify(payload)}`);
-}
-
-function vtPseudos(): Record<string, unknown> {
-  return {
-    group: pseudoDump(GROUP_PSEUDO),
-    old: pseudoDump(OLD_PSEUDO),
-    new: pseudoDump(NEW_PSEUDO),
-    rootOld: pseudoDump('::view-transition-old(root)'),
-    rootNew: pseudoDump('::view-transition-new(root)'),
-    attrs: {
-      vt: document.documentElement.getAttribute('data-ramka-view-transition'),
-      composited: document.documentElement.hasAttribute('data-ramka-vt-composited'),
-      compositedCss: document.documentElement.hasAttribute('data-ramka-vt-composited-css'),
-      crossfade: document.documentElement.hasAttribute('data-ramka-crossfade'),
-      hold: document.documentElement.hasAttribute(VT_COMPOSITOR_HOLD_ATTR),
-    },
-  };
-}
-
-function startVtFrameSampler(finished: Promise<unknown>): void {
-  if (!vtDebugEnabled()) return;
-  let n = 0;
-  let stopped = false;
-  finished.finally(() => {
-    stopped = true;
-  });
-  const tick = () => {
-    if (stopped) return;
-    n += 1;
-    vtDebug('frame', { n, ...vtPseudos() });
-    requestAnimationFrame(tick);
-  };
-  requestAnimationFrame(tick);
-}
-
-function watchViewTransition(
-  phase: 'open' | 'close',
-  transition: { ready?: Promise<void>; finished: Promise<void> },
-): void {
-  if (!vtDebugEnabled()) return;
-  const vv = window.visualViewport;
-  const dump = (why: string) => vtDebug('viewport', { phase, why, ...vtPseudos() });
-  dump('watch-start');
-  const onResize = () => dump('vv-resize');
-  const onScroll = () => dump('vv-scroll');
-  vv?.addEventListener('resize', onResize);
-  vv?.addEventListener('scroll', onScroll);
-  transition.ready
-    ?.then(() => vtDebug('ready', { phase, ...vtPseudos() }))
-    .catch((err: unknown) => vtDebug('ready-reject', { phase, err: String(err) }));
-  transition.finished
-    .then(() => vtDebug('finished', { phase, ...vtPseudos() }))
-    .catch((err: unknown) => vtDebug('finished-reject', { phase, err: String(err) }))
-    .finally(() => {
-      dump('watch-end');
-      vv?.removeEventListener('resize', onResize);
-      vv?.removeEventListener('scroll', onScroll);
-    });
-}
-
 function isCompositedMorphEnabled(): boolean {
   return (
     typeof window !== 'undefined' &&
@@ -517,20 +382,17 @@ function releaseCompositorHold(): void {
 
 function upgrade(transition: UpgradeableTransition): void {
   const docEl = document.documentElement;
-  const bail = (reason: string, extra?: Record<string, unknown>) => {
-    // Unpause whatever the compositor hold froze — the stock morph resumes
-    // from frame 0 (a paused animation left behind would never finish and
-    // hold the pseudo tree hostage).
-    releaseCompositorHold();
-    vtDebug('upgrade-bail', { reason, ...extra, ...vtPseudos() });
-  };
+  // Every bail must unpause whatever the compositor hold froze — the stock
+  // morph resumes from frame 0 (a paused animation left behind would never
+  // finish and hold the pseudo tree hostage).
+  const bail = releaseCompositorHold;
 
   // Crossfade morphs replace the group animation only: snapshots keep their
   // `100%` + `object-fit: fill` contract (tracks the frozen box for free)
   // and their compositor-friendly UA opacity dissolve. See module docblock.
   const isCrossfade = docEl.hasAttribute(LightboxDocumentDataAttributes.crossfade);
   if (typeof document.getAnimations !== 'function') {
-    bail('no-getAnimations');
+    bail();
     return;
   }
 
@@ -542,10 +404,7 @@ function upgrade(transition: UpgradeableTransition): void {
     ((a as CSSAnimation).animationName ?? '').startsWith('-ua-view-transition-group-anim'),
   );
   if (!uaAnim || !uaAnim.effect) {
-    bail('no-ua-group-anim', {
-      groupAnimCount: groupAnimations.length,
-      names: groupAnimations.map((a) => (a as CSSAnimation).animationName ?? ''),
-    });
+    bail();
     return;
   }
 
@@ -560,7 +419,7 @@ function upgrade(transition: UpgradeableTransition): void {
   }
   const fromFrame = uaKeyframes.find((kf) => (kf.computedOffset ?? kf.offset ?? 0) === 0);
   if (!fromFrame) {
-    bail('no-from-frame', { kfCount: uaKeyframes.length });
+    bail();
     return;
   }
 
@@ -568,14 +427,14 @@ function upgrade(transition: UpgradeableTransition): void {
   const w0 = parsePx(fromFrame.width);
   const h0 = parsePx(fromFrame.height);
   if (!fromT || w0 == null || h0 == null) {
-    bail('unparsable-from', { transform: fromFrame.transform, width: fromFrame.width, height: fromFrame.height });
+    bail();
     return;
   }
 
   const uaTiming = effect.getComputedTiming();
   const uaDuration = typeof uaTiming.duration === 'number' ? uaTiming.duration : NaN;
   if (!Number.isFinite(uaDuration) || uaDuration <= 0) {
-    bail('bad-ua-duration', { uaDuration });
+    bail();
     return;
   }
 
@@ -630,11 +489,7 @@ function upgrade(transition: UpgradeableTransition): void {
       // Restore the stock animation and bail.
       uaAnim.currentTime = 0;
       uaAnim.play();
-      bail('unparsable-to', {
-        toTransform: toFrame?.transform,
-        toWidth: toFrame?.width,
-        toHeight: toFrame?.height,
-      });
+      bail();
       return;
     }
   }
@@ -760,27 +615,6 @@ function upgrade(transition: UpgradeableTransition): void {
     }
   }
 
-  const first = groupFrames[0];
-  const mid = groupFrames[Math.floor(groupFrames.length / 2)];
-  const last = groupFrames[groupFrames.length - 1];
-  vtDebug('upgrade', {
-    isCrossfade,
-    useCss: isWebKit(),
-    duration,
-    uaDuration,
-    uaElapsed,
-    from: { ...fromT, w: w0, h: h0 },
-    to: { ...toT, w: w1, h: h1 },
-    origin: { fx, fy, box: [originBoxW, originBoxH], raw: originStyle.transformOrigin },
-    fromAspect: w0 / h0,
-    toAspect: w1 / h1,
-    scaleTo: { sx: w0 / w1, sy: h0 / h1 },
-    groupFrames: { first: first?.transform, mid: mid?.transform, last: last?.transform, steps },
-    old0: oldFrames[0]?.transform,
-    new0: newFrames[0]?.transform,
-    ...vtPseudos(),
-  });
-
   const options = (pseudoElement: string): KeyframeAnimationOptions => ({
     duration,
     easing: 'linear',
@@ -874,7 +708,7 @@ ${snapshotCss}`,
       clearSnapSizes();
       uaAnim.currentTime = 0;
       uaAnim.play();
-      bail('waapi-throw');
+      bail();
       return;
     }
 
@@ -892,8 +726,6 @@ ${snapshotCss}`,
   // dissolves, root fades) and the replacements all start in one commit.
   releaseCompositorHold();
 
-  startVtFrameSampler(transition.finished);
-
   transition.finished.finally(() => {
     for (const a of created) a.cancel();
     docEl.removeAttribute(COMPOSITED_ATTR);
@@ -903,11 +735,4 @@ ${snapshotCss}`,
   });
 }
 
-export {
-  maybeUpgradeToCompositedMorph,
-  isCompositedMorphEnabled,
-  parseScaleTranslate,
-  elDump,
-  vtDebug,
-  watchViewTransition,
-};
+export { maybeUpgradeToCompositedMorph, isCompositedMorphEnabled, parseScaleTranslate };
