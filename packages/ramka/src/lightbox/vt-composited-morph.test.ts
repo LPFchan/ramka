@@ -18,6 +18,10 @@ const OLD_PSEUDO = '::view-transition-old(lightbox-morph)';
 const NEW_PSEUDO = '::view-transition-new(lightbox-morph)';
 const COMPOSITED_ATTR = 'data-ramka-vt-composited';
 const COMPOSITED_CSS_ATTR = 'data-ramka-vt-composited-css';
+const SNAP_OLD_W = '--ramka-vt-snap-old-w';
+const SNAP_OLD_H = '--ramka-vt-snap-old-h';
+const SNAP_NEW_W = '--ramka-vt-snap-new-w';
+const SNAP_NEW_H = '--ramka-vt-snap-new-h';
 
 /** Endpoints of a plausible thumbnail→full morph, in UA keyframe shape. */
 const FROM = { computedOffset: 0, transform: 'matrix(1, 0, 0, 1, 100, 200)', width: '200px', height: '150px' };
@@ -193,6 +197,10 @@ afterEach(() => {
   document.documentElement.removeAttribute(COMPOSITED_ATTR);
   document.documentElement.removeAttribute(COMPOSITED_CSS_ATTR);
   document.documentElement.removeAttribute(LightboxDocumentDataAttributes.crossfade);
+  document.documentElement.style.removeProperty(SNAP_OLD_W);
+  document.documentElement.style.removeProperty(SNAP_OLD_H);
+  document.documentElement.style.removeProperty(SNAP_NEW_W);
+  document.documentElement.style.removeProperty(SNAP_NEW_H);
   document.head.querySelectorAll('style').forEach((el) => el.remove());
 });
 
@@ -326,6 +334,86 @@ describe('composited morph — bails that leave the stock UA morph running', () 
 
     expectStockMorphLeftAlone(ua);
   });
+
+});
+
+describe('composited morph — Android Chrome main-thread path', () => {
+  const ANDROID_UA =
+    'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.6478.71 Mobile Safari/537.36';
+
+  beforeEach(() => {
+    vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue(ANDROID_UA);
+  });
+
+  it('re-drives the UA morph as ONE main-thread effect (transform + width + height)', async () => {
+    // Chrome composites the transform track of VT group animations while the
+    // box and overflow clip stay main-threaded; under close-time jank the
+    // photo renders as the intersection of advanced content with a stale
+    // clip. Including width/height makes the whole effect non-compositable,
+    // so every track and the clip commit atomically.
+    const ua = uaGroupAnimation();
+    installAnimations([ua]);
+
+    await runUpgrade(fakeTransition().transition);
+
+    expect(ua.cancel).toHaveBeenCalled();
+    expect(animateSpy).toHaveBeenCalledTimes(1);
+    const [frames, options] = animateSpy.mock.calls[0]!;
+    expect(options.pseudoElement).toBe(GROUP_PSEUDO);
+    expect(options.easing).toBe('linear');
+    expect(options.fill).toBe('both');
+    expect(frames.length).toBeGreaterThan(20);
+    expect(frames[0]).toMatchObject({ width: '200px', height: '150px' });
+    expect(frames[frames.length - 1]).toMatchObject({ width: '800px', height: '600px' });
+    expect(String(frames[0].transform)).toBe('translate(100px, 200px) scale(1, 1)');
+    expect(String(frames[frames.length - 1].transform)).toBe('translate(0px, 0px) scale(1, 1)');
+
+    // No frozen-box machinery: no root attributes, no injected sheets, no
+    // snapshot size vars — snapshots keep the structural contract and the
+    // structural radius keyframes keep running on the group.
+    expect(document.documentElement.hasAttribute(COMPOSITED_ATTR)).toBe(false);
+    expect(document.documentElement.hasAttribute(COMPOSITED_CSS_ATTR)).toBe(false);
+    expect(compositedStyleEl()).toBeNull();
+    expect(document.documentElement.style.getPropertyValue(SNAP_OLD_W)).toBe('');
+  });
+
+  it('resumes from the UA animation’s painted progress', async () => {
+    installAnimations([uaGroupAnimation({ currentTime: 60 })]);
+
+    await runUpgrade(fakeTransition().transition);
+
+    expect(createdAnimations).toHaveLength(1);
+    expect(createdAnimations[0]!.currentTime).toBe(60);
+  });
+
+  it('cancels the replacement when the transition finishes', async () => {
+    const { transition, finish } = fakeTransition();
+
+    const upgrade = await loadUpgrade();
+    upgrade(transition);
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(createdAnimations).toHaveLength(1);
+
+    await finish();
+
+    expect(createdAnimations[0]!.cancel).toHaveBeenCalled();
+  });
+
+  it('rolls back to the stock morph when pseudo-element WAAPI throws', async () => {
+    const ua = uaGroupAnimation();
+    installAnimations([ua]);
+    animateSpy.mockImplementation(() => {
+      throw new Error('pseudo-element WAAPI unsupported');
+    });
+
+    await runUpgrade(fakeTransition().transition);
+
+    expect(ua.cancel).toHaveBeenCalled();
+    expect(ua.currentTime).toBe(0);
+    expect(ua.play).toHaveBeenCalled();
+  });
 });
 
 describe('composited morph — end-geometry fallback', () => {
@@ -381,6 +469,16 @@ describe('composited morph — WAAPI path (Blink / Gecko)', () => {
     expect(animateSpy).toHaveBeenCalledTimes(3);
     const pseudos = animateSpy.mock.calls.map(([, options]) => options.pseudoElement);
     expect(pseudos).toEqual([GROUP_PSEUDO, OLD_PSEUDO, NEW_PSEUDO]);
+
+    const sheet = compositedStyleEl()?.textContent ?? '';
+    expect(sheet).toContain('overflow: visible');
+    expect(sheet).toContain('clip-path: inset(0)');
+    expect(sheet).toContain(`width: var(${SNAP_OLD_W})`);
+    expect(sheet).toContain(`height: var(${SNAP_NEW_H})`);
+    expect(document.documentElement.style.getPropertyValue(SNAP_OLD_W)).toBe('200px');
+    expect(document.documentElement.style.getPropertyValue(SNAP_OLD_H)).toBe('150px');
+    expect(document.documentElement.style.getPropertyValue(SNAP_NEW_W)).toBe('800px');
+    expect(document.documentElement.style.getPropertyValue(SNAP_NEW_H)).toBe('600px');
   });
 
   it('animates every track linearly, with the easing baked into the samples', async () => {
@@ -412,6 +510,8 @@ describe('composited morph — WAAPI path (Blink / Gecko)', () => {
     const radiusCall = animateSpy.mock.calls[1];
     expect(radiusCall[1].pseudoElement).toBe(GROUP_PSEUDO);
     expect(radiusCall[0][0]).toHaveProperty('borderRadius');
+    expect(radiusCall[0][0]).toHaveProperty('clipPath');
+    expect(String(radiusCall[0][0].clipPath)).toMatch(/^inset\(0 round /);
   });
 
   it('leaves the snapshots alone for a crossfade morph', async () => {
@@ -423,6 +523,7 @@ describe('composited morph — WAAPI path (Blink / Gecko)', () => {
     // contract and their UA opacity dissolve, so only the group is replaced.
     expect(animateSpy).toHaveBeenCalledTimes(1);
     expect(animateSpy.mock.calls[0][1].pseudoElement).toBe(GROUP_PSEUDO);
+    expect(document.documentElement.style.getPropertyValue(SNAP_OLD_W)).toBe('');
   });
 
   it('resumes from the UA animation’s painted progress, not its start time', async () => {
@@ -462,6 +563,7 @@ describe('composited morph — WAAPI path (Blink / Gecko)', () => {
     expect(ua.cancel).toHaveBeenCalled();
     expect(ua.currentTime).toBe(0);
     expect(ua.play).toHaveBeenCalled();
+    expect(document.documentElement.style.getPropertyValue(SNAP_OLD_W)).toBe('');
   });
 
   it('cancels a partially created set before rolling back', async () => {
@@ -480,6 +582,7 @@ describe('composited morph — WAAPI path (Blink / Gecko)', () => {
     expect(createdAnimations).toHaveLength(1);
     expect(createdAnimations[0]!.cancel).toHaveBeenCalled();
     expect(ua.play).toHaveBeenCalled();
+    expect(document.documentElement.style.getPropertyValue(SNAP_OLD_W)).toBe('');
   });
 
   it('tears everything down when the transition finishes', async () => {
@@ -500,6 +603,7 @@ describe('composited morph — WAAPI path (Blink / Gecko)', () => {
     }
     expect(document.documentElement.hasAttribute(COMPOSITED_ATTR)).toBe(false);
     expect(document.documentElement.hasAttribute(COMPOSITED_CSS_ATTR)).toBe(false);
+    expect(document.documentElement.style.getPropertyValue(SNAP_OLD_W)).toBe('');
   });
 });
 
@@ -529,6 +633,19 @@ describe('composited morph — WebKit CSS path', () => {
     expect(css).toContain(GROUP_PSEUDO);
     expect(css).toContain(OLD_PSEUDO);
     expect(css).toContain(NEW_PSEUDO);
+    expect(css).toContain('overflow: visible');
+    expect(css).toContain('clip-path: inset(0)');
+  });
+
+  it('animates clip-path with the radius track', async () => {
+    rootVars[LightboxDocumentCssVars.morphBorderRadiusFrom] = '16px';
+    rootVars[LightboxDocumentCssVars.morphBorderRadiusTo] = '0px';
+
+    await runUpgrade(fakeTransition().transition);
+
+    const css = cssPathStyleEl()?.textContent ?? '';
+    expect(css).toContain('clip-path: inset(0 round');
+    expect(css).toContain('border-radius:');
   });
 
   it('carries the elapsed UA progress as a negative animation delay', async () => {

@@ -6,7 +6,7 @@ import { flushSync } from 'react-dom';
 import { isAndroidBlinkSnapshotRoot } from './is-android-blink';
 import { isFirefox } from './is-firefox';
 import { acquireVtTouchGuard } from './vt-touch-guard';
-import { maybeUpgradeToCompositedMorph } from './vt-composited-morph';
+import { maybeUpgradeToCompositedMorph, elDump, vtDebug, watchViewTransition } from './vt-composited-morph';
 import { isViewTransitionPreset, resolveViewTransitionTiming } from './vt-timing';
 import type { LightboxViewTransitionPreset } from './vt-timing';
 import {
@@ -96,6 +96,7 @@ function waitForStableSnapshotRoot(): Promise<void> {
   if (typeof navigator !== 'undefined' && /jsdom/i.test(navigator.userAgent)) {
     return Promise.resolve();
   }
+  vtDebug('snapshot-root-wait-start', { snap: readSnapshotRoot() });
   return new Promise((resolve) => {
     const t0 = performance.now();
     let lastKey = snapshotRootKey(readSnapshotRoot());
@@ -116,6 +117,13 @@ function waitForStableSnapshotRoot(): Promise<void> {
         (elapsed >= SNAPSHOT_ROOT_SETTLE_MAX_MS && aligned) ||
         elapsed >= SNAPSHOT_ROOT_SETTLE_MAX_MS * 1.5
       ) {
+        vtDebug('snapshot-root-settle', {
+          snap,
+          aligned,
+          stable,
+          elapsed: Math.round(elapsed),
+          timedOut: elapsed >= SNAPSHOT_ROOT_SETTLE_MAX_MS,
+        });
         resolve();
         return;
       }
@@ -999,7 +1007,15 @@ function createViewTransitionMorph(getConfig: () => ViewTransitionMorphConfig): 
     // "new" (destination) snapshot sees the Firefox full-bleed inset.
     let restoreFirefoxCaptureInset: CaptureInsetRestore | null = null;
 
+    vtDebug('open-before-svt', {
+      canMorph,
+      useCrossfade,
+      trigger: elDump(triggerTarget),
+      dest: elDump(itemTargetPrep),
+    });
+
     const transition = startViewTransition(() => {
+      vtDebug('open-capture', { canMorph });
       if (canMorph) {
         clearMorphName(triggerTarget!);
       }
@@ -1028,6 +1044,7 @@ function createViewTransitionMorph(getConfig: () => ViewTransitionMorphConfig): 
         itemEl.setAttribute('data-skip-fade', '');
       }
     });
+    watchViewTransition('open', transition);
     if (canMorph) {
       maybeUpgradeToCompositedMorph(transition);
     }
@@ -1153,7 +1170,15 @@ function createViewTransitionMorph(getConfig: () => ViewTransitionMorphConfig): 
       setMorphName(itemTarget!);
     }
 
+    vtDebug('close-before-svt', {
+      canMorph,
+      useCrossfade,
+      trigger: elDump(triggerTarget),
+      dest: elDump(itemTarget),
+    });
+
     const transition = startViewTransition(() => {
+      vtDebug('close-capture', { canMorph });
       restoreFirefoxCaptureInset?.();
       restoreFirefoxCaptureInset = null;
       if (canMorph) {
@@ -1168,6 +1193,7 @@ function createViewTransitionMorph(getConfig: () => ViewTransitionMorphConfig): 
         setMorphName(triggerTarget!);
       }
     });
+    watchViewTransition('close', transition);
     if (canMorph) {
       maybeUpgradeToCompositedMorph(transition);
     }

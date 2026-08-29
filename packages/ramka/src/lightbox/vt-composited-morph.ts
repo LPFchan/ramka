@@ -1,6 +1,7 @@
 import { VIEW_TRANSITION_NAME } from './vt-constants';
 import { LightboxDocumentCssVars } from './lightbox-css-vars';
 import { LightboxDocumentDataAttributes } from './lightbox-data-attributes';
+import { isAndroidBlinkSnapshotRoot } from './is-android-blink';
 import { compensatedMorphRadiusAt, parseMorphRadiusList } from './vt-morph-radius';
 import { morphTiming } from './vt-timing';
 import { insertLibrarySheet, type LibrarySheet } from './lightbox-style-sheets';
@@ -30,14 +31,20 @@ import { ensureLibrarySheet } from './vt-style-sheets';
 //   1. Kill the CSS animations on the group (root attribute + injected
 //      stylesheet), freezing the group box at its FINAL geometry.
 //   2. Animate the group's `transform` only: translate(x,y) scale(sx,sy)
-//      with `transform-origin: 0 0`. The group's `overflow: hidden` clip
-//      scales with it, so the rendered crop window matches the UA's
-//      animated box exactly (a scaled rectangle is still a rectangle).
-//   3. Size the old/new snapshots to their intrinsic (captured) size and
-//      counter-transform them each frame so the content keeps its true
-//      aspect ratio — reproducing `object-fit: cover` against the animated
-//      box with zero distortion. Keyframes are sampled numerically (the
-//      counter track needs 1/s(t), which no easing function expresses).
+//      with `transform-origin: 0 0`. The crop window is `clip-path: inset(0)`
+//      (optionally `round` the morph radii): a graphical clip guaranteed to
+//      ride the transform on the same layer, unlike `overflow: hidden`,
+//      which is a layout clip applied in a separate paint step that engines
+//      may resolve in a different coordinate space than a compositor-driven
+//      transform. A scaled rectangle is still a rectangle, so inset(0)
+//      matches the UA's animated box exactly.
+//   3. Size the old/new snapshots to their intrinsic (captured) size in
+//      explicit px (not `width/height: auto`, which over-constrains inset
+//      and overflows the frozen box) and counter-transform them each frame
+//      so the content keeps its true aspect ratio — reproducing
+//      `object-fit: cover` against the animated box with zero distortion.
+//      Keyframes are sampled numerically (the counter track needs 1/s(t),
+//      which no easing function expresses).
 //   4. Re-express the border-radius animation as size-relative roundness
 //      (r / min(w, h)), then per-axis compensated elliptical radii so
 //      corners render round under the non-uniform group scale. Absolute-px
@@ -62,6 +69,16 @@ import { ensureLibrarySheet } from './vt-style-sheets';
 // progress at the same offsets, so the group and the counter-transforms stay
 // mutually consistent even where the numeric bezier differs from the
 // browser's by rounding.
+//
+// Android Chrome (mobile Blink) is the exception to the frozen-box design:
+// it gets a MAIN-THREAD-COHERENT replacement instead (same geometry and
+// snapshot contract as the stock morph, ramka's timing, one keyframe effect
+// carrying transform + width/height so it can never be composited). Chrome
+// runs the transform track of VT group animations on the compositor while
+// the box and the overflow clip stay main-threaded; under close-time jank
+// the composited transform advances against a stale clip and the photo
+// renders as a hard-cut slice or vanishes. See the Android branch in
+// `upgrade` for the measurements.
 //
 // The upgrade validates everything it needs BEFORE touching any state and
 // bails (leaving the stock UA morph) on: missing `transition.ready`/
@@ -119,9 +136,148 @@ let cssAnimationSeq = 0;
  */
 const SNAPSHOT_ANCHOR = 'inset: 0 auto auto 0 !important;';
 
+/** Explicit captured snapshot sizes — written for the duration of an upgrade. */
+const SNAP_OLD_W = '--ramka-vt-snap-old-w';
+const SNAP_OLD_H = '--ramka-vt-snap-old-h';
+const SNAP_NEW_W = '--ramka-vt-snap-new-w';
+const SNAP_NEW_H = '--ramka-vt-snap-new-h';
+
 const GROUP_PSEUDO = `::view-transition-group(${VIEW_TRANSITION_NAME})`;
 const OLD_PSEUDO = `::view-transition-old(${VIEW_TRANSITION_NAME})`;
 const NEW_PSEUDO = `::view-transition-new(${VIEW_TRANSITION_NAME})`;
+
+/** TEMP: Android Chrome "cut in half" morph investigation. Flip to false to silence. */
+const VT_DEBUG = true;
+
+function vtDebugEnabled(): boolean {
+  if (!VT_DEBUG) return false;
+  if (typeof window === 'undefined') return false;
+  if (typeof navigator !== 'undefined' && /jsdom/i.test(navigator.userAgent)) return false;
+  // Tests may mock the UA to a real browser string; stay silent there too.
+  if (typeof process !== 'undefined' && process.env?.VITEST) return false;
+  return true;
+}
+
+function vtRound(n: number): number {
+  return Number(n.toFixed(2));
+}
+
+function viewportDump(): Record<string, unknown> {
+  const vv = window.visualViewport;
+  const de = document.documentElement;
+  return {
+    inner: [window.innerWidth, window.innerHeight],
+    client: [de.clientWidth, de.clientHeight],
+    scroll: [vtRound(window.scrollX), vtRound(window.scrollY)],
+    screen: [window.screen.width, window.screen.height],
+    avail: [window.screen.availWidth, window.screen.availHeight],
+    dpr: window.devicePixelRatio,
+    vv: vv
+      ? {
+          size: [vtRound(vv.width), vtRound(vv.height)],
+          offset: [vtRound(vv.offsetLeft), vtRound(vv.offsetTop)],
+          page: [vtRound(vv.pageLeft), vtRound(vv.pageTop)],
+          scale: vtRound(vv.scale),
+        }
+      : null,
+    aligned: vv ? Math.abs(window.innerHeight - vv.height) <= 1 : null,
+  };
+}
+
+function pseudoDump(pseudo: string): Record<string, unknown> {
+  const s = getComputedStyle(document.documentElement, pseudo);
+  return {
+    size: [s.width, s.height],
+    transform: s.transform,
+    origin: s.transformOrigin,
+    overflow: s.overflow,
+    inset: [s.top, s.right, s.bottom, s.left],
+    clip: s.clipPath,
+    opacity: s.opacity,
+    objectFit: s.objectFit,
+    mixBlend: s.mixBlendMode,
+    animation: s.animationName,
+    animationDuration: s.animationDuration,
+  };
+}
+
+function elDump(el: Element | null | undefined): Record<string, unknown> | null {
+  if (!el) return null;
+  const r = el.getBoundingClientRect();
+  const s = getComputedStyle(el);
+  return {
+    tag: el.tagName,
+    vtName: s.viewTransitionName,
+    rect: [vtRound(r.x), vtRound(r.y), vtRound(r.width), vtRound(r.height)],
+    size: [s.width, s.height],
+    transform: s.transform,
+    overflow: s.overflow,
+    objectFit: s.objectFit,
+  };
+}
+
+function vtDebug(event: string, data?: Record<string, unknown>): void {
+  if (!vtDebugEnabled()) return;
+  const payload = { t: vtRound(performance.now()), event, vp: viewportDump(), ...data };
+  console.info(`[ramka-vt] ${JSON.stringify(payload)}`);
+}
+
+function vtPseudos(): Record<string, unknown> {
+  return {
+    group: pseudoDump(GROUP_PSEUDO),
+    old: pseudoDump(OLD_PSEUDO),
+    new: pseudoDump(NEW_PSEUDO),
+    rootOld: pseudoDump('::view-transition-old(root)'),
+    rootNew: pseudoDump('::view-transition-new(root)'),
+    attrs: {
+      vt: document.documentElement.getAttribute('data-ramka-view-transition'),
+      composited: document.documentElement.hasAttribute('data-ramka-vt-composited'),
+      compositedCss: document.documentElement.hasAttribute('data-ramka-vt-composited-css'),
+      crossfade: document.documentElement.hasAttribute('data-ramka-crossfade'),
+    },
+  };
+}
+
+function startVtFrameSampler(finished: Promise<unknown>): void {
+  if (!vtDebugEnabled()) return;
+  let n = 0;
+  let stopped = false;
+  finished.finally(() => {
+    stopped = true;
+  });
+  const tick = () => {
+    if (stopped) return;
+    n += 1;
+    vtDebug('frame', { n, ...vtPseudos() });
+    requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+}
+
+function watchViewTransition(
+  phase: 'open' | 'close',
+  transition: { ready?: Promise<void>; finished: Promise<void> },
+): void {
+  if (!vtDebugEnabled()) return;
+  const vv = window.visualViewport;
+  const dump = (why: string) => vtDebug('viewport', { phase, why, ...vtPseudos() });
+  dump('watch-start');
+  const onResize = () => dump('vv-resize');
+  const onScroll = () => dump('vv-scroll');
+  vv?.addEventListener('resize', onResize);
+  vv?.addEventListener('scroll', onScroll);
+  transition.ready
+    ?.then(() => vtDebug('ready', { phase, ...vtPseudos() }))
+    .catch((err: unknown) => vtDebug('ready-reject', { phase, err: String(err) }));
+  transition.finished
+    .then(() => vtDebug('finished', { phase, ...vtPseudos() }))
+    .catch((err: unknown) => vtDebug('finished-reject', { phase, err: String(err) }))
+    .finally(() => {
+      dump('watch-end');
+      vv?.removeEventListener('resize', onResize);
+      vv?.removeEventListener('scroll', onScroll);
+    });
+}
 
 function isCompositedMorphEnabled(): boolean {
   return (
@@ -145,15 +301,21 @@ function isWebKit(): boolean {
   return typeof window !== 'undefined' && 'GestureEvent' in window;
 }
 
+type KeyframeCssProp = 'transform' | 'borderRadius' | 'clipPath';
+
+const KEYFRAME_CSS_PROP: Record<KeyframeCssProp, string> = {
+  transform: 'transform',
+  borderRadius: 'border-radius',
+  clipPath: 'clip-path',
+};
+
 /** Serialize sampled keyframes into a CSS @keyframes rule. */
-function keyframesCss(
-  name: string,
-  frames: Keyframe[],
-  prop: 'transform' | 'borderRadius',
-): string {
-  const cssProp = prop === 'borderRadius' ? 'border-radius' : 'transform';
+function keyframesCss(name: string, frames: Keyframe[], props: KeyframeCssProp[]): string {
   const body = frames
-    .map((f) => `${((f.offset as number) * 100).toFixed(3)}% { ${cssProp}: ${String(f[prop])}; }`)
+    .map((f) => {
+      const decls = props.map((p) => `${KEYFRAME_CSS_PROP[p]}: ${String(f[p])};`).join(' ');
+      return `${((f.offset as number) * 100).toFixed(3)}% { ${decls} }`;
+    })
     .join('\n');
   return `@keyframes ${name} {\n${body}\n}`;
 }
@@ -165,14 +327,18 @@ function keyframesCss(
  *
  * - Group: CSS animations off (kills the UA group anim + the border-radius
  *   keyframes), `transform-origin: 0 0` so our scale math composes with the
- *   UA translate.
- * - Old/new (hard-cut morphs only): intrinsic (captured) size instead of the
- *   stretched `width/height: 100%` + `object-fit: cover` contract — the
- *   counter transform owns cover placement per frame, and pre-cropping to
- *   the final box would discard edge pixels the morph must reveal
- *   mid-flight. Crossfade morphs are excluded: their snapshots must keep the
- *   structural sheet's `100%` + `object-fit: fill` contract (which tracks
- *   the frozen box) and their UA opacity dissolve.
+ *   UA translate. Crop is `clip-path: inset(0)` with `overflow: visible` —
+ *   Blink view-transition groups apply `overflow: hidden` as a layout clip
+ *   that does not travel with the frozen dest box (see module docblock).
+ * - Old/new (hard-cut morphs only): intrinsic (captured) size in explicit
+ *   px via CSS vars (not `width/height: auto`, which over-constrains inset
+ *   and overflows the frozen box) instead of the stretched `100%` +
+ *   `object-fit: cover` contract — the counter transform owns cover
+ *   placement per frame, and pre-cropping to the final box would discard
+ *   edge pixels the morph must reveal mid-flight. Crossfade morphs are
+ *   excluded: their snapshots must keep the structural sheet's `100%` +
+ *   `object-fit: fill` contract (which tracks the frozen box) and their UA
+ *   opacity dissolve.
  *   Anchoring is pinned to the physical top-left (`inset: 0 auto auto 0`)
  *   because the counter transforms are computed from that corner — see
  *   {@link SNAPSHOT_ANCHOR}.
@@ -184,11 +350,19 @@ function ensureStyleInjected() {
 :root[${COMPOSITED_ATTR}]${GROUP_PSEUDO} {
   animation: none !important;
   transform-origin: 0 0 !important;
+  overflow: visible !important;
+  clip-path: inset(0);
 }
-:root[${COMPOSITED_ATTR}]:not([${LightboxDocumentDataAttributes.crossfade}])${OLD_PSEUDO},
+:root[${COMPOSITED_ATTR}]:not([${LightboxDocumentDataAttributes.crossfade}])${OLD_PSEUDO} {
+  width: var(${SNAP_OLD_W}) !important;
+  height: var(${SNAP_OLD_H}) !important;
+  ${SNAPSHOT_ANCHOR}
+  transform-origin: 0 0 !important;
+  animation: none !important;
+}
 :root[${COMPOSITED_ATTR}]:not([${LightboxDocumentDataAttributes.crossfade}])${NEW_PSEUDO} {
-  width: auto !important;
-  height: auto !important;
+  width: var(${SNAP_NEW_W}) !important;
+  height: var(${SNAP_NEW_H}) !important;
   ${SNAPSHOT_ANCHOR}
   transform-origin: 0 0 !important;
   animation: none !important;
@@ -260,10 +434,31 @@ function parsePx(value: unknown): number | null {
   return Number.isFinite(n) && n > 0 ? n : null;
 }
 
+const fmt = (n: number) => Number(n.toFixed(4));
+
+/** Graphical crop matching the frozen dest box; `round` when the morph has radius. */
+function insetClip(radius: string | null): string {
+  return radius ? `inset(0 round ${radius})` : 'inset(0)';
+}
+
+function writeSnapSizes(w0: number, h0: number, w1: number, h1: number): void {
+  const s = document.documentElement.style;
+  s.setProperty(SNAP_OLD_W, `${fmt(w0)}px`);
+  s.setProperty(SNAP_OLD_H, `${fmt(h0)}px`);
+  s.setProperty(SNAP_NEW_W, `${fmt(w1)}px`);
+  s.setProperty(SNAP_NEW_H, `${fmt(h1)}px`);
+}
+
+function clearSnapSizes(): void {
+  const s = document.documentElement.style;
+  s.removeProperty(SNAP_OLD_W);
+  s.removeProperty(SNAP_OLD_H);
+  s.removeProperty(SNAP_NEW_W);
+  s.removeProperty(SNAP_NEW_H);
+}
+
 // Easing math and timing presets live in vt-timing.ts (shared with the Root,
 // which promotes the active preset's timing to documentElement).
-
-const fmt = (n: number) => Number(n.toFixed(4));
 
 // ---------------------------------------------------------------------------
 // Upgrade
@@ -285,14 +480,103 @@ function maybeUpgradeToCompositedMorph(transition: UpgradeableTransition): void 
     });
 }
 
+interface MainThreadMorphSpec {
+  duration: number;
+  ease: (t: number) => number;
+  uaElapsed: number;
+  from: ScaleTranslate & { w: number; h: number };
+  to: ScaleTranslate & { w: number; h: number };
+}
+
+/**
+ * Android Chrome replacement: the UA morph re-driven as one main-thread
+ * keyframe effect (see the Android branch in {@link upgrade} for why).
+ *
+ * Emits the same interpolation the UA animation would produce — box
+ * width/height plus a translate+scale transform under the group's own
+ * transform-origin — but with ramka's duration and easing baked into
+ * numerically sampled offsets (the spring preset has no CSS equivalent).
+ * Including width/height in the effect is the load-bearing part: it makes
+ * the effect ineligible for the compositor, so transform, box and the
+ * structural sheet's `overflow: hidden` clip all commit together. Snapshots
+ * keep the structural contract (`100%` + cover/fill) and simply track the
+ * animating box; the structural radius keyframes keep running on the group.
+ */
+function upgradeToMainThreadMorph(
+  transition: UpgradeableTransition,
+  uaAnim: Animation,
+  spec: MainThreadMorphSpec,
+): void {
+  const docEl = document.documentElement;
+  const { duration, ease, uaElapsed, from, to } = spec;
+  const lerp = (a: number, b: number, q: number) => a + (b - a) * q;
+
+  const steps = Math.min(120, Math.max(24, Math.round(duration / 8)));
+  const frames: Keyframe[] = [];
+  for (let i = 0; i <= steps; i++) {
+    const offset = i / steps;
+    const q = ease(offset);
+    frames.push({
+      offset,
+      transform: `translate(${fmt(lerp(from.tx, to.tx, q))}px, ${fmt(lerp(from.ty, to.ty, q))}px) scale(${fmt(lerp(from.sx, to.sx, q))}, ${fmt(lerp(from.sy, to.sy, q))})`,
+      width: `${fmt(lerp(from.w, to.w, q))}px`,
+      height: `${fmt(lerp(from.h, to.h, q))}px`,
+    });
+  }
+
+  uaAnim.cancel();
+
+  vtDebug('upgrade', {
+    mode: 'android-main-thread',
+    duration,
+    uaElapsed,
+    from,
+    to,
+    first: frames[0]?.transform,
+    last: frames[frames.length - 1]?.transform,
+    steps,
+    ...vtPseudos(),
+  });
+
+  let replacement: Animation;
+  try {
+    replacement = docEl.animate(frames, {
+      duration,
+      easing: 'linear',
+      fill: 'both',
+      pseudoElement: GROUP_PSEUDO,
+    });
+  } catch {
+    // Engine refuses pseudo-element WAAPI — restore the stock morph.
+    uaAnim.currentTime = 0;
+    uaAnim.play();
+    vtDebug('upgrade-bail', { reason: 'android-waapi-throw', ...vtPseudos() });
+    return;
+  }
+
+  // Resume from the UA animation's painted progress (see the WAAPI path).
+  if (uaElapsed > 0) replacement.currentTime = uaElapsed;
+
+  startVtFrameSampler(transition.finished);
+  transition.finished.finally(() => {
+    replacement.cancel();
+  });
+}
+
 function upgrade(transition: UpgradeableTransition): void {
   const docEl = document.documentElement;
+  const bail = (reason: string, extra?: Record<string, unknown>) => {
+    vtDebug('upgrade-bail', { reason, ...extra, ...vtPseudos() });
+  };
 
   // Crossfade morphs replace the group animation only: snapshots keep their
   // `100%` + `object-fit: fill` contract (tracks the frozen box for free)
   // and their compositor-friendly UA opacity dissolve. See module docblock.
   const isCrossfade = docEl.hasAttribute(LightboxDocumentDataAttributes.crossfade);
-  if (typeof document.getAnimations !== 'function') return;
+  if (typeof document.getAnimations !== 'function') {
+    bail('no-getAnimations');
+    return;
+  }
 
   const groupAnimations = document.getAnimations().filter((a) => {
     const effect = a.effect as KeyframeEffect | null;
@@ -301,7 +585,13 @@ function upgrade(transition: UpgradeableTransition): void {
   const uaAnim = groupAnimations.find((a) =>
     ((a as CSSAnimation).animationName ?? '').startsWith('-ua-view-transition-group-anim'),
   );
-  if (!uaAnim || !uaAnim.effect) return;
+  if (!uaAnim || !uaAnim.effect) {
+    bail('no-ua-group-anim', {
+      groupAnimCount: groupAnimations.length,
+      names: groupAnimations.map((a) => (a as CSSAnimation).animationName ?? ''),
+    });
+    return;
+  }
 
   // --- Validate everything BEFORE mutating any state -----------------------
 
@@ -313,16 +603,25 @@ function upgrade(transition: UpgradeableTransition): void {
     uaKeyframes = [];
   }
   const fromFrame = uaKeyframes.find((kf) => (kf.computedOffset ?? kf.offset ?? 0) === 0);
-  if (!fromFrame) return;
+  if (!fromFrame) {
+    bail('no-from-frame', { kfCount: uaKeyframes.length });
+    return;
+  }
 
   const fromT = parseScaleTranslate(fromFrame.transform);
   const w0 = parsePx(fromFrame.width);
   const h0 = parsePx(fromFrame.height);
-  if (!fromT || w0 == null || h0 == null) return;
+  if (!fromT || w0 == null || h0 == null) {
+    bail('unparsable-from', { transform: fromFrame.transform, width: fromFrame.width, height: fromFrame.height });
+    return;
+  }
 
   const uaTiming = effect.getComputedTiming();
   const uaDuration = typeof uaTiming.duration === 'number' ? uaTiming.duration : NaN;
-  if (!Number.isFinite(uaDuration) || uaDuration <= 0) return;
+  if (!Number.isFinite(uaDuration) || uaDuration <= 0) {
+    bail('bad-ua-duration', { uaDuration });
+    return;
+  }
 
   // The morph's own motion design — same duration and easing in every
   // browser, independent of the page's view-transition CSS.
@@ -375,9 +674,50 @@ function upgrade(transition: UpgradeableTransition): void {
       // Restore the stock animation and bail.
       uaAnim.currentTime = 0;
       uaAnim.play();
+      bail('unparsable-to', {
+        toTransform: toFrame?.transform,
+        toWidth: toFrame?.width,
+        toHeight: toFrame?.height,
+      });
       return;
     }
   }
+  // Android Chrome (mobile Blink) gets a MAIN-THREAD-COHERENT replacement
+  // instead of the frozen-box composited morph. Chrome runs the transform
+  // track of a view-transition group animation on the compositor while
+  // width/height and the group's `overflow: hidden` clip stay on the main
+  // thread. Close is exactly when the main thread stalls (overlay teardown,
+  // grid re-layout), and during the stall the composited transform keeps
+  // advancing while the clip is frozen at the from-state: the visible photo
+  // is the INTERSECTION of the advanced content with the stale clip — a
+  // hard-cut slice, or nothing at all once they stop overlapping. Measured
+  // frame-by-frame on a Pixel emulator: content at ~60% progress under a
+  // clip still at 0%, with the strip's edges matching the from-box to
+  // sub-pixel. getComputedStyle, WAAPI state and even CDP screencast all
+  // report main-thread values, so the artifact is invisible to every
+  // in-page probe.
+  //
+  // The fix is to re-drive the group with ONE author keyframe effect that
+  // animates transform AND width/height together: an effect touching
+  // non-compositable properties runs entirely on the main thread (the same
+  // Blink whole-effect rule the radius split below relies on, used in the
+  // opposite direction). Every track and the overflow clip then commit
+  // atomically — under a stall the morph drops frames but is never torn
+  // apart. Geometry, origin behavior and snapshot contract are the UA's
+  // own; only the driver, duration and easing change, so the morph still
+  // runs ramka's motion design (the structural sheet's radius keyframes
+  // keep running alongside on the same clock).
+  if (isAndroidBlinkSnapshotRoot()) {
+    upgradeToMainThreadMorph(transition, uaAnim, {
+      duration,
+      ease,
+      uaElapsed,
+      from: { ...fromT, w: w0, h: h0 },
+      to: { ...toT, w: w1, h: h1 },
+    });
+    return;
+  }
+
   // Origin fractions for reconstructing rendered rects from scaled endpoint
   // matrices (the UA animation runs under the group's own transform-origin;
   // our replacement forces 0 0, so the intended rect must be computed here).
@@ -416,6 +756,7 @@ function upgrade(transition: UpgradeableTransition): void {
   const useCssAnimations = isWebKit();
   if (!useCssAnimations) {
     ensureStyleInjected();
+    if (!isCrossfade) writeSnapSizes(w0, h0, w1, h1);
     docEl.setAttribute(COMPOSITED_ATTR, '');
   }
 
@@ -484,7 +825,13 @@ function upgrade(transition: UpgradeableTransition): void {
     const offset = i / steps;
     const s = sampleAt(ease(offset));
     groupFrames.push({ offset, transform: s.group });
-    if (hasRadius) radiusFrames.push({ offset, borderRadius: s.radius! });
+    if (hasRadius) {
+      radiusFrames.push({
+        offset,
+        borderRadius: s.radius!,
+        clipPath: insetClip(s.radius),
+      });
+    }
     // Crossfade snapshots fill the frozen box (structural `100%` + `fill`)
     // and stretch with the group's scale — no counter-transforms.
     if (!isCrossfade) {
@@ -492,6 +839,27 @@ function upgrade(transition: UpgradeableTransition): void {
       newFrames.push({ offset, transform: s.new });
     }
   }
+
+  const first = groupFrames[0];
+  const mid = groupFrames[Math.floor(groupFrames.length / 2)];
+  const last = groupFrames[groupFrames.length - 1];
+  vtDebug('upgrade', {
+    isCrossfade,
+    useCss: isWebKit(),
+    duration,
+    uaDuration,
+    uaElapsed,
+    from: { ...fromT, w: w0, h: h0 },
+    to: { ...toT, w: w1, h: h1 },
+    origin: { fx, fy, box: [originBoxW, originBoxH], raw: originStyle.transformOrigin },
+    fromAspect: w0 / h0,
+    toAspect: w1 / h1,
+    scaleTo: { sx: w0 / w1, sy: h0 / h1 },
+    groupFrames: { first: first?.transform, mid: mid?.transform, last: last?.transform, steps },
+    old0: oldFrames[0]?.transform,
+    new0: newFrames[0]?.transform,
+    ...vtPseudos(),
+  });
 
   const options = (pseudoElement: string): KeyframeAnimationOptions => ({
     duration,
@@ -532,8 +900,8 @@ function upgrade(transition: UpgradeableTransition): void {
     const snapshotCss = isCrossfade
       ? ''
       : `
-${keyframesCss(oName, oldFrames, 'transform')}
-${keyframesCss(nName, newFrames, 'transform')}
+${keyframesCss(oName, oldFrames, ['transform'])}
+${keyframesCss(nName, newFrames, ['transform'])}
 :root[${COMPOSITED_CSS_ATTR}]${OLD_PSEUDO} {
   width: ${fmt(w0)}px;
   height: ${fmt(h0)}px;
@@ -552,10 +920,12 @@ ${keyframesCss(nName, newFrames, 'transform')}
 
     styleEl = insertLibrarySheet(
       `
-${keyframesCss(gName, groupFrames, 'transform')}
-${hasRadius ? keyframesCss(rName, radiusFrames, 'borderRadius') : ''}
+${keyframesCss(gName, groupFrames, ['transform'])}
+${hasRadius ? keyframesCss(rName, radiusFrames, ['borderRadius', 'clipPath']) : ''}
 :root[${COMPOSITED_CSS_ATTR}]${GROUP_PSEUDO} {
   transform-origin: 0 0 !important;
+  overflow: visible !important;
+  clip-path: inset(0);
   animation: ${groupTracks} !important;
 }
 ${snapshotCss}`,
@@ -568,6 +938,8 @@ ${snapshotCss}`,
       if (hasRadius) {
         // Separate animation: mixing a paint property into the transform
         // effect would demote the whole effect off the compositor (Blink rule).
+        // `clip-path` rides this same paint track (both are graphical, not
+        // layout) so rounded crops stay on the compositor too.
         created.push(docEl.animate(radiusFrames, options(GROUP_PSEUDO)));
       }
       if (!isCrossfade) {
@@ -579,8 +951,10 @@ ${snapshotCss}`,
       // the stock morph.
       for (const a of created) a.cancel();
       docEl.removeAttribute(COMPOSITED_ATTR);
+      clearSnapSizes();
       uaAnim.currentTime = 0;
       uaAnim.play();
+      bail('waapi-throw');
       return;
     }
 
@@ -594,12 +968,22 @@ ${snapshotCss}`,
     }
   }
 
+  startVtFrameSampler(transition.finished);
+
   transition.finished.finally(() => {
     for (const a of created) a.cancel();
     docEl.removeAttribute(COMPOSITED_ATTR);
     docEl.removeAttribute(COMPOSITED_CSS_ATTR);
+    clearSnapSizes();
     styleEl?.release();
   });
 }
 
-export { maybeUpgradeToCompositedMorph, isCompositedMorphEnabled, parseScaleTranslate };
+export {
+  maybeUpgradeToCompositedMorph,
+  isCompositedMorphEnabled,
+  parseScaleTranslate,
+  elDump,
+  vtDebug,
+  watchViewTransition,
+};
