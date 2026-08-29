@@ -1,5 +1,7 @@
 import type { Metadata } from 'next';
 
+import { Kbd, KbdGroup } from '@/components/ui/kbd';
+
 import { CodeBlock } from '../../../../_components/code-block';
 import { DocsLink } from '../../../../_components/docs-link';
 import { DocsPager } from '../../../../_components/docs-pager';
@@ -154,8 +156,13 @@ export default function LightboxCompositionPage() {
         <p>
           Use <DocsLink href={lightboxApiHref.stage}>Lightbox.Stage</DocsLink> when Content holds more than the media
           pane — for example a thread sidebar beside the gallery. Stage is the media interaction surface: trackpad
-          wheel pull-to-dismiss, Zoom pan cover geometry, and arrow / Home / End gallery navigation are scoped to it.
-          Content remains the dialog shell (focus trap, Escape, zoom shortcuts). Place side panels as siblings of Stage
+          wheel pull-to-dismiss, Zoom pan cover geometry, and{' '}
+          <KbdGroup>
+            <Kbd>←</Kbd>
+            <Kbd>→</Kbd>
+          </KbdGroup>{' '}
+          / <Kbd>Home</Kbd> / <Kbd>End</Kbd> gallery navigation are scoped to it.
+          Content remains the dialog shell (focus trap, <Kbd>Esc</Kbd>, zoom shortcuts). Place side panels as siblings of Stage
           under Content so they keep native scroll and their own keyboard behavior. When Stage is omitted, Content
           itself is the stage (default full-bleed viewers need no change).
         </p>

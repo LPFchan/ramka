@@ -2,6 +2,8 @@ import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 import Link from 'next/link';
 
+import { Kbd, KbdGroup } from '@/components/ui/kbd';
+
 import { CodeBlock } from '../../_components/code-block';
 import { LandingDemo } from '../../_components/landing-demo';
 import { SiteFooter } from '../../_components/site-footer';
@@ -250,7 +252,11 @@ export default function WhyNativeScrollingPage() {
             comes with keyboard support, screen reader behavior, visible scrollbars for people who want them, RTL
             mirroring, <code className="text-[13px]">overscroll-behavior</code>, scroll anchoring, and reduced
             motion handling, all maintained by browser vendors, forever. A transform carousel reimplements each
-            of those by hand or ships without them.
+            of those by hand or ships without them. The assistive technology half of that story got{' '}
+            <Link href="/blog/lightbox-accessibility" className={inlineLinkClassName}>
+              its own post
+            </Link>
+            .
           </Prose>
           <Prose>
             My favorite freebie is one we found while profiling: in Safari's Low Power Mode the main thread ticks
@@ -273,7 +279,12 @@ export default function WhyNativeScrollingPage() {
           <Prose>
             <strong className="font-medium text-neutral-800 dark:text-neutral-200">Tracking the active slide,
             navigating programmatically.</strong> Scroll position is state you can read and write. ramka wires
-            the active index, arrow keys, and next/previous buttons to the scroller rather than around it, and
+            the active index, the{' '}
+            <KbdGroup>
+              <Kbd>←</Kbd>
+              <Kbd>→</Kbd>
+            </KbdGroup>{' '}
+            keys, and next/previous buttons to the scroller rather than around it, and
             the swipe itself stays untouched:
           </Prose>
           <div className="mt-5">
@@ -287,7 +298,10 @@ export default function WhyNativeScrollingPage() {
             <Link href="/docs/lightbox/gestures" className={inlineLinkClassName}>
               careful rules about who owns which axis
             </Link>
-            , and the horizontal swipe is never intercepted. The browser keeps the part it does best.
+            , and the horizontal swipe is never intercepted. The browser keeps the part it does best. A side
+            effect worth noticing: because the swipe is a real scroll, a two-finger trackpad swipe just works,
+            an input plenty of drag-driven carousels never receive at all, since trackpads emit wheel events
+            rather than the pointer events their drag code listens for.
           </Prose>
 
           <Heading>Feel it in a real lightbox</Heading>

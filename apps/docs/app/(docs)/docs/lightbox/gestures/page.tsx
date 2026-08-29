@@ -1,5 +1,7 @@
 import type { Metadata } from 'next';
 
+import { Kbd, KbdGroup } from '@/components/ui/kbd';
+
 import { CodeBlock } from '../../../../_components/code-block';
 import { DocsLink } from '../../../../_components/docs-link';
 import { DocsPager } from '../../../../_components/docs-pager';
@@ -115,12 +117,24 @@ export default function LightboxGesturesPage() {
         </p>
         <ul className="list-disc space-y-2 pl-5">
           <li>
-            <code className="text-xs">Escape</code> — close
+            <Kbd>Esc</Kbd> — close
           </li>
-          <li>Arrow keys — pan when zoomed, otherwise previous/next</li>
           <li>
-            <code className="text-xs">+</code> / <code className="text-xs">-</code> /{' '}
-            <code className="text-xs">⌘/Ctrl+0</code> — zoom in / out / reset (active Zoom)
+            <KbdGroup>
+              <Kbd>←</Kbd>
+              <Kbd>→</Kbd>
+              <Kbd>↑</Kbd>
+              <Kbd>↓</Kbd>
+            </KbdGroup>{' '}
+            — pan when zoomed, otherwise previous/next
+          </li>
+          <li>
+            <Kbd>+</Kbd> / <Kbd>−</Kbd> /{' '}
+            <KbdGroup>
+              <Kbd>⌘/Ctrl</Kbd>
+              <Kbd>0</Kbd>
+            </KbdGroup>{' '}
+            — zoom in / out / reset (active Zoom)
           </li>
         </ul>
         <p>

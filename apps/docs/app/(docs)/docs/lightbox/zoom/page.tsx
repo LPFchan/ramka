@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 
+import { Kbd } from '@/components/ui/kbd';
+
 import { DocsLink, docsLinkClassName } from '../../../../_components/docs-link';
 import { DocsPager } from '../../../../_components/docs-pager';
 import { DocsSection, DocsShell, type DocsTocItem } from '../../../../_components/docs-shell';
@@ -194,15 +196,15 @@ export default function LightboxZoomPage() {
           </li>
           <li>
             <strong className="font-medium text-neutral-800 dark:text-neutral-200">Canvas / document model</strong>{' '}
-            (Figma, macOS Preview, Google Maps on trackpad): a bare scroll pans, and zoom is gated behind a
-            modifier (Ctrl / ⌘) or a trackpad pinch — so it never hijacks the user&rsquo;s scroll.
+          (Figma, macOS Preview, Google Maps on trackpad): a bare scroll pans, and zoom is gated behind a
+          modifier (<Kbd>Ctrl</Kbd> / <Kbd>⌘</Kbd>) or a trackpad pinch — so it never hijacks the user&rsquo;s scroll.
           </li>
         </ul>
         <p>
           Regardless of family, four things are near-universal: <strong className="font-medium text-neutral-800 dark:text-neutral-200">drag pans</strong>{' '}
           when zoomed, <strong className="font-medium text-neutral-800 dark:text-neutral-200">wheel/pinch zoom is focal</strong>{' '}
           (zooms toward the pointer), <strong className="font-medium text-neutral-800 dark:text-neutral-200">double-click toggles</strong>{' '}
-          zoom, and <strong className="font-medium text-neutral-800 dark:text-neutral-200">Ctrl/⌘+wheel and trackpad pinch always zoom</strong>.
+          zoom, and <strong className="font-medium text-neutral-800 dark:text-neutral-200"><Kbd>Ctrl/⌘</Kbd>+wheel and trackpad pinch always zoom</strong>.
           The only real disagreement is whether a <em>bare</em> wheel zooms or pans.
         </p>
         <div className={tableWrap}>
@@ -211,7 +213,7 @@ export default function LightboxZoomPage() {
               <tr>
                 <th className={th}>App</th>
                 <th className={th}>Bare scroll</th>
-                <th className={th}>Ctrl/⌘+wheel · pinch</th>
+                <th className={th}><Kbd>Ctrl/⌘</Kbd>+wheel · pinch</th>
                 <th className={th}>Double-click</th>
                 <th className={th}>Drag</th>
               </tr>
@@ -233,7 +235,7 @@ export default function LightboxZoomPage() {
 
       <DocsSection id="desktop-ramka" title="ramka on desktop">
         <p>
-          ramka defaults to the canvas model: Ctrl/⌘+wheel and trackpad pinch zoom to the cursor, a bare
+          ramka defaults to the canvas model: <Kbd>Ctrl/⌘</Kbd>+wheel and trackpad pinch zoom to the cursor, a bare
           wheel is a no-op at 1× (and pans when zoomed), and{' '}
           <code className="text-xs">scrollToZoom</code> on <DocsLink href={lightboxApiHref.zoom}>Zoom</DocsLink>{' '}
           opts into the media-viewer behavior. That is the more embed-friendly default — a lightbox often

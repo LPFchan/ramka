@@ -6,6 +6,7 @@ import { siteUrl } from './_content/site';
 /** Routes that have no sidebar entry: the landing page, articles, and the legal pages. */
 const unlistedRoutes = [
   '/',
+  '/blog/lightbox-accessibility',
   '/blog/why-native-scrolling',
   '/license',
   '/license/commercial',
