@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 
 import { ArrowLeft, ArrowRight } from 'lucide-react';
 
-import { Kbd, KbdGroup } from '@/components/ui/kbd';
+import { Kbd, KbdGroup, KbdIcon } from '@/components/ui/kbd';
 
 import { CodeBlock } from '../../../../_components/code-block';
 import { DocsLink } from '../../../../_components/docs-link';
@@ -160,8 +160,8 @@ export default function LightboxCompositionPage() {
           pane — for example a thread sidebar beside the gallery. Stage is the media interaction surface: trackpad
           wheel pull-to-dismiss, Zoom pan cover geometry, and{' '}
           <KbdGroup>
-            <Kbd aria-label="Left arrow"><ArrowLeft /></Kbd>
-            <Kbd aria-label="Right arrow"><ArrowRight /></Kbd>
+            <KbdIcon label="Left arrow"><ArrowLeft /></KbdIcon>
+            <KbdIcon label="Right arrow"><ArrowRight /></KbdIcon>
           </KbdGroup>{' '}
           / <Kbd>Home</Kbd> / <Kbd>End</Kbd> gallery navigation are scoped to it.
           Content remains the dialog shell (focus trap, <Kbd>Esc</Kbd>, zoom shortcuts). Place side panels as siblings of Stage

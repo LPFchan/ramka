@@ -4,7 +4,7 @@ import Link from 'next/link';
 
 import { ArrowLeft, ArrowRight } from 'lucide-react';
 
-import { Kbd, KbdGroup } from '@/components/ui/kbd';
+import { Kbd, KbdGroup, KbdIcon } from '@/components/ui/kbd';
 
 import { CodeBlock } from '../../_components/code-block';
 import { LandingDemo } from '../../_components/landing-demo';
@@ -14,13 +14,40 @@ import { siteUrl } from '../../_content/site';
 import { JankPlayground } from './jank-playground';
 import { MomentumLab } from './momentum-lab';
 
-export const metadata: Metadata = {
-  title: 'Why native scrolling beats transform carousels',
-  description:
-    'Most React lightboxes, image galleries, and carousels reimplement scrolling with pointer events and transforms. That moves swiping onto the main thread, where it janks. The data, the browser internals, and the interactive proof.',
-};
-
 const PUBLISHED = '2026-08-29';
+
+const seoTitle = 'Why native scrolling beats transform carousels';
+const seoDescription =
+  'Most React lightboxes, image galleries, and carousels reimplement scrolling with pointer events and transforms. That moves swiping onto the main thread, where it janks. The data, the browser internals, and the interactive proof.';
+
+export const metadata: Metadata = {
+  title: seoTitle,
+  description: seoDescription,
+  // The root layout's Open Graph / Twitter objects describe the homepage and
+  // are inherited wholesale (Next.js does not deep-merge them), so each
+  // article must emit its own social metadata.
+  openGraph: {
+    title: `${seoTitle} — ramka`,
+    description: seoDescription,
+    url: `${siteUrl}/blog/why-native-scrolling`,
+    siteName: 'ramka',
+    type: 'article',
+    publishedTime: PUBLISHED,
+    authors: ['Artur Bień'],
+    locale: 'en_US',
+    // The site-wide social card. Defining `openGraph` here replaces the whole
+    // inherited object, so the root `opengraph-image` file no longer cascades —
+    // reference it explicitly. Alt text matches the generic image; it is not an
+    // article-specific graphic.
+    images: [{ url: '/opengraph-image.png', width: 1200, height: 630, alt: 'ramka — the lightbox for React' }],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: `${seoTitle} — ramka`,
+    description: seoDescription,
+    images: [{ url: '/twitter-image.png', alt: 'ramka — the lightbox for React' }],
+  },
+};
 
 const structuredData = {
   '@context': 'https://schema.org',
@@ -289,8 +316,8 @@ export default function WhyNativeScrollingPage() {
             navigating programmatically.</strong> Scroll position is state you can read and write. ramka wires
             the active index, the{' '}
             <KbdGroup>
-              <Kbd aria-label="Left arrow"><ArrowLeft /></Kbd>
-              <Kbd aria-label="Right arrow"><ArrowRight /></Kbd>
+              <KbdIcon label="Left arrow"><ArrowLeft /></KbdIcon>
+              <KbdIcon label="Right arrow"><ArrowRight /></KbdIcon>
             </KbdGroup>{' '}
             keys, and next/previous buttons to the scroller rather than around it, and
             the swipe itself stays untouched:

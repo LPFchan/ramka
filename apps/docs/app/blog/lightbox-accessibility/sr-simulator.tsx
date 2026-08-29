@@ -169,7 +169,18 @@ export function SrSimulator() {
           <div className="border-b border-neutral-200 px-3 py-2 text-[11px] font-medium tracking-wide text-neutral-400 uppercase dark:border-neutral-800 dark:text-neutral-500">
             Screen reader output, simulated
           </div>
-          <div ref={transcriptRef} className="scrollbar-thin flex-1 space-y-2 overflow-y-auto p-3">
+          {/* Focusable so keyboard users can scroll it (axe:
+              scrollable-region-focusable). Deliberately not role="log" — a
+              live role would make real screen readers announce the *simulated*
+              transcript, which is exactly the confusion the figcaption
+              disclaims. */}
+          <div
+            ref={transcriptRef}
+            tabIndex={0}
+            role="region"
+            aria-label="Simulated screen reader transcript"
+            className="scrollbar-thin flex-1 space-y-2 overflow-y-auto p-3"
+          >
             {lines.length === 0 ? (
               <p className="text-[13px] text-neutral-400 italic dark:text-neutral-500">
                 Press &ldquo;View photos&rdquo; and browse. Announcements appear here.

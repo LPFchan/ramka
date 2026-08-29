@@ -9,13 +9,40 @@ import { SiteHeader } from '../../_components/site-header';
 import { siteUrl } from '../../_content/site';
 import { ChromeBuilder } from './chrome-builder';
 
-export const metadata: Metadata = {
-  title: 'The case for a headless lightbox',
-  description:
-    'Most lightboxes are config objects: buttons as HTML strings, captions in data attributes, customization through render slots. The ecosystem already went headless for dialogs and menus, and image galleries are overdue. Includes a live demo: toggle the viewer chrome and watch the JSX follow.',
-};
-
 const PUBLISHED = '2026-08-29';
+
+const seoTitle = 'The case for a headless lightbox';
+const seoDescription =
+  'Most lightboxes are config objects: buttons as HTML strings, captions in data attributes, customization through render slots. The ecosystem already went headless for dialogs and menus, and image galleries are overdue. Includes a live demo: toggle the viewer chrome and watch the JSX follow.';
+
+export const metadata: Metadata = {
+  title: seoTitle,
+  description: seoDescription,
+  // The root layout's Open Graph / Twitter objects describe the homepage and
+  // are inherited wholesale (Next.js does not deep-merge them), so each
+  // article must emit its own social metadata.
+  openGraph: {
+    title: `${seoTitle} — ramka`,
+    description: seoDescription,
+    url: `${siteUrl}/blog/headless-lightbox`,
+    siteName: 'ramka',
+    type: 'article',
+    publishedTime: PUBLISHED,
+    authors: ['Artur Bień'],
+    locale: 'en_US',
+    // The site-wide social card. Defining `openGraph` here replaces the whole
+    // inherited object, so the root `opengraph-image` file no longer cascades —
+    // reference it explicitly. Alt text matches the generic image; it is not an
+    // article-specific graphic.
+    images: [{ url: '/opengraph-image.png', width: 1200, height: 630, alt: 'ramka — the lightbox for React' }],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: `${seoTitle} — ramka`,
+    description: seoDescription,
+    images: [{ url: '/twitter-image.png', alt: 'ramka — the lightbox for React' }],
+  },
+};
 
 const structuredData = {
   '@context': 'https://schema.org',

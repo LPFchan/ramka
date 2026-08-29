@@ -382,10 +382,15 @@ const LightboxContent = React.forwardRef<HTMLDivElement, LightboxContentProps>(
 
     return (
       <>
+        {/* Focus guards deliberately carry no `aria-hidden`: a focusable
+            element inside an aria-hidden node violates ARIA (axe's
+            aria-hidden-focus, WCAG 4.1.2). An empty span exposes nothing to
+            the reading order anyway, and focus never rests here — onFocus
+            redirects synchronously — so screen readers only ever announce
+            the redirect target. Radix ships the same guard shape. */}
         {!parked ? (
           <span
             tabIndex={0}
-            aria-hidden="true"
             data-focus-guard=""
             style={focusGuardStyle}
             onFocus={handleBeforeGuardFocus}
@@ -419,7 +424,6 @@ const LightboxContent = React.forwardRef<HTMLDivElement, LightboxContentProps>(
         {!parked ? (
           <span
             tabIndex={0}
-            aria-hidden="true"
             data-focus-guard=""
             style={focusGuardStyle}
             onFocus={handleAfterGuardFocus}

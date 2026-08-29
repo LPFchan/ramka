@@ -388,7 +388,14 @@ export function ChromeBuilder() {
         <div className="flex items-center justify-between border-b border-neutral-200 bg-neutral-50 px-3 py-1.5 dark:border-neutral-800 dark:bg-neutral-900">
           <span className="text-xs font-medium text-neutral-500">Your chrome, exactly as rendered</span>
         </div>
-        <pre className="overflow-x-auto bg-neutral-50 p-4 text-[12.5px] leading-[1.7] text-[#1f2328] dark:bg-neutral-950 dark:text-[#e6edf3]">
+        {/* Focusable so the horizontal overflow is reachable without a pointer
+            (axe: scrollable-region-focusable). */}
+        <pre
+          tabIndex={0}
+          role="region"
+          aria-label="Generated JSX for the current chrome"
+          className="overflow-x-auto bg-neutral-50 p-4 text-[12.5px] leading-[1.7] text-[#1f2328] dark:bg-neutral-950 dark:text-[#e6edf3]"
+        >
           <code>
             {snippet.split('\n').map((line, i) => (
               // eslint-disable-next-line react/no-array-index-key -- lines have no identity

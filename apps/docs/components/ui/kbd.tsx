@@ -23,4 +23,27 @@ function KbdGroup({ className, ...props }: React.ComponentProps<"div">) {
   )
 }
 
-export { Kbd, KbdGroup }
+/**
+ * A `Kbd` whose glyph is an icon (arrows, ⌘, +, −).
+ *
+ * The name goes in visually hidden text, not `aria-label`: `kbd` maps to no
+ * ARIA role, and naming a generic element is prohibited by ARIA (axe flags it
+ * as `aria-prohibited-attr`, serious). Hidden text reads as plain words in
+ * every screen reader instead of being silently dropped.
+ */
+function KbdIcon({
+  label,
+  children,
+  ...props
+}: React.ComponentProps<"kbd"> & { label: string }) {
+  return (
+    <Kbd {...props}>
+      <span aria-hidden="true" className="contents">
+        {children}
+      </span>
+      <span className="sr-only">{label}</span>
+    </Kbd>
+  )
+}
+
+export { Kbd, KbdGroup, KbdIcon }

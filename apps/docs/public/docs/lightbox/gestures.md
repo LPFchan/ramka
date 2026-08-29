@@ -182,7 +182,9 @@ import * as Lightbox from '@ramka/react/lightbox';
 
 - Esc — close
 - — pan when zoomed, otherwise previous/next
-- / / 0 or Ctrl 0 — zoom in / out / reset (active Zoom)
+- / / 0 — zoom in / out / reset (active Zoom)
+
+Image zoom uses unmodified keys only: / Ctrl and the other modified combos are left to the browser, so page zoom (WCAG 1.4.4 text resize) keeps working while the dialog is open.
 
 Focus is trapped in the dialog; closing restores focus to the opening Trigger. Native page pinch-zoom is blocked while Content is mounted so it does not fight `Lightbox.Zoom`.
 

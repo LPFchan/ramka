@@ -21,9 +21,8 @@ interface UseContentKeyboardOptions {
   dir: TextDirection;
   /**
    * True while a `Lightbox.Slides` user scroll/fling is in flight. Discrete
-   * keyboard zoom is dropped (⌘+/- still preventDefault so the page doesn't
-   * zoom) — applying a zoom animation mid-swipe aborts compositor scrolling
-   * without `scrollend` and freezes pull/pinch/thumbs.
+   * keyboard zoom is dropped — applying a zoom animation mid-swipe aborts
+   * compositor scrolling without `scrollend` and freezes pull/pinch/thumbs.
    */
   isScrollingRef?: InitializedRef<boolean>;
 }
@@ -84,7 +83,14 @@ export function useContentKeyboard({
       }
 
       const zoomCtl = activeZoomRef.current;
-      const meta = event.metaKey || event.ctrlKey;
+
+      // Modified shortcuts belong to the browser and the OS. ⌘/Ctrl + `+`,
+      // `-`, `0` are the browser's page-zoom controls — the primary WCAG
+      // 1.4.4 text-resize mechanism — and Alt/⌘ + arrows are history and
+      // caret navigation. Never handle or preventDefault them: page zoom
+      // must keep working while the dialog is open, so a user can enlarge
+      // the viewer's controls and captions independently of the image.
+      if (event.metaKey || event.ctrlKey || event.altKey) return;
 
       // When Stage is mounted, media actions (image zoom, arrows / Home /
       // End, zoomed pan) run while focus is inside Stage — or on Content
@@ -94,18 +100,19 @@ export function useContentKeyboard({
       const focusOutsideStage =
         !!stage && !!target && target !== el && !stage.contains(target);
 
-      // Zoom shortcuts: always swallow browser page-zoom while the dialog
-      // owns the viewport. Image zoom only runs when focus is in Stage
-      // (or Content, when Stage is absent / dialog-focused).
+      // Image zoom rides the *unmodified* keys only, so it coexists with
+      // browser page zoom (above). Runs when focus is in Stage (or Content,
+      // when Stage is absent / dialog-focused).
       // Bare `=` counts as zoom-in: `+` is the shifted character of that key
       // on common layouts, and viewers (Maps, Figma, Preview) accept both.
+      // Bare `0` resets, mirroring the browser's ⌘/Ctrl+0 idiom.
       const zoomInKey = event.key === '+' || event.key === '=';
-      const zoomOutKey = event.key === '-' || event.key === '_' || (meta && event.key === '-');
-      const zoomResetKey = meta && event.key === '0';
+      const zoomOutKey = event.key === '-' || event.key === '_';
+      const zoomResetKey = event.key === '0';
       if (zoomInKey || zoomOutKey || zoomResetKey) {
         event.preventDefault();
-        // Swallow page-zoom even mid-swipe; don't start image zoom until the
-        // scroller has settled (same guard as ZoomIn/ZoomOut clicks).
+        // Don't start image zoom until the scroller has settled (same guard
+        // as ZoomIn/ZoomOut clicks).
         if (isScrollingRef?.current) return;
         if (zoomCtl && !focusOutsideStage) {
           if (zoomInKey) zoomCtl.zoomIn();

@@ -1105,7 +1105,7 @@ describe('Lightbox.Slides', () => {
       expect(zoomRef.current!.zoom).toBeGreaterThan(1);
     });
 
-    it('drops keyboard ⌘+/- zoom while a scroll is in flight, then resumes after it settles', () => {
+    it('drops keyboard +/- zoom while a scroll is in flight, then resumes after it settles', () => {
       // Regression: keyboard zoom was not gated (unlike pinch / zoom buttons).
       // A discrete zoom mid-swipe aborts compositor scrolling without
       // `scrollend` and freezes pull/pinch/thumbs.
@@ -1122,20 +1122,20 @@ describe('Lightbox.Slides', () => {
         expect(zoomRef.current?.zoom).toBe(1);
         expect(activeThumb()).toBe(1);
         act(() => {
-          fireEvent.keyDown(content, { key: '=', metaKey: true });
+          fireEvent.keyDown(content, { key: '=' });
         });
         expect(zoomRef.current?.zoom).toBe(1);
         act(() => {
-          fireEvent.keyDown(content, { key: '-', metaKey: true });
+          fireEvent.keyDown(content, { key: '-' });
         });
         expect(zoomRef.current?.zoom).toBe(1);
         act(() => {
-          fireEvent.keyDown(content, { key: '0', metaKey: true });
+          fireEvent.keyDown(content, { key: '0' });
         });
         expect(zoomRef.current?.zoom).toBe(1);
 
-        // Unlike a trackpad pinch, ⌘+/- must not idle-unlock: the swipe is
-        // still the live gesture until `scrollend`.
+        // Unlike a trackpad pinch, keyboard zoom must not idle-unlock: the
+        // swipe is still the live gesture until `scrollend`.
         act(() => {
           vi.advanceTimersByTime(200);
         });
@@ -1154,7 +1154,7 @@ describe('Lightbox.Slides', () => {
 
         endScroll(viewport);
         act(() => {
-          fireEvent.keyDown(content, { key: '=', metaKey: true });
+          fireEvent.keyDown(content, { key: '=' });
         });
         expect(zoomRef.current!.zoom).toBeGreaterThan(1);
 

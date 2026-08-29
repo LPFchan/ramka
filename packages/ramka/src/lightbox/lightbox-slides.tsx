@@ -598,6 +598,16 @@ const LightboxSlides = React.forwardRef<HTMLDivElement, LightboxSlidesProps>(
               // to pass — `aria-roledescription="carousel"` translated, plus an
               // `aria-label` naming *which* carousel (leave "carousel" out of
               // the label; the roledescription already says it).
+              //
+              // No `tabIndex` here, deliberately. Automated checkers flag a
+              // scroll container with no focusable content (axe
+              // `scrollable-region-focusable`) because a keyboard user would
+              // otherwise have no way to scroll it. That premise does not hold
+              // for this scroller: Content takes focus when the dialog opens
+              // and owns Arrow / Home / End, which move the scroller through
+              // real navigation. Adding a tab stop here would insert a stop
+              // with nothing to operate and hand the same arrow keys a second
+              // (native, non-snapping) handler.
               'data-orientation': 'horizontal',
               // The scroller assumptions, baked in. Consumers can still layer
               // gap/padding/scrollbar-hiding via className/style; the offset-based

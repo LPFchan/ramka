@@ -4,7 +4,7 @@ import Link from 'next/link';
 
 import { ArrowLeft, ArrowRight, Command, Minus, Plus } from 'lucide-react';
 
-import { Kbd, KbdGroup } from '@/components/ui/kbd';
+import { Kbd, KbdGroup, KbdIcon } from '@/components/ui/kbd';
 
 import { CodeBlock } from '../../_components/code-block';
 import { LandingDemo } from '../../_components/landing-demo';
@@ -14,20 +14,49 @@ import { siteUrl } from '../../_content/site';
 import { FocusTrapDemo } from './focus-trap-demo';
 import { SrSimulator } from './sr-simulator';
 
-export const metadata: Metadata = {
-  title: 'A lightbox screen readers can actually use',
-  description:
-    'Most image lightboxes and photo galleries announce nothing, trap nobody, and strand keyboard focus behind the overlay. What a dialog owes assistive technology, with interactive demos: focus traps, live regions, inert slides, and the parts that are still hard.',
-};
-
 const PUBLISHED = '2026-08-29';
+
+// The document title targets the search topic; the visible H1 below keeps the
+// editorial headline. The layout template appends " — ramka".
+const seoTitle = 'Lightbox accessibility: focus, screen readers and WCAG';
+const seoDescription =
+  'Learn how an accessible React lightbox handles focus traps, screen reader announcements, keyboard navigation, inert slides and reduced motion. With live demos.';
+
+export const metadata: Metadata = {
+  title: seoTitle,
+  description: seoDescription,
+  // The root layout's Open Graph / Twitter objects describe the homepage and
+  // are inherited wholesale (Next.js does not deep-merge them), so each
+  // article must emit its own social metadata.
+  openGraph: {
+    title: `${seoTitle} — ramka`,
+    description: seoDescription,
+    url: `${siteUrl}/blog/lightbox-accessibility`,
+    siteName: 'ramka',
+    type: 'article',
+    publishedTime: PUBLISHED,
+    authors: ['Artur Bień'],
+    locale: 'en_US',
+    // The site-wide social card. Defining `openGraph` here replaces the whole
+    // inherited object, so the root `opengraph-image` file no longer cascades —
+    // reference it explicitly. Alt text matches the generic image; it is not an
+    // article-specific graphic.
+    images: [{ url: '/opengraph-image.png', width: 1200, height: 630, alt: 'ramka — the lightbox for React' }],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: `${seoTitle} — ramka`,
+    description: seoDescription,
+    images: [{ url: '/twitter-image.png', alt: 'ramka — the lightbox for React' }],
+  },
+};
 
 const structuredData = {
   '@context': 'https://schema.org',
   '@type': 'TechArticle',
   headline: 'A lightbox screen readers can actually use',
   description:
-    'What an accessible image lightbox actually requires: focus trapping and restoration, live regions for slide changes, inert slides, reduced motion, and honest notes on what remains hard. With interactive demos.',
+    'What an accessible React lightbox actually requires: focus trapping and restoration, live regions for slide changes, inert slides, reduced motion, and honest notes on what remains hard. With interactive demos.',
   url: `${siteUrl}/blog/lightbox-accessibility`,
   datePublished: PUBLISHED,
   author: { '@type': 'Person', name: 'Artur Bień' },
@@ -37,11 +66,14 @@ const structuredData = {
 
 const guardsCode = `// Two invisible spans bracket the dialog. Tab past either edge and the
 // guard hands focus back to the opposite end. This is the entire trap.
-<span tabIndex={0} aria-hidden="true" onFocus={focusLastTabbable} />
+// Note what is *not* here: no aria-hidden. A focusable element must never
+// be hidden from assistive tech (axe flags it as a serious violation) —
+// an empty span announces nothing anyway, and focus never rests on it.
+<span tabIndex={0} data-focus-guard onFocus={focusLastTabbable} />
 <div role="dialog" aria-modal="true" tabIndex={-1}>
   {children}
 </div>
-<span tabIndex={0} aria-hidden="true" onFocus={focusFirstTabbable} />`;
+<span tabIndex={0} data-focus-guard onFocus={focusFirstTabbable} />`;
 
 const namingCode = `<Lightbox.Slides
   aria-label="Full-size images"
@@ -127,28 +159,36 @@ export default function LightboxAccessibilityPage() {
           <Prose>
             The scale of the problem is measured annually.{' '}
             <Ext href="https://webaim.org/projects/million/">WebAIM&rsquo;s 2026 scan</Ext> of the top million
-            homepages found detectable WCAG failures on 95.9 percent of them, averaging 56.1 errors per page, and
-            repeated its most uncomfortable finding: pages that use ARIA have more errors than pages that
-            don&rsquo;t, because ARIA applied wrong builds barriers that plain HTML never had. A{' '}
-            <Ext href="https://accessibility.build/research/accessibility-by-technology">
-              2026 study of widget libraries
-            </Ext>{' '}
-            sharpened that picture: the components most associated with extra errors are carousels, lightboxes,
-            and custom selects. The thing you are reading about is, statistically, one of the worst-implemented
-            patterns on the web. It also has legal weight: over{' '}
+            homepages found automatically detectable WCAG 2 failures on 95.9 percent of them, averaging 56.1
+            errors per page. (An automated scan only catches the machine-testable failures, so the true rate is
+            higher, not lower.) The same report repeats its most uncomfortable correlation: pages that use ARIA
+            average significantly more detected errors than pages that don&rsquo;t, 59.1 versus 42. Correlation
+            is not a verdict on ARIA, but it is a measure of how often ARIA is applied wrong, and wrong ARIA
+            builds barriers plain HTML never had.
+          </Prose>
+
+          <Prose>
+            The same scan breaks its results down by the JavaScript libraries it detected, and the gallery
+            scripts cluster at the bad end of that table. Home pages running the original Lightbox script
+            averaged 25.7 percent more errors than the million-page mean; Slick 26.4 percent more, Swiper 31.8
+            percent more, FancyBox 60.3 percent more. A detected library is not proof it caused those errors,
+            sites that reach for a carousel plugin differ in a hundred other ways. But the pattern you are
+            reading about keeps company at the wrong end of the distribution. It also has money attached: at
+            the time of writing, UsableNet&rsquo;s{' '}
             <Ext href="https://info.usablenet.com/hubfs/Remediated%20-%202025_Year-End_Digital_Accessibility_Lawsuit_Report_FINAL.pdf">
-              5,000 digital accessibility lawsuits
+              year-end report
             </Ext>{' '}
-            were filed in the US in 2025, around 70 percent against e-commerce, which is exactly where image
-            galleries live.
+            counts more than 5,000 ADA-related digital accessibility lawsuits filed in the US during 2025, and
+            puts e-commerce, exactly where image galleries live, at about 70 percent of the industry
+            breakdown. (Counts of filings, not a statement about who wins, and nothing here is legal advice.)
           </Prose>
 
           <Prose>
             None of this is because dialogs are mysterious. The{' '}
             <Ext href="https://www.w3.org/WAI/ARIA/apg/patterns/dialog-modal/">W3C&rsquo;s dialog pattern</Ext>{' '}
-            spells out the contract. A lightbox just happens to sit on the intersection of three hard things at
-            once: it is a fullscreen modal dialog, an image carousel, and a gesture surface. Let&rsquo;s take
-            them in order.
+            spells out the contract. An accessible React lightbox just happens to sit on the intersection of
+            three hard things at once: it is a fullscreen modal dialog, an image carousel, and a gesture
+            surface. Let&rsquo;s take them in order.
           </Prose>
 
           <Heading>Watch focus fall out of the dialog</Heading>
@@ -163,8 +203,9 @@ export default function LightboxAccessibilityPage() {
 
           <Prose>
             The trap itself is less code than its reputation suggests. ramka brackets the dialog with two
-            invisible focus guards, the same technique Base UI uses. Tab past the last control and the guard
-            catches focus and hands it to the first one; Shift+Tab past the first and it lands on the last:
+            invisible focus guards, the same sentinel technique Radix and Base UI use. Tab past the last
+            control and the guard catches focus and hands it to the first one; Shift+Tab past the first and it
+            lands on the last:
           </Prose>
           <div className="mt-5">
             <CodeBlock code={guardsCode} title="The sentinel trap" />
@@ -196,9 +237,12 @@ export default function LightboxAccessibilityPage() {
             the next slide moves a scroller; no focus changes, so nothing announces itself. ramka&rsquo;s{' '}
             <code className="text-[13px]">Counter</code> primitive is the fix: it renders the &ldquo;2 of
             9&rdquo; you can see, and it is also an <code className="text-[13px]">aria-live="polite"</code>{' '}
-            region, so every slide change speaks. Same for <code className="text-[13px]">Caption</code>. Mount
-            them and navigation narrates itself; leave them out and it is silent, which is exactly what the demo
-            above shows.
+            region, so every slide change speaks. <code className="text-[13px]">Caption</code> announces the
+            same way, and because both regions are polite they queue rather than interrupt: with both mounted,
+            a slide change reads as the position, then the caption. If you would rather have a single voice,
+            pass <code className="text-[13px]">aria-live="off"</code> to the one you want visual-only; your
+            props win. Mount the Counter and navigation narrates itself; leave it out and it is silent, which
+            is exactly what the demo above shows.
           </Prose>
           <Prose>
             The docs chrome uses a trick worth stealing: on desktop, the thumbnail strip already shows position,
@@ -223,10 +267,11 @@ export default function LightboxAccessibilityPage() {
             <code className="text-[13px]">tablist</code> of <code className="text-[13px]">tab</code>s with roving
             tabindex,{' '}
             <KbdGroup>
-              <Kbd aria-label="Left arrow"><ArrowLeft /></Kbd>
-              <Kbd aria-label="Right arrow"><ArrowRight /></Kbd>
+              <KbdIcon label="Left arrow"><ArrowLeft /></KbdIcon>
+              <KbdIcon label="Right arrow"><ArrowRight /></KbdIcon>
             </KbdGroup>, <Kbd>Home</Kbd> and <Kbd>End</Kbd>, and the selection tracked from the active slide rather than from
-            DOM focus, so swiping can never desync what the keyboard thinks is selected. And the trigger that
+            DOM focus, so swiping can never desync what the keyboard thinks is selected. And a refinement the
+            dialog pattern does not require but disclosure buttons taught us to appreciate: the trigger that
             opened the lightbox carries <code className="text-[13px]">aria-haspopup="dialog"</code> and{' '}
             <code className="text-[13px]">aria-expanded</code>, on that specific element, so a screen reader user
             browsing a grid of twenty thumbnails can tell which one is currently open.
@@ -237,15 +282,18 @@ export default function LightboxAccessibilityPage() {
             One thing ramka deliberately does not do: bake in default labels. There is no built-in{' '}
             <code className="text-[13px]">aria-label="Close"</code> on the close button, no
             &ldquo;carousel&rdquo; roledescription hard-coded on the slides. A comment in the source explains
-            why: an English string baked into a primitive is wrong for most of the world. The numbers back that
-            up. In{' '}
+            why: an English string baked into a primitive is wrong for most of the world. The numbers sketch
+            who that world is. In{' '}
             <Ext href="https://webaim.org/projects/screenreadersurvey10/">
-              WebAIM&rsquo;s screen reader survey
-            </Ext>
-            , NVDA leads everywhere outside North America and Australia, across Europe, Africa, the Middle East,
-            and Asia, and 91.3 percent of respondents use a screen reader on a phone, where VoiceOver alone has
-            70.6 percent. A hard-coded &ldquo;Close&rdquo; is a wrong answer read aloud, in the wrong language,
-            to most screen reader users on Earth.
+              WebAIM&rsquo;s tenth screen reader survey
+            </Ext>{' '}
+            (2024), NVDA leads in every surveyed region outside North America and Australia — Europe, Africa
+            and the Middle East, and Asia — and 91.3 percent of respondents use a screen reader on a phone,
+            where 70.6 percent of them reach for VoiceOver. Market share says nothing about the languages those
+            users prefer; what it says is that a React primitive ships to a global, mostly mobile audience. A
+            built-in English &ldquo;Close&rdquo; is wrong the moment the interface around it is not in English,
+            and a primitive cannot know that. The application can. So ramka owns the semantic requirement, the
+            button must have a name, and leaves the localized words to the application.
           </Prose>
           <Prose>
             So the words are yours, and the structure is the library&rsquo;s. In development, ramka warns when a
@@ -273,21 +321,12 @@ export default function LightboxAccessibilityPage() {
           <Prose>
             The rest of the keyboard contract: <Kbd>Esc</Kbd> closes,{' '}
             <KbdGroup>
-              <Kbd aria-label="Left arrow"><ArrowLeft /></Kbd>
-              <Kbd aria-label="Right arrow"><ArrowRight /></Kbd>
+              <KbdIcon label="Left arrow"><ArrowLeft /></KbdIcon>
+              <KbdIcon label="Right arrow"><ArrowRight /></KbdIcon>
             </KbdGroup>{' '}
             move between slides, <Kbd>Home</Kbd> and <Kbd>End</Kbd> jump to the ends,{' '}
-            <Kbd aria-label="Plus"><Plus /></Kbd> and <Kbd aria-label="Minus"><Minus /></Kbd> zoom, and{' '}
-            <KbdGroup>
-              <Kbd aria-label="Command"><Command /></Kbd>
-              <Kbd>0</Kbd>
-            </KbdGroup>{' '}
-            or{' '}
-            <KbdGroup>
-              <Kbd>Ctrl</Kbd>
-              <Kbd>0</Kbd>
-            </KbdGroup>{' '}
-            resets. Two details are easy to get wrong. When
+            <KbdIcon label="Plus"><Plus /></KbdIcon> and <KbdIcon label="Minus"><Minus /></KbdIcon> zoom, and{' '}
+            <Kbd>0</Kbd> resets. Two details are easy to get wrong. When
             the photo is zoomed in, ramka&rsquo;s arrow keys stop navigating and start panning, because
             &ldquo;move within the thing I am looking at&rdquo; is what arrows mean everywhere else in an OS. And
             every shortcut steps aside when focus is in an input or textarea, so a comment field inside a
@@ -295,17 +334,25 @@ export default function LightboxAccessibilityPage() {
           </Prose>
           <Prose>
             Keyboard zoom is where testing gets almost comic. While writing this post I tried the two most
-            popular lightbox libraries: in both, <Kbd aria-label="Plus"><Plus /></Kbd> and{' '}
-            <Kbd aria-label="Minus"><Minus /></Kbd> do nothing at all. Muscle memory
+            popular lightbox libraries: in both, <KbdIcon label="Plus"><Plus /></KbdIcon> and{' '}
+            <KbdIcon label="Minus"><Minus /></KbdIcon> do nothing at all. Muscle memory
             then reaches for{' '}
             <KbdGroup>
-              <Kbd aria-label="Command"><Command /></Kbd>
-              <Kbd aria-label="Plus"><Plus /></Kbd>
+              <KbdIcon label="Command"><Command /></KbdIcon>
+              <KbdIcon label="Plus"><Plus /></KbdIcon>
             </KbdGroup>, and the browser does what that shortcut has always done: it zooms the page. The entire UI inflates,
             thumbnails included, and in one of the two the enlarged thumbnail strip claims so much of the
-            viewport that the photo you were trying to zoom into gets <em>smaller</em>. ramka intercepts the
-            browser zoom shortcuts while the dialog is open and points them at the image, because while a photo
-            fills your screen, &ldquo;zoom&rdquo; can only mean one thing.
+            viewport that the photo you were trying to zoom into gets <em>smaller</em>. ramka&rsquo;s answer is
+            to give the image its own keyboard zoom without taking the browser&rsquo;s away: unmodified{' '}
+            <KbdIcon label="Plus"><Plus /></KbdIcon>, <KbdIcon label="Minus"><Minus /></KbdIcon> and <Kbd>0</Kbd>{' '}
+            operate the photo, while the{' '}
+            <KbdGroup>
+              <KbdIcon label="Command"><Command /></KbdIcon>
+              <KbdIcon label="Plus"><Plus /></KbdIcon>
+            </KbdGroup>{' '}
+            family stays with the browser. Page zoom is how low-vision users resize text, WCAG 1.4.4 in
+            practice, so a viewer that swallows it is fixing one zoom by breaking another. Keeping both means
+            you can enlarge the viewer&rsquo;s controls and captions independently of the photo.
           </Prose>
           <Prose>
             Motion is an accessibility setting too. Vestibular disorders make large moving surfaces genuinely
@@ -359,17 +406,23 @@ export default function LightboxAccessibilityPage() {
 
           <Heading>What is still hard</Heading>
           <Prose>
-            The honest section. ramka does not currently set <code className="text-[13px]">inert</code> on the
-            page content behind the dialog; it relies on <code className="text-[13px]">aria-modal</code> and the
-            focus trap, which the dialog pattern permits, but belt-and-suspenders inerting of the background is
-            stronger with some older mobile screen readers. Slide announcements depend on you mounting{' '}
+            The honest section. The dialog pattern requires that content behind a modal be non-interactive for{' '}
+            <em>every</em> user, not just keyboard users. ramka covers the inputs it controls: the focus trap
+            contains Tab, the scroll lock and the viewport-covering surface block pointers and scrolling, and{' '}
+            <code className="text-[13px]">aria-modal</code> tells assistive technology to treat the background
+            as off limits, the mechanism ARIA 1.1 introduced to replace hiding the page by hand. What it does
+            not yet do is <em>also</em> set <code className="text-[13px]">inert</code> on the rest of the page,
+            the belt-and-suspenders that covers older mobile screen readers with weak{' '}
+            <code className="text-[13px]">aria-modal</code> support. That one is on the list, carefully:
+            blindly inerting everything outside the portal would break the menus and nested dialogs consumers
+            legitimately portal out of the viewer. Slide announcements depend on you mounting{' '}
             <code className="text-[13px]">Counter</code> or <code className="text-[13px]">Caption</code>; a
             lightbox without either is visually fine and aurally silent. And panning a zoomed image is a drag
             gesture without a single-tap alternative yet, which the{' '}
             <Link href="/docs/lightbox/zoom" className={inlineLinkClassName}>
               zoom docs
             </Link>{' '}
-            mark plainly as partial WCAG 2.5.7 support. These are on the list. A library that claims its
+            mark plainly as partial WCAG 2.5.7 support. All of it is on the roadmap. A library that claims its
             accessibility story is finished is describing a library nobody has tested.
           </Prose>
 
@@ -378,7 +431,7 @@ export default function LightboxAccessibilityPage() {
             You do not need an audit to catch the failures in this post; you need five minutes and the software
             already on your machine. On a Mac, press{' '}
             <KbdGroup>
-              <Kbd aria-label="Command"><Command /></Kbd>
+              <KbdIcon label="Command"><Command /></KbdIcon>
               <Kbd>F5</Kbd>
             </KbdGroup>{' '}
             to start VoiceOver. On Windows,{' '}

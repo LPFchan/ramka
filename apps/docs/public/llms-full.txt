@@ -1031,7 +1031,9 @@ import * as Lightbox from '@ramka/react/lightbox';
 
 - Esc — close
 - — pan when zoomed, otherwise previous/next
-- / / 0 or Ctrl 0 — zoom in / out / reset (active Zoom)
+- / / 0 — zoom in / out / reset (active Zoom)
+
+Image zoom uses unmodified keys only: / Ctrl and the other modified combos are left to the browser, so page zoom (WCAG 1.4.4 text resize) keeps working while the dialog is open.
 
 Focus is trapped in the dialog; closing restores focus to the opening Trigger. Native page pinch-zoom is blocked while Content is mounted so it does not fight `Lightbox.Zoom`.
 
@@ -1082,7 +1084,7 @@ ramka defaults to the canvas model: Ctrl /+wheel and trackpad pinch zoom to the 
 | Drag to pan | Yes — grab / grabbing cursor, elastic + momentum | Universal | Match |
 | Wheel to pan (zoomed) | Yes (deltaX / deltaY) | Common | Match |
 | Zoom buttons | ZoomIn / ZoomOut, step ×2 | Common | Zooms about center, not cursor |
-| Keyboard zoom | + = − _ and ⌘/Ctrl+0 | Expected | Match |
+| Keyboard zoom | + = − _ and 0 to reset (⌘/Ctrl combos stay browser page zoom) | Expected | Match |
 | Keyboard pan | Arrows pan (50px) when zoomed | Expected | Match |
 | Max zoom | Auto-capped to image's native resolution (fallback 4×) | Best practice (avoids blur) | Better than many |
 | Cursor at 1× | No zoom-in affordance (consumer CSS) | Some apps show a zoom-in cursor | Minor discoverability gap |
@@ -1395,7 +1397,7 @@ Portals Backdrop and Content into a host element (default: document.body). Pass 
 
 ### Content
 
-Dialog surface (role="dialog", aria-modal). Provide an accessible name via aria-label or aria-labelledby (required by the WAI-ARIA dialog pattern; the library warns in development if it is missing). Place inside Lightbox.Portal. Owns focus trap, Escape, and pull-to-dismiss. When Lightbox.Stage is mounted, gallery nav (arrows/Home/End), zoom shortcuts (⌘/+/-), pinch/ctrl+wheel zoom, and touch/wheel pull are scoped to Stage (and Zoom pan uses Stage as viewport); otherwise Content itself is the stage. Keyboard pan vs navigate depends on whether the active Zoom is above 1×.
+Dialog surface (role="dialog", aria-modal). Provide an accessible name via aria-label or aria-labelledby (required by the WAI-ARIA dialog pattern; the library warns in development if it is missing). Place inside Lightbox.Portal. Owns focus trap, Escape, and pull-to-dismiss. When Lightbox.Stage is mounted, gallery nav (arrows/Home/End), zoom shortcuts (unmodified +/-/0), pinch/ctrl+wheel zoom, and touch/wheel pull are scoped to Stage (and Zoom pan uses Stage as viewport); otherwise Content itself is the stage. Modified combos (⌘/Ctrl +, -, 0) are left to the browser for page zoom. Keyboard pan vs navigate depends on whether the active Zoom is above 1×.
 
 #### Props
 
@@ -1428,7 +1430,7 @@ Dialog surface (role="dialog", aria-modal). Provide an accessible name via aria-
 
 ### Stage
 
-Optional media interaction surface inside Content. Scopes touch and trackpad wheel pull-to-dismiss, Zoom pan viewport geometry, arrow/Home/End gallery navigation, zoom shortcuts (⌘/+/-), and pinch/ctrl+wheel zoom to the media pane. Interactive controls inside Stage keep their press (Close, Prev/Next, etc.). Place side panels / threads as siblings of Stage under Content. When omitted, Content itself is the stage. Prefer render-prop children to attach morphRef when the open/close morph should capture this surface (or a descendant) instead of the active item.
+Optional media interaction surface inside Content. Scopes touch and trackpad wheel pull-to-dismiss, Zoom pan viewport geometry, arrow/Home/End gallery navigation, zoom shortcuts (unmodified +/-/0), and pinch/ctrl+wheel zoom to the media pane. Interactive controls inside Stage keep their press (Close, Prev/Next, etc.). Place side panels / threads as siblings of Stage under Content. When omitted, Content itself is the stage. Prefer render-prop children to attach morphRef when the open/close morph should capture this surface (or a descendant) instead of the active item.
 
 #### Props
 
@@ -1473,7 +1475,7 @@ Optional scrim (place inside Lightbox.Portal, typically beside Content). Click c
 
 ### Close
 
-Button that closes the lightbox. Defaults to aria-label="Close".
+Button that closes the lightbox. Ships no default label — give it visible text or pass aria-label / aria-labelledby in your language (the library warns in development when it is nameless).
 
 #### Props
 
@@ -1489,7 +1491,7 @@ Button that closes the lightbox. Defaults to aria-label="Close".
 
 ### Item
 
-A single lightbox item. Registers captions and morph/placeholder refs. ARIA adapts automatically: it is a tabpanel wired (aria-labelledby / aria-controls) to its Lightbox.Thumbnail tab when a Lightbox.ThumbnailGroup is present, otherwise a carousel slide (role="group", aria-roledescription="slide", labelled "N of total"). Prefer nesting Lightbox.Media (sized morph + placeholder host) around the destination <img>/<video>; imageRef / morphRef remain escape hatches. Typically nested inside Slide. Outside Slides, every item stays mounted; inside Slides, `preload` gates contents.
+A single lightbox item. Registers captions and morph/placeholder refs. ARIA adapts automatically: it is a tabpanel wired (aria-labelledby / aria-controls) to its Lightbox.Thumbnail tab when a Lightbox.ThumbnailGroup is present, otherwise role="group" — the APG standalone carousel slide, which needs a translated aria-roledescription="slide" and an aria-label carrying the position ("N of total") from you. Prefer nesting Lightbox.Media (sized morph + placeholder host) around the destination <img>/<video>; imageRef / morphRef remain escape hatches. Typically nested inside Slide. Outside Slides, every item stays mounted; inside Slides, `preload` gates contents.
 
 #### Props
 
@@ -1532,7 +1534,7 @@ Sized destination media host — morph target and placeholder canvas container. 
 
 ### Slides
 
-Default layout: horizontal snap carousel wired to the active index. Exposes the WAI-ARIA carousel container (role="group", aria-roledescription="carousel") — give it a label via aria-label / aria-labelledby. Gates Item contents via `preload`; put Slide → Item → Zoom → Media inside. Consumer CSS sizes each Slide snap box (e.g. flex 0 0 100% for full-bleed); index geometry measures offsetLeft/offsetWidth. While the user is flinging, navigation is locked so pull-to-dismiss and zoom chrome do not fight the scroll.
+Default layout: horizontal snap carousel wired to the active index. Emits role="group" — the WAI-ARIA carousel container — and you pass the translated aria-roledescription="carousel" plus an aria-label / aria-labelledby naming the gallery (leave the word "carousel" out of the name; the roledescription already says it). Gates Item contents via `preload`; put Slide → Item → Zoom → Media inside. Consumer CSS sizes each Slide snap box (e.g. flex 0 0 100% for full-bleed); index geometry measures offsetLeft/offsetWidth. While the user is flinging, navigation is locked so pull-to-dismiss and zoom chrome do not fight the scroll.
 
 #### Props
 

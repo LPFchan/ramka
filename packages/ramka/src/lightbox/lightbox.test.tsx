@@ -1195,6 +1195,41 @@ describe('Lightbox', () => {
       expect(document.activeElement).toBe(screen.getByTestId('content'));
     });
 
+    it('focus guards are tabbable, carry no aria-hidden, and wrap focus in both directions', () => {
+      render(
+        <LightboxRoot defaultOpen defaultValue={0}>
+          <LightboxPortal>
+            <LightboxContent data-testid="content" aria-label="Guard test">
+              <button data-testid="first" type="button">
+                First
+              </button>
+              <button data-testid="last" type="button">
+                Last
+              </button>
+            </LightboxContent>
+          </LightboxPortal>
+        </LightboxRoot>,
+      );
+
+      const guards = Array.from(document.querySelectorAll('[data-focus-guard]'));
+      expect(guards).toHaveLength(2);
+      for (const guard of guards) {
+        expect(guard).toHaveAttribute('tabindex', '0');
+        // A focusable element must not be aria-hidden (axe aria-hidden-focus,
+        // WCAG 4.1.2) — the guards rely on being empty instead.
+        expect(guard).not.toHaveAttribute('aria-hidden');
+      }
+
+      // Tab past the end: the after-guard receives focus and redirects to the
+      // first tabbable. Shift+Tab past the start: the before-guard redirects
+      // to the last tabbable.
+      const [before, after] = guards as [HTMLElement, HTMLElement];
+      fireEvent.focus(after);
+      expect(document.activeElement).toBe(screen.getByTestId('first'));
+      fireEvent.focus(before);
+      expect(document.activeElement).toBe(screen.getByTestId('last'));
+    });
+
     it('allows focus to stay in a portaled overlay outside the dialog subtree', async () => {
       render(
         <LightboxRoot defaultOpen defaultValue={0}>
@@ -7384,47 +7419,57 @@ describe('Lightbox', () => {
       target.dispatchEvent(event);
     }
 
-    it('⌘/Ctrl + and - on sidebar do not zoom when Stage is mounted', () => {
+    it('bare + and - on sidebar do not zoom when Stage is mounted', () => {
       const zoomRef = React.createRef<LightboxZoomRef>();
       render(<StageZoomLightbox zoomRef={zoomRef} />);
       expect(zoomRef.current!.zoom).toBe(1);
 
-      fireEvent.keyDown(screen.getByTestId('sidebar'), { key: '=', metaKey: true });
+      fireEvent.keyDown(screen.getByTestId('sidebar'), { key: '=' });
       expect(zoomRef.current!.zoom).toBe(1);
 
-      fireEvent.keyDown(screen.getByTestId('sidebar'), { key: '+', ctrlKey: true });
+      fireEvent.keyDown(screen.getByTestId('sidebar'), { key: '+' });
       expect(zoomRef.current!.zoom).toBe(1);
 
-      fireEvent.keyDown(screen.getByTestId('sidebar'), { key: '-', metaKey: true });
+      fireEvent.keyDown(screen.getByTestId('sidebar'), { key: '-' });
       expect(zoomRef.current!.zoom).toBe(1);
     });
 
-    it('⌘/Ctrl + on sidebar still preventDefaults browser page zoom', () => {
+    it('⌘/Ctrl zoom shortcuts stay with the browser: not prevented, no image zoom (WCAG 1.4.4)', () => {
       const zoomRef = React.createRef<LightboxZoomRef>();
       render(<StageZoomLightbox zoomRef={zoomRef} />);
+      const stage = screen.getByTestId('stage');
 
-      const prevented = fireEvent.keyDown(screen.getByTestId('sidebar'), {
-        key: '=',
-        metaKey: true,
-      });
-      // fireEvent.keyDown returns false when defaultPrevented
-      expect(prevented).toBe(false);
+      // fireEvent.keyDown returns false when defaultPrevented — page zoom
+      // (⌘/Ctrl + `+` / `-` / `0`) must never be swallowed by the dialog.
+      expect(fireEvent.keyDown(stage, { key: '=', metaKey: true })).toBe(true);
       expect(zoomRef.current!.zoom).toBe(1);
-    });
 
-    it('⌘/Ctrl + on Content still zooms when Stage is mounted (default dialog focus)', () => {
-      const zoomRef = React.createRef<LightboxZoomRef>();
-      render(<StageZoomLightbox zoomRef={zoomRef} />);
+      expect(fireEvent.keyDown(stage, { key: '+', ctrlKey: true })).toBe(true);
+      expect(zoomRef.current!.zoom).toBe(1);
 
-      fireEvent.keyDown(screen.getByTestId('content'), { key: '=', metaKey: true });
+      fireEvent.keyDown(stage, { key: '=' });
+      expect(zoomRef.current!.zoom).toBeGreaterThan(1);
+
+      expect(fireEvent.keyDown(stage, { key: '-', metaKey: true })).toBe(true);
+      expect(zoomRef.current!.zoom).toBeGreaterThan(1);
+
+      expect(fireEvent.keyDown(stage, { key: '0', ctrlKey: true })).toBe(true);
       expect(zoomRef.current!.zoom).toBeGreaterThan(1);
     });
 
-    it('⌘/Ctrl + inside Stage zooms the active image', () => {
+    it('bare + on Content zooms when Stage is mounted (default dialog focus)', () => {
       const zoomRef = React.createRef<LightboxZoomRef>();
       render(<StageZoomLightbox zoomRef={zoomRef} />);
 
-      fireEvent.keyDown(screen.getByTestId('stage'), { key: '=', metaKey: true });
+      fireEvent.keyDown(screen.getByTestId('content'), { key: '+' });
+      expect(zoomRef.current!.zoom).toBeGreaterThan(1);
+    });
+
+    it('bare + inside Stage zooms the active image', () => {
+      const zoomRef = React.createRef<LightboxZoomRef>();
+      render(<StageZoomLightbox zoomRef={zoomRef} />);
+
+      fireEvent.keyDown(screen.getByTestId('stage'), { key: '+' });
       expect(zoomRef.current!.zoom).toBeGreaterThan(1);
     });
 
@@ -7437,6 +7482,19 @@ describe('Lightbox', () => {
       expect(zoomRef.current!.zoom).toBeGreaterThan(1);
 
       fireEvent.keyDown(screen.getByTestId('stage'), { key: '-' });
+      expect(zoomRef.current!.zoom).toBe(1);
+    });
+
+    it('bare 0 resets image zoom (page-zoom reset stays on ⌘/Ctrl+0)', () => {
+      const zoomRef = React.createRef<LightboxZoomRef>();
+      render(<StageZoomLightbox zoomRef={zoomRef} />);
+      const stage = screen.getByTestId('stage');
+
+      fireEvent.keyDown(stage, { key: '=' });
+      fireEvent.keyDown(stage, { key: '=' });
+      expect(zoomRef.current!.zoom).toBeGreaterThan(1);
+
+      fireEvent.keyDown(stage, { key: '0' });
       expect(zoomRef.current!.zoom).toBe(1);
     });
 

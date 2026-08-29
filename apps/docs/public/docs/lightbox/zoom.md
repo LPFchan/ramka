@@ -36,7 +36,7 @@ ramka defaults to the canvas model: Ctrl /+wheel and trackpad pinch zoom to the 
 | Drag to pan | Yes — grab / grabbing cursor, elastic + momentum | Universal | Match |
 | Wheel to pan (zoomed) | Yes (deltaX / deltaY) | Common | Match |
 | Zoom buttons | ZoomIn / ZoomOut, step ×2 | Common | Zooms about center, not cursor |
-| Keyboard zoom | + = − _ and ⌘/Ctrl+0 | Expected | Match |
+| Keyboard zoom | + = − _ and 0 to reset (⌘/Ctrl combos stay browser page zoom) | Expected | Match |
 | Keyboard pan | Arrows pan (50px) when zoomed | Expected | Match |
 | Max zoom | Auto-capped to image's native resolution (fallback 4×) | Best practice (avoids blur) | Better than many |
 | Cursor at 1× | No zoom-in affordance (consumer CSS) | Some apps show a zoom-in cursor | Minor discoverability gap |

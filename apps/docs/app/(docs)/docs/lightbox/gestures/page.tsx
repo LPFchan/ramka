@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 
 import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Command, Minus, Plus } from 'lucide-react';
 
-import { Kbd, KbdGroup } from '@/components/ui/kbd';
+import { Kbd, KbdGroup, KbdIcon } from '@/components/ui/kbd';
 
 import { CodeBlock } from '../../../../_components/code-block';
 import { DocsLink } from '../../../../_components/docs-link';
@@ -123,27 +123,32 @@ export default function LightboxGesturesPage() {
           </li>
           <li>
             <KbdGroup>
-              <Kbd aria-label="Left arrow"><ArrowLeft /></Kbd>
-              <Kbd aria-label="Right arrow"><ArrowRight /></Kbd>
-              <Kbd aria-label="Up arrow"><ArrowUp /></Kbd>
-              <Kbd aria-label="Down arrow"><ArrowDown /></Kbd>
+              <KbdIcon label="Left arrow"><ArrowLeft /></KbdIcon>
+              <KbdIcon label="Right arrow"><ArrowRight /></KbdIcon>
+              <KbdIcon label="Up arrow"><ArrowUp /></KbdIcon>
+              <KbdIcon label="Down arrow"><ArrowDown /></KbdIcon>
             </KbdGroup>{' '}
             — pan when zoomed, otherwise previous/next
           </li>
           <li>
-            <Kbd aria-label="Plus"><Plus /></Kbd> / <Kbd aria-label="Minus"><Minus /></Kbd> /{' '}
-            <KbdGroup>
-              <Kbd aria-label="Command"><Command /></Kbd>
-              <Kbd>0</Kbd>
-            </KbdGroup>{' '}
-            or{' '}
-            <KbdGroup>
-              <Kbd>Ctrl</Kbd>
-              <Kbd>0</Kbd>
-            </KbdGroup>{' '}
-            — zoom in / out / reset (active Zoom)
+            <KbdIcon label="Plus"><Plus /></KbdIcon> / <KbdIcon label="Minus"><Minus /></KbdIcon> /{' '}
+            <Kbd>0</Kbd> — zoom in / out / reset (active Zoom)
           </li>
         </ul>
+        <p>
+          Image zoom uses unmodified keys only:{' '}
+          <KbdGroup>
+            <KbdIcon label="Command"><Command /></KbdIcon>
+            <KbdIcon label="Plus"><Plus /></KbdIcon>
+          </KbdGroup>{' '}
+          /{' '}
+          <KbdGroup>
+            <Kbd>Ctrl</Kbd>
+            <KbdIcon label="Plus"><Plus /></KbdIcon>
+          </KbdGroup>{' '}
+          and the other modified combos are left to the browser, so page zoom (WCAG 1.4.4 text
+          resize) keeps working while the dialog is open.
+        </p>
         <p>
           Focus is trapped in the dialog; closing restores focus to the opening Trigger. Native page pinch-zoom is
           blocked while Content is mounted so it does not fight <code className="text-xs">Lightbox.Zoom</code>.

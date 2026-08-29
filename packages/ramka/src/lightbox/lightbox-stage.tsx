@@ -57,9 +57,9 @@ interface LightboxStageProps
  *     Stage are ignored; interactive controls inside Stage still keep their press)
  *   - Zoom pan cover / viewport geometry (instead of the full Content dialog)
  *   - Arrow / Home / End gallery keyboard navigation (only while focus is inside Stage)
- *   - Zoom shortcuts (⌘/+/-/0) and pinch / ctrl+wheel zoom (pointer/focus in Stage)
+ *   - Zoom shortcuts (unmodified `+/-/0`) and pinch / ctrl+wheel zoom (pointer/focus in Stage)
  *
- * Content remains the dialog shell (focus trap, Escape, zoom shortcuts `+/-`).
+ * Content remains the dialog shell (focus trap, Escape, zoom shortcuts `+/-/0`).
  * Side panels, threads, and other app chrome should sit as siblings of Stage
  * under Content so they keep native scroll and their own keyboard behavior.
  *
