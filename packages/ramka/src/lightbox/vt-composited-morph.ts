@@ -1,4 +1,4 @@
-import { VIEW_TRANSITION_NAME } from './vt-constants';
+import { VIEW_TRANSITION_NAME, VT_COMPOSITOR_HOLD_ATTR } from './vt-constants';
 import { LightboxDocumentCssVars } from './lightbox-css-vars';
 import { LightboxDocumentDataAttributes } from './lightbox-data-attributes';
 import { isAndroidBlinkSnapshotRoot } from './is-android-blink';
@@ -70,15 +70,33 @@ import { ensureLibrarySheet } from './vt-style-sheets';
 // mutually consistent even where the numeric bezier differs from the
 // browser's by rounding.
 //
-// Android Chrome (mobile Blink) is the exception to the frozen-box design:
-// it gets a MAIN-THREAD-COHERENT replacement instead (same geometry and
-// snapshot contract as the stock morph, ramka's timing, one keyframe effect
-// carrying transform + width/height so it can never be composited). Chrome
-// runs the transform track of VT group animations on the compositor while
-// the box and the overflow clip stay main-threaded; under close-time jank
-// the composited transform advances against a stale clip and the photo
-// renders as a hard-cut slice or vanishes. See the Android branch in
-// `upgrade` for the measurements.
+// Android Chrome (mobile Blink) needs one extra guard: the compositor hold.
+// The upgrade swaps animations inside the `ready` microtask, but the pseudo
+// tree's FIRST commit already ships the UA animations to the compositor —
+// the swap only lands in the SECOND commit. Chrome runs the UA transform
+// track and the opacity dissolves on the compositor while width/height and
+// the group's `overflow: hidden` clip stay main-threaded, and close is
+// exactly when the main thread stalls (overlay teardown, grid re-layout).
+// For as long as the second commit is blocked, the composited tracks keep
+// advancing against frame-0 main-thread state: the photo renders as a
+// hard-cut slice of itself (stale clip), vanishes once content and clip
+// stop overlapping, or — on crossfade morphs — the dissolve completes
+// against frozen geometry, swapping the item for the trigger snapshot at
+// full size. Measured frame-by-frame on a Pixel emulator: content at ~60%
+// progress under a clip still at 0%, with the strip's edges matching the
+// from-box to sub-pixel. getComputedStyle, WAAPI state and CDP screencast
+// all report main-thread values, so the artifact is invisible to every
+// in-page probe.
+//
+// The guard: `maybeUpgradeToCompositedMorph` sets VT_COMPOSITOR_HOLD_ATTR
+// before that first commit, and the structural sheet pauses every
+// view-transition animation under it. A paused animation never ticks on the
+// compositor, so held frames show the exact from-state (visually the
+// fully-open lightbox). The hold is released in the same commit that
+// installs the replacement animations — everything starts together, and
+// from then on every animated track (transform, radius clip, dissolves) is
+// compositor-driven, so later main-thread stalls cannot tear the morph.
+// Bails release the hold too, resuming the stock morph from frame 0.
 //
 // The upgrade validates everything it needs BEFORE touching any state and
 // bails (leaving the stock UA morph) on: missing `transition.ready`/
@@ -234,6 +252,7 @@ function vtPseudos(): Record<string, unknown> {
       composited: document.documentElement.hasAttribute('data-ramka-vt-composited'),
       compositedCss: document.documentElement.hasAttribute('data-ramka-vt-composited-css'),
       crossfade: document.documentElement.hasAttribute('data-ramka-crossfade'),
+      hold: document.documentElement.hasAttribute(VT_COMPOSITOR_HOLD_ATTR),
     },
   };
 }
@@ -473,99 +492,35 @@ function maybeUpgradeToCompositedMorph(transition: UpgradeableTransition): void 
   if (!isCompositedMorphEnabled()) return;
   if (!transition.ready) return;
 
+  // Android Blink: pause every VT animation from before the pseudo tree's
+  // first commit so nothing ticks on the compositor during the swap window
+  // (see the Android section of the module docblock). Released by `upgrade`
+  // in the commit that installs the replacements, by every bail, and — belt
+  // and braces — when the transition ends.
+  if (isAndroidBlinkSnapshotRoot()) {
+    document.documentElement.setAttribute(VT_COMPOSITOR_HOLD_ATTR, '');
+    transition.finished.finally(releaseCompositorHold);
+  }
+
   transition.ready
     .then(() => upgrade(transition))
     .catch(() => {
       // ready rejects when the transition is skipped — nothing to upgrade.
+      releaseCompositorHold();
     });
 }
 
-interface MainThreadMorphSpec {
-  duration: number;
-  ease: (t: number) => number;
-  uaElapsed: number;
-  from: ScaleTranslate & { w: number; h: number };
-  to: ScaleTranslate & { w: number; h: number };
-}
-
-/**
- * Android Chrome replacement: the UA morph re-driven as one main-thread
- * keyframe effect (see the Android branch in {@link upgrade} for why).
- *
- * Emits the same interpolation the UA animation would produce — box
- * width/height plus a translate+scale transform under the group's own
- * transform-origin — but with ramka's duration and easing baked into
- * numerically sampled offsets (the spring preset has no CSS equivalent).
- * Including width/height in the effect is the load-bearing part: it makes
- * the effect ineligible for the compositor, so transform, box and the
- * structural sheet's `overflow: hidden` clip all commit together. Snapshots
- * keep the structural contract (`100%` + cover/fill) and simply track the
- * animating box; the structural radius keyframes keep running on the group.
- */
-function upgradeToMainThreadMorph(
-  transition: UpgradeableTransition,
-  uaAnim: Animation,
-  spec: MainThreadMorphSpec,
-): void {
-  const docEl = document.documentElement;
-  const { duration, ease, uaElapsed, from, to } = spec;
-  const lerp = (a: number, b: number, q: number) => a + (b - a) * q;
-
-  const steps = Math.min(120, Math.max(24, Math.round(duration / 8)));
-  const frames: Keyframe[] = [];
-  for (let i = 0; i <= steps; i++) {
-    const offset = i / steps;
-    const q = ease(offset);
-    frames.push({
-      offset,
-      transform: `translate(${fmt(lerp(from.tx, to.tx, q))}px, ${fmt(lerp(from.ty, to.ty, q))}px) scale(${fmt(lerp(from.sx, to.sx, q))}, ${fmt(lerp(from.sy, to.sy, q))})`,
-      width: `${fmt(lerp(from.w, to.w, q))}px`,
-      height: `${fmt(lerp(from.h, to.h, q))}px`,
-    });
-  }
-
-  uaAnim.cancel();
-
-  vtDebug('upgrade', {
-    mode: 'android-main-thread',
-    duration,
-    uaElapsed,
-    from,
-    to,
-    first: frames[0]?.transform,
-    last: frames[frames.length - 1]?.transform,
-    steps,
-    ...vtPseudos(),
-  });
-
-  let replacement: Animation;
-  try {
-    replacement = docEl.animate(frames, {
-      duration,
-      easing: 'linear',
-      fill: 'both',
-      pseudoElement: GROUP_PSEUDO,
-    });
-  } catch {
-    // Engine refuses pseudo-element WAAPI — restore the stock morph.
-    uaAnim.currentTime = 0;
-    uaAnim.play();
-    vtDebug('upgrade-bail', { reason: 'android-waapi-throw', ...vtPseudos() });
-    return;
-  }
-
-  // Resume from the UA animation's painted progress (see the WAAPI path).
-  if (uaElapsed > 0) replacement.currentTime = uaElapsed;
-
-  startVtFrameSampler(transition.finished);
-  transition.finished.finally(() => {
-    replacement.cancel();
-  });
+function releaseCompositorHold(): void {
+  document.documentElement.removeAttribute(VT_COMPOSITOR_HOLD_ATTR);
 }
 
 function upgrade(transition: UpgradeableTransition): void {
   const docEl = document.documentElement;
   const bail = (reason: string, extra?: Record<string, unknown>) => {
+    // Unpause whatever the compositor hold froze — the stock morph resumes
+    // from frame 0 (a paused animation left behind would never finish and
+    // hold the pseudo tree hostage).
+    releaseCompositorHold();
     vtDebug('upgrade-bail', { reason, ...extra, ...vtPseudos() });
   };
 
@@ -682,42 +637,6 @@ function upgrade(transition: UpgradeableTransition): void {
       return;
     }
   }
-  // Android Chrome (mobile Blink) gets a MAIN-THREAD-COHERENT replacement
-  // instead of the frozen-box composited morph. Chrome runs the transform
-  // track of a view-transition group animation on the compositor while
-  // width/height and the group's `overflow: hidden` clip stay on the main
-  // thread. Close is exactly when the main thread stalls (overlay teardown,
-  // grid re-layout), and during the stall the composited transform keeps
-  // advancing while the clip is frozen at the from-state: the visible photo
-  // is the INTERSECTION of the advanced content with the stale clip — a
-  // hard-cut slice, or nothing at all once they stop overlapping. Measured
-  // frame-by-frame on a Pixel emulator: content at ~60% progress under a
-  // clip still at 0%, with the strip's edges matching the from-box to
-  // sub-pixel. getComputedStyle, WAAPI state and even CDP screencast all
-  // report main-thread values, so the artifact is invisible to every
-  // in-page probe.
-  //
-  // The fix is to re-drive the group with ONE author keyframe effect that
-  // animates transform AND width/height together: an effect touching
-  // non-compositable properties runs entirely on the main thread (the same
-  // Blink whole-effect rule the radius split below relies on, used in the
-  // opposite direction). Every track and the overflow clip then commit
-  // atomically — under a stall the morph drops frames but is never torn
-  // apart. Geometry, origin behavior and snapshot contract are the UA's
-  // own; only the driver, duration and easing change, so the morph still
-  // runs ramka's motion design (the structural sheet's radius keyframes
-  // keep running alongside on the same clock).
-  if (isAndroidBlinkSnapshotRoot()) {
-    upgradeToMainThreadMorph(transition, uaAnim, {
-      duration,
-      ease,
-      uaElapsed,
-      from: { ...fromT, w: w0, h: h0 },
-      to: { ...toT, w: w1, h: h1 },
-    });
-    return;
-  }
-
   // Origin fractions for reconstructing rendered rects from scaled endpoint
   // matrices (the UA animation runs under the group's own transform-origin;
   // our replacement forces 0 0, so the intended rect must be computed here).
@@ -967,6 +886,10 @@ ${snapshotCss}`,
       }
     }
   }
+
+  // Same task as the animation creation above, so the unpause (crossfade
+  // dissolves, root fades) and the replacements all start in one commit.
+  releaseCompositorHold();
 
   startVtFrameSampler(transition.finished);
 

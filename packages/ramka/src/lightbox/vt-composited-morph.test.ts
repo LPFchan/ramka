@@ -18,6 +18,7 @@ const OLD_PSEUDO = '::view-transition-old(lightbox-morph)';
 const NEW_PSEUDO = '::view-transition-new(lightbox-morph)';
 const COMPOSITED_ATTR = 'data-ramka-vt-composited';
 const COMPOSITED_CSS_ATTR = 'data-ramka-vt-composited-css';
+const HOLD_ATTR = 'data-ramka-vt-hold';
 const SNAP_OLD_W = '--ramka-vt-snap-old-w';
 const SNAP_OLD_H = '--ramka-vt-snap-old-h';
 const SNAP_NEW_W = '--ramka-vt-snap-new-w';
@@ -196,6 +197,7 @@ afterEach(() => {
   delete globals().GestureEvent;
   document.documentElement.removeAttribute(COMPOSITED_ATTR);
   document.documentElement.removeAttribute(COMPOSITED_CSS_ATTR);
+  document.documentElement.removeAttribute(HOLD_ATTR);
   document.documentElement.removeAttribute(LightboxDocumentDataAttributes.crossfade);
   document.documentElement.style.removeProperty(SNAP_OLD_W);
   document.documentElement.style.removeProperty(SNAP_OLD_H);
@@ -337,7 +339,7 @@ describe('composited morph — bails that leave the stock UA morph running', () 
 
 });
 
-describe('composited morph — Android Chrome main-thread path', () => {
+describe('composited morph — Android Chrome compositor hold', () => {
   const ANDROID_UA =
     'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.6478.71 Mobile Safari/537.36';
 
@@ -345,74 +347,91 @@ describe('composited morph — Android Chrome main-thread path', () => {
     vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue(ANDROID_UA);
   });
 
-  it('re-drives the UA morph as ONE main-thread effect (transform + width + height)', async () => {
-    // Chrome composites the transform track of VT group animations while the
-    // box and overflow clip stay main-threaded; under close-time jank the
-    // photo renders as the intersection of advanced content with a stale
-    // clip. Including width/height makes the whole effect non-compositable,
-    // so every track and the clip commit atomically.
+  afterEach(() => {
+    document.documentElement.removeAttribute(HOLD_ATTR);
+  });
+
+  it('holds the UA animations from before the first frame, then upgrades like everywhere else', async () => {
+    // The pseudo tree's first commit ships the UA animations to the
+    // compositor before the ready-microtask swap can land; the hold pauses
+    // them so a close-start main-thread stall shows the from-state instead
+    // of a composited transform/dissolve advancing against a stale clip.
     const ua = uaGroupAnimation();
+    installAnimations([ua]);
+    const upgrade = await loadUpgrade();
+
+    upgrade(fakeTransition().transition);
+    // Set synchronously, before `ready` resolves — i.e. before first commit.
+    expect(document.documentElement.hasAttribute(HOLD_ATTR)).toBe(true);
+
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    // Released in the same task that installs the standard composited
+    // replacement — Android runs the same frozen-box morph as desktop.
+    expect(document.documentElement.hasAttribute(HOLD_ATTR)).toBe(false);
+    expect(ua.cancel).toHaveBeenCalled();
+    expect(document.documentElement.hasAttribute(COMPOSITED_ATTR)).toBe(true);
+    expect(animateSpy).toHaveBeenCalledTimes(3);
+    const pseudos = animateSpy.mock.calls.map(([, options]) => options.pseudoElement);
+    expect(pseudos).toEqual([GROUP_PSEUDO, OLD_PSEUDO, NEW_PSEUDO]);
+  });
+
+  it('releases the hold when the upgrade bails, so the stock morph can finish', async () => {
+    // A paused animation never finishes — leaving the hold behind would keep
+    // the pseudo tree alive forever.
+    const ua = uaGroupAnimation({ animationName: 'author-supplied-animation' });
     installAnimations([ua]);
 
     await runUpgrade(fakeTransition().transition);
 
-    expect(ua.cancel).toHaveBeenCalled();
-    expect(animateSpy).toHaveBeenCalledTimes(1);
-    const [frames, options] = animateSpy.mock.calls[0]!;
-    expect(options.pseudoElement).toBe(GROUP_PSEUDO);
-    expect(options.easing).toBe('linear');
-    expect(options.fill).toBe('both');
-    expect(frames.length).toBeGreaterThan(20);
-    expect(frames[0]).toMatchObject({ width: '200px', height: '150px' });
-    expect(frames[frames.length - 1]).toMatchObject({ width: '800px', height: '600px' });
-    expect(String(frames[0].transform)).toBe('translate(100px, 200px) scale(1, 1)');
-    expect(String(frames[frames.length - 1].transform)).toBe('translate(0px, 0px) scale(1, 1)');
-
-    // No frozen-box machinery: no root attributes, no injected sheets, no
-    // snapshot size vars — snapshots keep the structural contract and the
-    // structural radius keyframes keep running on the group.
-    expect(document.documentElement.hasAttribute(COMPOSITED_ATTR)).toBe(false);
-    expect(document.documentElement.hasAttribute(COMPOSITED_CSS_ATTR)).toBe(false);
-    expect(compositedStyleEl()).toBeNull();
-    expect(document.documentElement.style.getPropertyValue(SNAP_OLD_W)).toBe('');
+    expect(document.documentElement.hasAttribute(HOLD_ATTR)).toBe(false);
+    expectStockMorphLeftAlone(ua);
   });
 
-  it('resumes from the UA animation’s painted progress', async () => {
-    installAnimations([uaGroupAnimation({ currentTime: 60 })]);
+  it('releases the hold when `ready` rejects (skipped transition)', async () => {
+    const upgrade = await loadUpgrade();
 
-    await runUpgrade(fakeTransition().transition);
+    upgrade({ ready: Promise.reject(new Error('skipped')), finished: Promise.resolve() });
+    expect(document.documentElement.hasAttribute(HOLD_ATTR)).toBe(true);
 
-    expect(createdAnimations).toHaveLength(1);
-    expect(createdAnimations[0]!.currentTime).toBe(60);
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(document.documentElement.hasAttribute(HOLD_ATTR)).toBe(false);
   });
 
-  it('cancels the replacement when the transition finishes', async () => {
+  it('releases the hold when the transition finishes, whatever else happened', async () => {
     const { transition, finish } = fakeTransition();
+    Object.defineProperty(document, 'getAnimations', {
+      configurable: true,
+      writable: true,
+      value: undefined,
+    });
 
     const upgrade = await loadUpgrade();
     upgrade(transition);
     await Promise.resolve();
     await Promise.resolve();
     await Promise.resolve();
-    expect(createdAnimations).toHaveLength(1);
+    // Simulate the hold surviving past the (bailed) upgrade.
+    document.documentElement.setAttribute(HOLD_ATTR, '');
 
     await finish();
 
-    expect(createdAnimations[0]!.cancel).toHaveBeenCalled();
+    expect(document.documentElement.hasAttribute(HOLD_ATTR)).toBe(false);
   });
 
-  it('rolls back to the stock morph when pseudo-element WAAPI throws', async () => {
-    const ua = uaGroupAnimation();
-    installAnimations([ua]);
-    animateSpy.mockImplementation(() => {
-      throw new Error('pseudo-element WAAPI unsupported');
-    });
+  it('never engages off Android Blink', async () => {
+    vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue(
+      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
+    );
+    const upgrade = await loadUpgrade();
 
-    await runUpgrade(fakeTransition().transition);
+    upgrade(fakeTransition().transition);
 
-    expect(ua.cancel).toHaveBeenCalled();
-    expect(ua.currentTime).toBe(0);
-    expect(ua.play).toHaveBeenCalled();
+    expect(document.documentElement.hasAttribute(HOLD_ATTR)).toBe(false);
   });
 });
 

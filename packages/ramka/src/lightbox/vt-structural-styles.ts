@@ -1,4 +1,4 @@
-import { VIEW_TRANSITION_NAME } from './vt-constants';
+import { VIEW_TRANSITION_NAME, VT_COMPOSITOR_HOLD_ATTR } from './vt-constants';
 import { LightboxDocumentCssVars, LightboxThumbnailStripCssVars } from './lightbox-css-vars';
 import {
   LightboxDocumentDataAttributes,
@@ -155,6 +155,26 @@ function buildCss(): string {
   :root[${vt}="closing"][${crossfade}]${oldPseudo},
   :root[${vt}="closing"][${crossfade}]${newPseudo} {
     animation-timing-function: ${closeEasing} !important;
+  }
+
+  /* Compositor hold (Android Blink) — set by the composited morph BEFORE the
+     pseudo tree's first commit, released in the same commit that installs the
+     replacement animations (or on any bail back to the stock morph). A paused
+     animation never ticks on the compositor, so the swap window between
+     capture and upgrade cannot paint torn frames: without this, Chrome runs
+     the UA transform track and the opacity dissolves on the compositor while
+     the box and the overflow clip stay main-threaded, and a close-time stall
+     renders the photo as a hard-cut slice (stale clip), makes it vanish, or
+     completes a crossfade dissolve against frozen geometry. Held frames show
+     the exact from-state, i.e. the fully-open lightbox. Placed after the
+     crossfade rules so it beats their \`animation: revert !important\` at
+     equal specificity. */
+  :root[${VT_COMPOSITOR_HOLD_ATTR}]${groupPseudo},
+  :root[${VT_COMPOSITOR_HOLD_ATTR}]${oldPseudo},
+  :root[${VT_COMPOSITOR_HOLD_ATTR}]${newPseudo},
+  :root[${VT_COMPOSITOR_HOLD_ATTR}]::view-transition-old(root),
+  :root[${VT_COMPOSITOR_HOLD_ATTR}]::view-transition-new(root) {
+    animation-play-state: paused !important;
   }
 }
 

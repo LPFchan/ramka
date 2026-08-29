@@ -62,6 +62,10 @@ describe('vt-structural-styles', () => {
     expect(css).toContain('data-ramka-crossfade');
     expect(css).toContain('data-ramka-view-transition="closing"');
     expect(css).toContain('--lightbox-vt-crossfade-close-easing');
+    // Compositor hold — pauses every VT animation while the composited morph
+    // swaps in its replacements (Android Blink swap-window tearing).
+    expect(css).toContain('data-ramka-vt-hold');
+    expect(css).toContain('animation-play-state: paused !important');
     // Thumb-jump slides crossfade.
     expect(css).toContain('[data-ramka-slides]::view-transition-group(root)');
     // Everything animated is reduced-motion gated.

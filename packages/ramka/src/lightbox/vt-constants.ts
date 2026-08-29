@@ -7,6 +7,19 @@ export const DEFAULT_DECODE_MAX_WAIT = 200;
 /** Shared View Transition group name for the trigger ↔ item morph. */
 export const VIEW_TRANSITION_NAME = 'lightbox-morph';
 
+/**
+ * Root attribute that pauses every view-transition animation through the
+ * structural sheet (`animation-play-state: paused !important`).
+ *
+ * Set by the composited morph on Android Blink BEFORE the transition's first
+ * frame and released in the same commit that installs the replacement
+ * animations (or on any bail). A paused animation never ticks on the
+ * compositor, so the UA animations cannot paint torn frames during the
+ * capture→upgrade swap window — see the Android section of the
+ * vt-composited-morph docblock.
+ */
+export const VT_COMPOSITOR_HOLD_ATTR = 'data-ramka-vt-hold';
+
 export function supportsViewTransitions(): boolean {
   return (
     typeof document !== 'undefined' &&
