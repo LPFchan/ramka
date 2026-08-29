@@ -180,9 +180,9 @@ import * as Lightbox from '@ramka/react/lightbox';
 
 [Content](docs/lightbox/api.md#api-content) is the keyboard authority while open:
 
-- `Escape` — close
-- Arrow keys — pan when zoomed, otherwise previous/next
-- `+` / `-` / `⌘/Ctrl+0` — zoom in / out / reset (active Zoom)
+- Esc — close
+- — pan when zoomed, otherwise previous/next
+- / / 0 or Ctrl 0 — zoom in / out / reset (active Zoom)
 
 Focus is trapped in the dialog; closing restores focus to the opening Trigger. Native page pinch-zoom is blocked while Content is mounted so it does not fight `Lightbox.Zoom`.
 

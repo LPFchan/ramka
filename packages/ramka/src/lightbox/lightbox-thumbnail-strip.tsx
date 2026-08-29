@@ -5,7 +5,10 @@ import { flushSync } from 'react-dom';
 
 import { useLightboxContext, type NavigationSource } from './lightbox-context';
 import { LightboxThumbnailStripCssVars } from './lightbox-css-vars';
-import { LightboxThumbnailStripDataAttributes } from './lightbox-data-attributes';
+import {
+  LightboxContentDataAttributes,
+  LightboxThumbnailStripDataAttributes,
+} from './lightbox-data-attributes';
 import {
   LightboxThumbnailStripContext,
   type LightboxThumbnailStripSelectOptions,
@@ -101,6 +104,7 @@ const LightboxThumbnailStrip = React.forwardRef<HTMLDivElement, LightboxThumbnai
       itemCount,
       activeIndex,
       thumbnailStripSelectRef,
+      dialogElementRef,
       dir,
     } = useLightboxContext();
 
@@ -115,6 +119,8 @@ const LightboxThumbnailStrip = React.forwardRef<HTMLDivElement, LightboxThumbnai
     const scrubHoldRef = React.useRef(false);
     /** Re-run attach (JS scroll mirror) when ScrollTimeline is unavailable. */
     const reattachRef = React.useRef<(() => void) | null>(null);
+    /** Mirrors Content's `data-zoomed` (held through the zoom-out animation). */
+    const zoomedRef = React.useRef(false);
     const rafRef = React.useRef(0);
     const syncFromScrollRef = React.useRef<(() => void) | null>(null);
     const usesScrollTimelineRef = React.useRef(false);
@@ -232,6 +238,17 @@ const LightboxThumbnailStrip = React.forwardRef<HTMLDivElement, LightboxThumbnai
       const slides = slidesViewportRef.current;
       const ScrollTimeline = getScrollTimelineConstructor();
       const geometry = slidesGeometryRef.current;
+      // While the active slide is zoomed the scaled media extends the Slides
+      // scroller's scrollable overflow (`Lightbox.Zoom` never clips), and a
+      // ScrollTimeline maps progress over that *whole* range — the grown
+      // `scrollWidth` re-maps the unchanged scrollLeft to a smaller progress
+      // and the track drifts as if the user were scrolling. Snap positions do
+      // not move, so fall back to the measured JS mirror until zoom rests
+      // (see the `data-zoomed` observer below, which re-arms on unzoom).
+      if (zoomedRef.current) {
+        usesScrollTimelineRef.current = false;
+        return false;
+      }
       // ScrollTimeline progress is linear in scroll distance; variable-width
       // (snug) tracks need index-linear JS sync via slidesScrollProgress.
       if (!track || !slides || !ScrollTimeline || !slidesGeometryIsUniform(geometry)) {
@@ -400,6 +417,41 @@ const LightboxThumbnailStrip = React.forwardRef<HTMLDivElement, LightboxThumbnai
       trackVersion,
       thumbVersion,
     ]);
+
+    // Zoom awareness for the scroll link. `zoom-chrome.ts` publishes
+    // `data-zoomed` on Content frame-accurately (no React in the loop), so an
+    // attribute observer is the cheapest correct signal. On every flip,
+    // re-attach: `startLinkAnimation` refuses the ScrollTimeline while zoomed
+    // (grown scroll overflow would distort its progress mapping — see the gate
+    // there), so refresh drops to the measured JS mirror, and re-arms the
+    // timeline once zoom rests. A flip during a thumb scrub is a no-op
+    // (refresh guards on the scrub hold); the scrub's own release re-runs
+    // `startLinkAnimation`, which consults the same ref.
+    // `useEffect` (not layout): Content assigns `dialogElementRef` in its own
+    // layout pass, which runs after this child's layout effects.
+    React.useEffect(() => {
+      const dialog = dialogElementRef.current;
+      if (!dialog || typeof MutationObserver !== 'function') return;
+
+      const sync = () => {
+        const zoomed = dialog.hasAttribute(LightboxContentDataAttributes.zoomed);
+        if (zoomed === zoomedRef.current) return;
+        zoomedRef.current = zoomed;
+        reattachRef.current?.();
+      };
+
+      // Covers a strip mounted mid-zoom (refs start unzoomed).
+      sync();
+      const observer = new MutationObserver(sync);
+      observer.observe(dialog, {
+        attributes: true,
+        attributeFilter: [LightboxContentDataAttributes.zoomed],
+      });
+      return () => {
+        observer.disconnect();
+        zoomedRef.current = false;
+      };
+    }, [dialogElementRef]);
 
     const selectIndex = React.useCallback(
       (index: number, options?: LightboxThumbnailStripSelectOptions) => {

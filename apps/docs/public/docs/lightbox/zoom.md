@@ -7,11 +7,11 @@ How ramka’s zoom & pan — on desktop and on touch — lines up with mainstrea
 Desktop image viewers split into two families, depending on whether the surface is treated as a *media viewer* or a *canvas / document*:
 
 - **Media-viewer model** (Google Photos, Lightroom, PhotoSwipe, OpenSeadragon): a bare scroll wheel zooms toward the cursor; drag pans.
-- **Canvas / document model** (Figma, macOS Preview, Google Maps on trackpad): a bare scroll pans, and zoom is gated behind a modifier (Ctrl / ⌘) or a trackpad pinch — so it never hijacks the user’s scroll.
+- **Canvas / document model** (Figma, macOS Preview, Google Maps on trackpad): a bare scroll pans, and zoom is gated behind a modifier (Ctrl / ) or a trackpad pinch — so it never hijacks the user’s scroll.
 
-Regardless of family, four things are near-universal: **drag pans** when zoomed, **wheel/pinch zoom is focal** (zooms toward the pointer), **double-click toggles** zoom, and **Ctrl/⌘+wheel and trackpad pinch always zoom**. The only real disagreement is whether a *bare* wheel zooms or pans.
+Regardless of family, four things are near-universal: **drag pans** when zoomed, **wheel/pinch zoom is focal** (zooms toward the pointer), **double-click toggles** zoom, and **Ctrl /+wheel and trackpad pinch always zoom**. The only real disagreement is whether a *bare* wheel zooms or pans.
 
-| App | Bare scroll | Ctrl/⌘+wheel · pinch | Double-click | Drag |
+| App | Bare scroll | Ctrl /+wheel · pinch | Double-click | Drag |
 | --- | --- | --- | --- | --- |
 | macOS Preview | Pan / scroll | Zoom (pinch) | Smart-zoom toggle | Pan |
 | Apple Photos (Mac) | — | Zoom (pinch) | Toggle 1×↔zoom | Pan |
@@ -25,7 +25,7 @@ Regardless of family, four things are near-universal: **drag pans** when zoomed,
 
 ## ramka on desktop
 
-ramka defaults to the canvas model: Ctrl/⌘+wheel and trackpad pinch zoom to the cursor, a bare wheel is a no-op at 1× (and pans when zoomed), and `scrollToZoom` on [Zoom](docs/lightbox/api.md#api-zoom) opts into the media-viewer behavior. That is the more embed-friendly default — a lightbox often lives inside a scrollable page, so bare-wheel zoom risks trapping the user’s scroll.
+ramka defaults to the canvas model: Ctrl /+wheel and trackpad pinch zoom to the cursor, a bare wheel is a no-op at 1× (and pans when zoomed), and `scrollToZoom` on [Zoom](docs/lightbox/api.md#api-zoom) opts into the media-viewer behavior. That is the more embed-friendly default — a lightbox often lives inside a scrollable page, so bare-wheel zoom risks trapping the user’s scroll.
 
 | Interaction | ramka | Consensus | Verdict |
 | --- | --- | --- | --- |

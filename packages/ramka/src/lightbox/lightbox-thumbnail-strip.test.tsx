@@ -378,6 +378,55 @@ describe('Lightbox.ThumbnailStrip', () => {
     expect(link!.anim.effect?.options).toMatchObject({ duration: 1, fill: 'both' });
   });
 
+  it('drops the ScrollTimeline link while Content is zoomed and re-arms on unzoom', async () => {
+    enableScrollTimeline();
+
+    render(<Gallery count={5} />);
+    const slides = screen.getByTestId('slides');
+    setupSlidesGeometry(slides, 5);
+    const root = screen.getByTestId('thumbnail-strip');
+    const track = screen.getByTestId('thumbnail-strip-track');
+    setupThumbnailStripRoot(root);
+    setupThumbGeometry(track, 5);
+    endScroll(slides);
+
+    const link = linkCalls[linkCalls.length - 1];
+    expect(link).toBeTruthy();
+
+    // Park on slide 2 — the drift only shows at non-zero scroll positions
+    // (progress = scroll / range, and zoom overflow grows the range).
+    swipeTo(slides, 2);
+    endScroll(slides);
+    const linksBefore = linkCalls.length;
+
+    const dialog = screen.getByRole('dialog');
+    await act(async () => {
+      dialog.setAttribute('data-zoomed', '');
+      // MutationObserver delivers as a microtask.
+      await Promise.resolve();
+      flushRaf();
+    });
+
+    // Zoomed: the ScrollTimeline link is gone (its whole-range progress
+    // mapping distorts when zoom overflow grows scrollWidth) and the JS
+    // mirror pins the track at the measured snap-position travel instead.
+    expect(link!.anim.cancel).toHaveBeenCalled();
+    expect(linkCalls.length).toBe(linksBefore);
+    expect(readTranslateX(track)).toBeCloseTo(-2 * THUMB_STEP, 5);
+
+    await act(async () => {
+      dialog.removeAttribute('data-zoomed');
+      await Promise.resolve();
+      flushRaf();
+    });
+
+    // Unzoomed: a fresh ScrollTimeline link is armed.
+    expect(linkCalls.length).toBeGreaterThan(linksBefore);
+    const rearmed = linkCalls[linkCalls.length - 1];
+    expect(rearmed!.timeline.source).toBe(slides);
+    expect(rearmed!.anim.play).toHaveBeenCalled();
+  });
+
   it('thumb click cancels the ScrollTimeline link, scrubs via WAAPI, then re-arms ScrollTimeline', async () => {
     enableScrollTimeline();
 

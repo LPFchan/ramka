@@ -92,7 +92,7 @@ Live compositions: [Default preset](presets/default.md), [Twitter preset](preset
 
 ## Stage (split layouts)
 
-Use [Lightbox.Stage](docs/lightbox/api.md#api-stage) when Content holds more than the media pane — for example a thread sidebar beside the gallery. Stage is the media interaction surface: trackpad wheel pull-to-dismiss, Zoom pan cover geometry, and arrow / Home / End gallery navigation are scoped to it. Content remains the dialog shell (focus trap, Escape, zoom shortcuts). Place side panels as siblings of Stage under Content so they keep native scroll and their own keyboard behavior. When Stage is omitted, Content itself is the stage (default full-bleed viewers need no change).
+Use [Lightbox.Stage](docs/lightbox/api.md#api-stage) when Content holds more than the media pane — for example a thread sidebar beside the gallery. Stage is the media interaction surface: trackpad wheel pull-to-dismiss, Zoom pan cover geometry, and / Home / End gallery navigation are scoped to it. Content remains the dialog shell (focus trap, Esc, zoom shortcuts). Place side panels as siblings of Stage under Content so they keep native scroll and their own keyboard behavior. When Stage is omitted, Content itself is the stage (default full-bleed viewers need no change).
 
 ```tsx Stage + side panel
 <Lightbox.Content aria-label="Post">
