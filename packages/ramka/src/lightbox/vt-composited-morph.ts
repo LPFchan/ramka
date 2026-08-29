@@ -164,16 +164,17 @@ const GROUP_PSEUDO = `::view-transition-group(${VIEW_TRANSITION_NAME})`;
 const OLD_PSEUDO = `::view-transition-old(${VIEW_TRANSITION_NAME})`;
 const NEW_PSEUDO = `::view-transition-new(${VIEW_TRANSITION_NAME})`;
 
-/** TEMP: Android Chrome "cut in half" morph investigation. Flip to false to silence. */
-const VT_DEBUG = true;
-
+/**
+ * TEMP: Android Chrome morph investigation instrumentation. OPT-IN at runtime
+ * via `window.__RAMKA_VT_DEBUG__ = true` — the frame sampler alone forces
+ * five pseudo-element getComputedStyle reads plus a console.info per rAF for
+ * the whole transition, which is enough main-thread + devtools-protocol
+ * traffic to make the morph itself stutter on emulators. Off by default so
+ * measurements reflect what users ship.
+ */
 function vtDebugEnabled(): boolean {
-  if (!VT_DEBUG) return false;
   if (typeof window === 'undefined') return false;
-  if (typeof navigator !== 'undefined' && /jsdom/i.test(navigator.userAgent)) return false;
-  // Tests may mock the UA to a real browser string; stay silent there too.
-  if (typeof process !== 'undefined' && process.env?.VITEST) return false;
-  return true;
+  return (window as unknown as Record<string, unknown>).__RAMKA_VT_DEBUG__ === true;
 }
 
 function vtRound(n: number): number {

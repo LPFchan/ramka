@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>VT compositing lab</title>
+<style>
+  html, body { margin: 0; background: #fff; font: 14px system-ui; }
+  #stage { position: fixed; inset: 0; overflow: hidden; }
+
+  /* The morphing box. Small state top-left, large state centered. */
+  #box {
+    position: absolute;
+    left: 30px; top: 140px; width: 80px; height: 80px;
+    background: #f0f;
+    view-transition-name: labbox;
+  }
+  #box.big { left: 30px; top: 300px; width: 340px; height: 340px; }
+
+  /* Main-thread indicator: rAF-driven black square. Freezes = main blocked. */
+  #mainDot { position: absolute; top: 40px; left: 0; width: 26px; height: 26px; background: #000; }
+
+  /* Compositor reference: infinite CSS transform loop (known composited). */
+  #compBar { position: absolute; top: 80px; left: 0; width: 26px; height: 26px; background: #00f;
+             animation: comploop 2000ms linear infinite; }
+  @keyframes comploop { from { transform: translateX(0); } to { transform: translateX(360px); } }
+
+  #hud { position: absolute; bottom: 10px; left: 10px; color: #888; }
+
+  /* Stock VT: slow linear UA morph so screencast has plenty of frames. */
+  ::view-transition-group(labbox) {
+    animation-duration: 2000ms;
+    animation-timing-function: linear;
+  }
+  /* Kill root fades: pixel noise-free background. */
+  ::view-transition-old(root), ::view-transition-new(root) { animation: none; opacity: 1; }
+  ::view-transition-new(root) { display: none; }
+
+  /* Author-replacement variants: frozen final box, transform-only. */
+  html[data-lab-upgraded]::view-transition-group(labbox) {
+    transform-origin: 0 0;
+    overflow: visible;
+    clip-path: inset(0);
+  }
+  html[data-lab-upgraded]::view-transition-old(labbox) { display: none; }
+  html[data-lab-upgraded]::view-transition-new(labbox) {
+    animation: none; opacity: 1; width: 100%; height: 100%; object-fit: fill;
+    inset: 0 auto auto 0;
+  }
+
+  /* Snapshot-pseudo animation probes: static group, one visible snapshot. */
+  html[data-lab-snap]::view-transition-group(labbox) {
+    animation: none; transform-origin: 0 0; overflow: visible; clip-path: none;
+  }
+  html[data-lab-snap]::view-transition-old(labbox),
+  html[data-lab-snap]::view-transition-new(labbox) {
+    animation: none; width: 100%; height: 100%; object-fit: fill;
+    inset: 0 auto auto 0; transform-origin: 0 0;
+  }
+  html[data-lab-snap="old"]::view-transition-old(labbox) { opacity: 1; }
+  html[data-lab-snap="old"]::view-transition-new(labbox) { display: none; }
+  html[data-lab-snap="new"]::view-transition-old(labbox) { display: none; }
+  html[data-lab-snap="new"]::view-transition-new(labbox) { opacity: 1; }
+  @keyframes labsnap { from { transform: translate(0, 0); } to { transform: translate(0, 500px); } }
+  html[data-lab-snap-css="old"]::view-transition-old(labbox) { animation: labsnap 2000ms linear both; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="mainDot"></div>
+  <div id="compBar"></div>
+  <div id="box"></div>
+  <div id="hud">vt-lab</div>
+</div>
+<script>
+(() => {
+  const box = document.getElementById('box');
+  const hud = document.getElementById('hud');
+  const mainDot = document.getElementById('mainDot');
+  const docEl = document.documentElement;
+  const GROUP = '::view-transition-group(labbox)';
+  const DURATION = 2000;
+  const BLOCK_AT = 700;
+  const BLOCK_MS = 600;
+
+  const log = (event, data) =>
+    console.info('[vtlab] ' + JSON.stringify({ t: Math.round(performance.now()), event, ...data }));
+
+  // Main-thread indicator: bounces 0..360px, advanced per rAF tick.
+  let dotX = 0, dotDir = 1;
+  (function tickDot() {
+    dotX += 6 * dotDir;
+    if (dotX >= 360 || dotX <= 0) dotDir *= -1;
+    mainDot.style.left = dotX + 'px';
+    requestAnimationFrame(tickDot);
+  })();
+
+  const busy = (ms) => {
+    log('block-start', { ms });
+    const end = performance.now() + ms;
+    while (performance.now() < end) { /* burn */ }
+    log('block-end', {});
+  };
+
+  const parseUa = (anim) => {
+    const kf = anim.effect.getKeyframes();
+    const f = kf.find((k) => (k.computedOffset ?? k.offset) === 0);
+    const t = kf.find((k) => (k.computedOffset ?? k.offset) === 1);
+    const xy = (s) => {
+      const m = /matrix\(([^)]+)\)/.exec(String(s));
+      const p = m[1].split(',').map(Number);
+      return { x: p[4], y: p[5] };
+    };
+    return {
+      from: { ...xy(f.transform), w: parseFloat(f.width), h: parseFloat(f.height) },
+      to: { ...xy(t.transform), w: parseFloat(t.width), h: parseFloat(t.height) },
+    };
+  };
+
+  const groupFrames = ({ from, to }) => [
+    { transform: `translate(${from.x}px, ${from.y}px) scale(${from.w / to.w}, ${from.h / to.h})` },
+    { transform: `translate(${to.x}px, ${to.y}px) scale(1, 1)` },
+  ];
+
+  const uaGroupAnim = () =>
+    document.getAnimations().find(
+      (a) => a.effect && a.effect.pseudoElement === GROUP &&
+        String(a.animationName || '').startsWith('-ua-'),
+    );
+
+  let styleEl = null;
+  const cleanup = () => {
+    docEl.removeAttribute('data-lab-upgraded');
+    docEl.removeAttribute('data-lab-snap');
+    docEl.removeAttribute('data-lab-snap-css');
+    if (styleEl) { styleEl.remove(); styleEl = null; }
+  };
+
+  // Static-group probe: does an animation on the old/new SNAPSHOT pseudo
+  // composite? Group frozen at final box; the snapshot slides down 500px.
+  const snapProbe = (which, useCss) => () => {
+    const vt = document.startViewTransition(() => box.classList.toggle('big'));
+    vt.ready.then(() => {
+      docEl.setAttribute('data-lab-snap', which);
+      if (useCss) {
+        docEl.setAttribute('data-lab-snap-css', which);
+        log('upgraded', { mode: `snap-${which}-css` });
+      } else {
+        const a = docEl.animate(
+          [{ transform: 'translate(0, 0)' }, { transform: 'translate(0, 500px)' }],
+          {
+            duration: DURATION, easing: 'linear', fill: 'both',
+            pseudoElement: `::view-transition-${which}(labbox)`,
+          },
+        );
+        log('upgraded', { mode: `snap-${which}-waapi` });
+        vt.finished.finally(() => a.cancel());
+      }
+      vt.finished.finally(cleanup);
+    });
+    return vt.finished;
+  };
+
+  const variants = {
+    // Controls on a plain element — known-composited baselines.
+    'div-css': () => {
+      const st = document.createElement('style');
+      st.textContent = `@keyframes labdiv { from { transform: translate(0,0) scale(1); } to { transform: translate(0,160px) scale(4.25); } }
+        #box.anim { transform-origin: 0 0; animation: labdiv ${DURATION}ms linear both; }`;
+      document.head.appendChild(st);
+      styleEl = st;
+      box.classList.add('anim');
+      setTimeout(() => box.classList.remove('anim'), DURATION + 200);
+      return new Promise((r) => setTimeout(r, DURATION + 100));
+    },
+    'div-waapi': () => {
+      const a = box.animate(
+        [{ transform: 'translate(0,0) scale(1)' }, { transform: 'translate(0,160px) scale(4.25)' }],
+        { duration: DURATION, easing: 'linear', fill: 'both' },
+      );
+      box.style.transformOrigin = '0 0';
+      a.finished.finally(() => a.cancel());
+      return new Promise((r) => setTimeout(r, DURATION + 100));
+    },
+
+    // Stock UA morph (CSS animation the browser generated).
+    'vt-stock': () => {
+      const vt = document.startViewTransition(() => box.classList.toggle('big'));
+      return vt.finished;
+    },
+
+    // UA morph replaced by author WAAPI transform on the group pseudo.
+    'vt-waapi': () => {
+      const vt = document.startViewTransition(() => box.classList.toggle('big'));
+      vt.ready.then(() => {
+        const ua = uaGroupAnim();
+        const ends = parseUa(ua);
+        ua.cancel();
+        docEl.setAttribute('data-lab-upgraded', '');
+        const a = docEl.animate(groupFrames(ends), {
+          duration: DURATION, easing: 'linear', fill: 'both', pseudoElement: GROUP,
+        });
+        log('upgraded', { mode: 'waapi', ...ends });
+        vt.finished.finally(() => { a.cancel(); cleanup(); });
+      });
+      return vt.finished;
+    },
+
+    // Same, plus a second WAAPI effect animating border-radius + clip-path.
+    'vt-waapi-radius': () => {
+      const vt = document.startViewTransition(() => box.classList.toggle('big'));
+      vt.ready.then(() => {
+        const ua = uaGroupAnim();
+        const ends = parseUa(ua);
+        ua.cancel();
+        docEl.setAttribute('data-lab-upgraded', '');
+        const a = docEl.animate(groupFrames(ends), {
+          duration: DURATION, easing: 'linear', fill: 'both', pseudoElement: GROUP,
+        });
+        const r = docEl.animate(
+          [
+            { borderRadius: '40px', clipPath: 'inset(0 round 40px)' },
+            { borderRadius: '0px', clipPath: 'inset(0 round 0px)' },
+          ],
+          { duration: DURATION, easing: 'linear', fill: 'both', pseudoElement: GROUP },
+        );
+        log('upgraded', { mode: 'waapi-radius', ...ends });
+        vt.finished.finally(() => { a.cancel(); r.cancel(); cleanup(); });
+      });
+      return vt.finished;
+    },
+
+    'vt-old-waapi': snapProbe('old', false),
+    'vt-new-waapi': snapProbe('new', false),
+    'vt-old-css': snapProbe('old', true),
+
+    // UA morph replaced by an author CSS animation (generated @keyframes).
+    'vt-css': () => {
+      const vt = document.startViewTransition(() => box.classList.toggle('big'));
+      vt.ready.then(() => {
+        const ua = uaGroupAnim();
+        const ends = parseUa(ua);
+        ua.cancel();
+        docEl.setAttribute('data-lab-upgraded', '');
+        const fr = groupFrames(ends);
+        const st = document.createElement('style');
+        st.textContent = `@keyframes labg { from { transform: ${fr[0].transform}; } to { transform: ${fr[1].transform}; } }
+          html[data-lab-upgraded]${GROUP} { animation: labg ${DURATION}ms linear both; }`;
+        document.head.appendChild(st);
+        styleEl = st;
+        log('upgraded', { mode: 'css', ...ends });
+        vt.finished.finally(cleanup);
+      });
+      return vt.finished;
+    },
+  };
+
+  window.runVariant = (name) => {
+    const run = variants[name];
+    if (!run) { log('error', { reason: 'unknown variant ' + name }); return; }
+    hud.textContent = name;
+    log('run-start', { variant: name });
+    setTimeout(() => busy(BLOCK_MS), BLOCK_AT);
+    Promise.resolve(run(name))
+      .catch((err) => log('error', { reason: String(err) }))
+      .finally(() => setTimeout(() => log('run-end', { variant: name }), 50));
+  };
+
+  log('page-ready', { ua: navigator.userAgent });
+})();
+</script>
+</body>
+</html>
