@@ -99,17 +99,15 @@ const shapeThreeCode = `<Lightbox
 
 const ramkaShapeCode = `<Lightbox.Root>
   <Lightbox.Trigger index={0}>
-    <img src={thumb} alt="Golden hour" />
+    <img src={photo.thumb} alt={photo.alt} />
   </Lightbox.Trigger>
 
   <Lightbox.Portal>
     <Lightbox.Backdrop className="…" />
-    <Lightbox.Content aria-label="Photos" className="…">
+    <Lightbox.Content aria-label={t('viewer.title')} className="…">
       <Lightbox.Slides className="…">{/* your slides */}</Lightbox.Slides>
 
-      {/* Every element below is yours. Attach anything an element can
-          carry: your tooltip component, a data-testid, an analytics
-          attribute, a label from your translation catalogue. */}
+      {/* Every element below is yours: attach anything an element can carry. */}
       <Tooltip content={t('viewer.closeHint')}>
         <Lightbox.Close aria-label={t('viewer.close')} data-testid="viewer-close">
           <X />
@@ -190,10 +188,10 @@ export default function HeadlessLightboxPage() {
 
           <Prose>
             An if statement. Nobody files an issue for an if statement. That gap is what this post is about,
-            because it is not a gap in effort or code quality. The maintainer&rsquo;s workaround is clever
-            and the library it belongs to is good. It is a gap created entirely by the shape of the API: the
-            shape decides which problems are yours to solve in an afternoon and which ones are feature
-            requests to a stranger.
+            and it has nothing to do with effort or code quality. The maintainer&rsquo;s workaround is
+            clever and the library it belongs to is good. The gap comes from the shape of the API, nothing
+            else: the shape decides which problems are yours to solve in an afternoon and which ones are
+            feature requests to a stranger.
           </Prose>
 
           <Heading>The three shapes of lightbox APIs</Heading>
@@ -261,9 +259,17 @@ export default function HeadlessLightboxPage() {
             named <code className="text-[13px]">render</code> slots, and styling gets five sanctioned
             customization points. This is composition through a keyhole. Each slot is real and each slot
             works, but the set of slots is finite, and it is exactly the set the author thought to cut. The
-            one-image workaround that opened this post lives in this shape, and it is not an accident. It is
-            what customization looks like when rendering belongs to the library and you get to intervene by
-            exception.
+            one-image workaround that opened this post lives in this shape, and no wonder: when rendering
+            belongs to the library, you customize by exception.
+          </Prose>
+          <Prose>
+            One more thing all three shapes share: step zero of every install guide is importing the
+            library&rsquo;s stylesheet. That import sets the terms for every pixel after it. Making the
+            viewer look like your product means overriding selectors you do not own, so your brand ends up
+            hanging off class names that were never public API and are free to change in any minor release.
+            Dark mode has to undo their colors before applying yours. And the bytes ship regardless,
+            including the ones for pixels you just repainted. A required stylesheet is the config object of
+            styling: a list of decisions someone else already made, plus escape hatches.
           </Prose>
 
           <Heading>Why config APIs grow forever</Heading>
@@ -285,8 +291,8 @@ export default function HeadlessLightboxPage() {
 
           <Heading>The ecosystem already voted</Heading>
           <Prose>
-            This is not a niche philosophy. It is how the React ecosystem builds every other overlay.
-            Headless primitives sit under a huge share of production dialogs, menus, and selects:{' '}
+            This is not some niche philosophy. The React ecosystem already builds every other overlay this
+            way. Headless primitives sit under a huge share of production dialogs, menus, and selects:{' '}
             <Ext href="https://www.npmjs.com/package/@radix-ui/react-dialog">
               the most-installed primitive library
             </Ext>{' '}
@@ -301,8 +307,8 @@ export default function HeadlessLightboxPage() {
             recorded. Developers were offered both models and picked ownership, overwhelmingly.
           </Prose>
           <Prose>
-            Lightboxes mostly sat this shift out, and to be fair, for a defensible reason. A lightbox is the
-            hardest overlay: scroll physics, pinch zoom, pull to dismiss, morph transitions. Authors kept
+            Lightboxes mostly sat this shift out, for a defensible reason. A lightbox is the hardest
+            overlay: scroll physics, pinch zoom, pull to dismiss, morph transitions. Authors kept
             the DOM because handing it over risks the physics. ramka&rsquo;s bet is that the two concerns
             split cleanly: the physics live in the engine, on{' '}
             <Link href="/blog/why-native-scrolling" className={inlineLinkClassName}>
@@ -325,11 +331,18 @@ export default function HeadlessLightboxPage() {
             </Link>
             . The tooltip component the rest of your product uses. A{' '}
             <code className="text-[13px]">data-testid</code> for the end-to-end suite, an analytics
-            attribute for the click tracker, your design system&rsquo;s button styles with no CSS override
-            wars against someone else&rsquo;s stylesheet. Your <code className="text-[13px]">Image</code>{' '}
-            component as the slide, with its own <code className="text-[13px]">srcset</code> logic and
-            placeholders. None of that is a feature of ramka. It is what falls out of the library not
-            standing between you and your own elements.
+            attribute for the click tracker. Your <code className="text-[13px]">Image</code> component as
+            the slide, with its own <code className="text-[13px]">srcset</code> logic and placeholders.
+            None of that is a feature of ramka. It is what falls out of the library not standing between
+            you and your own elements.
+          </Prose>
+          <Prose>
+            Styling follows the same rule. There is no <code className="text-[13px]">ramka.css</code>, so
+            there is nothing to import, nothing to override, and no specificity contest to win. Every part
+            takes a <code className="text-[13px]">className</code> like any element you wrote, whether that
+            means Tailwind, CSS Modules, or your design tokens; every viewer on this site is styled with
+            plain Tailwind against these same primitives. And an upgrade cannot break styles that were
+            never attached to someone else&rsquo;s internals.
           </Prose>
           <Prose>
             Do not take the claim on faith. Below is a viewer in the split, social-app layout, media pane

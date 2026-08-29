@@ -1,0 +1,15 @@
+/**
+ * Chrome-builder demo only. Fade the bottom band (caption + thumbnail strip)
+ * away while the image is zoomed, mirroring the docs gallery's
+ * `[data-zoomed]` chrome hide. Resting opacity/visibility and the fade-back
+ * transition come from the preset's `.xlb-chrome-pull-hide` on the same
+ * element; this only adds the zoomed state.
+ */
+
+.xlb-content[data-zoomed] .cb-zoom-hide {
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 200ms,
+    visibility 0s linear 200ms;
+}

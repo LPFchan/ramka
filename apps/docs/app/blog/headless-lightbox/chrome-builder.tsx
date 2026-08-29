@@ -8,6 +8,8 @@ import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { Lightbox as XLB, type ThreadPost } from '../../(docs)/presets/twitter/lightbox';
 import { ramkaD, ramkaE, ramkaG } from '../../_components/images.generated';
 
+import './chrome-builder.css';
+
 /**
  * Chrome builder: a Twitter-preset-style split viewer whose pieces (post
  * sidebar, arrows, thumbnails, caption, tooltips on every stage icon button)
@@ -355,7 +357,7 @@ export function ChromeBuilder() {
               ) : null}
 
               {options.caption || options.thumbs ? (
-                <div className="xlb-chrome-pull-hide pointer-events-none absolute inset-x-0 bottom-0 z-2 flex flex-col items-center gap-3 px-3 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))]">
+                <div className="xlb-chrome-pull-hide cb-zoom-hide pointer-events-none absolute inset-x-0 bottom-0 z-2 flex flex-col items-center gap-3 px-3 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))]">
                   {options.caption ? (
                     <Lightbox.Caption className="block max-w-full truncate text-[13px] font-medium leading-tight text-white/90" />
                   ) : null}
