@@ -17,7 +17,7 @@ import { MomentumLab } from './momentum-lab';
 export const metadata: Metadata = {
   title: 'Why native scrolling beats transform carousels',
   description:
-    'Most React lightboxes and carousels reimplement scrolling with pointer events and transforms. That moves swiping onto the main thread, where it janks. The data, the browser internals, and the interactive proof.',
+    'Most React lightboxes, image galleries, and carousels reimplement scrolling with pointer events and transforms. That moves swiping onto the main thread, where it janks. The data, the browser internals, and the interactive proof.',
 };
 
 const PUBLISHED = '2026-08-29';
@@ -31,6 +31,8 @@ const structuredData = {
   url: `${siteUrl}/blog/why-native-scrolling`,
   datePublished: PUBLISHED,
   author: { '@type': 'Person', name: 'Artur Bień' },
+  keywords:
+    'react lightbox, image gallery, photo gallery, image carousel, image slider, native scrolling, CSS scroll snap, carousel performance, main thread jank',
 };
 
 const carouselCode = `// The heart of nearly every JS carousel, simplified.
@@ -144,8 +146,8 @@ export default function WhyNativeScrollingPage() {
 
           <Heading>What a transform carousel opts into</Heading>
           <Prose>
-            Most JavaScript carousels, and most lightbox swipe implementations, don't scroll. They listen to
-            pointer events, translate a flex row with <code className="text-[13px]">transform</code>, and when your
+            Most JavaScript carousels and image sliders, and most lightbox swipe implementations, don't scroll.
+            They listen to pointer events, translate a flex row with <code className="text-[13px]">transform</code>, and when your
             finger lifts, they run their own physics in a requestAnimationFrame loop:
           </Prose>
           <div className="mt-5">
@@ -335,7 +337,7 @@ export default function WhyNativeScrollingPage() {
           </div>
 
           <Prose>
-            If you're building a gallery, the{' '}
+            If you're building an image gallery, the{' '}
             <Link href="/docs" className={inlineLinkClassName}>docs</Link> take about ten minutes, and the{' '}
             <Link href="/docs/lightbox/gestures" className={inlineLinkClassName}>gestures guide</Link> covers how
             the scroll, zoom, and dismiss layers coexist. ramka is free for open source under the GPL, and{' '}

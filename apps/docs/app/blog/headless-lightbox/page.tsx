@@ -12,7 +12,7 @@ import { ChromeBuilder } from './chrome-builder';
 export const metadata: Metadata = {
   title: 'The case for a headless lightbox',
   description:
-    'Most lightboxes are config objects: buttons as HTML strings, captions in data attributes, customization through render slots. The ecosystem already went headless for dialogs and menus. Why galleries should too, with an interactive chrome builder.',
+    'Most lightboxes are config objects: buttons as HTML strings, captions in data attributes, customization through render slots. The ecosystem already went headless for dialogs and menus, and image galleries are overdue. Includes a live demo: toggle the viewer chrome and watch the JSX follow.',
 };
 
 const PUBLISHED = '2026-08-29';
@@ -22,10 +22,12 @@ const structuredData = {
   '@type': 'TechArticle',
   headline: 'The case for a headless lightbox',
   description:
-    'Why a composable, headless API is the lightbox feature that makes every other feature reachable: config objects versus composition, what render slots cannot fit, and an interactive chrome builder.',
+    'Why a composable, headless API is the lightbox feature that makes every other feature reachable: config objects versus composition, what render slots cannot fit, and a live demo that composes an image viewer piece by piece.',
   url: `${siteUrl}/blog/headless-lightbox`,
   datePublished: PUBLISHED,
   author: { '@type': 'Person', name: 'Artur Bień' },
+  keywords:
+    'headless lightbox, headless ui, react lightbox, image gallery component, unstyled components, composable api, react image viewer, radix-style primitives',
 };
 
 const workaroundCode = `// The official workaround, from the maintainer, for
@@ -196,7 +198,7 @@ export default function HeadlessLightboxPage() {
 
           <Heading>The three shapes of lightbox APIs</Heading>
           <Prose>
-            Survey the popular lightboxes and nearly every API is one of three shapes. No names here, because
+            Survey the popular lightbox and image gallery libraries and nearly every API is one of three shapes. No names here, because
             the point is not that these libraries are bad. They are the most polished versions of their
             pattern. The point is the ceiling each pattern builds in.
           </Prose>
@@ -307,8 +309,8 @@ export default function HeadlessLightboxPage() {
             recorded. Developers were offered both models and picked ownership, overwhelmingly.
           </Prose>
           <Prose>
-            Lightboxes mostly sat this shift out, for a defensible reason. A lightbox is the hardest
-            overlay: scroll physics, pinch zoom, pull to dismiss, morph transitions. Authors kept
+            React lightboxes mostly sat this shift out, for a defensible reason. A fullscreen image viewer is
+            the hardest overlay there is: scroll physics, pinch zoom, pull to dismiss, morph transitions. Authors kept
             the DOM because handing it over risks the physics. ramka&rsquo;s bet is that the two concerns
             split cleanly: the physics live in the engine, on{' '}
             <Link href="/blog/why-native-scrolling" className={inlineLinkClassName}>
@@ -399,7 +401,7 @@ export default function HeadlessLightboxPage() {
             in markup you already own.
           </Prose>
 
-          <Heading>Feel it in a real gallery</Heading>
+          <Heading>Feel it in a real photo gallery</Heading>
           <Prose>
             The gallery below is the composed result: morph open, native swipe, pinch zoom, pull to dismiss,
             and every visible element, buttons, counter, caption, thumbnails, is consumer markup styled with

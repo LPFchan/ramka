@@ -17,7 +17,7 @@ import { SrSimulator } from './sr-simulator';
 export const metadata: Metadata = {
   title: 'A lightbox screen readers can actually use',
   description:
-    'Most image lightboxes announce nothing, trap nobody, and strand keyboard focus behind the overlay. What a dialog owes assistive technology, with interactive demos: focus traps, live regions, inert slides, and the parts that are still hard.',
+    'Most image lightboxes and photo galleries announce nothing, trap nobody, and strand keyboard focus behind the overlay. What a dialog owes assistive technology, with interactive demos: focus traps, live regions, inert slides, and the parts that are still hard.',
 };
 
 const PUBLISHED = '2026-08-29';
@@ -31,6 +31,8 @@ const structuredData = {
   url: `${siteUrl}/blog/lightbox-accessibility`,
   datePublished: PUBLISHED,
   author: { '@type': 'Person', name: 'Artur Bień' },
+  keywords:
+    'accessible lightbox, accessible image gallery, react lightbox, photo gallery accessibility, focus trap, aria-live, screen reader, WCAG, modal dialog, aria-modal',
 };
 
 const guardsCode = `// Two invisible spans bracket the dialog. Tab past either edge and the
@@ -145,7 +147,8 @@ export default function LightboxAccessibilityPage() {
             None of this is because dialogs are mysterious. The{' '}
             <Ext href="https://www.w3.org/WAI/ARIA/apg/patterns/dialog-modal/">W3C&rsquo;s dialog pattern</Ext>{' '}
             spells out the contract. A lightbox just happens to sit on the intersection of three hard things at
-            once: it is a modal dialog, a carousel, and a gesture surface. Let&rsquo;s take them in order.
+            once: it is a fullscreen modal dialog, an image carousel, and a gesture surface. Let&rsquo;s take
+            them in order.
           </Prose>
 
           <Heading>Watch focus fall out of the dialog</Heading>
@@ -379,8 +382,8 @@ export default function LightboxAccessibilityPage() {
               <Kbd>F5</Kbd>
             </KbdGroup>{' '}
             to start VoiceOver. On Windows,{' '}
-            <Ext href="https://www.nvaccess.org/download/">NVDA is free</Ext>. Then, on your own gallery: open
-            the lightbox and listen for a dialog announcement with a name. Press <Kbd>Tab</Kbd> repeatedly and
+            <Ext href="https://www.nvaccess.org/download/">NVDA is free</Ext>. Then, on your own photo gallery:
+            open the lightbox and listen for a dialog announcement with a name. Press <Kbd>Tab</Kbd> repeatedly and
             watch whether focus stays inside. Change slides and listen for the new position. Press{' '}
             <Kbd>Esc</Kbd>, and check focus is back on the thumbnail you started from. Turn on reduced motion
             and open it again. Five checks, one per failure that actually ships.
@@ -392,7 +395,7 @@ export default function LightboxAccessibilityPage() {
           </div>
 
           <Prose>
-            If you are building a gallery, the{' '}
+            If you are building an accessible image gallery, the{' '}
             <Link href="/docs" className={inlineLinkClassName}>
               docs
             </Link>{' '}
