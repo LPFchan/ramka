@@ -97,7 +97,9 @@ export function useContentKeyboard({
       // Zoom shortcuts: always swallow browser page-zoom while the dialog
       // owns the viewport. Image zoom only runs when focus is in Stage
       // (or Content, when Stage is absent / dialog-focused).
-      const zoomInKey = event.key === '+' || (meta && event.key === '=');
+      // Bare `=` counts as zoom-in: `+` is the shifted character of that key
+      // on common layouts, and viewers (Maps, Figma, Preview) accept both.
+      const zoomInKey = event.key === '+' || event.key === '=';
       const zoomOutKey = event.key === '-' || event.key === '_' || (meta && event.key === '-');
       const zoomResetKey = meta && event.key === '0';
       if (zoomInKey || zoomOutKey || zoomResetKey) {

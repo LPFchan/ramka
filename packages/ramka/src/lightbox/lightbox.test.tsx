@@ -7428,6 +7428,18 @@ describe('Lightbox', () => {
       expect(zoomRef.current!.zoom).toBeGreaterThan(1);
     });
 
+    it('bare = zooms in like + (unshifted key on common layouts)', () => {
+      const zoomRef = React.createRef<LightboxZoomRef>();
+      render(<StageZoomLightbox zoomRef={zoomRef} />);
+      expect(zoomRef.current!.zoom).toBe(1);
+
+      fireEvent.keyDown(screen.getByTestId('stage'), { key: '=' });
+      expect(zoomRef.current!.zoom).toBeGreaterThan(1);
+
+      fireEvent.keyDown(screen.getByTestId('stage'), { key: '-' });
+      expect(zoomRef.current!.zoom).toBe(1);
+    });
+
     it('ctrl+wheel over sidebar does not zoom when Stage is mounted', () => {
       const zoomRef = React.createRef<LightboxZoomRef>();
       render(<StageZoomLightbox zoomRef={zoomRef} />);
