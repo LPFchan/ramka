@@ -3,8 +3,17 @@ import type { MetadataRoute } from 'next';
 import { navSections } from './_content/nav';
 import { siteUrl } from './_content/site';
 
-/** Routes that have no sidebar entry: the landing page and the legal pages. */
-const unlistedRoutes = ['/', '/license', '/license/commercial', '/license/notices', '/privacy', '/returns', '/terms'];
+/** Routes that have no sidebar entry: the landing page, articles, and the legal pages. */
+const unlistedRoutes = [
+  '/',
+  '/blog/why-native-scrolling',
+  '/license',
+  '/license/commercial',
+  '/license/notices',
+  '/privacy',
+  '/returns',
+  '/terms',
+];
 
 /**
  * Docs, presets and examples are taken from the sidebar, so a new page reaches

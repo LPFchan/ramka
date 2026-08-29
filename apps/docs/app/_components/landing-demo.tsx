@@ -127,8 +127,13 @@ const hiddenImages: LightboxGalleryItem[] = [
 
 const allImages: LightboxGalleryItem[] = [...visibleImages, ...hiddenImages];
 
-/** Landing hero demo — masonry triggers + a +N stack + the docs viewer chrome. */
-export function LandingDemo() {
+/**
+ * Landing hero demo — masonry triggers + a +N stack + the docs viewer chrome.
+ *
+ * `eager` loads every tile up front: right for the landing hero where the
+ * grid IS the LCP, wrong for pages that embed the demo below the fold.
+ */
+export function LandingDemo({ eager = true }: { eager?: boolean }) {
   const lastIndex = visibleImages.length - 1;
 
   return (
@@ -187,7 +192,7 @@ export function LandingDemo() {
                     alt={img.alt}
                     placeholder="blur"
                     sizes="(min-width: 768px) 33vw, 50vw"
-                    loading="eager"
+                    loading={eager ? 'eager' : 'lazy'}
                     draggable={false}
                     className={`col-start-1 row-start-1 block h-full w-full select-none object-cover ${img.tileClass}`}
                   />
