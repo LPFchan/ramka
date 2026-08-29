@@ -155,7 +155,8 @@ export const lightboxApiMeta: ApiPartMeta[] = [
   {
     id: 'api-close',
     name: 'Close',
-    description: 'Button that closes the lightbox. Defaults to aria-label="Close".',
+    description:
+      'Button that closes the lightbox. Ships no default label — give it visible text or pass aria-label / aria-labelledby in your language (the library warns in development when it is nameless).',
     extract: {
       kind: 'interface-props',
       typeName: 'LightboxCloseProps',
@@ -171,7 +172,7 @@ export const lightboxApiMeta: ApiPartMeta[] = [
     id: 'api-item',
     name: 'Item',
     description:
-      'A single lightbox item. Registers captions and morph/placeholder refs. ARIA adapts automatically: it is a tabpanel wired (aria-labelledby / aria-controls) to its Lightbox.Thumbnail tab when a Lightbox.ThumbnailGroup is present, otherwise a carousel slide (role="group", aria-roledescription="slide", labelled "N of total"). Prefer nesting Lightbox.Media (sized morph + placeholder host) around the destination <img>/<video>; imageRef / morphRef remain escape hatches. Typically nested inside Slide. Outside Slides, every item stays mounted; inside Slides, `preload` gates contents.',
+      'A single lightbox item. Registers captions and morph/placeholder refs. ARIA adapts automatically: it is a tabpanel wired (aria-labelledby / aria-controls) to its Lightbox.Thumbnail tab when a Lightbox.ThumbnailGroup is present, otherwise role="group" — the APG standalone carousel slide, which needs a translated aria-roledescription="slide" and an aria-label carrying the position ("N of total") from you. Prefer nesting Lightbox.Media (sized morph + placeholder host) around the destination <img>/<video>; imageRef / morphRef remain escape hatches. Typically nested inside Slide. Outside Slides, every item stays mounted; inside Slides, `preload` gates contents.',
     extract: {
       kind: 'interface-props',
       typeName: 'LightboxItemProps',
@@ -203,7 +204,7 @@ export const lightboxApiMeta: ApiPartMeta[] = [
     id: 'api-slides',
     name: 'Slides',
     description:
-      'Default layout: horizontal snap carousel wired to the active index. Exposes the WAI-ARIA carousel container (role="group", aria-roledescription="carousel") — give it a label via aria-label / aria-labelledby. Gates Item contents via `preload`; put Slide → Item → Zoom → Media inside. Consumer CSS sizes each Slide snap box (e.g. flex 0 0 100% for full-bleed); index geometry measures offsetLeft/offsetWidth. While the user is flinging, navigation is locked so pull-to-dismiss and zoom chrome do not fight the scroll.',
+      'Default layout: horizontal snap carousel wired to the active index. Emits role="group" — the WAI-ARIA carousel container — and you pass the translated aria-roledescription="carousel" plus an aria-label / aria-labelledby naming the gallery (leave the word "carousel" out of the name; the roledescription already says it). Gates Item contents via `preload`; put Slide → Item → Zoom → Media inside. Consumer CSS sizes each Slide snap box (e.g. flex 0 0 100% for full-bleed); index geometry measures offsetLeft/offsetWidth. While the user is flinging, navigation is locked so pull-to-dismiss and zoom chrome do not fight the scroll.',
     extract: {
       kind: 'interface-props',
       typeName: 'LightboxSlidesProps',

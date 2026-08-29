@@ -27,12 +27,14 @@
  *   text, and captions in their language. The primitives own the structural
  *   ARIA per the WAI-ARIA APG:
  *     - Content → `role="dialog"` + `aria-modal`, focus trap, Escape.
- *     - Slides → carousel container (`role="group"` +
- *       `aria-roledescription="carousel"`).
+ *     - Slides → carousel container: the library emits `role="group"`, the
+ *       consumer passes the translated `aria-roledescription="carousel"` and
+ *       a label.
  *     - Item → a `tabpanel` associated with its Thumbnail `tab` when a
  *       `Lightbox.ThumbnailGroup` (tablist) is present, otherwise a standalone
- *       carousel slide (`role="group"` + `aria-roledescription="slide"` with an
- *       `N of total` name). Never an orphaned `tabpanel`.
+ *       carousel slide: the library emits `role="group"`, the consumer passes
+ *       the translated `aria-roledescription="slide"` and an `N of total`
+ *       name. Never an orphaned `tabpanel`.
  *     - Counter/Caption → polite live regions.
  *
  * - **CSS-driven transitions**: State is exposed via data attributes
