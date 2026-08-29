@@ -250,6 +250,18 @@ export default function LightboxAccessibilityPage() {
             anyone&rsquo;s locale. Passing it is a few attributes, following the{' '}
             <Ext href="https://www.w3.org/WAI/ARIA/apg/patterns/carousel/">APG carousel pattern</Ext>:
           </Prose>
+          <Prose>
+            Notice what makes this possible at all: every element in the viewer is one you render, so there is
+            nothing you cannot label, describe, or hang a tooltip on. A config-object lightbox inverts that.
+            You get whatever escape hatches its author remembered to expose, an{' '}
+            <code className="text-[13px]">ariaLabelledby</code> option here, a{' '}
+            <code className="text-[13px]">strings</code> map there, and anything they forgot is unfixable
+            without a fork.{' '}
+            <Link href="/blog/headless-lightbox" className={inlineLinkClassName}>
+              The case for a headless lightbox
+            </Link>{' '}
+            makes that argument in full.
+          </Prose>
           <div className="mt-5">
             <CodeBlock code={namingCode} title="Naming the carousel, your words" />
           </div>

@@ -258,7 +258,11 @@ export default function WhyNativeScrollingPage() {
             <Link href="/blog/lightbox-accessibility" className={inlineLinkClassName}>
               its own post
             </Link>
-            .
+            , and so did{' '}
+            <Link href="/blog/headless-lightbox" className={inlineLinkClassName}>
+              the API shape
+            </Link>{' '}
+            that leaves every visible element yours to render.
           </Prose>
           <Prose>
             My favorite freebie is one we found while profiling: in Safari's Low Power Mode the main thread ticks
