@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import { TrackedLink } from './tracked-link';
 
 const GITHUB_URL = 'https://github.com/arturbien/ramka';
 
@@ -20,12 +20,14 @@ export function LicenseCta() {
       </p>
 
       <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
-        <Link
+        <TrackedLink
+          event="get_license_click"
+          eventData={{ location: 'closing_cta' }}
           href="/license"
           className="inline-flex h-11 items-center rounded-full bg-neutral-900 px-4 text-sm font-medium text-white transition hover:bg-neutral-700 dark:bg-neutral-50 dark:text-neutral-900 dark:hover:bg-neutral-300"
         >
           Get a license
-        </Link>
+        </TrackedLink>
         <a
           href={GITHUB_URL}
           target="_blank"

@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 
 import Link from 'next/link';
 import * as Lightbox from '@ramka/react/lightbox';
+import { track } from '@vercel/analytics';
 import { Check, Star, X } from 'lucide-react';
 
 import { setGlassShinePaused } from './broken-glass-shine';
@@ -106,6 +107,7 @@ function BuySheet({ morphRef }: { morphRef: (node: HTMLElement | null) => void }
       {/* The big friendly buy button. */}
       <Link
         href="/license"
+        onClick={() => track('get_license_click', { location: 'buy_sheet' })}
         className="mt-5 flex h-12 w-full items-center justify-center rounded-2xl bg-[#007aff] text-[16px] font-semibold text-white transition hover:bg-[#0071eb] active:scale-[0.98] dark:bg-[#0a84ff] dark:hover:bg-[#2492ff]"
       >
         Buy for $129. Once.

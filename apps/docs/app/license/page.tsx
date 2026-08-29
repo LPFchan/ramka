@@ -4,6 +4,7 @@ import { Check } from 'lucide-react';
 
 import { SiteFooter } from '../_components/site-footer';
 import { SiteHeader } from '../_components/site-header';
+import { TrackedAnchor } from '../_components/tracked-link';
 import { checkoutUrls, type PaidCheckoutPlan } from '../checkout/hosted-urls';
 import { readAgreement } from './documents';
 import { cn } from '@/lib/utils';
@@ -176,13 +177,22 @@ function TierCard({ tier, contactHref, checkoutHref }: { tier: Tier; contactHref
 
       <div className="mt-auto pt-8">
         {checkoutHref ? (
-          <a href={checkoutHref} className={tier.featured ? primaryCtaClassName : secondaryCtaClassName}>
+          <TrackedAnchor
+            event="checkout_click"
+            eventData={{ tier: tier.checkoutPlan ?? tier.name }}
+            href={checkoutHref}
+            className={tier.featured ? primaryCtaClassName : secondaryCtaClassName}
+          >
             {tier.buyLabel}
-          </a>
+          </TrackedAnchor>
         ) : tier.checkoutPlan ? null : (
-          <a href={contactHref} className={secondaryCtaClassName}>
+          <TrackedAnchor
+            event="oem_contact_click"
+            href={contactHref}
+            className={secondaryCtaClassName}
+          >
             Contact us
-          </a>
+          </TrackedAnchor>
         )}
       </div>
     </div>
@@ -257,6 +267,15 @@ export default async function LicensePage() {
             Prices exclude any applicable taxes, calculated at checkout. Licenses are granted under the{' '}
             <Link href="/license/commercial" className={quietLinkClassName}>
               Ramka Commercial License Agreement
+            </Link>
+            .
+          </p>
+          {/* Risk reversal at the point of purchase, scoped to what the
+              return policy actually promises: mistakes get fixed. */}
+          <p className="mt-2 text-center text-[13px] leading-6 text-neutral-400 dark:text-neutral-500">
+            Purchased by accident or picked the wrong tier?{' '}
+            <Link href="/returns" className={quietLinkClassName}>
+              We&rsquo;ll make it right
             </Link>
             .
           </p>

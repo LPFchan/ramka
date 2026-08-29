@@ -40,7 +40,7 @@ const FEATURES: Feature[] = [
   {
     title: 'Morph view transitions',
     description:
-      'Shared-element View Transitions morph anything into the lightbox and back: images, video, plain HTML. This card included.',
+      'Shared-element View Transitions morph anything into the lightbox and back: images, video, plain HTML. This card included. Browsers without the API get a clean crossfade.',
     icon: Sparkles,
     demo: true,
   },
@@ -65,7 +65,7 @@ const FEATURES: Feature[] = [
   {
     title: 'Headless and unstyled',
     description:
-      'Composable primitives with the API you know from Radix UI and Base UI: Trigger, Slides, Zoom, Captions, Thumbnails. Right at home in a shadcn/ui codebase. You own every pixel.',
+      'Composable primitives with the API you know from Radix UI and Base UI: Trigger, Slides, Zoom, Captions, Thumbnails, Counter. Right at home in a shadcn/ui codebase. You own every pixel.',
     icon: Blocks,
     wide: true,
   },
@@ -92,7 +92,7 @@ const FEATURES: Feature[] = [
   {
     title: 'Images, video, anything',
     description:
-      'Photos, videos, 3D models, or any React content, with first-class Next.js Image support.',
+      'Photos, videos, 3D models, or any React content. Responsive srcset images and first-class Next.js Image support.',
     icon: Clapperboard,
   },
 ];

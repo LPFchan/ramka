@@ -9,6 +9,7 @@ import { LandingDemo } from './_components/landing-demo';
 import { LicenseCta } from './_components/license-cta';
 import { SiteFooter } from './_components/site-footer';
 import { SiteHeader } from './_components/site-header';
+import { TrackedLink } from './_components/tracked-link';
 
 /**
  * schema.org entity markup for search engines. Deliberately no `offers`:
@@ -52,12 +53,14 @@ export default function HomePage() {
           </p>
 
           <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
-            <Link
+            <TrackedLink
+              event="get_license_click"
+              eventData={{ location: 'hero' }}
               href="/license"
               className="inline-flex h-11 items-center rounded-full bg-neutral-900 px-4 text-sm font-medium text-white transition hover:bg-neutral-700 dark:bg-neutral-50 dark:text-neutral-900 dark:hover:bg-neutral-300"
             >
               Get a license
-            </Link>
+            </TrackedLink>
             <Link
               href="/docs"
               className="inline-flex h-11 items-center rounded-full border border-neutral-200 px-4 text-sm font-medium text-neutral-900 transition hover:bg-neutral-100 dark:border-neutral-800 dark:text-neutral-50 dark:hover:bg-neutral-900"

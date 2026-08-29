@@ -5,9 +5,15 @@ The same photos app mirrored for a right-to-left locale — dir="rtl" on Lightbo
 ## Source
 
 ```tsx examples/lightbox/photos-app-rtl/page.tsx
-'use client';
+import type { Metadata } from 'next';
 
 import { PhotosAppView } from '../photos-app/photos-app-view';
+
+export const metadata: Metadata = {
+  title: 'Photos app example (RTL)',
+  description:
+    'The photos app example mirrored for a right-to-left locale: dir="rtl" on Lightbox.Root mirrors navigation, the thumbnail strip, and the arrow keys.',
+};
 
 /**
  * The photos app mirrored for a right-to-left locale.
