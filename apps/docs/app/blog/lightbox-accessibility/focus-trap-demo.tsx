@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { ArrowBigUp, ArrowRightToLine } from 'lucide-react';
 
 import { Kbd } from '@/components/ui/kbd';
 
@@ -38,7 +39,7 @@ const modeButtonClassName = (active: boolean) =>
   }`;
 
 const tabButtonClassName =
-  'h-8 rounded-lg border border-neutral-200 px-3 font-mono text-[12px] font-medium text-neutral-700 transition hover:bg-neutral-100 dark:border-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-900';
+  'inline-flex h-8 items-center gap-1.5 rounded-lg border border-neutral-200 px-3 font-mono text-[12px] font-medium text-neutral-700 transition hover:bg-neutral-100 dark:border-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-900';
 
 /** Fake control chip inside the aria-hidden stage. */
 function Chip({ focused, escaped, children }: { focused: boolean; escaped: boolean; children: React.ReactNode }) {
@@ -87,11 +88,13 @@ export function FocusTrapDemo() {
         </div>
 
         <div className="flex items-center gap-2" role="group" aria-label="Simulate keyboard">
-          <button type="button" onClick={() => step(-1)} className={tabButtonClassName}>
-            ⇧ Tab
+          <button type="button" onClick={() => step(-1)} className={tabButtonClassName} aria-label="Shift Tab">
+            <ArrowBigUp className="size-3.5" aria-hidden="true" />
+            Tab
           </button>
-          <button type="button" onClick={() => step(1)} className={tabButtonClassName}>
-            Tab ⇥
+          <button type="button" onClick={() => step(1)} className={tabButtonClassName} aria-label="Tab">
+            Tab
+            <ArrowRightToLine className="size-3.5" aria-hidden="true" />
           </button>
         </div>
       </div>

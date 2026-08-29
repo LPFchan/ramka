@@ -2,6 +2,8 @@ import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 import Link from 'next/link';
 
+import { ArrowLeft, ArrowRight, Command, Minus, Plus } from 'lucide-react';
+
 import { Kbd, KbdGroup } from '@/components/ui/kbd';
 
 import { CodeBlock } from '../../_components/code-block';
@@ -218,10 +220,9 @@ export default function LightboxAccessibilityPage() {
             <code className="text-[13px]">tablist</code> of <code className="text-[13px]">tab</code>s with roving
             tabindex,{' '}
             <KbdGroup>
-              <Kbd>←</Kbd>
-              <Kbd>→</Kbd>
-            </KbdGroup>
-            , <Kbd>Home</Kbd> and <Kbd>End</Kbd>, and the selection tracked from the active slide rather than from
+              <Kbd aria-label="Left arrow"><ArrowLeft /></Kbd>
+              <Kbd aria-label="Right arrow"><ArrowRight /></Kbd>
+            </KbdGroup>, <Kbd>Home</Kbd> and <Kbd>End</Kbd>, and the selection tracked from the active slide rather than from
             DOM focus, so swiping can never desync what the keyboard thinks is selected. And the trigger that
             opened the lightbox carries <code className="text-[13px]">aria-haspopup="dialog"</code> and{' '}
             <code className="text-[13px]">aria-expanded</code>, on that specific element, so a screen reader user
@@ -257,13 +258,13 @@ export default function LightboxAccessibilityPage() {
           <Prose>
             The rest of the keyboard contract: <Kbd>Esc</Kbd> closes,{' '}
             <KbdGroup>
-              <Kbd>←</Kbd>
-              <Kbd>→</Kbd>
+              <Kbd aria-label="Left arrow"><ArrowLeft /></Kbd>
+              <Kbd aria-label="Right arrow"><ArrowRight /></Kbd>
             </KbdGroup>{' '}
-            move between slides, <Kbd>Home</Kbd> and <Kbd>End</Kbd> jump to the ends, <Kbd>+</Kbd> and{' '}
-            <Kbd>−</Kbd> zoom, and{' '}
+            move between slides, <Kbd>Home</Kbd> and <Kbd>End</Kbd> jump to the ends,{' '}
+            <Kbd aria-label="Plus"><Plus /></Kbd> and <Kbd aria-label="Minus"><Minus /></Kbd> zoom, and{' '}
             <KbdGroup>
-              <Kbd>⌘</Kbd>
+              <Kbd aria-label="Command"><Command /></Kbd>
               <Kbd>0</Kbd>
             </KbdGroup>{' '}
             or{' '}
@@ -276,6 +277,20 @@ export default function LightboxAccessibilityPage() {
             &ldquo;move within the thing I am looking at&rdquo; is what arrows mean everywhere else in an OS. And
             every shortcut steps aside when focus is in an input or textarea, so a comment field inside a
             lightbox does not eat your arrow keys.
+          </Prose>
+          <Prose>
+            Keyboard zoom is where testing gets almost comic. While writing this post I tried the two most
+            popular lightbox libraries: in both, <Kbd aria-label="Plus"><Plus /></Kbd> and{' '}
+            <Kbd aria-label="Minus"><Minus /></Kbd> do nothing at all. Muscle memory
+            then reaches for{' '}
+            <KbdGroup>
+              <Kbd aria-label="Command"><Command /></Kbd>
+              <Kbd aria-label="Plus"><Plus /></Kbd>
+            </KbdGroup>, and the browser does what that shortcut has always done: it zooms the page. The entire UI inflates,
+            thumbnails included, and in one of the two the enlarged thumbnail strip claims so much of the
+            viewport that the photo you were trying to zoom into gets <em>smaller</em>. ramka intercepts the
+            browser zoom shortcuts while the dialog is open and points them at the image, because while a photo
+            fills your screen, &ldquo;zoom&rdquo; can only mean one thing.
           </Prose>
           <Prose>
             Motion is an accessibility setting too. Vestibular disorders make large moving surfaces genuinely
@@ -348,15 +363,15 @@ export default function LightboxAccessibilityPage() {
             You do not need an audit to catch the failures in this post; you need five minutes and the software
             already on your machine. On a Mac, press{' '}
             <KbdGroup>
-              <Kbd>⌘</Kbd>
+              <Kbd aria-label="Command"><Command /></Kbd>
               <Kbd>F5</Kbd>
             </KbdGroup>{' '}
             to start VoiceOver. On Windows,{' '}
             <Ext href="https://www.nvaccess.org/download/">NVDA is free</Ext>. Then, on your own gallery: open
             the lightbox and listen for a dialog announcement with a name. Press <Kbd>Tab</Kbd> repeatedly and
-            watch whether focus stays inside. Change slides and listen for the new position. Press <Kbd>Esc</Kbd>
-            , and check focus is back on the thumbnail you started from. Turn on reduced motion and open it
-            again. Five checks, one per failure that actually ships.
+            watch whether focus stays inside. Change slides and listen for the new position. Press{' '}
+            <Kbd>Esc</Kbd>, and check focus is back on the thumbnail you started from. Turn on reduced motion
+            and open it again. Five checks, one per failure that actually ships.
           </Prose>
           <Prose>Here is that checklist running against ramka. Try it with your screen reader on.</Prose>
 

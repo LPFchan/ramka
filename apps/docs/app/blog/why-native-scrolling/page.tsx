@@ -2,6 +2,8 @@ import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 import Link from 'next/link';
 
+import { ArrowLeft, ArrowRight } from 'lucide-react';
+
 import { Kbd, KbdGroup } from '@/components/ui/kbd';
 
 import { CodeBlock } from '../../_components/code-block';
@@ -281,8 +283,8 @@ export default function WhyNativeScrollingPage() {
             navigating programmatically.</strong> Scroll position is state you can read and write. ramka wires
             the active index, the{' '}
             <KbdGroup>
-              <Kbd>←</Kbd>
-              <Kbd>→</Kbd>
+              <Kbd aria-label="Left arrow"><ArrowLeft /></Kbd>
+              <Kbd aria-label="Right arrow"><ArrowRight /></Kbd>
             </KbdGroup>{' '}
             keys, and next/previous buttons to the scroller rather than around it, and
             the swipe itself stays untouched:
@@ -298,10 +300,24 @@ export default function WhyNativeScrollingPage() {
             <Link href="/docs/lightbox/gestures" className={inlineLinkClassName}>
               careful rules about who owns which axis
             </Link>
-            , and the horizontal swipe is never intercepted. The browser keeps the part it does best. A side
-            effect worth noticing: because the swipe is a real scroll, a two-finger trackpad swipe just works,
-            an input plenty of drag-driven carousels never receive at all, since trackpads emit wheel events
-            rather than the pointer events their drag code listens for.
+            , and the horizontal swipe is never intercepted. The browser keeps the part it does best.
+          </Prose>
+          <Prose>
+            <strong className="font-medium text-neutral-800 dark:text-neutral-200">Inputs you forgot to
+            support.</strong> Here is a side effect of drag emulation that rarely makes the bug tracker: drag
+            engines listen for pointer events, but a two-finger trackpad swipe emits wheel events, so in a
+            surprising number of drag-driven carousels the trackpad does nothing at all. Patching it means
+            adding a wheel handler, and that handler has to be non-passive so it can{' '}
+            <code className="text-[13px]">preventDefault</code> the page&rsquo;s own scrolling. A non-passive
+            wheel listener forces the browser to wait for your JavaScript before it can scroll anything, which
+            hauls wheel input back onto the main thread, the exact place this whole article has been trying to
+            leave. A real scroller skips the dilemma: trackpad swipe, mouse wheel, shift plus wheel, tilt
+            wheels, and pen input all work because the OS already routes them to scrollers. Drag-first input
+            has an accessibility cost too, and that half of the story is in{' '}
+            <Link href="/blog/lightbox-accessibility" className={inlineLinkClassName}>
+              the accessibility post
+            </Link>
+            .
           </Prose>
 
           <Heading>Feel it in a real lightbox</Heading>

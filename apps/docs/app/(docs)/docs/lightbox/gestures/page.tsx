@@ -1,5 +1,7 @@
 import type { Metadata } from 'next';
 
+import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Command, Minus, Plus } from 'lucide-react';
+
 import { Kbd, KbdGroup } from '@/components/ui/kbd';
 
 import { CodeBlock } from '../../../../_components/code-block';
@@ -121,17 +123,22 @@ export default function LightboxGesturesPage() {
           </li>
           <li>
             <KbdGroup>
-              <Kbd>←</Kbd>
-              <Kbd>→</Kbd>
-              <Kbd>↑</Kbd>
-              <Kbd>↓</Kbd>
+              <Kbd aria-label="Left arrow"><ArrowLeft /></Kbd>
+              <Kbd aria-label="Right arrow"><ArrowRight /></Kbd>
+              <Kbd aria-label="Up arrow"><ArrowUp /></Kbd>
+              <Kbd aria-label="Down arrow"><ArrowDown /></Kbd>
             </KbdGroup>{' '}
             — pan when zoomed, otherwise previous/next
           </li>
           <li>
-            <Kbd>+</Kbd> / <Kbd>−</Kbd> /{' '}
+            <Kbd aria-label="Plus"><Plus /></Kbd> / <Kbd aria-label="Minus"><Minus /></Kbd> /{' '}
             <KbdGroup>
-              <Kbd>⌘/Ctrl</Kbd>
+              <Kbd aria-label="Command"><Command /></Kbd>
+              <Kbd>0</Kbd>
+            </KbdGroup>{' '}
+            or{' '}
+            <KbdGroup>
+              <Kbd>Ctrl</Kbd>
               <Kbd>0</Kbd>
             </KbdGroup>{' '}
             — zoom in / out / reset (active Zoom)
