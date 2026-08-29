@@ -49,24 +49,32 @@ function useAccessibleNameWarning<T extends HTMLElement>(
   );
 
   // No dependency array: a name can appear or disappear on any render, and the
-  // check is a couple of attribute reads.
+  // check is a couple of attribute reads. The read itself is deferred a
+  // macrotask because a sibling's mount effect in the same commit can still
+  // name this part — a ThumbnailGroup registers its tablist in an effect that
+  // runs after this one, flipping Item to a `tabpanel` named by its tab. By
+  // the time a timeout fires, that re-render has committed. Each render
+  // clears the previous timer, so the check always reads the settled DOM.
   React.useEffect(() => {
     if (process.env.NODE_ENV === 'production') return;
-    const el = elementRef.current;
-    if (!el || el.getAttribute('aria-hidden') === 'true') return;
-    const named =
-      !!el.getAttribute('aria-label')?.trim() ||
-      !!el.getAttribute('aria-labelledby')?.trim() ||
-      !!el.getAttribute('title')?.trim() ||
-      (namedByContent && !!el.textContent?.trim());
-    if (!named) {
-      // eslint-disable-next-line no-console
-      console.warn(
-        `[ramka] ${partName} has no accessible name. ` +
-          (hint ?? 'Give it visible text, or pass `aria-label` / `aria-labelledby`.') +
-          ' The library ships no default label so it never hard-codes English into your UI.',
-      );
-    }
+    const timer = setTimeout(() => {
+      const el = elementRef.current;
+      if (!el || el.getAttribute('aria-hidden') === 'true') return;
+      const named =
+        !!el.getAttribute('aria-label')?.trim() ||
+        !!el.getAttribute('aria-labelledby')?.trim() ||
+        !!el.getAttribute('title')?.trim() ||
+        (namedByContent && !!el.textContent?.trim());
+      if (!named) {
+        // eslint-disable-next-line no-console
+        console.warn(
+          `[ramka] ${partName} has no accessible name. ` +
+            (hint ?? 'Give it visible text, or pass `aria-label` / `aria-labelledby`.') +
+            ' The library ships no default label so it never hard-codes English into your UI.',
+        );
+      }
+    }, 0);
+    return () => clearTimeout(timer);
   });
 
   return setRef;

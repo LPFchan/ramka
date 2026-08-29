@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import * as React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -10,6 +10,8 @@ import { LightboxPortal } from './lightbox-portal';
 import { LightboxPrevious } from './lightbox-previous';
 import { LightboxRoot } from './lightbox-root';
 import { SlidesHost } from './lightbox-slides-test-utils';
+import { LightboxThumbnail } from './lightbox-thumbnail';
+import { LightboxThumbnailGroup } from './lightbox-thumbnail-group';
 import { LightboxZoomIn } from './lightbox-zoom-in';
 import { LightboxZoomOut } from './lightbox-zoom-out';
 
@@ -28,6 +30,14 @@ beforeEach(() => {
 afterEach(() => {
   vi.restoreAllMocks();
 });
+
+// The name check is deferred a macrotask so sibling mount effects (e.g. a
+// tablist registering) can settle first — flush it before asserting either way.
+async function settleNameCheck() {
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+}
 
 function Chrome({ children }: { children: React.ReactNode }) {
   return (
@@ -58,12 +68,13 @@ describe('control parts ship no label', () => {
     expect(screen.getByTestId('part')).not.toHaveAttribute('aria-label');
   });
 
-  it.each(parts)('$name keeps the consumer’s own label', ({ Part }) => {
+  it.each(parts)('$name keeps the consumer’s own label', async ({ Part }) => {
     render(
       <Chrome>
         <Part data-testid="part" aria-label="Zamknij" />
       </Chrome>,
     );
+    await settleNameCheck();
 
     expect(screen.getByTestId('part')).toHaveAttribute('aria-label', 'Zamknij');
     expect(warn).not.toHaveBeenCalled();
@@ -71,33 +82,36 @@ describe('control parts ship no label', () => {
 });
 
 describe('development nudge for a nameless control', () => {
-  it.each(parts)('$name warns when it has no name at all', ({ name, Part }) => {
+  it.each(parts)('$name warns when it has no name at all', async ({ name, Part }) => {
     render(
       <Chrome>
         <Part />
       </Chrome>,
     );
+    await settleNameCheck();
 
     expect(warn).toHaveBeenCalledWith(expect.stringContaining(`${name} has no accessible name`));
   });
 
-  it('stays quiet when the control has visible text instead of a label', () => {
+  it('stays quiet when the control has visible text instead of a label', async () => {
     render(
       <Chrome>
         <LightboxClose>Zamknij</LightboxClose>
       </Chrome>,
     );
+    await settleNameCheck();
 
     expect(warn).not.toHaveBeenCalled();
   });
 
-  it('stays quiet when the control is labelled by another element', () => {
+  it('stays quiet when the control is labelled by another element', async () => {
     render(
       <Chrome>
         <span id="close-label">Zamknij</span>
         <LightboxClose aria-labelledby="close-label" />
       </Chrome>,
     );
+    await settleNameCheck();
 
     expect(warn).not.toHaveBeenCalled();
   });
@@ -135,39 +149,42 @@ describe('development nudge for a nameless slide', () => {
     );
   }
 
-  it('warns when the slide has no name at all', () => {
+  it('warns when the slide has no name at all', async () => {
     render(
       <Gallery>
         <LightboxItem index={0} />
       </Gallery>,
     );
+    await settleNameCheck();
 
     expect(warn).toHaveBeenCalledWith(expect.stringContaining('Lightbox.Item has no accessible name'));
   });
 
-  it('still warns when the slide only has content, which does not name a group', () => {
+  it('still warns when the slide only has content, which does not name a group', async () => {
     render(
       <Gallery>
         <LightboxItem index={0}>Zachód słońca nad morzem</LightboxItem>
       </Gallery>,
     );
+    await settleNameCheck();
 
     expect(warn).toHaveBeenCalledWith(expect.stringContaining('Lightbox.Item has no accessible name'));
   });
 
-  it('stays quiet once the consumer names the slide', () => {
+  it('stays quiet once the consumer names the slide', async () => {
     render(
       <Gallery>
         <LightboxItem index={0} aria-roledescription="slajd" aria-label="1 z 1" />
       </Gallery>,
     );
+    await settleNameCheck();
 
     expect(warn).not.toHaveBeenCalled();
   });
 
   // Inactive slides are `aria-hidden`, so a long gallery nudges once for the
   // slide on screen rather than once per slide.
-  it('nudges only for the slide that is not aria-hidden', () => {
+  it('nudges only for the slide that is not aria-hidden', async () => {
     render(
       <Gallery>
         <LightboxItem index={0} aria-label="1 z 3" />
@@ -175,7 +192,30 @@ describe('development nudge for a nameless slide', () => {
         <LightboxItem index={2} />
       </Gallery>,
     );
+    await settleNameCheck();
 
     expect(warn).not.toHaveBeenCalled();
+  });
+
+  // With a ThumbnailGroup mounted the item is a `tabpanel` named by its tab
+  // via the auto-wired `aria-labelledby`, so no consumer label is needed.
+  // The tablist registers in an effect that runs after the items' name check,
+  // so this also pins that the deferred check tolerates the one-commit gap
+  // instead of warning off the pre-registration DOM.
+  it('stays quiet for an unnamed item when a thumbnail tablist names it', async () => {
+    render(
+      <Gallery>
+        <LightboxItem index={0} data-testid="item-0" />
+        <LightboxItem index={1} />
+        <LightboxThumbnailGroup aria-label="miniatury">
+          <LightboxThumbnail index={0}>1</LightboxThumbnail>
+          <LightboxThumbnail index={1}>2</LightboxThumbnail>
+        </LightboxThumbnailGroup>
+      </Gallery>,
+    );
+    await settleNameCheck();
+
+    expect(screen.getByTestId('item-0')).toHaveAttribute('role', 'tabpanel');
+    expect(warn).not.toHaveBeenCalledWith(expect.stringContaining('Lightbox.Item has no accessible name'));
   });
 });
