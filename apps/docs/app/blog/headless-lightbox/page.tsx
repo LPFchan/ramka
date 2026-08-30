@@ -247,7 +247,11 @@ export default function HeadlessLightboxPage() {
           </Prose>
           <Prose>
             <strong className="font-medium text-neutral-800 dark:text-neutral-200">Shape two: data attributes.</strong>{' '}
-            The gallery is declared in HTML, which sounds friendly until your caption is a heading and a paragraph:
+            The gallery is declared in HTML — a lineage that runs straight back to{' '}
+            <Link href="/blog/story-of-the-lightbox" className={inlineLinkClassName}>
+              2005&rsquo;s <code className="text-[13px]">rel=&quot;lightbox&quot;</code> attribute
+            </Link>{' '}
+            — which sounds friendly until your caption is a heading and a paragraph:
           </Prose>
           <div className="mt-5">
             <CodeBlock

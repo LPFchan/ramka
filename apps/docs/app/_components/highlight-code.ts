@@ -1,7 +1,7 @@
 import { createHighlighter, type BundledLanguage } from 'shiki';
 
 const themes = ['github-light', 'github-dark'] as const;
-const langs = ['tsx', 'typescript', 'jsx', 'javascript', 'bash', 'shellscript', 'json', 'css'] as const;
+const langs = ['tsx', 'typescript', 'jsx', 'javascript', 'bash', 'shellscript', 'json', 'css', 'html'] as const;
 
 type Highlighter = Awaited<ReturnType<typeof createHighlighter>>;
 
@@ -32,4 +32,3 @@ export async function highlightCode(code: string, lang: CodeLang = 'tsx'): Promi
     defaultColor: false,
   });
 }
-

@@ -146,8 +146,12 @@ export default function WhyNativeScrollingPage() {
               ramka
             </Link>{' '}
             landing page jokes that proceeds fund the ongoing fight against scroll emulation. This is the serious
-            version of that joke. It's the story of a decision most carousel and lightbox libraries made years ago, what
-            it costs, and why{' '}
+            version of that joke. It's the story of a decision most carousel and lightbox libraries made years ago — one
+            chapter of{' '}
+            <Link href="/blog/story-of-the-lightbox" className={inlineLinkClassName}>
+              the lightbox's twenty-year story
+            </Link>{' '}
+            — what it costs, and why{' '}
             <Link href="/docs/lightbox" className={inlineLinkClassName}>
               ramka's slides
             </Link>{' '}

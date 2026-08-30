@@ -8,6 +8,7 @@ const unlistedRoutes = [
   '/',
   '/blog/headless-lightbox',
   '/blog/lightbox-accessibility',
+  '/blog/story-of-the-lightbox',
   '/blog/why-native-scrolling',
   '/license',
   '/license/commercial',
