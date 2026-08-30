@@ -11,9 +11,9 @@ import { ChromeBuilder } from './chrome-builder';
 
 const PUBLISHED = '2026-08-29';
 
-const seoTitle = 'The case for a headless lightbox';
+const seoTitle = 'The case for a headless React lightbox';
 const seoDescription =
-  'Most lightboxes are config objects: buttons as HTML strings, captions in data attributes, customization through render slots. The ecosystem already went headless for dialogs and menus, and image galleries are overdue. Includes a live demo: toggle the viewer chrome and watch the JSX follow.';
+  'How a headless React lightbox turns custom buttons, captions, layouts and sidebars into ordinary JSX instead of config options. With a live composer demo.';
 
 export const metadata: Metadata = {
   title: seoTitle,
@@ -47,7 +47,7 @@ export const metadata: Metadata = {
 const structuredData = {
   '@context': 'https://schema.org',
   '@type': 'TechArticle',
-  headline: 'The case for a headless lightbox',
+  headline: 'The case for a headless React lightbox',
   description:
     'Why a composable, headless API is the lightbox feature that makes every other feature reachable: config objects versus composition, what render slots cannot fit, and a live demo that composes an image viewer piece by piece.',
   url: `${siteUrl}/blog/headless-lightbox`,
@@ -57,7 +57,7 @@ const structuredData = {
     'headless lightbox, headless ui, react lightbox, image gallery component, unstyled components, composable api, react image viewer, radix-style primitives',
 };
 
-const workaroundCode = `// The official workaround, from the maintainer, for
+const workaroundCode = `// The documented workaround, from the maintainer, for
 // "hide the arrows when there is only one image":
 const renderNavigation = slides.length <= 1 ? () => null : undefined;
 
@@ -84,7 +84,7 @@ const shapeOneCode = `const lightbox = new Lightbox({
 // The built-ins have fixed slots: the counter is order 5,
 // zoom is 10, info is 15, the close button is order 20.
 lightbox.on('uiRegister', () => {
-  lightbox.ui.registerElement({
+  lightbox.pswp.ui.registerElement({
     name: 'share-button',
     ariaLabel: 'Share photo',
     order: 9,
@@ -192,13 +192,13 @@ export default function HeadlessLightboxPage() {
             <time dateTime={PUBLISHED}>August 29, 2026</time>
           </p>
           <h1 className="mt-3 text-balance text-3xl font-semibold tracking-tight text-neutral-950 md:text-4xl dark:text-neutral-50">
-            The case for a headless lightbox
+            The case for a headless React lightbox
           </h1>
           <p className="mt-5 text-pretty text-[17px] leading-7 text-neutral-500 dark:text-neutral-400">
-            Here is a feature request from a popular lightbox&rsquo;s issue tracker: hide the arrow buttons
-            when the gallery has a single image. A reasonable ask. It stayed open long enough to collect
-            years of &ldquo;how do I do this&rdquo; comments, and the resolution was not a feature. It was a
-            workaround.
+            Here is a feature request from a popular lightbox&rsquo;s issue tracker: hide the arrow buttons when the
+            gallery has a single image. A reasonable ask. It was closed the same day, and the resolution was not a
+            feature. It was a workaround, and &ldquo;how do I do this&rdquo; comments kept arriving for the next two
+            years.
           </p>
 
           <div className="mt-6">
@@ -206,9 +206,8 @@ export default function HeadlessLightboxPage() {
           </div>
 
           <Prose>
-            Pass a function that renders nothing into a render slot, conditionally, remembering the keyboard
-            needs its own flag. Compare the same fix in a lightbox where the buttons are elements you were
-            already rendering:
+            Pass a function that renders nothing into a render slot, conditionally, remembering the keyboard needs its
+            own flag. Compare the same fix in a lightbox where the buttons are elements you were already rendering:
           </Prose>
 
           <div className="mt-5">
@@ -216,130 +215,124 @@ export default function HeadlessLightboxPage() {
           </div>
 
           <Prose>
-            An if statement. Nobody files an issue for an if statement. That gap is what this post is about,
-            and it has nothing to do with effort or code quality. The maintainer&rsquo;s workaround is
-            clever and the library it belongs to is good. The gap comes from the shape of the API, nothing
-            else: the shape decides which problems are yours to solve in an afternoon and which ones are
-            feature requests to a stranger.
+            An if statement. Nobody files an issue for an if statement. That gap is what this post is about, and it has
+            nothing to do with effort or code quality. The maintainer&rsquo;s{' '}
+            <Ext href="https://github.com/igordanchenko/yet-another-react-lightbox/issues/17">workaround</Ext> is clever
+            and the library it belongs to is good. The gap comes from the shape of the API, nothing else: the shape
+            decides which problems are yours to solve in an afternoon and which ones are feature requests to a stranger.
           </Prose>
 
           <Heading>The three shapes of lightbox APIs</Heading>
           <Prose>
-            Survey the popular lightbox and image gallery libraries and nearly every API is one of three shapes. No names here, because
-            the point is not that these libraries are bad. They are the most polished versions of their
-            pattern. The point is the ceiling each pattern builds in.
+            Survey the popular lightbox and image gallery libraries and nearly every API is one of three shapes. No
+            names here, because the point is not that these libraries are bad. They are the most polished versions of
+            their pattern. The point is the ceiling each pattern builds in.
           </Prose>
           <Prose>
             <strong className="font-medium text-neutral-800 dark:text-neutral-200">
               Shape one: a selector and a config object.
             </strong>{' '}
-            You hand the library a CSS selector and it takes the DOM from there. The markup inside the viewer
-            is the library&rsquo;s, so adding your own button means serializing your UI into a string and
-            aiming it with a magic number:
+            You hand the library a CSS selector and it takes the DOM from there. The markup inside the viewer is the
+            library&rsquo;s, so adding your own button means serializing your UI into a string and aiming it with a
+            magic number:
           </Prose>
           <div className="mt-5">
             <CodeBlock code={shapeOneCode} lang="javascript" title="Shape one: UI as strings, position as a number" />
           </div>
           <Prose>
-            Your share button is <code className="text-[13px]">html: '&lt;svg&gt;…&lt;/svg&gt;'</code>. Not a
-            component. A string, positioned relative to the built-ins by knowing that the close button lives
-            at order 20. If the button needs state, a tooltip from your design system, or a React portal, you
-            are now managing a DOM island inside someone else&rsquo;s DOM.
+            Your share button is <code className="text-[13px]">html: '&lt;svg&gt;…&lt;/svg&gt;'</code>. Not a component.
+            A string, positioned relative to the built-ins by knowing that the close button lives at order 20. If the
+            button needs state, a tooltip from your design system, or a React portal, you are now managing a DOM island
+            inside someone else&rsquo;s DOM.
           </Prose>
           <Prose>
-            <strong className="font-medium text-neutral-800 dark:text-neutral-200">
-              Shape two: data attributes.
-            </strong>{' '}
-            The gallery is declared in HTML, which sounds friendly until your caption is a heading and a
-            paragraph:
+            <strong className="font-medium text-neutral-800 dark:text-neutral-200">Shape two: data attributes.</strong>{' '}
+            The gallery is declared in HTML, which sounds friendly until your caption is a heading and a paragraph:
           </Prose>
           <div className="mt-5">
-            <CodeBlock code={shapeTwoCode} lang="jsx" title="Shape two: your caption is HTML in a string in an attribute" />
+            <CodeBlock
+              code={shapeTwoCode}
+              lang="jsx"
+              title="Shape two: your caption is HTML in a string in an attribute"
+            />
           </div>
           <Prose>
-            HTML, in a string, in an attribute, waiting to be parsed and injected at open time. Everything
-            else routes through the config object: the next and previous buttons are{' '}
-            <code className="text-[13px]">nextHtml</code> and <code className="text-[13px]">prevHtml</code>{' '}
-            option strings, translations are a <code className="text-[13px]">strings</code> map, and even
-            ARIA wiring arrives as options:
+            HTML, in a string, in an attribute, waiting to be parsed and injected at open time. Everything else routes
+            through the config object: the next and previous buttons are <code className="text-[13px]">nextHtml</code>{' '}
+            and <code className="text-[13px]">prevHtml</code> option strings, translations are a{' '}
+            <code className="text-[13px]">strings</code> map, and even ARIA wiring arrives as options:
           </Prose>
           <div className="mt-5">
             <CodeBlock code={shapeTwoConfigCode} lang="javascript" title="Shape two: everything is a setting" />
           </div>
           <Prose>
-            One library of this shape documents more than sixty core settings before you have installed a
-            single plugin, and the plugins bring their own. That number is not bloat. It is the honest cost
-            of keeping the DOM: every decision the library makes for you has to come back to you as an
-            option.
+            One library of this shape documents more than sixty core settings before you have installed a single plugin,
+            and the plugins bring their own. That number is not bloat. It is the honest cost of keeping the DOM: every
+            decision the library makes for you has to come back to you as an option.
           </Prose>
           <Prose>
             <strong className="font-medium text-neutral-800 dark:text-neutral-200">
               Shape three: React, but still a config object.
             </strong>{' '}
-            The modern React take accepts arrays and maps instead of selectors and strings, which is real
-            progress. But look at where your UI goes:
+            The modern React take accepts arrays and maps instead of selectors and strings, which is real progress. But
+            look at where your UI goes:
           </Prose>
           <div className="mt-5">
             <CodeBlock code={shapeThreeCode} title="Shape three: composition through a keyhole" />
           </div>
           <Prose>
-            Slides are data, features are a plugin array, words are a{' '}
-            <code className="text-[13px]">labels</code> map, your components enter one at a time through
-            named <code className="text-[13px]">render</code> slots, and styling gets five sanctioned
-            customization points. This is composition through a keyhole. Each slot is real and each slot
-            works, but the set of slots is finite, and it is exactly the set the author thought to cut. The
-            one-image workaround that opened this post lives in this shape, and no wonder: when rendering
-            belongs to the library, you customize by exception.
+            Slides are data, features are a plugin array, words are a <code className="text-[13px]">labels</code> map,
+            your components enter one at a time through named <code className="text-[13px]">render</code> slots, and
+            styling gets five sanctioned customization points. This is composition through a keyhole. Each slot is real
+            and each slot works, but the set of slots is finite, and it is exactly the set the author thought to cut. To
+            its credit, this shape cuts generous holes — there is a slot for rendering whole custom slides and one for
+            overlaying extra controls — yet each is still a named opening in the same wall, usable exactly where the
+            author aimed it. The one-image workaround that opened this post lives in this shape, and no wonder: when
+            rendering belongs to the library, you customize by exception.
           </Prose>
           <Prose>
-            One more thing all three shapes share: step zero of every install guide is importing the
-            library&rsquo;s stylesheet. That import sets the terms for every pixel after it. Making the
-            viewer look like your product means overriding selectors you do not own, so your brand ends up
-            hanging off class names that were never public API and are free to change in any minor release.
-            Dark mode has to undo their colors before applying yours. And the bytes ship regardless,
-            including the ones for pixels you just repainted. A required stylesheet is the config object of
-            styling: a list of decisions someone else already made, plus escape hatches.
+            One more thing all three shapes share: step zero of every install guide is importing the library&rsquo;s
+            stylesheet. That import sets the terms for every pixel after it. Making the viewer look like your product
+            means overriding someone else&rsquo;s selectors. The better libraries document CSS variables and class names
+            for exactly this, but the documented list is one more config surface, and everything off the list is an
+            internal you hope survives the next release. Dark mode has to undo their colors before applying yours. And
+            the bytes ship regardless, including the ones for pixels you just repainted. A required stylesheet is the
+            config object of styling: a list of decisions someone else already made, plus escape hatches.
           </Prose>
 
           <Heading>Why config APIs grow forever</Heading>
           <Prose>
-            None of these authors set out to build a settings museum. The options accumulate one reasonable
-            request at a time. Someone needs the counter on the left. Someone needs captions under the image
-            instead of over it. Someone needs the close button to say &ldquo;Schließen&rdquo;. When the
-            library owns the DOM, the only way to say yes is a new option, so the options page becomes a
-            list of every customization the author predicted. The requests the author did not predict become
-            wrapper-div hacks, CSS fights against inline styles, forks, or that politely closed issue with a
-            workaround.
+            None of these authors set out to build a settings museum. The options accumulate one reasonable request at a
+            time. Someone needs the counter on the left. Someone needs captions under the image instead of over it.
+            Someone needs the close button to say &ldquo;Schließen&rdquo;. When the library owns the DOM, the only way
+            to say yes is a new option, so the options page becomes a list of every customization the author predicted.
+            The requests the author did not predict become wrapper-div hacks, CSS fights against inline styles, forks,
+            or that politely closed issue with a workaround.
           </Prose>
           <Prose>
-            The deeper problem is that a config API has to be designed twice. Once for the feature, once for
-            every way someone might want the feature to differ. A rendered element needs no second design.
-            If you render the counter, you can also move it, restyle it, translate it, or wrap it in a
-            tooltip, and none of those verbs needed to be anticipated by anyone.
+            The deeper problem is that a config API has to be designed twice. Once for the feature, once for every way
+            someone might want the feature to differ. A rendered element needs no second design. If you render the
+            counter, you can also move it, restyle it, translate it, or wrap it in a tooltip, and none of those verbs
+            needed to be anticipated by anyone.
           </Prose>
 
           <Heading>The ecosystem already voted</Heading>
           <Prose>
-            This is not some niche philosophy. The React ecosystem already builds every other overlay this
-            way. Headless primitives sit under a huge share of production dialogs, menus, and selects:{' '}
-            <Ext href="https://www.npmjs.com/package/@radix-ui/react-dialog">
-              the most-installed primitive library
-            </Ext>{' '}
-            counts its npm downloads in the hundreds of millions per month, and the most-starred React UI
-            project on GitHub,{' '}
-            <Ext href="https://github.com/shadcn-ui/ui">at roughly 114,000 stars</Ext>, is a CLI that copies
-            composable component source into your repo so you own every line. In the{' '}
-            <Ext href="https://2024.stateofreact.com/en-US/libraries/component-libraries/">
-              State of React survey
-            </Ext>
-            , its usage doubled from 20 to 42 percent in a single year, the fastest rise the survey has
-            recorded. Developers were offered both models and picked ownership, overwhelmingly.
+            This is not some niche philosophy. The React ecosystem already builds every other overlay this way. Headless
+            primitives sit under a huge share of production dialogs, menus, and selects:{' '}
+            <Ext href="https://www.npmjs.com/package/@radix-ui/react-dialog">the most-installed primitive library</Ext>{' '}
+            counts its npm downloads in the hundreds of millions per month at the time of writing, and the most-starred
+            React UI project on GitHub, <Ext href="https://github.com/shadcn-ui/ui">at roughly 122,000 stars</Ext>, is a
+            CLI that copies composable component source into your repo so you own every line. In the{' '}
+            <Ext href="https://2024.stateofreact.com/en-US/libraries/component-libraries/">State of React survey</Ext>,
+            its usage doubled from 20 to 42 percent in a single year. Adoption numbers are not a controlled study of
+            motives, but the direction is hard to misread: offered both models, developers keep picking ownership.
           </Prose>
           <Prose>
-            React lightboxes mostly sat this shift out, for a defensible reason. A fullscreen image viewer is
-            the hardest overlay there is: scroll physics, pinch zoom, pull to dismiss, morph transitions. Authors kept
-            the DOM because handing it over risks the physics. ramka&rsquo;s bet is that the two concerns
-            split cleanly: the physics live in the engine, on{' '}
+            React lightboxes mostly sat this shift out, for a defensible reason. A fullscreen image viewer is the
+            hardest overlay there is: scroll physics, pinch zoom, pull to dismiss, morph transitions. Authors kept the
+            DOM because handing it over risks the physics. ramka&rsquo;s bet is that the two concerns split cleanly: the
+            physics live in the engine, on{' '}
             <Link href="/blog/why-native-scrolling" className={inlineLinkClassName}>
               a real scroller the browser drives
             </Link>
@@ -352,68 +345,76 @@ export default function HeadlessLightboxPage() {
             <CodeBlock code={ramkaShapeCode} title="ramka: the API is the markup" />
           </div>
           <Prose>
-            Every element in the viewer is one you rendered, so every element can carry whatever your app
-            needs it to carry. An <code className="text-[13px]">aria-label</code> in your user&rsquo;s
-            language rather than{' '}
+            Every visible piece of chrome in the viewer is one you rendered — the library&rsquo;s own additions are
+            plumbing, like the focus guards and the portal host, never a button or a pixel of UI — so every element can
+            carry whatever your app needs it to carry. An <code className="text-[13px]">aria-label</code> in your
+            user&rsquo;s language rather than{' '}
             <Link href="/blog/lightbox-accessibility" className={inlineLinkClassName}>
               a hard-coded English string
             </Link>
-            . The tooltip component the rest of your product uses. A{' '}
-            <code className="text-[13px]">data-testid</code> for the end-to-end suite, an analytics
-            attribute for the click tracker. Your <code className="text-[13px]">Image</code> component as
-            the slide, with its own <code className="text-[13px]">srcset</code> logic and placeholders.
-            None of that is a feature of ramka. It is what falls out of the library not standing between
-            you and your own elements.
+            . The tooltip component the rest of your product uses. A <code className="text-[13px]">data-testid</code>{' '}
+            for the end-to-end suite, an analytics attribute for the click tracker. Your{' '}
+            <code className="text-[13px]">Image</code> component as the slide, with its own{' '}
+            <code className="text-[13px]">srcset</code> logic and placeholders. None of that is a feature of ramka. It
+            is what falls out of the library not standing between you and your own elements.
           </Prose>
           <Prose>
-            Styling follows the same rule. There is no <code className="text-[13px]">ramka.css</code>, so
-            there is nothing to import, nothing to override, and no specificity contest to win. Every part
-            takes a <code className="text-[13px]">className</code> like any element you wrote, whether that
-            means Tailwind, CSS Modules, or your design tokens; every viewer on this site is styled with
-            plain Tailwind against these same primitives. And an upgrade cannot break styles that were
-            never attached to someone else&rsquo;s internals.
+            Styling follows the same rule. There is no <code className="text-[13px]">ramka.css</code>, so there is
+            nothing to import, nothing to override, and no specificity contest to win. The primitives apply only the
+            functional styles they cannot work without, like the scroll and snap geometry on Slides; every visual
+            decision waits for you. Every part takes a <code className="text-[13px]">className</code> like any element
+            you wrote, whether that means Tailwind, CSS Modules, or your design tokens; every viewer on this site is
+            styled with plain Tailwind against these same primitives. And an upgrade cannot break your styles by
+            renaming a private selector or reshuffling an internal DOM you were forced to target, because your styles
+            were never attached to either.
           </Prose>
           <Prose>
-            Do not take the claim on faith. Below is a viewer in the split, social-app layout, media pane
-            plus post thread, built from the same primitives. Toggle its pieces and watch the JSX follow:
+            Do not take the claim on faith. Below is a viewer in the split, social-app layout, media pane plus post
+            thread, built from the same primitives. Toggle its pieces and watch the JSX follow:
           </Prose>
 
           <ChromeBuilder />
 
+          <p className="mt-6 text-[15px] leading-7">
+            <Link href="/docs/lightbox/composition" className={inlineLinkClassName}>
+              Build this yourself with ramka&rsquo;s composition guide&nbsp;&rarr;
+            </Link>
+          </p>
+
           <Heading>What a keyhole can never fit</Heading>
           <Prose>
-            Render slots cover the customizations the author predicted, and predictions run out fast. The
-            requests that end as wontfix in config lightboxes are the ones where your UI is not replacing a
-            built-in piece but adding structure the config schema has no word for. A comment thread beside
-            the photo, say, the pattern every social app uses:
+            Render slots cover the customizations the author predicted, and predictions run out fast. The requests that
+            end as wontfix in config lightboxes are the ones where your UI is not replacing a built-in piece but adding
+            structure the config schema has no word for. A comment thread beside the photo, say, the pattern every
+            social app uses:
           </Prose>
           <div className="mt-5">
             <CodeBlock code={sidebarCode} title="Structure no config schema has a word for" />
           </div>
           <Prose>
-            In ramka that is a grid with an <code className="text-[13px]">aside</code> in it, because the
-            viewer is your markup and{' '}
+            In ramka that is a grid with an <code className="text-[13px]">aside</code> in it, because the viewer is your
+            markup and{' '}
             <Link href="/docs/lightbox/composition" className={inlineLinkClassName}>
               Stage scopes the gestures
             </Link>{' '}
-            to the media pane. It is the exact structure the &ldquo;Post sidebar&rdquo; switch was toggling
-            in the demo above. In a config lightbox it is a feature request, and an unlikely one to ship,
-            because a comment sidebar drags in scrolling, focus, forms, and state that no options object can
-            describe. The same logic covers the{' '}
+            to the media pane. It is the exact structure the &ldquo;Post sidebar&rdquo; switch was toggling in the demo
+            above. In a config lightbox the nearest escape hatch is a slot for overlaying absolutely positioned elements
+            on top of the viewer, which is not the same as giving the photo a neighbor: a comment sidebar drags in
+            layout, scrolling, focus, forms, and state that no options object can describe. The same logic covers the{' '}
             <Link href="/docs/lightbox/view-transitions" className={inlineLinkClassName}>
               morph
             </Link>{' '}
-            targeting any element you choose via <code className="text-[13px]">morphRef</code>, the counter
-            rendering wherever the design puts it, and video or a canvas or a diagram as a slide. Not
-            because ramka shipped a feature for each, but because there is nothing to ask permission from.
+            targeting any element you choose via <code className="text-[13px]">morphRef</code>, the counter rendering
+            wherever the design puts it, and video or a canvas or a diagram as a slide. Not because ramka shipped a
+            feature for each, but because there is nothing to ask permission from.
           </Prose>
 
           <Heading>What config APIs do better</Heading>
           <Prose>
-            Honesty section, as usual. The config shapes won their popularity for a reason: a working viewer
-            in three lines is a genuinely great pitch, and composition cannot match it. A headless lightbox
-            hands you a blank page, and a blank page is a real cost. You will write markup on day one that a
-            config library would have given you for free.
+            Honesty section, as usual. The config shapes won their popularity for a reason: a working viewer in three
+            lines is a genuinely great pitch, and composition cannot match it. A headless lightbox hands you a blank
+            page, and a blank page is a real cost. You will write markup on day one that a config library would have
+            given you for free.
           </Prose>
           <Prose>
             The answer is the same one shadcn/ui gave for every other component: start from source you own.
@@ -421,18 +422,17 @@ export default function HeadlessLightboxPage() {
             <Link href="/presets/default" className={inlineLinkClassName}>
               presets
             </Link>{' '}
-            are complete, styled viewers, photos, stories, a Twitter-style feed, that you copy into your
-            project and edit like code you wrote, because from that moment it is. Day one costs a paste. And
-            the first time you need anything the options page would not have listed, the trade flips: your
-            gnarliest customization is an if statement, a class name, or an <code className="text-[13px]">aside</code>,
-            in markup you already own.
+            are complete, styled viewers, photos, stories, a Twitter-style feed, that you copy into your project and
+            edit like code you wrote, because from that moment it is. Day one costs a paste. And the first time you need
+            anything the options page would not have listed, the trade flips: your gnarliest customization is an if
+            statement, a class name, or an <code className="text-[13px]">aside</code>, in markup you already own.
           </Prose>
 
           <Heading>Feel it in a real photo gallery</Heading>
           <Prose>
-            The gallery below is the composed result: morph open, native swipe, pinch zoom, pull to dismiss,
-            and every visible element, buttons, counter, caption, thumbnails, is consumer markup styled with
-            Tailwind. The library shipped the behavior and zero pixels of the chrome.
+            The gallery below is the composed result: morph open, native swipe, pinch zoom, pull to dismiss, and every
+            visible element, buttons, counter, caption, thumbnails, is consumer markup styled with Tailwind. The library
+            shipped the behavior and zero pixels of the chrome.
           </Prose>
 
           <div className="mt-8">
@@ -440,11 +440,16 @@ export default function HeadlessLightboxPage() {
           </div>
 
           <Prose>
-            If you want the composed-markup tour, the{' '}
+            That is the whole pitch: ramka is a headless React lightbox. The behavior ships in the library; the visible
+            structure and styling live in your codebase; the presets keep day one cheap. The{' '}
             <Link href="/docs/lightbox/composition" className={inlineLinkClassName}>
               composition guide
             </Link>{' '}
-            is ten minutes. ramka is free for open source under the GPL, and{' '}
+            is a ten-minute tour of the markup, and the{' '}
+            <Link href="/docs/lightbox" className={inlineLinkClassName}>
+              lightbox docs
+            </Link>{' '}
+            go from install to first viewer. ramka is free for open source under the GPL, and{' '}
             <Link href="/license" className={inlineLinkClassName}>
               one payment
             </Link>{' '}
