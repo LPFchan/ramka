@@ -565,6 +565,19 @@ export interface MomentumVelocity {
 /** Exponential friction while coasting inside pan bounds (higher = stops sooner). */
 export const PAN_PHYSICS_FRICTION = 3.2;
 
+/**
+ * Coast friction for keyboard pan steps — same pure ease-out shape as a
+ * flick (max velocity on the keydown frame, exponential decay), tuned
+ * between two failure modes. A flick's λ=3.2 drags a 50px step out to
+ * ~830ms — a laggy, floaty response to a discrete keypress. λ=12 settles in
+ * ~330ms, but then each step stops dead before the next press starts and a
+ * sequence of presses reads as notchy stop-start. λ=5 lands 63% of the
+ * travel in the first ~200ms (crisp attack) while keeping ~600ms of
+ * decelerating tail, so presses at a natural rhythm — and OS key repeat,
+ * which retargets the coast each event — blend into one continuous glide.
+ */
+export const KEYBOARD_PAN_FRICTION = 5;
+
 export interface PanPhysicsSpring {
   stiffness: number;
   damping: number;
@@ -682,6 +695,8 @@ export interface BakeSettleInput {
   vx: number;
   vy: number;
   panSpring: PanPhysicsSpring;
+  /** Coast friction for the pan axes (default PAN_PHYSICS_FRICTION). */
+  panFriction?: number;
   /** Pan ranges at a given zoom — pure math over cached layout rects. */
   geometryAt: (zoom: number) => { x: SettleAxisGeometry; y: SettleAxisGeometry } | null;
   /** Clamped rest offsets at a given zoom (viewport-aware). */
@@ -797,6 +812,7 @@ export function bakeSettlePath(input: BakeSettleInput): BakedSettle | null {
         g.y.overflows,
         SETTLE_BAKE_DT,
         panSpring,
+        input.panFriction,
       );
       x = next.x;
       y = next.y;
@@ -1145,6 +1161,7 @@ export function stepPanPhysics2D(
   canCoastY: boolean,
   dt: number,
   spring: PanPhysicsSpring = PAN_PHYSICS_SPRING_MOUSE,
+  friction: number = PAN_PHYSICS_FRICTION,
 ): PanPhysicsState & { settled: boolean } {
   const xStep = stepPanPhysicsAxis(
     {
@@ -1155,7 +1172,7 @@ export function stepPanPhysics2D(
       canCoast: canCoastX,
     },
     dt,
-    PAN_PHYSICS_FRICTION,
+    friction,
     spring.stiffness,
     spring.damping,
   );
@@ -1168,7 +1185,7 @@ export function stepPanPhysics2D(
       canCoast: canCoastY,
     },
     dt,
-    PAN_PHYSICS_FRICTION,
+    friction,
     spring.stiffness,
     spring.damping,
   );

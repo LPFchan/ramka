@@ -71,7 +71,7 @@ interface LightboxZoomProps
   scrollToZoom?: boolean;
   /** Wheel/trackpad zoom sensitivity factor. @default 100 */
   wheelSensitivity?: number;
-  /** Keyboard pan distance in px per keypress. @default 50 */
+  /** Keyboard pan distance in content px per keypress. @default 50 */
   keyboardPanDistance?: number;
   /** Max delay between clicks for double-click detection (ms). @default 300 */
   doubleClickDelay?: number;

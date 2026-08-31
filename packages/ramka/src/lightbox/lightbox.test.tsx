@@ -5739,6 +5739,140 @@ describe('Lightbox', () => {
           });
         });
 
+        it('wheel pan is screen-space 1:1 — deltas divide by zoom, like mouse drag', () => {
+          withViewport(() => {
+            const ref = React.createRef<LightboxZoomRef>();
+            renderZoomPan(ref);
+            const img = screen.getByTestId('zoom-img');
+            setupOverflowGeometry(img);
+
+            const dispatchWheel = (deltaX: number, deltaY: number) => {
+              const event = new WheelEvent('wheel', {
+                bubbles: true,
+                cancelable: true,
+                deltaX,
+                deltaY,
+              });
+              Object.defineProperty(event, 'deltaMode', { value: 0 });
+              img.dispatchEvent(event);
+            };
+
+            // Offsets sit under `scale(zoom)`: one screen px costs 1/zoom
+            // offset units. At 2×, 40 device px must pan 20 offset units —
+            // raw deltas would pan zoom× faster than the fingers.
+            act(() => ref.current!.zoomTo(2, { rapid: true }));
+            act(() => dispatchWheel(40, 30));
+            expect(ref.current!.offsetX).toBeCloseTo(-20, 5);
+            expect(ref.current!.offsetY).toBeCloseTo(-15, 5);
+
+            // Same gesture at 4× travels half as far again.
+            act(() => ref.current!.zoomTo(4, { rapid: true }));
+            act(() => dispatchWheel(40, 0));
+            expect(ref.current!.offsetX).toBeCloseTo(-30, 5);
+            expect(ref.current!.offsetY).toBeCloseTo(-15, 5);
+          });
+        });
+
+        it('keyboard pan glides one content-space step through the pan physics', () => {
+          withViewport(() => {
+            const ref = React.createRef<LightboxZoomRef>();
+            renderZoomPan(ref);
+            setupOverflowGeometry(screen.getByTestId('zoom-img'));
+            const content = screen.getByLabelText('Elastic pan test');
+
+            act(() => ref.current!.zoomTo(2, { rapid: true }));
+            const animate = Element.prototype.animate as ReturnType<typeof vi.fn>;
+            const callsBefore = animate.mock.calls.length;
+
+            // ArrowRight seeds a friction-coast impulse sized to cover the
+            // default keyboardPanDistance (50 content px). The mocked WAAPI
+            // finishes synchronously, committing the baked rest pose. The
+            // coast is integrated in discrete frames, so allow a small
+            // tolerance.
+            fireEvent.keyDown(content, { key: 'ArrowRight' });
+            expect(animate.mock.calls.length).toBeGreaterThan(callsBefore);
+            expect(ref.current!.offsetX).toBeGreaterThan(-56);
+            expect(ref.current!.offsetX).toBeLessThan(-44);
+            expect(ref.current!.offsetY).toBeCloseTo(0, 5);
+
+            // The glide must land between two failure modes: a flick-length
+            // coast (~830ms, floaty) and a hard sub-350ms stop that makes
+            // successive presses read as notchy stop-start.
+            const settleOptions = animate.mock.calls[animate.mock.calls.length - 1]![1] as {
+              duration: number;
+            };
+            expect(settleOptions.duration).toBeGreaterThan(350);
+            expect(settleOptions.duration).toBeLessThan(750);
+
+            // A second press on the other axis glides independently.
+            fireEvent.keyDown(content, { key: 'ArrowDown' });
+            expect(ref.current!.offsetY).toBeGreaterThan(-56);
+            expect(ref.current!.offsetY).toBeLessThan(-44);
+
+            // The step stays constant in content px at any zoom — keyboard is
+            // a discrete command over the pannable range (which grows with
+            // zoom), so press count to cross the image stays roughly flat.
+            act(() => ref.current!.zoomTo(4, { rapid: true }));
+            const yBefore = ref.current!.offsetY;
+            fireEvent.keyDown(content, { key: 'ArrowDown' });
+            const step = ref.current!.offsetY - yBefore;
+            expect(step).toBeGreaterThan(-56);
+            expect(step).toBeLessThan(-44);
+          });
+        });
+
+        it('keyboard pan into the edge spring-settles at the bound', () => {
+          withViewport(() => {
+            const ref = React.createRef<LightboxZoomRef>();
+            const panRef = renderZoomPan(ref);
+            setupOverflowGeometry(screen.getByTestId('zoom-img'));
+            const content = screen.getByLabelText('Elastic pan test');
+
+            // content 400 @ zoom 2 in 400 viewport → ±100 pan range. Park on
+            // the right edge via the hard-clamped pan path.
+            act(() => ref.current!.zoomTo(2, { rapid: true }));
+            act(() => panRef.current!(200, 0, false));
+            expect(ref.current!.offsetX).toBe(-100);
+
+            // Pressing further into the wall must not stick past the bound:
+            // the glide overshoots into the rubber band and springs back.
+            fireEvent.keyDown(content, { key: 'ArrowRight' });
+            expect(ref.current!.offsetX).toBeCloseTo(-100, 5);
+          });
+        });
+
+        it('keyboard pan is an instant clamped step under prefers-reduced-motion', () => {
+          // The runtime samples the media query at render, so spy first.
+          vi.spyOn(window, 'matchMedia').mockImplementation((query: string) => ({
+            matches: query === '(prefers-reduced-motion: reduce)',
+            media: query,
+            onchange: null,
+            addListener: vi.fn(),
+            removeListener: vi.fn(),
+            addEventListener: vi.fn(),
+            removeEventListener: vi.fn(),
+            dispatchEvent: vi.fn(),
+          }));
+          withViewport(() => {
+            const ref = React.createRef<LightboxZoomRef>();
+            renderZoomPan(ref);
+            setupOverflowGeometry(screen.getByTestId('zoom-img'));
+            const content = screen.getByLabelText('Elastic pan test');
+
+            act(() => ref.current!.zoomTo(2, { rapid: true }));
+            const animate = Element.prototype.animate as ReturnType<typeof vi.fn>;
+            const callsBefore = animate.mock.calls.length;
+
+            // Exact hard-clamped step (50 content px), no settle animation
+            // started.
+            fireEvent.keyDown(content, { key: 'ArrowRight' });
+            expect(ref.current!.offsetX).toBeCloseTo(-50, 5);
+            fireEvent.keyDown(content, { key: 'ArrowDown' });
+            expect(ref.current!.offsetY).toBeCloseTo(-50, 5);
+            expect(animate.mock.calls.length).toBe(callsBefore);
+          });
+        });
+
         it('ctrl+wheel (Chrome/FF trackpad pinch) rubber-bands past maxZoom', () => {
           withViewport(() => {
             const ref = React.createRef<LightboxZoomRef>();

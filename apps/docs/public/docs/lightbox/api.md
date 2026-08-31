@@ -408,7 +408,7 @@ Pinch, wheel, double-tap, and keyboard zoom/pan surface. Fills its host and is a
 | zoomStep | `number` | `2` | Multiplier for button/keyboard zoom steps. |
 | scrollToZoom | `boolean` | `false` | Enable zoom via bare scroll/trackpad without Ctrl. |
 | wheelSensitivity | `number` | `100` | Wheel/trackpad zoom sensitivity factor. |
-| keyboardPanDistance | `number` | `50` | Keyboard pan distance in px per keypress. |
+| keyboardPanDistance | `number` | `50` | Keyboard pan distance in content px per keypress. |
 | doubleClickDelay | `number` | `300` | Max delay between clicks for double-click detection (ms). |
 | onZoomChange | `(zoom: number) => void` |  | Callback when zoom level changes. |
 | render | `ReactElement \| ComponentRenderFn` |  | Replaces the part's default element with another tag or component. Accepts an element to clone, or a function that returns one. |

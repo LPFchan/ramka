@@ -135,6 +135,11 @@ export function useContentKeyboard({
       // manipulation of a 2D surface, not travel through an ordered list, so
       // ArrowRight moves the viewport right the way it does on a map.
       if (isArrow && (zoomCtl?.getZoom() ?? 1) > 1 && zoomCtl) {
+        // The step is content px (screen travel scales with zoom) — unlike
+        // drag/wheel, which map physical hand movement 1:1 to the screen,
+        // keyboard is a discrete command over a range: the pannable range in
+        // screen px grows with zoom, so content-space steps keep the press
+        // count to cross the image roughly constant at any zoom.
         const d = zoomCtl.keyboardPanDistance;
         switch (event.key) {
           case 'ArrowRight':

@@ -883,7 +883,10 @@ function useZoomGestures(
         event.preventDefault();
         event.stopPropagation();
         if (!scrollToZoom) {
-          changeOffsets(event.deltaX, event.deltaY);
+          // Screen-space 1:1 pan, like mouse drag: offsets live under the
+          // zoom scale, so device deltas divide by zoom. Raw deltas made
+          // trackpad pan run zoom× faster than the fingers.
+          changeOffsets(event.deltaX / zoom, event.deltaY / zoom);
         }
       }
     },
