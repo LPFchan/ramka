@@ -407,7 +407,7 @@ function ZoomEngine({ options, containerRef, wrapperRef, store }: ZoomEngineProp
       zoomIn: session.zoomIn,
       zoomOut: session.zoomOut,
       reset: (rapid?: boolean) => session.reset(rapid),
-      panBy: (dx: number, dy: number) => session.changeOffsets(dx, dy),
+      panBy: (dx: number, dy: number) => session.panStep(dx, dy),
       keyboardPanDistance,
       getZoom: session.getLiveZoom,
     }),

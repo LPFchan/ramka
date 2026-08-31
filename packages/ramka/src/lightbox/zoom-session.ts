@@ -11,6 +11,7 @@ import {
   elasticClamp,
   focalOffset,
   isPerceptibleZoomSnapback,
+  KEYBOARD_PAN_FRICTION,
   PAN_PHYSICS_FRICTION,
   PAN_PHYSICS_SPRING_MOUSE,
   PAN_PHYSICS_SPRING_TOUCH,
@@ -70,6 +71,8 @@ export interface ZoomSession {
   zoomOut: () => void;
   changeZoom: ZoomGestureActions['changeZoom'];
   changeOffsets: ZoomGestureActions['changeOffsets'];
+  /** Keyboard pan step — a physics glide (instant under reduced motion). */
+  panStep: (dx: number, dy: number) => void;
   reset: (rapid?: boolean) => void;
   getLiveZoom: () => number;
   dispose: () => void;
@@ -452,6 +455,7 @@ export function createZoomSession(getDeps: () => ZoomSessionDeps): ZoomSession {
     vx: number,
     vy: number,
     spring: PanPhysicsSpring = PAN_PHYSICS_SPRING_MOUSE,
+    friction: number = PAN_PHYSICS_FRICTION,
   ): boolean => {
     const {
       controller,
@@ -536,6 +540,7 @@ export function createZoomSession(getDeps: () => ZoomSessionDeps): ZoomSession {
       vx,
       vy,
       panSpring: spring,
+      panFriction: friction,
       geometryAt,
       restOffsetsAt,
       focalX: lastFocal.current?.x,
@@ -570,6 +575,34 @@ export function createZoomSession(getDeps: () => ZoomSessionDeps): ZoomSession {
 
   const momentumPan = (vx: number, vy: number, touch = false): boolean =>
     startPanPhysics(vx, vy, touch ? PAN_PHYSICS_SPRING_TOUCH : PAN_PHYSICS_SPRING_MOUSE);
+
+  /**
+   * One keyboard pan step: glide `dx`/`dy` (offset px, same sign convention
+   * as {@link changeOffsets}) through the release physics instead of
+   * teleporting. A friction coast from speed `v` travels `(v − stop) / λ`
+   * before the stop threshold ends it, so seeding `v = |d|·λ + stop` covers
+   * the step exactly. Keyboard uses its own λ (KEYBOARD_PAN_FRICTION): max
+   * velocity on the keydown frame, exponential ease-out, with a crisp attack
+   * and enough decelerating tail that successive presses blend instead of
+   * stopping dead between steps. Key repeat retargets the coast from the
+   * live pose each press — that reads as hold-to-glide — and a press into
+   * the pan edge gets the same spring settle a flick does. Under
+   * prefers-reduced-motion this stays the instant hard-clamped step.
+   */
+  const panStep = (dx: number, dy: number) => {
+    const { controller, reducedMotion } = getDeps();
+    // Parity with changeOffsets: a discrete zoom in flight owns the pose.
+    if (controller.isDiscreteAnimating()) return;
+    if (reducedMotion) {
+      changeOffsets(dx, dy);
+      return;
+    }
+    // changeOffsets subtracts deltas (ArrowRight passes +d and offsets
+    // decrease); physics velocities add to offsets — hence the sign flip.
+    const impulse = (d: number) =>
+      d === 0 ? 0 : -(d * KEYBOARD_PAN_FRICTION + Math.sign(d) * PAN_PHYSICS_STOP_SPEED);
+    startPanPhysics(impulse(dx), impulse(dy), PAN_PHYSICS_SPRING_MOUSE, KEYBOARD_PAN_FRICTION);
+  };
 
   /**
    * Concurrent zoom rubber-band (2→1 only): rAF spring on the zoom *value*
@@ -707,6 +740,7 @@ export function createZoomSession(getDeps: () => ZoomSessionDeps): ZoomSession {
     zoomOut,
     changeZoom,
     changeOffsets,
+    panStep,
     reset,
     getLiveZoom,
     dispose: stopZoomSnap,

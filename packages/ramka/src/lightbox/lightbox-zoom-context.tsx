@@ -88,9 +88,13 @@ interface ActiveZoomControls {
    * Firefox zoomed-close VT workaround before old-snapshot capture.
    */
   reset: (rapid?: boolean) => void;
-  /** Pan the active slide by the given deltas (content-space px). */
+  /**
+   * Pan the active slide by the given deltas (content-space px). Glides
+   * through the release pan physics — key repeat retargets the coast, edge
+   * presses spring — and is an instant clamped step under reduced motion.
+   */
   panBy: (dx: number, dy: number) => void;
-  /** The active slide's configured keyboard pan step, in px. */
+  /** The active slide's configured keyboard pan step, in content px. */
   keyboardPanDistance: number;
   /** Live zoom level of the active slide (1 = not zoomed). */
   getZoom: () => number;
