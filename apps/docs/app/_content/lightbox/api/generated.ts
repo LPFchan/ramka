@@ -375,7 +375,7 @@ export const generatedProps: Record<string, PropRow[]> = {
       name: "keyboardPanDistance",
       type: "number",
       default: "50",
-      description: "Keyboard pan distance in px per keypress.",
+      description: "Keyboard pan distance in content px per keypress.",
     },
     {
       name: "doubleClickDelay",
