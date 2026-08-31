@@ -76,6 +76,40 @@ export function rubberBandDistance(
 }
 
 /**
+ * Time constant (ms) for wheel overpan relaxation (see {@link relaxOverpan}).
+ * Equilibrium stretch for a steady stream ≈ input rate × τ (then rubber-band
+ * compressed), so ~150ms maps a deliberate push to a visible-but-firm stretch
+ * and a hard flick to a deep one that eases back as the tail decays.
+ */
+export const WHEEL_OVERPAN_RELAX_TAU_MS = 150;
+
+/**
+ * Exponentially relax the out-of-range portion of an unconstrained pan
+ * accumulator toward `[min, max]` for `dtMs` of elapsed time.
+ *
+ * A drag anchors overpan to a finger, so its raw accumulator must hold. A
+ * wheel stream has no anchor — holding the integral pins the image at the
+ * rubber-band leash while macOS momentum events keep arriving. Leaking the
+ * overshoot makes the displayed stretch track the *current input rate*
+ * (native trackpad overscroll behavior): steady push → speed-proportional
+ * hold; decaying tail → the image glides back in sync; stop → only a small
+ * remainder for the release spring.
+ */
+export function relaxOverpan(
+  raw: number,
+  min: number,
+  max: number,
+  dtMs: number,
+  tauMs = WHEEL_OVERPAN_RELAX_TAU_MS,
+): number {
+  if (dtMs <= 0 || tauMs <= 0) return raw;
+  const k = Math.exp(-dtMs / tauMs);
+  if (raw > max) return max + (raw - max) * k;
+  if (raw < min) return min - (min - raw) * k;
+  return raw;
+}
+
+/**
  * Clamp `value` into `[min, max]` with UIScrollView-style rubber-banding past
  * the edges. In-range values pass through; outside, overshoot is compressed by
  * {@link rubberBandDistance} against `dimension`.
@@ -294,6 +328,178 @@ export function scaleZoom(value: number, delta: number, factor: number): number 
  */
 export function isTrackpadPinchWheel(ctrlKey: boolean, physicalCtrlHeld: boolean): boolean {
   return ctrlKey && !physicalCtrlHeld;
+}
+
+// ---------------------------------------------------------------------------
+// Wheel stream classification — finger-driven vs momentum (inertia) events
+//
+// The DOM exposes no wheel phase info: after a trackpad flick, macOS (and
+// Windows Precision Touchpads) keep synthesizing decaying wheel events long
+// after the fingers lift. The detector below is adapted from wheel-gestures
+// (MIT © 2020 Felix Leupold, https://github.com/xiel/wheel-gestures — see
+// THIRD-PARTY-NOTICES.md), the same classifier Embla's wheel plugin relies
+// on: velocity is measured between merged sample pairs (noise reduction),
+// and a stream is momentum once several consecutive velocity ratios sit in
+// the smooth-decay band — synthetic inertia decays at a characteristic rate,
+// while finger input is irregular. Windows/Blink additionally emit a literal
+// `-0` deltaX sample exactly at finger lift, which marks the tail directly.
+// ---------------------------------------------------------------------------
+
+/** Line height (px) for `deltaMode: DOM_DELTA_LINE` wheels (Firefox mice). */
+export const WHEEL_DELTA_LINE_HEIGHT = 18;
+
+/** Wheel delta in pixels regardless of the event's `deltaMode`. */
+export function normalizeWheelDelta(delta: number, deltaMode: number, pageSizePx = 800): number {
+  if (deltaMode === 1) return delta * WHEEL_DELTA_LINE_HEIGHT;
+  if (deltaMode === 2) return delta * pageSizePx;
+  return delta;
+}
+
+/** Momentum decay band: velocity ratio between merged pairs (wheel-gestures). */
+export const WHEEL_MOMENTUM_ACC_MIN = 0.6;
+export const WHEEL_MOMENTUM_ACC_MAX = 0.96;
+/** Samples merged per velocity point — averages out per-event jitter. */
+const WHEEL_MOMENTUM_EVENTS_TO_MERGE = 2;
+/** Consecutive in-band velocity ratios required to classify momentum. */
+const WHEEL_MOMENTUM_FACTORS_TO_ANALYZE = 5;
+/**
+ * User re-engagement during momentum: a sample must exceed twice the last
+ * one (with this px floor) — a decaying tail can only shrink, so any jump is
+ * fresh finger input (wheel-gestures' momentum-cancel rule).
+ */
+const WHEEL_MOMENTUM_INTERRUPT_FLOOR = 2;
+/** Min velocity (px/ms) for the Blink `-0` lift sample to imply a tail. */
+const WHEEL_MOMENTUM_LIFT_MIN_VELOCITY = 0.2;
+
+export interface WheelStreamState {
+  /** |delta| of the last non-zero sample (Infinity until the first one). */
+  lastAbsDelta: number;
+  /** Sticky for the rest of the stream once detected. */
+  isMomentum: boolean;
+  /** Delta-space velocity (px/ms) between the last two merged points. */
+  velX: number;
+  velY: number;
+  /** Samples awaiting a merge. */
+  pending: Array<{ dx: number; dy: number; t: number }>;
+  /** Previous merged point. */
+  prev: { dx: number; dy: number; t: number } | null;
+  /** Recent per-axis velocity ratios (new / old). */
+  accFactors: Array<[number, number]>;
+}
+
+export function createWheelStreamState(): WheelStreamState {
+  return {
+    lastAbsDelta: Infinity,
+    isMomentum: false,
+    velX: 0,
+    velY: 0,
+    pending: [],
+    prev: null,
+    accFactors: [],
+  };
+}
+
+export type WheelStreamSampleKind = 'user' | 'momentum' | 'interrupt' | 'ignore';
+
+/** Ratio in the momentum band; 0 = no motion on that axis this pair. */
+function accFactorInMomentumRange(factor: number): boolean {
+  if (factor === 0) return true;
+  return factor >= WHEEL_MOMENTUM_ACC_MIN && factor <= WHEEL_MOMENTUM_ACC_MAX;
+}
+
+/**
+ * Advance a wheel stream with one sample (mutates `state`) and classify it.
+ *
+ * - `'user'` / `'momentum'`: apply the sample under that phase's rules.
+ * - `'interrupt'`: fresh finger input cancelled an active momentum tail —
+ *   reset the stream with {@link createWheelStreamState} and re-feed this
+ *   sample (it seeds the new gesture).
+ * - `'ignore'`: zero-delta sample; may flip `isMomentum` (Blink lift marker)
+ *   but must not pan or influence velocity.
+ *
+ * `isNegativeZeroLift` is `Object.is(event.deltaX, -0)` — Windows/Blink's
+ * finger-lift marker.
+ */
+export function feedWheelStream(
+  state: WheelStreamState,
+  dx: number,
+  dy: number,
+  t: number,
+  isNegativeZeroLift = false,
+): WheelStreamSampleKind {
+  const absDelta = Math.max(Math.abs(dx), Math.abs(dy));
+
+  if (absDelta === 0) {
+    if (
+      isNegativeZeroLift &&
+      Math.max(Math.abs(state.velX), Math.abs(state.velY)) >= WHEEL_MOMENTUM_LIFT_MIN_VELOCITY
+    ) {
+      state.isMomentum = true;
+    }
+    return 'ignore';
+  }
+
+  if (state.isMomentum) {
+    const spiked =
+      absDelta > Math.max(WHEEL_MOMENTUM_INTERRUPT_FLOOR, state.lastAbsDelta * 2);
+    // A momentum tail never reverses — a real sign flip on the dominant axis
+    // is fresh finger input (wheel-gestures leaves this to the spike rule;
+    // it matters here because a swallowed tail must yield to a counter-pull).
+    const horizontal = Math.abs(state.velX) >= Math.abs(state.velY);
+    const axisVel = horizontal ? state.velX : state.velY;
+    const axisDelta = horizontal ? dx : dy;
+    const reversed =
+      axisVel !== 0 &&
+      Math.abs(axisDelta) >= WHEEL_MOMENTUM_INTERRUPT_FLOOR &&
+      Math.sign(axisDelta) === -Math.sign(axisVel);
+    if (spiked || reversed) return 'interrupt';
+  }
+
+  state.lastAbsDelta = absDelta;
+  state.pending.push({ dx, dy, t });
+  if (state.pending.length >= WHEEL_MOMENTUM_EVENTS_TO_MERGE) {
+    let sumDx = 0;
+    let sumDy = 0;
+    let sumT = 0;
+    for (const p of state.pending) {
+      sumDx += p.dx;
+      sumDy += p.dy;
+      sumT += p.t;
+    }
+    const point = { dx: sumDx, dy: sumDy, t: sumT / state.pending.length };
+    state.pending.length = 0;
+    const prev = state.prev;
+    state.prev = point;
+    if (prev) {
+      const dt = point.t - prev.t;
+      if (dt > 0) {
+        const vx = point.dx / dt;
+        const vy = point.dy / dt;
+        state.accFactors.push([vx / (state.velX || 1), vy / (state.velY || 1)]);
+        state.velX = vx;
+        state.velY = vy;
+        if (state.accFactors.length > WHEEL_MOMENTUM_FACTORS_TO_ANALYZE) {
+          state.accFactors.splice(
+            0,
+            state.accFactors.length - WHEEL_MOMENTUM_FACTORS_TO_ANALYZE,
+          );
+        }
+        if (
+          !state.isMomentum &&
+          state.accFactors.length >= WHEEL_MOMENTUM_FACTORS_TO_ANALYZE
+        ) {
+          state.isMomentum = state.accFactors.every(([fx, fy]) => {
+            // Both axes decaying at the exact same rate is a momentum
+            // signature even outside the band (synthesized from one curve).
+            const sameDecay = fx !== 0 && fx < 1 && fx === fy;
+            return sameDecay || (accFactorInMomentumRange(fx) && accFactorInMomentumRange(fy));
+          });
+        }
+      }
+    }
+  }
+
+  return state.isMomentum ? 'momentum' : 'user';
 }
 
 /**

@@ -4,14 +4,18 @@ import * as React from 'react';
 
 import {
   computeMomentumVelocity,
+  createWheelStreamState,
   distance,
   doubleTapTargetZoom,
+  feedWheelStream,
   invertElasticClamp,
   isTrackpadPinchWheel,
+  normalizeWheelDelta,
   pinchFingerAlignment,
   pinchMotionComponents,
   resolvePinchZoom,
   scaleZoom,
+  type WheelStreamState,
 } from './gesture-math';
 import type { InitializedRef } from '../react-compat';
 
@@ -23,6 +27,22 @@ import type { InitializedRef } from '../react-compat';
  * mid-overshoot can snap early — the closest equivalent to gestureend.
  */
 const WHEEL_PINCH_END_MS = 120;
+
+/**
+ * Quiet gap after the last bare-wheel pan sample treated as gesture end.
+ * Trackpad two-finger pan has no lift event either, so this is what triggers
+ * the rubber-band snap-back after an elastic overpan. macOS momentum wheel
+ * events stream every frame, so the timer keeps refreshing until the coast
+ * actually ends.
+ */
+const WHEEL_PAN_END_MS = 120;
+
+/**
+ * Cap on the bounce handoff speed (offset-space px/s). Wheel deltas from a
+ * violent swipe can far exceed any drag-flick velocity; uncapped they'd
+ * launch the spring well past the drag rubber-band leash.
+ */
+const WHEEL_PAN_BOUNCE_MAX_SPEED = 2200;
 
 // ---------------------------------------------------------------------------
 // Config type
@@ -52,8 +72,19 @@ interface ZoomGestureActions {
    * @param overscroll Elastic rubber-band past pan bounds.
    * @param overflowAxesOnly When set with overscroll, only overflowing axes
    *   pan (touch). Mouse omits this so letterboxed axes can still rubber-band.
+   * @param overpanRelaxMs Elapsed ms used to bleed accumulated overshoot
+   *   before integrating this sample. Set only by anchorless input (wheel):
+   *   the stretch then tracks input rate instead of the integral, so a
+   *   momentum tail cannot pin the image at the leash. Anchored input
+   *   (drag) must omit it so the stretch holds with the finger.
    */
-  changeOffsets: (dx: number, dy: number, overscroll?: boolean, overflowAxesOnly?: boolean) => void;
+  changeOffsets: (
+    dx: number,
+    dy: number,
+    overscroll?: boolean,
+    overflowAxesOnly?: boolean,
+    overpanRelaxMs?: number,
+  ) => void;
   /**
    * Live two-finger pose from a pinch origin: scale to `targetZoom` (elastic)
    * and translate so the origin content point stays under the current
@@ -82,6 +113,12 @@ interface ZoomGestureActions {
    * carries over). `touch` selects the softer mobile overscroll spring.
    */
   momentumPan: (vx: number, vy: number, touch?: boolean) => boolean;
+  /**
+   * Which pan bound the live pose sits past, per axis: `-1` past min, `1`
+   * past max, `0` in range. Lets the wheel path decide edge-contact bounce
+   * handoffs (including outward-motion checks) without owning pan geometry.
+   */
+  getPanOverpan: () => { x: -1 | 0 | 1; y: -1 | 0 | 1 };
   /**
    * Start the iOS-style zoom rubber-band return: a rAF spring on the zoom
    * value, used on pinch 2→1 breakup. The return is a uniform zoom-out
@@ -803,6 +840,38 @@ function useZoomGestures(
     wheelPinchRef.current = null;
   }, [clearWheelPinchTimer]);
 
+  /**
+   * Pending snap-back for an elastic bare-wheel (trackpad) pan. Armed on every
+   * pan sample, fired when the stream goes idle — the wheel equivalent of the
+   * pointerup settle after a mouse drag.
+   */
+  const wheelPanSnapTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  /**
+   * One bare-wheel pan stream = one gesture. `state` classifies each sample
+   * as finger-driven or momentum (see feedWheelStream); `bounced` is set once
+   * an edge-contact bounce handed the tail to the pan physics — the rest of
+   * the momentum stream is then dropped (feeding it into the rubber band
+   * would pin the image at the leash until the tail decays, and a late
+   * straggler catching the settle is what used to double-play the spring).
+   * A quiet gap starts a fresh stream.
+   */
+  const wheelPanStreamRef = React.useRef<{
+    state: WheelStreamState;
+    bounced: boolean;
+    lastT: number;
+  } | null>(null);
+
+  const clearWheelPanTimer = React.useCallback(() => {
+    if (wheelPanSnapTimerRef.current == null) return;
+    clearTimeout(wheelPanSnapTimerRef.current);
+    wheelPanSnapTimerRef.current = null;
+  }, []);
+
+  const dropWheelPanSession = React.useCallback(() => {
+    clearWheelPanTimer();
+    wheelPanStreamRef.current = null;
+  }, [clearWheelPanTimer]);
+
   const handleWheel = React.useCallback(
     (event: WheelEvent) => {
       // Defer to an in-flight Lightbox.Slides scroll (passive: the event still
@@ -820,8 +889,9 @@ function useZoomGestures(
       // preventDefault when the listener is non-passive (see
       // needsNonPassiveWheel) to avoid Safari passive-listener warnings.
       if (actionsRef.current.isZoomAnimating()) {
-        // Don't let a pending pinch-as-wheel snap tear the discrete WAAPI.
+        // Don't let a pending pinch-as-wheel or wheel-pan snap tear the WAAPI.
         dropWheelPinchSession();
+        dropWheelPanSession();
         if (!hasSafariGesturesRef.current || zoom > 1 || scrollToZoom) {
           event.preventDefault();
         }
@@ -838,6 +908,8 @@ function useZoomGestures(
         if (Math.abs(event.deltaY) > Math.abs(event.deltaX)) {
           event.preventDefault();
           event.stopPropagation();
+          // Zoom owns the gesture now — its own snap covers offsets too.
+          dropWheelPanSession();
           const focal = translateCoordinates(event);
           // Synthesized ctrlKey (no Control keydown) = trackpad pinch.
           // Physical Ctrl+scroll hard-clamps like keyboard zoom — no rubber-band.
@@ -882,12 +954,111 @@ function useZoomGestures(
       if (zoom > 1) {
         event.preventDefault();
         event.stopPropagation();
-        if (!scrollToZoom) {
-          changeOffsets(event.deltaX, event.deltaY);
+        if (scrollToZoom) return;
+        const now = event.timeStamp;
+        const dx = normalizeWheelDelta(event.deltaX, event.deltaMode, window.innerHeight);
+        const dy = normalizeWheelDelta(event.deltaY, event.deltaMode, window.innerHeight);
+
+        // One stream = one gesture; a quiet gap starts a fresh one.
+        let stream = wheelPanStreamRef.current;
+        if (!stream || now - stream.lastT > WHEEL_PAN_END_MS) {
+          stream = { state: createWheelStreamState(), bounced: false, lastT: now };
+          wheelPanStreamRef.current = stream;
         }
+        const sampleDtMs = now - stream.lastT;
+        stream.lastT = now;
+
+        let kind = feedWheelStream(stream.state, dx, dy, now, Object.is(event.deltaX, -0));
+        if (kind === 'interrupt') {
+          // Fresh finger input cancelled a momentum tail — a new gesture
+          // starts here and this sample seeds it. If a bounce is mid-flight,
+          // changeOffsets below catches it (a finger landing on a coasting
+          // image, iOS-style).
+          stream.state = createWheelStreamState();
+          stream.bounced = false;
+          kind = feedWheelStream(stream.state, dx, dy, now);
+        }
+        if (kind === 'ignore') return;
+
+        // The tail after a bounce handoff is already owned by the physics.
+        if (stream.bounced) return;
+
+        // Screen-space 1:1 pan, like mouse drag: offsets live under the zoom
+        // scale, so device deltas divide by zoom. (Raw deltas made trackpad
+        // pan run zoom× faster than the fingers — classification above still
+        // runs on device deltas, where its px thresholds are calibrated.)
+        const odx = dx / zoom;
+        const ody = dy / zoom;
+
+        // For a momentum sample, remember whether the pose was in bounds
+        // BEFORE it lands — a fresh crossing is a wall impact (bounce with
+        // velocity); an already-stretched pose absorbed its impact during the
+        // finger phase and must only spring home, not get shoved deeper.
+        const overBefore = kind === 'momentum' ? actionsRef.current.getPanOverpan() : null;
+
+        // Elastic pan with mouse-drag parity: letterboxed axes rubber-band
+        // too, on the same mouse leash, so trackpad and drag feel identical.
+        // The relax dt makes any overpan track input rate rather than the
+        // integral — wheel input has no finger anchor, so a decaying stream
+        // must let the stretch glide back instead of holding it.
+        changeOffsets(odx, ody, true, false, sampleDtMs);
+
+        // Momentum carrying the pose past a bound converts to a spring at
+        // edge contact (the native scroll-view model — overscroll depth
+        // comes from velocity, not from integrating the tail into the
+        // rubber band). Finger-driven motion never bounces: it stretches and
+        // follows like a drag. The outward check leaves a tail that is
+        // pulling the pose back toward range alone.
+        if (kind === 'momentum') {
+          const over = actionsRef.current.getPanOverpan();
+          // Classifier velocity is device px/ms; offsets subtract deltas and
+          // sit under the zoom scale, so offset-space px/s negates and
+          // divides it.
+          const vx = -(stream.state.velX * 1000) / zoom;
+          const vy = -(stream.state.velY * 1000) / zoom;
+          const outward =
+            (over.x !== 0 && Math.sign(vx) === over.x) ||
+            (over.y !== 0 && Math.sign(vy) === over.y);
+          if (outward) {
+            const freshImpact = overBefore != null && overBefore.x === 0 && overBefore.y === 0;
+            const speed = Math.hypot(vx, vy);
+            const cap = speed > 0 ? Math.min(1, WHEEL_PAN_BOUNCE_MAX_SPEED / speed) : 0;
+            const started =
+              freshImpact && speed > 0
+                ? actionsRef.current.momentumPan(vx * cap, vy * cap)
+                : actionsRef.current.snapOffsetsToBounds();
+            if (started) {
+              clearWheelPanTimer();
+              stream.bounced = true;
+              return;
+            }
+          }
+        }
+
+        // Wheel streams have no lift event, so an idle gap stands in for
+        // release and settles any elastic overpan back into range.
+        clearWheelPanTimer();
+        wheelPanSnapTimerRef.current = setTimeout(() => {
+          wheelPanSnapTimerRef.current = null;
+          // A pointer gesture that started meanwhile owns the release
+          // settle; a discrete zoom WAAPI must not be torn mid-flight.
+          if (
+            activePointers.current.length === 0 &&
+            !actionsRef.current.isZoomAnimating()
+          ) {
+            actionsRef.current.snapOffsetsToBounds();
+          }
+        }, WHEEL_PAN_END_MS);
       }
     },
-    [translateCoordinates, isScrollingRef, clearWheelPinchTimer, dropWheelPinchSession],
+    [
+      translateCoordinates,
+      isScrollingRef,
+      clearWheelPinchTimer,
+      clearWheelPanTimer,
+      dropWheelPinchSession,
+      dropWheelPanSession,
+    ],
   );
 
   // Track a physical Control key. Chrome/Firefox set `wheel.ctrlKey` on
@@ -1111,6 +1282,11 @@ function useZoomGestures(
         clearTimeout(wheelPinchSnapTimerRef.current);
         wheelPinchSnapTimerRef.current = null;
       }
+      if (wheelPanSnapTimerRef.current != null) {
+        clearTimeout(wheelPanSnapTimerRef.current);
+        wheelPanSnapTimerRef.current = null;
+      }
+      wheelPanStreamRef.current = null;
       wheelPinchRef.current = null;
       contentEl?.removeAttribute('data-zooming');
     };

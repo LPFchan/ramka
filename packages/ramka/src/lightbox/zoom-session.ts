@@ -17,6 +17,7 @@ import {
   PAN_PHYSICS_STOP_SPEED,
   panOffsetRange,
   pinchPanOffset,
+  relaxOverpan,
   projectFocalZoom,
   round,
   RUBBER_BAND_DIMENSION_FACTOR,
@@ -184,6 +185,7 @@ export function createZoomSession(getDeps: () => ZoomSessionDeps): ZoomSession {
     dy: number,
     overscroll?: boolean,
     overflowAxesOnly?: boolean,
+    overpanRelaxMs?: number,
   ) => {
     const { controller, measurePanGeometry, clampOffsets } = getDeps();
     if (controller.isSettling()) {
@@ -207,6 +209,13 @@ export function createZoomSession(getDeps: () => ZoomSessionDeps): ZoomSession {
         isElasticDrag.current = true;
         rawOffsetX.current = live.offsetX;
         rawOffsetY.current = live.offsetY;
+      }
+      // Anchorless (wheel) overpan: bleed the accumulated overshoot before
+      // integrating the new sample, so the stretch tracks input rate instead
+      // of pinning at the leash under a momentum tail (see relaxOverpan).
+      if (overpanRelaxMs != null && overpanRelaxMs > 0) {
+        rawOffsetX.current = relaxOverpan(rawOffsetX.current, x.min, x.max, overpanRelaxMs);
+        rawOffsetY.current = relaxOverpan(rawOffsetY.current, y.min, y.max, overpanRelaxMs);
       }
       if (allowX) rawOffsetX.current -= dx;
       if (allowY) rawOffsetY.current -= dy;
@@ -669,6 +678,16 @@ export function createZoomSession(getDeps: () => ZoomSessionDeps): ZoomSession {
     return true;
   };
 
+  const getPanOverpan = (): { x: -1 | 0 | 1; y: -1 | 0 | 1 } => {
+    const { controller, measurePanGeometry } = getDeps();
+    const live = controller.getPose();
+    const geo = measurePanGeometry(live.zoom);
+    if (!geo) return { x: 0, y: 0 };
+    const side = (v: number, r: { min: number; max: number }): -1 | 0 | 1 =>
+      v < r.min ? -1 : v > r.max ? 1 : 0;
+    return { x: side(live.offsetX, geo.x), y: side(live.offsetY, geo.y) };
+  };
+
   const getLiveZoom = () => getDeps().controller.getPose().zoom;
 
   const actions: ZoomGestureActions = {
@@ -686,6 +705,7 @@ export function createZoomSession(getDeps: () => ZoomSessionDeps): ZoomSession {
     snapToBounds,
     snapOffsetsToBounds,
     momentumPan,
+    getPanOverpan,
     startZoomSnap,
     stopZoomSnap,
     isZoomSnapActive,

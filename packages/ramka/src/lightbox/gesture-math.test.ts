@@ -34,12 +34,19 @@ import {
   projectFocalZoom,
   resolvePinchZoom,
   round,
+  relaxOverpan,
   rubberBandClamp,
   rubberBandDistance,
   rubberBandPanDimension,
   scaleZoom,
   isTrackpadPinchWheel,
+  createWheelStreamState,
+  feedWheelStream,
+  normalizeWheelDelta,
+  WHEEL_DELTA_LINE_HEIGHT,
   ZOOM_SNAPBACK_HAPTIC_MIN_OVERSHOOT,
+  type WheelStreamState,
+  type WheelStreamSampleKind,
 } from './gesture-math';
 import {
   PULL_DAMP_TRAVEL_RATIO,
@@ -381,6 +388,55 @@ describe('rubberBandClamp', () => {
   });
 });
 
+describe('relaxOverpan', () => {
+  it('passes in-range values through', () => {
+    expect(relaxOverpan(5, 0, 10, 16)).toBe(5);
+    expect(relaxOverpan(0, 0, 10, 16)).toBe(0);
+    expect(relaxOverpan(10, 0, 10, 16)).toBe(10);
+  });
+
+  it('decays overshoot past max exponentially with elapsed time', () => {
+    // One full time constant → e^-1 of the overshoot remains.
+    const relaxed = relaxOverpan(100, -10, 0, 150, 150);
+    expect(relaxed).toBeCloseTo(100 * Math.exp(-1), 6);
+  });
+
+  it('decays overshoot past min symmetrically', () => {
+    const relaxed = relaxOverpan(-100, 0, 10, 150, 150);
+    expect(relaxed).toBeCloseTo(-100 * Math.exp(-1), 6);
+  });
+
+  it('never crosses the bound', () => {
+    const relaxed = relaxOverpan(50, 0, 10, 100000, 150);
+    expect(relaxed).toBeGreaterThanOrEqual(10);
+    expect(relaxed).toBeCloseTo(10, 3);
+  });
+
+  it('is a no-op for zero or negative dt', () => {
+    expect(relaxOverpan(100, 0, 10, 0)).toBe(100);
+    expect(relaxOverpan(100, 0, 10, -5)).toBe(100);
+  });
+
+  it('reaches a rate-proportional equilibrium for a steady stream', () => {
+    // Constant push of 10px per 16ms into an edge at max=0: equilibrium
+    // overshoot ≈ rate * tau = (10 / 16) * 150 ≈ 94 (slightly above, since
+    // the sample lands after the relax step).
+    let raw = 0;
+    for (let i = 0; i < 200; i++) {
+      raw = relaxOverpan(raw, -Infinity, 0, 16, 150) + 10;
+    }
+    const equilibrium = 10 / (1 - Math.exp(-16 / 150));
+    expect(raw).toBeCloseTo(equilibrium, 3);
+    // A decaying tail then glides the overshoot back toward the bound.
+    let d = 10;
+    for (let i = 0; i < 120; i++) {
+      d *= 0.9;
+      raw = relaxOverpan(raw, -Infinity, 0, 16, 150) + d;
+    }
+    expect(raw).toBeLessThan(equilibrium * 0.05);
+  });
+});
+
 describe('rubberBandPanDimension', () => {
   it('scales viewport by the dimension factor and zoom', () => {
     expect(rubberBandPanDimension(400, 2)).toBeCloseTo(
@@ -538,6 +594,125 @@ describe('isTrackpadPinchWheel', () => {
   it('is false when ctrlKey is not set', () => {
     expect(isTrackpadPinchWheel(false, false)).toBe(false);
     expect(isTrackpadPinchWheel(false, true)).toBe(false);
+  });
+});
+
+describe('normalizeWheelDelta', () => {
+  it('passes pixel-mode deltas through', () => {
+    expect(normalizeWheelDelta(42, 0)).toBe(42);
+  });
+
+  it('scales line-mode deltas by the line height', () => {
+    expect(normalizeWheelDelta(3, 1)).toBe(3 * WHEEL_DELTA_LINE_HEIGHT);
+  });
+
+  it('scales page-mode deltas by the page size', () => {
+    expect(normalizeWheelDelta(1, 2, 900)).toBe(900);
+  });
+});
+
+describe('feedWheelStream', () => {
+  /** Feed a run of events on one axis at a fixed cadence; returns last kind. */
+  function feedRun(
+    state: WheelStreamState,
+    deltas: number[],
+    startT: number,
+    stepMs = 16,
+  ): { kind: WheelStreamSampleKind; t: number } {
+    let kind: WheelStreamSampleKind = 'user';
+    let t = startT;
+    for (const d of deltas) {
+      t += stepMs;
+      kind = feedWheelStream(state, 0, d, t);
+    }
+    return { kind, t };
+  }
+
+  /** Geometric decay tail like macOS momentum (ratio within the band). */
+  function momentumTail(from: number, ratio: number, count: number): number[] {
+    const out: number[] = [];
+    let d = from;
+    for (let i = 0; i < count; i++) {
+      out.push(d);
+      d *= ratio;
+    }
+    return out;
+  }
+
+  it('classifies a smoothly decaying tail as momentum', () => {
+    const state = createWheelStreamState();
+    // Fingers down: irregular magnitudes.
+    const { t } = feedRun(state, [12, 30, 24, 41, 38, 52], 0);
+    expect(state.isMomentum).toBe(false);
+    // Lift → synthesized tail decaying ~7%/event (pair ratio ≈ 0.865).
+    const { kind } = feedRun(state, momentumTail(50, 0.93, 16), t);
+    expect(state.isMomentum).toBe(true);
+    expect(kind).toBe('momentum');
+  });
+
+  it('never classifies a steady finger pan as momentum', () => {
+    const state = createWheelStreamState();
+    const { kind } = feedRun(state, Array.from({ length: 40 }, () => 10), 0);
+    expect(state.isMomentum).toBe(false);
+    expect(kind).toBe('user');
+  });
+
+  it('never classifies an accelerating pan as momentum', () => {
+    const state = createWheelStreamState();
+    const deltas = Array.from({ length: 30 }, (_, i) => 4 + i * 2);
+    const { kind } = feedRun(state, deltas, 0);
+    expect(state.isMomentum).toBe(false);
+    expect(kind).toBe('user');
+  });
+
+  it('interrupts momentum when a sample doubles the decayed envelope', () => {
+    const state = createWheelStreamState();
+    const { t } = feedRun(state, momentumTail(60, 0.9, 24), 0);
+    expect(state.isMomentum).toBe(true);
+    const kind = feedWheelStream(state, 0, 30, t + 16);
+    expect(kind).toBe('interrupt');
+  });
+
+  it('interrupts momentum on a real reversal of the dominant axis', () => {
+    const state = createWheelStreamState();
+    const { t } = feedRun(state, momentumTail(60, 0.9, 24), 0);
+    expect(state.isMomentum).toBe(true);
+    // Same magnitude the tail would have — but opposite direction.
+    const kind = feedWheelStream(state, 0, -5, t + 16);
+    expect(kind).toBe('interrupt');
+  });
+
+  it('does not interrupt on sub-floor cross-axis jitter', () => {
+    const state = createWheelStreamState();
+    const { t } = feedRun(state, momentumTail(60, 0.9, 24), 0);
+    expect(state.isMomentum).toBe(true);
+    const kind = feedWheelStream(state, 1, 4, t + 16);
+    expect(kind).toBe('momentum');
+  });
+
+  it('flags momentum from the Blink -0 finger-lift marker when moving fast', () => {
+    const state = createWheelStreamState();
+    feedRun(state, [20, 22, 21, 23, 20, 22], 0); // ~1.3 px/ms
+    expect(state.isMomentum).toBe(false);
+    const kind = feedWheelStream(state, -0, 0, 120, true);
+    expect(kind).toBe('ignore');
+    expect(state.isMomentum).toBe(true);
+  });
+
+  it('ignores the -0 marker when barely moving', () => {
+    const state = createWheelStreamState();
+    feedRun(state, [1, 1, 1, 1], 0, 50); // 0.02 px/ms
+    const kind = feedWheelStream(state, -0, 0, 250, true);
+    expect(kind).toBe('ignore');
+    expect(state.isMomentum).toBe(false);
+  });
+
+  it('zero-delta samples are ignored and do not disturb velocity', () => {
+    const state = createWheelStreamState();
+    feedRun(state, [20, 20, 20, 20], 0);
+    const velY = state.velY;
+    expect(feedWheelStream(state, 0, 0, 80)).toBe('ignore');
+    expect(state.velY).toBe(velY);
   });
 });
 
