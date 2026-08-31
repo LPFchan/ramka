@@ -421,6 +421,7 @@ Decide **per item index**, not per gallery. Ramka paints an open bridge only whe
 | Image | `placeholder="blur"` | Why |
 | --- | --- | --- |
 | Image inside `Lightbox.Trigger` | Yes | A regular page image — the LQIP covers its own load. Ramka never paints a placeholder here. |
+| Image inside `Lightbox.Thumbnail` | Yes | Same as a trigger: a regular page image. Ramka bridges only the destination media, never strip thumbnails, so the LQIP is the only thing covering the thumb’s own load. |
 | Lightbox image, index *has* a trigger image ( `imageRef`) | No | While the full-size image loads, Ramka paints the trigger’s image — already decoded and on screen — onto a canvas *behind* the lightbox image. Next’s LQIP renders as a background on the lightbox image itself, in front of that canvas, so blur here hides a sharp placeholder behind a blurry one. |
 | Lightbox image, index has *no* trigger image | Yes | Ramka has no trigger image to paint, so the LQIP is the only loading placeholder (see [No trigger image](#no-trigger-image)). |
 
@@ -592,6 +593,7 @@ import * as Lightbox from '@ramka/react/lightbox';
 - Match Media `width` /`height` to the image source aspect
 - Trigger and destination must share that intrinsic aspect (CSS-crop the tile; don't serve a differently-cropped file) — [Source aspect](docs/lightbox/view-transitions.md#source-aspect)
 - Trigger: `imageRef` (or [useLightboxTriggerContext](docs/lightbox/api.md#api-use-trigger-context)); blur OK on the trigger image
+- `ThumbnailStrip` thumbs are regular images — blur OK, same as triggers
 - Prefer `priority` on the open destination — see [View transitions](docs/lightbox/view-transitions.md)
 - `sizes="100vw"` for fullscreen
 - Skip `fill` / `size-full` — Media already fills a direct Image child

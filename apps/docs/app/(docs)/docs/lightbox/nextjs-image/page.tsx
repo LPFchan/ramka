@@ -76,6 +76,17 @@ export default function LightboxNextjsImagePage() {
               </tr>
               <tr>
                 <td className="px-3 py-2 text-neutral-700 dark:text-neutral-300">
+                  Image inside <code className="text-xs">Lightbox.Thumbnail</code>
+                </td>
+                <td className="px-3 py-2">Yes</td>
+                <td className="px-3 py-2">
+                  Same as a trigger: a regular page image. Ramka bridges only the destination
+                  media, never strip thumbnails, so the LQIP is the only thing covering the
+                  thumb’s own load.
+                </td>
+              </tr>
+              <tr>
+                <td className="px-3 py-2 text-neutral-700 dark:text-neutral-300">
                   Lightbox image, index <em>has</em> a trigger image (
                   <code className="text-xs">imageRef</code>)
                 </td>
@@ -198,6 +209,10 @@ export default function LightboxNextjsImagePage() {
             Trigger: <code className="text-xs">imageRef</code> (or{' '}
             <DocsLink href={lightboxApiHref.useTriggerContext}>useLightboxTriggerContext</DocsLink>);
             blur OK on the trigger image
+          </li>
+          <li>
+            <code className="text-xs">ThumbnailStrip</code> thumbs are regular images — blur OK,
+            same as triggers
           </li>
           <li>
             Prefer <code className="text-xs">priority</code> on the open destination — see{' '}
