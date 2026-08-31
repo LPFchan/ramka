@@ -515,6 +515,10 @@ function usePullToDismiss({
     // image with the swipe, then dismiss past the threshold or snap back.
     // -----------------------------------------------------------------
     const WHEEL_IDLE_END = 90;
+    // Hard deadline for the post-dismiss momentum-tail guard below. A strong
+    // flick's tail thins out well within this window; the cap guarantees the
+    // guard can never outlive its purpose and hold the page hostage.
+    const WHEEL_TAIL_GUARD_MAX = 1500;
     // Require several events so a single discrete mouse-wheel notch (which can
     // exceed the dismiss distance in one step) can't dismiss — trackpads emit
     // many small events per swipe.
@@ -537,6 +541,34 @@ function usePullToDismiss({
       }
     };
 
+    // A wheel-flick dismiss unmounts Content — and every listener here — while
+    // the trackpad's momentum tail is still streaming. Those trailing events
+    // then land on the page underneath and scroll it as the close plays out.
+    // Swallow the tail at the window level instead: the guard is deliberately
+    // self-managed (not tied to the effect cleanup) so it survives the
+    // unmount, disarms after a real idle gap in the stream, and carries a hard
+    // deadline so it can never keep eating genuine scrolls.
+    const installMomentumTailGuard = () => {
+      let idleTimer: ReturnType<typeof setTimeout> | null = null;
+      let deadlineTimer: ReturnType<typeof setTimeout> | null = null;
+      const remove = () => {
+        if (idleTimer) clearTimeout(idleTimer);
+        if (deadlineTimer) clearTimeout(deadlineTimer);
+        window.removeEventListener('wheel', onGuardedWheel, true);
+      };
+      const onGuardedWheel = (event: WheelEvent) => {
+        // Only pixel-mode (trackpad) streams carry momentum — leave discrete
+        // mouse-wheel notches alone.
+        if (event.deltaMode !== 0) return;
+        event.preventDefault();
+        if (idleTimer) clearTimeout(idleTimer);
+        idleTimer = setTimeout(remove, WHEEL_IDLE_END);
+      };
+      window.addEventListener('wheel', onGuardedWheel, { passive: false, capture: true });
+      idleTimer = setTimeout(remove, WHEEL_IDLE_END);
+      deadlineTimer = setTimeout(remove, WHEEL_TAIL_GUARD_MAX);
+    };
+
     const finishWheel = (dismissNow: boolean) => {
       const wasVertical = wheelDirRef.current === 'vertical';
       const pulledY = wheelPullYRef.current;
@@ -551,6 +583,9 @@ function usePullToDismiss({
         // Latch: swallow the trackpad's momentum tail so it can't restart a
         // pull and reset the item mid-close.
         wheelDismissedRef.current = true;
+        // …and keep that tail off the page once this listener unmounts with
+        // the closing Content.
+        installMomentumTailGuard();
         // Keep chrome hidden through the close animation (see touch path).
         el.setAttribute('data-pull-dismissing', '');
         el.removeAttribute('data-pulling');

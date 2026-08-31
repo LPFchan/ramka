@@ -7567,6 +7567,53 @@ describe('Lightbox', () => {
       }
     });
 
+    it('swallows the momentum tail at the window level after a wheel dismiss', () => {
+      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+      try {
+        render(<PullDismissLightbox />);
+        const content = screen.getByTestId('content');
+        const img = screen.getByAltText('test');
+
+        // A strong flick: three events past the dismiss distance commit the
+        // dismiss while the trackpad momentum stream is still going.
+        act(() => {
+          for (let i = 0; i < 3; i++) dispatchTrackpadWheel(img, -40);
+        });
+        expect(content).toHaveAttribute('data-pull-dismissing');
+
+        // Content is unmounting with the close — its own wheel listener can't
+        // shield the page anymore, and the tail lands on whatever is under
+        // the cursor. The self-managed window guard eats it so the page under
+        // the closing lightbox doesn't scroll.
+        let tail!: WheelEvent;
+        act(() => {
+          tail = dispatchTrackpadWheel(document.body, -30);
+        });
+        expect(tail.defaultPrevented).toBe(true);
+
+        // Discrete mouse-wheel notches are not momentum — they stay native.
+        let notch!: WheelEvent;
+        act(() => {
+          notch = new WheelEvent('wheel', { bubbles: true, cancelable: true, deltaY: -40 });
+          Object.defineProperty(notch, 'deltaMode', { value: 1 });
+          document.body.dispatchEvent(notch);
+        });
+        expect(notch.defaultPrevented).toBe(false);
+
+        // After a real idle gap the guard removes itself; scroll is native.
+        act(() => {
+          vi.advanceTimersByTime(120);
+        });
+        let fresh!: WheelEvent;
+        act(() => {
+          fresh = dispatchTrackpadWheel(document.body, -30);
+        });
+        expect(fresh.defaultPrevented).toBe(false);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
     it('a locked-vertical wheel pull owns the wheel; plain wheels stay native', () => {
       render(<PullDismissLightbox />);
       const img = screen.getByAltText('test');
