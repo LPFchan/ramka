@@ -5739,6 +5739,40 @@ describe('Lightbox', () => {
           });
         });
 
+        it('wheel pan is screen-space 1:1 — deltas divide by zoom, like mouse drag', () => {
+          withViewport(() => {
+            const ref = React.createRef<LightboxZoomRef>();
+            renderZoomPan(ref);
+            const img = screen.getByTestId('zoom-img');
+            setupOverflowGeometry(img);
+
+            const dispatchWheel = (deltaX: number, deltaY: number) => {
+              const event = new WheelEvent('wheel', {
+                bubbles: true,
+                cancelable: true,
+                deltaX,
+                deltaY,
+              });
+              Object.defineProperty(event, 'deltaMode', { value: 0 });
+              img.dispatchEvent(event);
+            };
+
+            // Offsets sit under `scale(zoom)`: one screen px costs 1/zoom
+            // offset units. At 2×, 40 device px must pan 20 offset units —
+            // raw deltas would pan zoom× faster than the fingers.
+            act(() => ref.current!.zoomTo(2, { rapid: true }));
+            act(() => dispatchWheel(40, 30));
+            expect(ref.current!.offsetX).toBeCloseTo(-20, 5);
+            expect(ref.current!.offsetY).toBeCloseTo(-15, 5);
+
+            // Same gesture at 4× travels half as far again.
+            act(() => ref.current!.zoomTo(4, { rapid: true }));
+            act(() => dispatchWheel(40, 0));
+            expect(ref.current!.offsetX).toBeCloseTo(-30, 5);
+            expect(ref.current!.offsetY).toBeCloseTo(-15, 5);
+          });
+        });
+
         it('ctrl+wheel (Chrome/FF trackpad pinch) rubber-bands past maxZoom', () => {
           withViewport(() => {
             const ref = React.createRef<LightboxZoomRef>();
