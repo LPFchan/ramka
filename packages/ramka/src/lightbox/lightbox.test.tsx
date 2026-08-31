@@ -7614,6 +7614,68 @@ describe('Lightbox', () => {
       }
     });
 
+    it('post-dismiss guard hands the wheel back the instant the user scrolls again', () => {
+      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+      try {
+        render(<PullDismissLightbox />);
+        const img = screen.getByAltText('test');
+        act(() => {
+          for (let i = 0; i < 3; i++) dispatchTrackpadWheel(img, -40);
+        });
+
+        // A decaying stream is momentum — swallowed.
+        let a!: WheelEvent;
+        let b!: WheelEvent;
+        act(() => {
+          a = dispatchTrackpadWheel(document.body, -30);
+          b = dispatchTrackpadWheel(document.body, -20);
+        });
+        expect(a.defaultPrevented).toBe(true);
+        expect(b.defaultPrevented).toBe(true);
+
+        // A delta that *grows* against its predecessor is a fresh user push,
+        // not momentum: that very event scrolls natively and the guard is
+        // gone — no timer to wait out.
+        let push!: WheelEvent;
+        let after!: WheelEvent;
+        act(() => {
+          push = dispatchTrackpadWheel(document.body, -60);
+          after = dispatchTrackpadWheel(document.body, -10);
+        });
+        expect(push.defaultPrevented).toBe(false);
+        expect(after.defaultPrevented).toBe(false);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('post-dismiss guard disarms on a direction reversal', () => {
+      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+      try {
+        render(<PullDismissLightbox />);
+        const img = screen.getByAltText('test');
+        act(() => {
+          for (let i = 0; i < 3; i++) dispatchTrackpadWheel(img, -40);
+        });
+
+        let tail!: WheelEvent;
+        act(() => {
+          tail = dispatchTrackpadWheel(document.body, -30);
+        });
+        expect(tail.defaultPrevented).toBe(true);
+
+        // Momentum never changes direction — scrolling the other way is the
+        // user, and it goes through untouched.
+        let reverse!: WheelEvent;
+        act(() => {
+          reverse = dispatchTrackpadWheel(document.body, 25);
+        });
+        expect(reverse.defaultPrevented).toBe(false);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
     it('a locked-vertical wheel pull owns the wheel; plain wheels stay native', () => {
       render(<PullDismissLightbox />);
       const img = screen.getByAltText('test');
