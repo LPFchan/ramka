@@ -43,6 +43,7 @@ import {
   scaleZoom,
   RUBBER_BAND_DIMENSION_FACTOR_MOUSE,
 } from './gesture-math';
+import { computePullTransform } from './pull-math';
 import { WHEEL_PINCH_END_MS } from './use-zoom-gestures';
 import { resetVtTouchGuardForTesting } from './vt-touch-guard';
 
@@ -3886,11 +3887,53 @@ describe('Lightbox', () => {
       expect(prevented).toBe(true);
     });
 
-    it('allows regular wheel scroll on content', () => {
+    it('vertical trackpad wheel is claimed by pull-to-dismiss; mouse wheel stays native', () => {
       render(
         <LightboxRoot defaultOpen>
           <LightboxPortal>
             <LightboxContent data-testid="content" aria-label="Regular wheel test">
+              <SlidesHost>
+                <LightboxItem index={0}>
+                  <img src="test.jpg" alt="test" />
+                </LightboxItem>
+              </SlidesHost>
+            </LightboxContent>
+          </LightboxPortal>
+        </LightboxRoot>,
+      );
+
+      const content = screen.getByTestId('content');
+
+      // A classic mouse wheel (line-mode deltas) never participates in the
+      // pull gesture — its default action stays native.
+      const mouseWheel = new WheelEvent('wheel', {
+        bubbles: true,
+        cancelable: true,
+        ctrlKey: false,
+        deltaY: -10,
+      });
+      Object.defineProperty(mouseWheel, 'deltaMode', { value: 1 });
+      expect(content.dispatchEvent(mouseWheel)).toBe(true);
+
+      // A pixel-mode vertical wheel is the first event of a trackpad pull:
+      // the gesture owns it (otherwise the same deltas would also scroll the
+      // slides gallery / overscroll-chain to the page behind the dialog).
+      const trackpadWheel = new WheelEvent('wheel', {
+        bubbles: true,
+        cancelable: true,
+        ctrlKey: false,
+        deltaY: -10,
+      });
+      Object.defineProperty(trackpadWheel, 'deltaMode', { value: 0 });
+      const prevented = !content.dispatchEvent(trackpadWheel);
+      expect(prevented).toBe(true);
+    });
+
+    it('regular wheel scroll stays native when pull-to-dismiss is disabled', () => {
+      render(
+        <LightboxRoot defaultOpen>
+          <LightboxPortal>
+            <LightboxContent data-testid="content" aria-label="No-pull wheel test" pullToClose={false}>
               <SlidesHost>
                 <LightboxItem index={0}>
                   <img src="test.jpg" alt="test" />
@@ -3908,6 +3951,7 @@ describe('Lightbox', () => {
         ctrlKey: false,
         deltaY: -10,
       });
+      Object.defineProperty(event, 'deltaMode', { value: 0 });
       const prevented = !content.dispatchEvent(event);
       expect(prevented).toBe(false);
     });
@@ -7371,16 +7415,17 @@ describe('Lightbox', () => {
       expect(content).toHaveAttribute('data-pulling');
     });
 
-    function dispatchTrackpadWheel(target: Element, deltaY = -40) {
+    function dispatchTrackpadWheel(target: Element, deltaY = -40, deltaX = 0) {
       const event = new WheelEvent('wheel', {
         bubbles: true,
         cancelable: true,
-        deltaX: 0,
+        deltaX,
         deltaY,
       });
       // jsdom may omit deltaMode from the constructor; pixel-mode is required.
       Object.defineProperty(event, 'deltaMode', { value: 0 });
       target.dispatchEvent(event);
+      return event;
     }
 
     it('wheel pull ignores events whose target is outside Stage', () => {
@@ -7437,6 +7482,112 @@ describe('Lightbox', () => {
         for (let i = 0; i < 3; i++) dispatchTrackpadWheel(img, -20);
       });
       expect(content).toHaveAttribute('data-pulling');
+    });
+
+    it('computePullTransform leashes X to its own asymptotic ceiling', () => {
+      // Near the origin X keeps the Y-coupled damping slope (small drags feel
+      // identical to the old proportional damping)…
+      const small = computePullTransform(10, -40, 100, 0.85);
+      expect(Math.abs(small.x)).toBeGreaterThan(7);
+      expect(Math.abs(small.x)).toBeLessThan(9);
+
+      // …but no amount of raw sideways input passes the ceiling
+      // (dismissDistance × PULL_DAMP_X_TRAVEL_RATIO = 50px here): a trackpad
+      // flick's momentum tail can pour thousands of px into the accumulator.
+      const flick = computePullTransform(5000, -40, 100, 0.85);
+      expect(flick.x).toBeGreaterThan(45);
+      expect(flick.x).toBeLessThanOrEqual(50);
+
+      const flickLeft = computePullTransform(-5000, -40, 100, 0.85);
+      expect(flickLeft.x).toBeLessThan(-45);
+      expect(flickLeft.x).toBeGreaterThanOrEqual(-50);
+    });
+
+    it('horizontal flick mid-pull releases the pull instead of holding it aside', () => {
+      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+      try {
+        render(<PullDismissLightbox />);
+        const content = screen.getByTestId('content');
+        const img = screen.getByAltText('test');
+        const item = img.closest('[data-ramka-item]') as HTMLElement;
+
+        // Commit a vertical pull under the dismiss threshold. The last event
+        // is diagonal (not foreign: |dx| < 2·|dy|) — a wheel pull rides
+        // vertical rails, so even integrated events contribute no X.
+        act(() => {
+          for (let i = 0; i < 3; i++) dispatchTrackpadWheel(img, -20);
+          dispatchTrackpadWheel(img, -20, -30);
+        });
+        expect(content).toHaveAttribute('data-pulling');
+        const pulledTransform = item.style.transform;
+        expect(pulledTransform).toMatch(/^translate\(0px, /);
+
+        // A sideways flick starts streaming strongly horizontal events.
+        // They are foreign to the locked-vertical gesture: they must not
+        // move the item and must not keep the pull alive.
+        act(() => {
+          for (let i = 0; i < 2; i++) {
+            dispatchTrackpadWheel(img, 0, -300);
+            vi.advanceTimersByTime(30);
+          }
+        });
+        expect(item.style.transform).toBe(pulledTransform);
+        expect(content).toHaveAttribute('data-pulling');
+
+        // 90ms after the last *vertical* input the pull resolves (snap-back)
+        // even though the flick's momentum is still streaming.
+        act(() => {
+          vi.advanceTimersByTime(40);
+        });
+        expect(content).not.toHaveAttribute('data-pulling');
+        expect(item.style.transform).toBe('');
+        expect(Element.prototype.animate).toHaveBeenCalled();
+
+        // The rest of the momentum tail is swallowed — prevented from
+        // scrolling the gallery and unable to start a fresh pull.
+        let tailEvent!: WheelEvent;
+        act(() => {
+          tailEvent = dispatchTrackpadWheel(img, 0, -180);
+        });
+        expect(tailEvent.defaultPrevented).toBe(true);
+        expect(content).not.toHaveAttribute('data-pulling');
+
+        // After a real idle gap the latch clears and a fresh pull works.
+        act(() => {
+          vi.advanceTimersByTime(120);
+          for (let i = 0; i < 3; i++) dispatchTrackpadWheel(img, -20);
+        });
+        expect(content).toHaveAttribute('data-pulling');
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('a locked-vertical wheel pull owns the wheel; plain wheels stay native', () => {
+      render(<PullDismissLightbox />);
+      const img = screen.getByAltText('test');
+
+      // Vertical pull events are preventDefaulted (they must not also scroll
+      // the slides gallery underneath), from the locking event onward.
+      let first!: WheelEvent;
+      let second!: WheelEvent;
+      act(() => {
+        first = dispatchTrackpadWheel(img, -20);
+        second = dispatchTrackpadWheel(img, -20);
+      });
+      expect(first.defaultPrevented).toBe(true);
+      expect(second.defaultPrevented).toBe(true);
+    });
+
+    it('horizontal wheel sequences keep native scroll (no preventDefault)', () => {
+      render(<PullDismissLightbox />);
+      const img = screen.getByAltText('test');
+
+      let event!: WheelEvent;
+      act(() => {
+        event = dispatchTrackpadWheel(img, 0, -40);
+      });
+      expect(event.defaultPrevented).toBe(false);
     });
   });
 

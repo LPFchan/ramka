@@ -11,6 +11,15 @@ export type { GestureAxis } from './gesture-shared';
 /** Vertical travel flattens toward `dismissDistance * this` as a ceiling. */
 export const PULL_DAMP_TRAVEL_RATIO = 1.2;
 
+/**
+ * Horizontal travel flattens toward `dismissDistance * this` as a ceiling.
+ * X needs its own (much shorter) leash: Y is what the gesture reads, X is
+ * only follow-along liveliness — and on a trackpad a horizontal flick's
+ * momentum tail can pour thousands of px into the accumulator, which under
+ * proportional damping walked the image clean off the screen.
+ */
+export const PULL_DAMP_X_TRAVEL_RATIO = 0.5;
+
 export interface PullTransform {
   /** Damped horizontal translation (px). */
   x: number;
@@ -25,9 +34,13 @@ export interface PullTransform {
 /**
  * Asymptotic damping for a pull-to-dismiss drag. Vertical travel moves ~1:1
  * near the origin then flattens toward a ceiling of
- * `dismissDistance * PULL_DAMP_TRAVEL_RATIO`; horizontal travel is scaled by
- * the same damping factor so the content never slides sideways faster than it
- * falls, and the curve never reverses regardless of drag distance.
+ * `dismissDistance * PULL_DAMP_TRAVEL_RATIO`. Horizontal travel is scaled by
+ * the same damping factor (so the content never slides sideways faster than
+ * it falls) and then leashed to its own, shorter asymptotic ceiling of
+ * `dismissDistance * PULL_DAMP_X_TRAVEL_RATIO` — sideways motion is
+ * follow-along liveliness, never travel, so no amount of accumulated input
+ * (e.g. a trackpad flick's momentum tail) can slide the content far off-axis.
+ * Neither curve ever reverses regardless of drag distance.
  */
 export function computePullTransform(
   rawDeltaX: number,
@@ -40,7 +53,13 @@ export function computePullTransform(
   const dampedAbsY = maxTravel * (1 - Math.exp(-absY / maxTravel));
   const dampedY = Math.sign(rawDeltaY) * dampedAbsY;
   const dampFactor = absY > 0 ? dampedAbsY / absY : 1;
-  const dampedX = rawDeltaX * dampFactor;
+  // Same near-origin slope as the previous proportional damping (the leash's
+  // derivative at 0 is exactly `dampFactor`), but flattening to the ceiling.
+  const maxTravelX = dismissDistance * PULL_DAMP_X_TRAVEL_RATIO;
+  const dampedX =
+    Math.sign(rawDeltaX) *
+    maxTravelX *
+    (1 - Math.exp(-(Math.abs(rawDeltaX) * dampFactor) / maxTravelX));
 
   const progress = Math.min(absY / dismissDistance, 1);
   const scale = 1 - progress * (1 - minScale);
