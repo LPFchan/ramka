@@ -171,10 +171,16 @@ function usePullToDismiss({
   // of `wheel` events with no explicit end, so gesture completion is inferred
   // from an idle timer.
   const wheelDirRef = React.useRef<'none' | 'vertical' | 'horizontal'>('none');
-  // Vertical only — a wheel pull rides rails. Unlike touch (finger on the
-  // glass, X bounded by physics), wheel X is untrusted: axis blend, jitter,
-  // and momentum inject sideways deltas the user never meant, and no gesture
-  // decision reads X. Ignoring it removes the artifact class by construction.
+  // Y drives the gesture; X is follow-along liveliness only. Wheel X is less
+  // trustworthy than touch X (axis blend, jitter, momentum tails), so it is
+  // integrated exclusively from events that pass the cross-axis filter below —
+  // mostly-vertical events whose modest sideways drift the user actually
+  // steered. Strongly horizontal input (a flick and its momentum tail) never
+  // reaches the accumulator, and the display is leashed by
+  // `computePullTransform`'s asymptotic X ceiling, so the artifact class
+  // (content shoved far off-axis) stays impossible while a diagonal-ish pull
+  // keeps its natural sideways give.
+  const wheelPullXRef = React.useRef(0);
   const wheelPullYRef = React.useRef(0);
   const wheelCountRef = React.useRef(0);
   const wheelIdleRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -521,6 +527,7 @@ function usePullToDismiss({
 
     const resetWheel = () => {
       wheelDirRef.current = 'none';
+      wheelPullXRef.current = 0;
       wheelPullYRef.current = 0;
       wheelCountRef.current = 0;
       wheelLockedByScrollRef.current = false;
@@ -644,6 +651,7 @@ function usePullToDismiss({
         }
         dragTargetRef.current = dragTarget;
         wheelDirRef.current = 'vertical';
+        wheelPullXRef.current = 0;
         wheelPullYRef.current = 0;
         wheelCountRef.current = 0;
         el.setAttribute('data-pulling', '');
@@ -675,11 +683,13 @@ function usePullToDismiss({
 
       scheduleWheelIdle();
 
-      // Content follows the fingers vertically (natural-scroll: fingers down
-      // → deltaY < 0). deltaX is deliberately discarded — see wheelPullYRef.
+      // Content follows the fingers (natural-scroll: fingers down/right →
+      // negative deltas). This event passed the cross-axis filter, so its X
+      // component is user-steered drift, safe to integrate — see wheelPullXRef.
+      wheelPullXRef.current += -event.deltaX;
       wheelPullYRef.current += -event.deltaY;
       wheelCountRef.current += 1;
-      applyTransform(0, wheelPullYRef.current);
+      applyTransform(wheelPullXRef.current, wheelPullYRef.current);
 
       if (
         Math.abs(wheelPullYRef.current) >= DISMISS_DISTANCE &&

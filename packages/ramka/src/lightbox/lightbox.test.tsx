@@ -7512,15 +7512,19 @@ describe('Lightbox', () => {
         const item = img.closest('[data-ramka-item]') as HTMLElement;
 
         // Commit a vertical pull under the dismiss threshold. The last event
-        // is diagonal (not foreign: |dx| < 2·|dy|) — a wheel pull rides
-        // vertical rails, so even integrated events contribute no X.
+        // is diagonal (not foreign: |dx| < 2·|dy|) — its X component is
+        // user-steered drift and gives the pull its sideways give, so the
+        // transform picks up a leashed positive X (natural scroll: dx −30 →
+        // content follows the fingers rightward).
         act(() => {
           for (let i = 0; i < 3; i++) dispatchTrackpadWheel(img, -20);
           dispatchTrackpadWheel(img, -20, -30);
         });
         expect(content).toHaveAttribute('data-pulling');
         const pulledTransform = item.style.transform;
-        expect(pulledTransform).toMatch(/^translate\(0px, /);
+        const pulledX = Number(/^translate\((-?[\d.]+)px, /.exec(pulledTransform)?.[1]);
+        expect(pulledX).toBeGreaterThan(0);
+        expect(pulledX).toBeLessThanOrEqual(50);
 
         // A sideways flick starts streaming strongly horizontal events.
         // They are foreign to the locked-vertical gesture: they must not
