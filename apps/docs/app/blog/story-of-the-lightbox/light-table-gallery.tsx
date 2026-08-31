@@ -42,10 +42,9 @@ export function LightTableGallery() {
               <Image
                 ref={imageRef}
                 src={hero.src}
-                width={hero.width}
-                height={hero.height}
                 alt={hero.alt}
                 sizes="(min-width: 768px) 672px, 100vw"
+                placeholder="blur"
                 draggable={false}
                 className="aspect-[16/10] w-full select-none object-cover"
               />
@@ -58,10 +57,9 @@ export function LightTableGallery() {
                   <Image
                     ref={imageRef}
                     src={img.src}
-                    width={img.width}
-                    height={img.height}
                     alt={img.alt}
                     sizes="(min-width: 768px) 216px, 33vw"
+                    placeholder="blur"
                     draggable={false}
                     className="aspect-square w-full select-none object-cover"
                   />
@@ -101,14 +99,14 @@ export function LightTableGallery() {
                 <Lightbox.Slide key={img.id} className="lightbox-demo-slide-pad h-full">
                   <Lightbox.Item index={i} caption={img.label}>
                     <Lightbox.Zoom maxZoom={4}>
-                      <Lightbox.Media width={img.width} height={img.height} className="lt-media">
+                      <Lightbox.Media width={img.src.width} height={img.src.height} className="lt-media">
                         <Image
                           src={img.src}
-                          width={img.width}
-                          height={img.height}
                           alt={img.alt}
                           sizes="100vw"
                           loading="eager"
+                          // No placeholder: every index here has a trigger image, so
+                          // Ramka paints the open bridge (docs/lightbox/nextjs-image).
                           draggable={false}
                           className="select-none"
                         />
@@ -143,15 +141,13 @@ export function LightTableGallery() {
                   <Lightbox.ThumbnailStripTrack aria-label="Thumbnails">
                     {LIGHT_TABLE_IMAGES.map((img, i) => (
                       <Lightbox.Thumbnail key={img.id} index={i}>
-                        <span className="lt-window" style={{ ['--lt-ar' as string]: String(img.width / img.height) }}>
-                          <Image
-                            src={img.src}
-                            alt=""
-                            width={img.width}
-                            height={img.height}
-                            sizes="160px"
-                            draggable={false}
-                          />
+                        <span
+                          className="lt-window"
+                          style={{ ['--lt-ar' as string]: String(img.src.width / img.src.height) }}
+                        >
+                          {/* A regular image, not a bridged destination — the
+                              LQIP covers its own load, like on triggers. */}
+                          <Image src={img.src} alt="" sizes="160px" placeholder="blur" draggable={false} />
                         </span>
                         <span className="lt-mount-label">{img.label}</span>
                       </Lightbox.Thumbnail>

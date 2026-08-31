@@ -36,10 +36,9 @@ export function Shot({ id, caption, narrow = false }: { id: ArticleImageId; capt
             <Image
               ref={imageRef}
               src={img.src}
-              width={img.width}
-              height={img.height}
               alt={img.alt}
               sizes="(min-width: 768px) 672px, 100vw"
+              placeholder="blur"
               draggable={false}
               className="block w-full select-none"
             />
@@ -61,17 +60,17 @@ export function Shot({ id, caption, narrow = false }: { id: ArticleImageId; capt
                 <Lightbox.Item index={0} caption={img.caption}>
                   <Lightbox.Zoom maxZoom={6}>
                     <Lightbox.Media
-                      width={img.width}
-                      height={img.height}
+                      width={img.src.width}
+                      height={img.src.height}
                       className="overflow-hidden rounded-none md:rounded-lg"
                     >
                       <Image
                         src={img.src}
-                        width={img.width}
-                        height={img.height}
                         alt={img.alt}
                         sizes="100vw"
                         loading="eager"
+                        // No placeholder: this index has a trigger image, so
+                        // Ramka paints the open bridge (docs/lightbox/nextjs-image).
                         draggable={false}
                         className="select-none"
                       />
