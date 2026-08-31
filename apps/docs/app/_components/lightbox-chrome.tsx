@@ -136,7 +136,9 @@ function GalleryThumbnailStrip({
         {items.map((item, i) => (
           <Lightbox.Thumbnail key={item.id ?? i} index={i}>
             {typeof item.thumb === 'object' ? (
-              <Image src={item.thumb} alt={item.alt} sizes="96px" draggable={false} />
+              // Strip thumbs are regular images (Ramka bridges only the
+              // destination media) — blur OK, same as triggers.
+              <Image src={item.thumb} alt={item.alt} sizes="96px" placeholder="blur" draggable={false} />
             ) : (
               <img src={item.thumb} alt={item.alt} draggable={false} />
             )}

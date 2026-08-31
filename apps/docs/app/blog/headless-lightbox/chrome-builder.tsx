@@ -366,7 +366,8 @@ export function ChromeBuilder() {
                       <Lightbox.ThumbnailStripTrack aria-label="Photo thumbnails">
                         {ITEMS.map((item, i) => (
                           <Lightbox.Thumbnail key={item.alt} index={i}>
-                            <Image src={item.src} alt={item.alt} sizes="96px" draggable={false} />
+                            {/* Strip thumbs are regular images — blur OK, same as triggers. */}
+                            <Image src={item.src} alt={item.alt} sizes="96px" placeholder="blur" draggable={false} />
                           </Lightbox.Thumbnail>
                         ))}
                       </Lightbox.ThumbnailStripTrack>
