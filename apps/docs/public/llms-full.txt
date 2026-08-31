@@ -1888,7 +1888,6 @@ Pick a styling flavor with the toggle: **Tailwind** is a single `lightbox.tsx` (
 ```tsx presets/default/demo.tsx
 'use client';
 
-import { imgDims } from '../../../_components/lightbox-chrome';
 import { Lightbox as CssLightbox, type LightboxItem } from './css/lightbox';
 import { Lightbox as TailwindLightbox } from './tailwind/lightbox';
 
@@ -1906,96 +1905,96 @@ type StyledLightbox = (typeof lightboxVariants)[PresetVariant];
 /** Demo seed data — dims are explicit (package Gallery requires them). */
 const trip: LightboxItem[] = [
   {
-    src: 'https://picsum.photos/seed/preset-trip-a/1200/1200',
-    thumb: 'https://picsum.photos/seed/preset-trip-a/400/400',
+    src: '/photos/preset-trip-a.jpg',
+    thumb: '/photos/preset-trip-a-thumb.jpg',
     alt: 'Maya on the ridge',
     caption: 'Maya Chen',
     width: 1200,
     height: 1200,
   },
   {
-    src: 'https://picsum.photos/seed/preset-trip-b/1600/1000',
-    thumb: 'https://picsum.photos/seed/preset-trip-b/800/500',
+    src: '/photos/preset-trip-b.jpg',
+    thumb: '/photos/preset-trip-b-thumb.jpg',
     alt: 'Cliffside road at sunset',
     caption: 'Cliffside road at sunset',
     width: 1600,
     height: 1000,
   },
   {
-    src: 'https://picsum.photos/seed/preset-trip-c/1600/1000',
-    thumb: 'https://picsum.photos/seed/preset-trip-c/800/500',
+    src: '/photos/preset-trip-c.jpg',
+    thumb: '/photos/preset-trip-c-thumb.jpg',
     alt: 'Turquoise cove',
     caption: 'A turquoise cove',
     width: 1600,
     height: 1000,
   },
   {
-    src: 'https://picsum.photos/seed/preset-trip-d/1200/1500',
-    thumb: 'https://picsum.photos/seed/preset-trip-d/480/600',
+    src: '/photos/preset-trip-d.jpg',
+    thumb: '/photos/preset-trip-d-thumb.jpg',
     alt: 'Trail through pines',
     caption: 'Through the pines',
     width: 1200,
     height: 1500,
   },
   {
-    src: 'https://picsum.photos/seed/preset-trip-e/1600/1000',
-    thumb: 'https://picsum.photos/seed/preset-trip-e/800/500',
+    src: '/photos/preset-trip-e.jpg',
+    thumb: '/photos/preset-trip-e-thumb.jpg',
     alt: 'Camp under the stars',
     caption: 'Camp under the stars',
     width: 1600,
     height: 1000,
   },
   {
-    src: 'https://picsum.photos/seed/preset-trip-f/1200/1200',
-    thumb: 'https://picsum.photos/seed/preset-trip-f/600/600',
+    src: '/photos/preset-trip-f.jpg',
+    thumb: '/photos/preset-trip-f-thumb.jpg',
     alt: 'Morning coffee on the rocks',
     caption: 'Morning on the rocks',
     width: 1200,
     height: 1200,
   },
   {
-    src: 'https://picsum.photos/seed/preset-trip-g/1600/1000',
-    thumb: 'https://picsum.photos/seed/preset-trip-g/800/500',
+    src: '/photos/preset-trip-g.jpg',
+    thumb: '/photos/preset-trip-g-thumb.jpg',
     alt: 'Waterfall in the canyon',
     caption: 'Hidden waterfall',
     width: 1600,
     height: 1000,
   },
   {
-    src: 'https://picsum.photos/seed/preset-trip-h/1200/1500',
-    thumb: 'https://picsum.photos/seed/preset-trip-h/480/600',
+    src: '/photos/preset-trip-h.jpg',
+    thumb: '/photos/preset-trip-h-thumb.jpg',
     alt: 'Wildflowers on the hillside',
     caption: 'Wildflower meadow',
     width: 1200,
     height: 1500,
   },
   {
-    src: 'https://picsum.photos/seed/preset-trip-i/1600/1000',
-    thumb: 'https://picsum.photos/seed/preset-trip-i/800/500',
+    src: '/photos/preset-trip-i.jpg',
+    thumb: '/photos/preset-trip-i-thumb.jpg',
     alt: 'Kayaks on calm water',
     caption: 'Kayak at dawn',
     width: 1600,
     height: 1000,
   },
   {
-    src: 'https://picsum.photos/seed/preset-trip-j/1200/1200',
-    thumb: 'https://picsum.photos/seed/preset-trip-j/600/600',
+    src: '/photos/preset-trip-j.jpg',
+    thumb: '/photos/preset-trip-j-thumb.jpg',
     alt: 'Sunset over the lake',
     caption: 'Golden hour',
     width: 1200,
     height: 1200,
   },
   {
-    src: 'https://picsum.photos/seed/preset-trip-k/1600/1000',
-    thumb: 'https://picsum.photos/seed/preset-trip-k/800/500',
+    src: '/photos/preset-trip-k.jpg',
+    thumb: '/photos/preset-trip-k-thumb.jpg',
     alt: 'Boardwalk through the marsh',
     caption: 'Coastal marsh',
     width: 1600,
     height: 1000,
   },
   {
-    src: 'https://picsum.photos/seed/preset-trip-l/1200/1500',
-    thumb: 'https://picsum.photos/seed/preset-trip-l/480/600',
+    src: '/photos/preset-trip-l.jpg',
+    thumb: '/photos/preset-trip-l-thumb.jpg',
     alt: 'Fire lookout tower',
     caption: 'Summit lookout',
     width: 1200,
@@ -2029,7 +2028,7 @@ function UserCardMorph({ Lightbox }: { Lightbox: StyledLightbox }) {
 
   return (
     // `awaitImageDecode={false}` throughout: every thumb is the same photo at
-    // lower res (same seed + aspect), so the placeholder bridge is seamless
+    // lower res (same file + aspect), so the placeholder bridge is seamless
     // and the morph can start immediately instead of waiting on decode.
     <Lightbox.Root awaitImageDecode={false}>
       <p className="mb-2 text-xs font-medium tracking-wide text-neutral-500 uppercase">
@@ -2044,7 +2043,8 @@ function UserCardMorph({ Lightbox }: { Lightbox: StyledLightbox }) {
           <>
             <img
               ref={imageRef}
-              {...imgDims(portrait.thumb)}
+              width={portrait.width}
+              height={portrait.height}
               src={portrait.thumb}
               alt=""
               className="size-16 rounded-full object-cover"
@@ -2089,7 +2089,8 @@ function ListingCardMorph({ Lightbox }: { Lightbox: StyledLightbox }) {
                 imageRef(node);
                 morphRef(node);
               }}
-              {...imgDims(listing.thumb)}
+              width={listing.width}
+              height={listing.height}
               src={listing.thumb}
               alt={listing.alt}
               className="aspect-[16/10] w-full rounded-t-2xl object-cover"
@@ -2156,7 +2157,8 @@ function AlbumPlusNMorph({ Lightbox }: { Lightbox: StyledLightbox }) {
                 <>
                   <img
                     ref={imageRef}
-                    {...imgDims(img.thumb)}
+                    width={img.width}
+                    height={img.height}
                     src={img.thumb}
                     alt={img.alt}
                     className="absolute inset-0 size-full object-cover"
@@ -5276,13 +5278,13 @@ const feed: FeedPost[] = [
       ],
     },
     images: [
-      { src: 'https://picsum.photos/seed/rg-6a/1600/1000', thumb: 'https://picsum.photos/seed/rg-6a/800/500', alt: 'Dramatic cliffside road at sunset', width: 1600, height: 1000 },
-      { src: 'https://picsum.photos/seed/rg-6b/1600/1000', thumb: 'https://picsum.photos/seed/rg-6b/800/500', alt: 'Turquoise cove with fishing boats', width: 1600, height: 1000 },
-      { src: 'https://picsum.photos/seed/rg-6c/1600/1000', thumb: 'https://picsum.photos/seed/rg-6c/800/500', alt: 'Terraced vineyards in morning mist', width: 1600, height: 1000 },
-      { src: 'https://picsum.photos/seed/rg-6d/900/1400', thumb: 'https://picsum.photos/seed/rg-6d/450/700', alt: 'Old lighthouse on a rocky headland', width: 900, height: 1400 },
-      { src: 'https://picsum.photos/seed/rg-6e/1600/1000', thumb: 'https://picsum.photos/seed/rg-6e/800/500', alt: 'Wild horses grazing on a dune', width: 1600, height: 1000 },
-      { src: 'https://picsum.photos/seed/rg-6f/1200/1200', thumb: 'https://picsum.photos/seed/rg-6f/600/600', alt: 'Street musicians in a coastal town square', width: 1200, height: 1200 },
-      { src: 'https://picsum.photos/seed/rg-6g/1600/1000', thumb: 'https://picsum.photos/seed/rg-6g/800/500', alt: 'Milky Way over a deserted beach', width: 1600, height: 1000 },
+      { src: '/photos/rg-6a.jpg', thumb: '/photos/rg-6a-thumb.jpg', alt: 'Dramatic cliffside road at sunset', width: 1600, height: 1000 },
+      { src: '/photos/rg-6b.jpg', thumb: '/photos/rg-6b-thumb.jpg', alt: 'Turquoise cove with fishing boats', width: 1600, height: 1000 },
+      { src: '/photos/rg-6c.jpg', thumb: '/photos/rg-6c-thumb.jpg', alt: 'Terraced vineyards in morning mist', width: 1600, height: 1000 },
+      { src: '/photos/rg-6d.jpg', thumb: '/photos/rg-6d-thumb.jpg', alt: 'Old lighthouse on a rocky headland', width: 900, height: 1400 },
+      { src: '/photos/rg-6e.jpg', thumb: '/photos/rg-6e-thumb.jpg', alt: 'Wild horses grazing on a dune', width: 1600, height: 1000 },
+      { src: '/photos/rg-6f.jpg', thumb: '/photos/rg-6f-thumb.jpg', alt: 'Street musicians in a coastal town square', width: 1200, height: 1200 },
+      { src: '/photos/rg-6g.jpg', thumb: '/photos/rg-6g-thumb.jpg', alt: 'Milky Way over a deserted beach', width: 1600, height: 1000 },
     ],
   },
   {
@@ -5307,9 +5309,9 @@ const feed: FeedPost[] = [
       ],
     },
     images: [
-      { src: 'https://picsum.photos/seed/rg-3a/1600/900', thumb: 'https://picsum.photos/seed/rg-3a/800/450', alt: 'Rolling fields at golden hour', width: 1600, height: 900 },
-      { src: 'https://picsum.photos/seed/rg-3b/1000/1400', thumb: 'https://picsum.photos/seed/rg-3b/500/700', alt: 'Dense forest canopy from below', width: 1000, height: 1400 },
-      { src: 'https://picsum.photos/seed/rg-3c/1500/1000', thumb: 'https://picsum.photos/seed/rg-3c/750/500', alt: 'Quiet lake reflecting the hills', width: 1500, height: 1000 },
+      { src: '/photos/rg-3a.jpg', thumb: '/photos/rg-3a-thumb.jpg', alt: 'Rolling fields at golden hour', width: 1600, height: 900 },
+      { src: '/photos/rg-3b.jpg', thumb: '/photos/rg-3b-thumb.jpg', alt: 'Dense forest canopy from below', width: 1000, height: 1400 },
+      { src: '/photos/rg-3c.jpg', thumb: '/photos/rg-3c-thumb.jpg', alt: 'Quiet lake reflecting the hills', width: 1500, height: 1000 },
     ],
   },
   {
@@ -5334,7 +5336,7 @@ const feed: FeedPost[] = [
       ],
     },
     images: [
-      { src: 'https://picsum.photos/seed/rg-1/1600/1000', thumb: 'https://picsum.photos/seed/rg-1/800/500', alt: 'Mountain range under a wide morning sky', width: 1600, height: 1000 },
+      { src: '/photos/rg-1.jpg', thumb: '/photos/rg-1-thumb.jpg', alt: 'Mountain range under a wide morning sky', width: 1600, height: 1000 },
     ],
   },
 ];
@@ -5548,7 +5550,7 @@ function FeedPostGallery({ post }: { post: FeedPost }) {
       // Extras hidden behind the `+N` tile have no trigger of their own —
       // close to the nearest visible one instead of flashing.
       morphTo={post.images.length > 4 ? 'closest' : undefined}
-      // Thumbs are the same photos at lower res (same seed + aspect), so the
+      // Thumbs are the same photos at lower res (same file + aspect), so the
       // placeholder bridge is seamless — skip the decode wait and start the
       // morph immediately.
       awaitImageDecode={false}
@@ -6711,36 +6713,36 @@ const product: ProductInfo = {
 
 const images: LightboxItem[] = [
   {
-    src: 'https://picsum.photos/seed/store-pack-a/1200/1500',
-    thumb: 'https://picsum.photos/seed/store-pack-a/480/600',
+    src: '/photos/store-pack-a.jpg',
+    thumb: '/photos/store-pack-a-thumb.jpg',
     alt: 'Terra 27L backpack, front view',
     width: 1200,
     height: 1500,
   },
   {
-    src: 'https://picsum.photos/seed/store-pack-b/1200/1500',
-    thumb: 'https://picsum.photos/seed/store-pack-b/480/600',
+    src: '/photos/store-pack-b.jpg',
+    thumb: '/photos/store-pack-b-thumb.jpg',
     alt: 'Terra 27L backpack, side profile',
     width: 1200,
     height: 1500,
   },
   {
-    src: 'https://picsum.photos/seed/store-pack-c/1200/1200',
-    thumb: 'https://picsum.photos/seed/store-pack-c/480/480',
+    src: '/photos/store-pack-c.jpg',
+    thumb: '/photos/store-pack-c-thumb.jpg',
     alt: 'Detail of the waxed canvas and zippers',
     width: 1200,
     height: 1200,
   },
   {
-    src: 'https://picsum.photos/seed/store-pack-d/1600/1000',
-    thumb: 'https://picsum.photos/seed/store-pack-d/800/500',
+    src: '/photos/store-pack-d.jpg',
+    thumb: '/photos/store-pack-d-thumb.jpg',
     alt: 'The backpack on a trail at golden hour',
     width: 1600,
     height: 1000,
   },
   {
-    src: 'https://picsum.photos/seed/store-pack-e/1200/1500',
-    thumb: 'https://picsum.photos/seed/store-pack-e/480/600',
+    src: '/photos/store-pack-e.jpg',
+    thumb: '/photos/store-pack-e-thumb.jpg',
     alt: 'Interior compartments, laptop sleeve visible',
     width: 1200,
     height: 1500,
@@ -6757,7 +6759,7 @@ export function StorePresetDemo() {
       <Lightbox.Root
         loop
         onValueChange={(value) => setSelected(value)}
-        // Thumbs are the same product shots at lower res (same seed + aspect),
+        // Thumbs are the same product shots at lower res (same file + aspect),
         // so the placeholder bridge is seamless — skip the decode wait and
         // start the morph immediately.
         awaitImageDecode={false}
@@ -7424,8 +7426,8 @@ import { Lightbox, type LightboxItem } from './lightbox';
 
 const figures: LightboxItem[] = [
   {
-    src: 'https://picsum.photos/seed/edit-harbor/1600/1000',
-    thumb: 'https://picsum.photos/seed/edit-harbor/800/500',
+    src: '/photos/edit-harbor.jpg',
+    thumb: '/photos/edit-harbor-thumb.jpg',
     alt: 'The old harbor at dawn, boats resting in still water',
     caption: 'The old harbor at dawn. Most of the fleet has not left the quay in a decade.',
     credit: 'Photograph: Anna Beck',
@@ -7433,8 +7435,8 @@ const figures: LightboxItem[] = [
     height: 1000,
   },
   {
-    src: 'https://picsum.photos/seed/edit-nets/1000/1400',
-    thumb: 'https://picsum.photos/seed/edit-nets/500/700',
+    src: '/photos/edit-nets.jpg',
+    thumb: '/photos/edit-nets-thumb.jpg',
     alt: 'Fishing nets stacked on the pier',
     caption: 'Nets stacked on the pier — mended each winter, used less each spring.',
     credit: 'Photograph: Anna Beck',
@@ -7442,8 +7444,8 @@ const figures: LightboxItem[] = [
     height: 1400,
   },
   {
-    src: 'https://picsum.photos/seed/edit-market/1600/1000',
-    thumb: 'https://picsum.photos/seed/edit-market/800/500',
+    src: '/photos/edit-market.jpg',
+    thumb: '/photos/edit-market-thumb.jpg',
     alt: 'The near-empty fish market hall in the early morning',
     caption: 'The market hall opens at five. By seven, the day’s catch is gone.',
     credit: 'Photograph: Jonas Ravn',
@@ -7481,7 +7483,7 @@ export function EditorialPresetDemo() {
     <article className="w-full max-w-xl text-start">
       <Lightbox.Root
         loop
-        // Thumbs are the same photographs at lower res (same seed + aspect),
+        // Thumbs are the same photographs at lower res (same file + aspect),
         // so the placeholder bridge is seamless — skip the decode wait and
         // start the morph immediately.
         awaitImageDecode={false}

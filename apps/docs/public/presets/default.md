@@ -7,7 +7,6 @@ Pick a styling flavor with the toggle: **Tailwind** is a single `lightbox.tsx` (
 ```tsx presets/default/demo.tsx
 'use client';
 
-import { imgDims } from '../../../_components/lightbox-chrome';
 import { Lightbox as CssLightbox, type LightboxItem } from './css/lightbox';
 import { Lightbox as TailwindLightbox } from './tailwind/lightbox';
 
@@ -25,96 +24,96 @@ type StyledLightbox = (typeof lightboxVariants)[PresetVariant];
 /** Demo seed data — dims are explicit (package Gallery requires them). */
 const trip: LightboxItem[] = [
   {
-    src: 'https://picsum.photos/seed/preset-trip-a/1200/1200',
-    thumb: 'https://picsum.photos/seed/preset-trip-a/400/400',
+    src: '/photos/preset-trip-a.jpg',
+    thumb: '/photos/preset-trip-a-thumb.jpg',
     alt: 'Maya on the ridge',
     caption: 'Maya Chen',
     width: 1200,
     height: 1200,
   },
   {
-    src: 'https://picsum.photos/seed/preset-trip-b/1600/1000',
-    thumb: 'https://picsum.photos/seed/preset-trip-b/800/500',
+    src: '/photos/preset-trip-b.jpg',
+    thumb: '/photos/preset-trip-b-thumb.jpg',
     alt: 'Cliffside road at sunset',
     caption: 'Cliffside road at sunset',
     width: 1600,
     height: 1000,
   },
   {
-    src: 'https://picsum.photos/seed/preset-trip-c/1600/1000',
-    thumb: 'https://picsum.photos/seed/preset-trip-c/800/500',
+    src: '/photos/preset-trip-c.jpg',
+    thumb: '/photos/preset-trip-c-thumb.jpg',
     alt: 'Turquoise cove',
     caption: 'A turquoise cove',
     width: 1600,
     height: 1000,
   },
   {
-    src: 'https://picsum.photos/seed/preset-trip-d/1200/1500',
-    thumb: 'https://picsum.photos/seed/preset-trip-d/480/600',
+    src: '/photos/preset-trip-d.jpg',
+    thumb: '/photos/preset-trip-d-thumb.jpg',
     alt: 'Trail through pines',
     caption: 'Through the pines',
     width: 1200,
     height: 1500,
   },
   {
-    src: 'https://picsum.photos/seed/preset-trip-e/1600/1000',
-    thumb: 'https://picsum.photos/seed/preset-trip-e/800/500',
+    src: '/photos/preset-trip-e.jpg',
+    thumb: '/photos/preset-trip-e-thumb.jpg',
     alt: 'Camp under the stars',
     caption: 'Camp under the stars',
     width: 1600,
     height: 1000,
   },
   {
-    src: 'https://picsum.photos/seed/preset-trip-f/1200/1200',
-    thumb: 'https://picsum.photos/seed/preset-trip-f/600/600',
+    src: '/photos/preset-trip-f.jpg',
+    thumb: '/photos/preset-trip-f-thumb.jpg',
     alt: 'Morning coffee on the rocks',
     caption: 'Morning on the rocks',
     width: 1200,
     height: 1200,
   },
   {
-    src: 'https://picsum.photos/seed/preset-trip-g/1600/1000',
-    thumb: 'https://picsum.photos/seed/preset-trip-g/800/500',
+    src: '/photos/preset-trip-g.jpg',
+    thumb: '/photos/preset-trip-g-thumb.jpg',
     alt: 'Waterfall in the canyon',
     caption: 'Hidden waterfall',
     width: 1600,
     height: 1000,
   },
   {
-    src: 'https://picsum.photos/seed/preset-trip-h/1200/1500',
-    thumb: 'https://picsum.photos/seed/preset-trip-h/480/600',
+    src: '/photos/preset-trip-h.jpg',
+    thumb: '/photos/preset-trip-h-thumb.jpg',
     alt: 'Wildflowers on the hillside',
     caption: 'Wildflower meadow',
     width: 1200,
     height: 1500,
   },
   {
-    src: 'https://picsum.photos/seed/preset-trip-i/1600/1000',
-    thumb: 'https://picsum.photos/seed/preset-trip-i/800/500',
+    src: '/photos/preset-trip-i.jpg',
+    thumb: '/photos/preset-trip-i-thumb.jpg',
     alt: 'Kayaks on calm water',
     caption: 'Kayak at dawn',
     width: 1600,
     height: 1000,
   },
   {
-    src: 'https://picsum.photos/seed/preset-trip-j/1200/1200',
-    thumb: 'https://picsum.photos/seed/preset-trip-j/600/600',
+    src: '/photos/preset-trip-j.jpg',
+    thumb: '/photos/preset-trip-j-thumb.jpg',
     alt: 'Sunset over the lake',
     caption: 'Golden hour',
     width: 1200,
     height: 1200,
   },
   {
-    src: 'https://picsum.photos/seed/preset-trip-k/1600/1000',
-    thumb: 'https://picsum.photos/seed/preset-trip-k/800/500',
+    src: '/photos/preset-trip-k.jpg',
+    thumb: '/photos/preset-trip-k-thumb.jpg',
     alt: 'Boardwalk through the marsh',
     caption: 'Coastal marsh',
     width: 1600,
     height: 1000,
   },
   {
-    src: 'https://picsum.photos/seed/preset-trip-l/1200/1500',
-    thumb: 'https://picsum.photos/seed/preset-trip-l/480/600',
+    src: '/photos/preset-trip-l.jpg',
+    thumb: '/photos/preset-trip-l-thumb.jpg',
     alt: 'Fire lookout tower',
     caption: 'Summit lookout',
     width: 1200,
@@ -148,7 +147,7 @@ function UserCardMorph({ Lightbox }: { Lightbox: StyledLightbox }) {
 
   return (
     // `awaitImageDecode={false}` throughout: every thumb is the same photo at
-    // lower res (same seed + aspect), so the placeholder bridge is seamless
+    // lower res (same file + aspect), so the placeholder bridge is seamless
     // and the morph can start immediately instead of waiting on decode.
     <Lightbox.Root awaitImageDecode={false}>
       <p className="mb-2 text-xs font-medium tracking-wide text-neutral-500 uppercase">
@@ -163,7 +162,8 @@ function UserCardMorph({ Lightbox }: { Lightbox: StyledLightbox }) {
           <>
             <img
               ref={imageRef}
-              {...imgDims(portrait.thumb)}
+              width={portrait.width}
+              height={portrait.height}
               src={portrait.thumb}
               alt=""
               className="size-16 rounded-full object-cover"
@@ -208,7 +208,8 @@ function ListingCardMorph({ Lightbox }: { Lightbox: StyledLightbox }) {
                 imageRef(node);
                 morphRef(node);
               }}
-              {...imgDims(listing.thumb)}
+              width={listing.width}
+              height={listing.height}
               src={listing.thumb}
               alt={listing.alt}
               className="aspect-[16/10] w-full rounded-t-2xl object-cover"
@@ -275,7 +276,8 @@ function AlbumPlusNMorph({ Lightbox }: { Lightbox: StyledLightbox }) {
                 <>
                   <img
                     ref={imageRef}
-                    {...imgDims(img.thumb)}
+                    width={img.width}
+                    height={img.height}
                     src={img.thumb}
                     alt={img.alt}
                     className="absolute inset-0 size-full object-cover"

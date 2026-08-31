@@ -1117,36 +1117,36 @@ const product: ProductInfo = {
 
 const images: LightboxItem[] = [
   {
-    src: 'https://picsum.photos/seed/store-pack-a/1200/1500',
-    thumb: 'https://picsum.photos/seed/store-pack-a/480/600',
+    src: '/photos/store-pack-a.jpg',
+    thumb: '/photos/store-pack-a-thumb.jpg',
     alt: 'Terra 27L backpack, front view',
     width: 1200,
     height: 1500,
   },
   {
-    src: 'https://picsum.photos/seed/store-pack-b/1200/1500',
-    thumb: 'https://picsum.photos/seed/store-pack-b/480/600',
+    src: '/photos/store-pack-b.jpg',
+    thumb: '/photos/store-pack-b-thumb.jpg',
     alt: 'Terra 27L backpack, side profile',
     width: 1200,
     height: 1500,
   },
   {
-    src: 'https://picsum.photos/seed/store-pack-c/1200/1200',
-    thumb: 'https://picsum.photos/seed/store-pack-c/480/480',
+    src: '/photos/store-pack-c.jpg',
+    thumb: '/photos/store-pack-c-thumb.jpg',
     alt: 'Detail of the waxed canvas and zippers',
     width: 1200,
     height: 1200,
   },
   {
-    src: 'https://picsum.photos/seed/store-pack-d/1600/1000',
-    thumb: 'https://picsum.photos/seed/store-pack-d/800/500',
+    src: '/photos/store-pack-d.jpg',
+    thumb: '/photos/store-pack-d-thumb.jpg',
     alt: 'The backpack on a trail at golden hour',
     width: 1600,
     height: 1000,
   },
   {
-    src: 'https://picsum.photos/seed/store-pack-e/1200/1500',
-    thumb: 'https://picsum.photos/seed/store-pack-e/480/600',
+    src: '/photos/store-pack-e.jpg',
+    thumb: '/photos/store-pack-e-thumb.jpg',
     alt: 'Interior compartments, laptop sleeve visible',
     width: 1200,
     height: 1500,
@@ -1163,7 +1163,7 @@ export function StorePresetDemo() {
       <Lightbox.Root
         loop
         onValueChange={(value) => setSelected(value)}
-        // Thumbs are the same product shots at lower res (same seed + aspect),
+        // Thumbs are the same product shots at lower res (same file + aspect),
         // so the placeholder bridge is seamless — skip the decode wait and
         // start the morph immediately.
         awaitImageDecode={false}

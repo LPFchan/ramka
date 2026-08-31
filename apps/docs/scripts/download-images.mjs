@@ -1,9 +1,14 @@
 /**
- * Downloads every remote demo image used by the docs site (outside the
- * presets demos, which intentionally keep remote URLs) into
+ * Downloads every remote demo image used by the docs site into
  * `app/_assets/photos/`, and generates one `images.generated.ts` module per
  * consumer directory with literal static imports — so Next.js can emit
  * `blurDataURL` + intrinsic dimensions at build time.
+ *
+ * The presets demos are the exception: they serve plain files from
+ * `public/photos/` (referenced as string URLs, no next/image), derived from
+ * these assets — picsum.photos became unreliable (ERR_BLOCKED_BY_ORB /
+ * hanging connections), and preset code must stay copy-pasteable outside
+ * Next.js.
  *
  *   node scripts/download-images.mjs            # download missing + write modules
  *   node scripts/download-images.mjs --force    # re-download everything

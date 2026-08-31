@@ -12,8 +12,8 @@ import { Lightbox, type LightboxItem } from './lightbox';
 
 const figures: LightboxItem[] = [
   {
-    src: 'https://picsum.photos/seed/edit-harbor/1600/1000',
-    thumb: 'https://picsum.photos/seed/edit-harbor/800/500',
+    src: '/photos/edit-harbor.jpg',
+    thumb: '/photos/edit-harbor-thumb.jpg',
     alt: 'The old harbor at dawn, boats resting in still water',
     caption: 'The old harbor at dawn. Most of the fleet has not left the quay in a decade.',
     credit: 'Photograph: Anna Beck',
@@ -21,8 +21,8 @@ const figures: LightboxItem[] = [
     height: 1000,
   },
   {
-    src: 'https://picsum.photos/seed/edit-nets/1000/1400',
-    thumb: 'https://picsum.photos/seed/edit-nets/500/700',
+    src: '/photos/edit-nets.jpg',
+    thumb: '/photos/edit-nets-thumb.jpg',
     alt: 'Fishing nets stacked on the pier',
     caption: 'Nets stacked on the pier — mended each winter, used less each spring.',
     credit: 'Photograph: Anna Beck',
@@ -30,8 +30,8 @@ const figures: LightboxItem[] = [
     height: 1400,
   },
   {
-    src: 'https://picsum.photos/seed/edit-market/1600/1000',
-    thumb: 'https://picsum.photos/seed/edit-market/800/500',
+    src: '/photos/edit-market.jpg',
+    thumb: '/photos/edit-market-thumb.jpg',
     alt: 'The near-empty fish market hall in the early morning',
     caption: 'The market hall opens at five. By seven, the day’s catch is gone.',
     credit: 'Photograph: Jonas Ravn',
@@ -69,7 +69,7 @@ export function EditorialPresetDemo() {
     <article className="w-full max-w-xl text-start">
       <Lightbox.Root
         loop
-        // Thumbs are the same photographs at lower res (same seed + aspect),
+        // Thumbs are the same photographs at lower res (same file + aspect),
         // so the placeholder bridge is seamless — skip the decode wait and
         // start the morph immediately.
         awaitImageDecode={false}

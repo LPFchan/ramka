@@ -1316,13 +1316,13 @@ const feed: FeedPost[] = [
       ],
     },
     images: [
-      { src: 'https://picsum.photos/seed/rg-6a/1600/1000', thumb: 'https://picsum.photos/seed/rg-6a/800/500', alt: 'Dramatic cliffside road at sunset', width: 1600, height: 1000 },
-      { src: 'https://picsum.photos/seed/rg-6b/1600/1000', thumb: 'https://picsum.photos/seed/rg-6b/800/500', alt: 'Turquoise cove with fishing boats', width: 1600, height: 1000 },
-      { src: 'https://picsum.photos/seed/rg-6c/1600/1000', thumb: 'https://picsum.photos/seed/rg-6c/800/500', alt: 'Terraced vineyards in morning mist', width: 1600, height: 1000 },
-      { src: 'https://picsum.photos/seed/rg-6d/900/1400', thumb: 'https://picsum.photos/seed/rg-6d/450/700', alt: 'Old lighthouse on a rocky headland', width: 900, height: 1400 },
-      { src: 'https://picsum.photos/seed/rg-6e/1600/1000', thumb: 'https://picsum.photos/seed/rg-6e/800/500', alt: 'Wild horses grazing on a dune', width: 1600, height: 1000 },
-      { src: 'https://picsum.photos/seed/rg-6f/1200/1200', thumb: 'https://picsum.photos/seed/rg-6f/600/600', alt: 'Street musicians in a coastal town square', width: 1200, height: 1200 },
-      { src: 'https://picsum.photos/seed/rg-6g/1600/1000', thumb: 'https://picsum.photos/seed/rg-6g/800/500', alt: 'Milky Way over a deserted beach', width: 1600, height: 1000 },
+      { src: '/photos/rg-6a.jpg', thumb: '/photos/rg-6a-thumb.jpg', alt: 'Dramatic cliffside road at sunset', width: 1600, height: 1000 },
+      { src: '/photos/rg-6b.jpg', thumb: '/photos/rg-6b-thumb.jpg', alt: 'Turquoise cove with fishing boats', width: 1600, height: 1000 },
+      { src: '/photos/rg-6c.jpg', thumb: '/photos/rg-6c-thumb.jpg', alt: 'Terraced vineyards in morning mist', width: 1600, height: 1000 },
+      { src: '/photos/rg-6d.jpg', thumb: '/photos/rg-6d-thumb.jpg', alt: 'Old lighthouse on a rocky headland', width: 900, height: 1400 },
+      { src: '/photos/rg-6e.jpg', thumb: '/photos/rg-6e-thumb.jpg', alt: 'Wild horses grazing on a dune', width: 1600, height: 1000 },
+      { src: '/photos/rg-6f.jpg', thumb: '/photos/rg-6f-thumb.jpg', alt: 'Street musicians in a coastal town square', width: 1200, height: 1200 },
+      { src: '/photos/rg-6g.jpg', thumb: '/photos/rg-6g-thumb.jpg', alt: 'Milky Way over a deserted beach', width: 1600, height: 1000 },
     ],
   },
   {
@@ -1347,9 +1347,9 @@ const feed: FeedPost[] = [
       ],
     },
     images: [
-      { src: 'https://picsum.photos/seed/rg-3a/1600/900', thumb: 'https://picsum.photos/seed/rg-3a/800/450', alt: 'Rolling fields at golden hour', width: 1600, height: 900 },
-      { src: 'https://picsum.photos/seed/rg-3b/1000/1400', thumb: 'https://picsum.photos/seed/rg-3b/500/700', alt: 'Dense forest canopy from below', width: 1000, height: 1400 },
-      { src: 'https://picsum.photos/seed/rg-3c/1500/1000', thumb: 'https://picsum.photos/seed/rg-3c/750/500', alt: 'Quiet lake reflecting the hills', width: 1500, height: 1000 },
+      { src: '/photos/rg-3a.jpg', thumb: '/photos/rg-3a-thumb.jpg', alt: 'Rolling fields at golden hour', width: 1600, height: 900 },
+      { src: '/photos/rg-3b.jpg', thumb: '/photos/rg-3b-thumb.jpg', alt: 'Dense forest canopy from below', width: 1000, height: 1400 },
+      { src: '/photos/rg-3c.jpg', thumb: '/photos/rg-3c-thumb.jpg', alt: 'Quiet lake reflecting the hills', width: 1500, height: 1000 },
     ],
   },
   {
@@ -1374,7 +1374,7 @@ const feed: FeedPost[] = [
       ],
     },
     images: [
-      { src: 'https://picsum.photos/seed/rg-1/1600/1000', thumb: 'https://picsum.photos/seed/rg-1/800/500', alt: 'Mountain range under a wide morning sky', width: 1600, height: 1000 },
+      { src: '/photos/rg-1.jpg', thumb: '/photos/rg-1-thumb.jpg', alt: 'Mountain range under a wide morning sky', width: 1600, height: 1000 },
     ],
   },
 ];
@@ -1588,7 +1588,7 @@ function FeedPostGallery({ post }: { post: FeedPost }) {
       // Extras hidden behind the `+N` tile have no trigger of their own —
       // close to the nearest visible one instead of flashing.
       morphTo={post.images.length > 4 ? 'closest' : undefined}
-      // Thumbs are the same photos at lower res (same seed + aspect), so the
+      // Thumbs are the same photos at lower res (same file + aspect), so the
       // placeholder bridge is seamless — skip the decode wait and start the
       // morph immediately.
       awaitImageDecode={false}
