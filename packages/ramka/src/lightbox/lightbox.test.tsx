@@ -3887,7 +3887,7 @@ describe('Lightbox', () => {
       expect(prevented).toBe(true);
     });
 
-    it('vertical trackpad wheel is claimed by pull-to-dismiss; mouse wheel stays native', () => {
+    it('wheel events over content are never cancelled, trackpad or mouse', () => {
       render(
         <LightboxRoot defaultOpen>
           <LightboxPortal>
@@ -3915,9 +3915,11 @@ describe('Lightbox', () => {
       Object.defineProperty(mouseWheel, 'deltaMode', { value: 1 });
       expect(content.dispatchEvent(mouseWheel)).toBe(true);
 
-      // A pixel-mode vertical wheel is the first event of a trackpad pull:
-      // the gesture owns it (otherwise the same deltas would also scroll the
-      // slides gallery / overscroll-chain to the page behind the dialog).
+      // A pixel-mode vertical wheel starts a trackpad pull, but the gesture
+      // only *reads* it — cancelling would forfeit the browser's gesture
+      // latch onto Content's contained scroll chain, which is what keeps a
+      // dismiss flick's momentum tail from scrolling the page (the listener
+      // is passive precisely to enforce this).
       const trackpadWheel = new WheelEvent('wheel', {
         bubbles: true,
         cancelable: true,
@@ -3925,8 +3927,7 @@ describe('Lightbox', () => {
         deltaY: -10,
       });
       Object.defineProperty(trackpadWheel, 'deltaMode', { value: 0 });
-      const prevented = !content.dispatchEvent(trackpadWheel);
-      expect(prevented).toBe(true);
+      expect(content.dispatchEvent(trackpadWheel)).toBe(true);
     });
 
     it('regular wheel scroll stays native when pull-to-dismiss is disabled', () => {
@@ -7547,13 +7548,15 @@ describe('Lightbox', () => {
         expect(item.style.transform).toBe('');
         expect(Element.prototype.animate).toHaveBeenCalled();
 
-        // The rest of the momentum tail is swallowed — prevented from
-        // scrolling the gallery and unable to start a fresh pull.
+        // The rest of the momentum tail is ignored by the gesture — unable to
+        // start a fresh pull — but never cancelled: the passive listener
+        // leaves native handling to the browser's gesture latch and Content's
+        // scroll containment.
         let tailEvent!: WheelEvent;
         act(() => {
           tailEvent = dispatchTrackpadWheel(img, 0, -180);
         });
-        expect(tailEvent.defaultPrevented).toBe(true);
+        expect(tailEvent.defaultPrevented).toBe(false);
         expect(content).not.toHaveAttribute('data-pulling');
 
         // After a real idle gap the latch clears and a fresh pull works.
@@ -7567,129 +7570,36 @@ describe('Lightbox', () => {
       }
     });
 
-    it('swallows the momentum tail at the window level after a wheel dismiss', () => {
-      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
-      try {
-        render(<PullDismissLightbox />);
-        const content = screen.getByTestId('content');
-        const img = screen.getByAltText('test');
-
-        // A strong flick: three events past the dismiss distance commit the
-        // dismiss while the trackpad momentum stream is still going.
-        act(() => {
-          for (let i = 0; i < 3; i++) dispatchTrackpadWheel(img, -40);
-        });
-        expect(content).toHaveAttribute('data-pull-dismissing');
-
-        // Content is unmounting with the close — its own wheel listener can't
-        // shield the page anymore, and the tail lands on whatever is under
-        // the cursor. The self-managed window guard eats it so the page under
-        // the closing lightbox doesn't scroll.
-        let tail!: WheelEvent;
-        act(() => {
-          tail = dispatchTrackpadWheel(document.body, -30);
-        });
-        expect(tail.defaultPrevented).toBe(true);
-
-        // Discrete mouse-wheel notches are not momentum — they stay native.
-        let notch!: WheelEvent;
-        act(() => {
-          notch = new WheelEvent('wheel', { bubbles: true, cancelable: true, deltaY: -40 });
-          Object.defineProperty(notch, 'deltaMode', { value: 1 });
-          document.body.dispatchEvent(notch);
-        });
-        expect(notch.defaultPrevented).toBe(false);
-
-        // After a real idle gap the guard removes itself; scroll is native.
-        act(() => {
-          vi.advanceTimersByTime(120);
-        });
-        let fresh!: WheelEvent;
-        act(() => {
-          fresh = dispatchTrackpadWheel(document.body, -30);
-        });
-        expect(fresh.defaultPrevented).toBe(false);
-      } finally {
-        vi.useRealTimers();
-      }
-    });
-
-    it('post-dismiss guard hands the wheel back the instant the user scrolls again', () => {
-      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
-      try {
-        render(<PullDismissLightbox />);
-        const img = screen.getByAltText('test');
-        act(() => {
-          for (let i = 0; i < 3; i++) dispatchTrackpadWheel(img, -40);
-        });
-
-        // A decaying stream is momentum — swallowed.
-        let a!: WheelEvent;
-        let b!: WheelEvent;
-        act(() => {
-          a = dispatchTrackpadWheel(document.body, -30);
-          b = dispatchTrackpadWheel(document.body, -20);
-        });
-        expect(a.defaultPrevented).toBe(true);
-        expect(b.defaultPrevented).toBe(true);
-
-        // A delta that *grows* against its predecessor is a fresh user push,
-        // not momentum: that very event scrolls natively and the guard is
-        // gone — no timer to wait out.
-        let push!: WheelEvent;
-        let after!: WheelEvent;
-        act(() => {
-          push = dispatchTrackpadWheel(document.body, -60);
-          after = dispatchTrackpadWheel(document.body, -10);
-        });
-        expect(push.defaultPrevented).toBe(false);
-        expect(after.defaultPrevented).toBe(false);
-      } finally {
-        vi.useRealTimers();
-      }
-    });
-
-    it('post-dismiss guard disarms on a direction reversal', () => {
-      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
-      try {
-        render(<PullDismissLightbox />);
-        const img = screen.getByAltText('test');
-        act(() => {
-          for (let i = 0; i < 3; i++) dispatchTrackpadWheel(img, -40);
-        });
-
-        let tail!: WheelEvent;
-        act(() => {
-          tail = dispatchTrackpadWheel(document.body, -30);
-        });
-        expect(tail.defaultPrevented).toBe(true);
-
-        // Momentum never changes direction — scrolling the other way is the
-        // user, and it goes through untouched.
-        let reverse!: WheelEvent;
-        act(() => {
-          reverse = dispatchTrackpadWheel(document.body, 25);
-        });
-        expect(reverse.defaultPrevented).toBe(false);
-      } finally {
-        vi.useRealTimers();
-      }
-    });
-
-    it('a locked-vertical wheel pull owns the wheel; plain wheels stay native', () => {
+    it('never cancels wheel events — the browser gesture latch owns page protection', () => {
+      // Regression guard for the post-dismiss page-scroll bleed: cancelling
+      // wheel events forfeits the browser's gesture latch onto Content's
+      // contained scroll chain, so a dismiss flick's momentum tail would be
+      // re-targeted at the bare page and scroll it behind the closing
+      // lightbox. The wheel path must stay hands-off: gesture state may
+      // consume deltas, but native handling is never prevented.
       render(<PullDismissLightbox />);
       const img = screen.getByAltText('test');
 
-      // Vertical pull events are preventDefaulted (they must not also scroll
-      // the slides gallery underneath), from the locking event onward.
+      // Locked-vertical pull events: consumed by the gesture, not cancelled.
       let first!: WheelEvent;
       let second!: WheelEvent;
       act(() => {
         first = dispatchTrackpadWheel(img, -20);
         second = dispatchTrackpadWheel(img, -20);
       });
-      expect(first.defaultPrevented).toBe(true);
-      expect(second.defaultPrevented).toBe(true);
+      expect(first.defaultPrevented).toBe(false);
+      expect(second.defaultPrevented).toBe(false);
+
+      // A strong flick that commits the dismiss mid-stream: the tail is
+      // ignored by the latch but stays native too.
+      let dismissing!: WheelEvent;
+      let tail!: WheelEvent;
+      act(() => {
+        dismissing = dispatchTrackpadWheel(img, -80);
+        tail = dispatchTrackpadWheel(img, -60);
+      });
+      expect(dismissing.defaultPrevented).toBe(false);
+      expect(tail.defaultPrevented).toBe(false);
     });
 
     it('horizontal wheel sequences keep native scroll (no preventDefault)', () => {

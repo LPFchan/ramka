@@ -190,9 +190,8 @@ function usePullToDismiss({
   // captured a frame after the momentum event that would reset it).
   const wheelDismissedRef = React.useRef(false);
   // Same latch for a pull that resolved to a *snap-back*: the gesture's
-  // leftover momentum tail is swallowed (and prevented from scrolling the
-  // gallery) until a real idle gap, so it can't restart a pull or shove the
-  // slides mid-snap-back. Cleared by its own idle timer.
+  // leftover momentum tail is ignored until a real idle gap, so it can't
+  // restart a pull mid-snap-back. Cleared by its own idle timer.
   const wheelTailRef = React.useRef(false);
   // True while this wheel sequence was claimed by a Slides scroll. Cleared on
   // `scrollend` (lock drops) so the next wheel can start a fresh pull.
@@ -515,18 +514,6 @@ function usePullToDismiss({
     // image with the swipe, then dismiss past the threshold or snap back.
     // -----------------------------------------------------------------
     const WHEEL_IDLE_END = 90;
-    // Hard deadline for the post-dismiss momentum-tail guard below — sized to
-    // the close animation, not the tail. Once the lightbox is visually gone,
-    // page scroll is the page's business; the guard only needs to cover the
-    // window where the tail would scroll the page *behind the closing
-    // lightbox*. Late-tail deltas are a few px each and imperceptible.
-    const WHEEL_TAIL_GUARD_MAX = 600;
-    // A momentum tail only ever decays. An event that grows against its
-    // predecessor by this ratio (past the jitter floor) is a fresh user
-    // gesture — the guard must hand the wheel back instantly, never make a
-    // user wait out a timer to scroll their page.
-    const WHEEL_TAIL_RISE_RATIO = 1.3;
-    const WHEEL_TAIL_RISE_FLOOR = 4;
     // Require several events so a single discrete mouse-wheel notch (which can
     // exceed the dismiss distance in one step) can't dismiss — trackpads emit
     // many small events per swipe.
@@ -549,63 +536,6 @@ function usePullToDismiss({
       }
     };
 
-    // A wheel-flick dismiss unmounts Content — and every listener here — while
-    // the trackpad's momentum tail is still streaming. Those trailing events
-    // then land on the page underneath and scroll it as the close plays out.
-    // Swallow the tail at the window level instead: the guard is deliberately
-    // self-managed (not tied to the effect cleanup) so it survives the
-    // unmount. It disarms the moment the stream stops looking like a decaying
-    // tail — an idle gap, a growing delta, a direction reversal, or an axis
-    // switch all hand the wheel straight back to the user — and a short hard
-    // deadline (the close animation window) bounds it even against a
-    // perfectly monotonic tail.
-    const installMomentumTailGuard = () => {
-      let idleTimer: ReturnType<typeof setTimeout> | null = null;
-      let deadlineTimer: ReturnType<typeof setTimeout> | null = null;
-      // Magnitude/direction of the previous tail event. Infinity means "no
-      // sample yet", so the first event after the dismiss is always treated
-      // as tail (a real new gesture that soon would have had to survive the
-      // idle-gap check anyway).
-      let prevMagnitude = Infinity;
-      let prevSignY = 0;
-      const remove = () => {
-        if (idleTimer) clearTimeout(idleTimer);
-        if (deadlineTimer) clearTimeout(deadlineTimer);
-        window.removeEventListener('wheel', onGuardedWheel, true);
-      };
-      const onGuardedWheel = (event: WheelEvent) => {
-        // Only pixel-mode (trackpad) streams carry momentum — leave discrete
-        // mouse-wheel notches alone.
-        if (event.deltaMode !== 0) return;
-
-        const magnitude = Math.abs(event.deltaX) + Math.abs(event.deltaY);
-        const signY = Math.sign(event.deltaY);
-        // Momentum only decays along the flick's direction. Growth, a
-        // vertical reversal, or a strongly horizontal event is the user
-        // scrolling again — disarm and let this very event scroll natively.
-        const grew =
-          magnitude > prevMagnitude * WHEEL_TAIL_RISE_RATIO &&
-          magnitude >= prevMagnitude + WHEEL_TAIL_RISE_FLOOR;
-        const reversed = prevSignY !== 0 && signY !== 0 && signY !== prevSignY;
-        const switchedAxis =
-          Math.abs(event.deltaX) > WHEEL_CROSS_AXIS_RATIO * Math.abs(event.deltaY) &&
-          Math.abs(event.deltaX) >= WHEEL_CROSS_AXIS_FLOOR;
-        if (grew || reversed || switchedAxis) {
-          remove();
-          return;
-        }
-
-        event.preventDefault();
-        prevMagnitude = magnitude;
-        if (signY !== 0) prevSignY = signY;
-        if (idleTimer) clearTimeout(idleTimer);
-        idleTimer = setTimeout(remove, WHEEL_IDLE_END);
-      };
-      window.addEventListener('wheel', onGuardedWheel, { passive: false, capture: true });
-      idleTimer = setTimeout(remove, WHEEL_IDLE_END);
-      deadlineTimer = setTimeout(remove, WHEEL_TAIL_GUARD_MAX);
-    };
-
     const finishWheel = (dismissNow: boolean) => {
       const wasVertical = wheelDirRef.current === 'vertical';
       const pulledY = wheelPullYRef.current;
@@ -618,11 +548,12 @@ function usePullToDismiss({
 
       if (shouldDismiss) {
         // Latch: swallow the trackpad's momentum tail so it can't restart a
-        // pull and reset the item mid-close.
+        // pull and reset the item mid-close. The page underneath needs no
+        // guard: the wheel path never preventDefaults, so the browser latched
+        // this gesture to Content's contained scroll chain at its first event
+        // and keeps the whole stream — momentum included — off the page even
+        // as the lightbox closes.
         wheelDismissedRef.current = true;
-        // …and keep that tail off the page once this listener unmounts with
-        // the closing Content.
-        installMomentumTailGuard();
         // Keep chrome hidden through the close animation (see touch path).
         el.setAttribute('data-pull-dismissing', '');
         el.removeAttribute('data-pulling');
@@ -672,10 +603,11 @@ function usePullToDismiss({
       const wheelTarget = event.target as Node | null;
       if (stage && wheelTarget && !stage.contains(wheelTarget)) return;
 
-      // A just-resolved pull's momentum tail: eat it (and keep it from
-      // scrolling the gallery) until a real idle gap.
+      // A just-resolved pull's momentum tail: ignore it until a real idle
+      // gap so it can't restart a pull mid-snap-back. Native scroll stays
+      // untouched — the browser latched this gesture to Content's contained
+      // chain at its first event, so the tail cannot scroll anything anyway.
       if (wheelTailRef.current) {
-        event.preventDefault();
         armWheelTail();
         return;
       }
@@ -701,7 +633,7 @@ function usePullToDismiss({
         const axis = wheelAxis(event.deltaX, event.deltaY);
         if (axis === 'none') return;
         // Horizontal swipes belong to the scroll gallery — let them scroll
-        // natively (preventDefault is reserved for locked-vertical pulls).
+        // natively (the listener is passive; we never preventDefault).
         if (axis === 'horizontal') {
           wheelDirRef.current = 'horizontal';
           scheduleWheelIdle();
@@ -734,11 +666,6 @@ function usePullToDismiss({
         scheduleWheelIdle();
         return;
       }
-
-      // The pull owns the wheel now — keep its deltas from also scrolling the
-      // slides gallery underneath (same policy as the touch path, which
-      // preventDefaults touchmove once locked vertical).
-      event.preventDefault();
 
       // A locked gesture listens to its own axis only. Touch gets this for
       // free — a lifted finger can't emit cross-axis input — but a trackpad
@@ -776,12 +703,16 @@ function usePullToDismiss({
     el.addEventListener('pointerup', handlePointerUp);
     el.addEventListener('pointercancel', handlePointerCancel);
     el.addEventListener('touchmove', handleTouchMove, { passive: false });
-    // Non-passive so a locked-vertical pull (and a resolved pull's momentum
-    // tail) can preventDefault — otherwise those deltas also scroll the
-    // slides gallery underneath the pulled item. Every other path returns
-    // early without preventDefault, keeping native scroll untouched, and the
-    // handler is cheap enough (ref checks) not to jank gallery wheel scroll.
-    el.addEventListener('wheel', handleWheel, { passive: false });
+    // Passive on purpose — the handler must NEVER preventDefault a wheel
+    // event, and the option enforces it. The page behind the lightbox is
+    // protected by the browser itself: at a wheel gesture's first event the
+    // browser latches the gesture (momentum tail included) to the scroll
+    // chain under the cursor, and Content's `overscroll-behavior: contain`
+    // stops that chain cold. The latch outlives even a dismiss that unmounts
+    // this listener mid-stream. Cancelling events would forfeit exactly that
+    // latch — the browser would re-target the leftover momentum at the bare
+    // page and scroll it behind the closing lightbox.
+    el.addEventListener('wheel', handleWheel, { passive: true });
 
     return () => {
       el.removeEventListener('pointerdown', handlePointerDown);
