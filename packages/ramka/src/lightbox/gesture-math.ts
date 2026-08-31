@@ -121,6 +121,36 @@ export function invertElasticClamp(
 }
 
 /**
+ * Minimum displayed zoom overshoot — as a fraction of the violated bound —
+ * for a release snap-back to count as a *perceptible* rubber-band return.
+ *
+ * Zoom is routinely a numeric hair out of bounds with no visible rubber band:
+ * during a two-finger pan at max zoom, span jitter engages the pinch and
+ * `elasticClamp` + `round(…, 5)` park the displayed zoom epsilon past the
+ * bound. Native viewers (iOS Photos et al.) play the haptic only when the
+ * gesture genuinely rubber-banded and visibly snaps back — sub-threshold
+ * overshoot must still micro-land, silently. At {@link ELASTIC_FACTOR} 0.2,
+ * 1% displayed overshoot ≈ the raw pinch travelling 5% past the bound —
+ * deliberate overshoot, well clear of recognizer jitter.
+ */
+export const ZOOM_SNAPBACK_HAPTIC_MIN_OVERSHOOT = 0.01;
+
+/**
+ * True when `zoom` sits far enough outside `[minZoom, maxZoom]` that its
+ * return reads as a real rubber-band snap-back (see
+ * {@link ZOOM_SNAPBACK_HAPTIC_MIN_OVERSHOOT}). Haptics gate on this — never
+ * on the numeric epsilon that decides whether a snap animation must run.
+ */
+export function isPerceptibleZoomSnapback(
+  zoom: number,
+  minZoom: number,
+  maxZoom: number,
+): boolean {
+  const bound = clamp(zoom, minZoom, maxZoom);
+  return Math.abs(zoom - bound) > bound * ZOOM_SNAPBACK_HAPTIC_MIN_OVERSHOOT;
+}
+
+/**
  * Elastic clamp against a symmetric `±max` bound. The resistance is applied to
  * the magnitude so the sign is preserved.
  */

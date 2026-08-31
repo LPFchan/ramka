@@ -10,6 +10,7 @@ import {
   clampOffsetToViewport,
   elasticClamp,
   focalOffset,
+  isPerceptibleZoomSnapback,
   PAN_PHYSICS_FRICTION,
   PAN_PHYSICS_SPRING_MOUSE,
   PAN_PHYSICS_SPRING_TOUCH,
@@ -502,7 +503,12 @@ export function createZoomSession(getDeps: () => ZoomSessionDeps): ZoomSession {
     syncPoseRefs(fromPose);
     const z = fromPose.zoom;
     const bound = clamp(z, minZoom, maxZoom);
-    const freshZoomReturn = vz === undefined && Math.abs(z - bound) > 1e-6;
+    // Haptic only for a *fresh, perceptible* zoom rubber-band release (native
+    // behavior). `vz` set means an in-flight rAF snap is being upgraded — its
+    // start already fired. Epsilon overshoot (span jitter at a bound during a
+    // two-finger pan) still snaps, but silently.
+    const freshZoomReturn =
+      vz === undefined && isPerceptibleZoomSnapback(z, minZoom, maxZoom);
 
     if (reducedMotion) {
       let ox = fromPose.offsetX;
@@ -585,7 +591,11 @@ export function createZoomSession(getDeps: () => ZoomSessionDeps): ZoomSession {
 
     stopZoomSnap();
     cancelZoomAnimation();
-    triggerHaptic('snap');
+    // 2→1 pinch breakup: haptic only when the over-zoom is a perceptible
+    // rubber-band. Span jitter during a two-finger pan at a bound leaves
+    // epsilon overshoot — that must land silently or plain panning at max
+    // zoom buzzes on every finger lift.
+    if (isPerceptibleZoomSnapback(from, minZoom, maxZoom)) triggerHaptic('snap');
 
     if (reducedMotion) {
       const live = controller.getPose();

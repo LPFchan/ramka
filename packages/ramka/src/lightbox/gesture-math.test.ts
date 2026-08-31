@@ -22,6 +22,7 @@ import {
   focalOffset,
   maxPanOffset,
   panOffsetRange,
+  isPerceptibleZoomSnapback,
   isTwoFingerPanIntent,
   pinchEngageSpread,
   pinchFingerAlignment,
@@ -38,6 +39,7 @@ import {
   rubberBandPanDimension,
   scaleZoom,
   isTrackpadPinchWheel,
+  ZOOM_SNAPBACK_HAPTIC_MIN_OVERSHOOT,
 } from './gesture-math';
 import {
   PULL_DAMP_TRAVEL_RATIO,
@@ -283,6 +285,41 @@ describe('invertElasticClamp', () => {
   it('round-trips elasticClamp past max and min', () => {
     expect(invertElasticClamp(elasticClamp(8, 1, 4), 1, 4)).toBeCloseTo(8, 10);
     expect(invertElasticClamp(elasticClamp(0.5, 1, 4), 1, 4)).toBeCloseTo(0.5, 10);
+  });
+});
+
+describe('isPerceptibleZoomSnapback', () => {
+  it('is false at rest and inside the range', () => {
+    expect(isPerceptibleZoomSnapback(2, 1, 4)).toBe(false);
+    expect(isPerceptibleZoomSnapback(1, 1, 4)).toBe(false);
+    expect(isPerceptibleZoomSnapback(4, 1, 4)).toBe(false);
+  });
+
+  it('ignores epsilon overshoot from span jitter / rounding at a bound', () => {
+    // A two-finger pan at max zoom whose pinch engages from jitter leaves the
+    // displayed zoom epsilon out of bounds (elasticClamp + round(…, 5)).
+    // Native viewers pan silently here — no haptic.
+    expect(isPerceptibleZoomSnapback(4.00001, 1, 4)).toBe(false);
+    expect(
+      isPerceptibleZoomSnapback(4 + 4 * ZOOM_SNAPBACK_HAPTIC_MIN_OVERSHOOT * 0.99, 1, 4),
+    ).toBe(false);
+    expect(isPerceptibleZoomSnapback(0.999, 1, 4)).toBe(false);
+  });
+
+  it('detects a deliberate rubber-banded overshoot past max', () => {
+    // Raw pinch 25% past the bound → displayed 4 + 1 * ELASTIC_FACTOR * … well
+    // above the 1%-of-bound threshold.
+    expect(isPerceptibleZoomSnapback(elasticClamp(5, 1, 4), 1, 4)).toBe(true);
+  });
+
+  it('detects a deliberate pinch-out below min', () => {
+    expect(isPerceptibleZoomSnapback(elasticClamp(0.5, 1, 4), 1, 4)).toBe(true);
+  });
+
+  it('scales the threshold with the violated bound', () => {
+    // Same absolute overshoot: perceptible against min 1, jitter against max 4.
+    expect(isPerceptibleZoomSnapback(1 - 0.02, 1, 4)).toBe(true);
+    expect(isPerceptibleZoomSnapback(4 + 0.02, 1, 4)).toBe(false);
   });
 });
 
