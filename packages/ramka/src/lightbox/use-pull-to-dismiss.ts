@@ -171,7 +171,10 @@ function usePullToDismiss({
   // of `wheel` events with no explicit end, so gesture completion is inferred
   // from an idle timer.
   const wheelDirRef = React.useRef<'none' | 'vertical' | 'horizontal'>('none');
-  const wheelPullXRef = React.useRef(0);
+  // Vertical only — a wheel pull rides rails. Unlike touch (finger on the
+  // glass, X bounded by physics), wheel X is untrusted: axis blend, jitter,
+  // and momentum inject sideways deltas the user never meant, and no gesture
+  // decision reads X. Ignoring it removes the artifact class by construction.
   const wheelPullYRef = React.useRef(0);
   const wheelCountRef = React.useRef(0);
   const wheelIdleRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -180,6 +183,11 @@ function usePullToDismiss({
   // close (visible as a snap-back on Safari, whose View Transition snapshot is
   // captured a frame after the momentum event that would reset it).
   const wheelDismissedRef = React.useRef(false);
+  // Same latch for a pull that resolved to a *snap-back*: the gesture's
+  // leftover momentum tail is swallowed (and prevented from scrolling the
+  // gallery) until a real idle gap, so it can't restart a pull or shove the
+  // slides mid-snap-back. Cleared by its own idle timer.
+  const wheelTailRef = React.useRef(false);
   // True while this wheel sequence was claimed by a Slides scroll. Cleared on
   // `scrollend` (lock drops) so the next wheel can start a fresh pull.
   const wheelLockedByScrollRef = React.useRef(false);
@@ -347,6 +355,7 @@ function usePullToDismiss({
     // Fresh mount — clear any dismiss latch / pull-dismiss flag left over from
     // a prior close (in case the same element is reused).
     wheelDismissedRef.current = false;
+    wheelTailRef.current = false;
     el.removeAttribute('data-pull-dismissing');
     el.removeAttribute('data-pull-snapping');
 
@@ -504,10 +513,14 @@ function usePullToDismiss({
     // exceed the dismiss distance in one step) can't dismiss — trackpads emit
     // many small events per swipe.
     const MIN_WHEEL_EVENTS = 3;
+    // A locked-vertical pull listens to its own axis only. Events at least
+    // this ratio horizontal (above the jitter floor) are foreign — a sideways
+    // flick or its momentum tail, never part of the vertical gesture.
+    const WHEEL_CROSS_AXIS_RATIO = 2;
+    const WHEEL_CROSS_AXIS_FLOOR = 4;
 
     const resetWheel = () => {
       wheelDirRef.current = 'none';
-      wheelPullXRef.current = 0;
       wheelPullYRef.current = 0;
       wheelCountRef.current = 0;
       wheelLockedByScrollRef.current = false;
@@ -538,6 +551,10 @@ function usePullToDismiss({
         dragTargetRef.current = null;
         onClose();
       } else {
+        // The stream that drove this pull may still have a momentum tail in
+        // flight — swallow it until a real idle gap so it can't restart a
+        // pull or shove the gallery while the snap-back plays.
+        armWheelTail();
         snapBack();
       }
     };
@@ -545,6 +562,18 @@ function usePullToDismiss({
     const scheduleWheelIdle = () => {
       if (wheelIdleRef.current) clearTimeout(wheelIdleRef.current);
       wheelIdleRef.current = setTimeout(() => finishWheel(false), WHEEL_IDLE_END);
+    };
+
+    // Latch the momentum-tail swallow and (re)schedule its release. Reuses the
+    // idle timer slot — by the time this is armed, the gesture state has been
+    // reset, so no `finishWheel` is pending on it.
+    const armWheelTail = () => {
+      wheelTailRef.current = true;
+      if (wheelIdleRef.current) clearTimeout(wheelIdleRef.current);
+      wheelIdleRef.current = setTimeout(() => {
+        wheelTailRef.current = false;
+        wheelIdleRef.current = null;
+      }, WHEEL_IDLE_END);
     };
 
     const handleWheel = (event: WheelEvent) => {
@@ -563,6 +592,14 @@ function usePullToDismiss({
       const stage = stageRef?.current;
       const wheelTarget = event.target as Node | null;
       if (stage && wheelTarget && !stage.contains(wheelTarget)) return;
+
+      // A just-resolved pull's momentum tail: eat it (and keep it from
+      // scrolling the gallery) until a real idle gap.
+      if (wheelTailRef.current) {
+        event.preventDefault();
+        armWheelTail();
+        return;
+      }
 
       // Gallery scroll owns this wheel sequence until `scrollend`. Latch as
       // horizontal (and keep the idle timer alive) so a mid-gesture vertical
@@ -585,7 +622,7 @@ function usePullToDismiss({
         const axis = wheelAxis(event.deltaX, event.deltaY);
         if (axis === 'none') return;
         // Horizontal swipes belong to the scroll gallery — let them scroll
-        // natively (the listener is passive; we never preventDefault).
+        // natively (preventDefault is reserved for locked-vertical pulls).
         if (axis === 'horizontal') {
           wheelDirRef.current = 'horizontal';
           scheduleWheelIdle();
@@ -607,21 +644,42 @@ function usePullToDismiss({
         }
         dragTargetRef.current = dragTarget;
         wheelDirRef.current = 'vertical';
-        wheelPullXRef.current = 0;
         wheelPullYRef.current = 0;
         wheelCountRef.current = 0;
         el.setAttribute('data-pulling', '');
         backdropRef.current?.setAttribute('data-pulling', '');
       }
 
-      scheduleWheelIdle();
-      if (wheelDirRef.current !== 'vertical') return;
+      if (wheelDirRef.current !== 'vertical') {
+        scheduleWheelIdle();
+        return;
+      }
 
-      // Content follows the fingers (natural-scroll: fingers down → deltaY < 0).
-      wheelPullXRef.current += -event.deltaX;
+      // The pull owns the wheel now — keep its deltas from also scrolling the
+      // slides gallery underneath (same policy as the touch path, which
+      // preventDefaults touchmove once locked vertical).
+      event.preventDefault();
+
+      // A locked gesture listens to its own axis only. Touch gets this for
+      // free — a lifted finger can't emit cross-axis input — but a trackpad
+      // can: a sideways flick mid-pull streams large deltaX (plus a momentum
+      // tail lasting up to ~2s). Drop foreign events *without* refreshing the
+      // idle timer, so the pull resolves ~90ms after the last vertical input
+      // instead of sitting shoved aside until the flick's tail dies out.
+      if (
+        Math.abs(event.deltaX) > WHEEL_CROSS_AXIS_RATIO * Math.abs(event.deltaY) &&
+        Math.abs(event.deltaX) >= WHEEL_CROSS_AXIS_FLOOR
+      ) {
+        return;
+      }
+
+      scheduleWheelIdle();
+
+      // Content follows the fingers vertically (natural-scroll: fingers down
+      // → deltaY < 0). deltaX is deliberately discarded — see wheelPullYRef.
       wheelPullYRef.current += -event.deltaY;
       wheelCountRef.current += 1;
-      applyTransform(wheelPullXRef.current, wheelPullYRef.current);
+      applyTransform(0, wheelPullYRef.current);
 
       if (
         Math.abs(wheelPullYRef.current) >= DISMISS_DISTANCE &&
@@ -636,7 +694,12 @@ function usePullToDismiss({
     el.addEventListener('pointerup', handlePointerUp);
     el.addEventListener('pointercancel', handlePointerCancel);
     el.addEventListener('touchmove', handleTouchMove, { passive: false });
-    el.addEventListener('wheel', handleWheel, { passive: true });
+    // Non-passive so a locked-vertical pull (and a resolved pull's momentum
+    // tail) can preventDefault — otherwise those deltas also scroll the
+    // slides gallery underneath the pulled item. Every other path returns
+    // early without preventDefault, keeping native scroll untouched, and the
+    // handler is cheap enough (ref checks) not to jank gallery wheel scroll.
+    el.addEventListener('wheel', handleWheel, { passive: false });
 
     return () => {
       el.removeEventListener('pointerdown', handlePointerDown);

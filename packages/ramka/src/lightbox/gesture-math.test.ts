@@ -43,6 +43,7 @@ import {
 } from './gesture-math';
 import {
   PULL_DAMP_TRAVEL_RATIO,
+  PULL_DAMP_X_TRAVEL_RATIO,
   computePullTransform,
   computePullVelocity,
   resolveDragAxis,
@@ -144,11 +145,22 @@ describe('computePullTransform', () => {
     expect(computePullTransform(0, -40, DISMISS, MIN_SCALE).y).toBeLessThan(0);
   });
 
-  it('damps horizontal travel by the same factor as vertical', () => {
+  it('damps horizontal travel toward its own asymptotic leash', () => {
     const t = computePullTransform(30, 60, DISMISS, MIN_SCALE);
-    // dampFactor = dampedY / rawY; dampedX = rawX * dampFactor
+    // Same construction as Y: asymptotic toward the X ceiling, with the
+    // Y-coupled damping factor as the near-origin slope.
     const dampFactor = t.y / 60;
-    expect(t.x).toBeCloseTo(30 * dampFactor, 10);
+    const leash = DISMISS * PULL_DAMP_X_TRAVEL_RATIO;
+    expect(t.x).toBeCloseTo(leash * (1 - Math.exp(-(30 * dampFactor) / leash)), 10);
+    // Small drags stay just under the old proportional slope…
+    expect(t.x).toBeLessThan(30 * dampFactor);
+    expect(t.x).toBeGreaterThan(30 * dampFactor * 0.75);
+    // …and no amount of sideways input (e.g. a trackpad flick's momentum
+    // tail pouring thousands of px into the accumulator) passes the leash.
+    const flick = computePullTransform(100000, 60, DISMISS, MIN_SCALE);
+    expect(flick.x).toBeLessThanOrEqual(leash);
+    expect(flick.x).toBeGreaterThan(leash * 0.99);
+    expect(computePullTransform(-100000, 60, DISMISS, MIN_SCALE).x).toBeLessThan(0);
   });
 
   it('clamps progress to 1 and scale to minScale at/after the threshold', () => {
