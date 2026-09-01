@@ -17,13 +17,13 @@
 @media (min-width: 768px) {
   .lightbox-demo-content {
     /*
-     * Roomier desktop letterbox. Bottom = thumbnail-strip row (4rem) +
-     * one-line info bar (~1.75rem incl. gap) + the same optical gap the
-     * media keeps to the corner controls above, so the letterbox reads
-     * symmetric.
+     * Roomier desktop letterbox. Bottom = thumbnail-strip row (5.125rem:
+     * 4.5rem thumbs + indicator padding) + one-line info bar (~1.75rem incl.
+     * gap) + the same optical gap the media keeps to the corner controls
+     * above, so the letterbox reads symmetric.
      */
     --lightbox-inset-top: calc(4.5rem + env(safe-area-inset-top, 0px));
-    --lightbox-inset-bottom: calc(7.5rem + env(safe-area-inset-bottom, 0px));
+    --lightbox-inset-bottom: calc(8.625rem + env(safe-area-inset-bottom, 0px));
     --lightbox-inset-inline: 3rem;
   }
 }

@@ -138,7 +138,7 @@ function GalleryThumbnailStrip({
             {typeof item.thumb === 'object' ? (
               // Strip thumbs are regular images (Ramka bridges only the
               // destination media) — blur OK, same as triggers.
-              <Image src={item.thumb} alt={item.alt} sizes="96px" placeholder="blur" draggable={false} />
+              <Image src={item.thumb} alt={item.alt} sizes="144px" placeholder="blur" draggable={false} />
             ) : (
               <img src={item.thumb} alt={item.alt} draggable={false} />
             )}
