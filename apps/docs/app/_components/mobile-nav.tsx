@@ -89,7 +89,7 @@ export function MobileNav() {
                     Get a license
                   </Link>
                   <p className="mt-2 text-center text-[11px] text-neutral-400 dark:text-neutral-500">
-                    Free for open source &middot; from $129
+                    Free for open source &middot; from $79
                   </p>
                 </div>
               </DrawerContent>

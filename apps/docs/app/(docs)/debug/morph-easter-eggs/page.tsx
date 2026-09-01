@@ -601,7 +601,7 @@ function BuyMeEgg() {
                   href="/license"
                   className="rounded-full bg-[#007aff] px-4 py-1.5 text-[15px] font-bold text-white transition hover:bg-[#0071eb] active:scale-95"
                 >
-                  $129
+                  $79
                 </Link>
               </div>
 

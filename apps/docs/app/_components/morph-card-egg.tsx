@@ -110,7 +110,7 @@ function BuySheet({ morphRef }: { morphRef: (node: HTMLElement | null) => void }
         onClick={() => track('get_license_click', { location: 'buy_sheet' })}
         className="mt-5 flex h-12 w-full items-center justify-center rounded-2xl bg-[#007aff] text-[16px] font-semibold text-white transition hover:bg-[#0071eb] active:scale-[0.98] dark:bg-[#0a84ff] dark:hover:bg-[#2492ff]"
       >
-        Buy for $129. Once.
+        Buy from $79. Once.
       </Link>
       <p className="mt-3 text-center text-[11px] text-[#8e8e93]">In-app purchases: none. Loot boxes: also none.</p>
     </div>
