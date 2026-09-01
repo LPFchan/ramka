@@ -642,7 +642,7 @@ function BuyMeEgg() {
                 href="/license"
                 className="mt-5 flex h-12 w-full items-center justify-center rounded-2xl bg-[#007aff] text-[16px] font-semibold text-white transition hover:bg-[#0071eb] active:scale-[0.98]"
               >
-                Get the Commercial License
+                Get the Business License
               </Link>
               <p className="mt-3 text-center text-[11px] text-[#8e8e93]">
                 In-app purchases: none. Loot boxes: also none.

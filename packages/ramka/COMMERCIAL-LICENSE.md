@@ -2,7 +2,7 @@
 
 Version 2.0
 
-This Agreement governs the paid proprietary licenses for ramka: Indie, Commercial, Agency, and Embedded / OEM. It was previously published as the Ramka Commercial License Agreement; licenses purchased earlier remain governed by the version in force at the time of purchase.
+This Agreement governs the paid proprietary licenses for ramka: Indie, Business, Agency, and Embedded / OEM. It was previously published as the Ramka Commercial License Agreement; licenses purchased earlier remain governed by the version in force at the time of purchase. The Business tier was previously named Commercial: a license purchased under the Commercial name is the same license as the Business license, with no change in rights, restrictions, or eligibility.
 
 ## Definitions
 
@@ -14,7 +14,7 @@ This Agreement governs the paid proprietary licenses for ramka: Indie, Commercia
 
 **Paid License** means the proprietary license granted under this Agreement for the purchased License Tier.
 
-**License Tier** means Indie, Commercial, Agency, or Embedded / OEM. Your License Tier is the tier identified in your Order or purchase confirmation.
+**License Tier** means Indie, Business, Agency, or Embedded / OEM. Your License Tier is the tier identified in your Order or purchase confirmation. An Order identifying the former Commercial tier refers to the Business tier.
 
 **Order** means the order placed at the time of purchase, including the purchase confirmation issued for it.
 
@@ -56,9 +56,9 @@ The Indie license is personal to the Licensee:
 
 It does not permit redistribution of ramka as part of a component library, SDK, site builder, template system, development platform, or similar redistributable product.
 
-### Commercial
+### Business
 
-The Commercial license permits one company or legal entity to use ramka in any number of proprietary Products that it owns and operates.
+The Business license permits one company or legal entity to use ramka in any number of proprietary Products that it owns and operates.
 
 The license covers any number of employees and contractors working on those Products on behalf of the Licensee.
 
@@ -104,7 +104,7 @@ Future major versions may require a separate upgrade purchase.
 
 The license is granted to the individual or legal entity identified in the Order.
 
-For the Commercial and Agency tiers, the license may be used by the Licensee's employees and contractors solely on behalf of the Licensee and within the scope of the purchased License Tier. The Indie license is personal, as described in Section 3.
+For the Business and Agency tiers, the license may be used by the Licensee's employees and contractors solely on behalf of the Licensee and within the scope of the purchased License Tier. The Indie license is personal, as described in Section 3.
 
 The license may not be sold, assigned, sublicensed, or transferred to another person or legal entity without prior written permission from the Licensor, except for the limited rights granted to clients under the Agency license in Section 3.
 

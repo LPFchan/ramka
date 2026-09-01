@@ -20,7 +20,7 @@ The site is offered as-is. Features, content, and availability may change. We do
 
 ## Paid licenses
 
-ramka is publicly available under GPL-3.0-only before any purchase. A paid license does not unlock a private package or deliver separate software files. What you purchase is an alternative proprietary license grant: the right to use ramka in proprietary products without relying on the GPL, within the scope of the purchased license tier (Indie, Commercial, Agency, or Embedded / OEM).
+ramka is publicly available under GPL-3.0-only before any purchase. A paid license does not unlock a private package or deliver separate software files. What you purchase is an alternative proprietary license grant: the right to use ramka in proprietary products without relying on the GPL, within the scope of the purchased license tier (Indie, Business, Agency, or Embedded / OEM).
 
 Purchases are subject to the [Ramka License Agreement](https://ramka.dev/license/commercial) in effect at the time of the order, together with the order itself; the License Agreement forms part of the purchase. The license tier, price, and Licensee identity are those recorded on that order.
 

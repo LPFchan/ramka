@@ -7,7 +7,7 @@ import { LegalMarkdown } from '../legal-markdown';
 
 export const metadata: Metadata = {
   title: 'Ramka License Agreement',
-  description: 'The Ramka License Agreement for the paid Indie, Commercial, Agency, and Embedded / OEM licenses.',
+  description: 'The Ramka License Agreement for the paid Indie, Business, Agency, and Embedded / OEM licenses.',
 };
 
 export default async function CommercialLicensePage() {

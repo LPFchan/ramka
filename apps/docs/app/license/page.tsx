@@ -17,7 +17,7 @@ const CONTACT_EMAIL = 'artur.bien+ramka@gmail.com';
 
 function enquiryUrl(agreementVersion: string): string {
   const body = [
-    'Tier (Indie / Commercial / Agency / Embedded — OEM):',
+    'Tier (Indie / Business / Agency / Embedded — OEM):',
     'Name / company:',
     'Billing email:',
     '',
@@ -75,7 +75,9 @@ const tiers: Tier[] = [
     buyLabel: 'Buy Indie',
   },
   {
-    name: 'Commercial',
+    // Renamed from "Commercial" — the checkout plan key stays `commercial`
+    // because it identifies the unchanged Whop plan, not the display name.
+    name: 'Business',
     description: 'For companies building their own proprietary products.',
     price: '$129',
     priceNote: 'One-time payment',
@@ -86,7 +88,7 @@ const tiers: Tier[] = [
     ],
     featured: true,
     checkoutPlan: 'commercial',
-    buyLabel: 'Buy Commercial',
+    buyLabel: 'Buy Business',
   },
   {
     name: 'Agency',
@@ -132,10 +134,10 @@ const faqs = [
   {
     question: 'Can my whole team use it?',
     answer:
-      'Commercial and Agency cover any number of employees and contractors working on the licensed products — they are not priced per developer. Indie is personal to one individual.',
+      'Business and Agency cover any number of employees and contractors working on the licensed products — they are not priced per developer. Indie is personal to one individual.',
   },
   {
-    question: 'Can I use the Commercial license for client work?',
+    question: 'Can I use the Business license for client work?',
     answer: 'No. Use the Agency license for work delivered to clients.',
   },
   {
@@ -146,7 +148,7 @@ const faqs = [
   {
     question: 'Can I use Indie for my employer\u2019s or my company\u2019s product?',
     answer:
-      'No. Indie covers products owned by you as an individual. Products owned by a company — including your own company — need the Commercial license.',
+      'No. Indie covers products owned by you as an individual. Products owned by a company — including your own company — need the Business license.',
   },
   {
     question: 'What happens if I get a refund or withdraw from the purchase?',
@@ -161,7 +163,7 @@ const faqs = [
   {
     question: 'Can I include ramka in my component library or site builder?',
     answer:
-      'GPL-compliant open-source redistribution is allowed under GPL-3.0-only. Proprietary redistribution that exposes ramka for use by third parties is not covered by the Indie, Commercial, or Agency licenses. Contact us for an Embedded / OEM license.',
+      'GPL-compliant open-source redistribution is allowed under GPL-3.0-only. Proprietary redistribution that exposes ramka for use by third parties is not covered by the Indie, Business, or Agency licenses. Contact us for an Embedded / OEM license.',
   },
 ];
 
