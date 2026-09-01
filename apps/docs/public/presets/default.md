@@ -1,6 +1,6 @@
 # Default
 
-Pick a styling flavor with the toggle: **Tailwind** is a single `lightbox.tsx` (utilities only, no stylesheet), **CSS** pairs `lightbox.tsx` with `lightbox.css`. Both export the identical styled `Lightbox` namespace — drop the **Package** files into a design-system entry, then compose triggers in your app. Gallery includes a top-right **Bleed / Snug** toggle (desktop) to switch between full-width and aspect-sized slide tracks. The **Example** tab shows the live preview (`+N` crossfade, child `morphRef`, whole-trigger morph) — it is app UI, not part of the skin.
+Pick a styling flavor with the toggle: **Tailwind** is a single `lightbox.tsx` (utilities only, no stylesheet), **CSS** pairs `lightbox.tsx` with `lightbox.css`. Both export the identical styled `Lightbox` namespace — drop the **Package** files into a design-system entry, then compose triggers in your app. Gallery includes a top-right **Theater / Peek** toggle (desktop) to switch between full-width and aspect-sized slide tracks. The **Example** tab shows the live preview (`+N` crossfade, child `morphRef`, whole-trigger morph) — it is app UI, not part of the skin.
 
 ## Source
 
@@ -532,12 +532,13 @@ function Content({ className, ...props }: React.ComponentProps<typeof RamkaLight
         // snug width formula). Mobile: equal top/bottom so the media is
         // vertically centered — 4rem clears the close-button row above and
         // the caption + counter below. Desktop: roomier, and the bottom adds
-        // the thumbnail-strip row + one-line caption bar.
+        // the thumbnail-strip row (5.125rem: 4.5rem thumbs + indicator
+        // padding) + one-line caption bar.
         '[--lb-inset-top:calc(4rem_+_env(safe-area-inset-top,0px))]',
         '[--lb-inset-bottom:calc(4rem_+_env(safe-area-inset-bottom,0px))]',
         '[--lb-inset-inline:0px]',
         'md:[--lb-inset-top:calc(4.5rem_+_env(safe-area-inset-top,0px))]',
-        'md:[--lb-inset-bottom:calc(7.5rem_+_env(safe-area-inset-bottom,0px))]',
+        'md:[--lb-inset-bottom:calc(8.625rem_+_env(safe-area-inset-bottom,0px))]',
         'md:[--lb-inset-inline:3rem]',
         className,
       )}
@@ -594,7 +595,18 @@ function Media({ className, ...props }: React.ComponentProps<typeof RamkaLightbo
   return (
     <RamkaLightbox.Media
       data-slot="lightbox-media"
-      className={cn('overflow-hidden md:rounded-lg [&_img]:select-none', className)}
+      // The ::after draws an Apple-style 0.5px inset outline so dark photos
+      // don't bleed into the dark-mode backdrop (and bright ones into the
+      // light one). Media is already position:relative (structural), so
+      // absolute insets just work. The shadow is gated to md+ — the mobile
+      // edge-to-edge layout stays outline-free.
+      className={cn(
+        'overflow-hidden md:rounded-lg [&_img]:select-none',
+        'after:pointer-events-none after:absolute after:inset-0 after:z-10 after:rounded-[inherit]',
+        'md:after:shadow-[inset_0_0_0_0.5px_rgb(0_0_0/0.1)]',
+        'md:dark:after:shadow-[inset_0_0_0_0.5px_rgb(255_255_255/0.12)]',
+        className,
+      )}
       {...props}
     />
   );
@@ -663,11 +675,12 @@ function ThumbnailStrip({ className, ...props }: React.ComponentProps<typeof Ram
     <RamkaLightbox.ThumbnailStrip
       data-slot="lightbox-thumbnail-strip"
       className={cn(
-        '[--lb-thumb-size:3.5rem] [--lb-strip-fade:32px]',
+        '[--lb-thumb-size:4.5rem] [--lb-strip-fade:40px]',
         // Soft edge fade over the scrolling thumbs (eased ramp, not linear).
         '[--lb-strip-mask:linear-gradient(to_right,rgb(0_0_0/0)_0,rgb(0_0_0/0.156)_calc(var(--lb-strip-fade)*0.25),rgb(0_0_0/0.5)_calc(var(--lb-strip-fade)*0.5),rgb(0_0_0/0.844)_calc(var(--lb-strip-fade)*0.75),#000_var(--lb-strip-fade),#000_calc(100%_-_var(--lb-strip-fade)),rgb(0_0_0/0.844)_calc(100%_-_var(--lb-strip-fade)*0.75),rgb(0_0_0/0.5)_calc(100%_-_var(--lb-strip-fade)*0.5),rgb(0_0_0/0.156)_calc(100%_-_var(--lb-strip-fade)*0.25),rgb(0_0_0/0)_100%)]',
         // pointer-events-auto counteracts the bottom band's click-through.
-        'pointer-events-auto w-full min-w-0 self-stretch py-1',
+        // py fits the floating indicator's overhang (3px gap + 2px stroke).
+        'pointer-events-auto w-full min-w-0 self-stretch py-[0.3125rem]',
         '[-webkit-mask-image:var(--lb-strip-mask)] [mask-image:var(--lb-strip-mask)]',
         className,
       )}
@@ -683,7 +696,7 @@ function ThumbnailStripTrack({
   return (
     <RamkaLightbox.ThumbnailStripTrack
       data-slot="lightbox-thumbnail-strip-track"
-      className={cn('flex w-max items-center gap-2', className)}
+      className={cn('flex w-max items-center gap-2.5', className)}
       {...props}
     />
   );
@@ -694,7 +707,9 @@ function Thumbnail({ className, ...props }: React.ComponentProps<typeof RamkaLig
     <RamkaLightbox.Thumbnail
       data-slot="lightbox-thumbnail"
       className={cn(
-        'relative block size-(--lb-thumb-size) shrink-0 cursor-pointer overflow-hidden rounded-md',
+        // Exact 0.5rem (not `rounded-lg`) — the shadcn radius token would
+        // drift from the indicator ring's calc(0.5rem + 3px) below.
+        'relative block size-(--lb-thumb-size) shrink-0 cursor-pointer overflow-hidden rounded-[0.5rem]',
         '[&_img]:block [&_img]:size-full [&_img]:object-cover',
         className,
       )}
@@ -780,7 +795,7 @@ function GalleryThumbnailStrip({ items }: { items: LightboxItem[] }) {
       {/* Decorative ring over the active tab — the track scrolls under it. */}
       <span
         aria-hidden
-        className="pointer-events-none absolute top-1/2 left-1/2 size-[calc(var(--lb-thumb-size)_+_8px)] -translate-x-1/2 -translate-y-1/2 rounded-[calc(0.375rem_+_2px)] border-2 border-black dark:border-white"
+        className="pointer-events-none absolute top-1/2 left-1/2 size-[calc(var(--lb-thumb-size)_+_10px)] -translate-x-1/2 -translate-y-1/2 rounded-[calc(0.5rem_+_3px)] border-2 border-black dark:border-white"
       />
     </ThumbnailStrip>
   );
@@ -803,7 +818,7 @@ function Gallery({
   onSlidesLayoutChange?: (layout: SlidesLayout) => void;
 }) {
   const [slidesLayoutInternal, setSlidesLayoutInternal] = React.useState<SlidesLayout>(
-    () => readStoredSlidesLayout() ?? 'bleed',
+    () => readStoredSlidesLayout() ?? 'snug',
   );
   const slidesLayout = slidesLayoutProp ?? slidesLayoutInternal;
   const snug = slidesLayout === 'snug';
@@ -908,13 +923,14 @@ function Gallery({
             'max-md:group-data-zoomed/lb:[transition:opacity_200ms,visibility_0s_linear_200ms]',
           )}
         >
-          {/* Layout toggle: the icon is a miniature of the CURRENT layout —
-              snug shows a card with neighbours, bleed one wide slide. */}
+          {/* Layout toggle. User copy: "theater" = bleed (one wide slide),
+              "peek" = snug (card with neighbours peeking). The icon is a
+              miniature of the CURRENT layout; the label names the TARGET. */}
           <button
             type="button"
             className={cn(controlClass, 'max-md:hidden [&_svg]:size-4.5')}
             aria-pressed={snug}
-            aria-label={snug ? 'Switch to full-bleed slides' : 'Switch to snug slides'}
+            aria-label={snug ? 'Switch to theater layout' : 'Switch to peek layout'}
             onClick={toggleSlidesLayout}
           >
             {snug ? (
@@ -1243,7 +1259,7 @@ function Gallery({
   onSlidesLayoutChange?: (layout: SlidesLayout) => void;
 }) {
   const [slidesLayoutInternal, setSlidesLayoutInternal] = React.useState<SlidesLayout>(
-    () => readStoredSlidesLayout() ?? 'bleed',
+    () => readStoredSlidesLayout() ?? 'snug',
   );
   const slidesLayout = slidesLayoutProp ?? slidesLayoutInternal;
   const snug = slidesLayout === 'snug';
@@ -1329,13 +1345,14 @@ function Gallery({
         </Slides>
 
         <div className={cx('lb-top-right', 'lb-chrome-gesture-hide')}>
-          {/* Layout toggle: the icon is a miniature of the CURRENT layout —
-              snug shows a card with neighbours, bleed one wide slide. */}
+          {/* Layout toggle. User copy: "theater" = bleed (one wide slide),
+              "peek" = snug (card with neighbours peeking). The icon is a
+              miniature of the CURRENT layout; the label names the TARGET. */}
           <button
             type="button"
             className={cx('lb-control', 'lb-control-md', 'lb-control-layout')}
             aria-pressed={snug}
-            aria-label={snug ? 'Switch to full-bleed slides' : 'Switch to snug slides'}
+            aria-label={snug ? 'Switch to theater layout' : 'Switch to peek layout'}
             onClick={toggleSlidesLayout}
           >
             {snug ? <IconLayoutSnug /> : <IconLayoutBleed />}
@@ -1503,13 +1520,13 @@ export const Lightbox = {
 @media (min-width: 768px) {
   .lb-content {
     /*
-     * Roomier desktop letterbox. Bottom = thumbnail-strip row (4rem) +
-     * one-line caption bar (~1.75rem incl. gap) + the same optical gap the
-     * media keeps to the corner controls above, so the letterbox reads
-     * symmetric.
+     * Roomier desktop letterbox. Bottom = thumbnail-strip row (5.125rem:
+     * 4.5rem thumbs + indicator padding) + one-line caption bar (~1.75rem
+     * incl. gap) + the same optical gap the media keeps to the corner
+     * controls above, so the letterbox reads symmetric.
      */
     --lb-inset-top: calc(4.5rem + env(safe-area-inset-top, 0px));
-    --lb-inset-bottom: calc(7.5rem + env(safe-area-inset-bottom, 0px));
+    --lb-inset-bottom: calc(8.625rem + env(safe-area-inset-bottom, 0px));
     --lb-inset-inline: 3rem;
   }
 
@@ -1576,6 +1593,24 @@ export const Lightbox = {
 @media (min-width: 768px) {
   .lb-media {
     border-radius: 0.5rem;
+  }
+
+  /* Apple-style 0.5px inset outline so dark photos don't bleed into the
+     dark-mode backdrop (and bright ones into the light one). Media is
+     already position:relative (structural), so absolute insets just work.
+     md+ only — the mobile edge-to-edge layout stays outline-free. */
+  .lb-media::after {
+    content: '';
+    pointer-events: none;
+    position: absolute;
+    inset: 0;
+    z-index: 10;
+    border-radius: inherit;
+    box-shadow: inset 0 0 0 0.5px rgb(0 0 0 / 0.1);
+  }
+
+  :is(.dark, [data-theme='dark']) .lb-media::after {
+    box-shadow: inset 0 0 0 0.5px rgb(255 255 255 / 0.12);
   }
 }
 
@@ -1997,8 +2032,8 @@ export const Lightbox = {
 /* ── Thumbnail strip ────────────────────────────────────────────────────── */
 
 .lb-thumbnail-strip {
-  --lb-thumb-size: 3.5rem;
-  --lb-strip-fade: 32px;
+  --lb-thumb-size: 4.5rem;
+  --lb-strip-fade: 40px;
   /* Soft edge fade over the scrolling thumbs (eased ramp, not linear). */
   --lb-strip-mask: linear-gradient(
     to right,
@@ -2017,7 +2052,8 @@ export const Lightbox = {
   align-self: stretch;
   width: 100%;
   min-width: 0;
-  padding-block: 0.25rem;
+  /* Fits the floating indicator's overhang (3px gap + 2px stroke). */
+  padding-block: 0.3125rem;
   -webkit-mask-image: var(--lb-strip-mask);
   mask-image: var(--lb-strip-mask);
 }
@@ -2032,7 +2068,7 @@ export const Lightbox = {
 .lb-thumbnail-strip [data-ramka-thumbnail-strip-track] {
   display: flex;
   width: max-content;
-  gap: 0.5rem;
+  gap: 0.625rem;
   align-items: center;
 }
 
@@ -2046,7 +2082,7 @@ export const Lightbox = {
   overflow: hidden;
   margin: 0;
   border: 0;
-  border-radius: 0.375rem;
+  border-radius: 0.5rem;
   padding: 0;
   appearance: none;
   background: transparent;
@@ -2066,9 +2102,9 @@ export const Lightbox = {
   left: 50%;
   top: 50%;
   box-sizing: border-box;
-  width: calc(var(--lb-thumb-size) + 8px);
-  height: calc(var(--lb-thumb-size) + 8px);
-  border-radius: calc(0.375rem + 2px);
+  width: calc(var(--lb-thumb-size) + 10px);
+  height: calc(var(--lb-thumb-size) + 10px);
+  border-radius: calc(0.5rem + 3px);
   border: 2px solid #000;
   pointer-events: none;
   transform: translate(-50%, -50%);
