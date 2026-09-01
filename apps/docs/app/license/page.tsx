@@ -2,9 +2,11 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Check } from 'lucide-react';
 
+import { LaunchWeekCapsule } from '../_components/launch-week-capsule';
 import { SiteFooter } from '../_components/site-footer';
 import { SiteHeader } from '../_components/site-header';
 import { TrackedAnchor } from '../_components/tracked-link';
+import { pricing } from '../_content/pricing';
 import { checkoutUrls, type PaidCheckoutPlan } from '../checkout/hosted-urls';
 import { readAgreement } from './documents';
 import { cn } from '@/lib/utils';
@@ -17,7 +19,7 @@ const CONTACT_EMAIL = 'artur.bien+ramka@gmail.com';
 
 function enquiryUrl(agreementVersion: string): string {
   const body = [
-    'Tier (Indie / Business / Agency / Embedded — OEM):',
+    'Tier (Indie, Business, Agency, or Embedded / OEM):',
     'Name / company:',
     'Billing email:',
     '',
@@ -33,7 +35,7 @@ function enquiryUrl(agreementVersion: string): string {
 export const metadata: Metadata = {
   title: 'License',
   description:
-    'ramka is free for open source under GPL-3.0-only. For proprietary software, buy once — lifetime license, no subscription, no license keys.',
+    'ramka is free for open source under GPL-3.0-only. For proprietary software, buy once: lifetime license, no subscription, no license keys.',
 };
 
 const primaryCtaClassName =
@@ -50,12 +52,9 @@ interface Tier {
   description: string;
   price: string;
   /**
-   * Launch-week anchor: the regular price that applies once launch week ends.
-   * Framed as a future price ("$99 after launch week"), never as a former
-   * price — these tiers have not sold at the regular price yet, and a
-   * struck-through price that never applied is a fictitious reference price
-   * under EU/Polish price-indication rules. To end launch week, delete these
-   * values and raise `price` to the regular price.
+   * Launch-week anchor: the regular price that applies once launch week
+   * ends, always framed as a future price. See `_content/pricing.ts` for the
+   * framing rationale and how to end launch week.
    */
   regularPrice?: string;
   /** Sits under the price: the payment model. */
@@ -73,8 +72,8 @@ const tiers: Tier[] = [
   {
     name: 'Indie',
     description: 'For individual developers building their own products.',
-    price: '$79',
-    regularPrice: '$99',
+    price: pricing.indie.price,
+    regularPrice: pricing.indie.regular,
     priceNote: 'One-time payment',
     items: [
       'Unlimited products you personally own',
@@ -85,12 +84,12 @@ const tiers: Tier[] = [
     buyLabel: 'Buy Indie',
   },
   {
-    // Renamed from "Commercial" — the checkout plan key stays `commercial`
+    // Renamed from "Commercial"; the checkout plan key stays `commercial`
     // because it identifies the unchanged Whop plan, not the display name.
     name: 'Business',
     description: 'For companies building their own proprietary products.',
-    price: '$129',
-    regularPrice: '$150',
+    price: pricing.business.price,
+    regularPrice: pricing.business.regular,
     priceNote: 'One-time payment',
     items: [
       'Unlimited products owned by your company',
@@ -104,8 +103,8 @@ const tiers: Tier[] = [
   {
     name: 'Agency',
     description: 'For freelancers and agencies building products for clients.',
-    price: '$299',
-    regularPrice: '$349',
+    price: pricing.agency.price,
+    regularPrice: pricing.agency.regular,
     priceNote: 'One-time payment',
     items: [
       'Unlimited client projects',
@@ -139,7 +138,7 @@ const faqs = [
   {
     question: 'Can my whole team use it?',
     answer:
-      'Business and Agency cover any number of employees and contractors working on the licensed products — they are not priced per developer. Indie is personal to one individual.',
+      'Business and Agency cover any number of employees and contractors working on the licensed products; they are not priced per developer. Indie is personal to one individual.',
   },
   {
     question: 'Can I use the Business license for client work?',
@@ -153,7 +152,7 @@ const faqs = [
   {
     question: 'Can I use Indie for my employer\u2019s or my company\u2019s product?',
     answer:
-      'No. Indie covers products owned by you as an individual. Products owned by a company — including your own company — need the Business license.',
+      'No. Indie covers products owned by you as an individual. Products owned by a company, including your own company, need the Business license.',
   },
   {
     question: 'What happens if I get a refund or withdraw from the purchase?',
@@ -202,7 +201,7 @@ function TierCard({ tier }: { tier: Tier }) {
             {tier.price}
           </div>
           {tier.regularPrice ? (
-            // Decorative anchor only — the visible note below carries the
+            // Decorative anchor only; the visible note below carries the
             // meaning, so screen readers skip the bare struck number.
             <div
               aria-hidden
@@ -281,29 +280,16 @@ export default async function LicensePage() {
               rather than trailing off the end of the first. */}
           <p className="mx-auto mt-5 max-w-xl text-pretty text-[17px] leading-7 text-neutral-500 dark:text-neutral-400">
             <span className="block">ramka is free for open source under GPL-3.0-only.</span>
-            <span className="block">For proprietary software, one payment — no subscription, for life.</span>
+            <span className="block">For proprietary software, one payment. No subscription, for life.</span>
           </p>
         </section>
 
         <section className="mx-auto w-full max-w-5xl px-6 pt-14 md:pt-16">
           <h2 className="sr-only">License tiers</h2>
 
-          {/* Launch-week framing lives at section level, worded as introductory
-              pricing with an announced future increase — never as a discount
-              from a former price, since no tier has sold at the regular price
-              yet. Remove alongside the tiers' `regularPrice` values.
-
-              Styled as a live-status capsule (hairline, soft tint, pulsing
-              dot) rather than a badge, so it reads "happening now" and doesn't
-              repeat the Most-popular pill sitting on the card below it. */}
-          <div className="mb-8 flex justify-center">
-            <p className="flex items-center gap-2.5 rounded-full border border-emerald-600/20 bg-emerald-50/60 py-1.5 pr-4 pl-3.5 text-[13px] font-medium text-emerald-900 dark:border-emerald-400/20 dark:bg-emerald-950/40 dark:text-emerald-200">
-              <span aria-hidden className="relative flex size-2">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-500 opacity-60 motion-reduce:hidden" />
-                <span className="relative inline-flex size-2 rounded-full bg-emerald-500" />
-              </span>
-              Launch week — introductory pricing, regular prices after
-            </p>
+          {/* Renders nothing once launch week ends (see the capsule itself). */}
+          <div className="mb-8 flex justify-center empty:hidden">
+            <LaunchWeekCapsule />
           </div>
 
           <div className="grid gap-4 lg:grid-cols-3 lg:items-stretch lg:gap-5">

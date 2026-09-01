@@ -36,7 +36,7 @@ The Paid License is a legal grant, not a technical unlock. It is not enforced by
 
 ## 2. License grant
 
-Subject to payment of the applicable license fee and compliance with this Agreement, the Licensor grants the Licensee a non-exclusive, worldwide, perpetual license — non-transferable except as expressly permitted by this Agreement — to use, reproduce, modify, and incorporate ramka into proprietary Products covered by the purchased License Tier.
+Subject to payment of the applicable license fee and compliance with this Agreement, the Licensor grants the Licensee a non-exclusive, worldwide, perpetual license (non-transferable except as expressly permitted by this Agreement) to use, reproduce, modify, and incorporate ramka into proprietary Products covered by the purchased License Tier.
 
 The Licensee may distribute those Products to end users without making the Licensee's proprietary source code available under GPL-3.0-only.
 
@@ -124,9 +124,9 @@ Termination of the Paid License does not affect any rights independently availab
 
 ## 8. Withdrawal, refunds, and reversals
 
-**Statutory withdrawal.** Where mandatory consumer law grants the Licensee a right of withdrawal from the purchase — for example, the 14-day withdrawal right available to Consumers in the EU/EEA for contracts concluded at a distance — the Licensor honors that right. How to exercise it is described in the [Return Policy](https://ramka.dev/returns). If the Licensee validly withdraws, the purchase contract is treated under applicable law as if it had not been concluded. In that case the Paid License is treated as never having taken effect, and the Licensee may not rely on it. All payments are refunded as required by applicable law.
+**Statutory withdrawal.** Where mandatory consumer law grants the Licensee a right of withdrawal from the purchase (for example, the 14-day withdrawal right available to Consumers in the EU/EEA for contracts concluded at a distance), the Licensor honors that right. How to exercise it is described in the [Return Policy](https://ramka.dev/returns). If the Licensee validly withdraws, the purchase contract is treated under applicable law as if it had not been concluded. In that case the Paid License is treated as never having taken effect, and the Licensee may not rely on it. All payments are refunded as required by applicable law.
 
-**Refunds and reversals.** If a purchase is otherwise refunded, rescinded, or reversed — including through a chargeback — the Paid License granted by that purchase terminates when the refund or reversal occurs.
+**Refunds and reversals.** If a purchase is otherwise refunded, rescinded, or reversed, including through a chargeback, the Paid License granted by that purchase terminates when the refund or reversal occurs.
 
 **Effect.** In each case above, the Licensee must stop relying on the Paid License for proprietary use of ramka. This does not affect the public availability of ramka or any rights the Licensee independently has under GPL-3.0-only or another license separately granted for ramka; any continued use of ramka is then governed solely by the terms of that other license.
 
@@ -158,13 +158,13 @@ If the Licensee is a Consumer, this section applies in addition to the rest of t
 
 Nothing in this Agreement excludes, restricts, or limits rights or remedies that cannot lawfully be excluded or limited, including mandatory statutory rights available to Consumers. Where any provision of this Agreement conflicts with such a mandatory right, the mandatory right prevails.
 
-Consumers have statutory rights regarding the conformity of digital content with the contract under applicable law — in Poland, under the Consumer Rights Act of 30 May 2014, which implements Directive (EU) 2019/770. Those rights are not limited by Section 10. Conformity complaints can be sent to [artur.bien+ramka@gmail.com](mailto:artur.bien+ramka@gmail.com).
+Consumers have statutory rights regarding the conformity of digital content with the contract under applicable law; in Poland, under the Consumer Rights Act of 30 May 2014, which implements Directive (EU) 2019/770. Those rights are not limited by Section 10. Conformity complaints can be sent to [artur.bien+ramka@gmail.com](mailto:artur.bien+ramka@gmail.com).
 
 Statutory withdrawal rights, and their effect on the Paid License, are described in Section 8 and the [Return Policy](https://ramka.dev/returns).
 
-Under Polish law, certain protections granted to Consumers — including the withdrawal right and conformity rights — also apply to an individual entering into a contract directly related to their business activity where the contract is not of a professional character for that individual.
+Under Polish law, certain protections granted to Consumers, including the withdrawal right and conformity rights, also apply to an individual entering into a contract directly related to their business activity where the contract is not of a professional character for that individual.
 
-An individual who purchases for professional purposes — for example, a freelancer buying ramka for client work — is not acting as a Consumer merely by being an individual.
+An individual who purchases for professional purposes (for example, a freelancer buying ramka for client work) is not acting as a Consumer merely by being an individual.
 
 ## 12. Governing law
 

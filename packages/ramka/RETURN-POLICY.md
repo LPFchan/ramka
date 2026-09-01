@@ -1,6 +1,6 @@
 # Return Policy
 
-A ramka purchase grants a proprietary software license — the rights described in the [Ramka License Agreement](https://ramka.dev/license/commercial) for the purchased tier. The software itself is publicly available through the npm registry and may be used under GPL-3.0-only without payment; a purchase grants additional proprietary licensing rights rather than delivering separate software. Nothing physical is shipped.
+A ramka purchase grants a proprietary software license: the rights described in the [Ramka License Agreement](https://ramka.dev/license/commercial) for the purchased tier. The software itself is publicly available through the npm registry and may be used under GPL-3.0-only without payment; a purchase grants additional proprietary licensing rights rather than delivering separate software. Nothing physical is shipped.
 
 ## Our standard policy
 
@@ -10,7 +10,7 @@ This standard policy applies subject to the rest of this document. Nothing in it
 
 ## Statutory withdrawal for consumers
 
-If you are a consumer — an individual buying primarily for purposes outside your trade, business, craft, or profession — you may have a statutory right to withdraw from an online purchase under the law of your country.
+If you are a consumer (an individual buying primarily for purposes outside your trade, business, craft, or profession), you may have a statutory right to withdraw from an online purchase under the law of your country.
 
 For consumers in the EU/EEA, a statutory 14-day right of withdrawal generally applies to contracts concluded at a distance, counted from the day the contract is concluded. In Poland this right is set out in the Consumer Rights Act of 30 May 2014. We honor statutory withdrawal rights where they apply, and we do not ask you to waive them.
 

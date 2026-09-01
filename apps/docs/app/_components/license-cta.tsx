@@ -1,3 +1,5 @@
+import { startingPrice } from '../_content/pricing';
+import { LaunchWeekCapsule } from './launch-week-capsule';
 import { TrackedLink } from './tracked-link';
 
 const GITHUB_URL = 'https://github.com/arturbien/ramka';
@@ -11,11 +13,14 @@ export function LicenseCta() {
   return (
     <section className="mx-auto w-full max-w-3xl px-6 pb-24 text-center md:pb-32">
       <h2 className="text-balance text-4xl font-semibold tracking-tight text-neutral-950 md:text-5xl dark:text-neutral-50">
-        From $79. Once.
+        From {startingPrice}. Once.
       </h2>
+      <div className="mt-5 flex justify-center empty:hidden">
+        <LaunchWeekCapsule />
+      </div>
       <p className="mx-auto mt-6 max-w-xl text-pretty text-neutral-500 dark:text-neutral-400">
         Free for open source under the GPL. For proprietary software, a one-time
-        license — solo or whole-team, depending on the tier — is yours forever.
+        license (solo or whole-team, depending on the tier) is yours forever.
         No subscription, no per-seat pricing.
       </p>
 
