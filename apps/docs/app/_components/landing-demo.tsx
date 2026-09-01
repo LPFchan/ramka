@@ -265,7 +265,14 @@ export function LandingDemo({ eager = true }: { eager?: boolean }) {
           );
         })}
       </div>
-      <LightboxGallery items={allImages} ariaLabel="ramka demo gallery" backdrop="solid" />
+      {/* Peek (snug) is the first-visit default; the toggle + localStorage take over from there. */}
+      <LightboxGallery
+        items={allImages}
+        ariaLabel="ramka demo gallery"
+        backdrop="solid"
+        slidesLayout="snug"
+        layoutToggle
+      />
     </Lightbox.Root>
   );
 }

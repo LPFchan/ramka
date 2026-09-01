@@ -75,6 +75,21 @@
     visibility 0s linear 200ms;
 }
 
+/*
+ * Zoomed media must never slide under the thumbnail strip: while zoomed
+ * (including the zoom-in animation — `data-zoomed` arms at commit, and stays
+ * through zoom-out), the slides paint above the fading bottom band. Only the
+ * bottom band drops — the top controls (zoom/close) keep their z-30 above
+ * the media so they stay clickable on desktop.
+ */
+.lightbox-demo-content[data-zoomed] .lightbox-demo-slides {
+  z-index: 10;
+}
+
+.lightbox-demo-content[data-zoomed] .lightbox-demo-chrome-bottom {
+  z-index: 0;
+}
+
 @media (max-width: 767px) {
   .lightbox-demo-content[data-zoomed] .lightbox-demo-chrome-top.lightbox-demo-chrome-hide {
     opacity: 0;
@@ -83,6 +98,20 @@
       opacity 200ms,
       visibility 0s linear 200ms;
   }
+}
+
+/*
+ * Individual controls that bow out while zoomed even though the top chrome
+ * stays (e.g. the theater/peek toggle — flipping layouts would remount the
+ * track and drop the zoom). Pair with .lightbox-demo-chrome-hide for the
+ * resting opacity/visibility/transition base.
+ */
+.lightbox-demo-content[data-zoomed] .lightbox-demo-zoom-hide {
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 200ms,
+    visibility 0s linear 200ms;
 }
 
 /* Light scrim used by LightboxGallery (shared docs viewer chrome). */

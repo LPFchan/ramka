@@ -247,7 +247,7 @@ function Gallery({
   onSlidesLayoutChange?: (layout: SlidesLayout) => void;
 }) {
   const [slidesLayoutInternal, setSlidesLayoutInternal] = React.useState<SlidesLayout>(
-    () => readStoredSlidesLayout() ?? 'bleed',
+    () => readStoredSlidesLayout() ?? 'snug',
   );
   const slidesLayout = slidesLayoutProp ?? slidesLayoutInternal;
   const snug = slidesLayout === 'snug';
@@ -333,13 +333,14 @@ function Gallery({
         </Slides>
 
         <div className={cx('lb-top-right', 'lb-chrome-gesture-hide')}>
-          {/* Layout toggle: the icon is a miniature of the CURRENT layout —
-              snug shows a card with neighbours, bleed one wide slide. */}
+          {/* Layout toggle. User copy: "theater" = bleed (one wide slide),
+              "peek" = snug (card with neighbours peeking). The icon is a
+              miniature of the CURRENT layout; the label names the TARGET. */}
           <button
             type="button"
             className={cx('lb-control', 'lb-control-md', 'lb-control-layout')}
             aria-pressed={snug}
-            aria-label={snug ? 'Switch to full-bleed slides' : 'Switch to snug slides'}
+            aria-label={snug ? 'Switch to theater layout' : 'Switch to peek layout'}
             onClick={toggleSlidesLayout}
           >
             {snug ? <IconLayoutSnug /> : <IconLayoutBleed />}

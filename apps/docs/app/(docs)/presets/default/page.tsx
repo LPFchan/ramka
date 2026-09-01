@@ -58,7 +58,7 @@ export default async function DefaultLightboxPresetPage() {
           <code className="text-xs">Lightbox</code> namespace — drop the{' '}
           <strong className="font-medium text-neutral-800 dark:text-neutral-200">Package</strong>{' '}
           files into a design-system entry, then compose triggers in your app. Gallery includes a
-          top-right <strong className="font-medium text-neutral-800 dark:text-neutral-200">Bleed / Snug</strong>{' '}
+          top-right <strong className="font-medium text-neutral-800 dark:text-neutral-200">Theater / Peek</strong>{' '}
           toggle (desktop) to switch between full-width and aspect-sized slide tracks. The{' '}
           <strong className="font-medium text-neutral-800 dark:text-neutral-200">Example</strong>{' '}
           tab shows the live preview (<code className="text-xs">+N</code> crossfade, child{' '}

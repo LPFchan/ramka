@@ -1,10 +1,21 @@
 'use client';
 
 import * as React from 'react';
+import { flushSync } from 'react-dom';
 import Image, { type StaticImageData } from 'next/image';
 import * as Lightbox from '@ramka/react/lightbox';
 import { useLightboxTriggerContext } from '@ramka/react';
-import { ChevronLeft, ChevronRight, X, ZoomIn, ZoomOut } from 'lucide-react';
+import {
+  ChevronLeft,
+  ChevronRight,
+  GalleryHorizontal,
+  RectangleHorizontal,
+  X,
+  ZoomIn,
+  ZoomOut,
+} from 'lucide-react';
+
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 /**
  * Shared Tailwind chrome for Lightbox examples. These are *consumer-side*
@@ -50,16 +61,61 @@ export const lightboxChromeButton =
   'shadow-[0_0.5px_1px_rgba(0,0,0,0.12),0_1px_2px_rgba(0,0,0,0.08),inset_0_0.5px_0_rgba(255,255,255,0.65)] ' +
   'backdrop-blur-2xl backdrop-saturate-150 ' +
   'transition-[background-color,box-shadow,transform,opacity,color] duration-150 ease-out ' +
-  'hover:bg-white/65 active:scale-[0.96] active:bg-white/75 ' +
+  // Hover/press tint is a background-image overlay (same recipe as the
+  // capsule segments) so standalone pills and grouped segments read alike.
+  'hover:[background-image:linear-gradient(rgba(0,0,0,0.05),rgba(0,0,0,0.05))] ' +
+  'active:scale-[0.96] active:[background-image:linear-gradient(rgba(0,0,0,0.09),rgba(0,0,0,0.09))] ' +
   'focus:outline-none focus-visible:ring-2 focus-visible:ring-black/25 ' +
-  'disabled:cursor-not-allowed disabled:opacity-30 disabled:active:scale-100 ' +
+  // pointer-events-none (not cursor-not-allowed): disabled buttons still
+  // match :hover and still emit pointer events in Chrome, which would show
+  // the hover tint and open tooltips. Same recipe as the default preset.
+  'disabled:pointer-events-none disabled:opacity-30 ' +
   'dark:border-white/25 dark:bg-neutral-900/45 dark:text-white ' +
   // 0.5px black outline (via shadow so it follows the circle) + crisp drop shadow.
   'dark:shadow-[0_0_0_0.5px_#000,0_0.5px_1px_rgba(0,0,0,0.45),0_1px_2px_rgba(0,0,0,0.35),inset_0_0.5px_0_rgba(255,255,255,0.14)] ' +
-  'dark:hover:bg-neutral-900/55 dark:active:bg-neutral-900/65 dark:focus-visible:ring-white/40';
+  'dark:hover:[background-image:linear-gradient(rgba(255,255,255,0.08),rgba(255,255,255,0.08))] ' +
+  'dark:active:[background-image:linear-gradient(rgba(255,255,255,0.12),rgba(255,255,255,0.12))] ' +
+  'dark:focus-visible:ring-white/40';
 
 /** Glass control hidden below `md` (zoom in/out — pinch covers mobile). */
 export const lightboxChromeButtonMd = `hidden md:inline-flex ${lightboxChromeButton.replace('inline-flex ', '')}`;
+
+/**
+ * Joined capsule — one glass pill holding several segments (zoom −/+) with a
+ * hairline divider, like iOS grouped controls (mirrors the default preset).
+ * The pill owns the glass chrome; segments are flat, full-height hit areas.
+ * Desktop-only, same as the standalone zoom buttons (pinch covers mobile).
+ */
+export const lightboxChromeButtonGroup =
+  'pointer-events-auto hidden h-9 items-stretch overflow-hidden rounded-full md:inline-flex ' +
+  'border border-black/20 bg-white/55 ' +
+  'shadow-[0_0.5px_1px_rgba(0,0,0,0.12),0_1px_2px_rgba(0,0,0,0.08),inset_0_0.5px_0_rgba(255,255,255,0.65)] ' +
+  'backdrop-blur-2xl backdrop-saturate-150 ' +
+  'dark:border-white/25 dark:bg-neutral-900/45 ' +
+  'dark:shadow-[0_0_0_0.5px_#000,0_0.5px_1px_rgba(0,0,0,0.45),0_1px_2px_rgba(0,0,0,0.35),inset_0_0.5px_0_rgba(255,255,255,0.14)]';
+
+/**
+ * Segment inside {@link lightboxChromeButtonGroup}: no glass of its own (the
+ * pill owns it), hover/press tint via background-image so it reads on the
+ * transparent fill, inset focus ring (the pill clips outset rings). Each
+ * segment is as wide as the pill is tall → a two-segment capsule is 2:1.
+ */
+export const lightboxChromeButtonSegment =
+  'relative inline-flex w-9 shrink-0 items-center justify-center text-neutral-900 ' +
+  'transition-[background-color,box-shadow,opacity,color] duration-150 ease-out ' +
+  'hover:[background-image:linear-gradient(rgba(0,0,0,0.05),rgba(0,0,0,0.05))] ' +
+  'active:[background-image:linear-gradient(rgba(0,0,0,0.09),rgba(0,0,0,0.09))] ' +
+  'focus:outline-none focus-visible:shadow-[inset_0_0_0_2px_rgba(0,0,0,0.25)] ' +
+  // See lightboxChromeButton: blocks hover tint + tooltips while disabled.
+  'disabled:pointer-events-none disabled:opacity-30 ' +
+  'dark:text-white ' +
+  'dark:hover:[background-image:linear-gradient(rgba(255,255,255,0.08),rgba(255,255,255,0.08))] ' +
+  'dark:active:[background-image:linear-gradient(rgba(255,255,255,0.12),rgba(255,255,255,0.12))] ' +
+  'dark:focus-visible:shadow-[inset_0_0_0_2px_rgba(255,255,255,0.4)]';
+
+/** Hairline divider on the leading edge of a follow-up capsule segment. */
+export const lightboxChromeSegmentDivider =
+  "before:absolute before:inset-y-[22%] before:start-0 before:w-px before:bg-black/15 before:content-[''] dark:before:bg-white/20";
 
 /**
  * Intrinsic pixel dimensions encoded in a picsum URL (`…/{width}/{height}`).
@@ -122,6 +178,34 @@ type GalleryItemRenderCtx = {
   morphRef: (node: HTMLElement | null) => void;
 };
 
+/**
+ * The snug/bleed choice is a user preference, so it survives across galleries
+ * and visits (same recipe as the default preset, separate key — docs demos
+ * shouldn't fight the preset pages over one setting). Guarded reads/writes:
+ * localStorage throws in some private modes, and `window` doesn't exist
+ * during SSR (the portal renders nothing while closed, so the pre-hydration
+ * value is never visible anyway).
+ */
+const SLIDES_LAYOUT_STORAGE_KEY = 'ramka-docs-slides-layout';
+
+function readStoredSlidesLayout(): 'bleed' | 'snug' | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const value = window.localStorage.getItem(SLIDES_LAYOUT_STORAGE_KEY);
+    return value === 'snug' || value === 'bleed' ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+function storeSlidesLayout(layout: 'bleed' | 'snug') {
+  try {
+    window.localStorage.setItem(SLIDES_LAYOUT_STORAGE_KEY, layout);
+  } catch {
+    // Storage unavailable — the toggle still works for this session.
+  }
+}
+
 /** Default docs strip: square thumbs + stationary floating square indicator. */
 function GalleryThumbnailStrip({
   items,
@@ -160,7 +244,7 @@ function GalleryThumbnailStrip({
 export function LightboxGallery({
   items,
   ariaLabel,
-  preload = 2,
+  preload = 3,
   maxZoom = 6,
   thumbnails = 'desktop',
   zoomControls = true,
@@ -179,7 +263,13 @@ export function LightboxGallery({
    * are Slide padding; desktop horizontal inset is a width cap (not
    * padding-inline). See `lightbox-demo/chrome-insets.css` + `snug-slides.css`.
    */
-  slidesLayout = 'bleed',
+  slidesLayout: slidesLayoutProp = 'bleed',
+  /**
+   * Desktop-only bleed/snug toggle in the top chrome (mirrors the default
+   * preset). When on, `slidesLayout` is just the first-visit default — the
+   * user's choice wins and persists in localStorage.
+   */
+  layoutToggle = false,
   renderItem,
   /** Portaled inside Content — e.g. debug tooling or in-viewer controls. */
   overlay,
@@ -195,9 +285,37 @@ export function LightboxGallery({
   pullToClose?: boolean;
   backdrop?: 'scrim' | 'solid';
   slidesLayout?: 'bleed' | 'snug';
+  layoutToggle?: boolean;
   renderItem?: (item: LightboxGalleryItem, index: number, ctx: GalleryItemRenderCtx) => React.ReactNode;
   overlay?: React.ReactNode;
 }) {
+  const [slidesLayoutState, setSlidesLayoutState] = React.useState<'bleed' | 'snug'>(
+    () => (layoutToggle ? readStoredSlidesLayout() : null) ?? slidesLayoutProp,
+  );
+  const slidesLayout = layoutToggle ? slidesLayoutState : slidesLayoutProp;
+
+  const toggleSlidesLayout = React.useCallback(() => {
+    const flip = () =>
+      setSlidesLayoutState((prev) => {
+        const next = prev === 'snug' ? 'bleed' : 'snug';
+        storeSlidesLayout(next);
+        return next;
+      });
+    // Default root crossfade between the two layouts (no move effects — the
+    // keyed Slides remount swaps geometry, the VT dissolves old → new).
+    // Skipped under prefers-reduced-motion and where the API is missing.
+    // The library's VT CSS is gated on `data-ramka-view-transition` (open/
+    // close morphs only), so this transition keeps the browser default look.
+    const reduceMotion =
+      typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduceMotion || typeof document.startViewTransition !== 'function') {
+      flip();
+      return;
+    }
+    document.startViewTransition(() => {
+      flushSync(flip);
+    });
+  }, []);
   // Viewport visibility only — linked layout/sync live in Lightbox.ThumbnailStrip.
   const thumbClass =
     thumbnails === 'always'
@@ -226,6 +344,9 @@ export function LightboxGallery({
         className={`lightbox-demo-content fixed inset-0 flex flex-col overscroll-contain outline-none${snug ? ' lightbox-demo-content-snug' : ''}${showStrip ? '' : ' lightbox-demo-content-solo'}`}
       >
         <Lightbox.Slides
+          // Remount the track when the toggle flips layouts mid-session — the
+          // bleed/snug geometry (spacers, widths) shouldn't animate between.
+          key={slidesLayout}
           aria-label="Full-size images"
           // The library ships no copy for these, so the words are ours to pass
           // (see the slide's `aria-roledescription` / `aria-label` below). In a
@@ -279,9 +400,14 @@ export function LightboxGallery({
                     ) : (
                       <Lightbox.Zoom maxZoom={maxZoom}>
                         {/* Radius/overflow are cosmetic on Media; width/height are structural. */}
+                        {/* The ::after draws the same Apple-style 0.5px inset outline as the
+                            landing triggers, so dark photos don't bleed into the dark-mode
+                            backdrop (and bright ones into the light scrim). Media is already
+                            position:relative (structural), so absolute insets just work.
+                            md+ only — the mobile edge-to-edge layout stays outline-free. */}
                         <Lightbox.Media
                           {...(galleryItemDims(item) ?? {})}
-                          className="overflow-hidden rounded-none md:rounded-lg"
+                          className="overflow-hidden rounded-none after:pointer-events-none after:absolute after:inset-0 after:z-10 after:rounded-[inherit] md:rounded-lg md:after:shadow-[inset_0_0_0_0.5px_rgba(0,0,0,0.1)] md:dark:after:shadow-[inset_0_0_0_0.5px_rgba(255,255,255,0.12)]"
                         >
                           {typeof item.src === 'object' ? (
                             // Destination Image: no placeholder unless the item
@@ -321,23 +447,80 @@ export function LightboxGallery({
           Chrome after Slides, and above snug zoomed-slide `z-20` — DOM order alone
           can’t win when a sibling slide creates a higher stacking context.
         */}
-        <div
-          className={`lightbox-demo-chrome-top lightbox-demo-chrome-hide absolute end-3 top-[calc(0.75rem+env(safe-area-inset-top,0px))] z-30 flex gap-2`}
-        >
-          {zoomControls ? (
-            <>
-              <Lightbox.ZoomOut className={lightboxChromeButtonMd} aria-label="Zoom out">
-                <ZoomOut aria-hidden className="h-4 w-4" strokeWidth={2.25} />
-              </Lightbox.ZoomOut>
-              <Lightbox.ZoomIn className={lightboxChromeButtonMd} aria-label="Zoom in">
-                <ZoomIn aria-hidden className="h-4 w-4" strokeWidth={2.25} />
-              </Lightbox.ZoomIn>
-            </>
-          ) : null}
-          <Lightbox.Close className={lightboxChromeButton} aria-label="Close">
-            <X aria-hidden className="h-[18px] w-[18px]" strokeWidth={2.25} />
-          </Lightbox.Close>
-        </div>
+        {/*
+          The app-level tooltip wrapper zeroes Base UI's delay; toolbar icons
+          want the platform feel instead — first tooltip after a beat, then
+          instant while moving across the group (provider-shared warm-up).
+        */}
+        <TooltipProvider delay={600}>
+          <div
+            className={`lightbox-demo-chrome-top lightbox-demo-chrome-hide absolute end-3 top-[calc(0.75rem+env(safe-area-inset-top,0px))] z-30 flex gap-2`}
+          >
+            {layoutToggle ? (
+              /* Layout toggle. User copy: "Theater" = bleed (one wide slide),
+                 "Peek" = snug (card with neighbours peeking). The icon is a
+                 miniature of the CURRENT layout; the label names the TARGET. */
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <button
+                      type="button"
+                      // zoom-hide: fades out while zoomed (see pull-progress.css) —
+                      // toggling layouts mid-zoom would remount the track and
+                      // drop the zoom pose.
+                      className={`${lightboxChromeButtonMd} lightbox-demo-chrome-hide lightbox-demo-zoom-hide`}
+                      aria-pressed={snug}
+                      aria-label={snug ? 'Switch to theater layout' : 'Switch to peek layout'}
+                      onClick={toggleSlidesLayout}
+                    />
+                  }
+                >
+                  {/* 16px like the zoom glyphs — the boxy layout glyphs read
+                      heavy at the close button's 18px (the ✕ is optically
+                      lighter, which is why it gets the larger size). */}
+                  {snug ? (
+                    <GalleryHorizontal aria-hidden className="h-4 w-4" strokeWidth={2.25} />
+                  ) : (
+                    <RectangleHorizontal aria-hidden className="h-4 w-4" strokeWidth={2.25} />
+                  )}
+                </TooltipTrigger>
+                <TooltipContent side="bottom">{snug ? 'Theater' : 'Peek'}</TooltipContent>
+              </Tooltip>
+            ) : null}
+            {zoomControls ? (
+              /* Zoom −/+ share one capsule with a hairline divider. */
+              <div className={lightboxChromeButtonGroup}>
+                <Tooltip>
+                  <TooltipTrigger
+                    render={<Lightbox.ZoomOut className={lightboxChromeButtonSegment} aria-label="Zoom out" />}
+                  >
+                    <ZoomOut aria-hidden className="h-4 w-4" strokeWidth={2.25} />
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">Zoom out</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger
+                    render={
+                      <Lightbox.ZoomIn
+                        className={`${lightboxChromeButtonSegment} ${lightboxChromeSegmentDivider}`}
+                        aria-label="Zoom in"
+                      />
+                    }
+                  >
+                    <ZoomIn aria-hidden className="h-4 w-4" strokeWidth={2.25} />
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">Zoom in</TooltipContent>
+                </Tooltip>
+              </div>
+            ) : null}
+            <Tooltip>
+              <TooltipTrigger render={<Lightbox.Close className={lightboxChromeButton} aria-label="Close" />}>
+                <X aria-hidden className="h-[18px] w-[18px]" strokeWidth={2.25} />
+              </TooltipTrigger>
+              <TooltipContent side="bottom">Close</TooltipContent>
+            </Tooltip>
+          </div>
+        </TooltipProvider>
 
         <div
           className={`lightbox-demo-chrome-bottom lightbox-demo-chrome-hide${showStrip ? '' : ' lightbox-demo-chrome-bottom-solo'} pointer-events-none absolute inset-x-0 bottom-0 z-30 flex flex-col items-center gap-3 px-3 pb-[calc(1rem+env(safe-area-inset-bottom,0px))]`}
