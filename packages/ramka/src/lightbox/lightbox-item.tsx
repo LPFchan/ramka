@@ -507,6 +507,12 @@ const LightboxItem = React.forwardRef<HTMLDivElement, LightboxItemProps>(
             // Fill the Slide so Zoom’s 100% has a definite box.
             width: '100%',
             height: '100%',
+            // Pull-to-dismiss writes per-frame 2D transforms on the active
+            // item, and 2D transforms alone don't force compositor promotion —
+            // without a persistent layer the promote/demote at gesture start/
+            // end leaves rasterization seams next to the image. Active-scoped
+            // so only one slide pays the layer cost.
+            willChange: isActive ? 'transform' : undefined,
             ...style,
           },
         } as React.ComponentPropsWithRef<'div'>,

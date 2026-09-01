@@ -3,6 +3,7 @@
 import * as React from 'react';
 
 import { LightboxZoomDataAttributes } from './lightbox-data-attributes';
+import { useOptionalLightboxItemContext } from './lightbox-item';
 import { ignoreStateAttribute } from './lightbox-state-attributes';
 import { ZoomContext, type ZoomContextValue } from './lightbox-zoom-context';
 import {
@@ -269,6 +270,11 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
       };
     }, [Engine]);
 
+    // Whether the owning slide is active (outside an Item — a standalone zoom
+    // surface — treat as active, mirroring the engine runtime).
+    const itemContext = useOptionalLightboxItemContext();
+    const isActiveSlide = itemContext ? itemContext.active : true;
+
     // Until the engine publishes, the resting pose — which is also what a
     // consumer who never zooms sees for the whole session.
     const pose = engine?.pose;
@@ -360,7 +366,13 @@ const LightboxZoom = React.forwardRef<LightboxZoomRef, LightboxZoomProps>(
           alignItems: 'center',
           justifyContent: 'center',
           transformOrigin: 'center center',
-          willChange: zoom > 1 || animating ? 'transform' : undefined,
+          // Promoted for the whole time the slide is active — not just while
+          // zoomed/animating. The pose engine writes plain 2D transforms every
+          // frame, and 2D transforms alone don't force compositor promotion,
+          // so a gesture-scoped hint made the browser promote/demote exactly
+          // at gesture boundaries — visible as rasterization seams next to
+          // the image. Active-scoped keeps it to one promoted slide.
+          willChange: isActiveSlide || zoom > 1 || animating ? 'transform' : undefined,
         }}
       >
         {resolvedChildren}
