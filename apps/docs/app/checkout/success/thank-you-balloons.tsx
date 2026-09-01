@@ -26,15 +26,18 @@ export function ThankYouBalloons() {
       if (cancelled) return;
 
       const color = "#171717";
+      // The widest row ("THANK": five balloon glyphs plus inter-character
+      // spacing) spans roughly 4.5x its font size, so scale against 950px:
+      // full size on desktop, and on phones the row keeps a little air on
+      // both sides instead of the K grazing the edge. The library centers
+      // each row but doesn't shrink one that overflows.
+      const scale = Math.min(1, window.innerWidth / 950);
       // Each entry is one centered row; the library releases them a second
-      // apart, so "THANK" lifts off first, "YOU" follows, then the emoji:
-      // the frame is ramka itself, the heart the thanks, the balloon the
-      // library carrying the moment. One of each, slightly smaller, so the
-      // sign-off stays quieter than the words above it.
+      // apart, so "THANK" lifts off first, "YOU" follows, then the emoji.
       textBalloons([
-        { text: 'THANK', fontSize: 180, color },
-        { text: 'YOU', fontSize: 180, color },
-        { text: '🥹🔥✌️', fontSize: 200, color },
+        { text: 'THANK', fontSize: Math.round(180 * scale), color },
+        { text: 'YOU', fontSize: Math.round(180 * scale), color },
+        { text: '🥹🔥✌️', fontSize: Math.round(200 * scale), color },
       ]);
     }, 350);
 
