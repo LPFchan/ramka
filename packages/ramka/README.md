@@ -114,7 +114,7 @@ license is a separate license grant from the copyright holder and permits use
 under its own terms rather than the GPL.
 
 [Read more about the commercial license](https://ramka.dev/license) ·
-[Commercial License Agreement](https://ramka.dev/license/commercial)
+[Ramka License Agreement](https://ramka.dev/license/commercial)
 
 Declare the license you are using on `Lightbox.Root` with `license="gpl"` or
 `license="commercial"`. This is an honor-system declaration, not a license key,

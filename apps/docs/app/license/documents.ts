@@ -72,6 +72,7 @@ async function readFromRepo(relPath: string): Promise<string> {
  */
 const ANCHOR_OVERRIDES: Record<string, string> = {
   'source-code-and-modifications': 'source-code',
+  indie: 'tier-indie',
   commercial: 'tier-commercial',
   agency: 'tier-agency',
   'embedded-oem': 'tier-embedded',

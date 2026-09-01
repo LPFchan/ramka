@@ -1,5 +1,6 @@
 import Link from 'next/link';
 
+import { ConsentPreferencesLink } from './consent';
 import { FooterWordplay } from './footer-wordplay';
 
 const GITHUB_URL = 'https://github.com/arturbien/ramka';
@@ -31,6 +32,7 @@ export function SiteFooter() {
           <Link href="/returns" className={footerLinkClassName}>
             Returns
           </Link>
+          <ConsentPreferencesLink className={footerLinkClassName} />
           <a href={GITHUB_URL} target="_blank" rel="noreferrer" className={footerLinkClassName}>
             GitHub
           </a>

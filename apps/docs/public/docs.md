@@ -64,7 +64,7 @@ If your use of ramka creates a work that is subject to the GPL, the GPL’s sour
 
 Most teams building closed-source products will therefore want the commercial license.
 
-This is practical guidance, not legal advice. The applicable license terms govern: the [GPL](https://www.gnu.org/licenses/gpl-3.0.html) for open-source use, or the [Commercial License Agreement](https://ramka.dev/license/commercial) if you purchase one.
+This is practical guidance, not legal advice. The applicable license terms govern: the [GPL](https://www.gnu.org/licenses/gpl-3.0.html) for open-source use, or the [Ramka License Agreement](https://ramka.dev/license/commercial) if you purchase a paid license.
 
 Declare the license you are using on `Lightbox.Root` with `license="gpl"` or `license="commercial"`. This is an honor-system declaration, not a license key, and is not validated remotely.
 

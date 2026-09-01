@@ -97,8 +97,8 @@ pnpm dev
 
 ## License
 
-Dual-licensed: [GPL-3.0-only](./LICENSE), or a [commercial license](https://ramka.dev/license) you may
+Dual-licensed: [GPL-3.0-only](./LICENSE), or a [paid license](https://ramka.dev/license) you may
 purchase if you are building proprietary software and do not want to rely on the
 GPL. The header of [LICENSE](./LICENSE) is the overview, and
 [COMMERCIAL-LICENSE.md](./packages/ramka/COMMERCIAL-LICENSE.md) is the
-commercial agreement.
+Ramka License Agreement governing the paid tiers.

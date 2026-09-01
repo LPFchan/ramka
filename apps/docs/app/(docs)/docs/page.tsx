@@ -83,9 +83,9 @@ export default function HomePage() {
           </a>{' '}
           for open-source use, or the{' '}
           <Link href="/license/commercial" className={docsLinkClassName}>
-            Commercial License Agreement
+            Ramka License Agreement
           </Link>{' '}
-          if you purchase one.
+          if you purchase a paid license.
         </p>
         <p className="text-[15px] leading-7 text-neutral-600 dark:text-neutral-400">
           Declare the license you are using on <code className="text-xs">Lightbox.Root</code> with{' '}
