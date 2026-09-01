@@ -196,6 +196,10 @@ export function LandingDemo({ eager = true }: { eager?: boolean }) {
       // Closing from a hidden item (no trigger of its own) morphs back to
       // the nearest registered trigger — the "+2" stack tile.
       morphTo="closest"
+      // Every trigger wires its image via `imageRef`, so the thumb bridges
+      // the open morph as a placeholder — no need to hold the morph for the
+      // full-res decode.
+      awaitImageDecode={false}
       // Same pairing as the Photos app example: instant repositioning is
       // invisible behind the solid backdrop, and the close morph always lands
       // on an on-screen tile instead of jumping to one scrolled away.
