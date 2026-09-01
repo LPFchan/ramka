@@ -3,7 +3,6 @@ import type { ReactNode } from 'react';
 import { Inter } from 'next/font/google';
 import { Analytics } from '@vercel/analytics/next';
 
-import { ConsentBanner } from './_components/consent';
 import { ThemeProvider } from './_components/theme-provider';
 import { siteUrl } from './_content/site';
 import { TooltipProvider } from '@/components/ui/tooltip';
@@ -86,22 +85,9 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         sit above page content without competing with in-app z-index values.
       */}
       <body className="relative min-h-screen bg-background text-foreground antialiased">
-        {/* Whop pixel (business biz_k1Wgt8FGamwpvh), verbatim from Whop's
-            install snippet — but wrapped in a loader that only runs with the
-            visitor's stored consent, because the pixel stores a browser
-            identifier (see _components/consent.tsx for the ePrivacy analysis).
-            Inline rather than next/script so a consented visitor's pixel still
-            runs on the first paint of every full page load; it appends its own
-            async <script> for t.whop.tw. Note this fires one "page" event per
-            document load, not per client-side route change. New consents are
-            handled by ConsentBanner calling __ramkaLoadWhopPixel directly. */}
-        <script
-          dangerouslySetInnerHTML={{
-            __html:
-              'window.__ramkaLoadWhopPixel=function(){!function(w,d,s,u,n,a,b){if(w[n])return;a=w[n]={q:[],t:+new Date,s:[],o:u,track:function(){a.q.push([+new Date].concat([].slice.call(arguments)))},setScope:function(){a.s=[].slice.call(arguments).filter(function(x){return typeof x==="string"});a.q.push([+new Date,"setScope"].concat(a.s))},scope:function(){var c=[].slice.call(arguments);return{track:function(){a.q.push([+new Date].concat([].slice.call(arguments)).concat([{__scope:c}]))}}}};b=d.createElement(s);b.async=1;b.src=u+"/s.js";d.getElementsByTagName(s)[0].parentNode.insertBefore(b,d.getElementsByTagName(s)[0])}(window,document,"script","https://t.whop.tw","whop");whop.setScope("biz_k1Wgt8FGamwpvh");whop.track("page");};' +
-              'try{if(localStorage.getItem("ramka-consent")==="granted")window.__ramkaLoadWhopPixel();}catch(e){}',
-          }}
-        />
+        {/* No Whop pixel: it stores browser identifiers, which under ePrivacy
+            rules would need a prior-consent banner. Cookieless Vercel
+            Analytics (below) is the only measurement. */}
         {/* ramka's composited transform-only morph (see vt-composited-morph.ts)
             is the shipped morph; append ?vtstock to force the stock UA morph
             instead, for debugging a suspected regression in the composited
@@ -120,7 +106,6 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <ThemeProvider>
           <TooltipProvider delay={150}>{children}</TooltipProvider>
         </ThemeProvider>
-        <ConsentBanner />
         <Analytics />
       </body>
     </html>
