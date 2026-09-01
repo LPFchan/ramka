@@ -57,6 +57,23 @@ export default async function CheckoutSuccessPage({ searchParams }: { searchPara
               <p className="mt-4 text-pretty text-[17px] leading-7 text-neutral-500 dark:text-neutral-400">
                 Your license is active. The receipt and purchase details are on their way to your inbox.
               </p>
+
+              {/* The entire setup, since there are no keys to paste: declare
+                  the license on the root component and move on. */}
+              <div className="mt-8 rounded-2xl border border-neutral-200 p-5 text-left dark:border-neutral-800">
+                <p className="text-[13px] font-medium text-neutral-900 dark:text-neutral-100">
+                  Setup is one prop
+                </p>
+                <div className="mt-3 overflow-x-auto rounded-lg bg-neutral-50 px-3.5 py-2.5 dark:bg-neutral-900">
+                  <code className="whitespace-nowrap font-mono text-[13px] text-neutral-800 dark:text-neutral-200">
+                    {'<Lightbox.Root license="commercial">'}
+                  </code>
+                </div>
+                <p className="mt-3 text-pretty text-[13px] leading-6 text-neutral-500 dark:text-neutral-400">
+                  An honor-system declaration: no license keys, no activation, nothing validated remotely.
+                </p>
+              </div>
+
               <Link href="/docs" className={`${primaryCtaClassName} mt-10`}>
                 Read the docs
               </Link>
