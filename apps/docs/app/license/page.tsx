@@ -49,6 +49,15 @@ interface Tier {
   name: string;
   description: string;
   price: string;
+  /**
+   * Launch-week anchor: the regular price that applies once launch week ends.
+   * Framed as a future price ("$99 after launch week"), never as a former
+   * price — these tiers have not sold at the regular price yet, and a
+   * struck-through price that never applied is a fictitious reference price
+   * under EU/Polish price-indication rules. To end launch week, delete these
+   * values and raise `price` to the regular price.
+   */
+  regularPrice?: string;
   /** Sits under the price: the payment model. */
   priceNote: string;
   /** Short differentiators only — everything shared lives in the strip below the cards. */
@@ -65,6 +74,7 @@ const tiers: Tier[] = [
     name: 'Indie',
     description: 'For individual developers building their own products.',
     price: '$79',
+    regularPrice: '$99',
     priceNote: 'One-time payment',
     items: [
       'Unlimited products you personally own',
@@ -80,6 +90,7 @@ const tiers: Tier[] = [
     name: 'Business',
     description: 'For companies building their own proprietary products.',
     price: '$129',
+    regularPrice: '$150',
     priceNote: 'One-time payment',
     items: [
       'Unlimited products owned by your company',
@@ -94,6 +105,7 @@ const tiers: Tier[] = [
     name: 'Agency',
     description: 'For freelancers and agencies building products for clients.',
     price: '$299',
+    regularPrice: '$349',
     priceNote: 'One-time payment',
     items: [
       'Unlimited client projects',
@@ -185,8 +197,24 @@ function TierCard({ tier }: { tier: Tier }) {
       </div>
 
       <div className="mt-6">
-        <div className="text-4xl font-semibold tracking-tight text-neutral-950 dark:text-neutral-50">{tier.price}</div>
-        <div className="mt-1.5 text-[13px] text-neutral-400 dark:text-neutral-500">{tier.priceNote}</div>
+        <div className="flex items-baseline gap-2.5">
+          <div className="text-4xl font-semibold tracking-tight text-neutral-950 dark:text-neutral-50">
+            {tier.price}
+          </div>
+          {tier.regularPrice ? (
+            // Decorative anchor only — the visible note below carries the
+            // meaning, so screen readers skip the bare struck number.
+            <div
+              aria-hidden
+              className="text-xl font-medium tracking-tight text-neutral-300 line-through decoration-from-font dark:text-neutral-600"
+            >
+              {tier.regularPrice}
+            </div>
+          ) : null}
+        </div>
+        <div className="mt-1.5 text-[13px] text-neutral-400 dark:text-neutral-500">
+          {tier.regularPrice ? `${tier.priceNote} · ${tier.regularPrice} after launch week` : tier.priceNote}
+        </div>
       </div>
 
       {/* Two lines' worth of room, so the descriptions' differing lengths
@@ -259,6 +287,25 @@ export default async function LicensePage() {
 
         <section className="mx-auto w-full max-w-5xl px-6 pt-14 md:pt-16">
           <h2 className="sr-only">License tiers</h2>
+
+          {/* Launch-week framing lives at section level, worded as introductory
+              pricing with an announced future increase — never as a discount
+              from a former price, since no tier has sold at the regular price
+              yet. Remove alongside the tiers' `regularPrice` values.
+
+              Styled as a live-status capsule (hairline, soft tint, pulsing
+              dot) rather than a badge, so it reads "happening now" and doesn't
+              repeat the Most-popular pill sitting on the card below it. */}
+          <div className="mb-8 flex justify-center">
+            <p className="flex items-center gap-2.5 rounded-full border border-emerald-600/20 bg-emerald-50/60 py-1.5 pr-4 pl-3.5 text-[13px] font-medium text-emerald-900 dark:border-emerald-400/20 dark:bg-emerald-950/40 dark:text-emerald-200">
+              <span aria-hidden className="relative flex size-2">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-500 opacity-60 motion-reduce:hidden" />
+                <span className="relative inline-flex size-2 rounded-full bg-emerald-500" />
+              </span>
+              Launch week — introductory pricing, regular prices after
+            </p>
+          </div>
+
           <div className="grid gap-4 lg:grid-cols-3 lg:items-stretch lg:gap-5">
             {tiers.map((tier) => (
               <TierCard key={tier.name} tier={tier} />
