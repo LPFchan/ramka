@@ -11,6 +11,7 @@ import {
   SLIDE_SELECTOR,
 } from './lightbox-slides-geometry';
 import { readInlineScroll, writeInlineScroll } from './lightbox-direction';
+import { isFirefox } from './is-firefox';
 import { useDirectionMismatchWarning } from './use-direction-mismatch-warning';
 import { useLightboxZoomPublish } from './lightbox-zoom-context';
 import { mergeProps } from '../render/merge-props';
@@ -101,11 +102,14 @@ interface LightboxSlidesProps extends useRender.ComponentProps<'div', LightboxSl
 
 /**
  * Quiet gap (ms without a scroll event) after which we treat a user scroll as
- * finished — used only in engines without `scrollend`. Must not run alongside
- * `scrollend`: a trackpad swipe that turns from horizontal to vertical stops
- * producing `scroll` events (`overflow-y: hidden`) while the gesture is still
- * down, and unlocking on that quiet gap lets pull-to-dismiss start mid-swipe.
- * `scrollend` fires when the user has released and the scroller is at rest.
+ * finished — used only in engines without a *reliable* `scrollend` (Safari
+ * < 17.4 has none; Gecko advertises it but often never fires it after a wheel
+ * scroll settles through snap — see `scrollendReliable`). Must not run
+ * alongside a reliable `scrollend`: a trackpad swipe that turns from
+ * horizontal to vertical stops producing `scroll` events
+ * (`overflow-y: hidden`) while the gesture is still down, and unlocking on
+ * that quiet gap lets pull-to-dismiss start mid-swipe. `scrollend` fires when
+ * the user has released and the scroller is at rest.
  */
 const SCROLL_IDLE_MS = 140;
 
@@ -404,15 +408,26 @@ const LightboxSlides = React.forwardRef<HTMLDivElement, LightboxSlidesProps>(
         const derived = indexFromScroll(viewport);
         if (derived !== activeIndexRef.current) setActiveIndex(derived, 'scroll');
       };
+      // Gecko advertises `scrollend` but frequently never fires it for a wheel
+      // scroll that settles through scroll snap (Bugzilla 1993068; the
+      // "scrollend fired after snap completion" WPT fails on Gecko), and can
+      // deliver a late `scroll` *after* `scrollend` — which re-locks with no
+      // follow-up settle signal. Either way the fling lock is held forever and
+      // every gated surface (thumbs/keyboard/buttons/zoom/pull) goes dead until
+      // a trackpad pinch happens to arm the fallback. Treat Firefox as a
+      // no-`scrollend` engine: `scrollend` still settles immediately when it
+      // does fire; the quiet-gap timer is the guaranteed release.
+      const scrollendReliable = 'onscrollend' in window && !isFirefox();
       const armIdleFallback = () => {
         window.clearTimeout(idleTimerRef.current);
         idleTimerRef.current = 0;
         // `scrollend` is the settle signal (user released, scroller at rest).
         // A quiet gap is not: turning a trackpad swipe vertical stops `scroll`
-        // events without ending the gesture. Only engines without `scrollend`
-        // (Safari < 17.4) fall back to idle — unless a trackpad pinch aborted
-        // the swipe, in which case `scrollend` often never comes.
-        if ('onscrollend' in window && !pinchInterruptedRef.current) return;
+        // events without ending the gesture. Only engines without a *reliable*
+        // `scrollend` (Safari < 17.4, Firefox — see above) fall back to idle —
+        // unless a trackpad pinch aborted the swipe, in which case `scrollend`
+        // often never comes.
+        if (scrollendReliable && !pinchInterruptedRef.current) return;
         idleTimerRef.current = window.setTimeout(settle, SCROLL_IDLE_MS);
       };
       const lockUserScroll = () => {

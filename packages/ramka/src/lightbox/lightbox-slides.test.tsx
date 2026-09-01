@@ -430,6 +430,54 @@ describe('Lightbox.Slides', () => {
     }
   });
 
+  it('Firefox: unlocks via the idle fallback even though scrollend is advertised', () => {
+    // Gecko advertises `onscrollend` but often never fires it for a wheel
+    // scroll that settles through scroll snap (Bugzilla 1993068). Trusting the
+    // advertised event left the fling lock held forever — thumbs, keyboard,
+    // zoom buttons and pinch all dead until a trackpad pinch happened to arm
+    // the fallback. Firefox must use the quiet-gap fallback as the guaranteed
+    // release.
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    const originalUa = navigator.userAgent;
+    Object.defineProperty(navigator, 'userAgent', {
+      configurable: true,
+      value: 'Mozilla/5.0 (Macintosh; rv:153.0) Gecko/20100101 Firefox/153.0',
+    });
+    try {
+      expect('onscrollend' in window).toBe(true);
+      render(<SlidesLightbox />);
+      const viewport = screen.getByTestId('slides');
+      setupGeometry(viewport, 8);
+
+      // Swipe locks discrete navigation.
+      swipeTo(viewport, 3);
+      expect(activeThumb()).toBe(3);
+
+      // A thumbnail click mid-fling is dropped while locked.
+      act(() => {
+        fireEvent.click(screen.getByTestId('thumb-6'));
+      });
+      expect(activeThumb()).toBe(3);
+
+      // `scrollend` never arrives: the quiet-gap fallback must release the lock.
+      act(() => {
+        vi.advanceTimersByTime(200);
+      });
+
+      act(() => {
+        fireEvent.click(screen.getByTestId('thumb-6'));
+      });
+      act(() => flushRaf());
+      expect(activeThumb()).toBe(6);
+    } finally {
+      Object.defineProperty(navigator, 'userAgent', {
+        configurable: true,
+        value: originalUa,
+      });
+      vi.useRealTimers();
+    }
+  });
+
   it('navigates arrow keys relative to the active index, not the focused thumbnail', () => {
     // A swipe moves the active item without moving DOM focus. Arrow keys must
     // step from the *active* index (source of truth), so the next arrow after a
