@@ -49,15 +49,15 @@ interface Tier {
   name: string;
   description: string;
   price: string;
-  /** Sits under the price: the payment model for paid tiers, the process for OEM. */
+  /** Sits under the price: the payment model. */
   priceNote: string;
   /** Short differentiators only — everything shared lives in the strip below the cards. */
   items: string[];
   /** The one tier that carries the raised card. */
   featured?: boolean;
-  /** Paid tiers go to Whop hosted checkout; OEM stays on email. */
-  checkoutPlan?: PaidCheckoutPlan;
-  buyLabel?: string;
+  /** Whop hosted checkout for this tier. */
+  checkoutPlan: PaidCheckoutPlan;
+  buyLabel: string;
 }
 
 const tiers: Tier[] = [
@@ -102,13 +102,6 @@ const tiers: Tier[] = [
     ],
     checkoutPlan: 'agency',
     buyLabel: 'Buy Agency',
-  },
-  {
-    name: 'Embedded / OEM',
-    description: 'For proprietary redistribution — products that expose ramka for use by third parties.',
-    price: 'Custom',
-    priceNote: 'Quoted over email',
-    items: ['Component libraries and SDKs', 'Site builders and template systems', 'White-label products'],
   },
 ];
 
@@ -167,14 +160,14 @@ const faqs = [
   },
 ];
 
-function TierCard({ tier, contactHref, checkoutHref }: { tier: Tier; contactHref: string; checkoutHref?: string }) {
+function TierCard({ tier }: { tier: Tier }) {
   return (
     <div
       className={cn(
         // Capped and centred while stacked: a full-bleed card at 900px would
         // stretch its pill button across the viewport. The cap lifts once the
-        // cards sit in a grid.
-        'mx-auto flex w-full max-w-md flex-col rounded-3xl border p-8 sm:max-w-none',
+        // three sit side by side.
+        'mx-auto flex w-full max-w-md flex-col rounded-3xl border p-8 lg:max-w-none',
         tier.featured
           ? // Emphasis by hierarchy: a darker hairline and one soft ambient
             // shadow lift this card without any accent colour or badge fill.
@@ -197,8 +190,8 @@ function TierCard({ tier, contactHref, checkoutHref }: { tier: Tier; contactHref
       </div>
 
       {/* Two lines' worth of room, so the descriptions' differing lengths
-          don't leave neighbouring lists starting at different heights. */}
-      <p className="mt-6 text-pretty text-[15px] leading-6 text-neutral-600 sm:min-h-12 dark:text-neutral-400">
+          don't leave the three lists starting at three different heights. */}
+      <p className="mt-6 text-pretty text-[15px] leading-6 text-neutral-600 lg:min-h-12 dark:text-neutral-400">
         {tier.description}
       </p>
 
@@ -212,24 +205,14 @@ function TierCard({ tier, contactHref, checkoutHref }: { tier: Tier; contactHref
       </ul>
 
       <div className="mt-auto pt-8">
-        {checkoutHref ? (
-          <TrackedAnchor
-            event="checkout_click"
-            eventData={{ tier: tier.checkoutPlan ?? tier.name }}
-            href={checkoutHref}
-            className={tier.featured ? primaryCtaClassName : secondaryCtaClassName}
-          >
-            {tier.buyLabel}
-          </TrackedAnchor>
-        ) : tier.checkoutPlan ? null : (
-          <TrackedAnchor
-            event="oem_contact_click"
-            href={contactHref}
-            className={secondaryCtaClassName}
-          >
-            Contact us
-          </TrackedAnchor>
-        )}
+        <TrackedAnchor
+          event="checkout_click"
+          eventData={{ tier: tier.checkoutPlan }}
+          href={checkoutUrls[tier.checkoutPlan]}
+          className={tier.featured ? primaryCtaClassName : secondaryCtaClassName}
+        >
+          {tier.buyLabel}
+        </TrackedAnchor>
       </div>
     </div>
   );
@@ -274,16 +257,11 @@ export default async function LicensePage() {
           </p>
         </section>
 
-        <section className="mx-auto w-full max-w-6xl px-6 pt-14 md:pt-16">
+        <section className="mx-auto w-full max-w-5xl px-6 pt-14 md:pt-16">
           <h2 className="sr-only">License tiers</h2>
-          <div className="grid gap-4 sm:grid-cols-2 sm:items-stretch xl:grid-cols-4 xl:gap-5">
+          <div className="grid gap-4 lg:grid-cols-3 lg:items-stretch lg:gap-5">
             {tiers.map((tier) => (
-              <TierCard
-                key={tier.name}
-                tier={tier}
-                contactHref={enquiryUrl(version)}
-                checkoutHref={tier.checkoutPlan ? checkoutUrls[tier.checkoutPlan] : undefined}
-              />
+              <TierCard key={tier.name} tier={tier} />
             ))}
           </div>
 
@@ -298,6 +276,29 @@ export default async function LicensePage() {
               </li>
             ))}
           </ul>
+
+          {/* Embedded / OEM, deliberately below and quieter than the paid
+              cards: it applies to few buyers, has no fixed price, and would
+              otherwise compete with the three self-serve tiers for attention.
+              One hairline row, no price, a small CTA. */}
+          <div className="mx-auto mt-10 flex max-w-3xl flex-col gap-4 rounded-2xl border border-neutral-200 p-6 sm:flex-row sm:items-center sm:justify-between dark:border-neutral-800">
+            <div>
+              <h3 className="text-[14px] font-semibold tracking-tight text-neutral-900 dark:text-neutral-50">
+                Embedded / OEM
+              </h3>
+              <p className="mt-1 text-pretty text-[13px] leading-5 text-neutral-500 dark:text-neutral-400">
+                Redistributing ramka in a component library, SDK, site builder, template system, or white-label
+                product? Custom terms, quoted over email.
+              </p>
+            </div>
+            <TrackedAnchor
+              event="oem_contact_click"
+              href={enquiryUrl(version)}
+              className="inline-flex h-9 shrink-0 items-center justify-center rounded-full border border-neutral-200 px-4 text-[13px] font-medium text-neutral-900 transition hover:bg-neutral-100 dark:border-neutral-800 dark:text-neutral-50 dark:hover:bg-neutral-900"
+            >
+              Contact us
+            </TrackedAnchor>
+          </div>
 
           <p className="mt-8 text-center text-[13px] leading-6 text-neutral-400 dark:text-neutral-500">
             Prices exclude any applicable taxes; the total including tax is shown at checkout. Licenses are granted
