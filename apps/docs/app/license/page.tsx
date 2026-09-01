@@ -64,8 +64,6 @@ const tiers: Tier[] = [
   {
     name: 'Indie',
     description: 'For individual developers building their own products.',
-    // TODO(indie): confirm the price and create the matching Whop plan
-    // (see checkout/hosted-urls.ts) before this tier goes live.
     price: '$79',
     priceNote: 'One-time payment',
     items: [
