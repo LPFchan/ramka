@@ -45,8 +45,8 @@ Whop uses its own cookies and similar technologies on its checkout pages; those 
 
 We use the following processors:
 
-- **Vercel** — hosts ramka.dev and provides Vercel Analytics. See [Vercel’s Privacy Policy](https://vercel.com/legal/privacy-policy).
-- **Whop** — provides checkout and payment processing. See [Whop’s Privacy Policy](https://whop.com/privacy/).
+- **Vercel** hosts ramka.dev and provides Vercel Analytics. See [Vercel’s Privacy Policy](https://vercel.com/legal/privacy-policy).
+- **Whop** provides checkout and payment processing. See [Whop’s Privacy Policy](https://whop.com/privacy/).
 
 Those providers process information according to their own terms and privacy policies. They may process data outside your country of residence.
 

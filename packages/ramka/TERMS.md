@@ -28,7 +28,7 @@ Refunds, statutory withdrawal rights, and what happens to the paid license after
 
 ## Consumers
 
-A consumer is an individual entering into a contract primarily for purposes outside their trade, business, craft, or profession. An individual purchasing for professional purposes — for example, a freelancer buying ramka for client work — is not acting as a consumer merely by being an individual.
+A consumer is an individual entering into a contract primarily for purposes outside their trade, business, craft, or profession. An individual purchasing for professional purposes (for example, a freelancer buying ramka for client work) is not acting as a consumer merely by being an individual.
 
 If you are a consumer, you retain all rights granted to you by mandatory consumer law. In particular:
 
@@ -52,7 +52,7 @@ Taxes, duties, or similar charges may apply and may be added or collected at che
 
 ## Buyer information
 
-You must provide accurate contact and Licensee details at checkout or when you enquire — typically name, company or legal-entity name where applicable, and billing email.
+You must provide accurate contact and Licensee details at checkout or when you enquire: typically name, company or legal-entity name where applicable, and billing email.
 
 The license is granted to the individual or legal entity identified on the order. See the Ramka License Agreement for transfer rules.
 
@@ -89,7 +89,7 @@ TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, WE WILL NOT BE LIABLE FOR ANY
 
 FOR A PAID LICENSE PURCHASE, OUR TOTAL LIABILITY IS AS STATED IN THE RAMKA LICENSE AGREEMENT. FOR USE OF THE WEBSITE ALONE, OUR TOTAL LIABILITY WILL NOT EXCEED THE AMOUNT YOU PAID US FOR THE TRANSACTION GIVING RISE TO THE CLAIM, OR ZERO IF YOU PAID NOTHING.
 
-Nothing in these Terms or the applicable License Agreement excludes, restricts, or limits rights or remedies that cannot lawfully be excluded or limited, including mandatory statutory rights available to consumers — such as statutory rights regarding the conformity of digital content with the contract.
+Nothing in these Terms or the applicable License Agreement excludes, restricts, or limits rights or remedies that cannot lawfully be excluded or limited, including mandatory statutory rights available to consumers, such as statutory rights regarding the conformity of digital content with the contract.
 
 Warranty and liability terms for the software itself are in the applicable software license, not in these Terms.
 

@@ -20,15 +20,15 @@ Where such a right applies:
 - Withdrawing is free of charge.
 - To meet the deadline, it is enough to send your withdrawal statement before the period expires.
 
-Under Polish law, certain consumer rights — including withdrawal — also extend to an individual entrepreneur who enters into a contract directly related to their business activity when the contract is not of a professional character for them.
+Under Polish law, certain consumer rights, including withdrawal, also extend to an individual entrepreneur who enters into a contract directly related to their business activity when the contract is not of a professional character for them.
 
 ## How to withdraw
 
-Email [artur.bien+ramka@gmail.com](mailto:artur.bien+ramka@gmail.com) with a clear statement that you withdraw from the purchase, together with enough information to identify the transaction — typically the email address used at checkout and the order or receipt details.
+Email [artur.bien+ramka@gmail.com](mailto:artur.bien+ramka@gmail.com) with a clear statement that you withdraw from the purchase, together with enough information to identify the transaction, typically the email address used at checkout and the order or receipt details.
 
 You may use the model withdrawal form provided under applicable law, but you do not have to. Wording like this is enough:
 
-> I hereby withdraw from my purchase of the ramka [tier] license, ordered on [date] under [checkout email / receipt number]. — [name], [date]
+> I hereby withdraw from my purchase of the ramka [tier] license, ordered on [date] under [checkout email / receipt number]. [name], [date]
 
 We will send you a confirmation that we received your withdrawal statement by email.
 
@@ -42,7 +42,7 @@ If a statutory withdrawal right applies and you validly exercise it, the purchas
 
 ## Other refunds and reversals
 
-The same license consequences apply if a purchase is refunded for any other reason, rescinded, or reversed — for example through a chargeback. The paid license granted by that purchase terminates, while rights independently available under GPL-3.0-only are unaffected. See the [Ramka License Agreement](https://ramka.dev/license/commercial).
+The same license consequences apply if a purchase is refunded for any other reason, rescinded, or reversed, for example through a chargeback. The paid license granted by that purchase terminates, while rights independently available under GPL-3.0-only are unaffected. See the [Ramka License Agreement](https://ramka.dev/license/commercial).
 
 ## Duplicate charges, accidents, and wrong tier
 
@@ -56,9 +56,9 @@ We will review those requests and, where appropriate, refund, reverse a duplicat
 
 ## Conformity complaints
 
-If you are a consumer and believe what you purchased does not conform to the contract, you have statutory remedies under applicable law — in Poland, under the Consumer Rights Act, which implements Directive (EU) 2019/770 on digital content. Send complaints to [artur.bien+ramka@gmail.com](mailto:artur.bien+ramka@gmail.com) and we will respond as required by law.
+If you are a consumer and believe what you purchased does not conform to the contract, you have statutory remedies under applicable law; in Poland, under the Consumer Rights Act, which implements Directive (EU) 2019/770 on digital content. Send complaints to [artur.bien+ramka@gmail.com](mailto:artur.bien+ramka@gmail.com) and we will respond as required by law.
 
-We do not currently participate in a voluntary out-of-court consumer dispute resolution scheme. Depending on your country, out-of-court complaint options may still be available to you — in Poland, for example, through municipal consumer ombudsmen or the Trade Inspection.
+We do not currently participate in a voluntary out-of-court consumer dispute resolution scheme. Depending on your country, out-of-court complaint options may still be available to you; in Poland, for example, through municipal consumer ombudsmen or the Trade Inspection.
 
 ## How to contact us
 

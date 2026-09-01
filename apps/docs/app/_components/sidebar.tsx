@@ -1,6 +1,5 @@
 import Link from 'next/link';
 
-import { startingPrice } from '../_content/pricing';
 import { SidebarNav } from './sidebar-nav';
 import { ThemeToggle } from './theme-toggle';
 
@@ -60,9 +59,6 @@ export function Sidebar() {
           >
             Get a license
           </Link>
-          <p className="mt-2 text-center text-[11px] text-neutral-400 dark:text-neutral-500">
-            Free for open source &middot; from {startingPrice}
-          </p>
         </div>
       </div>
     </aside>
