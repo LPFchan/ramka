@@ -55,16 +55,28 @@ function remote(fileName, url) {
 const lb = [1, 2, 3, 4, 5, 6].map((i) => picsum(`lb${i}`, 1200, 800));
 
 // app/_components/landing-demo.tsx
+// Most sources deliberately DON'T match their tile's aspect (wide tiles get
+// portrait sources and vice versa) so the open morph visibly changes shape —
+// see the landing-demo.tsx comment.
 const landing = {
-  ramkaA: picsum('ramka-a', 1600, 1067),
-  ramkaB: picsum('ramka-b', 1200, 1500),
-  ramkaC: picsum('ramka-c', 1400, 1400),
+  ramkaA: picsum('ramka-a', 1200, 1600),
+  ramkaB: picsum('ramka-b', 1600, 1067),
+  ramkaC: picsum('ramka-c', 1600, 1000),
   ramkaD: picsum('ramka-d', 1200, 1600),
-  ramkaE: picsum('ramka-e', 1600, 1000),
-  ramkaF: picsum('ramka-f', 1300, 1600),
+  ramkaE: picsum('ramka-e', 1200, 1600),
+  ramkaF: picsum('ramka-f', 1600, 1000),
+  // ramka-g stays wide: the bride's face sits at the left of the master, so
+  // portrait center-crops decapitate the composition.
   ramkaG: picsum('ramka-g', 1600, 1000),
   ramkaH: picsum('ramka-h', 1200, 1500),
   ramkaI: picsum('ramka-i', 1600, 1600),
+  // ramka-j stays wide: the father walks at the right edge of the master
+  // photo, so any portrait center-crop cuts him in half.
+  ramkaJ: picsum('ramka-j', 1600, 900),
+  ramkaK: picsum('ramka-k', 1200, 1600),
+  ramkaL: picsum('ramka-l', 1600, 1600),
+  ramkaM: picsum('ramka-m', 1600, 1000),
+  ramkaN: picsum('ramka-n', 1200, 1600),
 };
 
 // app/(docs)/docs/lightbox/*.tsx

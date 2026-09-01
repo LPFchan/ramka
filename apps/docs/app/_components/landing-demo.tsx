@@ -14,6 +14,11 @@ import {
   ramkaG,
   ramkaH,
   ramkaI,
+  ramkaJ,
+  ramkaK,
+  ramkaL,
+  ramkaM,
+  ramkaN,
 } from './images.generated';
 import {
   LightboxGallery,
@@ -24,20 +29,30 @@ import {
 /**
  * Landing gallery. Three morph flavors on one clean wall:
  *
- * - Most photo tiles keep their natural aspect ratio on md+ (no important
- *   pixels cropped away) and open with the plain image morph.
- * - The plane tile is the cross-aspect showcase: a portrait 3:4 source shown
- *   as a wide cinematic tile (sky crops beautifully), so opening it morphs
- *   wide -> tall.
+ * - Most tiles are deliberately cross-aspect: wide tiles hold portrait
+ *   sources and portrait tiles hold wide ones, so opening visibly morphs the
+ *   frame (wide -> tall or tall -> wide) instead of just scaling up. Every
+ *   tile is a plain CENTER `object-cover` crop of the same file the viewer
+ *   shows — the morph snapshots paint with center cover, so any
+ *   `object-position` nudge would visibly reframe mid-animation (see
+ *   docs/lightbox/view-transitions "Source aspect" / "Trigger crossfade").
+ *   Sources were picked so their center crop frames the subject.
+ * - The beach and wedding tiles keep their natural wide aspect (their
+ *   subjects sit off-center in the master photos, so no portrait center-crop
+ *   survives) and show the plain same-shape morph for contrast.
  * - The last tile is a "+2" stack: two more photos hide behind it, and
  *   `crossfade="both"` dissolves the overlaid tile into the clean photo
  *   instead of stretching the "+2" badge (morphTo="closest" on Root brings
  *   closes from hidden items back to this tile).
  *
- * Column math (height ratios): desktop is 2-3-2 with the middle column
- * sticking out — 0.67+1.25 | 1.0+0.6+0.63 | 1.23+0.63 = 1.92 | 2.23 | 1.86.
- * Mobile is 3+4 with mild aspect nudges (never inverting orientation):
- * 0.75+1.25+1.0 = 3.0 | 0.6+0.7+1.1+0.63 = 3.03.
+ * Column math (height ratios = 1/aspect): every column has the same tile
+ * count per breakpoint, so vertical gaps cancel and equal ratio sums make
+ * the wall a perfect rectangle. Sums are EXACT fractions — keep them exact
+ * when swapping aspects:
+ * - Desktop (4 cols x 3): 2/3+5/4+7/12 | 1+9/16+15/16 | 3/5+6/5+7/10 |
+ *   9/16+5/4+11/16 = 2.5 each.
+ * - Mobile (3 cols x 4): 2/3+5/4+7/12+1 | 9/16+1+11/16+5/4 |
+ *   3/4+9/16+5/4+15/16 = 3.5 each.
  *
  * Every tile carries an explicit `aspect-ratio`, and the column split is
  * forced with `break-before: column` per breakpoint (`breakClass`) —
@@ -49,7 +64,7 @@ const visibleImages: (LightboxGalleryItem & { tileClass: string; breakClass: str
     thumb: ramkaA,
     alt: 'Person standing in a sunlit meadow at golden hour',
     caption: 'Golden hour in the meadow',
-    tileClass: 'aspect-[4/3] md:aspect-[3/2]',
+    tileClass: 'aspect-[3/2]',
     breakClass: '',
   },
   {
@@ -58,6 +73,14 @@ const visibleImages: (LightboxGalleryItem & { tileClass: string; breakClass: str
     alt: 'Seashells scattered along the shoreline',
     caption: 'Seashells on the shore',
     tileClass: 'aspect-[4/5]',
+    breakClass: '',
+  },
+  {
+    src: ramkaJ,
+    thumb: ramkaJ,
+    alt: 'Father carrying a child along a sandy beach',
+    caption: 'Beach walk, kid in tow',
+    tileClass: 'aspect-[12/7]',
     breakClass: '',
   },
   {
@@ -73,33 +96,65 @@ const visibleImages: (LightboxGalleryItem & { tileClass: string; breakClass: str
     thumb: ramkaD,
     alt: 'Airplane crossing a purple sky above the clouds',
     caption: 'Above the clouds at dusk',
-    // Cross-aspect showcase: portrait 3:4 source in a wide 5:3 tile. The sky
+    // Cross-aspect showcase: portrait 3:4 source in a wide 16:9 tile. The sky
     // survives the crop, and the open morphs wide -> tall.
-    tileClass: 'aspect-[5/3]',
+    tileClass: 'aspect-video',
     breakClass: 'break-before-column md:break-before-auto',
+  },
+  {
+    src: ramkaK,
+    thumb: ramkaK,
+    alt: 'Brutalist concrete tower against a pale sky',
+    caption: 'Concrete against a pale sky',
+    tileClass: 'aspect-square md:aspect-[16/15]',
+    breakClass: '',
   },
   {
     src: ramkaE,
     thumb: ramkaE,
     alt: 'Fog rolling over dark hills',
     caption: 'Fog rolling over the valley',
-    tileClass: 'aspect-[10/7] md:aspect-[8/5]',
-    breakClass: '',
+    tileClass: 'aspect-[16/11] md:aspect-[5/3]',
+    breakClass: 'md:break-before-column',
   },
   {
     src: ramkaF,
     thumb: ramkaF,
     alt: 'Aerial view of a road entering twin forest tunnels',
     caption: 'Twin tunnels from above',
-    tileClass: 'aspect-[10/11] md:aspect-[13/16]',
-    breakClass: 'md:break-before-column',
+    tileClass: 'aspect-[4/5] md:aspect-[5/6]',
+    breakClass: '',
   },
   {
     src: ramkaG,
     thumb: ramkaG,
     alt: 'Bride seen through the windows of a vintage car',
     caption: 'Through the wedding car window',
-    tileClass: 'aspect-[8/5]',
+    tileClass: 'aspect-[4/3] md:aspect-[10/7]',
+    breakClass: 'break-before-column md:break-before-auto',
+  },
+  {
+    src: ramkaL,
+    thumb: ramkaL,
+    alt: 'Out-of-focus city lights glowing at dusk',
+    caption: 'City lights, out of focus',
+    tileClass: 'aspect-video',
+    breakClass: 'md:break-before-column',
+  },
+  {
+    src: ramkaN,
+    thumb: ramkaN,
+    alt: 'Husky dog in a harness looking into the distance',
+    caption: 'Husky on the lookout',
+    tileClass: 'aspect-[4/5]',
+    breakClass: '',
+  },
+  {
+    src: ramkaH,
+    thumb: ramkaH,
+    alt: 'Sandstone hoodoos under a summer sky',
+    caption: 'Hoodoos under a summer sky — Bryce Canyon',
+    tileClass: 'aspect-[16/15] md:aspect-[16/11]',
     breakClass: '',
   },
 ];
@@ -110,10 +165,10 @@ const visibleImages: (LightboxGalleryItem & { tileClass: string; breakClass: str
  */
 const hiddenImages: LightboxGalleryItem[] = [
   {
-    src: ramkaH,
-    thumb: ramkaH,
-    alt: 'Sandstone hoodoos under a summer sky',
-    caption: 'Hoodoos under a summer sky — Bryce Canyon',
+    src: ramkaM,
+    thumb: ramkaM,
+    alt: 'Patches of snow on a mossy forest floor',
+    caption: 'First snow in the forest',
     destinationBlur: true,
   },
   {
@@ -161,7 +216,7 @@ export function LandingDemo({ eager = true }: { eager?: boolean }) {
         if (!open) setGlassShinePaused(false);
       }}
     >
-      <div className="columns-2 gap-3 md:columns-3 md:gap-4">
+      <div className="columns-3 gap-2 md:columns-4 md:gap-3">
         {visibleImages.map((img, i) => {
           const isStack = i === lastIndex;
           return (
@@ -182,7 +237,7 @@ export function LandingDemo({ eager = true }: { eager?: boolean }) {
               // The ::after draws an Apple-style 0.5px inset outline so dark
               // photos don't bleed into the dark-mode background (and bright
               // ones into light mode).
-              className={`mb-3 grid w-full break-inside-avoid scroll-my-12 overflow-hidden rounded-xl bg-neutral-100 p-0 after:pointer-events-none after:z-20 after:col-start-1 after:row-start-1 after:rounded-[inherit] after:shadow-[inset_0_0_0_0.5px_rgba(0,0,0,0.1)] after:content-[''] md:mb-4 md:rounded-2xl dark:bg-neutral-900 dark:after:shadow-[inset_0_0_0_0.5px_rgba(255,255,255,0.12)] ${img.breakClass} ${triggerFocusClass}`}
+              className={`mb-2 grid w-full break-inside-avoid scroll-my-12 overflow-hidden rounded-lg bg-neutral-100 p-0 after:pointer-events-none after:z-20 after:col-start-1 after:row-start-1 after:rounded-[inherit] after:shadow-[inset_0_0_0_0.5px_rgba(0,0,0,0.1)] after:content-[''] md:mb-3 md:rounded-xl dark:bg-neutral-900 dark:after:shadow-[inset_0_0_0_0.5px_rgba(255,255,255,0.12)] ${img.breakClass} ${triggerFocusClass}`}
             >
               {({ imageRef }) => (
                 <>
@@ -191,7 +246,7 @@ export function LandingDemo({ eager = true }: { eager?: boolean }) {
                     src={img.thumb}
                     alt={img.alt}
                     placeholder="blur"
-                    sizes="(min-width: 768px) 33vw, 50vw"
+                    sizes="(min-width: 768px) 25vw, 33vw"
                     loading={eager ? 'eager' : 'lazy'}
                     draggable={false}
                     className={`col-start-1 row-start-1 block h-full w-full select-none object-cover ${img.tileClass}`}
@@ -199,7 +254,7 @@ export function LandingDemo({ eager = true }: { eager?: boolean }) {
                   {isStack ? (
                     <span
                       aria-hidden
-                      className="z-10 col-start-1 row-start-1 flex items-center justify-center bg-black/40 text-2xl font-medium tracking-tight text-white"
+                      className="z-10 col-start-1 row-start-1 flex items-center justify-center bg-black/35 text-3xl font-semibold tracking-tight text-white [text-shadow:0_1px_12px_rgba(0,0,0,0.45)] md:text-4xl"
                     >
                       +{hiddenImages.length}
                     </span>
