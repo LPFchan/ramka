@@ -12,6 +12,10 @@ out
 # copy could only ever be stale.
 sbom.cdx.json
 
+# PDF exports of the legal Markdown docs (see scripts/policy-pdfs.mjs); the
+# Markdown is the source of truth.
+policy-pdfs
+
 # Editor / OS
 .DS_Store
 .vscode

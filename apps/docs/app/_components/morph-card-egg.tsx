@@ -35,8 +35,8 @@ function StoreStat({ label, value, caption }: { label: string; value: ReactNode;
 
 const BUY_PERKS = [
   'One-time purchase. No subscription.',
-  'Covers your whole team, forever.',
-  'Free for open source under the GPL.',
+  'Tiers for solo devs and whole teams.',
+  'No license keys. Nothing phones home.',
 ];
 
 /** The iOS-style purchase sheet. System-light and system-dark palettes. */
