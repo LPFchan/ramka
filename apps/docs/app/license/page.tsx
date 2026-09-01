@@ -93,6 +93,7 @@ const tiers: Tier[] = [
     priceNote: 'One-time payment',
     items: [
       'Unlimited products owned by your company',
+      'Whole team, no per-seat pricing',
       'Use in proprietary, closed-source software',
       'Not for client work or redistribution',
     ],
@@ -108,6 +109,7 @@ const tiers: Tier[] = [
     priceNote: 'One-time payment',
     items: [
       'Unlimited client projects',
+      'Whole team, no per-seat pricing',
       'Use in proprietary, closed-source software',
       'Covers work delivered to any client',
     ],
@@ -180,9 +182,13 @@ function TierCard({ tier }: { tier: Tier }) {
         // three sit side by side.
         'mx-auto flex w-full max-w-md flex-col rounded-3xl border p-8 lg:max-w-none',
         tier.featured
-          ? // Emphasis by hierarchy: a darker hairline and one soft ambient
-            // shadow lift this card without any accent colour or badge fill.
-            'border-neutral-300 bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04),0_16px_40px_-24px_rgba(0,0,0,0.18)] dark:border-neutral-700 dark:bg-neutral-950 dark:shadow-[0_1px_2px_rgba(0,0,0,0.4),0_16px_40px_-24px_rgba(0,0,0,0.8)]'
+          ? // Emphasis by hierarchy, no accent fills: from lg up the card
+            // outgrows the row by a few pixels each way (negative margins
+            // against the stretched grid track). Elevation is mode-specific —
+            // light leans on the ambient shadow (a fill wouldn't read on a
+            // white page), dark on a lighter gray surface (shadows barely
+            // read on near-black).
+            'border-neutral-300 bg-white shadow-[0_1px_2px_rgba(0,0,0,0.05),0_24px_56px_-28px_rgba(0,0,0,0.25)] lg:-my-3 dark:border-neutral-700 dark:bg-neutral-900 dark:shadow-[0_1px_2px_rgba(0,0,0,0.4),0_24px_56px_-28px_rgba(0,0,0,0.9)]'
           : 'border-neutral-200 dark:border-neutral-800',
       )}
     >
@@ -201,8 +207,9 @@ function TierCard({ tier }: { tier: Tier }) {
             {tier.price}
           </div>
           {tier.regularPrice ? (
-            // Decorative anchor only; the visible note below carries the
-            // meaning, so screen readers skip the bare struck number.
+            // Decorative anchor only; the launch-week capsule above the grid
+            // carries the meaning, so screen readers skip the bare struck
+            // number.
             <div
               aria-hidden
               className="text-xl font-medium tracking-tight text-neutral-300 line-through decoration-from-font dark:text-neutral-600"
@@ -211,9 +218,7 @@ function TierCard({ tier }: { tier: Tier }) {
             </div>
           ) : null}
         </div>
-        <div className="mt-1.5 text-[13px] text-neutral-400 dark:text-neutral-500">
-          {tier.regularPrice ? `${tier.priceNote} · ${tier.regularPrice} after launch week` : tier.priceNote}
-        </div>
+        <div className="mt-1.5 text-[13px] text-neutral-400 dark:text-neutral-500">{tier.priceNote}</div>
       </div>
 
       {/* Two lines' worth of room, so the descriptions' differing lengths
@@ -222,10 +227,12 @@ function TierCard({ tier }: { tier: Tier }) {
         {tier.description}
       </p>
 
-      <ul className="mt-6 flex-1 space-y-2.5 border-t border-neutral-100 pt-6 dark:border-neutral-900">
+      {/* The divider is opacity-based so it stays a hairline on both the
+          white featured card and the washed side cards. */}
+      <ul className="mt-6 flex-1 space-y-2.5 border-t border-neutral-950/[0.07] pt-6 dark:border-white/[0.07]">
         {tier.items.map((item) => (
           <li key={item} className="flex gap-2.5 text-[15px] leading-6 text-neutral-700 dark:text-neutral-300">
-            <Check aria-hidden className="mt-1 size-3.5 shrink-0 text-neutral-400 dark:text-neutral-500" />
+            <Check aria-hidden className="mt-1 size-3.5 shrink-0 text-emerald-600 dark:text-emerald-500" />
             {item}
           </li>
         ))}
@@ -240,6 +247,9 @@ function TierCard({ tier }: { tier: Tier }) {
         >
           {tier.buyLabel}
         </TrackedAnchor>
+        <p className="mt-3 text-center text-[11px] leading-4 text-neutral-400 dark:text-neutral-500">
+          Instant, secure checkout via Whop
+        </p>
       </div>
     </div>
   );
@@ -284,7 +294,10 @@ export default async function LicensePage() {
           </p>
         </section>
 
-        <section className="mx-auto w-full max-w-5xl px-6 pt-14 md:pt-16">
+        {/* max-w-6xl rather than the page's usual 5xl: three cards with card
+            padding at 5xl leaves ~250px of content and wraps every other
+            bullet; the extra width goes entirely to the cards. */}
+        <section className="mx-auto w-full max-w-6xl px-6 pt-14 md:pt-16">
           <h2 className="sr-only">License tiers</h2>
 
           {/* Renders nothing once launch week ends (see the capsule itself). */}
@@ -298,7 +311,14 @@ export default async function LicensePage() {
             ))}
           </div>
 
-          <ul className="mx-auto mt-10 flex max-w-3xl flex-wrap items-center justify-center gap-x-7 gap-y-2.5">
+          {/* One rule resolves the whole tier choice, so nobody stalls at the
+              cards or falls back to reading the agreement. */}
+          <p className="mx-auto mt-9 max-w-2xl text-balance text-center text-[13px] leading-6 text-neutral-500 dark:text-neutral-400">
+            Not sure which tier? Go by who owns what you ship: you personally (Indie), your company (Business), or
+            your clients (Agency).
+          </p>
+
+          <ul className="mx-auto mt-8 flex max-w-3xl flex-wrap items-center justify-center gap-x-7 gap-y-2.5">
             {sharedInclusions.map((item) => (
               <li
                 key={item}
