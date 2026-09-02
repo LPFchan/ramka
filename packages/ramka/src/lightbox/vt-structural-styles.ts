@@ -29,6 +29,7 @@ const STYLE_MARKER = 'data-ramka-lightbox-vt-styles';
 
 function buildCss(): string {
   const vt = LightboxDocumentDataAttributes.viewTransition;
+  const isolate = LightboxDocumentDataAttributes.viewTransitionIsolate;
   const crossfade = LightboxDocumentDataAttributes.crossfade;
   const morphTarget = LightboxTriggerDataAttributes.morphTarget;
   const slides = LightboxSlidesDataAttributes.slides;
@@ -55,8 +56,14 @@ function buildCss(): string {
    view-transition-name would be lifted into a separate group and painted on
    the VT layer over the backdrop. Neutralize every name while the morph runs;
    the morph target re-declares its name inline with !important, which
-   outranks this author-!important rule on specificity. */
-:root[${vt}] * {
+   outranks this author-!important rule on specificity.
+
+   Armed via its own attribute — NOT ${vt} — and only when the page actually
+   declares foreign names (see vt-name-isolation.ts). Flipping a root
+   attribute that a universal descendant rule keys on restyles the entire
+   document, which on large DOMs is the dominant cost of starting a morph in
+   WebKit; pages with no names to neutralize skip that bill entirely. */
+:root[${isolate}] * {
   view-transition-name: none !important;
 }
 

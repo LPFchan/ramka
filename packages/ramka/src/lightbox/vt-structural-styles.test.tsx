@@ -50,8 +50,13 @@ describe('vt-structural-styles', () => {
   it('contains the structural rules skins used to ship', () => {
     ensureVtStructuralStyles();
     const css = document.head.querySelector(selector)!.textContent!;
-    // Name isolation during a morph.
+    // Name isolation — keyed on its own attribute (armed only when the page
+    // declares foreign view-transition-names), NOT on the morph phase
+    // attribute, so morphs on name-free pages skip the full-document restyle
+    // the universal selector would otherwise force.
+    expect(css).toContain(':root[data-ramka-vt-isolate] *');
     expect(css).toContain('view-transition-name: none !important');
+    expect(css).not.toContain(':root[data-ramka-view-transition] *');
     // Morph-target hide.
     expect(css).toContain('[data-morph-target]');
     // Group radius interpolation + preset-driven timing.

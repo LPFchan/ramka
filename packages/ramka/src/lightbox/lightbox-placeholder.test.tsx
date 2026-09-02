@@ -667,7 +667,8 @@ describe('Lightbox.Media (morph + placeholder host)', () => {
     expect(el!.parentElement).toBe(media);
   });
 
-  it('adopts the fill rules in a browser, and drops them when Media unmounts', () => {
+  it('adopts the fill rules in a browser, and deletes them at idle after unmount', () => {
+    vi.useFakeTimers();
     const stub = stubConstructedSheets();
     try {
       const view = render(
@@ -689,13 +690,19 @@ describe('Lightbox.Media (morph + placeholder host)', () => {
       const media = document.querySelector('[data-testid="media"]') as HTMLElement;
       expect(media.querySelector('style')).toBeNull();
       expect(document.querySelectorAll('style[data-ramka-media-fill]')).toHaveLength(0);
-      expect(stub.adoptedCss().join('')).toContain(`#${CSS.escape(media.id)} > img`);
+      const fillRule = `#${CSS.escape(media.id)} > img`;
+      expect(stub.adoptedCss().join('')).toContain(fillRule);
 
       view.unmount();
 
-      expect(stub.adoptedCss()).toHaveLength(0);
+      // Deletion is deferred to an idle batch (`deleteRule` is a full-document
+      // restyle in WebKit); until then the rule is inert — the id is gone.
+      expect(stub.adoptedCss().join('')).toContain(fillRule);
+      vi.advanceTimersByTime(1500);
+      expect(stub.adoptedCss().join('')).not.toContain(fillRule);
     } finally {
       stub.restore();
+      vi.useRealTimers();
     }
   });
 

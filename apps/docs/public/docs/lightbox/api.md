@@ -466,6 +466,7 @@ While a view-transition morph runs, ramka sets attributes and CSS variables on <
 | `data-ramka-view-transition` | Present during a morph. Value is `opening` or `closing`. |
 | `data-ramka-crossfade` | Present while the morph dissolves trigger↔item snapshots (Trigger `crossfade` is active for this phase). Absent for the default hard-cut. |
 | `data-ramka-vt-preset` | Present during a morph. Value is the active `viewTransition` timing preset name (`default`, `snappy`, `relaxed`, `spring`) — read by the composited morph and available to skin CSS for per-preset styling. |
+| `data-ramka-vt-isolate` | Present during a morph ONLY when the page declares its own `view-transition-name`s (stylesheets or inline). Arms the isolation rule that neutralizes those names so they aren't captured as separate groups over the morph. Kept off otherwise: the rule's universal selector makes the attribute flip a full-document style invalidation, which on large DOMs is the dominant cost of starting a morph in WebKit. |
 
 #### CSS variables
 

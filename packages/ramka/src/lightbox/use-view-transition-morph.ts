@@ -20,6 +20,9 @@ import {
   LightboxDocumentDataAttributes,
   LightboxSlideDataAttributes,
 } from './lightbox-data-attributes';
+import { insertDynamicRules } from './lightbox-style-sheets';
+import type { LibrarySheet } from './lightbox-style-sheets';
+import { pageNeedsNameIsolation } from './vt-name-isolation';
 import {
   resolveScrollTriggerOption,
   resolveTriggerIndex,
@@ -445,32 +448,50 @@ export function resolveMorphBorderRadius(el: HTMLElement): string {
   return list.map((v) => `${v}px`).join(' ');
 }
 
+/** Marker for the per-morph vars sheet (used by the jsdom <style> fallback). */
+const MORPH_VARS_MARKER = 'data-ramka-vt-morph-vars';
+
 /**
- * Publish the Root's `viewTransition` timing preset onto `documentElement`
- * for this morph only: the preset name as `data-ramka-vt-preset` (read by the
- * composited morph) and its duration/easing as `--lightbox-vt-*` vars (read
- * by document-level `::view-transition-*` rules — the stock group fallback,
- * the crossfade dissolve (open curve + close complementary swap) and the root snapshot
- * fade — which cannot inherit from Content/Portal). Timing is preset-driven,
- * not consumer CSS: arbitrary curves teleport on iOS (see the preset table
- * in vt-timing.ts).
+ * Build the per-morph CSS that publishes this morph's values — the preset's
+ * `--lightbox-vt-*` timing, hard-cut snapshot opacities and from/to
+ * border-radius — as custom properties on `::view-transition`, the root of
+ * the pseudo tree. Every structural rule targets pseudos inside that tree,
+ * so they all resolve these vars through pseudo-tree inheritance.
+ *
+ * On `::view-transition` deliberately, NOT on `documentElement`: an inherited
+ * custom property changing on `<html>` invalidates computed style for every
+ * element in the document. Blink resolves that cheaply; WebKit does not
+ * (tracked upstream, WebKit PR #60512), and on large DOMs those writes were
+ * the bulk of the pre-morph stall on Safari. A rule scoped to the pseudo tree
+ * touches a handful of pseudo nodes instead.
+ *
+ * Timing is preset-driven, not consumer CSS: arbitrary curves teleport on
+ * iOS (see the preset table in vt-timing.ts).
  */
-function promoteVtMotionTokens(
-  docEl: HTMLElement,
-  preset: boolean | LightboxViewTransitionPreset | undefined,
-) {
-  const spec = resolveViewTransitionTiming(preset);
-  docEl.setAttribute(
-    LightboxDocumentDataAttributes.viewTransitionPreset,
-    isViewTransitionPreset(preset) ? preset : 'default',
-  );
-  docEl.style.setProperty(LightboxDocumentCssVars.vtDuration, `${spec.duration}ms`);
-  docEl.style.setProperty(LightboxDocumentCssVars.vtEasing, spec.cssEasing);
-  docEl.style.setProperty(
-    LightboxDocumentCssVars.vtCrossfadeCloseEasing,
-    spec.cssCrossfadeCloseEasing,
-  );
-  docEl.style.setProperty(LightboxDocumentCssVars.vtRootEasing, spec.cssRootEasing);
+function buildMorphVarsCss(
+  phase: 'opening' | 'closing',
+  opts: {
+    useCrossfade: boolean;
+    fromRadius: string | null;
+    toRadius: string | null;
+    preset: boolean | LightboxViewTransitionPreset | undefined;
+  },
+): string {
+  const spec = resolveViewTransitionTiming(opts.preset);
+  const vars = LightboxDocumentCssVars;
+  const decls = [
+    `${vars.vtDuration}: ${spec.duration}ms;`,
+    `${vars.vtEasing}: ${spec.cssEasing};`,
+    `${vars.vtCrossfadeCloseEasing}: ${spec.cssCrossfadeCloseEasing};`,
+    `${vars.vtRootEasing}: ${spec.cssRootEasing};`,
+  ];
+  if (!opts.useCrossfade) {
+    decls.push(`${vars.morphOldOpacity}: 1;`);
+    decls.push(`${vars.morphNewOpacity}: ${phase === 'opening' ? '1' : '0'};`);
+  }
+  if (opts.fromRadius) decls.push(`${vars.morphBorderRadiusFrom}: ${opts.fromRadius};`);
+  if (opts.toRadius) decls.push(`${vars.morphBorderRadiusTo}: ${opts.toRadius};`);
+  return `:root::view-transition {\n  ${decls.join('\n  ')}\n}\n`;
 }
 
 /** Flush threshold (CSS px) for treating a box edge as viewport-flush. */
@@ -591,12 +612,48 @@ function applyFirefoxFullBleedCaptureInset(morphTarget: HTMLElement): CaptureIns
 let morphStateOwner = 0;
 
 /**
+ * State handle returned by {@link applyMorphState}: the ownership token plus
+ * this morph's private vars sheet (released unconditionally on teardown —
+ * each morph owns its own sheet, so releasing a stale one can never affect a
+ * newer morph's values).
+ */
+interface MorphDocState {
+  owner: number;
+  varsSheet: LibrarySheet;
+}
+
+/**
  * Applies the document-level state that drives the morph CSS: the phase
- * attribute, optional `data-ramka-crossfade` (with hard-cut opacity vars when
- * absent), from/to border-radius vars, and the `viewTransition` preset's
- * timing (`data-ramka-vt-preset` + `--lightbox-vt-*` vars).
+ * attribute, optional `data-ramka-crossfade`, `data-ramka-vt-preset`,
+ * `data-ramka-vt-isolate` when the page needs name isolation — and a
+ * per-morph stylesheet publishing the timing/opacity/radius vars on the
+ * `::view-transition` pseudo (see {@link buildMorphVarsCss} for why they no
+ * longer live on `documentElement`).
  *
- * Returns an ownership token; pass it to {@link clearMorphState} so a stale
+ * Hard-cut opacity rationale (the `useCrossfade: false` branch of the vars):
+ * the item is the single visible, animated layer in both directions and never
+ * crossfades the trigger. But on OPEN we ALWAYS keep the `old` (trigger)
+ * snapshot opaque underneath as a paint fallback — never 0. (In the CSS both
+ * pseudos have `animation: none` and stretch to the group box, with `new`
+ * painted on top of `old`.)
+ *
+ * - Opening: `new` is the destination item, which is `visibility: hidden`
+ *   during prepare and only flips visible inside the (synchronous) VT
+ *   callback, right before the new snapshot is captured. If that freshly
+ *   revealed layer isn't rasterized in time the new snapshot is blank for a
+ *   frame — a compositing race independent of image caching (worst on mobile
+ *   Safari). With `old` hidden there'd be nothing behind it, so you'd see a
+ *   one-frame flash of empty space between the trigger vanishing and the
+ *   item painting. Keeping `old` (the trigger, captured from a fully-painted
+ *   live element) opaque underneath makes a blank `new` fall back to the
+ *   trigger instead of to nothing. When `new` IS painted it's opaque and
+ *   fully OCCLUDES `old`, so the trigger is never *seen* animating — visually
+ *   identical to hard-cutting it, except on the frame it would be blank.
+ * - Closing: `old` is the item (already on-screen and painted) and stays
+ *   opaque; `new` is the trigger, hard-cut to 0 so a scrolled-away/unpainted
+ *   trigger can't ghost over the item as it shrinks back.
+ *
+ * Returns a state handle; pass it to {@link clearMorphState} so a stale
  * finalizer can never wipe a newer morph's state (see {@link morphStateOwner}).
  */
 function applyMorphState(
@@ -608,46 +665,28 @@ function applyMorphState(
     toRadius: string | null;
     preset: boolean | LightboxViewTransitionPreset | undefined;
   },
-): number {
+): MorphDocState {
+  // Detect BEFORE this morph names its own targets (setMorphName runs after),
+  // so the inline-style probe can't match the morph's own names.
+  const needsIsolation = pageNeedsNameIsolation();
+
   docEl.setAttribute(LightboxDocumentDataAttributes.viewTransition, phase);
-  promoteVtMotionTokens(docEl, opts.preset);
+  docEl.setAttribute(
+    LightboxDocumentDataAttributes.viewTransitionPreset,
+    isViewTransitionPreset(opts.preset) ? opts.preset : 'default',
+  );
   if (opts.useCrossfade) {
     docEl.setAttribute(LightboxDocumentDataAttributes.crossfade, '');
-  } else {
-    // Hard-cut: the item is the single visible, animated layer in both
-    // directions and never crossfades the trigger. But on OPEN we ALWAYS keep
-    // the `old` (trigger) snapshot opaque underneath as a paint fallback —
-    // never 0. (In the CSS both pseudos have `animation: none` and stretch to
-    // the group box, with `new` painted on top of `old`.)
-    //
-    // - Opening: `new` is the destination item, which is `visibility: hidden`
-    //   during prepare and only flips visible inside the (synchronous) VT
-    //   callback, right before the new snapshot is captured. If that freshly
-    //   revealed layer isn't rasterized in time the new snapshot is blank for a
-    //   frame — a compositing race independent of image caching (worst on mobile
-    //   Safari). With `old` hidden there'd be nothing behind it, so you'd see a
-    //   one-frame flash of empty space between the trigger vanishing and the
-    //   item painting. Keeping `old` (the trigger, captured from a fully-painted
-    //   live element) opaque underneath makes a blank `new` fall back to the
-    //   trigger instead of to nothing. When `new` IS painted it's opaque and
-    //   fully OCCLUDES `old`, so the trigger is never *seen* animating — visually
-    //   identical to hard-cutting it, except on the frame it would be blank.
-    // - Closing: `old` is the item (already on-screen and painted) and stays
-    //   opaque; `new` is the trigger, hard-cut to 0 so a scrolled-away/unpainted
-    //   trigger can't ghost over the item as it shrinks back.
-    docEl.style.setProperty(LightboxDocumentCssVars.morphOldOpacity, '1');
-    docEl.style.setProperty(
-      LightboxDocumentCssVars.morphNewOpacity,
-      phase === 'opening' ? '1' : '0',
-    );
   }
-  if (opts.fromRadius) {
-    docEl.style.setProperty(LightboxDocumentCssVars.morphBorderRadiusFrom, opts.fromRadius);
+  if (needsIsolation) {
+    docEl.setAttribute(LightboxDocumentDataAttributes.viewTransitionIsolate, '');
   }
-  if (opts.toRadius) {
-    docEl.style.setProperty(LightboxDocumentCssVars.morphBorderRadiusTo, opts.toRadius);
-  }
-  return ++morphStateOwner;
+  const varsSheet = insertDynamicRules(
+    'morph-vars',
+    [buildMorphVarsCss(phase, opts)],
+    MORPH_VARS_MARKER,
+  );
+  return { owner: ++morphStateOwner, varsSheet };
 }
 
 /**
@@ -674,23 +713,18 @@ function clearMorphName(el: HTMLElement) {
 }
 
 /**
- * Removes every document-level attribute/var set by {@link applyMorphState} —
- * but only if `owner` still owns the state. A no-op when a newer morph has
- * promoted its own state since (see {@link morphStateOwner}).
+ * Tears down the state set by {@link applyMorphState}. The vars sheet is
+ * released unconditionally — it is this morph's private resource. The shared
+ * `<html>` attributes are only removed if `state` still owns them, so a stale
+ * finalizer can't wipe a newer morph's attributes (see {@link morphStateOwner}).
  */
-function clearMorphState(docEl: HTMLElement, owner: number) {
-  if (owner !== morphStateOwner) return;
+function clearMorphState(docEl: HTMLElement, state: MorphDocState) {
+  state.varsSheet.release();
+  if (state.owner !== morphStateOwner) return;
   docEl.removeAttribute(LightboxDocumentDataAttributes.viewTransition);
   docEl.removeAttribute(LightboxDocumentDataAttributes.crossfade);
   docEl.removeAttribute(LightboxDocumentDataAttributes.viewTransitionPreset);
-  docEl.style.removeProperty(LightboxDocumentCssVars.morphOldOpacity);
-  docEl.style.removeProperty(LightboxDocumentCssVars.morphNewOpacity);
-  docEl.style.removeProperty(LightboxDocumentCssVars.morphBorderRadiusFrom);
-  docEl.style.removeProperty(LightboxDocumentCssVars.morphBorderRadiusTo);
-  docEl.style.removeProperty(LightboxDocumentCssVars.vtDuration);
-  docEl.style.removeProperty(LightboxDocumentCssVars.vtEasing);
-  docEl.style.removeProperty(LightboxDocumentCssVars.vtCrossfadeCloseEasing);
-  docEl.style.removeProperty(LightboxDocumentCssVars.vtRootEasing);
+  docEl.removeAttribute(LightboxDocumentDataAttributes.viewTransitionIsolate);
 }
 
 // ---------------------------------------------------------------------------
@@ -979,7 +1013,7 @@ function createViewTransitionMorph(getConfig: () => ViewTransitionMorphConfig): 
 
     // In the fallback we force the root crossfade on (`data-ramka-crossfade`)
     // and set no morph name/radius, so the transition is a clean fade.
-    const morphStateToken = applyMorphState(docEl, 'opening', {
+    const morphState = applyMorphState(docEl, 'opening', {
       useCrossfade: canMorph ? useCrossfade : true,
       fromRadius: canMorph ? fromRadius : null,
       toRadius,
@@ -1029,13 +1063,14 @@ function createViewTransitionMorph(getConfig: () => ViewTransitionMorphConfig): 
       }
     });
     if (canMorph) {
-      maybeUpgradeToCompositedMorph(transition);
+      maybeUpgradeToCompositedMorph(transition, { from: fromRadius, to: toRadius });
     }
 
     transition.finished.finally(() => {
       releaseTouchGuard();
       restoreFirefoxCaptureInset?.();
       restoreFirefoxCaptureInset = null;
+      clearMorphState(docEl, morphState);
       if (getConfig().closeGenRef.current !== gen) return;
       const cfg = getConfig();
       const itemEl = cfg.activeItemElementRef.current;
@@ -1047,7 +1082,6 @@ function createViewTransitionMorph(getConfig: () => ViewTransitionMorphConfig): 
       if (itemTarget) {
         clearMorphName(itemTarget);
       }
-      clearMorphState(docEl, morphStateToken);
 
       // Reposition the active trigger while the viewer still covers the page
       // (and scroll is locked), so a later close morph lands on-screen with no
@@ -1125,7 +1159,7 @@ function createViewTransitionMorph(getConfig: () => ViewTransitionMorphConfig): 
 
     // Writes — radii go to CSS vars; the VT group interpolates them (no live
     // border-radius mutation).
-    const morphStateToken = applyMorphState(docEl, 'closing', {
+    const morphState = applyMorphState(docEl, 'closing', {
       useCrossfade,
       fromRadius,
       toRadius,
@@ -1169,7 +1203,7 @@ function createViewTransitionMorph(getConfig: () => ViewTransitionMorphConfig): 
       }
     });
     if (canMorph) {
-      maybeUpgradeToCompositedMorph(transition);
+      maybeUpgradeToCompositedMorph(transition, { from: fromRadius, to: toRadius });
     }
 
     transition.finished.finally(() => {
@@ -1179,7 +1213,7 @@ function createViewTransitionMorph(getConfig: () => ViewTransitionMorphConfig): 
       if (canMorph) {
         clearMorphName(triggerTarget!);
       }
-      clearMorphState(docEl, morphStateToken);
+      clearMorphState(docEl, morphState);
       if (getConfig().closeGenRef.current === gen) {
         getConfig().onCloseComplete(triggerEl);
       }

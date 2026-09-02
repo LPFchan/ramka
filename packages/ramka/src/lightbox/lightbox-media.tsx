@@ -4,7 +4,7 @@ import * as React from 'react';
 
 import { LightboxMediaDataAttributes } from './lightbox-data-attributes';
 import { useOptionalLightboxItemContext } from './lightbox-item';
-import { insertLibrarySheet } from './lightbox-style-sheets';
+import { insertDynamicRules } from './lightbox-style-sheets';
 import { mergeProps } from '../render/merge-props';
 import { useRender } from '../render/use-render';
 
@@ -283,7 +283,7 @@ const LightboxMedia = React.forwardRef<HTMLDivElement, LightboxMediaProps>(
     // can paint without them; Media rendered inline on a server-rendered page
     // would paint once unfilled before hydration.
     React.useInsertionEffect(() => {
-      const sheet = insertLibrarySheet(mediaChildFillCss(mediaId), MEDIA_FILL_MARKER);
+      const sheet = insertDynamicRules('media-fill', [mediaChildFillCss(mediaId)], MEDIA_FILL_MARKER);
       return () => sheet.release();
     }, [mediaId]);
 

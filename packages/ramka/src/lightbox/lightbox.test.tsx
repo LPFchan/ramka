@@ -1951,15 +1951,19 @@ describe('Lightbox', () => {
       document.documentElement.removeAttribute('data-ramka-view-transition');
       document.documentElement.removeAttribute('data-ramka-crossfade');
       document.documentElement.removeAttribute('data-ramka-vt-preset');
-      document.documentElement.style.removeProperty('--lightbox-morph-border-radius-from');
-      document.documentElement.style.removeProperty('--lightbox-morph-border-radius-to');
-      document.documentElement.style.removeProperty('--lightbox-morph-old-opacity');
-      document.documentElement.style.removeProperty('--lightbox-morph-new-opacity');
-      document.documentElement.style.removeProperty('--lightbox-vt-duration');
-      document.documentElement.style.removeProperty('--lightbox-vt-easing');
-      document.documentElement.style.removeProperty('--lightbox-vt-crossfade-close-easing');
-      document.documentElement.style.removeProperty('--lightbox-vt-root-easing');
+      document.documentElement.removeAttribute('data-ramka-vt-isolate');
+      document.head
+        .querySelectorAll('style[data-ramka-vt-morph-vars]')
+        .forEach((el) => el.remove());
     }
+
+    /** Per-morph vars sheets (jsdom always takes the <style> fallback). */
+    const morphVarsSheets = () =>
+      document.head.querySelectorAll('style[data-ramka-vt-morph-vars]');
+    const morphVarsCss = () =>
+      Array.from(morphVarsSheets())
+        .map((el) => el.textContent ?? '')
+        .join('\n');
 
     afterEach(() => {
       cleanupViewTransitionAPI();
@@ -2003,48 +2007,74 @@ describe('Lightbox', () => {
       expect(document.documentElement).not.toHaveAttribute('data-ramka-view-transition');
     });
 
-    it('cleans up CSS custom properties after open transition finishes', async () => {
+    it('does not arm name isolation on a page without foreign view-transition-names', async () => {
+      // The isolation rule's universal selector makes its attribute flip a
+      // full-document restyle — it must stay off when there is nothing to
+      // neutralize (the Safari big-DOM stall).
       const { resolveFinished } = mockViewTransitionAPI();
       render(<TestLightbox viewTransition />);
       fireEvent.click(screen.getByTestId('trigger-0'));
-
+      expect(document.documentElement).toHaveAttribute('data-ramka-view-transition');
+      expect(document.documentElement).not.toHaveAttribute('data-ramka-vt-isolate');
       await act(async () => resolveFinished());
-      const docStyle = document.documentElement.style;
-      expect(docStyle.getPropertyValue('--lightbox-morph-border-radius-from')).toBe('');
-      expect(docStyle.getPropertyValue('--lightbox-morph-border-radius-to')).toBe('');
-      expect(docStyle.getPropertyValue('--lightbox-vt-duration')).toBe('');
-      expect(docStyle.getPropertyValue('--lightbox-vt-easing')).toBe('');
-      expect(docStyle.getPropertyValue('--lightbox-vt-crossfade-close-easing')).toBe('');
-      expect(docStyle.getPropertyValue('--lightbox-vt-root-easing')).toBe('');
     });
 
-    it('writes the default timing preset onto documentElement during morph', async () => {
+    it('arms name isolation when the page declares a foreign view-transition-name', async () => {
+      const foreign = document.createElement('div');
+      // Raw attribute (not CSSOM) so the [style*=…] probe sees it like a
+      // browser would regardless of jsdom's property support.
+      foreign.setAttribute('style', 'view-transition-name: hero');
+      document.body.appendChild(foreign);
+      try {
+        const { resolveFinished } = mockViewTransitionAPI();
+        render(<TestLightbox viewTransition />);
+        fireEvent.click(screen.getByTestId('trigger-0'));
+        expect(document.documentElement).toHaveAttribute('data-ramka-vt-isolate');
+
+        await act(async () => resolveFinished());
+        expect(document.documentElement).not.toHaveAttribute('data-ramka-vt-isolate');
+      } finally {
+        foreign.remove();
+      }
+    });
+
+    it('removes the per-morph vars sheet after open transition finishes', async () => {
+      const { resolveFinished } = mockViewTransitionAPI();
+      render(<TestLightbox viewTransition />);
+      fireEvent.click(screen.getByTestId('trigger-0'));
+      expect(morphVarsSheets()).toHaveLength(1);
+
+      await act(async () => resolveFinished());
+      expect(morphVarsSheets()).toHaveLength(0);
+    });
+
+    it('publishes the default timing preset for the morph via the ::view-transition vars sheet', async () => {
       const { resolveFinished } = mockViewTransitionAPI();
       render(<TestLightbox viewTransition />);
 
       fireEvent.click(screen.getByTestId('trigger-0'));
       const docEl = document.documentElement;
       expect(docEl).toHaveAttribute('data-ramka-vt-preset', 'default');
-      expect(docEl.style.getPropertyValue('--lightbox-vt-duration')).toBe('360ms');
-      expect(docEl.style.getPropertyValue('--lightbox-vt-easing')).toBe(
-        'cubic-bezier(0.44, 0.58, 0, 1)',
+      const css = morphVarsCss();
+      expect(css).toContain(':root::view-transition');
+      expect(css).toContain('--lightbox-vt-duration: 360ms;');
+      expect(css).toContain('--lightbox-vt-easing: cubic-bezier(0.44, 0.58, 0, 1);');
+      expect(css).toContain(
+        '--lightbox-vt-crossfade-close-easing: cubic-bezier(0.22, 0, 0.35, 1);',
       );
-      expect(docEl.style.getPropertyValue('--lightbox-vt-crossfade-close-easing')).toBe(
-        'cubic-bezier(0.22, 0, 0.35, 1)',
-      );
-      expect(docEl.style.getPropertyValue('--lightbox-vt-root-easing')).toBe(
-        'cubic-bezier(0.16, 1, 0.3, 1)',
-      );
+      expect(css).toContain('--lightbox-vt-root-easing: cubic-bezier(0.16, 1, 0.3, 1);');
+      // Never written to documentElement: changing inherited custom props on
+      // <html> forces a full-document style recalculation (WebKit especially),
+      // which was the Safari pre-morph stall on large pages.
+      expect(docEl.style.getPropertyValue('--lightbox-vt-duration')).toBe('');
+      expect(docEl.style.getPropertyValue('--lightbox-vt-easing')).toBe('');
 
       await act(async () => resolveFinished());
       expect(docEl).not.toHaveAttribute('data-ramka-vt-preset');
-      expect(docEl.style.getPropertyValue('--lightbox-vt-duration')).toBe('');
-      expect(docEl.style.getPropertyValue('--lightbox-vt-easing')).toBe('');
-      expect(docEl.style.getPropertyValue('--lightbox-vt-crossfade-close-easing')).toBe('');
-      expect(docEl.style.getPropertyValue('--lightbox-vt-root-easing')).toBe('');
+      expect(morphVarsSheets()).toHaveLength(0);
     });
 
-    it('writes a named timing preset (viewTransition="spring") onto documentElement', async () => {
+    it('publishes a named timing preset (viewTransition="spring") for the morph', async () => {
       const { resolveFinished } = mockViewTransitionAPI();
       render(
         <LightboxRoot viewTransition="spring">
@@ -2067,11 +2097,11 @@ describe('Lightbox', () => {
       fireEvent.click(screen.getByTestId('trigger-0'));
       const docEl = document.documentElement;
       expect(docEl).toHaveAttribute('data-ramka-vt-preset', 'spring');
-      expect(docEl.style.getPropertyValue('--lightbox-vt-duration')).toBe('450ms');
+      expect(morphVarsCss()).toContain('--lightbox-vt-duration: 450ms;');
 
       await act(async () => resolveFinished());
       expect(docEl).not.toHaveAttribute('data-ramka-vt-preset');
-      expect(docEl.style.getPropertyValue('--lightbox-vt-duration')).toBe('');
+      expect(morphVarsSheets()).toHaveLength(0);
     });
 
     it('always publishes the preset timing vars on the Portal host (skin motion clock)', async () => {
@@ -2109,7 +2139,9 @@ describe('Lightbox', () => {
       expect(host.style.getPropertyValue('--lightbox-vt-root-easing')).toBe(
         'cubic-bezier(0.16, 1, 0.3, 1)',
       );
-      // documentElement promotion is transition-scoped and already gone.
+      // The morph's own vars sheet is transition-scoped and already gone, and
+      // documentElement never carries the vars at all.
+      expect(morphVarsSheets()).toHaveLength(0);
       expect(document.documentElement.style.getPropertyValue('--lightbox-vt-duration')).toBe('');
     });
 
@@ -2162,17 +2194,19 @@ describe('Lightbox', () => {
       fireEvent.click(screen.getByTestId('b-trigger'));
       expect(docEl).toHaveAttribute('data-ramka-vt-preset', 'spring');
 
-      // A's transition settles late — B's promoted state must survive.
+      // A's transition settles late — B's promoted state must survive. A's
+      // finalizer releases only A's own vars sheet; B's sheet stays.
       await act(async () => resolvers[0]!());
       expect(docEl).toHaveAttribute('data-ramka-view-transition', 'opening');
       expect(docEl).toHaveAttribute('data-ramka-vt-preset', 'spring');
-      expect(docEl.style.getPropertyValue('--lightbox-vt-duration')).toBe('450ms');
+      expect(morphVarsCss()).toContain('--lightbox-vt-duration: 450ms;');
+      expect(morphVarsCss()).not.toContain('--lightbox-vt-duration: 340ms;');
 
       // B's own finalizer still cleans up normally.
       await act(async () => resolvers[1]!());
       expect(docEl).not.toHaveAttribute('data-ramka-view-transition');
       expect(docEl).not.toHaveAttribute('data-ramka-vt-preset');
-      expect(docEl.style.getPropertyValue('--lightbox-vt-duration')).toBe('');
+      expect(morphVarsSheets()).toHaveLength(0);
 
       // Both Roots are left open, so their scroll locks overlap: each saved
       // the other's `overflow` as its "original", and unmount restore order
@@ -3284,8 +3318,9 @@ describe('Lightbox', () => {
 
         fireEvent.click(screen.getByTestId('trigger-0'));
 
-        expect(document.documentElement.style.getPropertyValue('--lightbox-morph-border-radius-from')).toBe('32px');
-        expect(document.documentElement.style.getPropertyValue('--lightbox-morph-border-radius-to')).toBe('8px');
+        const css = morphVarsCss();
+        expect(css).toContain('--lightbox-morph-border-radius-from: 32px;');
+        expect(css).toContain('--lightbox-morph-border-radius-to: 8px;');
         // Live elements keep their radii — shape morph is CSS on the VT group.
         expect(screen.getByTestId('trigger-0').style.borderRadius).toBe('32px');
         expect(screen.getByTestId('item-0').querySelector('img')!.style.borderRadius).toBe('8px');

@@ -1,9 +1,8 @@
 import { VIEW_TRANSITION_NAME } from './vt-constants';
-import { LightboxDocumentCssVars } from './lightbox-css-vars';
 import { LightboxDocumentDataAttributes } from './lightbox-data-attributes';
 import { compensatedMorphRadiusAt, parseMorphRadiusList } from './vt-morph-radius';
 import { morphTiming } from './vt-timing';
-import { insertLibrarySheet, type LibrarySheet } from './lightbox-style-sheets';
+import { insertDynamicRules, type LibrarySheet } from './lightbox-style-sheets';
 import { ensureLibrarySheet } from './vt-style-sheets';
 
 // ---------------------------------------------------------------------------
@@ -77,17 +76,51 @@ interface UpgradeableTransition {
   finished: Promise<void>;
 }
 
+/**
+ * The morph's from/to border-radius lists (used px, from
+ * `resolveMorphBorderRadius`), handed over by the morph engine. Passed
+ * directly rather than read back off computed style: the values live in a
+ * per-morph stylesheet scoped to the `::view-transition` pseudo (never on
+ * `documentElement` — see buildMorphVarsCss in use-view-transition-morph.ts),
+ * and Safari 18.x getComputedStyle reads on view-transition pseudos are
+ * unreliable while animations run on them.
+ */
+interface MorphRadii {
+  from: string | null;
+  to: string | null;
+}
+
 /** Root attribute that activates the injected pseudo-element overrides. */
 const COMPOSITED_ATTR = 'data-ramka-vt-composited';
 
 /**
  * Root attribute for the WebKit CSS-animation path. Separate from
  * {@link COMPOSITED_ATTR} because the static injected sheet forces
- * `animation: none` under that attribute — the CSS path instead carries its
- * geometry overrides AND its generated animations in one per-transition
- * stylesheet.
+ * `animation: none` under that attribute — the CSS path instead arms static
+ * rules whose every dynamic value (animation shorthands naming the
+ * per-transition keyframes, snapshot geometry) arrives through the
+ * `--ramka-cm-*` custom properties below.
  */
 const COMPOSITED_CSS_ATTR = 'data-ramka-vt-composited-css';
+
+/**
+ * Internal custom properties carrying the CSS path's per-transition values,
+ * published on `:root::view-transition` (inherited by the whole pseudo tree)
+ * right before {@link COMPOSITED_CSS_ATTR} is set. Split this way so the
+ * per-transition insertions are only @keyframes rules plus one var rule —
+ * shapes WebKit's style invalidator scopes cheaply — while the rules that
+ * consume them are static, injected once (see {@link ensureStyleInjected}).
+ * Not part of the documented `--lightbox-*` surface.
+ */
+const CM_VARS = {
+  groupAnim: '--ramka-cm-group-anim',
+  oldAnim: '--ramka-cm-old-anim',
+  newAnim: '--ramka-cm-new-anim',
+  oldW: '--ramka-cm-old-w',
+  oldH: '--ramka-cm-old-h',
+  newW: '--ramka-cm-new-w',
+  newH: '--ramka-cm-new-h',
+} as const;
 
 /** Unique suffix for per-transition @keyframes names (forces fresh starts). */
 let cssAnimationSeq = 0;
@@ -176,6 +209,15 @@ function keyframesCss(
  *   Anchoring is pinned to the physical top-left (`inset: 0 auto auto 0`)
  *   because the counter transforms are computed from that corner — see
  *   {@link SNAPSHOT_ANCHOR}.
+ *
+ * The `COMPOSITED_CSS_ATTR` block is the WebKit CSS-animation path: the same
+ * geometry contract, but with the replacement animations attached via the
+ * `--ramka-cm-*` vars (see {@link CM_VARS}). These rules are static so the
+ * per-transition work reduces to @keyframes + one var rule + an attribute
+ * flip — WebKit full-restyles the document on any other stylesheet delivery,
+ * which on large pages was the "Safari lag" before every morph. The `none`
+ * fallbacks make the rules inert until the vars land (they are committed, and
+ * flushed, before the attribute is set).
  */
 function ensureStyleInjected() {
   ensureLibrarySheet(
@@ -193,8 +235,36 @@ function ensureStyleInjected() {
   transform-origin: 0 0 !important;
   animation: none !important;
 }
+:root[${COMPOSITED_CSS_ATTR}]${GROUP_PSEUDO} {
+  transform-origin: 0 0 !important;
+  animation: var(${CM_VARS.groupAnim}, none) !important;
+}
+:root[${COMPOSITED_CSS_ATTR}]:not([${LightboxDocumentDataAttributes.crossfade}])${OLD_PSEUDO} {
+  width: var(${CM_VARS.oldW}, auto) !important;
+  height: var(${CM_VARS.oldH}, auto) !important;
+  ${SNAPSHOT_ANCHOR}
+  transform-origin: 0 0 !important;
+  animation: var(${CM_VARS.oldAnim}, none) !important;
+}
+:root[${COMPOSITED_CSS_ATTR}]:not([${LightboxDocumentDataAttributes.crossfade}])${NEW_PSEUDO} {
+  width: var(${CM_VARS.newW}, auto) !important;
+  height: var(${CM_VARS.newH}, auto) !important;
+  ${SNAPSHOT_ANCHOR}
+  transform-origin: 0 0 !important;
+  animation: var(${CM_VARS.newAnim}, none) !important;
+}
 `,
   );
+}
+
+/**
+ * Pre-pay the static sheet's one-time adopted-array churn (a full-document
+ * restyle in WebKit) at idle warm-up instead of inside the first morph's
+ * `ready` microtask.
+ */
+function prewarmCompositedMorphStyles(): void {
+  if (typeof document === 'undefined') return;
+  ensureStyleInjected();
 }
 
 // ---------------------------------------------------------------------------
@@ -274,18 +344,21 @@ const fmt = (n: number) => Number(n.toFixed(4));
  * transform-only compositor animations once its pseudo-element tree is live.
  * No-op (stock UA morph) when the flag is off or any precondition fails.
  */
-function maybeUpgradeToCompositedMorph(transition: UpgradeableTransition): void {
+function maybeUpgradeToCompositedMorph(
+  transition: UpgradeableTransition,
+  radii?: MorphRadii,
+): void {
   if (!isCompositedMorphEnabled()) return;
   if (!transition.ready) return;
 
   transition.ready
-    .then(() => upgrade(transition))
+    .then(() => upgrade(transition, radii))
     .catch(() => {
       // ready rejects when the transition is skipped — nothing to upgrade.
     });
 }
 
-function upgrade(transition: UpgradeableTransition): void {
+function upgrade(transition: UpgradeableTransition, radii?: MorphRadii): void {
   const docEl = document.documentElement;
 
   // Crossfade morphs replace the group animation only: snapshots keep their
@@ -419,13 +492,8 @@ function upgrade(transition: UpgradeableTransition): void {
     docEl.setAttribute(COMPOSITED_ATTR, '');
   }
 
-  const rootStyle = getComputedStyle(docEl);
-  const rFrom = parseMorphRadiusList(
-    rootStyle.getPropertyValue(LightboxDocumentCssVars.morphBorderRadiusFrom),
-  );
-  const rTo = parseMorphRadiusList(
-    rootStyle.getPropertyValue(LightboxDocumentCssVars.morphBorderRadiusTo),
-  );
+  const rFrom = parseMorphRadiusList(radii?.from ?? '');
+  const rTo = parseMorphRadiusList(radii?.to ?? '');
   const hasRadius = [...rFrom, ...rTo].some((r) => r > 0);
 
   const steps = Math.min(120, Math.max(24, Math.round(duration / 8)));
@@ -501,7 +569,8 @@ function upgrade(transition: UpgradeableTransition): void {
   });
 
   let created: Animation[] = [];
-  let styleEl: LibrarySheet | null = null;
+  let keyframesSheet: LibrarySheet | null = null;
+  let cmVarsSheet: LibrarySheet | null = null;
 
   if (useCssAnimations) {
     // WebKit path: deliver the replacement as real CSS animations (WAAPI on
@@ -519,6 +588,19 @@ function upgrade(transition: UpgradeableTransition): void {
     // near-zero travel sits in the swallowed leading edge. The replacement
     // animations keep the transition (and its pseudo tree) alive until they
     // finish.
+    //
+    // Delivery is shaped around WebKit's style invalidator (measured; see the
+    // channel docblock in lightbox-style-sheets.ts): the rules consuming the
+    // animations are STATIC (ensureStyleInjected, ideally already adopted by
+    // the idle warm-up), and the per-transition payload is only @keyframes
+    // plus one `--ramka-cm-*` vars rule — inserted into different channel
+    // sheets with a forced style flush between them, because WebKit only
+    // scopes the invalidation when a single sheet changes per flush. Anything
+    // else here (a fresh adopted sheet, keyframes and style rules in one
+    // sheet, one batch touching two sheets) forces a full-document restyle
+    // inside the `ready` microtask — on Mintlify-sized pages a >100ms freeze
+    // before the morph's first frame.
+    ensureStyleInjected();
     const id = ++cssAnimationSeq;
     const gName = `ramka-vtg-${id}`;
     const rName = `ramka-vtr-${id}`;
@@ -527,40 +609,38 @@ function upgrade(transition: UpgradeableTransition): void {
     const track = (name: string) => `${name} ${duration}ms linear ${-uaElapsed}ms both`;
     const groupTracks = hasRadius ? `${track(gName)}, ${track(rName)}` : track(gName);
 
-    // Crossfade: group rules only — the snapshots keep their structural
+    // Crossfade: group tracks only — the snapshots keep their structural
     // sizing and UA dissolve (see the sampling loop above).
-    const snapshotCss = isCrossfade
-      ? ''
-      : `
-${keyframesCss(oName, oldFrames, 'transform')}
-${keyframesCss(nName, newFrames, 'transform')}
-:root[${COMPOSITED_CSS_ATTR}]${OLD_PSEUDO} {
-  width: ${fmt(w0)}px;
-  height: ${fmt(h0)}px;
-  ${SNAPSHOT_ANCHOR}
-  transform-origin: 0 0 !important;
-  animation: ${track(oName)} !important;
-}
-:root[${COMPOSITED_CSS_ATTR}]${NEW_PSEUDO} {
-  width: ${fmt(w1)}px;
-  height: ${fmt(h1)}px;
-  ${SNAPSHOT_ANCHOR}
-  transform-origin: 0 0 !important;
-  animation: ${track(nName)} !important;
-}
-`;
+    const keyframeRules = [keyframesCss(gName, groupFrames, 'transform')];
+    if (hasRadius) keyframeRules.push(keyframesCss(rName, radiusFrames, 'borderRadius'));
+    if (!isCrossfade) {
+      keyframeRules.push(keyframesCss(oName, oldFrames, 'transform'));
+      keyframeRules.push(keyframesCss(nName, newFrames, 'transform'));
+    }
+    const varDecls = [`${CM_VARS.groupAnim}: ${groupTracks};`];
+    if (!isCrossfade) {
+      varDecls.push(`${CM_VARS.oldAnim}: ${track(oName)};`);
+      varDecls.push(`${CM_VARS.newAnim}: ${track(nName)};`);
+      varDecls.push(`${CM_VARS.oldW}: ${fmt(w0)}px;`);
+      varDecls.push(`${CM_VARS.oldH}: ${fmt(h0)}px;`);
+      varDecls.push(`${CM_VARS.newW}: ${fmt(w1)}px;`);
+      varDecls.push(`${CM_VARS.newH}: ${fmt(h1)}px;`);
+    }
 
-    styleEl = insertLibrarySheet(
-      `
-${keyframesCss(gName, groupFrames, 'transform')}
-${hasRadius ? keyframesCss(rName, radiusFrames, 'borderRadius') : ''}
-:root[${COMPOSITED_CSS_ATTR}]${GROUP_PSEUDO} {
-  transform-origin: 0 0 !important;
-  animation: ${groupTracks} !important;
-}
-${snapshotCss}`,
+    keyframesSheet = insertDynamicRules(
+      'morph-keyframes',
+      keyframeRules,
+      'data-ramka-vt-composited-kf',
+    );
+    // Commit the keyframes in their own style flush (see the delivery note
+    // above) before the vars rule dirties the second sheet.
+    void docEl.offsetWidth;
+    cmVarsSheet = insertDynamicRules(
+      'composited-vars',
+      [`:root::view-transition {\n  ${varDecls.join('\n  ')}\n}`],
       'data-ramka-vt-composited-css',
     );
+    void docEl.offsetWidth;
     docEl.setAttribute(COMPOSITED_CSS_ATTR, '');
   } else {
     try {
@@ -598,8 +678,16 @@ ${snapshotCss}`,
     for (const a of created) a.cancel();
     docEl.removeAttribute(COMPOSITED_ATTR);
     docEl.removeAttribute(COMPOSITED_CSS_ATTR);
-    styleEl?.release();
+    // Releases are deferred + batched (idle): rule deletion is a full-document
+    // restyle in WebKit, and the stale rules are inert once the attrs are off.
+    keyframesSheet?.release();
+    cmVarsSheet?.release();
   });
 }
 
-export { maybeUpgradeToCompositedMorph, isCompositedMorphEnabled, parseScaleTranslate };
+export {
+  maybeUpgradeToCompositedMorph,
+  isCompositedMorphEnabled,
+  parseScaleTranslate,
+  prewarmCompositedMorphStyles,
+};

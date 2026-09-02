@@ -1,6 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { LightboxDocumentCssVars } from './lightbox-css-vars';
 import { LightboxDocumentDataAttributes } from './lightbox-data-attributes';
 import { stubConstructedSheets } from './lightbox-style-sheets-test-utils';
 
@@ -101,8 +100,6 @@ function fakeTransition() {
 
 /** Computed-style values the upgrade reads off the group pseudo. */
 let pseudoStyle: Record<string, string>;
-/** Border-radius custom properties on the root. */
-let rootVars: Record<string, string>;
 let animateSpy: ReturnType<typeof vi.fn>;
 /** Every animation `docEl.animate` handed back, so teardown can be checked. */
 let createdAnimations: { cancel: ReturnType<typeof vi.fn>; currentTime: number | null }[];
@@ -121,7 +118,6 @@ function installHarness() {
     height: '600px',
     transformOrigin: '400px 300px',
   };
-  rootVars = {};
   createdAnimations = [];
 
   animateSpy = vi.fn(trackCreated);
@@ -136,7 +132,7 @@ function installHarness() {
       (pseudo
         ? pseudoStyle
         : {
-            getPropertyValue: (prop: string) => rootVars[prop] ?? '',
+            getPropertyValue: () => '',
           }) as unknown as CSSStyleDeclaration,
   );
 }
@@ -161,9 +157,12 @@ async function loadUpgrade() {
 }
 
 /** Runs the upgrade and lets its `ready.then` microtask chain settle. */
-async function runUpgrade(transition: { ready?: Promise<void>; finished: Promise<void> }) {
+async function runUpgrade(
+  transition: { ready?: Promise<void>; finished: Promise<void> },
+  radii?: { from: string | null; to: string | null },
+) {
   const upgrade = await loadUpgrade();
-  upgrade(transition);
+  upgrade(transition, radii);
   await Promise.resolve();
   await Promise.resolve();
   await Promise.resolve();
@@ -171,6 +170,7 @@ async function runUpgrade(transition: { ready?: Promise<void>; finished: Promise
 
 const compositedStyleEl = () => document.head.querySelector('[data-ramka-vt-composited-style]');
 const cssPathStyleEl = () => document.head.querySelector(`style[${COMPOSITED_CSS_ATTR}]`);
+const kfStyleEl = () => document.head.querySelector('style[data-ramka-vt-composited-kf]');
 
 /** Nothing was touched: no replacements, no attributes, UA animation intact. */
 function expectStockMorphLeftAlone(ua: FakeAnimation) {
@@ -401,10 +401,10 @@ describe('composited morph — WAAPI path (Blink / Gecko)', () => {
 
   it('adds a separate border-radius track when the morph has radius', async () => {
     installAnimations([uaGroupAnimation()]);
-    rootVars[LightboxDocumentCssVars.morphBorderRadiusFrom] = '16px';
-    rootVars[LightboxDocumentCssVars.morphBorderRadiusTo] = '0px';
 
-    await runUpgrade(fakeTransition().transition);
+    // Radii arrive as an explicit argument from the morph engine — never read
+    // off documentElement computed style (the vars no longer live there).
+    await runUpgrade(fakeTransition().transition, { from: '16px', to: '0px' });
 
     // Separate from the transform track: mixing a paint property into the same
     // effect demotes the whole effect off the compositor.
@@ -522,13 +522,28 @@ describe('composited morph — WebKit CSS path', () => {
     // The static sheet forces `animation: none` under the WAAPI attribute, so
     // the CSS path must not claim it.
     expect(document.documentElement.hasAttribute(COMPOSITED_ATTR)).toBe(false);
-    expect(compositedStyleEl()).toBeNull();
 
-    const css = cssPathStyleEl()?.textContent ?? '';
-    expect(css).toContain('@keyframes ramka-vtg-');
-    expect(css).toContain(GROUP_PSEUDO);
-    expect(css).toContain(OLD_PSEUDO);
-    expect(css).toContain(NEW_PSEUDO);
+    // The rules consuming the animations are STATIC (var()-driven), so the
+    // per-transition payload stays cheap for WebKit's style invalidator: only
+    // @keyframes plus one custom-property rule. See lightbox-style-sheets.ts.
+    const staticCss = compositedStyleEl()?.textContent ?? '';
+    expect(staticCss).toContain(`:root[${COMPOSITED_CSS_ATTR}]${GROUP_PSEUDO}`);
+    expect(staticCss).toContain(`${OLD_PSEUDO}`);
+    expect(staticCss).toContain(`${NEW_PSEUDO}`);
+    expect(staticCss).toContain('var(--ramka-cm-group-anim, none)');
+
+    const kfCss = kfStyleEl()?.textContent ?? '';
+    expect(kfCss).toContain('@keyframes ramka-vtg-');
+    expect(kfCss).toContain('@keyframes ramka-vto-');
+    expect(kfCss).toContain('@keyframes ramka-vtn-');
+
+    const varsCss = cssPathStyleEl()?.textContent ?? '';
+    expect(varsCss).toContain(':root::view-transition');
+    expect(varsCss).toContain('--ramka-cm-group-anim: ramka-vtg-');
+    expect(varsCss).toContain('--ramka-cm-old-anim: ramka-vto-');
+    expect(varsCss).toContain('--ramka-cm-new-anim: ramka-vtn-');
+    expect(varsCss).toContain('--ramka-cm-old-w: 200px;');
+    expect(varsCss).toContain('--ramka-cm-new-h: 600px;');
   });
 
   it('carries the elapsed UA progress as a negative animation delay', async () => {
@@ -539,15 +554,23 @@ describe('composited morph — WebKit CSS path', () => {
     expect(cssPathStyleEl()?.textContent ?? '').toContain('-45ms both');
   });
 
-  it('emits group rules only for a crossfade morph', async () => {
+  it('emits group tracks only for a crossfade morph', async () => {
     document.documentElement.setAttribute(LightboxDocumentDataAttributes.crossfade, 'open');
 
     await runUpgrade(fakeTransition().transition);
 
-    const css = cssPathStyleEl()?.textContent ?? '';
-    expect(css).toContain(GROUP_PSEUDO);
-    expect(css).not.toContain(OLD_PSEUDO);
-    expect(css).not.toContain(NEW_PSEUDO);
+    // Crossfade snapshots keep the structural contract and UA dissolve: no
+    // snapshot keyframes, no snapshot animation/geometry vars.
+    const kfCss = kfStyleEl()?.textContent ?? '';
+    expect(kfCss).toContain('@keyframes ramka-vtg-');
+    expect(kfCss).not.toContain('@keyframes ramka-vto-');
+    expect(kfCss).not.toContain('@keyframes ramka-vtn-');
+
+    const varsCss = cssPathStyleEl()?.textContent ?? '';
+    expect(varsCss).toContain('--ramka-cm-group-anim:');
+    expect(varsCss).not.toContain('--ramka-cm-old-anim:');
+    expect(varsCss).not.toContain('--ramka-cm-new-anim:');
+    expect(varsCss).not.toContain('--ramka-cm-old-w:');
   });
 
   it('uses a fresh @keyframes name per transition so animations restart', async () => {
@@ -557,14 +580,14 @@ describe('composited morph — WebKit CSS path', () => {
     await Promise.resolve();
     await Promise.resolve();
     await Promise.resolve();
-    const first = cssPathStyleEl()?.textContent ?? '';
+    const first = kfStyleEl()?.textContent ?? '';
 
     installAnimations([uaGroupAnimation()]);
     upgrade(fakeTransition().transition);
     await Promise.resolve();
     await Promise.resolve();
     await Promise.resolve();
-    const sheets = [...document.head.querySelectorAll(`style[${COMPOSITED_CSS_ATTR}]`)];
+    const sheets = [...document.head.querySelectorAll('style[data-ramka-vt-composited-kf]')];
     const second = sheets[sheets.length - 1]?.textContent ?? '';
 
     const nameOf = (css: string) => /@keyframes (ramka-vtg-\d+)/.exec(css)?.[1];
@@ -573,9 +596,12 @@ describe('composited morph — WebKit CSS path', () => {
     expect(nameOf(first)).not.toBe(nameOf(second));
   });
 
-  it('adopts the per-transition keyframes in a browser, and releases them on teardown', async () => {
+  it('adopts the per-transition keyframes in a browser, and deletes them at idle', async () => {
     // The generated keyframes are computed per open, so no CSP hash allowlist
     // could ever cover them — they have to stay out of the document entirely.
+    // Deletion is deferred: `deleteRule` is a full-document restyle in WebKit,
+    // so it runs in an idle batch after the transition, never inside it.
+    vi.useFakeTimers();
     const stub = stubConstructedSheets();
     try {
       const { transition, finish } = fakeTransition();
@@ -587,18 +613,27 @@ describe('composited morph — WebKit CSS path', () => {
       await Promise.resolve();
 
       expect(document.querySelectorAll('style')).toHaveLength(0);
-      expect(stub.adoptedCss().join('')).toContain('@keyframes ramka-vtg-');
+      const adopted = () => stub.adoptedCss().join('\n');
+      expect(adopted()).toContain('@keyframes ramka-vtg-');
+      expect(adopted()).toContain('--ramka-cm-group-anim:');
 
       await finish();
 
-      expect(stub.adoptedCss()).toHaveLength(0);
       expect(document.documentElement.hasAttribute(COMPOSITED_CSS_ATTR)).toBe(false);
+      // Still adopted right after finish; gone once the idle batch runs.
+      expect(adopted()).toContain('@keyframes ramka-vtg-');
+      vi.advanceTimersByTime(1500);
+      expect(adopted()).not.toContain('@keyframes ramka-vtg-');
+      expect(adopted()).not.toContain('--ramka-cm-group-anim:');
+      // The channel sheets themselves stay adopted (removal is a full restyle).
+      expect(document.adoptedStyleSheets.length).toBeGreaterThan(0);
     } finally {
       stub.restore();
+      vi.useRealTimers();
     }
   });
 
-  it('removes its per-transition stylesheet on teardown', async () => {
+  it('removes its per-transition stylesheets on teardown (jsdom fallback)', async () => {
     const { transition, finish } = fakeTransition();
 
     const upgrade = await loadUpgrade();
@@ -606,10 +641,12 @@ describe('composited morph — WebKit CSS path', () => {
     await Promise.resolve();
     await Promise.resolve();
     await Promise.resolve();
+    expect(kfStyleEl()).not.toBeNull();
     expect(cssPathStyleEl()).not.toBeNull();
 
     await finish();
 
+    expect(kfStyleEl()).toBeNull();
     expect(cssPathStyleEl()).toBeNull();
     expect(document.documentElement.hasAttribute(COMPOSITED_CSS_ATTR)).toBe(false);
   });

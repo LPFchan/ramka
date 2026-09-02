@@ -1,3 +1,6 @@
+import { LightboxDocumentDataAttributes } from './lightbox-data-attributes';
+import { scheduleWarmUp } from './schedule-warm-up';
+
 // ---------------------------------------------------------------------------
 // Delivering the library's view-transition CSS without an inline <style>.
 //
@@ -69,17 +72,164 @@ function appendStyleElement(css: string, marker: string, prepend: boolean): Libr
   };
 }
 
+// ---------------------------------------------------------------------------
+// Dynamic rule channels — how SHORT-LIVED css (per-media fill rules, per-morph
+// vars, per-transition keyframes) reaches the document.
+//
+// The naive delivery — one constructed sheet per insertion, adopted and later
+// removed — makes WebKit restyle the ENTIRE document on every open and close.
+// Measured on a 16k-element page (Safari/WebKit 26, ~2020 MacBook):
+//
+// - Any `document.adoptedStyleSheets` array change once a sheet containing
+//   @keyframes is adopted (ramka's structural sheet is): full-document
+//   restyle, ~110ms. Both directions — adding AND removing.
+// - `CSSStyleSheet.insertRule` IS invalidation-analyzed and scoped (0–4ms),
+//   but only when a single sheet is mutated per style flush, and only when
+//   @keyframes and style rules are not mixed into the same sheet.
+// - `CSSStyleSheet.deleteRule` is never analyzed: always a full restyle.
+// - `CSSStyleDeclaration.setProperty` on an existing rule: always a full
+//   restyle (so rules are inserted/deleted, never mutated).
+//
+// Blink/Gecko scope all of these fine; WebKit is the design constraint. Hence:
+//
+// - One PERSISTENT sheet per concern ("channel"), all adopted in a single
+//   assignment (one one-time churn, ideally pre-paid at idle warm-up via
+//   {@link prewarmDynamicStyleSheets}). Keyframes get their own channel so
+//   they never share a sheet with style rules.
+// - Insertions go through `insertRule` on the channel's sheet.
+// - Deletions are deferred to idle time and batched — the unavoidable full
+//   restyle they cause in WebKit lands when nothing is animating, instead of
+//   inside a morph's capture window. Until then stale rules are inert: every
+//   dynamic rule is scoped (per-media ids, `::view-transition` pseudos,
+//   uniquely-named keyframes), and a successor rule for the same purpose
+//   sorts later in the sheet, winning the cascade tie.
+//
+// Callers that need several batches in one task (the composited morph inserts
+// keyframes AND a vars rule) must force a style flush between channels to keep
+// WebKit's one-analyzed-sheet-per-flush fast path — see vt-composited-morph.ts.
+// ---------------------------------------------------------------------------
+
+type DynamicSheetChannel = 'media-fill' | 'morph-vars' | 'morph-keyframes' | 'composited-vars';
+
+const DYNAMIC_CHANNELS: readonly DynamicSheetChannel[] = [
+  'media-fill',
+  'morph-vars',
+  'morph-keyframes',
+  'composited-vars',
+];
+
+let channelSheets: Map<DynamicSheetChannel, CSSStyleSheet> | null = null;
+
+function ensureChannelSheets(): Map<DynamicSheetChannel, CSSStyleSheet> | null {
+  if (typeof document === 'undefined' || !supportsConstructedSheets()) return null;
+  if (channelSheets) return channelSheets;
+  channelSheets = new Map();
+  const sheets: CSSStyleSheet[] = [];
+  for (const channel of DYNAMIC_CHANNELS) {
+    const sheet = new CSSStyleSheet();
+    channelSheets.set(channel, sheet);
+    sheets.push(sheet);
+  }
+  // One assignment for all channels: every adopted-array change is a
+  // full-document restyle in WebKit, so they are never adopted one by one.
+  document.adoptedStyleSheets = [...document.adoptedStyleSheets, ...sheets];
+  return channelSheets;
+}
+
 /**
- * Add a sheet the caller will remove again — the per-media fill rules and the
- * per-transition morph keyframes, both scoped to something that goes away.
+ * Pre-pay the one-time adopted-array churn for the dynamic channels at a
+ * harmless moment (idle warm-up) instead of inside the first open.
  */
-function insertLibrarySheet(css: string, marker: string): LibrarySheet {
+function prewarmDynamicStyleSheets(): void {
+  ensureChannelSheets();
+}
+
+/** Rules whose owners released them, awaiting the idle deletion batch. */
+const pendingRuleDeletes = new Set<CSSRule>();
+let ruleCleanupScheduled = false;
+
+function flushPendingRuleDeletes(): void {
+  ruleCleanupScheduled = false;
+  if (pendingRuleDeletes.size === 0 || !channelSheets) return;
+  // Never during a morph: `deleteRule` is a full-document restyle in WebKit
+  // and would stall the capture or the running animation. Stale rules are
+  // inert (see the channel docblock), so waiting is free.
+  if (document.documentElement.hasAttribute(LightboxDocumentDataAttributes.viewTransition)) {
+    scheduleRuleCleanup();
+    return;
+  }
+  for (const sheet of channelSheets.values()) {
+    for (let i = sheet.cssRules.length - 1; i >= 0; i--) {
+      if (pendingRuleDeletes.has(sheet.cssRules[i]!)) sheet.deleteRule(i);
+    }
+  }
+  pendingRuleDeletes.clear();
+}
+
+function scheduleRuleCleanup(): void {
+  if (ruleCleanupScheduled) return;
+  ruleCleanupScheduled = true;
+  scheduleWarmUp(flushPendingRuleDeletes);
+}
+
+/**
+ * Add short-lived rules the caller will release again. Constructed-sheet path:
+ * `insertRule` into the channel's persistent sheet now, batched `deleteRule`
+ * at idle after release. Fallback (jsdom): a marker-attributed <style> element
+ * per call, removed synchronously on release.
+ */
+function insertDynamicRules(
+  channel: DynamicSheetChannel,
+  rules: readonly string[],
+  marker: string,
+): LibrarySheet {
   if (typeof document === 'undefined') return NOOP;
-  return supportsConstructedSheets() ? adopt(css) : appendStyleElement(css, marker, false);
+  const sheets = ensureChannelSheets();
+  if (!sheets) return appendStyleElement(rules.join('\n'), marker, false);
+
+  const sheet = sheets.get(channel)!;
+  const inserted: CSSRule[] = [];
+  for (const rule of rules) {
+    try {
+      const index = sheet.insertRule(rule, sheet.cssRules.length);
+      inserted.push(sheet.cssRules[index]!);
+    } catch {
+      // The engine refused the rule text (unknown selector/at-rule syntax).
+      // Skip it — every dynamic rule is a progressive enhancement over a
+      // still-working baseline (stock morph, intrinsic media sizing).
+    }
+  }
+  let released = false;
+  return {
+    release() {
+      if (released) return;
+      released = true;
+      for (const rule of inserted) pendingRuleDeletes.add(rule);
+      scheduleRuleCleanup();
+    },
+  };
+}
+
+/**
+ * Test hook: forget the channel sheets and pending deletions. jsdom tests stub
+ * `document.adoptedStyleSheets` per test, which would otherwise leave the
+ * cached channels adopted into a discarded array.
+ */
+function resetDynamicSheetChannelsForTests(): void {
+  channelSheets = null;
+  pendingRuleDeletes.clear();
+  ruleCleanupScheduled = false;
 }
 
 // `ensureLibrarySheet` lives in its own module (vt-style-sheets.ts) so the
 // once-only machinery stays in the lazy morph chunk instead of riding along in
-// the eager bundle, which only needs `insertLibrarySheet` for Media.
-export { adopt, appendStyleElement, insertLibrarySheet, supportsConstructedSheets };
-export type { LibrarySheet };
+// the eager bundle, which only needs the dynamic channels for Media.
+export {
+  adopt,
+  appendStyleElement,
+  insertDynamicRules,
+  prewarmDynamicStyleSheets,
+  resetDynamicSheetChannelsForTests,
+  supportsConstructedSheets,
+};
+export type { DynamicSheetChannel, LibrarySheet };
