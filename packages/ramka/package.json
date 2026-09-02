@@ -1,8 +1,13 @@
 {
   "name": "@ramka/react",
-  "version": "0.0.0",
+  "version": "0.0.1",
   "description": "Unstyled, accessible image gallery primitives for React. (\"ramka\" — Polish for \"frame\".)",
   "license": "GPL-3.0-only",
+  "author": "Artur Bień",
+  "homepage": "https://ramka.dev",
+  "bugs": {
+    "url": "https://github.com/arturbien/ramka/issues"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/arturbien/ramka.git",
@@ -27,6 +32,8 @@
   },
   "files": [
     "dist",
+    "CHANGELOG.md",
+    "COMMERCIAL-LICENSE.md",
     "LICENSE",
     "README.md",
     "THIRD-PARTY-NOTICES.md",

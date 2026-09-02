@@ -6,12 +6,13 @@ a version even by accident.
 
 ## Cutting a release
 
-1. Bump `version` in `packages/ramka/package.json` and land it on `main`.
+1. Bump `version` in `packages/ramka/package.json`, add a `CHANGELOG.md` entry,
+   and land it on `main`.
 2. Tag that commit and push the tag:
 
 ```bash
-git tag v0.1.0
-git push origin v0.1.0
+git tag v0.0.1
+git push origin v0.0.1
 ```
 
 [`release.yml`](.github/workflows/release.yml) then verifies the tag agrees with
@@ -23,6 +24,22 @@ the SBOM attached.
 Running the workflow manually from the Actions tab is a rehearsal: it does
 everything except publish, ending at `npm pack --dry-run` so you can see what
 the tarball would contain.
+
+## First release checklist
+
+These are one-time, and they block a successful first publish more than the
+version bump does.
+
+1. **Make this repository public.** Provenance attestations require both the
+   GitHub repository and the npm package to be public. While the repo is
+   private, `npm publish` can still succeed (trusted publishing authenticates
+   either way), but npm records no attestation and the "Verify the published
+   provenance" step fails. The site and the package are already public;
+   `gh repo edit --visibility public` is the remaining switch.
+2. **Configure the trusted publisher** on npmjs.com (table below). `@ramka/react`
+   already exists as `0.0.0`; this is the GitHub Actions publisher for later
+   versions, not the package itself.
+3. Land the version bump on `main`, then push the matching `vX.Y.Z` tag.
 
 ## One-time setup on npmjs.com
 
@@ -107,13 +124,13 @@ npx ajv-cli validate --spec=draft7 --strict=false -c ajv-formats \
 published artifact — the package keeps its own copy, and a GPL release that
 conveyed no license text would not satisfy GPL section 4. Editing the license
 means editing both, and `pnpm license:check` (which CI runs) fails when they
-disagree.
+disagree. `COMMERCIAL-LICENSE.md` and `CHANGELOG.md` ship in the same tarball.
 
 Deliberately a committed copy rather than one written at build time, unlike the
 SBOM. The SBOM has no choice: it names the version being published, so a
 checked-in copy could only be stale. A license is static, and the two risks are
 not comparable — a copy can drift, which the check turns into a failed run on the
-PR that caused it, while a generated file can be *absent* (build reordered, tsup
+PR that caused it, while a generated file can be _absent_ (build reordered, tsup
 run directly, a fresh clone packed) with nothing to show for it, since the file
 would be gitignored and invisible to review.
 
