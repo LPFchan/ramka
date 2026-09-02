@@ -121,7 +121,10 @@ Declare the license you are using on `Lightbox.Root` with `license="gpl"` or
 and is not validated remotely.
 
 The GPLv3 text and licensing overview are in [LICENSE](./LICENSE), which ships
-inside this package. The vendored Base UI code noted in
-[THIRD-PARTY-NOTICES.md](./THIRD-PARTY-NOTICES.md), also published at
+inside this package. The commercial terms are in
+[COMMERCIAL-LICENSE.md](./COMMERCIAL-LICENSE.md). The vendored Base UI code noted
+in [THIRD-PARTY-NOTICES.md](./THIRD-PARTY-NOTICES.md), also published at
 [ramka.dev/license/notices](https://ramka.dev/license/notices), is MIT-licensed
 and remains subject to its own license terms.
+
+Changes to each published version are recorded in [CHANGELOG.md](./CHANGELOG.md).

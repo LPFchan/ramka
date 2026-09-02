@@ -1,0 +1,23 @@
+# Changelog
+
+All notable changes to `@ramka/react` are documented here.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [0.0.1] - 2026-09-02
+
+Initial public release. The API is early (`0.0.x`) and may still change.
+
+### Added
+
+- Headless, unstyled Lightbox primitives for React 18 and 19: `Root`, `Trigger`, `Portal`, `Backdrop`, `Content`, `Stage`, `Slides`, `Slide`, `Item`, `Media`, `Zoom`, `ZoomIn`, `ZoomOut`, `Previous`, `Next`, `Close`, `Counter`, `Caption`, `ThumbnailGroup`, `Thumbnail`, `ThumbnailStrip`, `ThumbnailStripTrack`.
+- Shared-element View Transition morph from trigger to item (and back), with a crossfade fallback where the View Transition API is missing or reduced motion is requested.
+- Native CSS scroll-snap slides rather than a transform-emulated carousel, including RTL.
+- Pinch, double-tap, trackpad, and keyboard zoom with pan, rubber-banding, and snap-back.
+- Pull-to-dismiss on touch and trackpad, interruptible and aware of zoom and in-flight swipes.
+- Zero installed runtime dependencies. Morph, zoom, and pull engines lazy-load on demand.
+- Dual license: GPL-3.0-only, or a paid proprietary license ([ramka.dev/license](https://ramka.dev/license)). Declare the one in use on `Lightbox.Root` with `license="gpl"` or `license="commercial"`.
+- CycloneDX SBOM shipped as `sbom.cdx.json`. Releases are published from GitHub Actions with npm provenance.
+
+[0.0.1]: https://github.com/arturbien/ramka/releases/tag/v0.0.1
