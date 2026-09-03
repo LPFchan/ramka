@@ -10,6 +10,7 @@ import { LicenseCta } from './_components/license-cta';
 import { SiteFooter } from './_components/site-footer';
 import { SiteHeader } from './_components/site-header';
 import { TrackedLink } from './_components/tracked-link';
+import { TrustedBy } from './_components/trusted-by';
 
 /**
  * schema.org entity markup for search engines. Deliberately no `offers`:
@@ -72,6 +73,8 @@ export default function HomePage() {
           <div className="mt-5">
             <InstallCommand />
           </div>
+
+          <TrustedBy />
         </section>
 
         <section className="mx-auto w-full max-w-5xl px-6 pb-24 pt-16 md:pt-24">
