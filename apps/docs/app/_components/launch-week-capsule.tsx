@@ -3,9 +3,11 @@ import { isLaunchWeek } from '../_content/pricing';
 /**
  * The launch-week announcement, styled as a live-status capsule (hairline,
  * soft tint, pulsing dot) rather than a badge, so it reads "happening now".
- * Worded as introductory pricing with an announced future increase; see
- * `_content/pricing.ts` for the framing rationale. Renders nothing once the
- * regular prices take over, so call sites need no cleanup to end launch week.
+ * Deliberately terse so it stays on one line on mobile; the future price
+ * increase is carried by the tier cards ("$99 after launch week"), which is
+ * also the legally safe framing — see `_content/pricing.ts`. Renders nothing
+ * once the regular prices take over, so call sites need no cleanup to end
+ * launch week.
  */
 export function LaunchWeekCapsule() {
   if (!isLaunchWeek) return null;
@@ -16,7 +18,7 @@ export function LaunchWeekCapsule() {
         <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-500 opacity-60 motion-reduce:hidden" />
         <span className="relative inline-flex size-2 rounded-full bg-emerald-500" />
       </span>
-      Launch week: introductory pricing, regular prices after
+      Launch week: intro pricing
     </p>
   );
 }

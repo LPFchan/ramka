@@ -103,9 +103,15 @@ export function FeaturesBento() {
       <h2 className="text-balance text-center text-3xl font-semibold tracking-tight text-neutral-950 md:text-4xl dark:text-neutral-50">
         Everything a lightbox should do.
       </h2>
+      {/* Deliberately different vocabulary from the hero paragraph: the hero
+          claims the gesture set (morph, swipe, zoom, pull-to-dismiss) and
+          "unstyled, accessible primitives", so repeating it here read as
+          filler. This line covers the same ground in search phrases that
+          appear nowhere else on the page — image viewer, photos app,
+          keyboard, screen readers, gallery. */}
       <p className="mx-auto mt-4 max-w-xl text-pretty text-center text-neutral-500 dark:text-neutral-400">
-        Morph transitions, pinch to zoom, swipe navigation, pull to dismiss. Accessible, unstyled, and built on the
-        platform instead of against it.
+        An image viewer that feels like the native photos app, from gestures to keyboard and screen-reader support.
+        Zero opinions about how your gallery looks.
       </p>
 
       <div className="mt-12 grid gap-4 md:grid-cols-3 md:gap-5">

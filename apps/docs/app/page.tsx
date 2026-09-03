@@ -73,8 +73,6 @@ export default function HomePage() {
           <div className="mt-5">
             <InstallCommand />
           </div>
-
-          <TrustedBy />
         </section>
 
         <section className="mx-auto w-full max-w-5xl px-6 pb-24 pt-16 md:pt-24">
@@ -82,6 +80,7 @@ export default function HomePage() {
             Click any image. Swipe, pinch to zoom, pull to dismiss.
           </p>
           <LandingDemo />
+          <TrustedBy />
         </section>
 
         <FeaturesBento />

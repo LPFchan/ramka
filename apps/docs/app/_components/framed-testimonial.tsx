@@ -85,6 +85,19 @@ const noiseStyle: CSSProperties = {
   backgroundImage: `url("data:image/svg+xml,${NOISE_SVG}")`,
 };
 
+/**
+ * The brass placard mounted beneath the frame, like under a real gallery
+ * piece. Fixed warm colors (a physical object doesn't change with the site's
+ * color scheme). Real nameplates are bright polished metal with near-black
+ * engraving, so the plate keeps an almost-flat sheen and the type carries
+ * the contrast; the bevel lives in the inset edge highlights, not the face.
+ */
+const placardStyle: CSSProperties = {
+  background: 'linear-gradient(180deg, #eedd9d 0%, #e3c97b 55%, #d4b45e 100%)',
+  boxShadow:
+    'inset 0 1px 0 rgba(255,250,220,0.9), inset 0 -1px 0 rgba(122,94,24,0.5), 0 1px 2px rgba(0,0,0,0.25), 0 8px 16px -10px rgba(0,0,0,0.4)',
+};
+
 /** The X logo; lucide dropped brand icons, so it ships as an inline path. */
 function XLogo({ className }: { className?: string }) {
   return (
@@ -175,6 +188,16 @@ export function FramedTestimonial() {
                 </a>
               </div>
           </div>
+        </div>
+
+        {/* The placard sits on the wall below the frame, museum-style. */}
+        <div className="mt-5 flex justify-center md:mt-7">
+          <p
+            className="rounded-[3px] px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.1em] text-[#241b06] md:text-xs"
+            style={placardStyle}
+          >
+            Dropping frames strictly prohibited.
+          </p>
         </div>
       </div>
     </section>

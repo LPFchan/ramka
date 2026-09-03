@@ -1,9 +1,11 @@
 /**
- * Social proof strip at the end of the hero: official full lockups (mark +
- * wordmark) of companies using ramka in production.
+ * Social proof strip below the landing demo: official full lockups (mark +
+ * wordmark) of companies using ramka in production. It sits after the demo
+ * on purpose — proof lands best right after the product has made its case,
+ * and keeping it out of the hero pulls the demo closer to the first viewport.
  *
- * With only two names, a logo wall would draw attention to the small count,
- * so this stays a single caption-sized line. Both lockups render in
+ * With only a few names, a logo wall would draw attention to the small count,
+ * so this stays a single caption-sized line. All lockups render in
  * currentColor — including Mintlify's normally-green leaf — so the strip is
  * uniformly muted and adapts to both color schemes.
  *
@@ -13,6 +15,10 @@
  *   monochrome variants)
  * - Paper: navbar lockup from paper.design (mark is #81ACEC there; flattened
  *   to currentColor here like Mintlify's leaf)
+ * - Operate: official lockup supplied directly by the company (#117025
+ *   there). Their 600x190 canvas ships with padding and a white background
+ *   rect; the rect is dropped and the viewBox tightened to the paths' bbox
+ *   (22 45 556 100.5) so the lockup sizes like its tightly-cropped neighbors.
  */
 
 function MintlifyLockup({ className }: { className?: string }) {
@@ -134,40 +140,100 @@ function PaperLockup({ className }: { className?: string }) {
   );
 }
 
+function OperateLockup({ className }: { className?: string }) {
+  return (
+    <svg
+      aria-hidden
+      viewBox="22 45 556 100.5"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className={className}
+    >
+      <path
+        fillRule="evenodd"
+        clipRule="evenodd"
+        d="M318.351 65.4074C312.556 65.4074 306.957 67.0315 302.659 70.6864L303.435 66.4224H288.997L285.958 83.1299L281.802 105.984L274.65 145.311H289.087L293.704 119.929C296.863 123.076 301.619 125.005 307.021 125.005C324.601 125.005 334.147 111.401 337.119 95.0538C340.092 78.7077 335.145 65.4074 318.351 65.4074ZM295.568 109.674H319.827L325.126 80.5352H300.868L295.568 109.674Z"
+        fill="currentColor"
+      />
+      <path
+        fillRule="evenodd"
+        clipRule="evenodd"
+        d="M280.04 84.7923C279.609 77.5261 272.416 65.2024 257.44 65.2024C238.092 65.2024 227.368 78.8077 224.395 95.1538C221.422 111.5 227.18 125.207 246.527 125.207C261.952 125.207 273.551 113.141 276.703 104.499C279.856 95.8562 280.47 92.0584 280.04 84.7923ZM236.136 109.977H262.36L267.733 80.4319H241.509L236.136 109.977Z"
+        fill="currentColor"
+      />
+      <path
+        d="M372.506 65.2036C353.256 65.2036 342.532 78.8089 339.559 95.1549C336.586 111.501 342.362 125.106 361.611 125.106C376.933 125.106 386.85 116.477 391.705 104.902H378.643L377.553 110.892H350.839L352.889 99.6223H393.549C394.004 98.2007 394.379 96.6774 394.657 95.1549C397.629 78.8089 391.755 65.2036 372.506 65.2036ZM381.486 89.266H354.772L356.563 79.4173H383.277L381.486 89.266Z"
+        fill="currentColor"
+      />
+      <path
+        d="M393.947 123.787H408.384L416.49 79.2154H433.284L435.611 66.4226H411.535C407.583 66.4226 403.778 69.7341 403.035 73.8197L393.947 123.787Z"
+        fill="currentColor"
+      />
+      <path
+        d="M437.459 79.2161H470.36L468.366 90.1808C465.01 87.0334 458.774 86.2217 453.274 86.2217C441.586 86.2217 432.094 92.5165 429.748 105.41C427.791 117.797 434.392 124.702 446.472 124.702C450.99 124.702 458.951 123.584 462.956 119.93L462.254 123.788H476.495L485.583 73.8204C486.325 69.7348 483.724 66.4233 479.772 66.4233H439.785L437.459 79.2161ZM464.433 111.807H441.549L443.894 98.9129H466.778L464.433 111.807Z"
+        fill="currentColor"
+      />
+      <path
+        d="M516.437 45H502.098L498.202 66.4226H490.836L488.51 79.2154H495.876L489.115 116.39C488.371 120.475 490.973 123.787 494.925 123.787H514.385L516.712 110.994H504.435L510.215 79.2154H523.572L525.898 66.4226H512.541L516.437 45Z"
+        fill="currentColor"
+      />
+      <path
+        d="M575.983 99.6223C576.437 98.2007 576.812 96.6774 577.09 95.1549C580.062 78.8081 574.189 65.2036 554.939 65.2036C535.689 65.2036 524.965 78.8081 521.992 95.1549C519.019 111.501 524.795 125.106 544.045 125.106C559.366 125.106 569.283 116.476 574.139 104.901H561.076L559.986 110.892H533.272L535.322 99.6223H575.983ZM538.997 79.4173H565.711L563.92 89.266H537.205L538.997 79.4173Z"
+        fill="currentColor"
+      />
+      <path
+        d="M197.88 46.1788C183.296 44.3542 163.48 56.6619 148.624 75.3976C147.333 77.0235 144.732 76.344 144.392 74.2941C143.1 66.5162 138.553 61.2758 130.969 60.3271C119.338 58.8718 103.824 67.9086 91.4659 82.1122C90.1398 83.6358 87.6607 82.9336 87.3025 80.9428C86.0694 74.1023 81.9892 69.5057 75.2522 68.6624C61.0311 66.884 40.3693 82.499 29.1026 103.541C17.8367 124.583 20.2312 143.083 34.4523 144.862C44.278 146.091 57.1776 139.017 67.929 127.588C69.3382 126.09 71.8513 126.967 72.0478 129.018C72.891 137.817 77.5379 143.824 85.7135 144.847C97.2212 146.287 112.528 137.455 124.819 123.511C126.238 121.901 128.884 122.831 129.005 124.977C129.624 135.99 135.102 143.575 145.063 144.821C163.472 147.124 190.219 126.91 204.805 99.6709C219.39 72.4316 216.29 48.482 197.88 46.1788Z"
+        fill="currentColor"
+      />
+    </svg>
+  );
+}
+
 /**
  * The lockups are decorative (aria-hidden); each name also exists as a
  * visually hidden text node next to its logo. Screen readers announce the
- * label and then a plain three-item list of names, and crawlers index the
- * names as real page text — SVG aria-labels alone give neither reliably.
+ * label and then a plain list of names, and crawlers index the names as
+ * real page text — SVG aria-labels alone give neither reliably.
  */
 export function TrustedBy() {
   return (
-    <div className="mt-14 md:mt-16">
-      <p id="trusted-by-label" className="text-xs text-neutral-400 dark:text-neutral-600">
-        Trusted in production at
+    // A single inline row: label and logos share one line so the strip reads
+    // as a quiet closing sentence of the demo section instead of stacking a
+    // second mini-section (label row + logo row) against the features heading
+    // that follows. Wraps gracefully on narrow screens.
+    <div className="mt-16 flex flex-wrap items-center justify-center gap-x-7 gap-y-4 md:mt-20">
+      <p id="trusted-by-label" className="text-sm text-neutral-400 dark:text-neutral-600">
+        Powering galleries at
       </p>
-      {/* Logos take a slightly stronger neutral than the label so the names
-          read first, but stay well below body-copy contrast. Heights are
-          tuned per lockup: Whop's glyphs fill less of its viewBox than
-          Mintlify's, so it gets an extra pixel to match optically. */}
+      {/* Logos sit a step above the label but stay below body-copy contrast;
+          sized to the label's cap height ballpark so the row reads as one
+          line of text. Whop's glyphs fill less of its viewBox than the other
+          two, so it gets an extra pixel to match optically. */}
       {/* Explicit role: VoiceOver drops list semantics from lists that lose
           their markers via list-style none (Tailwind preflight does this). */}
       <ul
         role="list"
         aria-labelledby="trusted-by-label"
-        className="mt-4 flex flex-wrap items-center justify-center gap-x-8 gap-y-4 text-neutral-500 dark:text-neutral-400"
+        className="flex flex-wrap items-center justify-center gap-x-7 gap-y-4 text-neutral-500 dark:text-neutral-500"
       >
         <li>
-          <MintlifyLockup className="h-5 w-auto" />
+          <MintlifyLockup className="h-6 w-auto" />
           <span className="sr-only">Mintlify</span>
         </li>
         <li>
-          <WhopLockup className="h-5.25 w-auto" />
+          <WhopLockup className="h-6.25 w-auto" />
           <span className="sr-only">Whop</span>
         </li>
         <li>
-          <PaperLockup className="h-5 w-auto" />
+          <PaperLockup className="h-6 w-auto" />
           <span className="sr-only">Paper</span>
+        </li>
+        <li>
+          {/* The full-height cloud mark and heavy italic type carry more
+              optical weight than the box math suggests, so the neighbors'
+              height balances it despite its taller ascender/descender span. */}
+          <OperateLockup className="h-6 w-auto" />
+          <span className="sr-only">Operate</span>
         </li>
       </ul>
     </div>
