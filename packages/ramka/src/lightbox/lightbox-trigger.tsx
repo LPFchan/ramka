@@ -15,6 +15,12 @@ import {
 } from './lightbox-handle';
 import { prefetchMorphRuntime } from './lightbox-morph-loader';
 import { prefetchZoomRuntime } from './lightbox-zoom-loader';
+import {
+  MORPH_TARGET_HIDE_CSS,
+  MORPH_TARGET_HIDE_HREF,
+  MORPH_TARGET_HIDE_MARKER,
+} from './morph-target-hide';
+import { ensureLibrarySheet } from './vt-style-sheets';
 import { ignoreStateAttribute } from './lightbox-state-attributes';
 import { mergeProps } from '../render/merge-props';
 import { useRender } from '../render/use-render';
@@ -338,6 +344,15 @@ const LightboxTrigger = React.forwardRef<HTMLButtonElement, LightboxTriggerProps
         prev.removeAttribute(attr);
       }
 
+      // A server render stamps the attribute on the trigger ROOT (see the
+      // SSR-only prop in the render below) — it cannot know whether a
+      // `morphRef` node will attach on the client. When one does, the resolved
+      // morph element differs from the root, and the root's server-rendered
+      // copy is stale: clear it, or the whole trigger stays hidden.
+      if (triggerEl && triggerEl !== morphEl) {
+        triggerEl.removeAttribute(attr);
+      }
+
       if (active && morphEl) {
         morphEl.setAttribute(attr, '');
         morphTargetAttrElRef.current = morphEl;
@@ -440,6 +455,16 @@ const LightboxTrigger = React.forwardRef<HTMLButtonElement, LightboxTriggerProps
       return active;
     }, [open, morphTo, activeIndex, index, active, openingTriggerIndexRef, triggerElementsRef]);
 
+    // CSSOM delivery of the morph-target hide rule — the strict-CSP path,
+    // mirroring Media's fill rules. The hoistable <style> rendered below covers
+    // server paints; where a strict `style-src` refuses it, this copy applies.
+    // `ensureLibrarySheet` is once-per-document, so a grid of triggers inserts
+    // one sheet. Never released: the rule is structural and page-global — same
+    // lifetime it had inside the VT structural sheet that used to ship it.
+    React.useInsertionEffect(() => {
+      ensureLibrarySheet(MORPH_TARGET_HIDE_MARKER, () => MORPH_TARGET_HIDE_CSS);
+    }, []);
+
     // Publish `data-morph-target` on the resolved morph element (trigger root,
     // or `morphRef` node). No setState here — see `morphRef` / `syncMorphTargetAttribute`.
     React.useLayoutEffect(() => {
@@ -489,6 +514,19 @@ const LightboxTrigger = React.forwardRef<HTMLButtonElement, LightboxTriggerProps
           // Mirrors the `data-ramka-item` hook on Lightbox.Item.
           [LightboxTriggerDataAttributes.trigger]: '',
           ...(crossfade ? { [LightboxTriggerDataAttributes.crossfade]: crossfade } : undefined),
+          // SERVER RENDER ONLY: on the client `data-morph-target` is managed
+          // imperatively (it may belong to a `morphRef` node — see
+          // `syncMorphTargetAttribute`), but a page that server-renders an open
+          // lightbox would otherwise paint the active trigger un-hidden until
+          // hydration. The trigger root is the best-effort stand-in the server
+          // can know about; the hydration layout effect re-syncs to the
+          // resolved morph element and clears this copy if that's a `morphRef`
+          // node. Client renders never include this prop, so React neither
+          // flags the extra server attribute during hydration nor removes the
+          // imperatively-set one on later renders.
+          ...(morphTarget && typeof window === 'undefined'
+            ? { [LightboxTriggerDataAttributes.morphTarget]: '' }
+            : null),
         } as React.ComponentPropsWithRef<'button'>,
         elementProps as React.ComponentPropsWithRef<'button'>,
         { children: resolvedChildren } as React.ComponentPropsWithRef<'button'>,
@@ -498,6 +536,21 @@ const LightboxTrigger = React.forwardRef<HTMLButtonElement, LightboxTriggerProps
 
     return (
       <LightboxTriggerContext.Provider value={renderState}>
+        {/*
+          Markup delivery of the morph-target hide rule — the SERVER-PAINT
+          path (same dual-path pattern as Media's fill rules). Effects never
+          run during server rendering, so without this a server-rendered open
+          lightbox would paint its active trigger visible: the rule used to
+          arrive only with the first view transition of the session. React 19
+          hoists this into <head> and dedupes by `href` across every trigger
+          and remount (constant rule text keeps the dedupe sound); React 18
+          renders it in place — `display: none`, layout-inert — and unmounts
+          it with the trigger. Under a strict `style-src` the tag is refused
+          wherever it renders and the CSSOM copy above takes over.
+        */}
+        <style href={MORPH_TARGET_HIDE_HREF} precedence="ramka">
+          {MORPH_TARGET_HIDE_CSS}
+        </style>
         {rendered}
       </LightboxTriggerContext.Provider>
     );

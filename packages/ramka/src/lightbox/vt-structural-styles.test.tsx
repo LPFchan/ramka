@@ -52,8 +52,10 @@ describe('vt-structural-styles', () => {
     const css = document.head.querySelector(selector)!.textContent!;
     // Name isolation during a morph.
     expect(css).toContain('view-transition-name: none !important');
-    // Morph-target hide.
-    expect(css).toContain('[data-morph-target]');
+    // Morph-target hide moved OUT of this sheet: it must exist before any
+    // morph runs (server-rendered open pages), so Trigger delivers it eagerly
+    // — see morph-target-hide.ts.
+    expect(css).not.toContain('[data-morph-target] {');
     // Group radius interpolation + preset-driven timing.
     expect(css).toContain('@keyframes ramka-morph-border-radius');
     expect(css).toContain('::view-transition-group(lightbox-morph)');
