@@ -98,6 +98,23 @@ export function MoodboardDemo() {
   const [ssrSlideShift, setSsrSlideShift] = React.useState(deepLinkVisit);
   useIsomorphicLayoutEffect(() => setSsrSlideShift(false), []);
 
+  // A server-rendered open viewer must not FADE in — the skin's open fades run
+  // off @starting-style, which applies on first render, and for SSR'd markup
+  // first render is page load. While this flag is on, a host class flattens
+  // every transition inside (ssr-slide-shift.css) so the server paint is the
+  // final frame. Removed one frame AFTER the first post-hydration paint —
+  // transitions consult the after-change style, so a layout-effect removal
+  // (same style recalc where the strip's data-positioned lands) would restart
+  // the exact fades being suppressed. Double rAF: the first can fire before
+  // the pending paint, the second is guaranteed to be a frame behind it.
+  const [ssrNoTransitions, setSsrNoTransitions] = React.useState(deepLinkVisit);
+  React.useEffect(() => {
+    let raf = requestAnimationFrame(() => {
+      raf = requestAnimationFrame(() => setSsrNoTransitions(false));
+    });
+    return () => cancelAnimationFrame(raf);
+  }, []);
+
   // `handleOpenChange` needs the freshest active index when it writes the
   // opened URL: a trigger tap reports its index (onValueChange) before the
   // open commits, and state from the previous render would lag behind it.
@@ -228,7 +245,9 @@ export function MoodboardDemo() {
             deepLinkVisit
               ? {
                   container: null,
-                  className: `relative z-50${ssrSlideShift ? ' lightbox-demo-ssr-slide-shift' : ''}`,
+                  className: `relative z-50${ssrSlideShift ? ' lightbox-demo-ssr-slide-shift' : ''}${
+                    ssrNoTransitions ? ' lightbox-demo-ssr-no-transitions' : ''
+                  }`,
                   style: ssrSlideShift
                     ? ({ '--lightbox-demo-ssr-index': index } as React.CSSProperties)
                     : undefined,
