@@ -646,20 +646,24 @@ describe('Lightbox.Media (morph + placeholder host)', () => {
     expect(media.style.display).toBe('grid');
     expect(media.id).toBeTruthy();
 
-    // Delivered as a sheet rather than a <style> child, so a strict `style-src`
-    // cannot refuse it. jsdom has no CSSOM sheets, so this is the fallback.
+    // The CSSOM copy is delivered as a sheet rather than a <style> child, so a
+    // strict `style-src` cannot refuse it (the hoistable <style> in <head> is
+    // the server-paint path — see lightbox-media.test.tsx). jsdom has no CSSOM
+    // sheets, so the marker fallback lands in <head>.
     expect(media.querySelector('style')).toBeNull();
     const fillStyle = document.head.querySelector('style[data-ramka-media-fill]');
     expect(fillStyle).toBeTruthy();
     const css = fillStyle!.textContent ?? '';
-    const id = CSS.escape(media.id);
 
     // One author rule stretches every direct media child (img / video / canvas).
+    // `:not(#_)` buys id-level specificity with constant rule text (constant so
+    // the hoistable copy can dedupe by href across instances and remounts).
+    const host = '[data-ramka-media]:not(#_)';
     expect(css).toBe(
-      `#${id} > img:not([data-ramka-media-poster]),#${id} > video,#${id} > canvas{width:100%;height:100%;min-width:0;min-height:0;}`,
+      `${host} > img:not([data-ramka-media-poster]),${host} > video,${host} > canvas{width:100%;height:100%;min-width:0;min-height:0;}`,
     );
 
-    // Child is a direct Media descendant so the `#id > ${tag}` rule applies.
+    // Child is a direct Media descendant so the `> ${tag}` rule applies.
     // Walked rather than queried: React 18 ids contain `:`, which jsdom's
     // selector engine mangles when it expands `:scope`.
     const el = Array.from(media.children).find((node) => node.tagName.toLowerCase() === name);
@@ -689,7 +693,7 @@ describe('Lightbox.Media (morph + placeholder host)', () => {
       const media = document.querySelector('[data-testid="media"]') as HTMLElement;
       expect(media.querySelector('style')).toBeNull();
       expect(document.querySelectorAll('style[data-ramka-media-fill]')).toHaveLength(0);
-      expect(stub.adoptedCss().join('')).toContain(`#${CSS.escape(media.id)} > img`);
+      expect(stub.adoptedCss().join('')).toContain('[data-ramka-media]:not(#_) > img');
 
       view.unmount();
 

@@ -77,6 +77,10 @@ import { moodboardPhotos } from './photos';
  */
 const BASE_PATH = '/examples/lightbox/moodboard';
 
+// Guarded so the server render doesn't warn — same trick the library uses.
+const useIsomorphicLayoutEffect =
+  typeof window !== 'undefined' ? React.useLayoutEffect : React.useEffect;
+
 const items = moodboardPhotos.map((photo) => ({
   ...photo,
   src: photo.image,
@@ -136,6 +140,20 @@ export function MoodboardDemo() {
   // sticky mobile header (z-40) — portaled hosts win by document order and
   // must NOT carry a z-index (it would stack above body-level tooltips).
   const [deepLinkVisit] = React.useState(urlIndex !== -1);
+
+  // Deep links paint the RIGHT photo before hydration. A scroller's scroll
+  // offset can't be serialized into HTML — the server-rendered track always
+  // sits at 0, showing slide 0 (or a blank past the preload window) — but a
+  // TRANSFORM serializes fine. While this flag is on, a CSS rule translates
+  // every slide by `-index × slide width` (ssr-slide-shift.css) so the server
+  // HTML shows the deep-linked photo at scroll 0. The layout effect drops the
+  // shift during the hydration commit, and ordering makes the swap invisible:
+  // transforms don't affect scroll geometry, so the library's own layout
+  // effect (a child — runs first) still reads scrollLeft 0, derives slide 0 ≠
+  // active, and jumps the scroller to the real offset; the shift then comes
+  // off in the same commit — one paint, no flash, works in every browser.
+  const [ssrSlideShift, setSsrSlideShift] = React.useState(deepLinkVisit);
+  useIsomorphicLayoutEffect(() => setSsrSlideShift(false), []);
 
   // `handleOpenChange` needs the freshest active index when it writes the
   // opened URL: a trigger tap reports its index (onValueChange) before the
@@ -263,7 +281,17 @@ export function MoodboardDemo() {
           items={items}
           ariaLabel="Moodboard photos"
           backdrop="solid"
-          portalProps={deepLinkVisit ? { container: null, className: 'relative z-50' } : undefined}
+          portalProps={
+            deepLinkVisit
+              ? {
+                  container: null,
+                  className: `relative z-50${ssrSlideShift ? ' lightbox-demo-ssr-slide-shift' : ''}`,
+                  style: ssrSlideShift
+                    ? ({ '--lightbox-demo-ssr-index': index } as React.CSSProperties)
+                    : undefined,
+                }
+              : undefined
+          }
         />
       </Lightbox.Root>
     </ExampleShell>

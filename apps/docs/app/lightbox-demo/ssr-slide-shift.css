@@ -1,0 +1,35 @@
+/**
+ * SSR initial slide position — used by deep-linked visits that server-render
+ * the lightbox already open (moodboard's dynamic route).
+ *
+ * A scroller's scroll offset cannot be serialized into HTML, so server-rendered
+ * open viewers always paint with the track at offset 0: wrong slide (or an
+ * empty one, past the preload window) until hydration. A TRANSFORM, however,
+ * serializes fine — and in the bleed layout every slide is exactly one
+ * scrollport wide (`flex: 0 0 100%`), so shifting every slide left by
+ * `active-index × (slide width + gap)` paints the active slide inside the
+ * scrollport while the scroller still sits at 0. `translateX` percentages
+ * resolve against each slide's own width — identical to the scrollport in
+ * bleed — so the math is exact with no measuring, in every browser.
+ *
+ * Lifecycle: the demo puts this class + `--lightbox-demo-ssr-index` on the
+ * Portal host in the server HTML and the hydration render, then drops both in
+ * a layout effect. The swap is invisible by construction: transforms don't
+ * affect scroll geometry, so the library's own layout effect (a child — runs
+ * first) still reads `scrollLeft: 0`, derives index 0 ≠ active, and jumps the
+ * scroller to the active slide; the demo's (parent) effect then removes the
+ * shift in the same commit — real scroll in, transform out, one paint.
+ *
+ * Bleed-only: snug slides have per-item widths, so a shared percentage shift
+ * wouldn't line up. The mobile bleed track has a 1.25rem gap (`gap-5`), md+
+ * none. The docs are LTR; RTL would flip the sign.
+ */
+.lightbox-demo-ssr-slide-shift [data-ramka-slide] {
+  transform: translateX(calc(var(--lightbox-demo-ssr-index, 0) * (-100% - 1.25rem)));
+}
+
+@media (min-width: 768px) {
+  .lightbox-demo-ssr-slide-shift [data-ramka-slide] {
+    transform: translateX(calc(var(--lightbox-demo-ssr-index, 0) * -100%));
+  }
+}
