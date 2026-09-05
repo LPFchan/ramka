@@ -411,17 +411,31 @@ function LightboxRoot(props: LightboxRootProps) {
     // only the resting index matters for the close morph.
     const scrollSyncRef = React.useRef({ open, activeIndex });
     const scrollSyncTimerRef = React.useRef(0);
+    // Read through a ref, NOT an effect dep: `scrollTriggerIntoView` is
+    // typically an inline literal (both JSDoc examples above are), so its
+    // identity changes on every consumer render. With it in the deps, any
+    // consumer re-render that lands inside the 120ms debounce re-ran the
+    // effect — the cleanup cancelled the pending timer and the same-index
+    // early return never rescheduled it. Controlled URL-sync consumers hit
+    // that on EVERY change: the history write triggers a router re-render
+    // milliseconds after the index commit, so the scroll silently never fired.
+    // The ref keeps the effect keyed to real state edges only; the config is
+    // resolved at fire time, so late config changes are honored too.
+    const scrollTriggerIntoViewRef = React.useRef(scrollTriggerIntoView);
+    scrollTriggerIntoViewRef.current = scrollTriggerIntoView;
     React.useEffect(() => {
       const prev = scrollSyncRef.current;
       scrollSyncRef.current = { open, activeIndex };
-      const scroll = resolveScrollTriggerOption(scrollTriggerIntoView, 'onChange');
-      if (!scroll || !open) return;
+      if (!resolveScrollTriggerOption(scrollTriggerIntoViewRef.current, 'onChange')) return;
+      if (!open) return;
       if (!prev.open || prev.activeIndex === activeIndex) return;
 
       window.clearTimeout(scrollSyncTimerRef.current);
       const index = activeIndex;
       scrollSyncTimerRef.current = window.setTimeout(() => {
         if (!scrollSyncRef.current.open || scrollSyncRef.current.activeIndex !== index) return;
+        const scroll = resolveScrollTriggerOption(scrollTriggerIntoViewRef.current, 'onChange');
+        if (!scroll) return;
         const idx = resolveTriggerIndex(
           index,
           morphTo,
@@ -432,7 +446,7 @@ function LightboxRoot(props: LightboxRootProps) {
       }, 120);
 
       return () => window.clearTimeout(scrollSyncTimerRef.current);
-    }, [scrollTriggerIntoView, morphTo, open, activeIndex]);
+    }, [morphTo, open, activeIndex]);
 
     // Item registry — tracks mounted items so count can grow and shrink
     const registeredItemsRef = React.useRef(new Set<number>());

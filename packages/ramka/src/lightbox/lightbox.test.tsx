@@ -7938,6 +7938,88 @@ describe('Lightbox', () => {
       }
     });
 
+    it('survives a consumer re-render with a fresh inline config during the debounce', () => {
+      // Controlled URL-sync consumers re-render milliseconds after every index
+      // change (history write → router pathname update), passing a NEW inline
+      // `scrollTriggerIntoView` literal each time. With the config in the
+      // effect deps that re-render cancelled the pending 120ms scroll and the
+      // same-index early return never rescheduled it — the scroll silently
+      // never fired. The config is read through a ref now, so identity churn
+      // must not cancel the debounce.
+      const scrollIntoView = vi.fn();
+      const origScroll = HTMLElement.prototype.scrollIntoView;
+      HTMLElement.prototype.scrollIntoView = scrollIntoView;
+      try {
+        function Harness() {
+          const [index, setIndex] = React.useState(0);
+          const [, setEcho] = React.useState(0);
+          return (
+            <LightboxRoot
+              value={index}
+              onValueChange={setIndex}
+              // Inline literal on purpose: fresh identity on every render.
+              scrollTriggerIntoView={[{ type: 'onChange', behavior: 'instant' }]}
+            >
+              {[0, 1, 2].map((i) => (
+                <LightboxTrigger key={i} index={i} data-testid={`trigger-${i}`}>
+                  T{i}
+                </LightboxTrigger>
+              ))}
+              {/* Models the router re-render that follows a shallow URL write. */}
+              <button data-testid="echo" onClick={() => setEcho((n) => n + 1)}>
+                echo
+              </button>
+              <LightboxPortal>
+                <LightboxContent data-testid="content" aria-label="scroll test">
+                  <SlidesHost preload={1}>
+                    {[0, 1, 2].map((i) => (
+                      <LightboxItem key={i} index={i}>
+                        Item {i}
+                      </LightboxItem>
+                    ))}
+                  </SlidesHost>
+                  <LightboxNext data-testid="next">Next</LightboxNext>
+                </LightboxContent>
+              </LightboxPortal>
+            </LightboxRoot>
+          );
+        }
+        render(<Harness />);
+
+        act(() => {
+          fireEvent.click(screen.getByTestId('trigger-0'));
+        });
+
+        vi.useFakeTimers();
+        try {
+          // Index change schedules the debounced scroll…
+          act(() => {
+            fireEvent.click(screen.getByTestId('next'));
+          });
+          // …and a consumer re-render (same index, fresh config literal) lands
+          // mid-debounce, like usePathname updating after replaceState.
+          act(() => {
+            vi.advanceTimersByTime(10);
+          });
+          act(() => {
+            fireEvent.click(screen.getByTestId('echo'));
+          });
+          act(() => {
+            vi.advanceTimersByTime(120);
+          });
+          expect(scrollIntoView).toHaveBeenCalledWith({
+            block: 'nearest',
+            inline: 'nearest',
+            behavior: 'instant',
+          });
+        } finally {
+          vi.useRealTimers();
+        }
+      } finally {
+        HTMLElement.prototype.scrollIntoView = origScroll;
+      }
+    });
+
     it('forwards block/inline alignment from scrollTriggerIntoView options', () => {
       const scrollIntoView = vi.fn();
       const origScroll = HTMLElement.prototype.scrollIntoView;
