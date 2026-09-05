@@ -164,6 +164,15 @@ export enum LightboxThumbnailStripDataAttributes {
   track = 'data-ramka-thumbnail-strip-track',
   /** Present while a discrete-nav scrub animation is in flight. */
   scrubbing = 'data-scrubbing',
+  /**
+   * Present once the track has been positioned against the Slides scroller
+   * (first layout-effect sync — before the strip's first client paint).
+   * Absent in server-rendered HTML: scroll/transform positions cannot be
+   * serialized, so a server-rendered strip sits at offset 0 until hydration.
+   * Hide the strip until this attribute lands to avoid the visible snap on
+   * pages that server-render an open lightbox.
+   */
+  positioned = 'data-positioned',
 }
 
 export enum LightboxMediaDataAttributes {

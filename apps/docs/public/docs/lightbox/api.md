@@ -375,6 +375,7 @@ Scroll-linked thumbnail strip root. Always centers the active thumbnail on the m
 | `data-ramka-thumbnail-strip` | Always present on the thumbnail strip root. |
 | `data-ramka-thumbnail-strip-track` | Always present on the scroll-linked tablist track. |
 | `data-scrubbing` | Present while a discrete-nav scrub animation is in flight. |
+| `data-positioned` | Present once the track has been positioned against the Slides scroller (first layout-effect sync — before the strip's first client paint). Absent in server-rendered HTML: scroll/transform positions cannot be serialized, so a server-rendered strip sits at offset 0 until hydration. Hide the strip until this attribute lands to avoid the visible snap on pages that server-render an open lightbox. |
 
 #### CSS variables
 

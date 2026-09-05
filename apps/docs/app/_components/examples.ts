@@ -2,6 +2,14 @@ export interface ExampleLink {
   slug: string;
   title: string;
   description: string;
+  /**
+   * Page file for the LLM docs, relative to `app/(docs)/examples/lightbox/`.
+   * Defaults to `${slug}/page.tsx`; examples whose page lives inside a dynamic
+   * segment point at it here.
+   */
+  pagePath?: string;
+  /** Extra source files to embed in the example's `.md`, same base dir. */
+  extraSources?: string[];
 }
 
 export interface ExampleGroup {
@@ -26,7 +34,9 @@ export const lightboxExamples: ExampleLink[] = [
     slug: 'moodboard',
     title: 'Moodboard',
     description:
-      'Masonry wall of images with unknown dimensions (no width/height, no reserved aspect ratio) — stresses the morph size-resolution fallback and trigger-thumbnail placeholder.',
+      'Masonry wall wired to Next.js dynamic routes ([[...id]]) — every photo is a shareable URL: deep links open the viewer on that slide, swiping rewrites the URL in place, and browser Back closes the viewer.',
+    pagePath: 'moodboard/[[...id]]/page.tsx',
+    extraSources: ['moodboard/moodboard-demo.tsx', 'moodboard/photos.ts'],
   },
   {
     slug: 'text-message',

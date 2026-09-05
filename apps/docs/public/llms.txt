@@ -34,7 +34,7 @@ Compose a fullscreen media lightbox from headless parts: view-transition morph b
 
 - [Photos app](examples/lightbox/photos-app.md): macOS Photos–style square grid under a sticky, blurred toolbar with a fade gradient and "Library" title.
 - [Photos app (RTL)](examples/lightbox/photos-app-rtl.md): The same photos app mirrored for a right-to-left locale — dir="rtl" on Lightbox.Root mirrors navigation, the thumbnail strip, and the arrow keys.
-- [Moodboard](examples/lightbox/moodboard.md): Masonry wall of images with unknown dimensions (no width/height, no reserved aspect ratio) — stresses the morph size-resolution fallback and trigger-thumbnail placeholder.
+- [Moodboard](examples/lightbox/moodboard.md): Masonry wall wired to Next.js dynamic routes ([[...id]]) — every photo is a shareable URL: deep links open the viewer on that slide, swiping rewrites the URL in place, and browser Back closes the viewer.
 - [Text message](examples/lightbox/text-message.md): iMessage-style chat with a single morphTo="origin" trigger over a stack of attachments.
 - [Film trailers](examples/lightbox/film-trailers.md): Movie posters morph into a fullscreen <video> that auto-plays on becoming active.
 - [3D models](examples/lightbox/3d-models.md): Three.js product grid with Lightbox.Slides — onBeforeOpen preheats GLBs before the morph; shared orbit with each trigger.

@@ -46,6 +46,25 @@
   );
 }
 
+/*
+ * Hidden until the library has positioned the track against the Slides
+ * scroller (`data-positioned`, set in a layout effect before first client
+ * paint). Client-side opens carry the attribute on their first painted frame,
+ * so this never hides anything there. It only matters for pages that
+ * server-render an open lightbox (moodboard deep links): scroll/transform
+ * positions cannot be serialized into HTML, so the SSR'd strip sits at offset
+ * 0 until hydration — a strip pointing at the wrong photo reads as broken,
+ * a strip fading in a beat late reads as loading.
+ */
+.lightbox-demo-thumbnail-strip:not([data-positioned]) {
+  opacity: 0;
+}
+
+.lightbox-demo-thumbnail-strip[data-positioned] {
+  opacity: 1;
+  transition: opacity 200ms ease-out;
+}
+
 .lightbox-demo-thumbnail-strip [data-ramka-thumbnail-strip-track] {
   display: flex;
   width: max-content;

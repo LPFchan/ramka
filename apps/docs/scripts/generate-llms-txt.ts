@@ -959,16 +959,11 @@ function collectOutputs(): Map<string, string> {
   }
   for (const example of lightboxExamples) {
     const href = `/examples/lightbox/${example.slug}`;
-    const pageFile = path.join(docsRoot, `app/(docs)/examples/lightbox/${example.slug}/page.tsx`);
+    const baseDir = 'app/(docs)/examples/lightbox';
+    const pageRel = `${baseDir}/${example.pagePath ?? `${example.slug}/page.tsx`}`;
+    const extraFiles = [pageRel, ...(example.extraSources ?? []).map((rel) => `${baseDir}/${rel}`)];
     pages.push(
-      compositionPage(
-        example.title,
-        example.description,
-        href,
-        pageFile,
-        [`app/(docs)/examples/lightbox/${example.slug}/page.tsx`],
-        false,
-      ),
+      compositionPage(example.title, example.description, href, path.join(docsRoot, pageRel), extraFiles, false),
     );
   }
 

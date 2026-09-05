@@ -31,6 +31,12 @@ import { useRender } from '../render/use-render';
 interface LightboxThumbnailStripState extends Record<string, unknown> {
   /** True while a discrete-nav WAAPI scrub is in flight. */
   scrubbing: boolean;
+  /**
+   * True once the track has been positioned against the Slides scroller.
+   * False during SSR and the hydration render of a server-rendered open
+   * lightbox — see `LightboxThumbnailStripDataAttributes.positioned`.
+   */
+  positioned: boolean;
 }
 
 interface LightboxThumbnailStripProps extends useRender.ComponentProps<'div', LightboxThumbnailStripState> {
@@ -70,6 +76,7 @@ type SlidesVtHost = HTMLElement & {
 
 const thumbnailStripStateAttributesMapping = {
   scrubbing: (value: unknown) => (value ? { 'data-scrubbing': '' } : null),
+  positioned: (value: unknown) => (value ? { 'data-positioned': '' } : null),
 };
 
 /**
@@ -130,6 +137,12 @@ const LightboxThumbnailStrip = React.forwardRef<HTMLDivElement, LightboxThumbnai
     const [trackVersion, setTrackVersion] = React.useState(0);
     const [thumbVersion, setThumbVersion] = React.useState(0);
     const [scrubbing, setScrubbing] = React.useState(false);
+    // False on the server and on the client render that hydrates against
+    // server HTML; flipped in the sync layout effect below, which re-renders
+    // BEFORE the browser paints. Client-side opens therefore carry
+    // `data-positioned` on their very first painted frame — only
+    // server-painted frames (pre-hydration) ever lack it.
+    const [positioned, setPositioned] = React.useState(false);
 
     const registerTrack = React.useCallback((node: HTMLElement | null) => {
       if (trackRef.current === node) return;
@@ -374,6 +387,13 @@ const LightboxThumbnailStrip = React.forwardRef<HTMLDivElement, LightboxThumbnai
 
       reattachRef.current = () => refresh(true);
       attach();
+      // The initial attach above measured and positioned the track (or bailed
+      // because track/Slides aren't registered yet — this effect re-runs when
+      // they land via trackVersion / the viewport subscription). Either way we
+      // are now past the first client layout pass: mark the strip positioned
+      // so consumer CSS can stop hiding it. Setting state in a layout effect
+      // re-renders before paint, so client-side opens never paint without it.
+      setPositioned(true);
       const unsubscribe = subscribeSlidesViewport(() => refresh(false));
 
       return () => {
@@ -642,7 +662,10 @@ const LightboxThumbnailStrip = React.forwardRef<HTMLDivElement, LightboxThumbnai
       [registerTrack, registerThumb, selectIndex],
     );
 
-    const state = React.useMemo<LightboxThumbnailStripState>(() => ({ scrubbing }), [scrubbing]);
+    const state = React.useMemo<LightboxThumbnailStripState>(
+      () => ({ scrubbing, positioned }),
+      [scrubbing, positioned],
+    );
 
     return (
       <LightboxThumbnailStripContext.Provider value={thumbnailStripContext}>

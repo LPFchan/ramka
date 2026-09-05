@@ -273,6 +273,14 @@ export function LightboxGallery({
   renderItem,
   /** Portaled inside Content — e.g. debug tooling or in-viewer controls. */
   overlay,
+  /**
+   * Forwarded to `Lightbox.Portal`. Lets a page opt out of the body portal —
+   * e.g. `{ container: null }` renders the viewer in place so a server-rendered
+   * page can ship with the lightbox already open (portals cannot exist in
+   * server HTML). When rendering in place, also pass a stacking class (e.g.
+   * `relative z-50`) so the fixed viewer clears the page's sticky chrome.
+   */
+  portalProps,
 }: {
   items: LightboxGalleryItem[];
   ariaLabel: string;
@@ -288,6 +296,7 @@ export function LightboxGallery({
   layoutToggle?: boolean;
   renderItem?: (item: LightboxGalleryItem, index: number, ctx: GalleryItemRenderCtx) => React.ReactNode;
   overlay?: React.ReactNode;
+  portalProps?: React.ComponentProps<typeof Lightbox.Portal>;
 }) {
   const [slidesLayoutState, setSlidesLayoutState] = React.useState<'bleed' | 'snug'>(
     () => (layoutToggle ? readStoredSlidesLayout() : null) ?? slidesLayoutProp,
@@ -336,7 +345,7 @@ export function LightboxGallery({
       : null;
 
   return (
-    <Lightbox.Portal>
+    <Lightbox.Portal {...portalProps}>
       <Lightbox.Backdrop className={`lightbox-demo-backdrop ${backdropTone} fixed inset-0`} />
       <Lightbox.Content
         aria-label={ariaLabel}

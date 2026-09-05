@@ -302,6 +302,10 @@ describe('Lightbox.ThumbnailStrip', () => {
     expect(track).toHaveAttribute('data-ramka-thumbnail-strip-track');
     expect(track).toHaveAttribute('role', 'tablist');
     expect(screen.getByText('item 0').closest('[role="tabpanel"]')).toBeTruthy();
+    // Positioned lands in the mount layout effect (i.e. before first client
+    // paint) — SSR HTML lacks it, so consumers can hide the strip until the
+    // track has been placed. See LightboxThumbnailStripDataAttributes.
+    expect(screen.getByTestId('thumbnail-strip')).toHaveAttribute('data-positioned');
   });
 
   it('JS fallback mirrors Slides scrollLeft onto the track transform', () => {

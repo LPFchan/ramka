@@ -734,6 +734,10 @@ export const generatedAttributes: Record<string, AttrRow[]> = {
       name: "data-scrubbing",
       description: "Present while a discrete-nav scrub animation is in flight.",
     },
+    {
+      name: "data-positioned",
+      description: "Present once the track has been positioned against the Slides scroller (first layout-effect sync — before the strip's first client paint). Absent in server-rendered HTML: scroll/transform positions cannot be serialized, so a server-rendered strip sits at offset 0 until hydration. Hide the strip until this attribute lands to avoid the visible snap on pages that server-render an open lightbox.",
+    },
   ],
   "api-thumbnail-strip-track": [],
   "api-zoom": [
