@@ -15,6 +15,7 @@ import { LightboxZoom, type LightboxZoomRef } from './lightbox-zoom';
 import { LightboxZoomIn } from './lightbox-zoom-in';
 import {
   SLIDE_TEST_WIDTH as WIDTH,
+  applySlideGeometry,
   endScroll,
   flushRaf,
   installSlidesLayoutMocks,
@@ -189,6 +190,65 @@ describe('Lightbox.Slides', () => {
       (el) => el.textContent ?? '',
     );
     expect(hoisted.some((css) => css.includes('scroll-initial-target:nearest'))).toBe(true);
+  });
+
+  it('hydration handoff: holds the jump while the ssrSlideShift stand-in is on, then retires and jumps in one commit', async () => {
+    // The real scroll offset is written only AFTER the stand-in retires — never
+    // under it. WebKit includes transformed boxes in the scrollable-overflow
+    // area, so while slides are translated inline-start `scrollWidth` shrinks
+    // by the shift and the real offset is unreachable: a hydration-commit jump
+    // gets clamped slides short, and Safari painted the wrong slide (and a
+    // wrongly-positioned thumbnail strip) until a later correction. Retire and
+    // jump both happen pre-paint in the post-hydration commit.
+    const { renderToString } = await import('react-dom/server');
+    const { hydrateRoot } = await import('react-dom/client');
+    const ui = (
+      <LightboxRoot defaultOpen defaultValue={2}>
+        <LightboxTrigger index={0}>open</LightboxTrigger>
+        <LightboxPortal container={null}>
+          <LightboxContent aria-label="hydration handoff">
+            <LightboxSlides data-testid="slides" ssrSlideShift aria-label="Slides">
+              {Array.from({ length: 4 }, (_, i) => (
+                <LightboxSlide key={i}>
+                  <LightboxItem index={i} aria-label={`${i + 1} of 4`}>
+                    Item {i}
+                  </LightboxItem>
+                </LightboxSlide>
+              ))}
+            </LightboxSlides>
+          </LightboxContent>
+        </LightboxPortal>
+      </LightboxRoot>
+    );
+
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    // renderToString always renders the server snapshot, so the stand-in is
+    // stamped even though this test runs in jsdom.
+    container.innerHTML = renderToString(ui);
+    const viewport = container.querySelector<HTMLElement>('[data-ramka-slides]')!;
+    expect(viewport).toHaveAttribute('data-ssr-shift');
+    // Server HTML sits at offset 0 (scroll cannot be serialized); geometry must
+    // exist on the server DOM before hydration effects measure it.
+    applySlideGeometry(viewport, 4);
+    expect(viewport.scrollLeft).toBe(0);
+
+    let root!: ReturnType<typeof hydrateRoot>;
+    try {
+      act(() => {
+        root = hydrateRoot(container, ui);
+      });
+
+      // One post-hydration commit: stand-in gone AND the real offset in place.
+      expect(viewport).not.toHaveAttribute('data-ssr-shift');
+      expect(viewport.style.getPropertyValue('--lightbox-ssr-index')).toBe('');
+      expect(viewport.scrollLeft).toBe(2 * WIDTH);
+    } finally {
+      // Manual root — testing-library cleanup doesn't know about it, and a
+      // leaked open lightbox breaks every later `data-testid` query.
+      act(() => root?.unmount());
+      container.remove();
+    }
   });
 
   it('keeps the active index on viewport resize when scrollLeft is temporarily stale', () => {

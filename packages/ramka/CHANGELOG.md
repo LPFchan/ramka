@@ -21,16 +21,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `Lightbox.Slides ssrSlideShift`: server-rendered open lightboxes paint the
   deep-linked slide — not slide 0 — before hydration. A scroll offset cannot
   be serialized into HTML, so the server HTML instead carries a transform that
-  translates every slide by `activeIndex × (100% + gap)`; hydration swaps the
-  real scroll offset in and drops the transform in the same pre-paint commit.
-  The stand-in renders exclusively for server paint + hydration (a
-  `useSyncExternalStore` hydration check) and suppresses scroll snap while
-  applied — both matter: writing the real scroll offset under still-translated
-  slides lets engines with scroll-snap target tracking (Chromium) capture the
-  slide *visually* at that offset (slide `2×index`) and silently re-align to
-  it once the transform leaves, committing the wrong index. Opt-in, for
-  scrollport-wide (bleed) tracks only; mirror the track's `gap` into
-  `--lightbox-ssr-slide-gap`. RTL-aware.
+  translates every slide by `activeIndex × (100% + gap)`; the post-hydration
+  commit retires the transform, writes the real scroll offset, and re-notifies
+  scroll-linked chrome (ThumbnailStrip), all before one paint. The real offset
+  is never written while the stand-in is applied and the stand-in renders
+  exclusively for server paint + hydration (a `useSyncExternalStore` hydration
+  check), with scroll snap suppressed while it is on — each guard closes a
+  real engine interaction: WebKit includes transformed boxes in the
+  scrollable-overflow area, so under the shift `scrollWidth` shrinks and a
+  jump gets clamped slides short (Safari painted the wrong slide and strip
+  until a later correction); Chromium's scroll-snap target tracking captures
+  the slide *visually* at a written offset and re-aligns to it — the wrong
+  slide — once the transform leaves. Opt-in, for scrollport-wide (bleed)
+  tracks only; mirror the track's `gap` into `--lightbox-ssr-slide-gap`.
+  RTL-aware.
 - Independent of the opt-in, `Lightbox.Item` now marks the active item in
   server HTML (`data-ssr-active`) and `Lightbox.Slides` ships a
   `scroll-initial-target` rule for it, so engines that support the property

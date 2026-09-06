@@ -30,10 +30,14 @@ import { LightboxSlidesCssVars } from './lightbox-css-vars';
 //    so the active slide lands at scroll offset 0 exactly, with no measuring.
 //    The library writes `--lightbox-ssr-index` and the direction sign inline;
 //    the consumer mirrors the track's `gap` into `--lightbox-ssr-slide-gap`
-//    (the one thing CSS cannot read by itself). Slides removes the attribute
-//    in its mount layout effect right after the real scroll jump — same
-//    commit, one paint, no flash. Transforms don't affect scroll geometry or
-//    the `offsetLeft` measurements Slides uses, so nothing else notices.
+//    (the one thing CSS cannot read by itself). The stand-in retires in the
+//    post-hydration commit, and the real scroll jump happens in that SAME
+//    commit, after the transform is gone — never under it: WebKit includes
+//    transformed boxes in the scrollable-overflow area, so while slides are
+//    translated inline-start `scrollWidth` shrinks by the shift and the real
+//    offset is simply unreachable (a jump under the shift lands slides short).
+//    Transform out, real scroll in, scroll-linked chrome re-notified — one
+//    pre-paint commit, one paint, no flash, in every engine.
 //
 // When both are active (Chromium + opt-in), the shift wins: the second rule
 // disables `scroll-initial-target`, otherwise the browser's initial scroll

@@ -425,13 +425,32 @@ const LightboxSlides = React.forwardRef<HTMLDivElement, LightboxSlidesProps>(
     // Drive scroll position from the active index. Skip when the viewport is
     // already showing it (our own swipe-derived updates, which must not
     // re-trigger a jump and fight momentum).
+    //
+    // Also skip — and defer to the retire commit — while the SSR shift
+    // stand-in is applied. The real offset is UNREACHABLE under the shift in
+    // WebKit: translated boxes feed the scrollable-overflow area there, so
+    // content shifted inline-start shrinks `scrollWidth` by exactly the shift
+    // and both our clamp and the engine cap the write one-or-more slides short
+    // (Safari painted `activeIndex − shift` frames before a later jump
+    // corrected it; Chromium/Gecko keep untransformed scroll bounds and never
+    // showed it). When the stand-in retires, `ssrShiftActive` re-runs this
+    // effect in the same pre-paint commit with real bounds — jump there, then
+    // re-notify scroll-linked chrome (ThumbnailStrip subscribers re-position
+    // synchronously) so nothing ever paints against the held-back offset 0.
+    const pendingSsrJumpRef = React.useRef(false);
     React.useLayoutEffect(() => {
       const viewport = viewportRef.current;
       if (!viewport) return;
+      if (ssrShiftActive) {
+        pendingSsrJumpRef.current = true;
+        return;
+      }
+      const ssrHandoff = pendingSsrJumpRef.current;
+      pendingSsrJumpRef.current = false;
       const derived = indexFromScroll(viewport);
-      if (derived === activeIndex) return;
-      scrollToIndex(activeIndex);
-    }, [activeIndex, indexFromScroll, scrollToIndex]);
+      if (derived !== activeIndex) scrollToIndex(activeIndex);
+      if (ssrHandoff) notifySlidesViewport();
+    }, [activeIndex, indexFromScroll, scrollToIndex, ssrShiftActive, notifySlidesViewport]);
 
     // Swipe → active index, and lock discrete navigation while the user scroll /
     // fling is in flight. The lock is what makes this bulletproof: since a fling
