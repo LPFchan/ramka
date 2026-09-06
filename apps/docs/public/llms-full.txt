@@ -1620,7 +1620,7 @@ Default layout: horizontal snap carousel wired to the active index. Emits role="
 | Name | Type | Default | Description |
 | --- | --- | --- | --- |
 | preload | `number` | `1` | How many slides on each side of the active one keep their `Lightbox.Item` content mounted. Slide *boxes* are always present (so scroll extent is correct); only their content is preload-gated. `1` keeps the neighbours you can swipe to ready. |
-| ssrSlideShift | `boolean` | `false` | First-paint slide positioning for pages that SERVER-RENDER an open lightbox (deep links rendering `Portal container={null}`). A scroll offset cannot be serialized into HTML, so such pages otherwise paint slide 0 (or a blank past the `preload` window) until hydration. While this is on, the server HTML carries a transform that translates every slide by `activeIndex × (100% + gap)` so the active slide occupies the scrollport at scroll offset 0; the mount layout effect swaps the real scroll offset in and drops the transform in the same commit — one paint, no flash, every browser. ONLY for scrollport-wide slides (`flex: 0 0 100%` tracks): the percentage resolves against each slide's own width, so content-sized (snug) slides would shift by unequal distances. If the track has a `gap`, mirror it into `--lightbox-ssr-slide-gap` (see `LightboxSlidesCssVars`). Without the opt-in, the library still marks the active item so engines with `scroll-initial-target` position any layout natively; other engines keep the hydration jump. Client-side opens are unaffected either way — the stand-in is removed before the first paint. |
+| ssrSlideShift | `boolean` | `false` | First-paint slide positioning for pages that SERVER-RENDER an open lightbox (deep links rendering `Portal container={null}`). A scroll offset cannot be serialized into HTML, so such pages otherwise paint slide 0 (or a blank past the `preload` window) until hydration. While this is on, the server HTML carries a transform that translates every slide by `activeIndex × (100% + gap)` so the active slide occupies the scrollport at scroll offset 0; the post-hydration commit swaps the real scroll offset in and drops the transform together — no flash, every browser. ONLY for scrollport-wide slides (`flex: 0 0 100%` tracks): the percentage resolves against each slide's own width, so content-sized (snug) slides would shift by unequal distances. If the track has a `gap`, mirror it into `--lightbox-ssr-slide-gap` (see `LightboxSlidesCssVars`). Without the opt-in, the library still marks the active item so engines with `scroll-initial-target` position any layout natively; other engines keep the hydration jump. Client-side opens are unaffected either way — the stand-in only ever renders for server paint + hydration. Degradation: the transform rule ships as a React 19 hoistable `<style>` tag. On React 18, or under a strict CSP without the nonce wired (see `Lightbox.CSPProvider`), the tag is unavailable and the server paint shows slide 0 with the scroller frozen until the hydration jump — the pre-existing baseline, never anything worse. |
 | render | `ReactElement \| ComponentRenderFn` |  | Replaces the part's default element with another tag or component. Accepts an element to clone, or a function that returns one. |
 
 #### Data attributes
@@ -9123,8 +9123,8 @@ export function MoodboardDemo() {
           ariaLabel="Moodboard photos"
           backdrop="solid"
           // Server-rendered deep links paint the deep-linked slide, not slide 0
-          // (library feature — forwarded to `Lightbox.Slides`). Harmless for
-          // regular visits: the stand-in retires before anything paints.
+          // (library feature — forwarded to `Lightbox.Slides`). Inert for
+          // regular visits: the stand-in only renders for server paint.
           ssrSlideShift
           portalProps={
             deepLinkVisit

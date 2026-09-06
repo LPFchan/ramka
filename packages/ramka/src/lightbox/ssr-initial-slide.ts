@@ -31,13 +31,17 @@ import { LightboxSlidesCssVars } from './lightbox-css-vars';
 //    The library writes `--lightbox-ssr-index` and the direction sign inline;
 //    the consumer mirrors the track's `gap` into `--lightbox-ssr-slide-gap`
 //    (the one thing CSS cannot read by itself). The stand-in retires in the
-//    post-hydration commit, and the real scroll jump happens in that SAME
-//    commit, after the transform is gone — never under it: WebKit includes
-//    transformed boxes in the scrollable-overflow area, so while slides are
-//    translated inline-start `scrollWidth` shrinks by the shift and the real
-//    offset is simply unreachable (a jump under the shift lands slides short).
-//    Transform out, real scroll in, scroll-linked chrome re-notified — one
-//    pre-paint commit, one paint, no flash, in every engine.
+//    post-hydration re-render (a passive-effect store check — after the
+//    hydration commit, usually but not provably before its paint; a shifted
+//    frame is pixel-identical to the real offset either way), and the real
+//    scroll jump happens in that SAME retire commit, after the transform is
+//    gone — never under it: WebKit includes transformed boxes in the
+//    scrollable-overflow area, so while slides are translated inline-start
+//    `scrollWidth` shrinks by the shift and the real offset is simply
+//    unreachable (a jump under the shift lands slides short). Transform out,
+//    real scroll in, scroll-linked chrome re-notified (ThumbnailStrip holds
+//    `data-positioned` back while the shift attribute is on) — one commit, no
+//    flash, in every engine.
 //
 // When both are active (Chromium + opt-in), the shift wins: the second rule
 // disables `scroll-initial-target`, otherwise the browser's initial scroll

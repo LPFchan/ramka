@@ -7,6 +7,7 @@ import { useLightboxContext, type NavigationSource } from './lightbox-context';
 import { LightboxThumbnailStripCssVars } from './lightbox-css-vars';
 import {
   LightboxContentDataAttributes,
+  LightboxSlidesDataAttributes,
   LightboxThumbnailStripDataAttributes,
 } from './lightbox-data-attributes';
 import {
@@ -343,6 +344,17 @@ const LightboxThumbnailStrip = React.forwardRef<HTMLDivElement, LightboxThumbnai
         const slides = slidesViewportRef.current;
         const root = rootRef.current;
         if (!track || !slides || !root) return false;
+
+        // The Slides SSR shift stand-in is still on: the scroller sits at
+        // offset 0 with its content translated (ssr-initial-slide.ts), so a
+        // sync here would position the track for slide 0 — and, worse, land
+        // `data-positioned` on a frame consumer CSS then reveals at the wrong
+        // offset. The retire is a passive-effect re-render (post-hydration
+        // useSyncExternalStore consistency check), which is NOT guaranteed to
+        // beat the hydrated frame's paint — so bail, report failure, and let
+        // the retire commit's `notifySlidesViewport` re-enter through the
+        // subscription with the real scroll offset in place.
+        if (slides.hasAttribute(LightboxSlidesDataAttributes.ssrShift)) return false;
 
         const travelsChanged = measureThumbs();
 

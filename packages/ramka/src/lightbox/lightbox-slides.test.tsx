@@ -198,10 +198,21 @@ describe('Lightbox.Slides', () => {
     // area, so while slides are translated inline-start `scrollWidth` shrinks
     // by the shift and the real offset is unreachable: a hydration-commit jump
     // gets clamped slides short, and Safari painted the wrong slide (and a
-    // wrongly-positioned thumbnail strip) until a later correction. Retire and
-    // jump both happen pre-paint in the post-hydration commit.
+    // wrongly-positioned thumbnail strip) until a later correction. The retire
+    // re-render (a post-hydration passive effect) drops the transform and
+    // writes the real offset in one commit.
+    //
+    // The ThumbnailStrip rides the same handoff: its hydration-commit refresh
+    // bails while the scrollport carries `data-ssr-shift` (positioning against
+    // the held-back offset 0 would reveal the strip pointing at slide 0), and
+    // the retire's `notifySlidesViewport` re-enters it — so `data-positioned`
+    // must be absent in server HTML and present, with the real offset in
+    // place, after hydration. If the re-entry notify is ever dropped, the
+    // strip stays unpositioned (hidden) forever and this test fails.
     const { renderToString } = await import('react-dom/server');
     const { hydrateRoot } = await import('react-dom/client');
+    const { LightboxThumbnailStrip } = await import('./lightbox-thumbnail-strip');
+    const { LightboxThumbnailStripTrack } = await import('./lightbox-thumbnail-strip-track');
     const ui = (
       <LightboxRoot defaultOpen defaultValue={2}>
         <LightboxTrigger index={0}>open</LightboxTrigger>
@@ -216,6 +227,15 @@ describe('Lightbox.Slides', () => {
                 </LightboxSlide>
               ))}
             </LightboxSlides>
+            <LightboxThumbnailStrip data-testid="strip">
+              <LightboxThumbnailStripTrack aria-label="Thumbs">
+                {Array.from({ length: 4 }, (_, i) => (
+                  <LightboxThumbnail key={i} index={i}>
+                    t{i}
+                  </LightboxThumbnail>
+                ))}
+              </LightboxThumbnailStripTrack>
+            </LightboxThumbnailStrip>
           </LightboxContent>
         </LightboxPortal>
       </LightboxRoot>
@@ -227,9 +247,13 @@ describe('Lightbox.Slides', () => {
     // stamped even though this test runs in jsdom.
     container.innerHTML = renderToString(ui);
     const viewport = container.querySelector<HTMLElement>('[data-ramka-slides]')!;
+    const strip = container.querySelector<HTMLElement>('[data-ramka-thumbnail-strip]')!;
     expect(viewport).toHaveAttribute('data-ssr-shift');
-    // Server HTML sits at offset 0 (scroll cannot be serialized); geometry must
-    // exist on the server DOM before hydration effects measure it.
+    // Scroll/transform positions cannot be serialized: server HTML must never
+    // claim the strip is positioned.
+    expect(strip).not.toHaveAttribute('data-positioned');
+    // Server HTML sits at offset 0; geometry must exist on the server DOM
+    // before hydration effects measure it.
     applySlideGeometry(viewport, 4);
     expect(viewport.scrollLeft).toBe(0);
 
@@ -239,10 +263,12 @@ describe('Lightbox.Slides', () => {
         root = hydrateRoot(container, ui);
       });
 
-      // One post-hydration commit: stand-in gone AND the real offset in place.
+      // One retire commit: stand-in gone AND the real offset in place.
       expect(viewport).not.toHaveAttribute('data-ssr-shift');
       expect(viewport.style.getPropertyValue('--lightbox-ssr-index')).toBe('');
       expect(viewport.scrollLeft).toBe(2 * WIDTH);
+      // The strip was re-entered after the handoff and marked positioned.
+      expect(strip).toHaveAttribute('data-positioned');
     } finally {
       // Manual root — testing-library cleanup doesn't know about it, and a
       // leaked open lightbox breaks every later `data-testid` query.

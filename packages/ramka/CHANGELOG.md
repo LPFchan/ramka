@@ -23,7 +23,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   be serialized into HTML, so the server HTML instead carries a transform that
   translates every slide by `activeIndex × (100% + gap)`; the post-hydration
   commit retires the transform, writes the real scroll offset, and re-notifies
-  scroll-linked chrome (ThumbnailStrip), all before one paint. The real offset
+  scroll-linked chrome (ThumbnailStrip holds `data-positioned` back while the
+  shift is on), all in one commit — and a stray pre-retire frame is
+  pixel-identical to the real offset by construction. The real offset
   is never written while the stand-in is applied and the stand-in renders
   exclusively for server paint + hydration (a `useSyncExternalStore` hydration
   check), with scroll snap suppressed while it is on — each guard closes a
@@ -41,7 +43,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (Chromium) scroll a server-rendered open lightbox to the correct slide
   before first paint for ANY slide widths — including content-sized (snug)
   layouts the transform shift cannot serve. Other engines keep the
-  hydration-time jump.
+  hydration-time jump. **Migration note:** if you hand-rolled a first-paint
+  transform stand-in for SSR-open pages (the pattern the moodboard example
+  demonstrated before this release), delete it and pass `ssrSlideShift`
+  instead — on Chromium the new native initial scroll and a custom transform
+  would BOTH move the track, painting a blank until hydration. The library
+  suppresses `scroll-initial-target` under its own `data-ssr-shift` only.
 - `Lightbox.CSPProvider`: pass your page's per-request CSP nonce and every
   inline `<style>` tag the library renders (media fill, morph-target hide,
   SSR initial slide) carries it, so strict `style-src` policies keep the

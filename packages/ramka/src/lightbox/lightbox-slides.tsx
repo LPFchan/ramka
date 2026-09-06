@@ -109,9 +109,9 @@ interface LightboxSlidesProps extends useRender.ComponentProps<'div', LightboxSl
    * slide 0 (or a blank past the `preload` window) until hydration. While
    * this is on, the server HTML carries a transform that translates every
    * slide by `activeIndex × (100% + gap)` so the active slide occupies the
-   * scrollport at scroll offset 0; the mount layout effect swaps the real
-   * scroll offset in and drops the transform in the same commit — one paint,
-   * no flash, every browser.
+   * scrollport at scroll offset 0; the post-hydration commit swaps the real
+   * scroll offset in and drops the transform together — no flash, every
+   * browser.
    *
    * ONLY for scrollport-wide slides (`flex: 0 0 100%` tracks): the percentage
    * resolves against each slide's own width, so content-sized (snug) slides
@@ -120,7 +120,13 @@ interface LightboxSlidesProps extends useRender.ComponentProps<'div', LightboxSl
    * the opt-in, the library still marks the active item so engines with
    * `scroll-initial-target` position any layout natively; other engines keep
    * the hydration jump. Client-side opens are unaffected either way — the
-   * stand-in only ever renders for server paint + hydration. @default false
+   * stand-in only ever renders for server paint + hydration.
+   *
+   * Degradation: the transform rule ships as a React 19 hoistable `<style>`
+   * tag. On React 18, or under a strict CSP without the nonce wired (see
+   * `Lightbox.CSPProvider`), the tag is unavailable and the server paint
+   * shows slide 0 with the scroller frozen until the hydration jump — the
+   * pre-existing baseline, never anything worse. @default false
    */
   ssrSlideShift?: boolean;
 }
@@ -227,9 +233,17 @@ const LightboxSlides = React.forwardRef<HTMLDivElement, LightboxSlidesProps>(
     // ONLY while the markup on screen is server HTML: `useSyncExternalStore`
     // serves the server snapshot (`true`) to both the server render and the
     // hydration render — markup matches byte-for-byte, no hydration warning —
-    // and React's post-hydration consistency check re-renders with the client
-    // snapshot (`false`) synchronously before paint, which is what retires the
-    // stand-in (real scroll in, transform out, one paint).
+    // and the post-hydration store consistency check re-renders with the
+    // client snapshot (`false`), which is what retires the stand-in (real
+    // scroll in, transform out, in one commit). NOTE the retire's timing: on
+    // hydration React registers that check as a PASSIVE effect, so the retire
+    // lands in the passive flush after the hydration commit — usually but not
+    // provably before the hydrated frame paints. That's fine for the slides
+    // themselves (a shifted frame is pixel-identical to the real offset — the
+    // whole point of the stand-in), but nothing that positions against the
+    // scroller may trust its offset while the shift attribute is present:
+    // ThumbnailStrip holds `data-positioned` back for exactly this window and
+    // re-enters via the retire's notifySlidesViewport.
     //
     // Pure client-side opens NEVER render the shift — not even for a retired
     // first pass. An earlier version did (state initialized from the prop, a
@@ -754,6 +768,11 @@ const LightboxSlides = React.forwardRef<HTMLDivElement, LightboxSlidesProps>(
                 // translated, so a pre-hydration swipe would reveal the blank
                 // positions the slides vacated. Programmatic `scrollLeft`
                 // writes (the hydration jump) work on hidden overflow.
+                // Deliberate: this block is NOT gated on style hoisting, so a
+                // React 18 server paint (no hoistable, no transform rule) still
+                // gets the freeze — slide 0 shown un-swipeable until hydration,
+                // rather than a scroller the user can fling pre-hydration and
+                // then have yanked away by the jump.
                 // `scroll-snap-type: none` because the translated positions must
                 // never feed snap-target tracking: the hydration jump writes the
                 // real scrollLeft while slides are still shifted, and an engine

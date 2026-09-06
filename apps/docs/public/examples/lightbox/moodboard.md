@@ -355,8 +355,8 @@ export function MoodboardDemo() {
           ariaLabel="Moodboard photos"
           backdrop="solid"
           // Server-rendered deep links paint the deep-linked slide, not slide 0
-          // (library feature — forwarded to `Lightbox.Slides`). Harmless for
-          // regular visits: the stand-in retires before anything paints.
+          // (library feature — forwarded to `Lightbox.Slides`). Inert for
+          // regular visits: the stand-in only renders for server paint.
           ssrSlideShift
           portalProps={
             deepLinkVisit
