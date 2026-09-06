@@ -97,6 +97,15 @@ export enum LightboxItemDataAttributes {
    * on the destination item.
    */
   skipFade = 'data-skip-fade',
+  /**
+   * Present ONLY in server-rendered HTML, on the active item of a page that
+   * server-renders an open lightbox. Carries `scroll-initial-target: nearest`
+   * (delivered by `Lightbox.Slides`), so engines that support it scroll the
+   * Slides scrollport to the active slide during initial layout — before
+   * first paint, for any slide widths. Cleared during hydration; never set
+   * on the client.
+   */
+  ssrActive = 'data-ssr-active',
 }
 
 export enum LightboxSlidesDataAttributes {
@@ -108,6 +117,16 @@ export enum LightboxSlidesDataAttributes {
   direction = 'data-direction',
   /** Always `horizontal`. */
   orientation = 'data-orientation',
+  /**
+   * Present while the `ssrSlideShift` transform stand-in is applied: from the
+   * server render of an open lightbox until the mount layout effect swaps the
+   * real scroll offset in (same commit — the swap never paints). While set,
+   * every slide is translated so the active one occupies the scrollport at
+   * scroll offset 0, and the scrollport's `overflow-x` is frozen so a
+   * pre-hydration swipe can't reveal the empty positions the translated
+   * slides vacated.
+   */
+  ssrShift = 'data-ssr-shift',
 }
 
 export enum LightboxSlideDataAttributes {

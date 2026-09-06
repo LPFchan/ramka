@@ -18,6 +18,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `Lightbox.ThumbnailStrip` exposes `data-positioned` once the track has been
   positioned against the Slides scroller, so skins can hide the strip until it
   cannot paint at a stale offset (relevant to server-rendered open pages).
+- `Lightbox.Slides ssrSlideShift`: server-rendered open lightboxes paint the
+  deep-linked slide — not slide 0 — before hydration. A scroll offset cannot
+  be serialized into HTML, so the server HTML instead carries a transform that
+  translates every slide by `activeIndex × (100% + gap)`; the mount layout
+  effect swaps the real scroll offset in and drops the transform in the same
+  commit. Opt-in, for scrollport-wide (bleed) tracks only; mirror the track's
+  `gap` into `--lightbox-ssr-slide-gap`. RTL-aware.
+- Independent of the opt-in, `Lightbox.Item` now marks the active item in
+  server HTML (`data-ssr-active`) and `Lightbox.Slides` ships a
+  `scroll-initial-target` rule for it, so engines that support the property
+  (Chromium) scroll a server-rendered open lightbox to the correct slide
+  before first paint for ANY slide widths — including content-sized (snug)
+  layouts the transform shift cannot serve. Other engines keep the
+  hydration-time jump.
 
 ### Changed
 

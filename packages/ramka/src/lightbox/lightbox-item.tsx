@@ -438,6 +438,17 @@ const LightboxItem = React.forwardRef<HTMLDivElement, LightboxItemProps>(
       }
     }, [isActive, activeItemElementRef]);
 
+    // Clear the server-only `data-ssr-active` stamp (see the render props
+    // below). By hydration time it has done its job — `scroll-initial-target`
+    // applies during the scroller's initial layout only — but a lingering copy
+    // would go stale: it marks the SSR-time active item, and if this adopted
+    // element ever ended up inside a rebuilt scroller the browser would scroll
+    // to the wrong slide. Client renders never include the attribute, so this
+    // runs at most once, on the hydration commit.
+    React.useLayoutEffect(() => {
+      internalRef.current?.removeAttribute(LightboxItemDataAttributes.ssrActive);
+    }, []);
+
     React.useEffect(() => {
       return registerItem(index);
     }, [index, registerItem]);
@@ -496,6 +507,17 @@ const LightboxItem = React.forwardRef<HTMLDivElement, LightboxItemProps>(
           // the owning item. It replaces what was a branded class name in
           // upstream so the primitives stay free of ship-as-is styles.
           [LightboxItemDataAttributes.item]: '',
+          // SERVER RENDER ONLY: mark the active item so the SSR initial-slide
+          // CSS (delivered by Slides — see ssr-initial-slide.ts) can point
+          // `scroll-initial-target` at it, letting supporting engines scroll a
+          // server-rendered open lightbox to the right slide before first
+          // paint, whatever the slide widths. Same hydration-safe pattern as
+          // Trigger's `data-morph-target` stamp: client renders never include
+          // the prop, React neither flags nor removes the extra server
+          // attribute, and the hydration layout effect above clears it.
+          ...(isActive && typeof window === 'undefined'
+            ? { [LightboxItemDataAttributes.ssrActive]: '' }
+            : null),
           id: panelId,
           ...semanticProps,
           // Inactive slides/panels are kept out of the a11y tree (and out of

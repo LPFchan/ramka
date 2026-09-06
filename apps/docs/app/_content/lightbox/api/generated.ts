@@ -246,6 +246,12 @@ export const generatedProps: Record<string, PropRow[]> = {
       description: "How many slides on each side of the active one keep their `Lightbox.Item` content mounted. Slide *boxes* are always present (so scroll extent is correct); only their content is preload-gated. `1` keeps the neighbours you can swipe to ready.",
     },
     {
+      name: "ssrSlideShift",
+      type: "boolean",
+      default: "false",
+      description: "First-paint slide positioning for pages that SERVER-RENDER an open lightbox (deep links rendering `Portal container={null}`). A scroll offset cannot be serialized into HTML, so such pages otherwise paint slide 0 (or a blank past the `preload` window) until hydration. While this is on, the server HTML carries a transform that translates every slide by `activeIndex × (100% + gap)` so the active slide occupies the scrollport at scroll offset 0; the mount layout effect swaps the real scroll offset in and drops the transform in the same commit — one paint, no flash, every browser.\n\nONLY for scrollport-wide slides (`flex: 0 0 100%` tracks): the percentage resolves against each slide's own width, so content-sized (snug) slides would shift by unequal distances. If the track has a `gap`, mirror it into `--lightbox-ssr-slide-gap` (see `LightboxSlidesCssVars`). Without the opt-in, the library still marks the active item so engines with `scroll-initial-target` position any layout natively; other engines keep the hydration jump. Client-side opens are unaffected either way — the stand-in is removed before the first paint.",
+    },
+    {
       name: "render",
       type: "ReactElement | ComponentRenderFn",
       description: "Replaces the part's default element with another tag or component. Accepts an element to clone, or a function that returns one.",
@@ -618,6 +624,10 @@ export const generatedAttributes: Record<string, AttrRow[]> = {
       name: "data-skip-fade",
       description: "Transient during view-transition open — suppress consumer entrance fades on the destination item.",
     },
+    {
+      name: "data-ssr-active",
+      description: "Present ONLY in server-rendered HTML, on the active item of a page that server-renders an open lightbox. Carries `scroll-initial-target: nearest` (delivered by `Lightbox.Slides`), so engines that support it scroll the Slides scrollport to the active slide during initial layout — before first paint, for any slide widths. Cleared during hydration; never set on the client.",
+    },
   ],
   "api-media": [
     {
@@ -653,6 +663,10 @@ export const generatedAttributes: Record<string, AttrRow[]> = {
     {
       name: "data-orientation",
       description: "Always `horizontal`.",
+    },
+    {
+      name: "data-ssr-shift",
+      description: "Present while the `ssrSlideShift` transform stand-in is applied: from the server render of an open lightbox until the mount layout effect swaps the real scroll offset in (same commit — the swap never paints). While set, every slide is translated so the active one occupies the scrollport at scroll offset 0, and the scrollport's `overflow-x` is frozen so a pre-hydration swipe can't reveal the empty positions the translated slides vacated.",
     },
   ],
   "api-slide": [
@@ -736,7 +750,7 @@ export const generatedAttributes: Record<string, AttrRow[]> = {
     },
     {
       name: "data-positioned",
-      description: "Present once the track has been positioned against the Slides scroller (first layout-effect sync — before the strip's first client paint). Absent in server-rendered HTML: scroll/transform positions cannot be serialized, so a server-rendered strip sits at offset 0 until hydration. Hide the strip until this attribute lands to avoid the visible snap on pages that server-render an open lightbox.",
+      description: "Present once the track has actually been positioned against the Slides scroller (first successful measure-and-sync — set in a layout effect, so for client-side opens it lands before the strip's first paint). Not set by bailed attempts, e.g. while the Slides viewport hasn't registered yet. Absent in server-rendered HTML: scroll/transform positions cannot be serialized, so a server-rendered strip sits at offset 0 until hydration. Hide the strip until this attribute lands to avoid the visible snap on pages that server-render an open lightbox.",
     },
   ],
   "api-thumbnail-strip-track": [],

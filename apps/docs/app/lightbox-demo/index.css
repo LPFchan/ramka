@@ -5,5 +5,5 @@
 @import './chrome-insets.css';
 @import './pull-progress.css';
 @import './snug-slides.css';
-@import './ssr-slide-shift.css';
+@import './ssr-no-transitions.css';
 @import './thumbnail-strip-scroll-link.css';

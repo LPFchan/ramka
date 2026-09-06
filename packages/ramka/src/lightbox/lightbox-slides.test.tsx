@@ -148,6 +148,45 @@ describe('Lightbox.Slides', () => {
     expect(screen.getByTestId('slides').style.overflowAnchor).toBe('none');
   });
 
+  it('retires the ssrSlideShift stand-in before anything can paint on client mounts', () => {
+    // The shift is rendered on the first pass (state-driven, so server and
+    // hydration markup match) and removed by a mount layout effect — layout
+    // effects and their sync state updates flush before paint, so on a pure
+    // client open no frame ever shows it. After mount: no attribute, no vars,
+    // scrolling unfrozen. (Server-paint behavior is covered in
+    // lightbox-slides-ssr.test.tsx.)
+    render(
+      <LightboxRoot defaultOpen defaultValue={2}>
+        <LightboxTrigger index={0}>open</LightboxTrigger>
+        <LightboxPortal>
+          <LightboxContent aria-label="ssr shift test">
+            <LightboxSlides data-testid="slides" ssrSlideShift aria-label="Slides">
+              {Array.from({ length: 4 }, (_, i) => (
+                <LightboxSlide key={i}>
+                  <LightboxItem index={i} aria-label={`${i + 1} of 4`}>
+                    Item {i}
+                  </LightboxItem>
+                </LightboxSlide>
+              ))}
+            </LightboxSlides>
+          </LightboxContent>
+        </LightboxPortal>
+      </LightboxRoot>,
+    );
+    const viewport = screen.getByTestId('slides');
+    expect(viewport).not.toHaveAttribute('data-ssr-shift');
+    expect(viewport.style.getPropertyValue('--lightbox-ssr-index')).toBe('');
+    expect(viewport.style.overflowX).toBe('auto');
+    // The client never stamps the SSR active-item marker either.
+    expect(document.querySelector('[data-ssr-active]')).toBeNull();
+    // The rules ride along as a hoisted <style> (React 19 hoists in jsdom too),
+    // ready for pages whose first paint is server HTML.
+    const hoisted = Array.from(document.head.querySelectorAll('style[data-precedence]')).map(
+      (el) => el.textContent ?? '',
+    );
+    expect(hoisted.some((css) => css.includes('scroll-initial-target:nearest'))).toBe(true);
+  });
+
   it('keeps the active index on viewport resize when scrollLeft is temporarily stale', () => {
     render(<SlidesLightbox defaultValue={3} />);
     const viewport = screen.getByTestId('slides');

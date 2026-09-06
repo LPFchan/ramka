@@ -119,6 +119,34 @@ export enum LightboxDocumentCssVars {
   vtRootEasing = '--lightbox-vt-root-easing',
 }
 
+export enum LightboxSlidesCssVars {
+  /**
+   * The active index at server-render time. WRITTEN BY THE LIBRARY onto the
+   * Slides scrollport while `data-ssr-shift` is present (the `ssrSlideShift`
+   * transform stand-in) — do not set it yourself. Consumed by the library's
+   * shift rule; removed together with the attribute during hydration.
+   * @type number
+   */
+  ssrIndex = '--lightbox-ssr-index',
+  /**
+   * Direction sign for the `ssrSlideShift` transform: `-1` in LTR, `1` in
+   * RTL. WRITTEN BY THE LIBRARY alongside `--lightbox-ssr-index` — do not
+   * set it yourself.
+   * @type number
+   */
+  ssrShiftSign = '--lightbox-ssr-shift-sign',
+  /**
+   * CONSUMER-SET: the track's `gap` as a length, for the `ssrSlideShift`
+   * transform math (CSS cannot read a computed `gap` into `calc()`). Set it
+   * on the Slides element (or an ancestor) wherever your skin sets the gap,
+   * media queries included — e.g. Tailwind `gap-5 md:gap-0` pairs with
+   * `[--lightbox-ssr-slide-gap:1.25rem] md:[--lightbox-ssr-slide-gap:0px]`.
+   * Defaults to `0px`. Only read while `data-ssr-shift` is present.
+   * @type string
+   */
+  ssrSlideGap = '--lightbox-ssr-slide-gap',
+}
+
 export enum LightboxThumbnailStripCssVars {
   /**
    * End `translateX` travel for the scroll link (negative px length to center

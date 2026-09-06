@@ -3,7 +3,10 @@
 import * as React from 'react';
 
 import { LightboxSlidesDataAttributes } from './lightbox-data-attributes';
+import { LightboxSlidesCssVars } from './lightbox-css-vars';
 import { useLightboxContext } from './lightbox-context';
+import { REACT_SUPPORTS_STYLE_HOISTING } from './react-style-hoisting';
+import { SSR_INITIAL_SLIDE_CSS, SSR_INITIAL_SLIDE_HREF } from './ssr-initial-slide';
 import {
   measureSlidesGeometry,
   slideIndexFromInlinePosition,
@@ -98,6 +101,27 @@ interface LightboxSlidesProps extends useRender.ComponentProps<'div', LightboxSl
    * can swipe to ready. @default 1
    */
   preload?: number;
+  /**
+   * First-paint slide positioning for pages that SERVER-RENDER an open
+   * lightbox (deep links rendering `Portal container={null}`). A scroll
+   * offset cannot be serialized into HTML, so such pages otherwise paint
+   * slide 0 (or a blank past the `preload` window) until hydration. While
+   * this is on, the server HTML carries a transform that translates every
+   * slide by `activeIndex × (100% + gap)` so the active slide occupies the
+   * scrollport at scroll offset 0; the mount layout effect swaps the real
+   * scroll offset in and drops the transform in the same commit — one paint,
+   * no flash, every browser.
+   *
+   * ONLY for scrollport-wide slides (`flex: 0 0 100%` tracks): the percentage
+   * resolves against each slide's own width, so content-sized (snug) slides
+   * would shift by unequal distances. If the track has a `gap`, mirror it
+   * into `--lightbox-ssr-slide-gap` (see `LightboxSlidesCssVars`). Without
+   * the opt-in, the library still marks the active item so engines with
+   * `scroll-initial-target` position any layout natively; other engines keep
+   * the hydration jump. Client-side opens are unaffected either way — the
+   * stand-in is removed before the first paint. @default false
+   */
+  ssrSlideShift?: boolean;
 }
 
 /**
@@ -134,7 +158,7 @@ const slidesStateAttributesMapping = {
 
 const LightboxSlides = React.forwardRef<HTMLDivElement, LightboxSlidesProps>(
   function LightboxSlides(props, forwardedRef) {
-    const { render, preload = 1, style, ...elementProps } = props;
+    const { render, preload = 1, ssrSlideShift = false, style, ...elementProps } = props;
     const {
       activeIndex,
       direction,
@@ -191,6 +215,17 @@ const LightboxSlides = React.forwardRef<HTMLDivElement, LightboxSlidesProps>(
     // Always-fresh mirror of activeIndex for use inside stable event listeners.
     const activeIndexRef = React.useRef(activeIndex);
     activeIndexRef.current = activeIndex;
+
+    // The `ssrSlideShift` transform stand-in (see ssr-initial-slide.ts).
+    // State-driven rather than `typeof window` — the server render and the
+    // hydration render both compute `true`, so the markup matches byte-for-byte
+    // and no hydration warning can fire. On pure client-side opens the shift is
+    // also rendered, but the removal layout effect below re-renders before the
+    // commit ever paints (and before a View Transition captures its "new"
+    // snapshot — flushSync runs layout effects and their sync state updates to
+    // completion), so it is never visible; it exists on screen only for pages
+    // whose FIRST paint is server HTML.
+    const [ssrShiftActive, setSsrShiftActive] = React.useState(ssrSlideShift);
 
     const mergedRef = React.useCallback(
       (node: HTMLDivElement | null) => {
@@ -373,6 +408,17 @@ const LightboxSlides = React.forwardRef<HTMLDivElement, LightboxSlidesProps>(
       if (derived === activeIndex) return;
       scrollToIndex(activeIndex);
     }, [activeIndex, indexFromScroll, scrollToIndex]);
+
+    // Retire the SSR transform stand-in. Declared AFTER the jump effect above:
+    // layout effects run in declaration order within a commit, so by the time
+    // this fires the mount jump has already written the real scroll offset
+    // (transforms don't affect `offsetLeft`/`scrollLeft`, so the geometry it
+    // measured through the shift was correct). The setState here re-renders
+    // synchronously before the browser paints — real scroll in, transform out,
+    // one paint. Mount-only by design; `ssrShiftActive` never comes back.
+    React.useLayoutEffect(() => {
+      setSsrShiftActive(false);
+    }, []);
 
     // Swipe → active index, and lock discrete navigation while the user scroll /
     // fling is in flight. The lock is what makes this bulletproof: since a fling
@@ -599,6 +645,21 @@ const LightboxSlides = React.forwardRef<HTMLDivElement, LightboxSlidesProps>(
 
     return (
       <LightboxSlidesPreloadContext.Provider value={preload}>
+        {/*
+          SSR initial-slide rules (scroll-initial-target + the ssrSlideShift
+          transform — see ssr-initial-slide.ts). Hoisted into <head> and deduped
+          by `href` on React 19; gated off on React 18 (no hoisting — see
+          react-style-hoisting.ts). Deliberately NO CSSOM fallback: these rules
+          only matter for the server paint, and both attributes they match are
+          gone by the end of the hydration commit, so a client-injected copy
+          could never apply. Where the tag is unavailable or refused (React 18,
+          strict CSP) the page keeps the pre-existing hydration-jump behavior.
+        */}
+        {REACT_SUPPORTS_STYLE_HOISTING ? (
+          <style href={SSR_INITIAL_SLIDE_HREF} precedence="ramka">
+            {SSR_INITIAL_SLIDE_CSS}
+          </style>
+        ) : null}
         {useRender({
           render,
           ref: mergedRef,
@@ -608,6 +669,10 @@ const LightboxSlides = React.forwardRef<HTMLDivElement, LightboxSlidesProps>(
             {
               role: 'group',
               [LightboxSlidesDataAttributes.slides]: '',
+              // SSR transform stand-in (see ssr-initial-slide.ts). Present in
+              // the server HTML and the (identical) hydration render; the
+              // mount layout effect retires it pre-paint.
+              ...(ssrShiftActive ? { [LightboxSlidesDataAttributes.ssrShift]: '' } : null),
               // APG Carousel pattern: the container that wraps the slides is a
               // carousel, but the word announcing that is copy, so it is yours
               // to pass — `aria-roledescription="carousel"` translated, plus an
@@ -650,6 +715,20 @@ const LightboxSlides = React.forwardRef<HTMLDivElement, LightboxSlidesProps>(
                 // Size container so snug stage/snap CSS can use cqw/cqh against
                 // this scrollport (consumer styles; not a new prop).
                 containerType: 'size',
+                // SSR shift inputs (after `...style` — they must win while the
+                // stand-in is on). `overflow-x: hidden` freezes the scroller:
+                // it is a live native scroller whose content has merely been
+                // translated, so a pre-hydration swipe would reveal the blank
+                // positions the slides vacated. Programmatic `scrollLeft`
+                // writes (the hydration jump) work on hidden overflow, and the
+                // whole block leaves with `ssrShiftActive`.
+                ...(ssrShiftActive
+                  ? ({
+                      overflowX: 'hidden',
+                      [LightboxSlidesCssVars.ssrIndex]: activeIndex,
+                      [LightboxSlidesCssVars.ssrShiftSign]: dir === 'rtl' ? 1 : -1,
+                    } as React.CSSProperties)
+                  : null),
               },
             } as React.ComponentPropsWithRef<'div'>,
             elementProps as React.ComponentPropsWithRef<'div'>,

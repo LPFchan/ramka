@@ -44,11 +44,13 @@ export const lightboxExamples: ExampleLink[] = [
     extraSources: [
       '(docs)/examples/lightbox/moodboard/moodboard-demo.tsx',
       '(docs)/examples/lightbox/moodboard/photos.ts',
-      // The SSR deep-link pattern is inert without these: the slide-shift +
-      // no-transitions rules, and the strip's data-positioned reveal. A copy
-      // made from the .md alone would paint slide 0 pre-hydration, fade
-      // itself in on load, and snap the strip — with no error to notice.
-      'lightbox-demo/ssr-slide-shift.css',
+      // The SSR deep-link pattern is inert without these: the no-transitions
+      // rule and the strip's data-positioned reveal. A copy made from the .md
+      // alone would fade itself in on load and snap the strip — with no error
+      // to notice. (Painting the RIGHT slide pre-hydration is library-owned:
+      // `Slides ssrSlideShift`, plus the `--lightbox-ssr-slide-gap` var set in
+      // the chrome next to the track's gap utilities.)
+      'lightbox-demo/ssr-no-transitions.css',
       'lightbox-demo/thumbnail-strip-scroll-link.css',
     ],
   },

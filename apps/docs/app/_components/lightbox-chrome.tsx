@@ -281,6 +281,14 @@ export function LightboxGallery({
    * `relative z-50`) so the fixed viewer clears the page's sticky chrome.
    */
   portalProps,
+  /**
+   * Forwarded to `Lightbox.Slides` for pages that server-render the viewer
+   * open (deep links): the library's transform stand-in paints the correct
+   * slide before hydration. Only applied in the bleed layout — the shift
+   * requires scrollport-wide slides, and snug cards are content-sized (they
+   * fall back to the library's `scroll-initial-target` path instead).
+   */
+  ssrSlideShift = false,
 }: {
   items: LightboxGalleryItem[];
   ariaLabel: string;
@@ -297,6 +305,7 @@ export function LightboxGallery({
   renderItem?: (item: LightboxGalleryItem, index: number, ctx: GalleryItemRenderCtx) => React.ReactNode;
   overlay?: React.ReactNode;
   portalProps?: React.ComponentProps<typeof Lightbox.Portal>;
+  ssrSlideShift?: boolean;
 }) {
   const [slidesLayoutState, setSlidesLayoutState] = React.useState<'bleed' | 'snug'>(
     () => (layoutToggle ? readStoredSlidesLayout() : null) ?? slidesLayoutProp,
@@ -362,11 +371,15 @@ export function LightboxGallery({
           // localized app they would come from your translation catalogue.
           aria-roledescription="carousel"
           preload={preload}
+          ssrSlideShift={ssrSlideShift && !snug}
           className={
             snug
               ? // End spacers + card gap: `lightbox-demo/snug-slides.css`.
                 'lightbox-demo-slides lightbox-demo-slides-snug flex-1 [&::-webkit-scrollbar]:hidden'
-              : 'lightbox-demo-slides flex-1 gap-5 [&::-webkit-scrollbar]:hidden md:gap-0'
+              : // `--lightbox-ssr-slide-gap` mirrors the gap utilities beside it —
+                // the library's ssrSlideShift math cannot read a computed `gap`,
+                // so the skin restates it as a var (keep the pairs in sync).
+                'lightbox-demo-slides flex-1 gap-5 [--lightbox-ssr-slide-gap:1.25rem] [&::-webkit-scrollbar]:hidden md:gap-0 md:[--lightbox-ssr-slide-gap:0px]'
           }
           style={
             snugEdgeRatios

@@ -1,0 +1,27 @@
+/*
+ * No entrance motion when the page ITSELF is the entrance — used by
+ * deep-linked visits that server-render the lightbox already open
+ * (moodboard's dynamic route).
+ *
+ * The skin's open/close fades run off `@starting-style` (open-close.css,
+ * chrome-hide, the strip's data-positioned reveal), and @starting-style
+ * applies on an element's FIRST render — which, on a server-rendered open
+ * viewer, is page load. A refreshed deep link would fade its own content in
+ * as if it had just opened. While this class is on the Portal host every
+ * transition inside is flattened, so the server paint IS the final frame.
+ *
+ * The demo removes the class one frame AFTER the first post-hydration paint
+ * (not in the hydration commit): transitions consult the after-change style,
+ * so dropping it in the same style recalc where e.g. the strip's
+ * `data-positioned` lands would start the very fades being suppressed.
+ *
+ * (The companion problem — painting the RIGHT slide before hydration — is
+ * library-owned: `Lightbox.Slides ssrSlideShift`, plus the skin mirroring the
+ * track gap into `--lightbox-ssr-slide-gap` in lightbox-chrome.tsx. This file
+ * is only about suppressing the skin's own fades.)
+ */
+.lightbox-demo-ssr-no-transitions *,
+.lightbox-demo-ssr-no-transitions *::before,
+.lightbox-demo-ssr-no-transitions *::after {
+  transition: none !important;
+}

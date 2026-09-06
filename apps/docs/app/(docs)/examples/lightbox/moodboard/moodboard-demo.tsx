@@ -20,10 +20,6 @@ import { moodboardPhotos } from './photos';
  */
 const BASE_PATH = '/examples/lightbox/moodboard';
 
-// Guarded so the server render doesn't warn — same trick the library uses.
-const useIsomorphicLayoutEffect =
-  typeof window !== 'undefined' ? React.useLayoutEffect : React.useEffect;
-
 const items = moodboardPhotos.map((photo) => ({
   ...photo,
   src: photo.image,
@@ -105,25 +101,20 @@ export function MoodboardDemo() {
   // is the SSR flags below briefly suppress an open fade nobody would see.
   const [deepLinkVisit] = React.useState(urlIndex !== -1);
 
-  // Deep links paint the RIGHT photo before hydration. A scroller's scroll
-  // offset can't be serialized into HTML — the server-rendered track always
-  // sits at 0, showing slide 0 (or a blank past the preload window) — but a
-  // TRANSFORM serializes fine. While this flag is on, a CSS rule translates
-  // every slide by `-index × slide width` (ssr-slide-shift.css) so the server
-  // HTML shows the deep-linked photo at scroll 0. The layout effect drops the
-  // shift during the hydration commit, and ordering makes the swap invisible:
-  // transforms don't affect scroll geometry, so the library's own layout
-  // effect (a child — runs first) still reads scrollLeft 0, derives slide 0 ≠
-  // active, and jumps the scroller to the real offset; the shift then comes
-  // off in the same commit — one paint, no flash, works in every browser.
-  const [ssrSlideShift, setSsrSlideShift] = React.useState(deepLinkVisit);
-  useIsomorphicLayoutEffect(() => setSsrSlideShift(false), []);
+  // Deep links paint the RIGHT photo before hydration via the library's
+  // `Slides ssrSlideShift` (passed through LightboxGallery below): the server
+  // HTML carries a transform that translates every slide by
+  // `-index × slide width` so the deep-linked photo sits at scroll offset 0,
+  // and the library swaps the real scroll in — same commit, one paint — at
+  // hydration. The skin's only obligation is mirroring the track's gap into
+  // `--lightbox-ssr-slide-gap` (see lightbox-chrome.tsx, next to the gap
+  // utilities it restates).
 
   // A server-rendered open viewer must not FADE in — the skin's open fades run
   // off @starting-style, which applies on first render, and for SSR'd markup
   // first render is page load. While this flag is on, a host class flattens
-  // every transition inside (ssr-slide-shift.css) so the server paint is the
-  // final frame. Removed one frame AFTER the first post-hydration paint —
+  // every transition inside (ssr-no-transitions.css) so the server paint is
+  // the final frame. Removed one frame AFTER the first post-hydration paint —
   // transitions consult the after-change style, so a layout-effect removal
   // (same style recalc where the strip's data-positioned lands) would restart
   // the exact fades being suppressed. Double rAF: the first can fire before
@@ -280,16 +271,17 @@ export function MoodboardDemo() {
           items={items}
           ariaLabel="Moodboard photos"
           backdrop="solid"
+          // Server-rendered deep links paint the deep-linked slide, not slide 0
+          // (library feature — forwarded to `Lightbox.Slides`). Harmless for
+          // regular visits: the stand-in retires before anything paints.
+          ssrSlideShift
           portalProps={
             deepLinkVisit
               ? {
                   container: null,
-                  className: `relative z-50${ssrSlideShift ? ' lightbox-demo-ssr-slide-shift' : ''}${
+                  className: `relative z-50${
                     ssrNoTransitions ? ' lightbox-demo-ssr-no-transitions' : ''
                   }`,
-                  style: ssrSlideShift
-                    ? ({ '--lightbox-demo-ssr-index': index } as React.CSSProperties)
-                    : undefined,
                 }
               : undefined
           }
