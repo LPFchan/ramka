@@ -10,7 +10,7 @@ import {
   LightboxGallery,
   triggerFocusClass,
 } from '../../../../_components/lightbox-chrome';
-import { galleryPhotos } from './photos';
+import { GALLERY_PAGE_TITLE, galleryPhotos, photoPageTitle } from './photos';
 
 /**
  * The grid renders at this route; every photo also exists as its own URL under
@@ -156,6 +156,19 @@ export function UrlSyncedStateDemo() {
       setOpen(false);
     }
   }, [urlIndex]);
+
+  // The tab title follows the URL. Shallow History writes (below) never re-run
+  // Next.js metadata — `generateMetadata` ran once, for the URL this page
+  // LOADED with — so without this a deep-link visit keeps the first photo's
+  // title forever: through every swipe and even after the viewer closes.
+  // Owning the URL writes means owning the title too. Same strings as the
+  // server metadata (shared helpers in photos.ts); the ` — ramka` suffix
+  // mirrors the root layout's title template, which only applies server-side.
+  // An effect (not the callbacks) so Back/Forward flips retitle as well.
+  React.useEffect(() => {
+    const base = open ? photoPageTitle(galleryPhotos[index]!) : GALLERY_PAGE_TITLE;
+    document.title = `${base} — ramka`;
+  }, [open, index]);
 
   // Lightbox → URL, written from the gesture callbacks — never from an effect,
   // so URL-driven prop flips can't echo back into history. The writes use the

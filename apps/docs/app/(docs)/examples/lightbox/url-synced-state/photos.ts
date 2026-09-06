@@ -22,6 +22,20 @@ export interface GalleryPhoto {
   image: StaticImageData;
 }
 
+/**
+ * Page titles, shared by the server metadata (`[[...id]]/page.tsx`) and the
+ * client demo. Shallow History API writes never re-run `generateMetadata` —
+ * it ran once, for the URL the page LOADED with — so the demo mirrors the
+ * title into `document.title` from the same state that drives the URL. One
+ * source keeps the two from drifting. (The root layout's title template
+ * appends the site suffix to these on the server.)
+ */
+export const GALLERY_PAGE_TITLE = 'URL-synced state example';
+
+export function photoPageTitle(photo: GalleryPhoto): string {
+  return `${photo.caption} — ${GALLERY_PAGE_TITLE}`;
+}
+
 export const galleryPhotos: GalleryPhoto[] = (
   [
     { id: '1', alt: 'Foggy pine ridge at dawn', caption: 'Dawn ridge' },

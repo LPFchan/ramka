@@ -9,7 +9,7 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 
 import { UrlSyncedStateDemo } from '../url-synced-state-demo';
-import { galleryPhotos } from '../photos';
+import { GALLERY_PAGE_TITLE, galleryPhotos, photoPageTitle } from '../photos';
 
 /**
  * Optional catch-all: `/examples/lightbox/url-synced-state` renders the grid,
@@ -32,7 +32,7 @@ export async function generateMetadata({ params }: UrlSyncedStateRouteProps): Pr
   const { id } = await params;
   const photo = id?.length ? galleryPhotos.find((p) => p.id === id[0]) : undefined;
   if (photo) {
-    const title = `${photo.caption} — URL-synced state example`;
+    const title = photoPageTitle(photo);
     const description = `${photo.alt} — a deep link straight into the lightbox, driven by a Next.js dynamic route and ramka's controlled open/value props.`;
     return {
       title,
@@ -61,7 +61,7 @@ export async function generateMetadata({ params }: UrlSyncedStateRouteProps): Pr
     };
   }
   return {
-    title: 'URL-synced state example',
+    title: GALLERY_PAGE_TITLE,
     description:
       'A masonry lightbox wired to Next.js dynamic routes: every photo is a shareable URL — deep links open the viewer, swipes rewrite the URL, browser Back closes it. Built with ramka.',
   };
@@ -93,7 +93,7 @@ import {
   LightboxGallery,
   triggerFocusClass,
 } from '../../../../_components/lightbox-chrome';
-import { galleryPhotos } from './photos';
+import { GALLERY_PAGE_TITLE, galleryPhotos, photoPageTitle } from './photos';
 
 /**
  * The grid renders at this route; every photo also exists as its own URL under
@@ -239,6 +239,19 @@ export function UrlSyncedStateDemo() {
       setOpen(false);
     }
   }, [urlIndex]);
+
+  // The tab title follows the URL. Shallow History writes (below) never re-run
+  // Next.js metadata — `generateMetadata` ran once, for the URL this page
+  // LOADED with — so without this a deep-link visit keeps the first photo's
+  // title forever: through every swipe and even after the viewer closes.
+  // Owning the URL writes means owning the title too. Same strings as the
+  // server metadata (shared helpers in photos.ts); the ` — ramka` suffix
+  // mirrors the root layout's title template, which only applies server-side.
+  // An effect (not the callbacks) so Back/Forward flips retitle as well.
+  React.useEffect(() => {
+    const base = open ? photoPageTitle(galleryPhotos[index]!) : GALLERY_PAGE_TITLE;
+    document.title = `${base} — ramka`;
+  }, [open, index]);
 
   // Lightbox → URL, written from the gesture callbacks — never from an effect,
   // so URL-driven prop flips can't echo back into history. The writes use the
@@ -398,6 +411,20 @@ export interface GalleryPhoto {
   alt: string;
   caption: string;
   image: StaticImageData;
+}
+
+/**
+ * Page titles, shared by the server metadata (`[[...id]]/page.tsx`) and the
+ * client demo. Shallow History API writes never re-run `generateMetadata` —
+ * it ran once, for the URL the page LOADED with — so the demo mirrors the
+ * title into `document.title` from the same state that drives the URL. One
+ * source keeps the two from drifting. (The root layout's title template
+ * appends the site suffix to these on the server.)
+ */
+export const GALLERY_PAGE_TITLE = 'URL-synced state example';
+
+export function photoPageTitle(photo: GalleryPhoto): string {
+  return `${photo.caption} — ${GALLERY_PAGE_TITLE}`;
 }
 
 export const galleryPhotos: GalleryPhoto[] = (

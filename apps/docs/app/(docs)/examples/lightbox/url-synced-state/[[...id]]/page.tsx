@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 
 import { UrlSyncedStateDemo } from '../url-synced-state-demo';
-import { galleryPhotos } from '../photos';
+import { GALLERY_PAGE_TITLE, galleryPhotos, photoPageTitle } from '../photos';
 
 /**
  * Optional catch-all: `/examples/lightbox/url-synced-state` renders the grid,
@@ -25,7 +25,7 @@ export async function generateMetadata({ params }: UrlSyncedStateRouteProps): Pr
   const { id } = await params;
   const photo = id?.length ? galleryPhotos.find((p) => p.id === id[0]) : undefined;
   if (photo) {
-    const title = `${photo.caption} — URL-synced state example`;
+    const title = photoPageTitle(photo);
     const description = `${photo.alt} — a deep link straight into the lightbox, driven by a Next.js dynamic route and ramka's controlled open/value props.`;
     return {
       title,
@@ -54,7 +54,7 @@ export async function generateMetadata({ params }: UrlSyncedStateRouteProps): Pr
     };
   }
   return {
-    title: 'URL-synced state example',
+    title: GALLERY_PAGE_TITLE,
     description:
       'A masonry lightbox wired to Next.js dynamic routes: every photo is a shareable URL — deep links open the viewer, swipes rewrite the URL, browser Back closes it. Built with ramka.',
   };
