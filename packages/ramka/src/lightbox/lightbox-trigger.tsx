@@ -21,7 +21,7 @@ import {
   MORPH_TARGET_HIDE_MARKER,
 } from './morph-target-hide';
 import { useLightboxStyleNonce } from './lightbox-csp';
-import { REACT_SUPPORTS_STYLE_HOISTING } from './react-style-hoisting';
+import { HoistableStyle, REACT_SUPPORTS_STYLE_HOISTING } from './react-style-hoisting';
 import { ensureLibrarySheet } from './vt-style-sheets';
 import { ignoreStateAttribute } from './lightbox-state-attributes';
 import { useIsServerPaint } from './use-server-paint';
@@ -580,9 +580,9 @@ const LightboxTrigger = React.forwardRef<HTMLButtonElement, LightboxTriggerProps
           over.
         */}
         {REACT_SUPPORTS_STYLE_HOISTING ? (
-          <style href={MORPH_TARGET_HIDE_HREF} precedence="ramka" nonce={styleNonce}>
+          <HoistableStyle href={MORPH_TARGET_HIDE_HREF} precedence="ramka" nonce={styleNonce}>
             {MORPH_TARGET_HIDE_CSS}
-          </style>
+          </HoistableStyle>
         ) : null}
         {rendered}
       </LightboxTriggerContext.Provider>

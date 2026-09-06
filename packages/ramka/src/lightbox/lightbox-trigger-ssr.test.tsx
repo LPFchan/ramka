@@ -19,6 +19,7 @@ import { LightboxThumbnail } from './lightbox-thumbnail';
 import { LightboxThumbnailStrip } from './lightbox-thumbnail-strip';
 import { LightboxThumbnailStripTrack } from './lightbox-thumbnail-strip-track';
 import { LightboxTrigger } from './lightbox-trigger';
+import { REACT_SUPPORTS_STYLE_HOISTING } from './react-style-hoisting';
 
 /** Attribute region (up to `>`) of the button tagged with the given testid. */
 function buttonAttrs(html: string, testid: string): string {
@@ -52,7 +53,11 @@ describe('LightboxTrigger server rendering (SSR-open pages)', () => {
     expect(buttonAttrs(html, 'trigger-1')).toContain('data-morph-target');
     expect(buttonAttrs(html, 'trigger-0')).not.toContain('data-morph-target');
     expect(buttonAttrs(html, 'trigger-2')).not.toContain('data-morph-target');
-    expect(html).toContain('[data-morph-target]{opacity:0');
+    // The hide rule itself is React 19+ (hoistable version gate in
+    // react-style-hoisting.ts); the stamp above ships on both majors.
+    if (REACT_SUPPORTS_STYLE_HOISTING) {
+      expect(html).toContain('[data-morph-target]{opacity:0');
+    }
   });
 
   it('stamps the active trigger under morphTo="closest" (ref maps are empty on the server)', () => {

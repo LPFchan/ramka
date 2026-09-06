@@ -6,7 +6,7 @@ import { LightboxMediaDataAttributes } from './lightbox-data-attributes';
 import { useLightboxStyleNonce } from './lightbox-csp';
 import { useOptionalLightboxItemContext } from './lightbox-item';
 import { insertLibrarySheet } from './lightbox-style-sheets';
-import { REACT_SUPPORTS_STYLE_HOISTING } from './react-style-hoisting';
+import { HoistableStyle, REACT_SUPPORTS_STYLE_HOISTING } from './react-style-hoisting';
 import { mergeProps } from '../render/merge-props';
 import { useRender } from '../render/use-render';
 
@@ -333,9 +333,9 @@ const LightboxMedia = React.forwardRef<HTMLDivElement, LightboxMediaProps>(
           hydration, matching the pre-hoistable behavior exactly.
         */}
         {REACT_SUPPORTS_STYLE_HOISTING ? (
-          <style href="ramka-media-fill" precedence="ramka" nonce={styleNonce}>
+          <HoistableStyle href="ramka-media-fill" precedence="ramka" nonce={styleNonce}>
             {MEDIA_FILL_CSS}
-          </style>
+          </HoistableStyle>
         ) : null}
         {rendered}
       </LightboxMediaContext.Provider>

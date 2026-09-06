@@ -13,6 +13,7 @@ import { LightboxThumbnailGroup } from './lightbox-thumbnail-group';
 import { LightboxTrigger } from './lightbox-trigger';
 import { LightboxZoom, type LightboxZoomRef } from './lightbox-zoom';
 import { LightboxZoomIn } from './lightbox-zoom-in';
+import { REACT_SUPPORTS_STYLE_HOISTING } from './react-style-hoisting';
 import {
   SLIDE_TEST_WIDTH as WIDTH,
   applySlideGeometry,
@@ -184,12 +185,15 @@ describe('Lightbox.Slides', () => {
     expect(viewport.style.scrollSnapType).toBe('x mandatory');
     // The client never stamps the SSR active-item marker either.
     expect(document.querySelector('[data-ssr-active]')).toBeNull();
-    // The rules ride along as a hoisted <style> (React 19 hoists in jsdom too),
-    // ready for pages whose first paint is server HTML.
-    const hoisted = Array.from(document.head.querySelectorAll('style[data-precedence]')).map(
-      (el) => el.textContent ?? '',
-    );
-    expect(hoisted.some((css) => css.includes('scroll-initial-target:nearest'))).toBe(true);
+    // The rules ride along as a hoisted <style> (React 19 hoists in jsdom
+    // too), ready for pages whose first paint is server HTML. React 18 has no
+    // hoisting — the version gate renders nothing there (react-style-hoisting.ts).
+    if (REACT_SUPPORTS_STYLE_HOISTING) {
+      const hoisted = Array.from(document.head.querySelectorAll('style[data-precedence]')).map(
+        (el) => el.textContent ?? '',
+      );
+      expect(hoisted.some((css) => css.includes('scroll-initial-target:nearest'))).toBe(true);
+    }
   });
 
   it('hydration handoff: holds the jump while the ssrSlideShift stand-in is on, then retires and jumps in one commit', async () => {

@@ -15,6 +15,7 @@ import { LightboxRoot } from './lightbox-root';
 import { LightboxSlide } from './lightbox-slide';
 import { LightboxSlides } from './lightbox-slides';
 import { LightboxTrigger } from './lightbox-trigger';
+import { REACT_SUPPORTS_STYLE_HOISTING } from './react-style-hoisting';
 
 function renderOpenGallery(options: {
   ssrSlideShift?: boolean;
@@ -74,7 +75,9 @@ describe('LightboxSlides server rendering (SSR-open pages)', () => {
     expect(tagAttrs(html, 'data-ramka-slides')).toContain('--lightbox-ssr-shift-sign:1');
   });
 
-  it('ships the initial-slide rules as a hoisted <style>', () => {
+  // React 19+ only: under 18 the hoistable never renders (version gate in
+  // react-style-hoisting.ts) — no server style markup is the 18 baseline.
+  it.runIf(REACT_SUPPORTS_STYLE_HOISTING)('ships the initial-slide rules as a hoisted <style>', () => {
     const html = renderOpenGallery({ ssrSlideShift: true });
     // Strategy 1: browser-computed initial scroll for any layout.
     expect(html).toContain('[data-ssr-active]{scroll-initial-target:nearest;}');

@@ -7,7 +7,7 @@
 // { style } })`). `renderToString` has no nonce option, so these tests render
 // through the stream API.
 import * as React from 'react';
-import { renderToReadableStream, renderToString } from 'react-dom/server.edge';
+import { renderToString } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 
 import { createHandle } from './lightbox-handle';
@@ -20,6 +20,31 @@ import { LightboxRoot } from './lightbox-root';
 import { LightboxSlide } from './lightbox-slide';
 import { LightboxSlides } from './lightbox-slides';
 import { LightboxTrigger } from './lightbox-trigger';
+import { REACT_SUPPORTS_STYLE_HOISTING } from './react-style-hoisting';
+
+// `renderToReadableStream` lives in the edge server build, which React 18
+// doesn't export (`react-dom` 18 has no `./server.edge` in its exports map)
+// and whose `@types/react-dom` has no declarations for — while the React 18
+// CI leg typechecks AND loads this file even though the suite skips there
+// (hoisting is 19+). Hence both guards: the version gate keeps 18 from
+// importing the module at runtime, and the assembled (non-literal) specifier
+// keeps both TS and Vite's import analysis from resolving it at
+// typecheck/transform time — Vite resolves literal dynamic imports even
+// under `@vite-ignore`, and under the React 18 install resolution itself
+// throws. The local signature restores typing.
+const serverEdgeSpecifier = ['react-dom', 'server.edge'].join('/');
+const { renderToReadableStream } = (
+  REACT_SUPPORTS_STYLE_HOISTING
+    ? await import(/* @vite-ignore */ serverEdgeSpecifier)
+    : { renderToReadableStream: null }
+) as {
+  renderToReadableStream: (
+    node: React.ReactNode,
+    // React 19.2 accepts `nonce: string | { script?, style? }` (react#32461);
+    // even the React 19 @types still say `string` only, hence `unknown`.
+    options?: { nonce?: unknown },
+  ) => Promise<ReadableStream & { allReady: Promise<void> }>;
+};
 
 const NONCE = 'test-nonce-value';
 
@@ -48,10 +73,7 @@ function openGallery(): React.ReactElement {
 }
 
 async function renderWithStyleNonce(node: React.ReactElement): Promise<string> {
-  // React 19.2 accepts `nonce: string | { script?, style? }` (react#32461);
-  // @types/react-dom still types the option as `string` only, hence the cast.
-  const nonce = { style: NONCE } as unknown as string;
-  const stream = await renderToReadableStream(node, { nonce });
+  const stream = await renderToReadableStream(node, { nonce: { style: NONCE } });
   await stream.allReady;
   return new Response(stream).text();
 }
@@ -61,7 +83,9 @@ function styleTagAttrs(html: string): string[] {
   return Array.from(html.matchAll(/<style[^>]*/g), (m) => m[0]);
 }
 
-describe('Lightbox.CSPProvider (hoistable style nonce)', () => {
+// Skipped under React 18: the hoistable delivery these tests pin down is
+// gated to React 19+ (react-style-hoisting.ts) — no tags render there at all.
+describe.runIf(REACT_SUPPORTS_STYLE_HOISTING)('Lightbox.CSPProvider (hoistable style nonce)', () => {
   it('stamps the nonce on the hoisted style tags when provider and render option agree', async () => {
     const html = await renderWithStyleNonce(
       <LightboxCSPProvider nonce={NONCE}>{openGallery()}</LightboxCSPProvider>,

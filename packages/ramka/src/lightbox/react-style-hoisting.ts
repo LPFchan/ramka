@@ -17,4 +17,22 @@ import * as React from 'react';
  */
 const REACT_SUPPORTS_STYLE_HOISTING = Number.parseInt(React.version, 10) >= 19;
 
-export { REACT_SUPPORTS_STYLE_HOISTING };
+/**
+ * The hoistable element itself, typed once for the whole library. `href` and
+ * `precedence` on `<style>` exist only in `@types/react` 19 — under the
+ * React 18 typecheck leg the raw JSX fails even though the element never
+ * renders there (every use sits behind the version gate above). The cast is
+ * the whole trick: it IS `'style'`, so React 19 hoists it exactly as if the
+ * intrinsic had been written inline. `nonce` is plain HTMLAttributes and
+ * typed in both majors, but rides along here for the same call sites.
+ */
+interface HoistableStyleProps {
+  href: string;
+  precedence: string;
+  nonce?: string | undefined;
+  children: string;
+}
+
+const HoistableStyle = 'style' as unknown as React.FunctionComponent<HoistableStyleProps>;
+
+export { HoistableStyle, REACT_SUPPORTS_STYLE_HOISTING };

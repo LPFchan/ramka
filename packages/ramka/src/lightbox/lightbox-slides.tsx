@@ -6,7 +6,7 @@ import { LightboxSlidesDataAttributes } from './lightbox-data-attributes';
 import { LightboxSlidesCssVars } from './lightbox-css-vars';
 import { useLightboxContext } from './lightbox-context';
 import { useLightboxStyleNonce } from './lightbox-csp';
-import { REACT_SUPPORTS_STYLE_HOISTING } from './react-style-hoisting';
+import { HoistableStyle, REACT_SUPPORTS_STYLE_HOISTING } from './react-style-hoisting';
 import { SSR_INITIAL_SLIDE_CSS, SSR_INITIAL_SLIDE_HREF } from './ssr-initial-slide';
 import {
   measureSlidesGeometry,
@@ -693,9 +693,9 @@ const LightboxSlides = React.forwardRef<HTMLDivElement, LightboxSlidesProps>(
           the pre-existing hydration-jump behavior.
         */}
         {REACT_SUPPORTS_STYLE_HOISTING ? (
-          <style href={SSR_INITIAL_SLIDE_HREF} precedence="ramka" nonce={styleNonce}>
+          <HoistableStyle href={SSR_INITIAL_SLIDE_HREF} precedence="ramka" nonce={styleNonce}>
             {SSR_INITIAL_SLIDE_CSS}
-          </style>
+          </HoistableStyle>
         ) : null}
         {useRender({
           render,

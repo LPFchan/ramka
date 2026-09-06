@@ -17,6 +17,7 @@ import { LightboxRoot } from './lightbox-root';
 import { LightboxSlide } from './lightbox-slide';
 import { LightboxSlides } from './lightbox-slides';
 import { LightboxTrigger } from './lightbox-trigger';
+import { REACT_SUPPORTS_STYLE_HOISTING } from './react-style-hoisting';
 
 const NONCE = 'client-nonce-value';
 
@@ -51,7 +52,10 @@ function hoistedStyles() {
   return Array.from(document.head.querySelectorAll('style[data-precedence]'));
 }
 
-describe('Lightbox.CSPProvider (client-inserted hoistables)', () => {
+// Skipped under React 18: the hoistable delivery is gated to React 19+
+// (react-style-hoisting.ts) — under 18 these components render no tags and
+// the CSSOM copies (which take no nonce) are the delivery instead.
+describe.runIf(REACT_SUPPORTS_STYLE_HOISTING)('Lightbox.CSPProvider (client-inserted hoistables)', () => {
   it('stamps the nonce on the Media fill tag', () => {
     render(
       <LightboxCSPProvider nonce={NONCE}>
