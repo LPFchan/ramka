@@ -8,7 +8,12 @@ export interface ExampleLink {
    * segment point at it here.
    */
   pagePath?: string;
-  /** Extra source files to embed in the example's `.md`, same base dir. */
+  /**
+   * Extra source files to embed in the example's `.md`, relative to `app/`
+   * (NOT the examples dir): load-bearing skin CSS lives outside the `(docs)`
+   * tree, and an example doc that omits it teaches a silently degraded copy
+   * of the pattern.
+   */
   extraSources?: string[];
 }
 
@@ -36,7 +41,16 @@ export const lightboxExamples: ExampleLink[] = [
     description:
       'Masonry wall wired to Next.js dynamic routes ([[...id]]) — every photo is a shareable URL: deep links open the viewer on that slide, swiping rewrites the URL in place, and browser Back closes the viewer.',
     pagePath: 'moodboard/[[...id]]/page.tsx',
-    extraSources: ['moodboard/moodboard-demo.tsx', 'moodboard/photos.ts'],
+    extraSources: [
+      '(docs)/examples/lightbox/moodboard/moodboard-demo.tsx',
+      '(docs)/examples/lightbox/moodboard/photos.ts',
+      // The SSR deep-link pattern is inert without these: the slide-shift +
+      // no-transitions rules, and the strip's data-positioned reveal. A copy
+      // made from the .md alone would paint slide 0 pre-hydration, fade
+      // itself in on load, and snap the strip — with no error to notice.
+      'lightbox-demo/ssr-slide-shift.css',
+      'lightbox-demo/thumbnail-strip-scroll-link.css',
+    ],
   },
   {
     slug: 'text-message',

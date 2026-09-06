@@ -25,6 +25,26 @@ describe('LightboxMedia child fill rules', () => {
     expect(css).toContain(FILL_DECLARATIONS);
   });
 
+  it('dedupes the hoistable to one tag across many Media instances', () => {
+    // The constant `href` + constant rule text is what makes the hoistable
+    // sound: React 19 never removes precedence styles, so per-instance text
+    // would leak one dead tag per viewer open. Pin the dedupe — N instances,
+    // exactly one hoisted copy of the rule.
+    render(
+      <>
+        {[0, 1, 2].map((i) => (
+          <LightboxMedia key={i} width={800} height={533}>
+            <img src={`/photo-${i}.jpg`} alt="" width={800} height={533} />
+          </LightboxMedia>
+        ))}
+      </>,
+    );
+    const hoisted = Array.from(document.head.querySelectorAll('style[data-precedence]')).filter(
+      (el) => (el.textContent ?? '').includes(FILL_DECLARATIONS),
+    );
+    expect(hoisted).toHaveLength(1);
+  });
+
   it('serializes the fill rules into server HTML', () => {
     // A page that server-renders an open lightbox (deep links with
     // `Portal container={null}`) must letterbox correctly on the very first

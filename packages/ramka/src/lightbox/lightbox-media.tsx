@@ -5,6 +5,7 @@ import * as React from 'react';
 import { LightboxMediaDataAttributes } from './lightbox-data-attributes';
 import { useOptionalLightboxItemContext } from './lightbox-item';
 import { insertLibrarySheet } from './lightbox-style-sheets';
+import { REACT_SUPPORTS_STYLE_HOISTING } from './react-style-hoisting';
 import { mergeProps } from '../render/merge-props';
 import { useRender } from '../render/use-render';
 
@@ -318,19 +319,21 @@ const LightboxMedia = React.forwardRef<HTMLDivElement, LightboxMediaProps>(
           never run during server rendering, so on a server-rendered page with
           the lightbox already open (deep links rendering Portal in place) the
           CSSOM copy above doesn't exist yet and the first paint would show the
-          media at its intrinsic size inside a correctly sized fit-box. On
-          React 19 `href` + `precedence` make this a hoistable: streamed into
-          <head> on the server, deduped by `href` across every Media instance
-          and remount on the client (constant rule text is what makes the dedupe
-          sound). React 18 renders it in place instead — `display: none`, so it
-          is never a grid item — and unmounts it with the component. Under a
-          strict `style-src` this tag is refused wherever it renders; the CSSOM
-          copy takes over after hydration, which matches the pre-hoistable
-          behavior exactly.
+          media at its intrinsic size inside a correctly sized fit-box.
+          `href` + `precedence` make this a hoistable: streamed into <head> on
+          the server, deduped by `href` across every Media instance and remount
+          on the client (constant rule text is what makes the dedupe sound).
+          React-19-only — React 18 has no hoisting and would render one inline
+          tag per instance, so it keeps the CSSOM-only baseline; see
+          react-style-hoisting.ts. Under a strict `style-src` the tag is
+          refused; the CSSOM copy takes over after hydration, matching the
+          pre-hoistable behavior exactly.
         */}
-        <style href="ramka-media-fill" precedence="ramka">
-          {MEDIA_FILL_CSS}
-        </style>
+        {REACT_SUPPORTS_STYLE_HOISTING ? (
+          <style href="ramka-media-fill" precedence="ramka">
+            {MEDIA_FILL_CSS}
+          </style>
+        ) : null}
         {rendered}
       </LightboxMediaContext.Provider>
     );

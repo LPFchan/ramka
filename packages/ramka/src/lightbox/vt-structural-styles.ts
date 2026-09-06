@@ -3,7 +3,6 @@ import { LightboxDocumentCssVars, LightboxThumbnailStripCssVars } from './lightb
 import {
   LightboxDocumentDataAttributes,
   LightboxSlidesDataAttributes,
-  LightboxTriggerDataAttributes,
 } from './lightbox-data-attributes';
 import { VIEW_TRANSITION_PRESETS } from './vt-timing';
 import { ensureLibrarySheet } from './vt-style-sheets';

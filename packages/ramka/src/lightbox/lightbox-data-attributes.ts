@@ -165,8 +165,10 @@ export enum LightboxThumbnailStripDataAttributes {
   /** Present while a discrete-nav scrub animation is in flight. */
   scrubbing = 'data-scrubbing',
   /**
-   * Present once the track has been positioned against the Slides scroller
-   * (first layout-effect sync — before the strip's first client paint).
+   * Present once the track has actually been positioned against the Slides
+   * scroller (first successful measure-and-sync — set in a layout effect, so
+   * for client-side opens it lands before the strip's first paint). Not set
+   * by bailed attempts, e.g. while the Slides viewport hasn't registered yet.
    * Absent in server-rendered HTML: scroll/transform positions cannot be
    * serialized, so a server-rendered strip sits at offset 0 until hydration.
    * Hide the strip until this attribute lands to avoid the visible snap on

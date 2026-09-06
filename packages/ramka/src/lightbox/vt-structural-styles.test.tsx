@@ -54,8 +54,9 @@ describe('vt-structural-styles', () => {
     expect(css).toContain('view-transition-name: none !important');
     // Morph-target hide moved OUT of this sheet: it must exist before any
     // morph runs (server-rendered open pages), so Trigger delivers it eagerly
-    // — see morph-target-hide.ts.
-    expect(css).not.toContain('[data-morph-target] {');
+    // — see morph-target-hide.ts. Assert on attribute + opacity co-occurrence
+    // rather than exact formatting so a minified reintroduction still fails.
+    expect(css).not.toMatch(/\[data-morph-target\][^{]*\{[^}]*opacity/);
     // Group radius interpolation + preset-driven timing.
     expect(css).toContain('@keyframes ramka-morph-border-radius');
     expect(css).toContain('::view-transition-group(lightbox-morph)');

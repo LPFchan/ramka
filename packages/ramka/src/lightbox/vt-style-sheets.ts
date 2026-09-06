@@ -1,8 +1,13 @@
 import { adopt, appendStyleElement, supportsConstructedSheets } from './lightbox-style-sheets';
 
-// The view-transition sheets are added once and never removed, unlike the
-// per-media and per-transition ones. Kept apart from lightbox-style-sheets.ts
-// so this only ships in the lazily loaded morph chunk.
+// The once-only sheets (view-transition structural styles, morph-target hide)
+// are added once and never removed, unlike the per-media and per-transition
+// ones. Historically this module only shipped in the lazily loaded morph
+// chunk; since Trigger began delivering the morph-target hide rule eagerly it
+// is part of the eager bundle on every page with a trigger (~40 lines, and
+// its transitive imports were already eager via Media). It stays a separate
+// module because the once-per-document semantics differ from
+// lightbox-style-sheets.ts's caller-removes contract, not for chunking.
 
 // Global so two copies of the library in one document still add the once-only
 // sheets once, which is what the old `querySelector` guard gave us.

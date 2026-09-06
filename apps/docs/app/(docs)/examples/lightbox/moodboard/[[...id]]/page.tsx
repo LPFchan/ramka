@@ -23,11 +23,34 @@ export function generateStaticParams() {
 
 export async function generateMetadata({ params }: MoodboardRouteProps): Promise<Metadata> {
   const { id } = await params;
-  const photo = id ? moodboardPhotos.find((p) => p.id === id[0]) : undefined;
+  const photo = id?.length ? moodboardPhotos.find((p) => p.id === id[0]) : undefined;
   if (photo) {
+    const title = `${photo.caption} — Moodboard example`;
+    const description = `${photo.alt} — a deep link straight into the moodboard lightbox, driven by a Next.js dynamic route and ramka's controlled open/value props.`;
     return {
-      title: `${photo.caption} — Moodboard example`,
-      description: `${photo.alt} — a deep link straight into the moodboard lightbox, driven by a Next.js dynamic route and ramka's controlled open/value props.`,
+      title,
+      description,
+      // `title`/`description` alone don't cascade into the OpenGraph object
+      // inherited from the root layout — without an explicit `openGraph` here,
+      // a shared photo URL unfurls as the generic site card. This is the
+      // "shareable URL with per-photo metadata" half of the demo's pitch, so
+      // give crawlers the actual photo. `StaticImageData` supplies a
+      // site-relative `src` plus intrinsic dimensions; the root layout's
+      // `metadataBase` resolves it to an absolute URL. (Per-photo canonicals
+      // come free — the root layout's `canonical: './'` resolves per page.)
+      openGraph: {
+        title,
+        description: photo.alt,
+        images: [
+          {
+            url: photo.image.src,
+            width: photo.image.width,
+            height: photo.image.height,
+            alt: photo.alt,
+          },
+        ],
+      },
+      twitter: { card: 'summary_large_image' },
     };
   }
   return {
@@ -39,8 +62,11 @@ export async function generateMetadata({ params }: MoodboardRouteProps): Promise
 
 export default async function MoodboardRoute({ params }: MoodboardRouteProps) {
   const { id } = await params;
-  // Unknown photo ids 404 like any other dynamic route.
-  if (id && (id.length > 1 || !moodboardPhotos.some((photo) => photo.id === id[0]))) {
+  // Unknown photo ids 404 like any other dynamic route. `id?.length` (not
+  // `id &&`): the grid's static param is literally `{ id: [] }`, and an empty
+  // array is truthy — Next currently normalizes it to `undefined` at prerender
+  // time, but the guard shouldn't lean on that.
+  if (id?.length && (id.length > 1 || !moodboardPhotos.some((photo) => photo.id === id[0]))) {
     notFound();
   }
   return <MoodboardDemo />;

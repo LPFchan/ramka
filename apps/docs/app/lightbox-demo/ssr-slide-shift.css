@@ -35,6 +35,18 @@
 }
 
 /*
+ * While the shift is on, the track is still a LIVE native scroller whose
+ * content has merely been translated — a pre-hydration swipe would scroll
+ * across blank slots (every slide is shifted left; the last N positions are
+ * empty). Freeze scrolling until hydration swaps in the real offset; the
+ * class comes off in the same commit, so interactivity isn't lost for a
+ * moment longer than the shift itself.
+ */
+.lightbox-demo-ssr-slide-shift [data-ramka-slides] {
+  overflow-x: hidden;
+}
+
+/*
  * No entrance motion when the page ITSELF is the entrance. The skin's
  * open/close fades run off `@starting-style` (open-close.css, chrome-hide,
  * the strip's data-positioned reveal), and @starting-style applies on an

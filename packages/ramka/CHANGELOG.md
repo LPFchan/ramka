@@ -5,6 +5,41 @@ All notable changes to `@ramka/react` are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- Server-rendered open lightboxes are now first-class: `Lightbox.Media`'s
+  fill rules and the morph-target hide rule ship in server HTML (as deduped
+  hoistable `<style>` tags on React 19), so a page that server-renders an open
+  viewer (e.g. a Next.js deep link with `Portal container={null}`) letterboxes
+  correctly and hides the active trigger on the very first paint. Strict-CSP
+  environments keep the previous CSSOM-only delivery.
+- `Lightbox.ThumbnailStrip` exposes `data-positioned` once the track has been
+  positioned against the Slides scroller, so skins can hide the strip until it
+  cannot paint at a stale offset (relevant to server-rendered open pages).
+
+### Changed
+
+- **The active trigger is now visually hidden while the lightbox is open on
+  every path, including `viewTransition={false}`, browsers without the View
+  Transition API, and low-end devices.** Previously the
+  `[data-morph-target] { opacity: 0 }` rule only existed after the first
+  morph of the session, so non-View-Transition consumers never saw the hide.
+  The rule now ships eagerly, making "the trigger is hidden while its item is
+  active" the contract everywhere — consistent cross-browser, and required for
+  server-rendered open pages. To opt back into a visible active trigger,
+  override with a higher-specificity rule (the delivered rule is
+  single-attribute specificity): e.g.
+  `.my-grid [data-morph-target] { opacity: 1; transition: none; }`.
+
+### Fixed
+
+- `scrollTriggerIntoView` `onChange` scrolls were silently cancelled when a
+  consumer re-render landed inside the 120ms debounce (typical for controlled,
+  URL-synced galleries passing inline config literals). The config is now read
+  through a ref and resolved at fire time (#81).
+
 ## [0.0.1] - 2026-09-02
 
 Initial public release. The API is early (`0.0.x`) and may still change.

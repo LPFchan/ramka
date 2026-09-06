@@ -30,11 +30,34 @@ export function generateStaticParams() {
 
 export async function generateMetadata({ params }: MoodboardRouteProps): Promise<Metadata> {
   const { id } = await params;
-  const photo = id ? moodboardPhotos.find((p) => p.id === id[0]) : undefined;
+  const photo = id?.length ? moodboardPhotos.find((p) => p.id === id[0]) : undefined;
   if (photo) {
+    const title = `${photo.caption} — Moodboard example`;
+    const description = `${photo.alt} — a deep link straight into the moodboard lightbox, driven by a Next.js dynamic route and ramka's controlled open/value props.`;
     return {
-      title: `${photo.caption} — Moodboard example`,
-      description: `${photo.alt} — a deep link straight into the moodboard lightbox, driven by a Next.js dynamic route and ramka's controlled open/value props.`,
+      title,
+      description,
+      // `title`/`description` alone don't cascade into the OpenGraph object
+      // inherited from the root layout — without an explicit `openGraph` here,
+      // a shared photo URL unfurls as the generic site card. This is the
+      // "shareable URL with per-photo metadata" half of the demo's pitch, so
+      // give crawlers the actual photo. `StaticImageData` supplies a
+      // site-relative `src` plus intrinsic dimensions; the root layout's
+      // `metadataBase` resolves it to an absolute URL. (Per-photo canonicals
+      // come free — the root layout's `canonical: './'` resolves per page.)
+      openGraph: {
+        title,
+        description: photo.alt,
+        images: [
+          {
+            url: photo.image.src,
+            width: photo.image.width,
+            height: photo.image.height,
+            alt: photo.alt,
+          },
+        ],
+      },
+      twitter: { card: 'summary_large_image' },
     };
   }
   return {
@@ -46,8 +69,11 @@ export async function generateMetadata({ params }: MoodboardRouteProps): Promise
 
 export default async function MoodboardRoute({ params }: MoodboardRouteProps) {
   const { id } = await params;
-  // Unknown photo ids 404 like any other dynamic route.
-  if (id && (id.length > 1 || !moodboardPhotos.some((photo) => photo.id === id[0]))) {
+  // Unknown photo ids 404 like any other dynamic route. `id?.length` (not
+  // `id &&`): the grid's static param is literally `{ id: [] }`, and an empty
+  // array is truthy — Next currently normalizes it to `undefined` at prerender
+  // time, but the guard shouldn't lean on that.
+  if (id?.length && (id.length > 1 || !moodboardPhotos.some((photo) => photo.id === id[0]))) {
     notFound();
   }
   return <MoodboardDemo />;
@@ -90,13 +116,29 @@ const items = moodboardPhotos.map((photo) => ({
 /** `/…/moodboard/mb-05` → 4; the bare grid URL (or an unknown id) → -1. */
 function photoIndexFromPathname(pathname: string): number {
   if (!pathname.startsWith(`${BASE_PATH}/`)) return -1;
-  const id = decodeURIComponent(pathname.slice(BASE_PATH.length + 1));
+  // decodeURIComponent throws on malformed percent-sequences. Navigation can't
+  // deliver one (the server 400s those before rendering), but any code calling
+  // pushState with an arbitrary string can — treat it as "not a photo URL".
+  let id: string;
+  try {
+    id = decodeURIComponent(pathname.slice(BASE_PATH.length + 1));
+  } catch {
+    return -1;
+  }
   return moodboardPhotos.findIndex((photo) => photo.id === id);
 }
 
 type Tile = (typeof items)[number];
 
-/** Responsive column count without CSS multicol (2 on mobile, 3 from `sm`). */
+/**
+ * Responsive column count without CSS multicol (2 on mobile, 3 from `sm`).
+ *
+ * Known tradeoff: the server can't know the viewport, so desktop grid visits
+ * paint 2 columns first and re-bucket to 3 after hydration — a visible
+ * reshuffle. Accepted here because the alternative (CSS multicol) re-balances
+ * the whole grid on every layout invalidation mid-morph; see the `columns`
+ * memo below for why that's the worse cost.
+ */
 function useColumnCount() {
   const [cols, setCols] = React.useState(2);
   React.useEffect(() => {
@@ -139,6 +181,11 @@ export function MoodboardDemo() {
   // gets `relative z-50` so the fixed viewer stacks above the docs page's
   // sticky mobile header (z-40) — portaled hosts win by document order and
   // must NOT carry a z-index (it would stack above body-level tooltips).
+  // Note this branch isn't strictly "the server rendered this": a client-side
+  // remount at a photo URL (open a photo, navigate to another docs page, press
+  // Back without bfcache) also mounts with `urlIndex !== -1` and takes the
+  // in-place path. That's fine — it renders identically — the only difference
+  // is the SSR flags below briefly suppress an open fade nobody would see.
   const [deepLinkVisit] = React.useState(urlIndex !== -1);
 
   // Deep links paint the RIGHT photo before hydration. A scroller's scroll
@@ -176,6 +223,13 @@ export function MoodboardDemo() {
   // opened URL: a trigger tap reports its index (onValueChange) before the
   // open commits, and state from the previous render would lag behind it.
   const indexRef = React.useRef(index);
+  // Same discipline for `open` in `handleValueChange`: render-scope `open`
+  // is the last COMMITTED value, so if a close and a value change ever landed
+  // in the same task the guard below would see stale `true` and strand a
+  // photo URL on a closed viewer. No current library path emits that ordering,
+  // but the guard's correctness shouldn't depend on non-contractual event
+  // ordering. (The library uses the same ref technique internally.)
+  const openRef = React.useRef(open);
 
   // URL → lightbox. Covers the pathname changing underneath us — browser
   // back/forward — after the initial render (deep links already hydrate open,
@@ -186,9 +240,11 @@ export function MoodboardDemo() {
   React.useEffect(() => {
     if (urlIndex !== -1) {
       indexRef.current = urlIndex;
+      openRef.current = true;
       setIndex(urlIndex);
       setOpen(true);
     } else {
+      openRef.current = false;
       setOpen(false);
     }
   }, [urlIndex]);
@@ -199,6 +255,7 @@ export function MoodboardDemo() {
   // sync); `router.push` would also work but round-trips the server on every
   // change, and shallow writes keep URL sync free even mid-swipe.
   const handleOpenChange = (nextOpen: boolean) => {
+    openRef.current = nextOpen;
     setOpen(nextOpen);
     if (nextOpen) {
       // Opening pushes ONE history entry, so the browser Back button closes
@@ -213,8 +270,14 @@ export function MoodboardDemo() {
       // When scrollTriggerIntoView had scrolled a half-visible tile into view
       // during the session, that restore yanks the page back between the VT
       // snapshots and the close visibly morphs onto the wrong tile. The cost
-      // of replacing instead: one leftover grid history entry per viewer
-      // session (Back from the closed grid steps through it — harmless).
+      // of replacing instead: one leftover grid history entry PER viewer
+      // session (three sessions = four Backs to leave the page), and Back
+      // onto an older grid entry replays that entry's scroll restoration —
+      // if scrollTriggerIntoView moved the grid during the session, that
+      // "no-op" Back visibly jumps the scroll position. Nothing breaks, and
+      // the same jump would land mid-morph with history.back(); if a clean
+      // stack matters more to you than morph closes, pop the entry from
+      // onOpenChangeComplete(false) instead (after the transition settles).
       // `replaceState` is safe in the commit: it fires no popstate and
       // restores no scroll, and the async pathname re-render it triggers
       // reconciles to identical DOM.
@@ -226,9 +289,9 @@ export function MoodboardDemo() {
     indexRef.current = nextIndex;
     setIndex(nextIndex);
     // Swiping / arrow keys REPLACE the current entry — no history spam.
-    // Skipped while closed: a trigger tap reports its index before the open
-    // commits, and handleOpenChange writes that URL itself.
-    if (open) {
+    // Skipped while closed (via openRef, see above): a trigger tap reports its
+    // index before the open commits, and handleOpenChange writes that URL.
+    if (openRef.current) {
       window.history.replaceState(null, '', `${BASE_PATH}/${moodboardPhotos[nextIndex]!.id}`);
     }
   };
@@ -241,6 +304,8 @@ export function MoodboardDemo() {
   // transition. Multicol re-balances every item on any such invalidation — one
   // of the heaviest layouts there is — which starves the morph/backdrop of
   // frames (worst on mobile Safari). A flex-column reflow is cheap by contrast.
+  // (Column-major DOM order means Tab/reading order zigzags versus visual
+  // order — an inherent texture of masonry, multicol included.)
   const columns = React.useMemo(() => {
     const buckets: { tile: Tile; index: number }[][] = Array.from({ length: cols }, () => []);
     items.forEach((tile, i) => buckets[i % cols]!.push({ tile, index: i }));
@@ -354,4 +419,195 @@ export const moodboardPhotos: MoodboardPhoto[] = (
     { id: 'mb-12', alt: 'Textured stone wall', caption: 'Stonework' },
   ] as const
 ).map((photo, i) => ({ ...photo, image: moodboardImages[i]! }));
+```
+
+```css app/lightbox-demo/ssr-slide-shift.css
+/**
+ * SSR initial slide position — used by deep-linked visits that server-render
+ * the lightbox already open (moodboard's dynamic route).
+ *
+ * A scroller's scroll offset cannot be serialized into HTML, so server-rendered
+ * open viewers always paint with the track at offset 0: wrong slide (or an
+ * empty one, past the preload window) until hydration. A TRANSFORM, however,
+ * serializes fine — and in the bleed layout every slide is exactly one
+ * scrollport wide (`flex: 0 0 100%`), so shifting every slide left by
+ * `active-index × (slide width + gap)` paints the active slide inside the
+ * scrollport while the scroller still sits at 0. `translateX` percentages
+ * resolve against each slide's own width — identical to the scrollport in
+ * bleed — so the math is exact with no measuring, in every browser.
+ *
+ * Lifecycle: the demo puts this class + `--lightbox-demo-ssr-index` on the
+ * Portal host in the server HTML and the hydration render, then drops both in
+ * a layout effect. The swap is invisible by construction: transforms don't
+ * affect scroll geometry, so the library's own layout effect (a child — runs
+ * first) still reads `scrollLeft: 0`, derives index 0 ≠ active, and jumps the
+ * scroller to the active slide; the demo's (parent) effect then removes the
+ * shift in the same commit — real scroll in, transform out, one paint.
+ *
+ * Bleed-only: snug slides have per-item widths, so a shared percentage shift
+ * wouldn't line up. The mobile bleed track has a 1.25rem gap (`gap-5`), md+
+ * none. The docs are LTR; RTL would flip the sign.
+ */
+.lightbox-demo-ssr-slide-shift [data-ramka-slide] {
+  transform: translateX(calc(var(--lightbox-demo-ssr-index, 0) * (-100% - 1.25rem)));
+}
+
+@media (min-width: 768px) {
+  .lightbox-demo-ssr-slide-shift [data-ramka-slide] {
+    transform: translateX(calc(var(--lightbox-demo-ssr-index, 0) * -100%));
+  }
+}
+
+/*
+ * While the shift is on, the track is still a LIVE native scroller whose
+ * content has merely been translated — a pre-hydration swipe would scroll
+ * across blank slots (every slide is shifted left; the last N positions are
+ * empty). Freeze scrolling until hydration swaps in the real offset; the
+ * class comes off in the same commit, so interactivity isn't lost for a
+ * moment longer than the shift itself.
+ */
+.lightbox-demo-ssr-slide-shift [data-ramka-slides] {
+  overflow-x: hidden;
+}
+
+/*
+ * No entrance motion when the page ITSELF is the entrance. The skin's
+ * open/close fades run off `@starting-style` (open-close.css, chrome-hide,
+ * the strip's data-positioned reveal), and @starting-style applies on an
+ * element's FIRST render — which, on a server-rendered open viewer, is page
+ * load. A refreshed deep link would fade its own content in as if it had just
+ * opened. While this class is on the Portal host every transition inside is
+ * flattened, so the server paint IS the final frame.
+ *
+ * The demo removes the class one frame AFTER the first post-hydration paint
+ * (not in the hydration commit): transitions consult the after-change style,
+ * so dropping it in the same style recalc where e.g. the strip's
+ * `data-positioned` lands would start the very fades being suppressed.
+ */
+.lightbox-demo-ssr-no-transitions *,
+.lightbox-demo-ssr-no-transitions *::before,
+.lightbox-demo-ssr-no-transitions *::after {
+  transition: none !important;
+}
+```
+
+```css app/lightbox-demo/thumbnail-strip-scroll-link.css
+/**
+ * Docs-only thumbnail-strip cosmetics (default gallery chrome).
+ *
+ * Library ThumbnailStrip owns midline padding, overflow clip, and the
+ * ScrollTimeline → track transform link. Selection chrome here is a simple
+ * floating square. Aspect-morph nine-slice lives on the debug recipes page.
+ */
+
+.lightbox-demo-thumbnail-strip {
+  --lightbox-demo-thumb-h: 4.5rem;
+  --lightbox-demo-thumbnail-strip-fade: 40px;
+  align-self: stretch;
+  width: 100%;
+  min-width: 0;
+  /* Fits the floating indicator's overhang (3px gap + 2px stroke). */
+  padding-block: 0.3125rem;
+  /*
+   * Soft clip on both edges. Stops at 25/50/75% of the fade use smoothstep
+   * alphas (t²(3−2t)) so the dissolve eases in/out instead of a hard ramp.
+   */
+  -webkit-mask-image: linear-gradient(
+    to right,
+    rgb(0 0 0 / 0) 0,
+    rgb(0 0 0 / 0.156) calc(var(--lightbox-demo-thumbnail-strip-fade) * 0.25),
+    rgb(0 0 0 / 0.5) calc(var(--lightbox-demo-thumbnail-strip-fade) * 0.5),
+    rgb(0 0 0 / 0.844) calc(var(--lightbox-demo-thumbnail-strip-fade) * 0.75),
+    #000 var(--lightbox-demo-thumbnail-strip-fade),
+    #000 calc(100% - var(--lightbox-demo-thumbnail-strip-fade)),
+    rgb(0 0 0 / 0.844) calc(100% - var(--lightbox-demo-thumbnail-strip-fade) * 0.75),
+    rgb(0 0 0 / 0.5) calc(100% - var(--lightbox-demo-thumbnail-strip-fade) * 0.5),
+    rgb(0 0 0 / 0.156) calc(100% - var(--lightbox-demo-thumbnail-strip-fade) * 0.25),
+    rgb(0 0 0 / 0) 100%
+  );
+  mask-image: linear-gradient(
+    to right,
+    rgb(0 0 0 / 0) 0,
+    rgb(0 0 0 / 0.156) calc(var(--lightbox-demo-thumbnail-strip-fade) * 0.25),
+    rgb(0 0 0 / 0.5) calc(var(--lightbox-demo-thumbnail-strip-fade) * 0.5),
+    rgb(0 0 0 / 0.844) calc(var(--lightbox-demo-thumbnail-strip-fade) * 0.75),
+    #000 var(--lightbox-demo-thumbnail-strip-fade),
+    #000 calc(100% - var(--lightbox-demo-thumbnail-strip-fade)),
+    rgb(0 0 0 / 0.844) calc(100% - var(--lightbox-demo-thumbnail-strip-fade) * 0.75),
+    rgb(0 0 0 / 0.5) calc(100% - var(--lightbox-demo-thumbnail-strip-fade) * 0.5),
+    rgb(0 0 0 / 0.156) calc(100% - var(--lightbox-demo-thumbnail-strip-fade) * 0.25),
+    rgb(0 0 0 / 0) 100%
+  );
+}
+
+/*
+ * Hidden until the library has positioned the track against the Slides
+ * scroller (`data-positioned`, set in a layout effect before first client
+ * paint). Client-side opens carry the attribute on their first painted frame,
+ * so this never hides anything there. It only matters for pages that
+ * server-render an open lightbox (moodboard deep links): scroll/transform
+ * positions cannot be serialized into HTML, so the SSR'd strip sits at offset
+ * 0 until hydration — a strip pointing at the wrong photo reads as broken,
+ * a strip fading in a beat late reads as loading.
+ */
+.lightbox-demo-thumbnail-strip:not([data-positioned]) {
+  opacity: 0;
+}
+
+.lightbox-demo-thumbnail-strip[data-positioned] {
+  opacity: 1;
+  transition: opacity 200ms ease-out;
+}
+
+.lightbox-demo-thumbnail-strip [data-ramka-thumbnail-strip-track] {
+  display: flex;
+  width: max-content;
+  gap: 0.625rem;
+  align-items: center;
+}
+
+.lightbox-demo-thumbnail-strip [role='tab'] {
+  box-sizing: border-box;
+  position: relative;
+  display: block;
+  width: var(--lightbox-demo-thumb-h);
+  height: var(--lightbox-demo-thumb-h);
+  flex-shrink: 0;
+  overflow: hidden;
+  margin: 0;
+  border: 0;
+  border-radius: 0.5rem;
+  padding: 0;
+  appearance: none;
+  background: transparent;
+}
+
+.lightbox-demo-thumbnail-strip [role='tab'] img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  pointer-events: none;
+}
+
+/* Stationary midline square — same size as a thumb + 3px gap + 2px stroke. */
+.lightbox-demo-thumbnail-strip-indicator {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  box-sizing: border-box;
+  width: calc(var(--lightbox-demo-thumb-h) + 10px);
+  height: calc(var(--lightbox-demo-thumb-h) + 10px);
+  border-radius: calc(0.5rem + 3px);
+  border: 2px solid #000;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+}
+
+:is(.dark, [data-theme='dark']) .lightbox-demo-thumbnail-strip-indicator {
+  border-color: #fff;
+}
+
+/* Thumb-jump slides crossfade CSS is injected by the library — tune with
+   `--lightbox-select-vt-*` on Slides (or a parent). */
 ```

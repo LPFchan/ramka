@@ -333,20 +333,22 @@ const LightboxThumbnailStrip = React.forwardRef<HTMLDivElement, LightboxThumbnai
       /**
        * Update padding / travels; rebuild ST only when keyframes must change.
        * Window resize used to cancel+rebuild ST every frame (visible glitch).
+       * Returns whether the track was actually positioned (bails report false
+       * so `data-positioned` can't land while the track still sits at 0).
        */
-      const refresh = (forceLink = false) => {
-        if (scrubHoldRef.current || scrubAnimRef.current) return;
+      const refresh = (forceLink = false): boolean => {
+        if (scrubHoldRef.current || scrubAnimRef.current) return false;
 
         const track = trackRef.current;
         const slides = slidesViewportRef.current;
         const root = rootRef.current;
-        if (!track || !slides || !root) return;
+        if (!track || !slides || !root) return false;
 
         const travelsChanged = measureThumbs();
 
         if (startLinkAnimation(forceLink || travelsChanged)) {
           unbindScroll();
-          return;
+          return true;
         }
 
         // Fallback: continuous JS mirror of Slides scroll (no ScrollTimeline).
@@ -363,6 +365,20 @@ const LightboxThumbnailStrip = React.forwardRef<HTMLDivElement, LightboxThumbnai
           slides.addEventListener('scroll', onScroll, { passive: true });
           scrollSlides = slides;
         }
+        return true;
+      };
+
+      // `data-positioned` must mean "the track really was positioned", not
+      // "the positioning code ran": refresh bails when the track, strip root,
+      // or Slides viewport hasn't registered yet, and a late-registering
+      // viewport re-enters through the subscription below — which doesn't
+      // re-run this effect. Flipping on *successful* refresh (from whichever
+      // entry point succeeds first) keeps consumer CSS hiding the strip until
+      // it genuinely cannot paint at a stale offset. Setting state in a layout
+      // effect re-renders before paint, so client-side opens never paint
+      // without the attribute.
+      const refreshAndMark = (forceLink: boolean) => {
+        if (refresh(forceLink)) setPositioned(true);
       };
 
       const attach = () => {
@@ -376,25 +392,18 @@ const LightboxThumbnailStrip = React.forwardRef<HTMLDivElement, LightboxThumbnai
           ro = new ResizeObserver(() => {
             if (scrubHoldRef.current || scrubAnimRef.current) return;
             // Padding updates every time; ST rebuilds only if travels changed.
-            refresh(false);
+            refreshAndMark(false);
           });
           ro.observe(track);
           ro.observe(root);
         }
 
-        refresh(true);
+        refreshAndMark(true);
       };
 
-      reattachRef.current = () => refresh(true);
+      reattachRef.current = () => refreshAndMark(true);
       attach();
-      // The initial attach above measured and positioned the track (or bailed
-      // because track/Slides aren't registered yet — this effect re-runs when
-      // they land via trackVersion / the viewport subscription). Either way we
-      // are now past the first client layout pass: mark the strip positioned
-      // so consumer CSS can stop hiding it. Setting state in a layout effect
-      // re-renders before paint, so client-side opens never paint without it.
-      setPositioned(true);
-      const unsubscribe = subscribeSlidesViewport(() => refresh(false));
+      const unsubscribe = subscribeSlidesViewport(() => refreshAndMark(false));
 
       return () => {
         unsubscribe();

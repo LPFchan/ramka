@@ -3026,6 +3026,45 @@ describe('Lightbox', () => {
         expect(trigger).not.toHaveAttribute('data-morphtarget');
       });
 
+      it('hides the active trigger with viewTransition={false} — contractual, not accidental', () => {
+        // The hide rule used to live in the VT structural sheet (injected only
+        // when a morph started), so non-VT consumers never had CSS matching
+        // the attribute. It now ships eagerly from Trigger, which makes
+        // "the trigger is visually hidden while its item is active" the
+        // contract on EVERY path — viewTransition={false}, unsupported
+        // browsers, low-end devices. This test pins that decision: the
+        // attribute lands and the hide CSS exists with no morph in sight.
+        render(
+          <LightboxRoot viewTransition={false}>
+            <LightboxTrigger index={0} data-testid="trigger-0">
+              <img src="thumb.jpg" alt="thumb" />
+            </LightboxTrigger>
+            <LightboxPortal>
+              <LightboxContent aria-label="morph attr test">
+                <SlidesHost>
+                  <LightboxItem index={0}>
+                    <img src="full.jpg" alt="full" />
+                  </LightboxItem>
+                </SlidesHost>
+              </LightboxContent>
+            </LightboxPortal>
+          </LightboxRoot>,
+        );
+
+        const trigger = screen.getByTestId('trigger-0');
+        fireEvent.click(trigger);
+        expect(trigger).toHaveAttribute('data-morph-target');
+        // jsdom lacks constructed sheets, so the CSSOM path falls back to a
+        // marker <style> in <head> — assert the rule is actually deliverable.
+        const hideCss = Array.from(
+          document.head.querySelectorAll('style[data-ramka-morph-target-hide], style'),
+        )
+          .map((el) => el.textContent ?? '')
+          .join('');
+        expect(hideCss).toContain('data-morph-target');
+        expect(hideCss).toContain('opacity:0');
+      });
+
       it('sets data-morph-target on the morphRef node, not the trigger', () => {
         render(
           <LightboxRoot>

@@ -33,13 +33,29 @@ const items = moodboardPhotos.map((photo) => ({
 /** `/…/moodboard/mb-05` → 4; the bare grid URL (or an unknown id) → -1. */
 function photoIndexFromPathname(pathname: string): number {
   if (!pathname.startsWith(`${BASE_PATH}/`)) return -1;
-  const id = decodeURIComponent(pathname.slice(BASE_PATH.length + 1));
+  // decodeURIComponent throws on malformed percent-sequences. Navigation can't
+  // deliver one (the server 400s those before rendering), but any code calling
+  // pushState with an arbitrary string can — treat it as "not a photo URL".
+  let id: string;
+  try {
+    id = decodeURIComponent(pathname.slice(BASE_PATH.length + 1));
+  } catch {
+    return -1;
+  }
   return moodboardPhotos.findIndex((photo) => photo.id === id);
 }
 
 type Tile = (typeof items)[number];
 
-/** Responsive column count without CSS multicol (2 on mobile, 3 from `sm`). */
+/**
+ * Responsive column count without CSS multicol (2 on mobile, 3 from `sm`).
+ *
+ * Known tradeoff: the server can't know the viewport, so desktop grid visits
+ * paint 2 columns first and re-bucket to 3 after hydration — a visible
+ * reshuffle. Accepted here because the alternative (CSS multicol) re-balances
+ * the whole grid on every layout invalidation mid-morph; see the `columns`
+ * memo below for why that's the worse cost.
+ */
 function useColumnCount() {
   const [cols, setCols] = React.useState(2);
   React.useEffect(() => {
@@ -82,6 +98,11 @@ export function MoodboardDemo() {
   // gets `relative z-50` so the fixed viewer stacks above the docs page's
   // sticky mobile header (z-40) — portaled hosts win by document order and
   // must NOT carry a z-index (it would stack above body-level tooltips).
+  // Note this branch isn't strictly "the server rendered this": a client-side
+  // remount at a photo URL (open a photo, navigate to another docs page, press
+  // Back without bfcache) also mounts with `urlIndex !== -1` and takes the
+  // in-place path. That's fine — it renders identically — the only difference
+  // is the SSR flags below briefly suppress an open fade nobody would see.
   const [deepLinkVisit] = React.useState(urlIndex !== -1);
 
   // Deep links paint the RIGHT photo before hydration. A scroller's scroll
@@ -119,6 +140,13 @@ export function MoodboardDemo() {
   // opened URL: a trigger tap reports its index (onValueChange) before the
   // open commits, and state from the previous render would lag behind it.
   const indexRef = React.useRef(index);
+  // Same discipline for `open` in `handleValueChange`: render-scope `open`
+  // is the last COMMITTED value, so if a close and a value change ever landed
+  // in the same task the guard below would see stale `true` and strand a
+  // photo URL on a closed viewer. No current library path emits that ordering,
+  // but the guard's correctness shouldn't depend on non-contractual event
+  // ordering. (The library uses the same ref technique internally.)
+  const openRef = React.useRef(open);
 
   // URL → lightbox. Covers the pathname changing underneath us — browser
   // back/forward — after the initial render (deep links already hydrate open,
@@ -129,9 +157,11 @@ export function MoodboardDemo() {
   React.useEffect(() => {
     if (urlIndex !== -1) {
       indexRef.current = urlIndex;
+      openRef.current = true;
       setIndex(urlIndex);
       setOpen(true);
     } else {
+      openRef.current = false;
       setOpen(false);
     }
   }, [urlIndex]);
@@ -142,6 +172,7 @@ export function MoodboardDemo() {
   // sync); `router.push` would also work but round-trips the server on every
   // change, and shallow writes keep URL sync free even mid-swipe.
   const handleOpenChange = (nextOpen: boolean) => {
+    openRef.current = nextOpen;
     setOpen(nextOpen);
     if (nextOpen) {
       // Opening pushes ONE history entry, so the browser Back button closes
@@ -156,8 +187,14 @@ export function MoodboardDemo() {
       // When scrollTriggerIntoView had scrolled a half-visible tile into view
       // during the session, that restore yanks the page back between the VT
       // snapshots and the close visibly morphs onto the wrong tile. The cost
-      // of replacing instead: one leftover grid history entry per viewer
-      // session (Back from the closed grid steps through it — harmless).
+      // of replacing instead: one leftover grid history entry PER viewer
+      // session (three sessions = four Backs to leave the page), and Back
+      // onto an older grid entry replays that entry's scroll restoration —
+      // if scrollTriggerIntoView moved the grid during the session, that
+      // "no-op" Back visibly jumps the scroll position. Nothing breaks, and
+      // the same jump would land mid-morph with history.back(); if a clean
+      // stack matters more to you than morph closes, pop the entry from
+      // onOpenChangeComplete(false) instead (after the transition settles).
       // `replaceState` is safe in the commit: it fires no popstate and
       // restores no scroll, and the async pathname re-render it triggers
       // reconciles to identical DOM.
@@ -169,9 +206,9 @@ export function MoodboardDemo() {
     indexRef.current = nextIndex;
     setIndex(nextIndex);
     // Swiping / arrow keys REPLACE the current entry — no history spam.
-    // Skipped while closed: a trigger tap reports its index before the open
-    // commits, and handleOpenChange writes that URL itself.
-    if (open) {
+    // Skipped while closed (via openRef, see above): a trigger tap reports its
+    // index before the open commits, and handleOpenChange writes that URL.
+    if (openRef.current) {
       window.history.replaceState(null, '', `${BASE_PATH}/${moodboardPhotos[nextIndex]!.id}`);
     }
   };
@@ -184,6 +221,8 @@ export function MoodboardDemo() {
   // transition. Multicol re-balances every item on any such invalidation — one
   // of the heaviest layouts there is — which starves the morph/backdrop of
   // frames (worst on mobile Safari). A flex-column reflow is cheap by contrast.
+  // (Column-major DOM order means Tab/reading order zigzags versus visual
+  // order — an inherent texture of masonry, multicol included.)
   const columns = React.useMemo(() => {
     const buckets: { tile: Tile; index: number }[][] = Array.from({ length: cols }, () => []);
     items.forEach((tile, i) => buckets[i % cols]!.push({ tile, index: i }));

@@ -20,6 +20,7 @@ import {
   MORPH_TARGET_HIDE_HREF,
   MORPH_TARGET_HIDE_MARKER,
 } from './morph-target-hide';
+import { REACT_SUPPORTS_STYLE_HOISTING } from './react-style-hoisting';
 import { ensureLibrarySheet } from './vt-style-sheets';
 import { ignoreStateAttribute } from './lightbox-state-attributes';
 import { mergeProps } from '../render/merge-props';
@@ -524,7 +525,16 @@ const LightboxTrigger = React.forwardRef<HTMLButtonElement, LightboxTriggerProps
           // node. Client renders never include this prop, so React neither
           // flags the extra server attribute during hydration nor removes the
           // imperatively-set one on later renders.
-          ...(morphTarget && typeof window === 'undefined'
+          //
+          // Stamped from `active`, NOT the client-resolved `morphTarget`: the
+          // `closest` resolver walks the trigger-element ref map, which is
+          // necessarily empty during server rendering (refs don't attach
+          // server-side), so it can never match — while after hydration of
+          // this same markup the active trigger IS registered and `closest`
+          // resolves to exactly `active`. `origin` stays unstamped: a
+          // server-rendered page has no opening trigger, and the client
+          // resolves no hidden trigger for it either.
+          ...(active && morphTo !== 'origin' && typeof window === 'undefined'
             ? { [LightboxTriggerDataAttributes.morphTarget]: '' }
             : null),
         } as React.ComponentPropsWithRef<'button'>,
@@ -543,14 +553,18 @@ const LightboxTrigger = React.forwardRef<HTMLButtonElement, LightboxTriggerProps
           lightbox would paint its active trigger visible: the rule used to
           arrive only with the first view transition of the session. React 19
           hoists this into <head> and dedupes by `href` across every trigger
-          and remount (constant rule text keeps the dedupe sound); React 18
-          renders it in place — `display: none`, layout-inert — and unmounts
-          it with the trigger. Under a strict `style-src` the tag is refused
-          wherever it renders and the CSSOM copy above takes over.
+          and remount (constant rule text keeps the dedupe sound).
+          React-19-only — React 18 has no hoisting and would render one inline
+          tag per trigger (a 200-tile grid ships 200 copies and shifts
+          consumers' :nth-child selectors), so it keeps the CSSOM-only
+          baseline; see react-style-hoisting.ts. Under a strict `style-src`
+          the tag is refused and the CSSOM copy above takes over.
         */}
-        <style href={MORPH_TARGET_HIDE_HREF} precedence="ramka">
-          {MORPH_TARGET_HIDE_CSS}
-        </style>
+        {REACT_SUPPORTS_STYLE_HOISTING ? (
+          <style href={MORPH_TARGET_HIDE_HREF} precedence="ramka">
+            {MORPH_TARGET_HIDE_CSS}
+          </style>
+        ) : null}
         {rendered}
       </LightboxTriggerContext.Provider>
     );
