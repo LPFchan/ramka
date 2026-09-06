@@ -148,12 +148,15 @@ describe('Lightbox.Slides', () => {
     expect(screen.getByTestId('slides').style.overflowAnchor).toBe('none');
   });
 
-  it('retires the ssrSlideShift stand-in before anything can paint on client mounts', () => {
-    // The shift is rendered on the first pass (state-driven, so server and
-    // hydration markup match) and removed by a mount layout effect — layout
-    // effects and their sync state updates flush before paint, so on a pure
-    // client open no frame ever shows it. After mount: no attribute, no vars,
-    // scrolling unfrozen. (Server-paint behavior is covered in
+  it('never renders the ssrSlideShift stand-in on client mounts', () => {
+    // The stand-in exists solely for server paint + hydration, gated by a
+    // useSyncExternalStore hydration check — a pure client open must not render
+    // it even transiently. (An earlier version rendered it and retired it in a
+    // layout effect; the real-scroll write under the still-translated slides
+    // let Chromium's snap-target tracking capture the slide visually at that
+    // offset — 2×index — and re-align to it when the transform left, silently
+    // committing the wrong index.) After mount: no attribute, no vars,
+    // scrolling unfrozen, snap on. (Server-paint behavior is covered in
     // lightbox-slides-ssr.test.tsx.)
     render(
       <LightboxRoot defaultOpen defaultValue={2}>
@@ -177,6 +180,7 @@ describe('Lightbox.Slides', () => {
     expect(viewport).not.toHaveAttribute('data-ssr-shift');
     expect(viewport.style.getPropertyValue('--lightbox-ssr-index')).toBe('');
     expect(viewport.style.overflowX).toBe('auto');
+    expect(viewport.style.scrollSnapType).toBe('x mandatory');
     // The client never stamps the SSR active-item marker either.
     expect(document.querySelector('[data-ssr-active]')).toBeNull();
     // The rules ride along as a hoisted <style> (React 19 hoists in jsdom too),

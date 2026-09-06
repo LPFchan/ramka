@@ -120,7 +120,7 @@ interface LightboxSlidesProps extends useRender.ComponentProps<'div', LightboxSl
    * the opt-in, the library still marks the active item so engines with
    * `scroll-initial-target` position any layout natively; other engines keep
    * the hydration jump. Client-side opens are unaffected either way — the
-   * stand-in is removed before the first paint. @default false
+   * stand-in only ever renders for server paint + hydration. @default false
    */
   ssrSlideShift?: boolean;
 }
@@ -150,6 +150,11 @@ const SLIDES_SCROLL_SNAP_TYPE = 'x mandatory';
 
 function clamp(value: number, min: number, max: number): number {
   return value < min ? min : value > max ? max : value;
+}
+
+/** Store that never changes — see the `isServerPaint` useSyncExternalStore. */
+function emptySubscribe(): () => void {
+  return () => {};
 }
 
 const slidesStateAttributesMapping = {
@@ -218,16 +223,33 @@ const LightboxSlides = React.forwardRef<HTMLDivElement, LightboxSlidesProps>(
     const activeIndexRef = React.useRef(activeIndex);
     activeIndexRef.current = activeIndex;
 
-    // The `ssrSlideShift` transform stand-in (see ssr-initial-slide.ts).
-    // State-driven rather than `typeof window` — the server render and the
-    // hydration render both compute `true`, so the markup matches byte-for-byte
-    // and no hydration warning can fire. On pure client-side opens the shift is
-    // also rendered, but the removal layout effect below re-renders before the
-    // commit ever paints (and before a View Transition captures its "new"
-    // snapshot — flushSync runs layout effects and their sync state updates to
-    // completion), so it is never visible; it exists on screen only for pages
-    // whose FIRST paint is server HTML.
-    const [ssrShiftActive, setSsrShiftActive] = React.useState(ssrSlideShift);
+    // The `ssrSlideShift` transform stand-in (see ssr-initial-slide.ts). Active
+    // ONLY while the markup on screen is server HTML: `useSyncExternalStore`
+    // serves the server snapshot (`true`) to both the server render and the
+    // hydration render — markup matches byte-for-byte, no hydration warning —
+    // and React's post-hydration consistency check re-renders with the client
+    // snapshot (`false`) synchronously before paint, which is what retires the
+    // stand-in (real scroll in, transform out, one paint).
+    //
+    // Pure client-side opens NEVER render the shift — not even for a retired
+    // first pass. An earlier version did (state initialized from the prop, a
+    // mount layout effect retired it) and that was a live index-corruption bug,
+    // not just waste: the mount jump writes the real scrollLeft while the
+    // slides are still translated, and Chromium's scroll-snap target tracking
+    // captures whichever slide *visually* occupies that offset — slide 2×index
+    // under a −index shift. When the stand-in then retires, the engine
+    // re-aligns to its captured target and silently scrolls the viewport to
+    // slide 2×index; the settle handler reads that as a user swipe and commits
+    // the wrong index. Belt to that suspender: while the stand-in IS applied
+    // (server paint → hydration), the inline style below also disables
+    // scroll-snap, so no engine can capture a snap target through transformed
+    // positions in the first place.
+    const isServerPaint = React.useSyncExternalStore(
+      emptySubscribe,
+      () => false,
+      () => true,
+    );
+    const ssrShiftActive = ssrSlideShift && isServerPaint;
 
     const mergedRef = React.useCallback(
       (node: HTMLDivElement | null) => {
@@ -410,17 +432,6 @@ const LightboxSlides = React.forwardRef<HTMLDivElement, LightboxSlidesProps>(
       if (derived === activeIndex) return;
       scrollToIndex(activeIndex);
     }, [activeIndex, indexFromScroll, scrollToIndex]);
-
-    // Retire the SSR transform stand-in. Declared AFTER the jump effect above:
-    // layout effects run in declaration order within a commit, so by the time
-    // this fires the mount jump has already written the real scroll offset
-    // (transforms don't affect `offsetLeft`/`scrollLeft`, so the geometry it
-    // measured through the shift was correct). The setState here re-renders
-    // synchronously before the browser paints — real scroll in, transform out,
-    // one paint. Mount-only by design; `ssrShiftActive` never comes back.
-    React.useLayoutEffect(() => {
-      setSsrShiftActive(false);
-    }, []);
 
     // Swipe → active index, and lock discrete navigation while the user scroll /
     // fling is in flight. The lock is what makes this bulletproof: since a fling
@@ -723,11 +734,18 @@ const LightboxSlides = React.forwardRef<HTMLDivElement, LightboxSlidesProps>(
                 // it is a live native scroller whose content has merely been
                 // translated, so a pre-hydration swipe would reveal the blank
                 // positions the slides vacated. Programmatic `scrollLeft`
-                // writes (the hydration jump) work on hidden overflow, and the
-                // whole block leaves with `ssrShiftActive`.
+                // writes (the hydration jump) work on hidden overflow.
+                // `scroll-snap-type: none` because the translated positions must
+                // never feed snap-target tracking: the hydration jump writes the
+                // real scrollLeft while slides are still shifted, and an engine
+                // that captures the slide *visually* at that offset (Chromium
+                // does) re-aligns to it — i.e. scrolls to the wrong slide — the
+                // moment the transform leaves. The whole block leaves with
+                // `ssrShiftActive`.
                 ...(ssrShiftActive
                   ? ({
                       overflowX: 'hidden',
+                      scrollSnapType: 'none',
                       [LightboxSlidesCssVars.ssrIndex]: activeIndex,
                       [LightboxSlidesCssVars.ssrShiftSign]: dir === 'rtl' ? 1 : -1,
                     } as React.CSSProperties)

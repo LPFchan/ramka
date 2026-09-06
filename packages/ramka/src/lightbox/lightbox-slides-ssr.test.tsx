@@ -62,6 +62,11 @@ describe('LightboxSlides server rendering (SSR-open pages)', () => {
     // The track is a live native scroller under translated content — frozen
     // so a pre-hydration swipe can't scroll across the vacated blank slots.
     expect(scrollport).toContain('overflow-x:hidden');
+    // Snap must be off while slides are translated: the hydration jump writes
+    // the real scrollLeft under the shift, and engines with snap-target
+    // tracking (Chromium) would capture the slide *visually* at that offset —
+    // slide 2×index — then re-align to it when the transform leaves.
+    expect(scrollport).toContain('scroll-snap-type:none');
   });
 
   it('ssrSlideShift flips the sign under RTL', () => {
