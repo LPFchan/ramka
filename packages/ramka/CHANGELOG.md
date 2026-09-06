@@ -47,7 +47,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the trigger's `data-morph-target`) are rendered by the hydration pass too
   and retired right after, so they hydrate without React 19's
   attribute-mismatch warning. **Migration note:** if you hand-rolled a first-paint
-  transform stand-in for SSR-open pages (the pattern the moodboard example
+  transform stand-in for SSR-open pages (the pattern the URL-synced state example
   demonstrated before this release), delete it and pass `ssrSlideShift`
   instead — on Chromium the new native initial scroll and a custom transform
   would BOTH move the track, painting a blank until hydration. The library

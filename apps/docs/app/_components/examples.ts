@@ -36,14 +36,14 @@ export const lightboxExamples: ExampleLink[] = [
       'The same photos app mirrored for a right-to-left locale — dir="rtl" on Lightbox.Root mirrors navigation, the thumbnail strip, and the arrow keys.',
   },
   {
-    slug: 'moodboard',
-    title: 'Moodboard',
+    slug: 'url-synced-state',
+    title: 'URL-synced state',
     description:
       'Masonry wall wired to Next.js dynamic routes ([[...id]]) — every photo is a shareable URL: deep links open the viewer on that slide, swiping rewrites the URL in place, and browser Back closes the viewer.',
-    pagePath: 'moodboard/[[...id]]/page.tsx',
+    pagePath: 'url-synced-state/[[...id]]/page.tsx',
     extraSources: [
-      '(docs)/examples/lightbox/moodboard/moodboard-demo.tsx',
-      '(docs)/examples/lightbox/moodboard/photos.ts',
+      '(docs)/examples/lightbox/url-synced-state/url-synced-state-demo.tsx',
+      '(docs)/examples/lightbox/url-synced-state/photos.ts',
       // The SSR deep-link pattern is inert without these: the no-transitions
       // rule and the strip's data-positioned reveal. A copy made from the .md
       // alone would fade itself in on load and snap the strip — with no error

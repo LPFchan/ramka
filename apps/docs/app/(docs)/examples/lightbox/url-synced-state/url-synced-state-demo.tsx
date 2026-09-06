@@ -10,23 +10,23 @@ import {
   LightboxGallery,
   triggerFocusClass,
 } from '../../../../_components/lightbox-chrome';
-import { moodboardPhotos } from './photos';
+import { galleryPhotos } from './photos';
 
 /**
  * The grid renders at this route; every photo also exists as its own URL under
- * the `[[...id]]` optional catch-all — `/examples/lightbox/moodboard/mb-05` —
+ * the `[[...id]]` optional catch-all — `/examples/lightbox/url-synced-state/mb-05` —
  * so slides are shareable, deep-linkable pages with their own metadata (see
  * `[[...id]]/page.tsx`).
  */
-const BASE_PATH = '/examples/lightbox/moodboard';
+const BASE_PATH = '/examples/lightbox/url-synced-state';
 
-const items = moodboardPhotos.map((photo) => ({
+const items = galleryPhotos.map((photo) => ({
   ...photo,
   src: photo.image,
   thumb: photo.image,
 }));
 
-/** `/…/moodboard/mb-05` → 4; the bare grid URL (or an unknown id) → -1. */
+/** `/…/url-synced-state/mb-05` → 4; the bare grid URL (or an unknown id) → -1. */
 function photoIndexFromPathname(pathname: string): number {
   if (!pathname.startsWith(`${BASE_PATH}/`)) return -1;
   // decodeURIComponent throws on malformed percent-sequences. Navigation can't
@@ -38,7 +38,7 @@ function photoIndexFromPathname(pathname: string): number {
   } catch {
     return -1;
   }
-  return moodboardPhotos.findIndex((photo) => photo.id === id);
+  return galleryPhotos.findIndex((photo) => photo.id === id);
 }
 
 type Tile = (typeof items)[number];
@@ -64,7 +64,7 @@ function useColumnCount() {
   return cols;
 }
 
-export function MoodboardDemo() {
+export function UrlSyncedStateDemo() {
   // Single URL source. `usePathname` updates on native History API writes
   // (Next.js shallow routing) AND on browser back/forward, so one hook covers
   // deep links, swipes, and the Back button.
@@ -168,7 +168,7 @@ export function MoodboardDemo() {
     if (nextOpen) {
       // Opening pushes ONE history entry, so the browser Back button closes
       // the viewer instead of leaving the page.
-      window.history.pushState(null, '', `${BASE_PATH}/${moodboardPhotos[indexRef.current]!.id}`);
+      window.history.pushState(null, '', `${BASE_PATH}/${galleryPhotos[indexRef.current]!.id}`);
     } else {
       // Gesture closes REWRITE the entry instead of popping it. Never call
       // history.back() here: on a morph close this callback fires inside the
@@ -200,7 +200,7 @@ export function MoodboardDemo() {
     // Skipped while closed (via openRef, see above): a trigger tap reports its
     // index before the open commits, and handleOpenChange writes that URL.
     if (openRef.current) {
-      window.history.replaceState(null, '', `${BASE_PATH}/${moodboardPhotos[nextIndex]!.id}`);
+      window.history.replaceState(null, '', `${BASE_PATH}/${galleryPhotos[nextIndex]!.id}`);
     }
   };
 
@@ -222,8 +222,8 @@ export function MoodboardDemo() {
 
   return (
     <ExampleShell
-      title="Moodboard"
-      description="A masonry wall wired to a Next.js dynamic route — the page lives at an [[...id]] optional catch-all, and the lightbox is controlled via open / value on Lightbox.Root. Tapping a tile opens the viewer and pushes /examples/lightbox/moodboard/mb-05 with the native History API (shallow routing), swiping rewrites that URL in place, and the browser Back button closes the viewer. Loading a photo URL cold serves the viewer already open, straight from the server HTML with per-photo metadata: deep-link visits render the Portal in place (container={null}) instead of into document.body, which is what makes a server-rendered open lightbox possible at all — portals cannot be serialized into server HTML. Because the controlled props update synchronously from the gesture callbacks, trigger taps keep the view-transition morph."
+      title="URL-synced state"
+      description="Every photo in this masonry wall is its own URL, driven by a Next.js dynamic route — the page lives at an [[...id]] optional catch-all, and the lightbox is controlled via open / value on Lightbox.Root. Tapping a tile opens the viewer and pushes /examples/lightbox/url-synced-state/mb-05 with the native History API (shallow routing), swiping rewrites that URL in place, and the browser Back button closes the viewer. Loading a photo URL cold serves the viewer already open, straight from the server HTML with per-photo metadata: deep-link visits render the Portal in place (container={null}) instead of into document.body, which is what makes a server-rendered open lightbox possible at all — portals cannot be serialized into server HTML. Because the controlled props update synchronously from the gesture callbacks, trigger taps keep the view-transition morph."
       docsHref="/docs/lightbox/state-lifecycle"
       docsLabel="State & lifecycle docs"
     >
@@ -269,7 +269,7 @@ export function MoodboardDemo() {
 
         <LightboxGallery
           items={items}
-          ariaLabel="Moodboard photos"
+          ariaLabel="Gallery photos"
           backdrop="solid"
           // Server-rendered deep links paint the deep-linked slide, not slide 0
           // (library feature — forwarded to `Lightbox.Slides`). Inert for

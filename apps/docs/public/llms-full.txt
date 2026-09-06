@@ -295,7 +295,7 @@ Ramka is *cosmetically* unstyled — colors and chrome are yours — but Media m
 
 Keep Close, Counter, Caption, and thumbnails as *absolutely positioned siblings* of Slides (see Chrome below) — not in-flow above or below Zoom. Resting insets belong on Slide padding / safe-area so zoomed media can still paint into that padding under chrome. Gesture details live in [Gestures](docs/lightbox/gestures.md).
 
-Set HTML `width` and `height` on the destination `<img>` (from known pixel dims or CMS metadata) so the box and aspect ratio exist *before* pixels load. That avoids CLS, keeps the morph target sized on slow networks, and prevents an unloaded `size: auto` image from collapsing to 0×0 (which can skip or weaken the open morph). When dimensions are unknown, see [Moodboard](examples/lightbox/moodboard.md). For mixed media (photos plus WebGL) with [onBeforeOpen](docs/lightbox/api.md#api-root) preheat, see [3D models](examples/lightbox/3d-models.md).
+Set HTML `width` and `height` on the destination `<img>` (from known pixel dims or CMS metadata) so the box and aspect ratio exist *before* pixels load. That avoids CLS, keeps the morph target sized on slow networks, and prevents an unloaded `size: auto` image from collapsing to 0×0 (which can skip or weaken the open morph). When dimensions are unknown, see [URL-synced state](examples/lightbox/url-synced-state.md). For mixed media (photos plus WebGL) with [onBeforeOpen](docs/lightbox/api.md#api-root) preheat, see [3D models](examples/lightbox/3d-models.md).
 
 To fill the maximum available space without distorting the source aspect ratio, nest Media under [Lightbox.Zoom](docs/lightbox/api.md#api-zoom) (a size container for `cqw` /`cqh`) and pass `width` /`height` to [Lightbox.Media](docs/lightbox/api.md#api-media). Media applies the inscribed fit-box ( `min(100cqw, 100cqh × w/h)` + `aspect-ratio: w / h`). Or put HTML `width` / `height` on the child image and omit the Media props — Media derives the box. When the box matches the source aspect, child `object-fit` is a no-op and Media’s grid stretch fills the box (no `size-full` needed on a direct media child). Put border-radius on Media (morph target). Leave chrome outside Media. Resting insets belong on Slide padding / safe-area so zoomed media can paint into that padding under chrome.
 
@@ -8766,42 +8766,42 @@ export default function PhotosAppRtlPage() {
 }
 ```
 
-# Moodboard
+# URL-synced state
 
 Masonry wall wired to Next.js dynamic routes ([[...id]]) — every photo is a shareable URL: deep links open the viewer on that slide, swiping rewrites the URL in place, and browser Back closes the viewer.
 
 ## Source
 
-```tsx examples/lightbox/moodboard/[[...id]]/page.tsx
+```tsx examples/lightbox/url-synced-state/[[...id]]/page.tsx
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 
-import { MoodboardDemo } from '../moodboard-demo';
-import { moodboardPhotos } from '../photos';
+import { UrlSyncedStateDemo } from '../url-synced-state-demo';
+import { galleryPhotos } from '../photos';
 
 /**
- * Optional catch-all: `/examples/lightbox/moodboard` renders the grid, and
- * `/examples/lightbox/moodboard/mb-05` is the same page deep-linked into the
- * lightbox — the client demo reads the photo id from the pathname and opens on
- * that slide. One route (one page component) for both URL shapes means
- * client-side URL changes reconcile into the same mounted tree, so the viewer
- * never remounts while it rewrites the URL.
+ * Optional catch-all: `/examples/lightbox/url-synced-state` renders the grid,
+ * and `/examples/lightbox/url-synced-state/mb-05` is the same page deep-linked
+ * into the lightbox — the client demo reads the photo id from the pathname and
+ * opens on that slide. One route (one page component) for both URL shapes
+ * means client-side URL changes reconcile into the same mounted tree, so the
+ * viewer never remounts while it rewrites the URL.
  */
-interface MoodboardRouteProps {
+interface UrlSyncedStateRouteProps {
   params: Promise<{ id?: string[] }>;
 }
 
 /** Prerender the grid plus every photo permalink. */
 export function generateStaticParams() {
-  return [{ id: [] }, ...moodboardPhotos.map((photo) => ({ id: [photo.id] }))];
+  return [{ id: [] }, ...galleryPhotos.map((photo) => ({ id: [photo.id] }))];
 }
 
-export async function generateMetadata({ params }: MoodboardRouteProps): Promise<Metadata> {
+export async function generateMetadata({ params }: UrlSyncedStateRouteProps): Promise<Metadata> {
   const { id } = await params;
-  const photo = id?.length ? moodboardPhotos.find((p) => p.id === id[0]) : undefined;
+  const photo = id?.length ? galleryPhotos.find((p) => p.id === id[0]) : undefined;
   if (photo) {
-    const title = `${photo.caption} — Moodboard example`;
-    const description = `${photo.alt} — a deep link straight into the moodboard lightbox, driven by a Next.js dynamic route and ramka's controlled open/value props.`;
+    const title = `${photo.caption} — URL-synced state example`;
+    const description = `${photo.alt} — a deep link straight into the lightbox, driven by a Next.js dynamic route and ramka's controlled open/value props.`;
     return {
       title,
       description,
@@ -8829,26 +8829,26 @@ export async function generateMetadata({ params }: MoodboardRouteProps): Promise
     };
   }
   return {
-    title: 'Moodboard example',
+    title: 'URL-synced state example',
     description:
       'A masonry lightbox wired to Next.js dynamic routes: every photo is a shareable URL — deep links open the viewer, swipes rewrite the URL, browser Back closes it. Built with ramka.',
   };
 }
 
-export default async function MoodboardRoute({ params }: MoodboardRouteProps) {
+export default async function UrlSyncedStateRoute({ params }: UrlSyncedStateRouteProps) {
   const { id } = await params;
   // Unknown photo ids 404 like any other dynamic route. `id?.length` (not
   // `id &&`): the grid's static param is literally `{ id: [] }`, and an empty
   // array is truthy — Next currently normalizes it to `undefined` at prerender
   // time, but the guard shouldn't lean on that.
-  if (id?.length && (id.length > 1 || !moodboardPhotos.some((photo) => photo.id === id[0]))) {
+  if (id?.length && (id.length > 1 || !galleryPhotos.some((photo) => photo.id === id[0]))) {
     notFound();
   }
-  return <MoodboardDemo />;
+  return <UrlSyncedStateDemo />;
 }
 ```
 
-```tsx examples/lightbox/moodboard/moodboard-demo.tsx
+```tsx examples/lightbox/url-synced-state/url-synced-state-demo.tsx
 'use client';
 
 import * as React from 'react';
@@ -8861,23 +8861,23 @@ import {
   LightboxGallery,
   triggerFocusClass,
 } from '../../../../_components/lightbox-chrome';
-import { moodboardPhotos } from './photos';
+import { galleryPhotos } from './photos';
 
 /**
  * The grid renders at this route; every photo also exists as its own URL under
- * the `[[...id]]` optional catch-all — `/examples/lightbox/moodboard/mb-05` —
+ * the `[[...id]]` optional catch-all — `/examples/lightbox/url-synced-state/mb-05` —
  * so slides are shareable, deep-linkable pages with their own metadata (see
  * `[[...id]]/page.tsx`).
  */
-const BASE_PATH = '/examples/lightbox/moodboard';
+const BASE_PATH = '/examples/lightbox/url-synced-state';
 
-const items = moodboardPhotos.map((photo) => ({
+const items = galleryPhotos.map((photo) => ({
   ...photo,
   src: photo.image,
   thumb: photo.image,
 }));
 
-/** `/…/moodboard/mb-05` → 4; the bare grid URL (or an unknown id) → -1. */
+/** `/…/url-synced-state/mb-05` → 4; the bare grid URL (or an unknown id) → -1. */
 function photoIndexFromPathname(pathname: string): number {
   if (!pathname.startsWith(`${BASE_PATH}/`)) return -1;
   // decodeURIComponent throws on malformed percent-sequences. Navigation can't
@@ -8889,7 +8889,7 @@ function photoIndexFromPathname(pathname: string): number {
   } catch {
     return -1;
   }
-  return moodboardPhotos.findIndex((photo) => photo.id === id);
+  return galleryPhotos.findIndex((photo) => photo.id === id);
 }
 
 type Tile = (typeof items)[number];
@@ -8915,7 +8915,7 @@ function useColumnCount() {
   return cols;
 }
 
-export function MoodboardDemo() {
+export function UrlSyncedStateDemo() {
   // Single URL source. `usePathname` updates on native History API writes
   // (Next.js shallow routing) AND on browser back/forward, so one hook covers
   // deep links, swipes, and the Back button.
@@ -9019,7 +9019,7 @@ export function MoodboardDemo() {
     if (nextOpen) {
       // Opening pushes ONE history entry, so the browser Back button closes
       // the viewer instead of leaving the page.
-      window.history.pushState(null, '', `${BASE_PATH}/${moodboardPhotos[indexRef.current]!.id}`);
+      window.history.pushState(null, '', `${BASE_PATH}/${galleryPhotos[indexRef.current]!.id}`);
     } else {
       // Gesture closes REWRITE the entry instead of popping it. Never call
       // history.back() here: on a morph close this callback fires inside the
@@ -9051,7 +9051,7 @@ export function MoodboardDemo() {
     // Skipped while closed (via openRef, see above): a trigger tap reports its
     // index before the open commits, and handleOpenChange writes that URL.
     if (openRef.current) {
-      window.history.replaceState(null, '', `${BASE_PATH}/${moodboardPhotos[nextIndex]!.id}`);
+      window.history.replaceState(null, '', `${BASE_PATH}/${galleryPhotos[nextIndex]!.id}`);
     }
   };
 
@@ -9073,8 +9073,8 @@ export function MoodboardDemo() {
 
   return (
     <ExampleShell
-      title="Moodboard"
-      description="A masonry wall wired to a Next.js dynamic route — the page lives at an [[...id]] optional catch-all, and the lightbox is controlled via open / value on Lightbox.Root. Tapping a tile opens the viewer and pushes /examples/lightbox/moodboard/mb-05 with the native History API (shallow routing), swiping rewrites that URL in place, and the browser Back button closes the viewer. Loading a photo URL cold serves the viewer already open, straight from the server HTML with per-photo metadata: deep-link visits render the Portal in place (container={null}) instead of into document.body, which is what makes a server-rendered open lightbox possible at all — portals cannot be serialized into server HTML. Because the controlled props update synchronously from the gesture callbacks, trigger taps keep the view-transition morph."
+      title="URL-synced state"
+      description="Every photo in this masonry wall is its own URL, driven by a Next.js dynamic route — the page lives at an [[...id]] optional catch-all, and the lightbox is controlled via open / value on Lightbox.Root. Tapping a tile opens the viewer and pushes /examples/lightbox/url-synced-state/mb-05 with the native History API (shallow routing), swiping rewrites that URL in place, and the browser Back button closes the viewer. Loading a photo URL cold serves the viewer already open, straight from the server HTML with per-photo metadata: deep-link visits render the Portal in place (container={null}) instead of into document.body, which is what makes a server-rendered open lightbox possible at all — portals cannot be serialized into server HTML. Because the controlled props update synchronously from the gesture callbacks, trigger taps keep the view-transition morph."
       docsHref="/docs/lightbox/state-lifecycle"
       docsLabel="State & lifecycle docs"
     >
@@ -9120,7 +9120,7 @@ export function MoodboardDemo() {
 
         <LightboxGallery
           items={items}
-          ariaLabel="Moodboard photos"
+          ariaLabel="Gallery photos"
           backdrop="solid"
           // Server-rendered deep links paint the deep-linked slide, not slide 0
           // (library feature — forwarded to `Lightbox.Slides`). Inert for
@@ -9143,27 +9143,27 @@ export function MoodboardDemo() {
 }
 ```
 
-```ts examples/lightbox/moodboard/photos.ts
+```ts examples/lightbox/url-synced-state/photos.ts
 import type { StaticImageData } from 'next/image';
 
-import { moodboardImages } from './images.generated';
+import { galleryImages } from './images.generated';
 
 /**
- * Shared photo catalogue for the moodboard example. Plain data (no
+ * Shared photo catalogue for the URL-synced state example. Plain data (no
  * `'use client'`) on purpose: the client demo maps it into grid tiles and
  * gallery slides, while the server route (`[[...id]]/page.tsx`) uses the same
  * ids and captions for `generateStaticParams`, per-photo metadata, and 404s —
  * one list, so a photo's URL can never drift from its slide.
  */
-export interface MoodboardPhoto {
-  /** URL segment for the photo's deep link (`…/moodboard/mb-05`). */
+export interface GalleryPhoto {
+  /** URL segment for the photo's deep link (`…/url-synced-state/mb-05`). */
   id: string;
   alt: string;
   caption: string;
   image: StaticImageData;
 }
 
-export const moodboardPhotos: MoodboardPhoto[] = (
+export const galleryPhotos: GalleryPhoto[] = (
   [
     { id: 'mb-01', alt: 'Foggy pine ridge at dawn', caption: 'Dawn ridge' },
     { id: 'mb-02', alt: 'Empty coastal highway', caption: 'Open road' },
@@ -9178,14 +9178,14 @@ export const moodboardPhotos: MoodboardPhoto[] = (
     { id: 'mb-11', alt: 'Single tree in a green field', caption: 'Lone tree' },
     { id: 'mb-12', alt: 'Textured stone wall', caption: 'Stonework' },
   ] as const
-).map((photo, i) => ({ ...photo, image: moodboardImages[i]! }));
+).map((photo, i) => ({ ...photo, image: galleryImages[i]! }));
 ```
 
 ```css app/lightbox-demo/ssr-no-transitions.css
 /*
  * No entrance motion when the page ITSELF is the entrance — used by
  * deep-linked visits that server-render the lightbox already open
- * (moodboard's dynamic route).
+ * (the URL-synced state example's dynamic route).
  *
  * The skin's open/close fades run off `@starting-style` (open-close.css,
  * chrome-hide, the strip's data-positioned reveal), and @starting-style
@@ -9265,7 +9265,7 @@ export const moodboardPhotos: MoodboardPhoto[] = (
  * scroller (`data-positioned`, set in a layout effect before first client
  * paint). Client-side opens carry the attribute on their first painted frame,
  * so this never hides anything there. It only matters for pages that
- * server-render an open lightbox (moodboard deep links): scroll/transform
+ * server-render an open lightbox (URL-synced state deep links): scroll/transform
  * positions cannot be serialized into HTML, so the SSR'd strip sits at offset
  * 0 until hydration — a strip pointing at the wrong photo reads as broken,
  * a strip fading in a beat late reads as loading.

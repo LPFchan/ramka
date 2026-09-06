@@ -51,7 +51,7 @@
  * scroller (`data-positioned`, set in a layout effect before first client
  * paint). Client-side opens carry the attribute on their first painted frame,
  * so this never hides anything there. It only matters for pages that
- * server-render an open lightbox (moodboard deep links): scroll/transform
+ * server-render an open lightbox (URL-synced state deep links): scroll/transform
  * positions cannot be serialized into HTML, so the SSR'd strip sits at offset
  * 0 until hydration — a strip pointing at the wrong photo reads as broken,
  * a strip fading in a beat late reads as loading.

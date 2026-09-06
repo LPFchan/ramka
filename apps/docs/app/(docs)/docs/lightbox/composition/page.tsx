@@ -127,7 +127,7 @@ export default function LightboxCompositionPage() {
           ratio exist <em>before</em> pixels load. That avoids CLS, keeps the morph target sized on slow networks, and
           prevents an unloaded <code className="text-xs">size: auto</code> image from collapsing to 0×0 (which can skip
           or weaken the open morph). When dimensions are unknown, see{' '}
-          <DocsLink href="/examples/lightbox/moodboard">Moodboard</DocsLink>. For mixed media (photos
+          <DocsLink href="/examples/lightbox/url-synced-state">URL-synced state</DocsLink>. For mixed media (photos
           plus WebGL) with <DocsLink href={lightboxApiHref.root}>onBeforeOpen</DocsLink> preheat, see{' '}
           <DocsLink href="/examples/lightbox/3d-models">3D models</DocsLink>.
         </p>

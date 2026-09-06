@@ -15,7 +15,7 @@ import mb10 from '../../../../_assets/photos/mb-10.jpg';
 import mb11 from '../../../../_assets/photos/mb-11.jpg';
 import mb12 from '../../../../_assets/photos/mb-12.jpg';
 
-export const moodboardImages = [
+export const galleryImages = [
   mb01,
   mb02,
   mb03,

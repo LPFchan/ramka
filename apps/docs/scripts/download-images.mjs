@@ -123,9 +123,9 @@ const photosApp = Array.from({ length: 48 }, (_, i) => {
   return picsum(`ramka-photos-${i}`, w, h);
 });
 
-// examples/lightbox/moodboard — full size = source scaled to 800px wide
+// examples/lightbox/url-synced-state — full size = source scaled to 800px wide
 // (matches the old fullUrl() logic: (400 / w) * 2).
-const MOODBOARD_DEFS = [
+const URL_SYNCED_STATE_DEFS = [
   ['mb-01', 600, 900],
   ['mb-02', 900, 600],
   ['mb-03', 800, 800],
@@ -139,7 +139,7 @@ const MOODBOARD_DEFS = [
   ['mb-11', 620, 900],
   ['mb-12', 900, 900],
 ];
-const moodboard = MOODBOARD_DEFS.map(([id, w, h]) =>
+const urlSyncedState = URL_SYNCED_STATE_DEFS.map(([id, w, h]) =>
   picsum(id, 800, Math.round((h * 800) / w)),
 );
 
@@ -297,8 +297,8 @@ const modules = [
     arrays: { photoImages: photosApp },
   },
   {
-    out: 'app/(docs)/examples/lightbox/moodboard/images.generated.ts',
-    arrays: { moodboardImages: moodboard },
+    out: 'app/(docs)/examples/lightbox/url-synced-state/images.generated.ts',
+    arrays: { galleryImages: urlSyncedState },
   },
   {
     out: 'app/(docs)/examples/lightbox/text-message/images.generated.ts',

@@ -967,8 +967,8 @@ function collectOutputs(): Map<string, string> {
     const baseDir = 'app/(docs)/examples/lightbox';
     const pageRel = `${baseDir}/${example.pagePath ?? `${example.slug}/page.tsx`}`;
     // `extraSources` are app-rooted (not examples-dir-rooted) so an example
-    // can embed load-bearing files outside the (docs) tree — e.g. moodboard's
-    // SSR CSS under app/lightbox-demo/.
+    // can embed load-bearing files outside the (docs) tree — e.g. the
+    // URL-synced state example's SSR CSS under app/lightbox-demo/.
     const extraFiles = [pageRel, ...(example.extraSources ?? []).map((rel) => `app/${rel}`)];
     pages.push(
       compositionPage(example.title, example.description, href, path.join(docsRoot, pageRel), extraFiles, false),

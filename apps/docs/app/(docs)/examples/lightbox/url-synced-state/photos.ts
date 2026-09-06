@@ -1,23 +1,23 @@
 import type { StaticImageData } from 'next/image';
 
-import { moodboardImages } from './images.generated';
+import { galleryImages } from './images.generated';
 
 /**
- * Shared photo catalogue for the moodboard example. Plain data (no
+ * Shared photo catalogue for the URL-synced state example. Plain data (no
  * `'use client'`) on purpose: the client demo maps it into grid tiles and
  * gallery slides, while the server route (`[[...id]]/page.tsx`) uses the same
  * ids and captions for `generateStaticParams`, per-photo metadata, and 404s —
  * one list, so a photo's URL can never drift from its slide.
  */
-export interface MoodboardPhoto {
-  /** URL segment for the photo's deep link (`…/moodboard/mb-05`). */
+export interface GalleryPhoto {
+  /** URL segment for the photo's deep link (`…/url-synced-state/mb-05`). */
   id: string;
   alt: string;
   caption: string;
   image: StaticImageData;
 }
 
-export const moodboardPhotos: MoodboardPhoto[] = (
+export const galleryPhotos: GalleryPhoto[] = (
   [
     { id: 'mb-01', alt: 'Foggy pine ridge at dawn', caption: 'Dawn ridge' },
     { id: 'mb-02', alt: 'Empty coastal highway', caption: 'Open road' },
@@ -32,4 +32,4 @@ export const moodboardPhotos: MoodboardPhoto[] = (
     { id: 'mb-11', alt: 'Single tree in a green field', caption: 'Lone tree' },
     { id: 'mb-12', alt: 'Textured stone wall', caption: 'Stonework' },
   ] as const
-).map((photo, i) => ({ ...photo, image: moodboardImages[i]! }));
+).map((photo, i) => ({ ...photo, image: galleryImages[i]! }));
