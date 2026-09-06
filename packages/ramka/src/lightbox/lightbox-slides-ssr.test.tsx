@@ -60,9 +60,16 @@ describe('LightboxSlides server rendering (SSR-open pages)', () => {
     expect(scrollport).toContain('--lightbox-ssr-index:2');
     // LTR shifts left.
     expect(scrollport).toContain('--lightbox-ssr-shift-sign:-1');
-    // The track is a live native scroller under translated content — frozen
-    // so a pre-hydration swipe can't scroll across the vacated blank slots.
-    expect(scrollport).toContain('overflow-x:hidden');
+    // Not a scroll container at all while slides are translated — `clip`, on
+    // BOTH axes (single-axis clip computes to hidden next to a scrollable
+    // value). `hidden` isn't enough: it still freezes swipes, but the box
+    // stays programmatically scrollable and Gecko restores element scroll
+    // offsets across reloads BEFORE first paint — restored offset + transform
+    // double-shifted the track (Firefox painted slide 2×index, or the blank
+    // region past the preload window). `clip` pins scrollLeft at 0 until the
+    // retire commit makes the box a scroller again and writes the real offset.
+    expect(scrollport).toContain('overflow-x:clip');
+    expect(scrollport).toContain('overflow-y:clip');
     // Snap must be off while slides are translated: the hydration jump writes
     // the real scrollLeft under the shift, and engines with snap-target
     // tracking (Chromium) would capture the slide *visually* at that offset —

@@ -33,10 +33,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   scrollable-overflow area, so under the shift `scrollWidth` shrinks and a
   jump gets clamped slides short (Safari painted the wrong slide and strip
   until a later correction); Chromium's scroll-snap target tracking captures
-  the slide *visually* at a written offset and re-aligns to it — the wrong
-  slide — once the transform leaves. Opt-in, for scrollport-wide (bleed)
-  tracks only; mirror the track's `gap` into `--lightbox-ssr-slide-gap`.
-  RTL-aware.
+  the   slide *visually* at a written offset and re-aligns to it — the wrong
+  slide — once the transform leaves; and Gecko restores element scroll
+  offsets across reloads before first paint, so while the shift is on the
+  scrollport is not a scroll container at all (`overflow: clip` on both
+  axes — restored offset + transform had double-shifted Firefox reloads to
+  slide 2×index, or to the blank region past the preload window). Opt-in,
+  for scrollport-wide (bleed) tracks only; mirror the track's `gap` into
+  `--lightbox-ssr-slide-gap`. RTL-aware.
 - Independent of the opt-in, `Lightbox.Item` now marks the active item in
   server HTML (`data-ssr-active`) and `Lightbox.Slides` ships a
   `scroll-initial-target` rule for it, so engines that support the property

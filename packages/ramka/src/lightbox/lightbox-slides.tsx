@@ -753,11 +753,20 @@ const LightboxSlides = React.forwardRef<HTMLDivElement, LightboxSlidesProps>(
                 // this scrollport (consumer styles; not a new prop).
                 containerType: 'size',
                 // SSR shift inputs (after `...style` — they must win while the
-                // stand-in is on). `overflow-x: hidden` freezes the scroller:
-                // it is a live native scroller whose content has merely been
-                // translated, so a pre-hydration swipe would reveal the blank
-                // positions the slides vacated. Programmatic `scrollLeft`
-                // writes (the hydration jump) work on hidden overflow.
+                // stand-in is on). `overflow-x: clip` — not `hidden` — because
+                // the box must not be a scroll container at all while the
+                // slides are translated: `hidden` freezes user swipes but stays
+                // programmatically scrollable, and Gecko restores element
+                // scroll offsets across reloads BEFORE first paint — restored
+                // offset + transform double-shifted the track, painting the
+                // blank region the slides vacated (Firefox-only: WebKit and
+                // Chromium don't restore element scroll on reload). `clip`
+                // pins scrollLeft at 0, so there is nothing to restore into;
+                // the real offset is written at retire, after this block
+                // leaves and the box is a scroller again (nothing in the shift
+                // window needs scroller-ness: snap is off below, the
+                // ThumbnailStrip bails on `data-ssr-shift`, and the jump is
+                // deliberately deferred to the retire commit).
                 // Deliberate: this block is NOT gated on style hoisting, so a
                 // React 18 server paint (no hoistable, no transform rule) still
                 // gets the freeze — slide 0 shown un-swipeable until hydration,
@@ -770,9 +779,14 @@ const LightboxSlides = React.forwardRef<HTMLDivElement, LightboxSlidesProps>(
                 // does) re-aligns to it — i.e. scrolls to the wrong slide — the
                 // moment the transform leaves. The whole block leaves with
                 // `ssrShiftActive`.
+                // BOTH axes must be `clip`: per CSS Overflow, `clip` computes
+                // to `hidden` when the other axis is any scrollable value
+                // (the scrollport's base overflow-y is `hidden`), and a
+                // hidden box is still a scroll container Gecko restores into.
                 ...(ssrShiftActive
                   ? ({
-                      overflowX: 'hidden',
+                      overflowX: 'clip',
+                      overflowY: 'clip',
                       scrollSnapType: 'none',
                       [LightboxSlidesCssVars.ssrIndex]: activeIndex,
                       [LightboxSlidesCssVars.ssrShiftSign]: dir === 'rtl' ? 1 : -1,
