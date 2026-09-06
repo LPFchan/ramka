@@ -209,13 +209,25 @@ describe('Lightbox.Slides', () => {
     // must be absent in server HTML and present, with the real offset in
     // place, after hydration. If the re-entry notify is ever dropped, the
     // strip stays unpositioned (hidden) forever and this test fails.
+    //
+    // The SSR stamps (`data-ssr-active` on the active Item, `data-morph-target`
+    // on the active Trigger) ride it too: they're gated on `useIsServerPaint`,
+    // so the hydration render matches the server byte-for-byte (React 19 warns
+    // on server-rendered attributes the hydration render omits — the
+    // console.error spy below pins that), the flip removes `data-ssr-active`,
+    // and the Trigger's re-sync keeps `data-morph-target` on the active
+    // trigger through the flip's React-side removal.
     const { renderToString } = await import('react-dom/server');
     const { hydrateRoot } = await import('react-dom/client');
     const { LightboxThumbnailStrip } = await import('./lightbox-thumbnail-strip');
     const { LightboxThumbnailStripTrack } = await import('./lightbox-thumbnail-strip-track');
     const ui = (
       <LightboxRoot defaultOpen defaultValue={2}>
-        <LightboxTrigger index={0}>open</LightboxTrigger>
+        {Array.from({ length: 4 }, (_, i) => (
+          <LightboxTrigger key={i} index={i} data-testid={`trigger-${i}`}>
+            open {i}
+          </LightboxTrigger>
+        ))}
         <LightboxPortal container={null}>
           <LightboxContent aria-label="hydration handoff">
             <LightboxSlides data-testid="slides" ssrSlideShift aria-label="Slides">
@@ -248,7 +260,13 @@ describe('Lightbox.Slides', () => {
     container.innerHTML = renderToString(ui);
     const viewport = container.querySelector<HTMLElement>('[data-ramka-slides]')!;
     const strip = container.querySelector<HTMLElement>('[data-ramka-thumbnail-strip]')!;
+    const activeTrigger = container.querySelector<HTMLElement>('[data-testid="trigger-2"]')!;
     expect(viewport).toHaveAttribute('data-ssr-shift');
+    // Server HTML carries the SSR stamps for the active index.
+    expect(container.querySelector('[data-index="2"][data-ramka-item]')).toHaveAttribute(
+      'data-ssr-active',
+    );
+    expect(activeTrigger).toHaveAttribute('data-morph-target');
     // Scroll/transform positions cannot be serialized: server HTML must never
     // claim the strip is positioned.
     expect(strip).not.toHaveAttribute('data-positioned');
@@ -257,11 +275,21 @@ describe('Lightbox.Slides', () => {
     applySlideGeometry(viewport, 4);
     expect(viewport.scrollLeft).toBe(0);
 
+    const consoleErrorSpy = vi.spyOn(console, 'error');
     let root!: ReturnType<typeof hydrateRoot>;
     try {
       act(() => {
         root = hydrateRoot(container, ui);
       });
+
+      // The hydration render must match the server markup byte-for-byte —
+      // React 19 reports any attribute diff ("A tree hydrated but some
+      // attributes of the server rendered HTML didn't match…") through
+      // console.error.
+      const hydrationComplaints = consoleErrorSpy.mock.calls.filter((call) =>
+        call.some((arg) => typeof arg === 'string' && /hydrat/i.test(arg)),
+      );
+      expect(hydrationComplaints).toEqual([]);
 
       // One retire commit: stand-in gone AND the real offset in place.
       expect(viewport).not.toHaveAttribute('data-ssr-shift');
@@ -269,7 +297,15 @@ describe('Lightbox.Slides', () => {
       expect(viewport.scrollLeft).toBe(2 * WIDTH);
       // The strip was re-entered after the handoff and marked positioned.
       expect(strip).toHaveAttribute('data-positioned');
+      // The flip un-renders `data-ssr-active` (its scroll-initial-target job
+      // ended at the scroller's initial layout)…
+      expect(container.querySelector('[data-ssr-active]')).toBeNull();
+      // …but the active trigger must STAY hidden: React's flip-side removal of
+      // the prop copy is restored by the morph-sync layout effect in the same
+      // commit.
+      expect(activeTrigger).toHaveAttribute('data-morph-target');
     } finally {
+      consoleErrorSpy.mockRestore();
       // Manual root — testing-library cleanup doesn't know about it, and a
       // leaked open lightbox breaks every later `data-testid` query.
       act(() => root?.unmount());

@@ -43,7 +43,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (Chromium) scroll a server-rendered open lightbox to the correct slide
   before first paint for ANY slide widths — including content-sized (snug)
   layouts the transform shift cannot serve. Other engines keep the
-  hydration-time jump. **Migration note:** if you hand-rolled a first-paint
+  hydration-time jump. All SSR stamps (`data-ssr-shift`, `data-ssr-active`,
+  the trigger's `data-morph-target`) are rendered by the hydration pass too
+  and retired right after, so they hydrate without React 19's
+  attribute-mismatch warning. **Migration note:** if you hand-rolled a first-paint
   transform stand-in for SSR-open pages (the pattern the moodboard example
   demonstrated before this release), delete it and pass `ssrSlideShift`
   instead — on Chromium the new native initial scroll and a custom transform

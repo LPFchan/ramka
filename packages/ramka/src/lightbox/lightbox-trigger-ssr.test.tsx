@@ -1,9 +1,10 @@
 // @vitest-environment node
 //
 // Server rendering of an OPEN lightbox (deep links rendering the Portal in
-// place). Runs under node — no jsdom — because the trigger's SSR-only
-// `data-morph-target` stamp is gated on `typeof window === 'undefined'`,
-// which is true in real server rendering but not in a jsdom test.
+// place). Runs under node — no jsdom — to exercise the real server
+// environment (the trigger's `data-morph-target` stamp is gated on
+// `useIsServerPaint`, whose server snapshot renderToString serves in any
+// environment).
 import * as React from 'react';
 import { renderToString } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';

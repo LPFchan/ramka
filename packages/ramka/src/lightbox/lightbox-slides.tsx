@@ -17,6 +17,7 @@ import {
 import { readInlineScroll, writeInlineScroll } from './lightbox-direction';
 import { isFirefox } from './is-firefox';
 import { useDirectionMismatchWarning } from './use-direction-mismatch-warning';
+import { useIsServerPaint } from './use-server-paint';
 import { useLightboxZoomPublish } from './lightbox-zoom-context';
 import { mergeProps } from '../render/merge-props';
 import { useRender } from '../render/use-render';
@@ -158,10 +159,6 @@ function clamp(value: number, min: number, max: number): number {
   return value < min ? min : value > max ? max : value;
 }
 
-/** Store that never changes — see the `isServerPaint` useSyncExternalStore. */
-function emptySubscribe(): () => void {
-  return () => {};
-}
 
 const slidesStateAttributesMapping = {
   activeIndex: (value: unknown) => ({ 'data-active-index': String(value) }),
@@ -230,20 +227,17 @@ const LightboxSlides = React.forwardRef<HTMLDivElement, LightboxSlidesProps>(
     activeIndexRef.current = activeIndex;
 
     // The `ssrSlideShift` transform stand-in (see ssr-initial-slide.ts). Active
-    // ONLY while the markup on screen is server HTML: `useSyncExternalStore`
-    // serves the server snapshot (`true`) to both the server render and the
-    // hydration render — markup matches byte-for-byte, no hydration warning —
-    // and the post-hydration store consistency check re-renders with the
-    // client snapshot (`false`), which is what retires the stand-in (real
-    // scroll in, transform out, in one commit). NOTE the retire's timing: on
-    // hydration React registers that check as a PASSIVE effect, so the retire
-    // lands in the passive flush after the hydration commit — usually but not
-    // provably before the hydrated frame paints. That's fine for the slides
-    // themselves (a shifted frame is pixel-identical to the real offset — the
-    // whole point of the stand-in), but nothing that positions against the
-    // scroller may trust its offset while the shift attribute is present:
-    // ThumbnailStrip holds `data-positioned` back for exactly this window and
-    // re-enters via the retire's notifySlidesViewport.
+    // ONLY while the markup on screen is server HTML (`useIsServerPaint`);
+    // React's post-hydration flip to `false` is what retires the stand-in
+    // (real scroll in, transform out, in one commit). NOTE the retire's
+    // timing: the flip is a passive-effect re-render after the hydration
+    // commit — usually but not provably before the hydrated frame paints.
+    // That's fine for the slides themselves (a shifted frame is
+    // pixel-identical to the real offset — the whole point of the stand-in),
+    // but nothing that positions against the scroller may trust its offset
+    // while the shift attribute is present: ThumbnailStrip holds
+    // `data-positioned` back for exactly this window and re-enters via the
+    // retire's notifySlidesViewport.
     //
     // Pure client-side opens NEVER render the shift — not even for a retired
     // first pass. An earlier version did (state initialized from the prop, a
@@ -258,11 +252,7 @@ const LightboxSlides = React.forwardRef<HTMLDivElement, LightboxSlidesProps>(
     // (server paint → hydration), the inline style below also disables
     // scroll-snap, so no engine can capture a snap target through transformed
     // positions in the first place.
-    const isServerPaint = React.useSyncExternalStore(
-      emptySubscribe,
-      () => false,
-      () => true,
-    );
+    const isServerPaint = useIsServerPaint();
     const ssrShiftActive = ssrSlideShift && isServerPaint;
 
     const mergedRef = React.useCallback(

@@ -1,9 +1,9 @@
 // @vitest-environment node
 //
 // Server rendering of an OPEN lightbox — the SSR initial-slide feature
-// (ssr-initial-slide.ts). Runs under node because the Item stamp is gated on
-// `typeof window === 'undefined'`, which is true in real server rendering but
-// not in jsdom.
+// (ssr-initial-slide.ts). Runs under node to exercise the real server
+// environment (the Item stamp is gated on `useIsServerPaint`, whose server
+// snapshot renderToString serves in any environment).
 import * as React from 'react';
 import { renderToString } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
