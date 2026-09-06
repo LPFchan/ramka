@@ -304,6 +304,11 @@ export function UrlSyncedStateDemo() {
           items={galleryItems}
           ariaLabel="Gallery photos"
           backdrop="solid"
+          // Items register captions in effects, which never run on the server —
+          // without this a deep-link visit paints an empty caption placard.
+          // Fallback children render only until the registry fills, so it can't
+          // go stale after a swipe.
+          captionFallback={deepLinkVisit ? galleryPhotos[index]?.caption : undefined}
           // Server-rendered deep links paint the deep-linked slide, not slide 0
           // (library feature — forwarded to `Lightbox.Slides`). Inert for
           // regular visits: the stand-in only renders for server paint.

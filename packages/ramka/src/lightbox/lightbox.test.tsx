@@ -1422,6 +1422,59 @@ describe('Lightbox', () => {
       expect(screen.getByTestId('caption')).toHaveAttribute('data-has-caption');
     });
 
+    it('paints the children fallback on the server, where captions cannot register', async () => {
+      // Caption registration is an effect — it never runs during server
+      // rendering, so without the fallback an SSR-open page paints an empty
+      // caption region until hydration.
+      const { renderToString } = await import('react-dom/server');
+      const ui = (fallback?: React.ReactNode) => (
+        <LightboxRoot defaultOpen defaultValue={1}>
+          <LightboxPortal container={null}>
+            <LightboxContent aria-label="Test">
+              <SlidesHost>
+                {Array.from({ length: 3 }, (_, i) => (
+                  <LightboxItem key={i} index={i} caption={`Caption ${i}`}>
+                    Item {i}
+                  </LightboxItem>
+                ))}
+              </SlidesHost>
+              <LightboxCaption>{fallback}</LightboxCaption>
+            </LightboxContent>
+          </LightboxPortal>
+        </LightboxRoot>
+      );
+
+      expect(renderToString(ui('Caption 1'))).toContain('Caption 1');
+      // The pre-fallback baseline this guards against.
+      expect(renderToString(ui())).not.toContain('Caption 1');
+    });
+
+    it('caption fallback yields to the registry once any item has registered', () => {
+      render(
+        <LightboxRoot defaultOpen defaultValue={0}>
+          <LightboxPortal>
+            <LightboxContent aria-label="Test">
+              <SlidesHost>
+                <LightboxItem index={0} caption="Registered caption">
+                  Item 0
+                </LightboxItem>
+                <LightboxItem index={1}>Item 1</LightboxItem>
+              </SlidesHost>
+              <LightboxCaption data-testid="fallback-caption">Stale fallback</LightboxCaption>
+              <LightboxNext data-testid="fallback-next">Next</LightboxNext>
+            </LightboxContent>
+          </LightboxPortal>
+        </LightboxRoot>,
+      );
+      // Registry wins for the active item…
+      expect(screen.getByTestId('fallback-caption').textContent).toBe('Registered caption');
+      // …and a caption-less item renders empty, NOT the fallback: after
+      // registration a missing entry means "no caption", the fallback
+      // describes one specific pre-registration item.
+      fireEvent.click(screen.getByTestId('fallback-next'));
+      expect(screen.getByTestId('fallback-caption').textContent).toBe('');
+    });
+
     it('caption updates reactively when the active item caption changes without navigating', () => {
       function CaptionWrapper({ text }: { text: string }) {
         return (

@@ -292,6 +292,11 @@ export const generatedProps: Record<string, PropRow[]> = {
   ],
   "api-caption": [
     {
+      name: "children",
+      type: "ReactNode",
+      description: "Fallback content, rendered only while the caption registry is empty. Items register their `caption` in effects, which never run during server rendering (and land only after the first client paint) — so a page that renders an open lightbox paints an empty caption until then. Pass the active item's caption here (you know it on such pages — it's how you rendered the metadata) to make the first paint correct. The moment any item registers, the registry wins and the fallback never renders again, so it can't show stale text after navigation.",
+    },
+    {
       name: "render",
       type: "ReactElement | ComponentRenderFn",
       description: "Replaces the part's default element with another tag or component. Accepts an element to clone, or a function that returns one.",

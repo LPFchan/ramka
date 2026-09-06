@@ -289,6 +289,13 @@ export function LightboxGallery({
    * fall back to the library's `scroll-initial-target` path instead).
    */
   ssrSlideShift = false,
+  /**
+   * Forwarded as `Lightbox.Caption`'s children — the pre-registration
+   * fallback for pages that render the viewer already open (server paints
+   * and the first client paint): items register captions in effects, so the
+   * registry is empty until then. Pass the initially-active item's caption.
+   */
+  captionFallback,
 }: {
   items: LightboxGalleryItem[];
   ariaLabel: string;
@@ -306,6 +313,7 @@ export function LightboxGallery({
   overlay?: React.ReactNode;
   portalProps?: React.ComponentProps<typeof Lightbox.Portal>;
   ssrSlideShift?: boolean;
+  captionFallback?: React.ReactNode;
 }) {
   const [slidesLayoutState, setSlidesLayoutState] = React.useState<'bleed' | 'snug'>(
     () => (layoutToggle ? readStoredSlidesLayout() : null) ?? slidesLayoutProp,
@@ -554,7 +562,9 @@ export function LightboxGallery({
             to sr-only and keeps only its aria-live announcement role.
           */}
           <div className="flex max-w-full flex-col items-center text-center">
-            <Lightbox.Caption className="block max-w-full truncate text-[13px] font-medium leading-tight text-neutral-900 dark:text-neutral-50" />
+            <Lightbox.Caption className="block max-w-full truncate text-[13px] font-medium leading-tight text-neutral-900 dark:text-neutral-50">
+              {captionFallback}
+            </Lightbox.Caption>
             {/* "1 of 1" is noise — skip the counter for single-item galleries. */}
             {items.length > 1 ? (
               <Lightbox.Counter className="text-[11px] leading-tight tabular-nums text-neutral-500 dark:text-neutral-400 md:sr-only">

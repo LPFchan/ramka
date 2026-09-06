@@ -1705,6 +1705,7 @@ Renders the active item’s caption from the Item caption registry.
 
 | Name | Type | Default | Description |
 | --- | --- | --- | --- |
+| children | `ReactNode` |  | Fallback content, rendered only while the caption registry is empty. Items register their `caption` in effects, which never run during server rendering (and land only after the first client paint) — so a page that renders an open lightbox paints an empty caption until then. Pass the active item's caption here (you know it on such pages — it's how you rendered the metadata) to make the first paint correct. The moment any item registers, the registry wins and the fallback never renders again, so it can't show stale text after navigation. |
 | render | `ReactElement \| ComponentRenderFn` |  | Replaces the part's default element with another tag or component. Accepts an element to clone, or a function that returns one. |
 
 #### Data attributes
@@ -9158,6 +9159,11 @@ export function UrlSyncedStateDemo() {
           items={galleryItems}
           ariaLabel="Gallery photos"
           backdrop="solid"
+          // Items register captions in effects, which never run on the server —
+          // without this a deep-link visit paints an empty caption placard.
+          // Fallback children render only until the registry fills, so it can't
+          // go stale after a swipe.
+          captionFallback={deepLinkVisit ? galleryPhotos[index]?.caption : undefined}
           // Server-rendered deep links paint the deep-linked slide, not slide 0
           // (library feature — forwarded to `Lightbox.Slides`). Inert for
           // regular visits: the stand-in only renders for server paint.
@@ -9580,7 +9586,14 @@ export function PhotoModal({ initialIndex }: { initialIndex: number }) {
       count={interceptedPhotos.length}
       loop
     >
-      <LightboxGallery items={items} ariaLabel="Gallery photos" backdrop="solid" />
+      <LightboxGallery
+        items={items}
+        ariaLabel="Gallery photos"
+        backdrop="solid"
+        // The Root mounts already open and captions register in effects (after
+        // the first paint) — the fallback covers that first-paint window.
+        captionFallback={interceptedPhotos[index]?.caption}
+      />
     </Lightbox.Root>
   );
 }

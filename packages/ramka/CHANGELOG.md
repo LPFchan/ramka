@@ -60,6 +60,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   / `Lightbox.Previous` (with `loop` off). Pass the item total to make that
   first paint correct; the live registry takes over the moment any item
   mounts, so a stale value can't outlive hydration.
+- `Lightbox.Caption` children are now the pre-registration fallback: rendered
+  only while the caption registry is empty (server paints, and the first
+  client paint of an already-open lightbox — items register captions in
+  effects, which run after it). Pass the initially-active item's caption so
+  deep-link pages paint it on first paint. The moment any item registers,
+  the registry wins and the fallback never renders again. Previously children
+  passed to `Lightbox.Caption` were silently discarded.
 - `Lightbox.CSPProvider`: pass your page's per-request CSP nonce and every
   inline `<style>` tag the library renders (media fill, morph-target hide,
   SSR initial slide) carries it, so strict `style-src` policies keep the

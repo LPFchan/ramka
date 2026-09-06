@@ -191,7 +191,14 @@ export function PhotoModal({ initialIndex }: { initialIndex: number }) {
       count={interceptedPhotos.length}
       loop
     >
-      <LightboxGallery items={items} ariaLabel="Gallery photos" backdrop="solid" />
+      <LightboxGallery
+        items={items}
+        ariaLabel="Gallery photos"
+        backdrop="solid"
+        // The Root mounts already open and captions register in effects (after
+        // the first paint) — the fallback covers that first-paint window.
+        captionFallback={interceptedPhotos[index]?.caption}
+      />
     </Lightbox.Root>
   );
 }
