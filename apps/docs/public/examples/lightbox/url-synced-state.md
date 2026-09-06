@@ -184,6 +184,22 @@ export function UrlSyncedStateDemo() {
   // is the SSR flags below briefly suppress an open fade nobody would see.
   const [deepLinkVisit] = React.useState(urlIndex !== -1);
 
+  // Destination blur is the ONE exception to the Next.js Image guide's rule
+  // ("index has a trigger image → no destination blur"). That rule exists
+  // because on gesture opens Ramka paints the trigger's already-decoded image
+  // behind the destination, and an LQIP would cover that sharp bridge with a
+  // blurry one. A deep-link visit has no gesture: the bridge can't paint
+  // before hydration and the grid image is cold-loading in parallel — while
+  // `blurDataURL` is inlined into the server HTML, making it the only
+  // placeholder that can exist on first paint. So: blur destinations for
+  // deep-link visits, keep them clean for regular visits. Per-mount like the
+  // portal decision above; the (unchanged) LQIP background layers behind
+  // already-loaded pixels, so later in-session opens stay bridged and sharp.
+  const galleryItems = React.useMemo(
+    () => (deepLinkVisit ? items.map((item) => ({ ...item, destinationBlur: true })) : items),
+    [deepLinkVisit],
+  );
+
   // Deep links paint the RIGHT photo before hydration via the library's
   // `Slides ssrSlideShift` (passed through LightboxGallery below): the server
   // HTML carries a transform that translates every slide by
@@ -364,7 +380,7 @@ export function UrlSyncedStateDemo() {
         </div>
 
         <LightboxGallery
-          items={items}
+          items={galleryItems}
           ariaLabel="Gallery photos"
           backdrop="solid"
           // Server-rendered deep links paint the deep-linked slide, not slide 0

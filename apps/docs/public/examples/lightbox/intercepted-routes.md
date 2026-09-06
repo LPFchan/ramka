@@ -107,6 +107,11 @@ const items = interceptedPhotos.map((photo) => ({
   ...photo,
   src: photo.image,
   thumb: photo.image,
+  // No `Lightbox.Trigger`s exist anywhere in this pattern (the grid is plain
+  // Links), so no index has a trigger image and Ramka has nothing to bridge —
+  // per the Next.js Image guide, the destination LQIP is the only loading
+  // placeholder and belongs on every item.
+  destinationBlur: true,
 }));
 
 /**

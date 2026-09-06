@@ -15,6 +15,8 @@ Decide **per item index**, not per gallery. Ramka paints an open bridge only whe
 | Lightbox image, index *has* a trigger image ( `imageRef`) | No | While the full-size image loads, Ramka paints the trigger’s image — already decoded and on screen — onto a canvas *behind* the lightbox image. Next’s LQIP renders as a background on the lightbox image itself, in front of that canvas, so blur here hides a sharp placeholder behind a blurry one. |
 | Lightbox image, index has *no* trigger image | Yes | Ramka has no trigger image to paint, so the LQIP is the only loading placeholder (see [No trigger image](#no-trigger-image)). |
 
+**One exception:** pages that server-render the lightbox already open (deep links). The bridge is painted on gesture opens — a server-rendered open has no gesture, and before hydration nothing is decoded to paint from — while `blurDataURL` is inlined into the server HTML itself. For those visits, destination blur is the only placeholder that can exist on first paint: enable it for the deep-link visit and keep destinations clean for regular visits (decide once per mount, like the portal container). See the URL-synced state example.
+
 ## Do
 
 Static-import the same asset for trigger and destination (Next fills in `blurDataURL`). Blur the trigger; leave the destination clean. Square trigger crop is CSS only — keep source aspect matched to Media. See [View transitions → Source aspect](docs/lightbox/view-transitions.md#source-aspect) for a live Do / Don't.

@@ -111,6 +111,18 @@ export default function LightboxNextjsImagePage() {
             </tbody>
           </table>
         </div>
+        <p className="mt-4">
+          <strong className="font-medium text-neutral-800 dark:text-neutral-200">
+            One exception:
+          </strong>{' '}
+          pages that server-render the lightbox already open (deep links). The bridge is painted on
+          gesture opens — a server-rendered open has no gesture, and before hydration nothing is
+          decoded to paint from — while <code className="text-xs">blurDataURL</code> is inlined
+          into the server HTML itself. For those visits, destination blur is the only placeholder
+          that can exist on first paint: enable it for the deep-link visit and keep destinations
+          clean for regular visits (decide once per mount, like the portal container). See the
+          URL-synced state example.
+        </p>
       </DocsSection>
 
       <DocsSection id="do" title="Do">
