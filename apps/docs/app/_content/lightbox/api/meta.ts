@@ -396,6 +396,17 @@ export const lightboxApiMeta: ApiPartMeta[] = [
       file: 'lightbox-data-attributes.ts',
     },
   },
+  {
+    id: 'api-csp-provider',
+    name: 'CSPProvider',
+    description:
+      'Provides the Content-Security-Policy nonce for the few inline <style> tags ramka renders (media fill, active-trigger hide, SSR initial slide). Wrap it around everything that renders lightbox parts — including detached Triggers outside any Root — and pass the same per-request nonce that your server puts in the style-src / style-src-elem directive and in the React render call (React 19.2+). Without it, strict-CSP pages refuse those tags and the library falls back to CSSOM delivery after hydration (everything works; only server-paint niceties on SSR-open pages are lost).',
+    extract: {
+      kind: 'interface-props',
+      typeName: 'LightboxCSPProviderProps',
+      file: 'lightbox-csp.tsx',
+    },
+  },
 ];
 
 export const documentViewTransitionMeta: ApiPartMeta = {

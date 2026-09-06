@@ -5,6 +5,7 @@ import * as React from 'react';
 import { LightboxSlidesDataAttributes } from './lightbox-data-attributes';
 import { LightboxSlidesCssVars } from './lightbox-css-vars';
 import { useLightboxContext } from './lightbox-context';
+import { useLightboxStyleNonce } from './lightbox-csp';
 import { REACT_SUPPORTS_STYLE_HOISTING } from './react-style-hoisting';
 import { SSR_INITIAL_SLIDE_CSS, SSR_INITIAL_SLIDE_HREF } from './ssr-initial-slide';
 import {
@@ -171,6 +172,7 @@ const LightboxSlides = React.forwardRef<HTMLDivElement, LightboxSlidesProps>(
       notifySlidesViewport,
     } = useLightboxContext();
     const { activeZoomRef } = useLightboxZoomPublish();
+    const styleNonce = useLightboxStyleNonce();
 
     const viewportRef = React.useRef<HTMLDivElement | null>(null);
     // Local mirror of context `slidesGeometryRef` for hot scroll paths.
@@ -653,10 +655,11 @@ const LightboxSlides = React.forwardRef<HTMLDivElement, LightboxSlidesProps>(
           only matter for the server paint, and both attributes they match are
           gone by the end of the hydration commit, so a client-injected copy
           could never apply. Where the tag is unavailable or refused (React 18,
-          strict CSP) the page keeps the pre-existing hydration-jump behavior.
+          strict CSP without a `Lightbox.CSPProvider` nonce) the page keeps
+          the pre-existing hydration-jump behavior.
         */}
         {REACT_SUPPORTS_STYLE_HOISTING ? (
-          <style href={SSR_INITIAL_SLIDE_HREF} precedence="ramka">
+          <style href={SSR_INITIAL_SLIDE_HREF} precedence="ramka" nonce={styleNonce}>
             {SSR_INITIAL_SLIDE_CSS}
           </style>
         ) : null}

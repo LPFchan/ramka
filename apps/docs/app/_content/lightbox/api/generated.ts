@@ -414,6 +414,18 @@ export const generatedProps: Record<string, PropRow[]> = {
       description: "Replaces the part's default element with another tag or component. Accepts an element to clone, or a function that returns one.",
     },
   ],
+  "api-csp-provider": [
+    {
+      name: "nonce",
+      type: "string",
+      description: "The per-request CSP nonce (the value behind `'nonce-…'` in the `style-src` / `style-src-elem` directive). Stamped on every inline `<style>` tag the lightbox renders so strict-CSP pages keep the first-paint rules (media fill, active-trigger hide, SSR initial slide).",
+    },
+    {
+      name: "children",
+      type: "ReactNode",
+      description: "—",
+    },
+  ],
   "api-view-transition-document": [],
   "api-use-trigger-context": [
     {
@@ -788,6 +800,7 @@ export const generatedAttributes: Record<string, AttrRow[]> = {
       description: "Present when zoom-out is unavailable.",
     },
   ],
+  "api-csp-provider": [],
   "api-view-transition-document": [
     {
       name: "data-ramka-view-transition",
@@ -876,6 +889,7 @@ export const generatedCssVariables: Record<string, CssVarRow[]> = {
   "api-zoom": [],
   "api-zoom-in": [],
   "api-zoom-out": [],
+  "api-csp-provider": [],
   "api-view-transition-document": [
     {
       name: "--lightbox-morph-border-radius-from",

@@ -107,6 +107,7 @@
  *   Zoom            — Zoom/pan wrapper for item content (pinch, scroll, keyboard)
  *   ZoomIn          — Button to zoom in (consumes ZoomContext)
  *   ZoomOut         — Button to zoom out (consumes ZoomContext)
+ *   CSPProvider     — Supplies the CSP style nonce for the inline <style> tags
  */
 export { createHandle } from './lightbox-handle';
 export type { LightboxHandle, LightboxHandleOpenOptions } from './lightbox-handle';
@@ -133,6 +134,7 @@ export { LightboxThumbnailStripTrack as ThumbnailStripTrack } from './lightbox-t
 export { LightboxZoom as Zoom } from './lightbox-zoom';
 export { LightboxZoomIn as ZoomIn } from './lightbox-zoom-in';
 export { LightboxZoomOut as ZoomOut } from './lightbox-zoom-out';
+export { LightboxCSPProvider as CSPProvider } from './lightbox-csp';
 
 export type {
   LightboxRootProps,
@@ -175,6 +177,7 @@ export type { TextDirection } from './lightbox-direction';
 export type { LightboxZoomProps, LightboxZoomState, LightboxZoomRef } from './lightbox-zoom';
 export type { LightboxZoomInProps, LightboxZoomInState } from './lightbox-zoom-in';
 export type { LightboxZoomOutProps, LightboxZoomOutState } from './lightbox-zoom-out';
+export type { LightboxCSPProviderProps } from './lightbox-csp';
 
 export {
   LightboxTriggerDataAttributes,

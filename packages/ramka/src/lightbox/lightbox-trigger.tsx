@@ -20,6 +20,7 @@ import {
   MORPH_TARGET_HIDE_HREF,
   MORPH_TARGET_HIDE_MARKER,
 } from './morph-target-hide';
+import { useLightboxStyleNonce } from './lightbox-csp';
 import { REACT_SUPPORTS_STYLE_HOISTING } from './react-style-hoisting';
 import { ensureLibrarySheet } from './vt-style-sheets';
 import { ignoreStateAttribute } from './lightbox-state-attributes';
@@ -150,6 +151,7 @@ const LightboxTrigger = React.forwardRef<HTMLButtonElement, LightboxTriggerProps
       props;
 
     const rootContext = React.useContext(LightboxContext);
+    const styleNonce = useLightboxStyleNonce();
     if (!rootContext && !handleProp) {
       throw new Error(
         'Lightbox.Trigger must be used within a Lightbox.Root, or passed a handle from Lightbox.createHandle()',
@@ -558,10 +560,12 @@ const LightboxTrigger = React.forwardRef<HTMLButtonElement, LightboxTriggerProps
           tag per trigger (a 200-tile grid ships 200 copies and shifts
           consumers' :nth-child selectors), so it keeps the CSSOM-only
           baseline; see react-style-hoisting.ts. Under a strict `style-src`
-          the tag is refused and the CSSOM copy above takes over.
+          the tag is refused unless `Lightbox.CSPProvider` supplies the
+          page's nonce (React 19.2+); otherwise the CSSOM copy above takes
+          over.
         */}
         {REACT_SUPPORTS_STYLE_HOISTING ? (
-          <style href={MORPH_TARGET_HIDE_HREF} precedence="ramka">
+          <style href={MORPH_TARGET_HIDE_HREF} precedence="ramka" nonce={styleNonce}>
             {MORPH_TARGET_HIDE_CSS}
           </style>
         ) : null}

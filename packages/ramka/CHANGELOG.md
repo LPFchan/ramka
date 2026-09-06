@@ -32,6 +32,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   before first paint for ANY slide widths — including content-sized (snug)
   layouts the transform shift cannot serve. Other engines keep the
   hydration-time jump.
+- `Lightbox.CSPProvider`: pass your page's per-request CSP nonce and every
+  inline `<style>` tag the library renders (media fill, morph-target hide,
+  SSR initial slide) carries it, so strict `style-src` policies keep the
+  first-paint rules instead of falling back to post-hydration CSSOM delivery.
+  Wrap it around everything that renders lightbox parts, including detached
+  `Lightbox.Trigger`s outside any Root. Server-rendered tags additionally
+  need the nonce on the render call (React 19.2+
+  `renderToPipeableStream(el, { nonce: { style } })`); client-inserted tags
+  carry it unconditionally. See the Content Security Policy docs page.
 
 ### Changed
 

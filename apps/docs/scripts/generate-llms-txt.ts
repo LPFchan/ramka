@@ -937,6 +937,11 @@ function collectOutputs(): Map<string, string> {
       file: path.join(docsPagesDir, 'lightbox/rtl/page.tsx'),
     },
     {
+      href: lightboxDocsPages.csp.href,
+      title: lightboxDocsPages.csp.title,
+      file: path.join(docsPagesDir, 'lightbox/csp/page.tsx'),
+    },
+    {
       href: lightboxDocsPages.api.href,
       title: lightboxDocsPages.api.title,
       file: path.join(docsPagesDir, 'lightbox/api/page.tsx'),

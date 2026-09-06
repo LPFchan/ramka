@@ -459,6 +459,17 @@ Decrements zoom. Works inside Zoom, or as global chrome via the active-slide zoo
 | `data-ramka-zoom-out` | Always present on the zoom-out button. |
 | `data-disabled` | Present when zoom-out is unavailable. |
 
+### CSPProvider
+
+Provides the Content-Security-Policy nonce for the few inline <style> tags ramka renders (media fill, active-trigger hide, SSR initial slide). Wrap it around everything that renders lightbox parts — including detached Triggers outside any Root — and pass the same per-request nonce that your server puts in the style-src / style-src-elem directive and in the React render call (React 19.2+). Without it, strict-CSP pages refuse those tags and the library falls back to CSSOM delivery after hydration (everything works; only server-paint niceties on SSR-open pages are lost).
+
+#### Props
+
+| Name | Type | Default | Description |
+| --- | --- | --- | --- |
+| nonce | `string` |  | The per-request CSP nonce (the value behind `'nonce-…'` in the `style-src` / `style-src-elem` directive). Stamped on every inline `<style>` tag the lightbox renders so strict-CSP pages keep the first-paint rules (media fill, active-trigger hide, SSR initial slide). |
+| children | `ReactNode` |  | — |
+
 ### Document (view transitions)
 
 While a view-transition morph runs, ramka sets attributes and CSS variables on <html> so you can style ::view-transition-* pseudo-elements. Cleared when the transition finishes.

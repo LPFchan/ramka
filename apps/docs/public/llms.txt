@@ -20,6 +20,7 @@ Compose a fullscreen media lightbox from headless parts: view-transition morph b
 - [Gestures](docs/lightbox/gestures.md): Pull-to-dismiss, zoom/pan, and keyboard ownership. Part of [Lightbox](docs/lightbox.md). For the usual gallery chrome (pull, zoom, keyboard) see the [Default preset](presets/default.md).
 - [Zoom & a11y](docs/lightbox/zoom.md): How ramka’s zoom & pan — on desktop and on touch — lines up with mainstream image viewers, and how it maps to WCAG 2.2. For the wiring and gesture ownership, see [Gestures](docs/lightbox/gestures.md).
 - [RTL support](docs/lightbox/rtl.md): Run the lightbox in a right-to-left reading direction — Arabic, Hebrew, Persian, Urdu. Part of [Lightbox](docs/lightbox.md).
+- [Content Security Policy](docs/lightbox/csp.md): Running the lightbox on pages with a strict `style-src`. Part of [Lightbox](docs/lightbox.md).
 - [API reference](docs/lightbox/api.md): Props, data attributes, and CSS variables for every [Lightbox](docs/lightbox.md) part. Tables are generated from package TypeScript + JSDoc.
 
 ## Presets

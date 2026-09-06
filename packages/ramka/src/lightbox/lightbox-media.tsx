@@ -3,6 +3,7 @@
 import * as React from 'react';
 
 import { LightboxMediaDataAttributes } from './lightbox-data-attributes';
+import { useLightboxStyleNonce } from './lightbox-csp';
 import { useOptionalLightboxItemContext } from './lightbox-item';
 import { insertLibrarySheet } from './lightbox-style-sheets';
 import { REACT_SUPPORTS_STYLE_HOISTING } from './react-style-hoisting';
@@ -127,6 +128,7 @@ const LightboxMedia = React.forwardRef<HTMLDivElement, LightboxMediaProps>(
       ...elementProps
     } = props;
     const item = useOptionalLightboxItemContext();
+    const styleNonce = useLightboxStyleNonce();
     const autoId = React.useId();
     const mediaId = idProp ?? autoId;
     const internalRef = React.useRef<HTMLDivElement | null>(null);
@@ -326,11 +328,12 @@ const LightboxMedia = React.forwardRef<HTMLDivElement, LightboxMediaProps>(
           React-19-only — React 18 has no hoisting and would render one inline
           tag per instance, so it keeps the CSSOM-only baseline; see
           react-style-hoisting.ts. Under a strict `style-src` the tag is
-          refused; the CSSOM copy takes over after hydration, matching the
-          pre-hoistable behavior exactly.
+          refused unless `Lightbox.CSPProvider` supplies the page's nonce
+          (React 19.2+); without one the CSSOM copy takes over after
+          hydration, matching the pre-hoistable behavior exactly.
         */}
         {REACT_SUPPORTS_STYLE_HOISTING ? (
-          <style href="ramka-media-fill" precedence="ramka">
+          <style href="ramka-media-fill" precedence="ramka" nonce={styleNonce}>
             {MEDIA_FILL_CSS}
           </style>
         ) : null}
