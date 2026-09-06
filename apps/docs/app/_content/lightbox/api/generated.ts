@@ -61,6 +61,11 @@ export const generatedProps: Record<string, PropRow[]> = {
       description: "Callback when active index changes.",
     },
     {
+      name: "count",
+      type: "number",
+      description: "Total number of items, used until the mounted `Lightbox.Item`s have registered themselves. Registration happens in effects, which never run during server rendering — so a page that server-renders an open lightbox paints `Lightbox.Counter` as \"n / 0\" (and boundary-disables `Lightbox.Next` / `Lightbox.Previous` when `loop` is off) until hydration. Pass the item total to make that first paint correct. Once any item mounts the live registry takes over and this prop is ignored, so it can't drift from the real count.",
+    },
+    {
       name: "loop",
       type: "boolean",
       default: "false",

@@ -344,6 +344,10 @@ export function UrlSyncedStateDemo() {
         onOpenChange={handleOpenChange}
         value={index}
         onValueChange={handleValueChange}
+        // Items register through effects, which never run on the server — so
+        // without this an SSR-open page paints the counter as "6 of 0" until
+        // hydration. `count` is the pre-registration fallback.
+        count={galleryPhotos.length}
         loop
         scrollTriggerIntoView={[
           { type: 'onChange', behavior: 'instant' },

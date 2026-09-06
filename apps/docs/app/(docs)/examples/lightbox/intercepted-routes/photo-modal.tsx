@@ -95,6 +95,9 @@ export function PhotoModal({ initialIndex }: { initialIndex: number }) {
       onOpenChangeComplete={handleOpenChangeComplete}
       value={index}
       onValueChange={handleValueChange}
+      // The Root mounts already open; `count` covers the render before the
+      // items' registration effects run so the counter never reads "n of 0".
+      count={interceptedPhotos.length}
       loop
     >
       <LightboxGallery items={items} ariaLabel="Gallery photos" backdrop="solid" />

@@ -52,6 +52,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   instead — on Chromium the new native initial scroll and a custom transform
   would BOTH move the track, painting a blank until hydration. The library
   suppresses `scroll-initial-target` under its own `data-ssr-shift` only.
+- `Lightbox.Root count`: the total number of items, used until the mounted
+  `Lightbox.Item`s have registered themselves. Registration happens in
+  effects, which never run during server rendering (and land only after the
+  first client paint), so a page that renders an open lightbox before then
+  painted `Lightbox.Counter` as "6 / 0" and boundary-disabled `Lightbox.Next`
+  / `Lightbox.Previous` (with `loop` off). Pass the item total to make that
+  first paint correct; the live registry takes over the moment any item
+  mounts, so a stale value can't outlive hydration.
 - `Lightbox.CSPProvider`: pass your page's per-request CSP nonce and every
   inline `<style>` tag the library renders (media fill, morph-target hide,
   SSR initial slide) carries it, so strict `style-src` policies keep the

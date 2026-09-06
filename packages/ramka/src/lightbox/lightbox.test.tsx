@@ -1475,6 +1475,61 @@ describe('Lightbox', () => {
       );
       expect(screen.getByTestId('counter').textContent).toBe('3 of 4');
     });
+
+    it('paints the `count` fallback on the server, where items cannot register', async () => {
+      // Item registration is an effect — it never runs during server
+      // rendering, so without the fallback an SSR-open page paints the
+      // counter as "6 / 0" and (loop off) boundary-disables Next until
+      // hydration. `count` is what makes that first paint correct.
+      const { renderToString } = await import('react-dom/server');
+      const ui = (count?: number) => (
+        <LightboxRoot defaultOpen defaultValue={5} count={count}>
+          <LightboxPortal container={null}>
+            <LightboxContent aria-label="Test">
+              <SlidesHost>
+                {Array.from({ length: 12 }, (_, i) => (
+                  <LightboxItem key={i} index={i}>
+                    Item {i}
+                  </LightboxItem>
+                ))}
+              </SlidesHost>
+              <LightboxCounter data-testid="ssr-counter" />
+              <LightboxNext data-testid="ssr-next">Next</LightboxNext>
+            </LightboxContent>
+          </LightboxPortal>
+        </LightboxRoot>
+      );
+
+      const withCount = renderToString(ui(12));
+      expect(withCount).toContain('6 / 12');
+      expect(withCount).not.toContain('disabled');
+
+      // The pre-`count` baseline this guards against.
+      const withoutCount = renderToString(ui());
+      expect(withoutCount).toContain('6 / 0');
+      expect(withoutCount).toContain('disabled');
+    });
+
+    it('ignores `count` once mounted items have registered', () => {
+      render(
+        <LightboxRoot defaultOpen defaultValue={0} count={99}>
+          <LightboxPortal>
+            <LightboxContent aria-label="Test">
+              <SlidesHost>
+                {Array.from({ length: 4 }, (_, i) => (
+                  <LightboxItem key={i} index={i}>
+                    Item {i}
+                  </LightboxItem>
+                ))}
+              </SlidesHost>
+              <LightboxCounter data-testid="counter" />
+            </LightboxContent>
+          </LightboxPortal>
+        </LightboxRoot>,
+      );
+      // The live registry wins — a stale prop can't drift the total.
+      expect(screen.getByTestId('counter').textContent).toBe('1 / 4');
+    });
   });
 
   // ---------------------------------------------------------------------------

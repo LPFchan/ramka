@@ -90,6 +90,17 @@ interface LightboxRootProps {
   value?: number;
   /** Callback when active index changes. */
   onValueChange?: (value: number, metadata: { source: NavigationSource }) => void;
+  /**
+   * Total number of items, used until the mounted `Lightbox.Item`s have
+   * registered themselves. Registration happens in effects, which never run
+   * during server rendering — so a page that server-renders an open lightbox
+   * paints `Lightbox.Counter` as "n / 0" (and boundary-disables
+   * `Lightbox.Next` / `Lightbox.Previous` when `loop` is off) until
+   * hydration. Pass the item total to make that first paint correct. Once
+   * any item mounts the live registry takes over and this prop is ignored,
+   * so it can't drift from the real count.
+   */
+  count?: number;
   /** Wrap navigation at boundaries. @default false */
   loop?: boolean;
   /**
@@ -292,6 +303,7 @@ function LightboxRoot(props: LightboxRootProps) {
       defaultValue = 0,
       value: valueProp,
       onValueChange,
+      count,
       loop = false,
       dir: dirProp,
       viewTransition = true,
@@ -466,6 +478,13 @@ function LightboxRoot(props: LightboxRootProps) {
         setItemCount(registeredItemsRef.current.size);
       };
     }, []);
+
+    // Until the first item registers — registration is an effect, so it never
+    // happens during server rendering or the hydration render — fall back to
+    // the `count` prop. This is what lets an SSR-open page paint Counter and
+    // Next/Previous with the real total instead of 0. The registry wins the
+    // moment it has anything in it, so a stale prop can't outlive hydration.
+    const effectiveItemCount = itemCount > 0 ? itemCount : (count ?? 0);
 
     // Stable id prefix for this lightbox instance. Used to mint matching
     // `tab` / `tabpanel` ids in Thumbnail / Item so their `aria-controls` /
@@ -1171,7 +1190,7 @@ function LightboxRoot(props: LightboxRootProps) {
         dirAttribute: dirProp,
         setActiveIndex,
         navigationLockedRef,
-        itemCount,
+        itemCount: effectiveItemCount,
         registerItem,
         loop,
         baseId,
@@ -1195,7 +1214,7 @@ function LightboxRoot(props: LightboxRootProps) {
         dir,
         dirProp,
         setActiveIndex,
-        itemCount,
+        effectiveItemCount,
         registerItem,
         loop,
         baseId,
