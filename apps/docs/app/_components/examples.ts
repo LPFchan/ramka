@@ -55,6 +55,20 @@ export const lightboxExamples: ExampleLink[] = [
     ],
   },
   {
+    slug: 'intercepted-routes',
+    title: 'Intercepted routes',
+    description:
+      'The nextgram pattern: grid of plain Links, a @modal parallel-route slot, and an (.)photos/[id] intercepting route mounting an already-open controlled lightbox — Back closes it, hard loads get a standalone photo page (one URL, two presentations).',
+    extraSources: [
+      '(docs)/examples/lightbox/intercepted-routes/layout.tsx',
+      '(docs)/examples/lightbox/intercepted-routes/photo-modal.tsx',
+      '(docs)/examples/lightbox/intercepted-routes/photos.ts',
+      '(docs)/examples/lightbox/intercepted-routes/@modal/default.tsx',
+      '(docs)/examples/lightbox/intercepted-routes/@modal/(.)photos/[id]/page.tsx',
+      '(docs)/examples/lightbox/intercepted-routes/photos/[id]/page.tsx',
+    ],
+  },
+  {
     slug: 'text-message',
     title: 'Text message',
     description: 'iMessage-style chat with a single morphTo="origin" trigger over a stack of attachments.',
