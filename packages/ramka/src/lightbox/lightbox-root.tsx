@@ -422,7 +422,13 @@ function LightboxRoot(props: LightboxRootProps) {
     // The ref keeps the effect keyed to real state edges only; the config is
     // resolved at fire time, so late config changes are honored too.
     const scrollTriggerIntoViewRef = React.useRef(scrollTriggerIntoView);
-    scrollTriggerIntoViewRef.current = scrollTriggerIntoView;
+    // Assigned in an effect (not during render) so an interrupted concurrent
+    // render can't publish a config no committed render produced. Declared
+    // BEFORE the scroll effect: effects run in declaration order within a
+    // commit, so a schedule-time read below always sees this commit's config.
+    React.useEffect(() => {
+      scrollTriggerIntoViewRef.current = scrollTriggerIntoView;
+    });
     React.useEffect(() => {
       const prev = scrollSyncRef.current;
       scrollSyncRef.current = { open, activeIndex };
