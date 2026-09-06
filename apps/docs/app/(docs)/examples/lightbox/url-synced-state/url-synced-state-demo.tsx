@@ -14,7 +14,7 @@ import { galleryPhotos } from './photos';
 
 /**
  * The grid renders at this route; every photo also exists as its own URL under
- * the `[[...id]]` optional catch-all — `/examples/lightbox/url-synced-state/mb-05` —
+ * the `[[...id]]` optional catch-all — `/examples/lightbox/url-synced-state/5` —
  * so slides are shareable, deep-linkable pages with their own metadata (see
  * `[[...id]]/page.tsx`).
  */
@@ -26,7 +26,7 @@ const items = galleryPhotos.map((photo) => ({
   thumb: photo.image,
 }));
 
-/** `/…/url-synced-state/mb-05` → 4; the bare grid URL (or an unknown id) → -1. */
+/** `/…/url-synced-state/5` → 4; the bare grid URL (or an unknown id) → -1. */
 function photoIndexFromPathname(pathname: string): number {
   if (!pathname.startsWith(`${BASE_PATH}/`)) return -1;
   // decodeURIComponent throws on malformed percent-sequences. Navigation can't
@@ -223,7 +223,7 @@ export function UrlSyncedStateDemo() {
   return (
     <ExampleShell
       title="URL-synced state"
-      description="Every photo in this masonry wall is its own URL, driven by a Next.js dynamic route — the page lives at an [[...id]] optional catch-all, and the lightbox is controlled via open / value on Lightbox.Root. Tapping a tile opens the viewer and pushes /examples/lightbox/url-synced-state/mb-05 with the native History API (shallow routing), swiping rewrites that URL in place, and the browser Back button closes the viewer. Loading a photo URL cold serves the viewer already open, straight from the server HTML with per-photo metadata: deep-link visits render the Portal in place (container={null}) instead of into document.body, which is what makes a server-rendered open lightbox possible at all — portals cannot be serialized into server HTML. Because the controlled props update synchronously from the gesture callbacks, trigger taps keep the view-transition morph."
+      description="Every photo in this masonry wall is its own URL, driven by a Next.js dynamic route — the page lives at an [[...id]] optional catch-all, and the lightbox is controlled via open / value on Lightbox.Root. Tapping a tile opens the viewer and pushes /examples/lightbox/url-synced-state/5 with the native History API (shallow routing), swiping rewrites that URL in place, and the browser Back button closes the viewer. Loading a photo URL cold serves the viewer already open, straight from the server HTML with per-photo metadata: deep-link visits render the Portal in place (container={null}) instead of into document.body, which is what makes a server-rendered open lightbox possible at all — portals cannot be serialized into server HTML. Because the controlled props update synchronously from the gesture callbacks, trigger taps keep the view-transition morph."
       docsHref="/docs/lightbox/state-lifecycle"
       docsLabel="State & lifecycle docs"
     >

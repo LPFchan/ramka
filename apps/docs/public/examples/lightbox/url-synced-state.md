@@ -13,7 +13,7 @@ import { galleryPhotos } from '../photos';
 
 /**
  * Optional catch-all: `/examples/lightbox/url-synced-state` renders the grid,
- * and `/examples/lightbox/url-synced-state/mb-05` is the same page deep-linked
+ * and `/examples/lightbox/url-synced-state/5` is the same page deep-linked
  * into the lightbox — the client demo reads the photo id from the pathname and
  * opens on that slide. One route (one page component) for both URL shapes
  * means client-side URL changes reconcile into the same mounted tree, so the
@@ -97,7 +97,7 @@ import { galleryPhotos } from './photos';
 
 /**
  * The grid renders at this route; every photo also exists as its own URL under
- * the `[[...id]]` optional catch-all — `/examples/lightbox/url-synced-state/mb-05` —
+ * the `[[...id]]` optional catch-all — `/examples/lightbox/url-synced-state/5` —
  * so slides are shareable, deep-linkable pages with their own metadata (see
  * `[[...id]]/page.tsx`).
  */
@@ -109,7 +109,7 @@ const items = galleryPhotos.map((photo) => ({
   thumb: photo.image,
 }));
 
-/** `/…/url-synced-state/mb-05` → 4; the bare grid URL (or an unknown id) → -1. */
+/** `/…/url-synced-state/5` → 4; the bare grid URL (or an unknown id) → -1. */
 function photoIndexFromPathname(pathname: string): number {
   if (!pathname.startsWith(`${BASE_PATH}/`)) return -1;
   // decodeURIComponent throws on malformed percent-sequences. Navigation can't
@@ -306,7 +306,7 @@ export function UrlSyncedStateDemo() {
   return (
     <ExampleShell
       title="URL-synced state"
-      description="Every photo in this masonry wall is its own URL, driven by a Next.js dynamic route — the page lives at an [[...id]] optional catch-all, and the lightbox is controlled via open / value on Lightbox.Root. Tapping a tile opens the viewer and pushes /examples/lightbox/url-synced-state/mb-05 with the native History API (shallow routing), swiping rewrites that URL in place, and the browser Back button closes the viewer. Loading a photo URL cold serves the viewer already open, straight from the server HTML with per-photo metadata: deep-link visits render the Portal in place (container={null}) instead of into document.body, which is what makes a server-rendered open lightbox possible at all — portals cannot be serialized into server HTML. Because the controlled props update synchronously from the gesture callbacks, trigger taps keep the view-transition morph."
+      description="Every photo in this masonry wall is its own URL, driven by a Next.js dynamic route — the page lives at an [[...id]] optional catch-all, and the lightbox is controlled via open / value on Lightbox.Root. Tapping a tile opens the viewer and pushes /examples/lightbox/url-synced-state/5 with the native History API (shallow routing), swiping rewrites that URL in place, and the browser Back button closes the viewer. Loading a photo URL cold serves the viewer already open, straight from the server HTML with per-photo metadata: deep-link visits render the Portal in place (container={null}) instead of into document.body, which is what makes a server-rendered open lightbox possible at all — portals cannot be serialized into server HTML. Because the controlled props update synchronously from the gesture callbacks, trigger taps keep the view-transition morph."
       docsHref="/docs/lightbox/state-lifecycle"
       docsLabel="State & lifecycle docs"
     >
@@ -388,7 +388,12 @@ import { galleryImages } from './images.generated';
  * one list, so a photo's URL can never drift from its slide.
  */
 export interface GalleryPhoto {
-  /** URL segment for the photo's deep link (`…/url-synced-state/mb-05`). */
+  /**
+   * URL segment for the photo's deep link (`…/url-synced-state/5`). An
+   * opaque STABLE id — the routing looks photos up by this value, never by
+   * array position, so reordering or removing photos can't repoint existing
+   * links. (These happen to be numeric; any string works.)
+   */
   id: string;
   alt: string;
   caption: string;
@@ -397,18 +402,18 @@ export interface GalleryPhoto {
 
 export const galleryPhotos: GalleryPhoto[] = (
   [
-    { id: 'mb-01', alt: 'Foggy pine ridge at dawn', caption: 'Dawn ridge' },
-    { id: 'mb-02', alt: 'Empty coastal highway', caption: 'Open road' },
-    { id: 'mb-03', alt: 'Overhead of a linen breakfast table', caption: 'Slow morning' },
-    { id: 'mb-04', alt: 'Narrow sunlit alley', caption: 'Warm alley' },
-    { id: 'mb-05', alt: 'Wide desert dunes', caption: 'Dunes' },
-    { id: 'mb-06', alt: 'Rain on a window', caption: 'Rainy glass' },
-    { id: 'mb-07', alt: 'Calm lake reflection', caption: 'Still water' },
-    { id: 'mb-08', alt: 'Tall concrete staircase', caption: 'Ascent' },
-    { id: 'mb-09', alt: 'Close-up of dried flowers', caption: 'Pressed petals' },
-    { id: 'mb-10', alt: 'Panoramic city skyline at dusk', caption: 'Dusk skyline' },
-    { id: 'mb-11', alt: 'Single tree in a green field', caption: 'Lone tree' },
-    { id: 'mb-12', alt: 'Textured stone wall', caption: 'Stonework' },
+    { id: '1', alt: 'Foggy pine ridge at dawn', caption: 'Dawn ridge' },
+    { id: '2', alt: 'Empty coastal highway', caption: 'Open road' },
+    { id: '3', alt: 'Overhead of a linen breakfast table', caption: 'Slow morning' },
+    { id: '4', alt: 'Narrow sunlit alley', caption: 'Warm alley' },
+    { id: '5', alt: 'Wide desert dunes', caption: 'Dunes' },
+    { id: '6', alt: 'Rain on a window', caption: 'Rainy glass' },
+    { id: '7', alt: 'Calm lake reflection', caption: 'Still water' },
+    { id: '8', alt: 'Tall concrete staircase', caption: 'Ascent' },
+    { id: '9', alt: 'Close-up of dried flowers', caption: 'Pressed petals' },
+    { id: '10', alt: 'Panoramic city skyline at dusk', caption: 'Dusk skyline' },
+    { id: '11', alt: 'Single tree in a green field', caption: 'Lone tree' },
+    { id: '12', alt: 'Textured stone wall', caption: 'Stonework' },
   ] as const
 ).map((photo, i) => ({ ...photo, image: galleryImages[i]! }));
 ```

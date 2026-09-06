@@ -6,7 +6,7 @@ import { galleryPhotos } from '../photos';
 
 /**
  * Optional catch-all: `/examples/lightbox/url-synced-state` renders the grid,
- * and `/examples/lightbox/url-synced-state/mb-05` is the same page deep-linked
+ * and `/examples/lightbox/url-synced-state/5` is the same page deep-linked
  * into the lightbox — the client demo reads the photo id from the pathname and
  * opens on that slide. One route (one page component) for both URL shapes
  * means client-side URL changes reconcile into the same mounted tree, so the
