@@ -3,7 +3,6 @@ import { LightboxDocumentCssVars, LightboxThumbnailStripCssVars } from './lightb
 import {
   LightboxDocumentDataAttributes,
   LightboxSlidesDataAttributes,
-  LightboxTriggerDataAttributes,
 } from './lightbox-data-attributes';
 import { VIEW_TRANSITION_PRESETS } from './vt-timing';
 import { ensureLibrarySheet } from './vt-style-sheets';
@@ -30,7 +29,6 @@ const STYLE_MARKER = 'data-ramka-lightbox-vt-styles';
 function buildCss(): string {
   const vt = LightboxDocumentDataAttributes.viewTransition;
   const crossfade = LightboxDocumentDataAttributes.crossfade;
-  const morphTarget = LightboxTriggerDataAttributes.morphTarget;
   const slides = LightboxSlidesDataAttributes.slides;
   const vars = LightboxDocumentCssVars;
   const def = VIEW_TRANSITION_PRESETS.default;
@@ -60,19 +58,10 @@ function buildCss(): string {
   view-transition-name: none !important;
 }
 
-/* Hide the live morph source while the VT layer owns its pixels (the library
-   sets ${morphTarget} on the resolved morph element). Without this the
-   original trigger shows doubled under the morphing snapshot. The fade-back
-   covers the close handover; it is killed DURING the transition so it can't
-   be captured mid-flight in the root snapshot. */
-[${morphTarget}] {
-  opacity: 0;
-  transition: opacity 200ms cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-:root[${vt}] [${morphTarget}] {
-  transition: none;
-}
+/* The morph-target hide rule (opacity zero plus its during-VT transition
+   kill) is NOT in this sheet: it must exist before any morph runs — a page
+   that server-renders an open lightbox has a morph target but no transition
+   yet — so Lightbox.Trigger delivers it eagerly. See morph-target-hide.ts. */
 
 @media (prefers-reduced-motion: no-preference) {
   /* Root snapshot cross-fade — the page-behind transition. Kept as a SINGLE

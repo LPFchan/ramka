@@ -3,8 +3,10 @@
 import * as React from 'react';
 
 import { LightboxMediaDataAttributes } from './lightbox-data-attributes';
+import { useLightboxStyleNonce } from './lightbox-csp';
 import { useOptionalLightboxItemContext } from './lightbox-item';
 import { insertLibrarySheet } from './lightbox-style-sheets';
+import { HoistableStyle, REACT_SUPPORTS_STYLE_HOISTING } from './react-style-hoisting';
 import { mergeProps } from '../render/merge-props';
 import { useRender } from '../render/use-render';
 
@@ -65,14 +67,6 @@ function fitBoxStyle(width: number, height: number): React.CSSProperties {
   };
 }
 
-/** React `useId()` values can include `:` — escape for use in a CSS selector. */
-function escapeCssIdent(value: string): string {
-  if (typeof CSS !== 'undefined' && typeof CSS.escape === 'function') {
-    return CSS.escape(value);
-  }
-  return value.replace(/([^\w-])/g, '\\$1');
-}
-
 /**
  * Structural fill for a direct media child. HTML `width`/`height` are
  * presentational hints that defeat Grid stretch; this author rule beats them
@@ -81,17 +75,20 @@ function escapeCssIdent(value: string): string {
  * `min-width/min-height: 0` overrides Grid’s default `min-*: auto` so a broken
  * WebKit `<img>` (square content minimum) cannot overflow the fit-box.
  *
- * Scoped by id rather than `[data-ramka-media]` so consumer CSS cannot
- * accidentally outrank it and collapse the fit-box.
+ * `:not(#_)` adds id-level specificity so consumer CSS cannot accidentally
+ * outrank the rule and collapse the fit-box — same protection the old
+ * per-instance `#id` scoping bought, but with CONSTANT rule text. Constant
+ * text is what lets one copy serve every Media: the hoistable `<style>` below
+ * dedupes by `href` across instances and remounts (per-instance text would
+ * accumulate a dead hoisted tag per viewer open — React never removes
+ * hoistables), and the CSSOM fallback needs no per-id bookkeeping either.
  */
-function mediaChildFillCss(mediaId: string): string {
-  const id = escapeCssIdent(mediaId);
-  return (
-    `#${id} > img:not([data-ramka-media-poster]),#${id} > video,#${id} > canvas{` +
-    `width:100%;height:100%;min-width:0;min-height:0;` +
-    `}`
-  );
-}
+const MEDIA_FILL_HOST = '[data-ramka-media]:not(#_)';
+const MEDIA_FILL_CSS =
+  `${MEDIA_FILL_HOST} > img:not([data-ramka-media-poster]),` +
+  `${MEDIA_FILL_HOST} > video,${MEDIA_FILL_HOST} > canvas{` +
+  `width:100%;height:100%;min-width:0;min-height:0;` +
+  `}`;
 
 /**
  * Sized destination media host. Morph target + placeholder canvas container by
@@ -107,10 +104,13 @@ function mediaChildFillCss(mediaId: string): string {
  * ```
  *
  * `width` / `height` are **structural** (correct morph box). Media is a CSS grid
- * and renders a scoped `<style>` so direct `<img>` / `<video>` / `<canvas>` children
- * fill the fit-box (`width/height: 100%` plus `min-*: 0` so broken WebKit images
+ * and ships fill rules so direct `<img>` / `<video>` / `<canvas>` children fill
+ * the fit-box (`width/height: 100%` plus `min-*: 0` so broken WebKit images
  * cannot overflow via Grid’s automatic minimum). No consumer `size-full`
- * required. Prefer Slide padding for resting chrome insets (not Zoom). Radius,
+ * required. The rules are delivered twice: a hoistable `<style>` that exists in
+ * server HTML (correct first paint when a page server-renders an open lightbox,
+ * e.g. deep links with `Portal container={null}`) and a CSSOM sheet that covers
+ * strict-CSP environments where inline styles are refused. Prefer Slide padding for resting chrome insets (not Zoom). Radius,
  * colors, and `object-fit` remain consumer-owned.
  *
  * Discovers the primary `<img>` (direct child preferred) and wires Item's
@@ -128,6 +128,7 @@ const LightboxMedia = React.forwardRef<HTMLDivElement, LightboxMediaProps>(
       ...elementProps
     } = props;
     const item = useOptionalLightboxItemContext();
+    const styleNonce = useLightboxStyleNonce();
     const autoId = React.useId();
     const mediaId = idProp ?? autoId;
     const internalRef = React.useRef<HTMLDivElement | null>(null);
@@ -275,17 +276,17 @@ const LightboxMedia = React.forwardRef<HTMLDivElement, LightboxMediaProps>(
       return next;
     }, [hasFitBox, height, width]);
 
-    // Rendering these rules as a <style> child would be markup, which a strict
-    // `style-src` refuses — and the fill is load-bearing, so the media would
-    // size to its intrinsic dimensions instead of the fit-box. Insertion-effect
-    // timing lands the rules before any layout effect measures. Under Portal
-    // (the documented placement) there is no server output at all, so nothing
-    // can paint without them; Media rendered inline on a server-rendered page
-    // would paint once unfilled before hydration.
+    // CSSOM delivery of the fill rules — the strict-CSP path. A `style-src`
+    // that refuses inline styles blocks the hoistable <style> rendered below,
+    // and the fill is load-bearing (without it media sizes to its intrinsic
+    // dimensions instead of the fit-box), so a CSSOM copy — invisible to CSP —
+    // always lands too. Insertion-effect timing puts it in place before any
+    // layout effect measures. Redundant where the <style> applied: identical
+    // rule text, so the duplicate is inert.
     React.useInsertionEffect(() => {
-      const sheet = insertLibrarySheet(mediaChildFillCss(mediaId), MEDIA_FILL_MARKER);
+      const sheet = insertLibrarySheet(MEDIA_FILL_CSS, MEDIA_FILL_MARKER);
       return () => sheet.release();
-    }, [mediaId]);
+    }, []);
 
     const rendered = useRender({
       render,
@@ -314,7 +315,30 @@ const LightboxMedia = React.forwardRef<HTMLDivElement, LightboxMediaProps>(
     });
 
     return (
-      <LightboxMediaContext.Provider value={mediaContext}>{rendered}</LightboxMediaContext.Provider>
+      <LightboxMediaContext.Provider value={mediaContext}>
+        {/*
+          Markup delivery of the fill rules — the SERVER-PAINT path. Effects
+          never run during server rendering, so on a server-rendered page with
+          the lightbox already open (deep links rendering Portal in place) the
+          CSSOM copy above doesn't exist yet and the first paint would show the
+          media at its intrinsic size inside a correctly sized fit-box.
+          `href` + `precedence` make this a hoistable: streamed into <head> on
+          the server, deduped by `href` across every Media instance and remount
+          on the client (constant rule text is what makes the dedupe sound).
+          React-19-only — React 18 has no hoisting and would render one inline
+          tag per instance, so it keeps the CSSOM-only baseline; see
+          react-style-hoisting.ts. Under a strict `style-src` the tag is
+          refused unless `Lightbox.CSPProvider` supplies the page's nonce
+          (React 19.2+); without one the CSSOM copy takes over after
+          hydration, matching the pre-hoistable behavior exactly.
+        */}
+        {REACT_SUPPORTS_STYLE_HOISTING ? (
+          <HoistableStyle href="ramka-media-fill" precedence="ramka" nonce={styleNonce}>
+            {MEDIA_FILL_CSS}
+          </HoistableStyle>
+        ) : null}
+        {rendered}
+      </LightboxMediaContext.Provider>
     );
   },
 );

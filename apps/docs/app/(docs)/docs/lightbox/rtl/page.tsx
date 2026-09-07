@@ -253,7 +253,7 @@ export default function LightboxRtlPage() {
         />
       </DocsSection>
 
-      <DocsPager prev={lightboxDocsPages.zoom} next={lightboxDocsPages.api} />
+      <DocsPager prev={lightboxDocsPages.zoom} next={lightboxDocsPages.csp} />
     </DocsShell>
   );
 }

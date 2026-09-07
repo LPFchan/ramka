@@ -1422,6 +1422,59 @@ describe('Lightbox', () => {
       expect(screen.getByTestId('caption')).toHaveAttribute('data-has-caption');
     });
 
+    it('paints the children fallback on the server, where captions cannot register', async () => {
+      // Caption registration is an effect — it never runs during server
+      // rendering, so without the fallback an SSR-open page paints an empty
+      // caption region until hydration.
+      const { renderToString } = await import('react-dom/server');
+      const ui = (fallback?: React.ReactNode) => (
+        <LightboxRoot defaultOpen defaultValue={1}>
+          <LightboxPortal container={null}>
+            <LightboxContent aria-label="Test">
+              <SlidesHost>
+                {Array.from({ length: 3 }, (_, i) => (
+                  <LightboxItem key={i} index={i} caption={`Caption ${i}`}>
+                    Item {i}
+                  </LightboxItem>
+                ))}
+              </SlidesHost>
+              <LightboxCaption>{fallback}</LightboxCaption>
+            </LightboxContent>
+          </LightboxPortal>
+        </LightboxRoot>
+      );
+
+      expect(renderToString(ui('Caption 1'))).toContain('Caption 1');
+      // The pre-fallback baseline this guards against.
+      expect(renderToString(ui())).not.toContain('Caption 1');
+    });
+
+    it('caption fallback yields to the registry once any item has registered', () => {
+      render(
+        <LightboxRoot defaultOpen defaultValue={0}>
+          <LightboxPortal>
+            <LightboxContent aria-label="Test">
+              <SlidesHost>
+                <LightboxItem index={0} caption="Registered caption">
+                  Item 0
+                </LightboxItem>
+                <LightboxItem index={1}>Item 1</LightboxItem>
+              </SlidesHost>
+              <LightboxCaption data-testid="fallback-caption">Stale fallback</LightboxCaption>
+              <LightboxNext data-testid="fallback-next">Next</LightboxNext>
+            </LightboxContent>
+          </LightboxPortal>
+        </LightboxRoot>,
+      );
+      // Registry wins for the active item…
+      expect(screen.getByTestId('fallback-caption').textContent).toBe('Registered caption');
+      // …and a caption-less item renders empty, NOT the fallback: after
+      // registration a missing entry means "no caption", the fallback
+      // describes one specific pre-registration item.
+      fireEvent.click(screen.getByTestId('fallback-next'));
+      expect(screen.getByTestId('fallback-caption').textContent).toBe('');
+    });
+
     it('caption updates reactively when the active item caption changes without navigating', () => {
       function CaptionWrapper({ text }: { text: string }) {
         return (
@@ -1474,6 +1527,61 @@ describe('Lightbox', () => {
         </LightboxRoot>,
       );
       expect(screen.getByTestId('counter').textContent).toBe('3 of 4');
+    });
+
+    it('paints the `count` fallback on the server, where items cannot register', async () => {
+      // Item registration is an effect — it never runs during server
+      // rendering, so without the fallback an SSR-open page paints the
+      // counter as "6 / 0" and (loop off) boundary-disables Next until
+      // hydration. `count` is what makes that first paint correct.
+      const { renderToString } = await import('react-dom/server');
+      const ui = (count?: number) => (
+        <LightboxRoot defaultOpen defaultValue={5} count={count}>
+          <LightboxPortal container={null}>
+            <LightboxContent aria-label="Test">
+              <SlidesHost>
+                {Array.from({ length: 12 }, (_, i) => (
+                  <LightboxItem key={i} index={i}>
+                    Item {i}
+                  </LightboxItem>
+                ))}
+              </SlidesHost>
+              <LightboxCounter data-testid="ssr-counter" />
+              <LightboxNext data-testid="ssr-next">Next</LightboxNext>
+            </LightboxContent>
+          </LightboxPortal>
+        </LightboxRoot>
+      );
+
+      const withCount = renderToString(ui(12));
+      expect(withCount).toContain('6 / 12');
+      expect(withCount).not.toContain('disabled');
+
+      // The pre-`count` baseline this guards against.
+      const withoutCount = renderToString(ui());
+      expect(withoutCount).toContain('6 / 0');
+      expect(withoutCount).toContain('disabled');
+    });
+
+    it('ignores `count` once mounted items have registered', () => {
+      render(
+        <LightboxRoot defaultOpen defaultValue={0} count={99}>
+          <LightboxPortal>
+            <LightboxContent aria-label="Test">
+              <SlidesHost>
+                {Array.from({ length: 4 }, (_, i) => (
+                  <LightboxItem key={i} index={i}>
+                    Item {i}
+                  </LightboxItem>
+                ))}
+              </SlidesHost>
+              <LightboxCounter data-testid="counter" />
+            </LightboxContent>
+          </LightboxPortal>
+        </LightboxRoot>,
+      );
+      // The live registry wins — a stale prop can't drift the total.
+      expect(screen.getByTestId('counter').textContent).toBe('1 / 4');
     });
   });
 
@@ -3024,6 +3132,45 @@ describe('Lightbox', () => {
         expect(trigger).toHaveAttribute('data-morph-target');
         // Base UI must not also serialize the state key as `data-morphtarget`.
         expect(trigger).not.toHaveAttribute('data-morphtarget');
+      });
+
+      it('hides the active trigger with viewTransition={false} — contractual, not accidental', () => {
+        // The hide rule used to live in the VT structural sheet (injected only
+        // when a morph started), so non-VT consumers never had CSS matching
+        // the attribute. It now ships eagerly from Trigger, which makes
+        // "the trigger is visually hidden while its item is active" the
+        // contract on EVERY path — viewTransition={false}, unsupported
+        // browsers, low-end devices. This test pins that decision: the
+        // attribute lands and the hide CSS exists with no morph in sight.
+        render(
+          <LightboxRoot viewTransition={false}>
+            <LightboxTrigger index={0} data-testid="trigger-0">
+              <img src="thumb.jpg" alt="thumb" />
+            </LightboxTrigger>
+            <LightboxPortal>
+              <LightboxContent aria-label="morph attr test">
+                <SlidesHost>
+                  <LightboxItem index={0}>
+                    <img src="full.jpg" alt="full" />
+                  </LightboxItem>
+                </SlidesHost>
+              </LightboxContent>
+            </LightboxPortal>
+          </LightboxRoot>,
+        );
+
+        const trigger = screen.getByTestId('trigger-0');
+        fireEvent.click(trigger);
+        expect(trigger).toHaveAttribute('data-morph-target');
+        // jsdom lacks constructed sheets, so the CSSOM path falls back to a
+        // marker <style> in <head> — assert the rule is actually deliverable.
+        const hideCss = Array.from(
+          document.head.querySelectorAll('style[data-ramka-morph-target-hide], style'),
+        )
+          .map((el) => el.textContent ?? '')
+          .join('');
+        expect(hideCss).toContain('data-morph-target');
+        expect(hideCss).toContain('opacity:0');
       });
 
       it('sets data-morph-target on the morphRef node, not the trigger', () => {

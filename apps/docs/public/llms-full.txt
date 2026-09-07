@@ -295,7 +295,7 @@ Ramka is *cosmetically* unstyled — colors and chrome are yours — but Media m
 
 Keep Close, Counter, Caption, and thumbnails as *absolutely positioned siblings* of Slides (see Chrome below) — not in-flow above or below Zoom. Resting insets belong on Slide padding / safe-area so zoomed media can still paint into that padding under chrome. Gesture details live in [Gestures](docs/lightbox/gestures.md).
 
-Set HTML `width` and `height` on the destination `<img>` (from known pixel dims or CMS metadata) so the box and aspect ratio exist *before* pixels load. That avoids CLS, keeps the morph target sized on slow networks, and prevents an unloaded `size: auto` image from collapsing to 0×0 (which can skip or weaken the open morph). When dimensions are unknown, see [Moodboard](examples/lightbox/moodboard.md). For mixed media (photos plus WebGL) with [onBeforeOpen](docs/lightbox/api.md#api-root) preheat, see [3D models](examples/lightbox/3d-models.md).
+Set HTML `width` and `height` on the destination `<img>` (from known pixel dims or CMS metadata) so the box and aspect ratio exist *before* pixels load. That avoids CLS, keeps the morph target sized on slow networks, and prevents an unloaded `size: auto` image from collapsing to 0×0 (which can skip or weaken the open morph). When dimensions are unknown, see [URL-synced state](examples/lightbox/url-synced-state.md). For mixed media (photos plus WebGL) with [onBeforeOpen](docs/lightbox/api.md#api-root) preheat, see [3D models](examples/lightbox/3d-models.md).
 
 To fill the maximum available space without distorting the source aspect ratio, nest Media under [Lightbox.Zoom](docs/lightbox/api.md#api-zoom) (a size container for `cqw` /`cqh`) and pass `width` /`height` to [Lightbox.Media](docs/lightbox/api.md#api-media). Media applies the inscribed fit-box ( `min(100cqw, 100cqh × w/h)` + `aspect-ratio: w / h`). Or put HTML `width` / `height` on the child image and omit the Media props — Media derives the box. When the box matches the source aspect, child `object-fit` is a no-op and Media’s grid stretch fills the box (no `size-full` needed on a direct media child). Put border-radius on Media (morph target). Leave chrome outside Media. Resting insets belong on Slide padding / safe-area so zoomed media can paint into that padding under chrome.
 
@@ -424,6 +424,8 @@ Decide **per item index**, not per gallery. Ramka paints an open bridge only whe
 | Image inside `Lightbox.Thumbnail` | Yes | Same as a trigger: a regular page image. Ramka bridges only the destination media, never strip thumbnails, so the LQIP is the only thing covering the thumb’s own load. |
 | Lightbox image, index *has* a trigger image ( `imageRef`) | No | While the full-size image loads, Ramka paints the trigger’s image — already decoded and on screen — onto a canvas *behind* the lightbox image. Next’s LQIP renders as a background on the lightbox image itself, in front of that canvas, so blur here hides a sharp placeholder behind a blurry one. |
 | Lightbox image, index has *no* trigger image | Yes | Ramka has no trigger image to paint, so the LQIP is the only loading placeholder (see [No trigger image](#no-trigger-image)). |
+
+**One exception:** pages that server-render the lightbox already open (deep links). The bridge is painted on gesture opens — a server-rendered open has no gesture, and before hydration nothing is decoded to paint from — while `blurDataURL` is inlined into the server HTML itself. For those visits, destination blur is the only placeholder that can exist on first paint: enable it for the deep-link visit and keep destinations clean for regular visits (decide once per mount, like the portal container). See the URL-synced state example.
 
 ## Do
 
@@ -1340,6 +1342,53 @@ import * as Lightbox from '@ramka/react/lightbox';
 </Lightbox.Root>
 ```
 
+# Content Security Policy
+
+Running the lightbox on pages with a strict `style-src`. Part of [Lightbox](docs/lightbox.md).
+
+## What the library injects
+
+The library is headless — your chrome, your CSS — but its structural rules have to come from somewhere, and they arrive through two channels. Almost everything goes through [constructed stylesheets](https://developer.mozilla.org/en-US/docs/Web/API/CSSStyleSheet) created at runtime, which CSP does not police at all: a page that allows no inline styles whatsoever still gets every rule delivered this way, with no configuration.
+
+The exception is three small `<style>` tags with constant text that must exist in the markup itself, because they style the *first paint* of a page that server-renders an open lightbox — before any runtime code has run. They make media fill its fit-box, hide the active item's trigger, and position the initial slide. A strict `style-src` refuses them unless you allow them, and the degradation is deliberately soft: the constructed- stylesheet copies take over after hydration, so everything works — only those first-paint niceties on server-rendered-open pages are lost.
+
+## Passing a nonce
+
+The standard way to allow specific inline styles is a [nonce](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Content-Security-Policy/style-src#unsafe_inline_styles) : the server generates a random value per request, puts it in the header, and any `<style>` carrying the same value is allowed. Wrap [CSPProvider](docs/lightbox/api.md#api-csp-provider) around everything that renders lightbox parts and pass it that value — it stamps every inline tag the library renders. Requires React 19.2+; older versions simply keep the fallback behavior above.
+
+```tsx app/layout.tsx
+import * as Lightbox from '@ramka/react/lightbox';
+
+const nonce = (await headers()).get('x-nonce') ?? undefined;
+
+<Lightbox.CSPProvider nonce={nonce}>{children}</Lightbox.CSPProvider>
+```
+
+Put it above the *whole* app, not around one gallery. A detached [Trigger](docs/lightbox/api.md#api-trigger) living outside any Root needs the context too — and because React merges same-precedence styles and drops any copy whose nonce is missing, one uncovered Trigger can cost a rule that every covered one relies on.
+
+## Server rendering
+
+On the server, React only emits the nonce on these tags when the same value is *also* passed to the render call — `renderToPipeableStream(el, &#123; nonce: &#123; style &#125; &#125;)` . If you own that call, pass it and you are done: the deep-link pages that server-render an open viewer keep their first-paint styling under a strict policy.
+
+Frameworks own that call for you, and Next.js currently forwards its nonce for scripts only ( [vercel/next.js#76317](https://github.com/vercel/next.js/issues/76317) ), so server HTML renders these tags without the nonce for now. The provider still earns its keep there: tags React inserts *on the client* carry the nonce unconditionally, which covers every normal open — grid loads, user clicks, viewer opens. Only the server-rendered-open first paint stays on the fallback until Next.js wires the style nonce through, at which point it lights up with no change on your side.
+
+## Inline style attributes
+
+Separate from `<style>` elements, CSP also governs `style="…"` attributes — and nonces cannot be applied to attributes at all. The library's structural styles ride on inline attributes (as does most of the React ecosystem), which only matters for markup parsed from server HTML: styles set from JavaScript after hydration are not policed. If you server-render lightbox pages under a policy stricter than `style-src` alone, split the directives and keep `'unsafe-inline'` on the attribute half:
+
+```tsx CSP header
+Content-Security-Policy:
+  default-src 'self';
+  style-src-elem 'self' 'nonce-<generated-per-request>';
+  style-src-attr 'unsafe-inline';
+```
+
+This is the industry-standard shape — Base UI and Material UI document the same split. Style *attributes* cannot exfiltrate data or execute code the way style elements can, so allowing them is a far smaller concession than `'unsafe-inline'` on elements.
+
+## Hash-based policies
+
+Statically hosted sites have no server to mint a per-request nonce. CSP's alternative is a hash source: allow exactly these style blocks by their SHA-256. That is normally impractical for component libraries — CSS-in-JS output varies per page — but the library's three tags have *constant* text by design, so their hashes are stable for a given release. The quickest way to collect them is the browser itself: load a page with the policy enforced and copy the three `sha256-…` values Chrome prints in the console violation messages into `style-src`. Re-collect them when you upgrade the package — rule text can change between releases.
+
 # API reference
 
 Props, data attributes, and CSS variables for every [Lightbox](docs/lightbox.md) part. Tables are generated from package TypeScript + JSDoc.
@@ -1374,6 +1423,7 @@ Groups all parts of the lightbox and owns open state, active index, view-transit
 | defaultValue | `number` | `0` | Uncontrolled initial active index. |
 | value | `number` |  | Controlled active index. |
 | onValueChange | `(value: number, metadata: { source: NavigationSource }) => void` |  | Callback when active index changes. |
+| count | `number` |  | Total number of items, used until the mounted `Lightbox.Item`s have registered themselves. Registration happens in effects, which never run during server rendering — so a page that server-renders an open lightbox paints `Lightbox.Counter` as "n / 0" (and boundary-disables `Lightbox.Next` / `Lightbox.Previous` when `loop` is off) until hydration. Pass the item total to make that first paint correct. Once any item mounts the live registry takes over and this prop is ignored, so it can't drift from the real count. |
 | loop | `boolean` | `false` | Wrap navigation at boundaries. |
 | dir | `TextDirection` | `'ltr' (behavior); no `dir` attribute is written when omitted` | Reading direction. `'rtl'` mirrors slide navigation, thumbnail-strip travel, and the horizontal arrow keys (so `ArrowLeft` advances). Setting this is enough on its own: the direction is written to the `Lightbox.Portal` host as a `dir` attribute, so CSS follows it across the portal boundary even though the host mounts on `document.body`. That also makes it the way to run one RTL lightbox inside an otherwise-LTR page. Pass it whenever the surrounding UI is RTL, including in an app that is already RTL end to end (`dir="rtl"` on `<html>`) — behavior falls back to `'ltr'` without it, and navigation would run against the layout. Omitting it writes no attribute at all, so such an app still *lays out* RTL by inheritance; in development that disagreement logs a warning. |
 | viewTransition | `boolean \| LightboxViewTransitionPreset` | `true` | Morph between trigger and lightbox item via the View Transitions API. On by default: clicking a trigger morphs into the fullscreen item, and close morphs back. The morph engine is loaded on first use — pass `false` to skip that download. Falls back to a plain fade when unsupported, when prefers-reduced-motion is set, or on low-end devices. Pass a preset name to pick the morph's motion (duration + easing): - `"default"` — 360ms, sheet curve with a tamed launch (same as `true`) - `"snappy"` — 340ms, hotter launch; reads quicker - `"relaxed"` — 400ms, softer launch and longer settle - `"spring"` — 450ms, critically damped spring; Photos-style settle Timing is preset-based (not free-form CSS) on purpose: each preset is vetted on-device to stay smooth and skip-safe on iOS Safari (including Low Power Mode) and Android, where arbitrary curves stutter or teleport. The chosen timing drives the morph, the crossfade and the root fade together so they always stay in sync. |
@@ -1541,6 +1591,7 @@ A single lightbox item. Registers captions and morph/placeholder refs. ARIA adap
 | `data-active` | Present when this item is the active index. |
 | `data-index` | The item index as a string. |
 | `data-skip-fade` | Transient during view-transition open — suppress consumer entrance fades on the destination item. |
+| `data-ssr-active` | Present ONLY in server-rendered HTML, on the active item of a page that server-renders an open lightbox. Carries `scroll-initial-target: nearest` (delivered by `Lightbox.Slides`), so engines that support it scroll the Slides scrollport to the active slide during initial layout — before first paint, for any slide widths. Cleared during hydration; never set on the client. |
 
 ### Media
 
@@ -1572,6 +1623,7 @@ Default layout: horizontal snap carousel wired to the active index. Emits role="
 | Name | Type | Default | Description |
 | --- | --- | --- | --- |
 | preload | `number` | `1` | How many slides on each side of the active one keep their `Lightbox.Item` content mounted. Slide *boxes* are always present (so scroll extent is correct); only their content is preload-gated. `1` keeps the neighbours you can swipe to ready. |
+| ssrSlideShift | `boolean` | `false` | First-paint slide positioning for pages that SERVER-RENDER an open lightbox (deep links rendering `Portal container={null}`). A scroll offset cannot be serialized into HTML, so such pages otherwise paint slide 0 (or a blank past the `preload` window) until hydration. While this is on, the server HTML carries a transform that translates every slide by `activeIndex × (100% + gap)` so the active slide occupies the scrollport at scroll offset 0; the post-hydration commit swaps the real scroll offset in and drops the transform together — no flash, every browser. ONLY for scrollport-wide slides (`flex: 0 0 100%` tracks): the percentage resolves against each slide's own width, so content-sized (snug) slides would shift by unequal distances. If the track has a `gap`, mirror it into `--lightbox-ssr-slide-gap` (see `LightboxSlidesCssVars`). Without the opt-in, the library still marks the active item so engines with `scroll-initial-target` position any layout natively; other engines keep the hydration jump. Client-side opens are unaffected either way — the stand-in only ever renders for server paint + hydration. Degradation: the transform rule ships as a React 19 hoistable `<style>` tag. On React 18, or under a strict CSP without the nonce wired (see `Lightbox.CSPProvider`), the tag is unavailable and the server paint shows slide 0 with the scroller frozen until the hydration jump — the pre-existing baseline, never anything worse. |
 | render | `ReactElement \| ComponentRenderFn` |  | Replaces the part's default element with another tag or component. Accepts an element to clone, or a function that returns one. |
 
 #### Data attributes
@@ -1582,6 +1634,7 @@ Default layout: horizontal snap carousel wired to the active index. Emits role="
 | `data-active-index` | Current active index. |
 | `data-direction` | `forward` or `backward`. |
 | `data-orientation` | Always `horizontal`. |
+| `data-ssr-shift` | Present while the `ssrSlideShift` transform stand-in is applied: from the server render of an open lightbox until the mount layout effect swaps the real scroll offset in (same commit — the swap never paints). While set, every slide is translated so the active one occupies the scrollport at scroll offset 0, and the scrollport's `overflow-x` is frozen so a pre-hydration swipe can't reveal the empty positions the translated slides vacated. |
 
 ### Slide
 
@@ -1652,6 +1705,7 @@ Renders the active item’s caption from the Item caption registry.
 
 | Name | Type | Default | Description |
 | --- | --- | --- | --- |
+| children | `ReactNode` |  | Fallback content, rendered only while the caption registry is empty. Items register their `caption` in effects, which never run during server rendering (and land only after the first client paint) — so a page that renders an open lightbox paints an empty caption until then. Pass the active item's caption here (you know it on such pages — it's how you rendered the metadata) to make the first paint correct. The moment any item registers, the registry wins and the fallback never renders again, so it can't show stale text after navigation. |
 | render | `ReactElement \| ComponentRenderFn` |  | Replaces the part's default element with another tag or component. Accepts an element to clone, or a function that returns one. |
 
 #### Data attributes
@@ -1717,6 +1771,7 @@ Scroll-linked thumbnail strip root. Always centers the active thumbnail on the m
 | `data-ramka-thumbnail-strip` | Always present on the thumbnail strip root. |
 | `data-ramka-thumbnail-strip-track` | Always present on the scroll-linked tablist track. |
 | `data-scrubbing` | Present while a discrete-nav scrub animation is in flight. |
+| `data-positioned` | Present once the track has actually been positioned against the Slides scroller (first successful measure-and-sync — set in a layout effect, so for client-side opens it lands before the strip's first paint). Not set by bailed attempts, e.g. while the Slides viewport hasn't registered yet. Absent in server-rendered HTML: scroll/transform positions cannot be serialized, so a server-rendered strip sits at offset 0 until hydration. Hide the strip until this attribute lands to avoid the visible snap on pages that server-render an open lightbox. |
 
 #### CSS variables
 
@@ -1796,6 +1851,17 @@ Decrements zoom. Works inside Zoom, or as global chrome via the active-slide zoo
 | --- | --- |
 | `data-ramka-zoom-out` | Always present on the zoom-out button. |
 | `data-disabled` | Present when zoom-out is unavailable. |
+
+### CSPProvider
+
+Provides the Content-Security-Policy nonce for the few inline <style> tags ramka renders (media fill, active-trigger hide, SSR initial slide). Wrap it around everything that renders lightbox parts — including detached Triggers outside any Root — and pass the same per-request nonce that your server puts in the style-src / style-src-elem directive and in the React render call (React 19.2+). Without it, strict-CSP pages refuse those tags and the library falls back to CSSOM delivery after hydration (everything works; only server-paint niceties on SSR-open pages are lost).
+
+#### Props
+
+| Name | Type | Default | Description |
+| --- | --- | --- | --- |
+| nonce | `string` |  | The per-request CSP nonce (the value behind `'nonce-…'` in the `style-src` / `style-src-elem` directive). Stamped on every inline `<style>` tag the lightbox renders so strict-CSP pages keep the first-paint rules (media fill, active-trigger hide, SSR initial slide). |
+| children | `ReactNode` |  | — |
 
 ### Document (view transitions)
 
@@ -8704,17 +8770,94 @@ export default function PhotosAppRtlPage() {
 }
 ```
 
-# Moodboard
+# URL-synced state
 
-Masonry wall of images with unknown dimensions (no width/height, no reserved aspect ratio) — stresses the morph size-resolution fallback and trigger-thumbnail placeholder.
+Masonry wall wired to Next.js dynamic routes ([[...id]]) — every photo is a shareable URL: deep links open the viewer on that slide, swiping rewrites the URL in place, and browser Back closes the viewer.
 
 ## Source
 
-```tsx examples/lightbox/moodboard/page.tsx
+```tsx examples/lightbox/url-synced-state/[[...id]]/page.tsx
+import type { Metadata } from 'next';
+import { notFound } from 'next/navigation';
+
+import { UrlSyncedStateDemo } from '../url-synced-state-demo';
+import { GALLERY_PAGE_TITLE, galleryPhotos, photoPageTitle } from '../photos';
+
+/**
+ * Optional catch-all: `/examples/lightbox/url-synced-state` renders the grid,
+ * and `/examples/lightbox/url-synced-state/5` is the same page deep-linked
+ * into the lightbox — the client demo reads the photo id from the pathname and
+ * opens on that slide. One route (one page component) for both URL shapes
+ * means client-side URL changes reconcile into the same mounted tree, so the
+ * viewer never remounts while it rewrites the URL.
+ */
+interface UrlSyncedStateRouteProps {
+  params: Promise<{ id?: string[] }>;
+}
+
+/** Prerender the grid plus every photo permalink. */
+export function generateStaticParams() {
+  return [{ id: [] }, ...galleryPhotos.map((photo) => ({ id: [photo.id] }))];
+}
+
+export async function generateMetadata({ params }: UrlSyncedStateRouteProps): Promise<Metadata> {
+  const { id } = await params;
+  const photo = id?.length ? galleryPhotos.find((p) => p.id === id[0]) : undefined;
+  if (photo) {
+    const title = photoPageTitle(photo);
+    const description = `${photo.alt} — a deep link straight into the lightbox, driven by a Next.js dynamic route and ramka's controlled open/value props.`;
+    return {
+      title,
+      description,
+      // `title`/`description` alone don't cascade into the OpenGraph object
+      // inherited from the root layout — without an explicit `openGraph` here,
+      // a shared photo URL unfurls as the generic site card. This is the
+      // "shareable URL with per-photo metadata" half of the demo's pitch, so
+      // give crawlers the actual photo. `StaticImageData` supplies a
+      // site-relative `src` plus intrinsic dimensions; the root layout's
+      // `metadataBase` resolves it to an absolute URL. (Per-photo canonicals
+      // come free — the root layout's `canonical: './'` resolves per page.)
+      openGraph: {
+        title,
+        description: photo.alt,
+        images: [
+          {
+            url: photo.image.src,
+            width: photo.image.width,
+            height: photo.image.height,
+            alt: photo.alt,
+          },
+        ],
+      },
+      twitter: { card: 'summary_large_image' },
+    };
+  }
+  return {
+    title: GALLERY_PAGE_TITLE,
+    description:
+      'A masonry lightbox wired to Next.js dynamic routes: every photo is a shareable URL — deep links open the viewer, swipes rewrite the URL, browser Back closes it. Built with ramka.',
+  };
+}
+
+export default async function UrlSyncedStateRoute({ params }: UrlSyncedStateRouteProps) {
+  const { id } = await params;
+  // Unknown photo ids 404 like any other dynamic route. `id?.length` (not
+  // `id &&`): the grid's static param is literally `{ id: [] }`, and an empty
+  // array is truthy — Next currently normalizes it to `undefined` at prerender
+  // time, but the guard shouldn't lean on that.
+  if (id?.length && (id.length > 1 || !galleryPhotos.some((photo) => photo.id === id[0]))) {
+    notFound();
+  }
+  return <UrlSyncedStateDemo />;
+}
+```
+
+```tsx examples/lightbox/url-synced-state/url-synced-state-demo.tsx
 'use client';
 
 import * as React from 'react';
 import Image from 'next/image';
+import { usePathname } from 'next/navigation';
 import * as Lightbox from '@ramka/react/lightbox';
 
 import { ExampleShell } from '../../../../_components/example-shell';
@@ -8722,111 +8865,906 @@ import {
   LightboxGallery,
   triggerFocusClass,
 } from '../../../../_components/lightbox-chrome';
-import { moodboardImages } from './images.generated';
+import { GALLERY_PAGE_TITLE, galleryPhotos, photoPageTitle } from './photos';
 
 /**
- * Every tile is a statically-imported local asset rendered through
- * `next/image`: the grid thumbnail gets a build-time `blurDataURL`
- * placeholder, and the fullscreen viewer reuses the SAME source at a higher
- * `sizes` so both are the same crop — opening a tile lets Ramka bridge the
- * already-decoded thumbnail while the larger candidate downloads.
+ * The grid renders at this route; every photo also exists as its own URL under
+ * the `[[...id]]` optional catch-all — `/examples/lightbox/url-synced-state/5` —
+ * so slides are shareable, deep-linkable pages with their own metadata (see
+ * `[[...id]]/page.tsx`).
  */
-const images = (
-  [
-    { id: 'mb-01', alt: 'Foggy pine ridge at dawn', caption: 'Dawn ridge' },
-    { id: 'mb-02', alt: 'Empty coastal highway', caption: 'Open road' },
-    { id: 'mb-03', alt: 'Overhead of a linen breakfast table', caption: 'Slow morning' },
-    { id: 'mb-04', alt: 'Narrow sunlit alley', caption: 'Warm alley' },
-    { id: 'mb-05', alt: 'Wide desert dunes', caption: 'Dunes' },
-    { id: 'mb-06', alt: 'Rain on a window', caption: 'Rainy glass' },
-    { id: 'mb-07', alt: 'Calm lake reflection', caption: 'Still water' },
-    { id: 'mb-08', alt: 'Tall concrete staircase', caption: 'Ascent' },
-    { id: 'mb-09', alt: 'Close-up of dried flowers', caption: 'Pressed petals' },
-    { id: 'mb-10', alt: 'Panoramic city skyline at dusk', caption: 'Dusk skyline' },
-    { id: 'mb-11', alt: 'Single tree in a green field', caption: 'Lone tree' },
-    { id: 'mb-12', alt: 'Textured stone wall', caption: 'Stonework' },
-  ] as const
-).map((img, i) => ({
-  ...img,
-  image: moodboardImages[i]!,
-  thumb: moodboardImages[i]!,
-  src: moodboardImages[i]!,
+const BASE_PATH = '/examples/lightbox/url-synced-state';
+
+const items = galleryPhotos.map((photo) => ({
+  ...photo,
+  src: photo.image,
+  thumb: photo.image,
 }));
 
-type Tile = (typeof images)[number];
-
-/** Responsive column count without CSS multicol (2 on mobile, 3 from `sm`). */
-function useColumnCount() {
-  const [cols, setCols] = React.useState(2);
-  React.useEffect(() => {
-    const mq = window.matchMedia('(min-width: 640px)');
-    const update = () => setCols(mq.matches ? 3 : 2);
-    update();
-    mq.addEventListener('change', update);
-    return () => mq.removeEventListener('change', update);
-  }, []);
-  return cols;
+/** `/…/url-synced-state/5` → 4; the bare grid URL (or an unknown id) → -1. */
+function photoIndexFromPathname(pathname: string): number {
+  if (!pathname.startsWith(`${BASE_PATH}/`)) return -1;
+  // decodeURIComponent throws on malformed percent-sequences. Navigation can't
+  // deliver one (the server 400s those before rendering), but any code calling
+  // pushState with an arbitrary string can — treat it as "not a photo URL".
+  let id: string;
+  try {
+    id = decodeURIComponent(pathname.slice(BASE_PATH.length + 1));
+  } catch {
+    return -1;
+  }
+  return galleryPhotos.findIndex((photo) => photo.id === id);
 }
 
-export default function MoodboardPage() {
-  const cols = useColumnCount();
-  // Distribute tiles round-robin into flex columns. This intentionally avoids
-  // CSS `columns` (multicol): opening the lightbox locks page scroll (hides the
-  // scrollbar → width change) and toggles a document-wide view-transition-name
-  // reset, either of which forces the background to re-layout DURING the
-  // transition. Multicol re-balances every item on any such invalidation — one
-  // of the heaviest layouts there is — which starves the morph/backdrop of
-  // frames (worst on mobile Safari). A flex-column reflow is cheap by contrast.
-  const columns = React.useMemo(() => {
-    const buckets: { tile: Tile; index: number }[][] = Array.from({ length: cols }, () => []);
-    images.forEach((tile, i) => buckets[i % cols]!.push({ tile, index: i }));
-    return buckets;
-  }, [cols]);
+/**
+ * Masonry inputs (see masonry-grid.css for the layout itself and the full
+ * design rationale). A column is 120 row-units wide, a gap is 9; a tile's
+ * span is its aspect-derived height in those units plus its own bottom gap.
+ * Unit-relative means the SAME span works at both breakpoints — the number
+ * can live in the server HTML and the column switch is pure CSS, which is
+ * what makes the server paint correct at any viewport (a JS column count
+ * guessed 2 on the server and visibly re-bucketed desktop visits to 3 after
+ * hydration). The photos are exact 2:3 / 3:2 / 1:1 crops, so the spans are
+ * exact integers — no rounding crop from the `object-cover` below.
+ */
+const MASONRY_COL_UNITS = 120;
+const MASONRY_GAP_UNITS = 9;
+
+function masonrySpan(image: { width: number; height: number }): number {
+  return Math.round((MASONRY_COL_UNITS * image.height) / image.width) + MASONRY_GAP_UNITS;
+}
+
+export function UrlSyncedStateDemo() {
+  // Single URL source. `usePathname` updates on native History API writes
+  // (Next.js shallow routing) AND on browser back/forward, so one hook covers
+  // deep links, swipes, and the Back button.
+  const pathname = usePathname();
+  const urlIndex = photoIndexFromPathname(pathname);
+
+  // Local state is the lightbox's source of truth; the URL mirrors it. Driving
+  // `open` straight from the pathname would also work, but a trigger tap would
+  // then wait for the routing round-trip before the open lands — and the
+  // library only runs the view-transition morph when open flips through its
+  // own gesture path (Trigger / Close / Escape / pull-to-dismiss). Controlled
+  // props updated synchronously from the callbacks keep that path intact.
+  //
+  // Deep links hydrate OPEN — the photo page loads with the viewer already in
+  // the server HTML, no post-hydration pop-in. That is only possible because
+  // deep-link visits skip the body portal (see `deepLinkVisit` below): a
+  // portal target like `document.body` does not exist during server rendering,
+  // so a server render with `open={true}` plus a real portal is a guaranteed
+  // hydration mismatch. In-place rendering is deterministic on both sides.
+  const [open, setOpen] = React.useState(urlIndex !== -1);
+  const [index, setIndex] = React.useState(urlIndex === -1 ? 0 : urlIndex);
+
+  // Decided ONCE per mount, never mid-session: swapping `container` would
+  // reparent the portal subtree and remount an open viewer. Deep-link visits
+  // render the viewer in place (`container: null`) so it exists in the server
+  // HTML; regular visits portal to document.body as usual. The in-place host
+  // gets `relative z-50` so the fixed viewer stacks above the docs page's
+  // sticky mobile header (z-40) — portaled hosts win by document order and
+  // must NOT carry a z-index (it would stack above body-level tooltips).
+  // Note this branch isn't strictly "the server rendered this": a client-side
+  // remount at a photo URL (open a photo, navigate to another docs page, press
+  // Back without bfcache) also mounts with `urlIndex !== -1` and takes the
+  // in-place path. That's fine — it renders identically — the only difference
+  // is the SSR flags below briefly suppress an open fade nobody would see.
+  const [deepLinkVisit] = React.useState(urlIndex !== -1);
+
+  // Destination blur is the ONE exception to the Next.js Image guide's rule
+  // ("index has a trigger image → no destination blur"). That rule exists
+  // because on gesture opens Ramka paints the trigger's already-decoded image
+  // behind the destination, and an LQIP would cover that sharp bridge with a
+  // blurry one. A deep-link visit has no gesture: the bridge can't paint
+  // before hydration and the grid image is cold-loading in parallel — while
+  // `blurDataURL` is inlined into the server HTML, making it the only
+  // placeholder that can exist on first paint. So: blur destinations for
+  // deep-link visits, keep them clean for regular visits. Per-mount like the
+  // portal decision above; the (unchanged) LQIP background layers behind
+  // already-loaded pixels, so later in-session opens stay bridged and sharp.
+  const galleryItems = React.useMemo(
+    () => (deepLinkVisit ? items.map((item) => ({ ...item, destinationBlur: true })) : items),
+    [deepLinkVisit],
+  );
+
+  // Deep links paint the RIGHT photo before hydration via the library's
+  // `Slides ssrSlideShift` (passed through LightboxGallery below): the server
+  // HTML carries a transform that translates every slide by
+  // `-index × slide width` so the deep-linked photo sits at scroll offset 0,
+  // and the library swaps the real scroll in — same commit, one paint — at
+  // hydration. The skin's only obligation is mirroring the track's gap into
+  // `--lightbox-ssr-slide-gap` (see lightbox-chrome.tsx, next to the gap
+  // utilities it restates).
+
+  // A server-rendered open viewer must not FADE in — the skin's open fades run
+  // off @starting-style, which applies on first render, and for SSR'd markup
+  // first render is page load. While this flag is on, a host class flattens
+  // every transition inside (ssr-no-transitions.css) so the server paint is
+  // the final frame. Removed one frame AFTER the first post-hydration paint —
+  // transitions consult the after-change style, so a layout-effect removal
+  // (same style recalc where the strip's data-positioned lands) would restart
+  // the exact fades being suppressed. Double rAF: the first can fire before
+  // the pending paint, the second is guaranteed to be a frame behind it.
+  const [ssrNoTransitions, setSsrNoTransitions] = React.useState(deepLinkVisit);
+  React.useEffect(() => {
+    let raf = requestAnimationFrame(() => {
+      raf = requestAnimationFrame(() => setSsrNoTransitions(false));
+    });
+    return () => cancelAnimationFrame(raf);
+  }, []);
+
+  // `handleOpenChange` needs the freshest active index when it writes the
+  // opened URL: a trigger tap reports its index (onValueChange) before the
+  // open commits, and state from the previous render would lag behind it.
+  const indexRef = React.useRef(index);
+  // Same discipline for `open` in `handleValueChange`: render-scope `open`
+  // is the last COMMITTED value, so if a close and a value change ever landed
+  // in the same task the guard below would see stale `true` and strand a
+  // photo URL on a closed viewer. No current library path emits that ordering,
+  // but the guard's correctness shouldn't depend on non-contractual event
+  // ordering. (The library uses the same ref technique internally.)
+  const openRef = React.useRef(open);
+
+  // URL → lightbox. Covers the pathname changing underneath us — browser
+  // back/forward — after the initial render (deep links already hydrate open,
+  // so the mount run is a no-op). Gesture-driven changes wrote the URL
+  // themselves in the callbacks below, so this no-ops for them too. URL-driven
+  // flips render without the morph by design — Back closing the viewer fades,
+  // it doesn't morph, matching how photo viewers behave elsewhere.
+  React.useEffect(() => {
+    if (urlIndex !== -1) {
+      indexRef.current = urlIndex;
+      openRef.current = true;
+      setIndex(urlIndex);
+      setOpen(true);
+    } else {
+      openRef.current = false;
+      setOpen(false);
+    }
+  }, [urlIndex]);
+
+  // The tab title follows the URL. Shallow History writes (below) never re-run
+  // Next.js metadata — `generateMetadata` ran once, for the URL this page
+  // LOADED with — so without this a deep-link visit keeps the first photo's
+  // title forever: through every swipe and even after the viewer closes.
+  // Owning the URL writes means owning the title too. Same strings as the
+  // server metadata (shared helpers in photos.ts); the ` — ramka` suffix
+  // mirrors the root layout's title template, which only applies server-side.
+  // An effect (not the callbacks) so Back/Forward flips retitle as well.
+  React.useEffect(() => {
+    const base = open ? photoPageTitle(galleryPhotos[index]!) : GALLERY_PAGE_TITLE;
+    document.title = `${base} — ramka`;
+  }, [open, index]);
+
+  // Lightbox → URL, written from the gesture callbacks — never from an effect,
+  // so URL-driven prop flips can't echo back into history. The writes use the
+  // native History API (Next.js shallow routing — `usePathname` stays in
+  // sync); `router.push` would also work but round-trips the server on every
+  // change, and shallow writes keep URL sync free even mid-swipe.
+  const handleOpenChange = (nextOpen: boolean) => {
+    openRef.current = nextOpen;
+    setOpen(nextOpen);
+    if (nextOpen) {
+      // Opening pushes ONE history entry, so the browser Back button closes
+      // the viewer instead of leaving the page.
+      window.history.pushState(null, '', `${BASE_PATH}/${galleryPhotos[indexRef.current]!.id}`);
+    } else {
+      // Gesture closes REWRITE the entry instead of popping it. Never call
+      // history.back() here: on a morph close this callback fires inside the
+      // View Transition's DOM-update callback (state must commit between the
+      // two snapshots), and a synchronous pop lands a popstate — router
+      // re-render plus the popped entry's SCROLL RESTORATION — mid-morph.
+      // When scrollTriggerIntoView had scrolled a half-visible tile into view
+      // during the session, that restore yanks the page back between the VT
+      // snapshots and the close visibly morphs onto the wrong tile. The cost
+      // of replacing instead: one leftover grid history entry PER viewer
+      // session (three sessions = four Backs to leave the page), and Back
+      // onto an older grid entry replays that entry's scroll restoration —
+      // if scrollTriggerIntoView moved the grid during the session, that
+      // "no-op" Back visibly jumps the scroll position. Nothing breaks, and
+      // the same jump would land mid-morph with history.back(); if a clean
+      // stack matters more to you than morph closes, pop the entry from
+      // onOpenChangeComplete(false) instead (after the transition settles).
+      // `replaceState` is safe in the commit: it fires no popstate and
+      // restores no scroll, and the async pathname re-render it triggers
+      // reconciles to identical DOM.
+      window.history.replaceState(null, '', BASE_PATH);
+    }
+  };
+
+  const handleValueChange = (nextIndex: number) => {
+    indexRef.current = nextIndex;
+    setIndex(nextIndex);
+    // Swiping / arrow keys REPLACE the current entry — no history spam.
+    // Skipped while closed (via openRef, see above): a trigger tap reports its
+    // index before the open commits, and handleOpenChange writes that URL.
+    if (openRef.current) {
+      window.history.replaceState(null, '', `${BASE_PATH}/${galleryPhotos[nextIndex]!.id}`);
+    }
+  };
 
   return (
     <ExampleShell
-      title="Moodboard"
-      description="A masonry wall of next/image tiles — each grid thumbnail shows a build-time blurDataURL placeholder while its pixels load, then tapping a tile opens the same fullscreen viewer as the Photos-app demo: a swipeable, snapping scroller with pinch / scroll / keyboard zoom, desktop thumbnails, edge-to-edge images, and pull-to-dismiss. Trigger and viewer share the same local source image at different sizes (srcset picks the resolution), so opening one paints the cached thumbnail as a placeholder that bridges the blank frame while the larger candidate downloads."
+      title="URL-synced state"
+      description="Every photo in this masonry wall is its own URL, driven by a Next.js dynamic route — the page lives at an [[...id]] optional catch-all, and the lightbox is controlled via open / value on Lightbox.Root. Tapping a tile opens the viewer and pushes /examples/lightbox/url-synced-state/5 with the native History API (shallow routing), swiping rewrites that URL in place, and the browser Back button closes the viewer. Loading a photo URL cold serves the viewer already open, straight from the server HTML with per-photo metadata: deep-link visits render the Portal in place (container={null}) instead of into document.body, which is what makes a server-rendered open lightbox possible at all — portals cannot be serialized into server HTML. Because the controlled props update synchronously from the gesture callbacks, trigger taps keep the view-transition morph."
+      docsHref="/docs/lightbox/state-lifecycle"
+      docsLabel="State & lifecycle docs"
     >
       <Lightbox.Root
+        open={open}
+        onOpenChange={handleOpenChange}
+        value={index}
+        onValueChange={handleValueChange}
+        // Items register through effects, which never run on the server — so
+        // without this an SSR-open page paints the counter as "6 of 0" until
+        // hydration. `count` is the pre-registration fallback.
+        count={galleryPhotos.length}
         loop
         scrollTriggerIntoView={[
           { type: 'onChange', behavior: 'instant' },
           { type: 'onOpenComplete', behavior: 'instant' },
         ]}
       >
-        {/* Flex-column masonry (not CSS `columns`) — see useColumnCount above for
-            why. Tiles keep their natural aspect once loaded; round-robin keeps a
-            balanced-ish layout without measuring heights. */}
-        <div className="flex max-w-2xl gap-4">
-          {columns.map((column, ci) => (
-            <div key={ci} className="flex min-w-0 flex-1 flex-col gap-4">
-              {column.map(({ tile, index }) => (
-                <Lightbox.Trigger
-                  key={tile.id}
-                  index={index}
-                  className={`block w-full cursor-pointer overflow-hidden rounded-xl border-none bg-transparent p-0 ${triggerFocusClass}`}
-                >
-                  {({ imageRef }) => (
-                    <Image
-                      ref={imageRef}
-                      src={tile.image}
-                      alt={tile.alt}
-                      placeholder="blur"
-                      sizes="(min-width: 640px) 224px, 50vw"
-                      loading="lazy"
-                      className="block h-auto w-full rounded-xl bg-neutral-100 object-cover transition duration-200 hover:opacity-90 dark:bg-neutral-800"
-                    />
-                  )}
-                </Lightbox.Trigger>
-              ))}
-            </div>
-          ))}
+        {/* Grid-span masonry — layout and rationale in masonry-grid.css, span
+            math next to masonrySpan above. One DOM order for every viewport:
+            the server HTML is correct at any width and the 2↔3 column switch
+            is pure CSS, so refreshes never reshuffle. Each tile's own bottom
+            gap is margin in the same row-units its span already counts;
+            grid auto-placement drops each tile into the topmost open slot,
+            which also keeps Tab order close to visual order (the old
+            column-major bucketing zigzagged). */}
+        <div className="lightbox-demo-masonry max-w-2xl">
+          <div className="lightbox-demo-masonry-grid">
+            {items.map((tile, tileIndex) => (
+              <Lightbox.Trigger
+                key={tile.id}
+                index={tileIndex}
+                className={`block w-full cursor-pointer overflow-hidden rounded-xl border-none bg-transparent p-0 ${triggerFocusClass}`}
+                style={{
+                  gridRowEnd: `span ${masonrySpan(tile.image)}`,
+                  // The gap MUST be margin, not padding: the trigger is the
+                  // view-transition morph target, and padding would grow its
+                  // box past the visible image — the morph would land on a
+                  // rect that includes the gap. Margin stays outside the
+                  // border box (grid stretch subtracts it from the area), so
+                  // the trigger's rect IS the image's rect.
+                  marginBottom: `calc(var(--masonry-unit) * ${MASONRY_GAP_UNITS})`,
+                }}
+              >
+                {({ imageRef }) => (
+                  <Image
+                    ref={imageRef}
+                    src={tile.image}
+                    alt={tile.alt}
+                    placeholder="blur"
+                    sizes="(min-width: 640px) 224px, 50vw"
+                    loading="lazy"
+                    className="block h-full w-full rounded-xl bg-neutral-100 object-cover transition duration-200 hover:opacity-90 dark:bg-neutral-800"
+                  />
+                )}
+              </Lightbox.Trigger>
+            ))}
+          </div>
         </div>
 
-        <LightboxGallery items={images} ariaLabel="Moodboard photos" backdrop="solid" />
+        <LightboxGallery
+          items={galleryItems}
+          ariaLabel="Gallery photos"
+          backdrop="solid"
+          // Items register captions in effects, which never run on the server —
+          // without this a deep-link visit paints an empty caption placard.
+          // Fallback children render only until the registry fills, so it can't
+          // go stale after a swipe.
+          captionFallback={deepLinkVisit ? galleryPhotos[index]?.caption : undefined}
+          // Server-rendered deep links paint the deep-linked slide, not slide 0
+          // (library feature — forwarded to `Lightbox.Slides`). Inert for
+          // regular visits: the stand-in only renders for server paint.
+          ssrSlideShift
+          portalProps={
+            deepLinkVisit
+              ? {
+                  container: null,
+                  className: `relative z-50${
+                    ssrNoTransitions ? ' lightbox-demo-ssr-no-transitions' : ''
+                  }`,
+                }
+              : undefined
+          }
+        />
       </Lightbox.Root>
     </ExampleShell>
+  );
+}
+```
+
+```ts examples/lightbox/url-synced-state/photos.ts
+import type { StaticImageData } from 'next/image';
+
+import { galleryImages } from './images.generated';
+
+/**
+ * Shared photo catalogue for the URL-synced state example. Plain data (no
+ * `'use client'`) on purpose: the client demo maps it into grid tiles and
+ * gallery slides, while the server route (`[[...id]]/page.tsx`) uses the same
+ * ids and captions for `generateStaticParams`, per-photo metadata, and 404s —
+ * one list, so a photo's URL can never drift from its slide.
+ */
+export interface GalleryPhoto {
+  /**
+   * URL segment for the photo's deep link (`…/url-synced-state/5`). An
+   * opaque STABLE id — the routing looks photos up by this value, never by
+   * array position, so reordering or removing photos can't repoint existing
+   * links. (These happen to be numeric; any string works.)
+   */
+  id: string;
+  alt: string;
+  caption: string;
+  image: StaticImageData;
+}
+
+/**
+ * Page titles, shared by the server metadata (`[[...id]]/page.tsx`) and the
+ * client demo. Shallow History API writes never re-run `generateMetadata` —
+ * it ran once, for the URL the page LOADED with — so the demo mirrors the
+ * title into `document.title` from the same state that drives the URL. One
+ * source keeps the two from drifting. (The root layout's title template
+ * appends the site suffix to these on the server.)
+ */
+export const GALLERY_PAGE_TITLE = 'URL-synced state example';
+
+export function photoPageTitle(photo: GalleryPhoto): string {
+  return `${photo.caption} — ${GALLERY_PAGE_TITLE}`;
+}
+
+export const galleryPhotos: GalleryPhoto[] = (
+  [
+    { id: '1', alt: 'Foggy pine ridge at dawn', caption: 'Dawn ridge' },
+    { id: '2', alt: 'Empty coastal highway', caption: 'Open road' },
+    { id: '3', alt: 'Overhead of a linen breakfast table', caption: 'Slow morning' },
+    { id: '4', alt: 'Narrow sunlit alley', caption: 'Warm alley' },
+    { id: '5', alt: 'Wide desert dunes', caption: 'Dunes' },
+    { id: '6', alt: 'Rain on a window', caption: 'Rainy glass' },
+    { id: '7', alt: 'Calm lake reflection', caption: 'Still water' },
+    { id: '8', alt: 'Tall concrete staircase', caption: 'Ascent' },
+    { id: '9', alt: 'Close-up of dried flowers', caption: 'Pressed petals' },
+    { id: '10', alt: 'Panoramic city skyline at dusk', caption: 'Dusk skyline' },
+    { id: '11', alt: 'Single tree in a green field', caption: 'Lone tree' },
+    { id: '12', alt: 'Textured stone wall', caption: 'Stonework' },
+  ] as const
+).map((photo, i) => ({ ...photo, image: galleryImages[i]! }));
+```
+
+```css app/lightbox-demo/ssr-no-transitions.css
+/*
+ * No entrance motion when the page ITSELF is the entrance — used by
+ * deep-linked visits that server-render the lightbox already open
+ * (the URL-synced state example's dynamic route).
+ *
+ * The skin's open/close fades run off `@starting-style` (open-close.css,
+ * chrome-hide, the strip's data-positioned reveal), and @starting-style
+ * applies on an element's FIRST render — which, on a server-rendered open
+ * viewer, is page load. A refreshed deep link would fade its own content in
+ * as if it had just opened. While this class is on the Portal host every
+ * transition inside is flattened, so the server paint IS the final frame.
+ *
+ * The demo removes the class one frame AFTER the first post-hydration paint
+ * (not in the hydration commit): transitions consult the after-change style,
+ * so dropping it in the same style recalc where e.g. the strip's
+ * `data-positioned` lands would start the very fades being suppressed.
+ *
+ * (The companion problem — painting the RIGHT slide before hydration — is
+ * library-owned: `Lightbox.Slides ssrSlideShift`, plus the skin mirroring the
+ * track gap into `--lightbox-ssr-slide-gap` in lightbox-chrome.tsx. This file
+ * is only about suppressing the skin's own fades.)
+ */
+.lightbox-demo-ssr-no-transitions *,
+.lightbox-demo-ssr-no-transitions *::before,
+.lightbox-demo-ssr-no-transitions *::after {
+  transition: none !important;
+}
+```
+
+```css app/lightbox-demo/thumbnail-strip-scroll-link.css
+/**
+ * Docs-only thumbnail-strip cosmetics (default gallery chrome).
+ *
+ * Library ThumbnailStrip owns midline padding, overflow clip, and the
+ * ScrollTimeline → track transform link. Selection chrome here is a simple
+ * floating square. Aspect-morph nine-slice lives on the debug recipes page.
+ */
+
+.lightbox-demo-thumbnail-strip {
+  --lightbox-demo-thumb-h: 4.5rem;
+  --lightbox-demo-thumbnail-strip-fade: 40px;
+  align-self: stretch;
+  width: 100%;
+  min-width: 0;
+  /* Fits the floating indicator's overhang (3px gap + 2px stroke). */
+  padding-block: 0.3125rem;
+  /*
+   * Soft clip on both edges. Stops at 25/50/75% of the fade use smoothstep
+   * alphas (t²(3−2t)) so the dissolve eases in/out instead of a hard ramp.
+   */
+  -webkit-mask-image: linear-gradient(
+    to right,
+    rgb(0 0 0 / 0) 0,
+    rgb(0 0 0 / 0.156) calc(var(--lightbox-demo-thumbnail-strip-fade) * 0.25),
+    rgb(0 0 0 / 0.5) calc(var(--lightbox-demo-thumbnail-strip-fade) * 0.5),
+    rgb(0 0 0 / 0.844) calc(var(--lightbox-demo-thumbnail-strip-fade) * 0.75),
+    #000 var(--lightbox-demo-thumbnail-strip-fade),
+    #000 calc(100% - var(--lightbox-demo-thumbnail-strip-fade)),
+    rgb(0 0 0 / 0.844) calc(100% - var(--lightbox-demo-thumbnail-strip-fade) * 0.75),
+    rgb(0 0 0 / 0.5) calc(100% - var(--lightbox-demo-thumbnail-strip-fade) * 0.5),
+    rgb(0 0 0 / 0.156) calc(100% - var(--lightbox-demo-thumbnail-strip-fade) * 0.25),
+    rgb(0 0 0 / 0) 100%
+  );
+  mask-image: linear-gradient(
+    to right,
+    rgb(0 0 0 / 0) 0,
+    rgb(0 0 0 / 0.156) calc(var(--lightbox-demo-thumbnail-strip-fade) * 0.25),
+    rgb(0 0 0 / 0.5) calc(var(--lightbox-demo-thumbnail-strip-fade) * 0.5),
+    rgb(0 0 0 / 0.844) calc(var(--lightbox-demo-thumbnail-strip-fade) * 0.75),
+    #000 var(--lightbox-demo-thumbnail-strip-fade),
+    #000 calc(100% - var(--lightbox-demo-thumbnail-strip-fade)),
+    rgb(0 0 0 / 0.844) calc(100% - var(--lightbox-demo-thumbnail-strip-fade) * 0.75),
+    rgb(0 0 0 / 0.5) calc(100% - var(--lightbox-demo-thumbnail-strip-fade) * 0.5),
+    rgb(0 0 0 / 0.156) calc(100% - var(--lightbox-demo-thumbnail-strip-fade) * 0.25),
+    rgb(0 0 0 / 0) 100%
+  );
+}
+
+/*
+ * Hidden until the library has positioned the track against the Slides
+ * scroller (`data-positioned`, set in a layout effect before first client
+ * paint). Client-side opens carry the attribute on their first painted frame,
+ * so this never hides anything there. It only matters for pages that
+ * server-render an open lightbox (URL-synced state deep links): scroll/transform
+ * positions cannot be serialized into HTML, so the SSR'd strip sits at offset
+ * 0 until hydration — a strip pointing at the wrong photo reads as broken,
+ * a strip fading in a beat late reads as loading.
+ */
+.lightbox-demo-thumbnail-strip:not([data-positioned]) {
+  opacity: 0;
+}
+
+.lightbox-demo-thumbnail-strip[data-positioned] {
+  opacity: 1;
+  transition: opacity 200ms ease-out;
+}
+
+.lightbox-demo-thumbnail-strip [data-ramka-thumbnail-strip-track] {
+  display: flex;
+  width: max-content;
+  gap: 0.625rem;
+  align-items: center;
+}
+
+.lightbox-demo-thumbnail-strip [role='tab'] {
+  box-sizing: border-box;
+  position: relative;
+  display: block;
+  width: var(--lightbox-demo-thumb-h);
+  height: var(--lightbox-demo-thumb-h);
+  flex-shrink: 0;
+  overflow: hidden;
+  margin: 0;
+  border: 0;
+  border-radius: 0.5rem;
+  padding: 0;
+  appearance: none;
+  background: transparent;
+}
+
+.lightbox-demo-thumbnail-strip [role='tab'] img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  pointer-events: none;
+}
+
+/* Stationary midline square — same size as a thumb + 3px gap + 2px stroke. */
+.lightbox-demo-thumbnail-strip-indicator {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  box-sizing: border-box;
+  width: calc(var(--lightbox-demo-thumb-h) + 10px);
+  height: calc(var(--lightbox-demo-thumb-h) + 10px);
+  border-radius: calc(0.5rem + 3px);
+  border: 2px solid #000;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+}
+
+:is(.dark, [data-theme='dark']) .lightbox-demo-thumbnail-strip-indicator {
+  border-color: #fff;
+}
+
+/* Thumb-jump slides crossfade CSS is injected by the library — tune with
+   `--lightbox-select-vt-*` on Slides (or a parent). */
+```
+
+# Intercepted routes
+
+The nextgram pattern: grid of plain Links, a @modal parallel-route slot, and an (.)photos/[id] intercepting route mounting an already-open controlled lightbox — Back closes it, hard loads get a standalone photo page (one URL, two presentations).
+
+## Source
+
+```tsx examples/lightbox/intercepted-routes/page.tsx
+import type { Metadata } from 'next';
+import Image from 'next/image';
+import Link from 'next/link';
+
+import { ExampleShell } from '../../../../_components/example-shell';
+import { EXAMPLE_BASE_PATH, EXAMPLE_PAGE_TITLE, interceptedPhotos } from './photos';
+
+export const metadata: Metadata = {
+  title: EXAMPLE_PAGE_TITLE,
+  description:
+    'A photo grid wired to Next.js intercepted + parallel routes: clicking a tile soft-navigates to the photo URL and the lightbox opens in a @modal slot over the grid; loading that URL cold renders a standalone photo page instead. Built with ramka.',
+};
+
+/**
+ * The grid is plain `<Link>`s — NOT `Lightbox.Trigger`s. Opening is a router
+ * navigation: Next.js intercepts it (`@modal/(.)photos/[id]`) and mounts an
+ * already-open lightbox in the layout's modal slot while this page stays on
+ * screen underneath. That's the defining tradeoff of this pattern versus the
+ * URL-synced state example: the open never flows through the library's
+ * gesture path, so there is no trigger morph (the viewer fades in), and a
+ * refresh on a photo URL renders a different presentation (the standalone
+ * page) rather than this grid with the viewer open.
+ *
+ * `scroll={false}` keeps the grid's scroll position while the modal is up —
+ * without it, Next scrolls the page to the top on every navigation.
+ */
+export default function InterceptedRoutesGridPage() {
+  return (
+    <ExampleShell
+      title="Intercepted routes"
+      description="The nextgram pattern: a grid of plain Next.js Links, a @modal parallel-route slot, and an (.)photos/[id] intercepting route that mounts an already-open, controlled lightbox during soft navigation — browser Back closes it. Hard-loading the same photo URL skips interception entirely and renders a standalone photo page: one URL, two presentations. Compare with the URL-synced state example, which keeps one presentation (grid + viewer) on refresh and keeps trigger morphs, at the cost of owning the History API writes itself."
+      docsHref="/docs/lightbox/state-lifecycle"
+      docsLabel="State & lifecycle docs"
+    >
+      <div className="grid max-w-2xl grid-cols-2 gap-4 sm:grid-cols-3">
+        {interceptedPhotos.map((photo) => (
+          <Link
+            key={photo.id}
+            href={`${EXAMPLE_BASE_PATH}/photos/${photo.id}`}
+            scroll={false}
+            className="block overflow-hidden rounded-xl"
+          >
+            <Image
+              src={photo.image}
+              alt={photo.alt}
+              placeholder="blur"
+              sizes="(min-width: 640px) 224px, 50vw"
+              loading="lazy"
+              className="block aspect-square h-auto w-full rounded-xl bg-neutral-100 object-cover transition duration-200 hover:opacity-90 dark:bg-neutral-800"
+            />
+          </Link>
+        ))}
+      </div>
+    </ExampleShell>
+  );
+}
+```
+
+```tsx examples/lightbox/intercepted-routes/layout.tsx
+/**
+ * The layout is what makes the parallel-route slot exist: `@modal` renders as
+ * the `modal` prop NEXT TO the page, not inside it. During soft navigation to
+ * `photos/[id]` the interception route fills this slot with the lightbox while
+ * `children` keeps showing the grid the user was on; on hard loads the slot
+ * renders `@modal/default.tsx` (null) and `children` is the standalone photo
+ * page.
+ */
+export default function InterceptedRoutesLayout({
+  children,
+  modal,
+}: {
+  children: React.ReactNode;
+  modal: React.ReactNode;
+}) {
+  return (
+    <>
+      {children}
+      {modal}
+    </>
+  );
+}
+```
+
+```tsx examples/lightbox/intercepted-routes/photo-modal.tsx
+'use client';
+
+import * as React from 'react';
+import { useRouter } from 'next/navigation';
+import * as Lightbox from '@ramka/react/lightbox';
+
+import { LightboxGallery } from '../../../../_components/lightbox-chrome';
+import {
+  EXAMPLE_BASE_PATH,
+  EXAMPLE_PAGE_TITLE,
+  interceptedPhotos,
+  interceptedPhotoTitle,
+} from './photos';
+
+const items = interceptedPhotos.map((photo) => ({
+  ...photo,
+  src: photo.image,
+  thumb: photo.image,
+  // No `Lightbox.Trigger`s exist anywhere in this pattern (the grid is plain
+  // Links), so no index has a trigger image and Ramka has nothing to bridge —
+  // per the Next.js Image guide, the destination LQIP is the only loading
+  // placeholder and belongs on every item.
+  destinationBlur: true,
+}));
+
+/**
+ * The viewer the intercepting route mounts: a self-contained, ALREADY-OPEN
+ * controlled lightbox. There are no `Lightbox.Trigger`s here — the router
+ * opened this, not a gesture, which is the pattern's defining tradeoff: the
+ * open never flows through the library's gesture path, so it fades in rather
+ * than morphing from the clicked tile.
+ *
+ * The default body portal is fine here (unlike the URL-synced state example's
+ * `container={null}`): interception only happens during client-side
+ * navigation, where `document.body` exists. Nothing about this component is
+ * ever server-painted into the page.
+ */
+export function PhotoModal({ initialIndex }: { initialIndex: number }) {
+  const router = useRouter();
+
+  // Local `open` so a close gesture (Escape, ✕, pull-to-dismiss) can play the
+  // skin's fade BEFORE the route unmounts this component: flipping the route
+  // first (router.back() in onOpenChange) would yank the viewer out of the
+  // DOM mid-frame. Browser Back does exactly that — popstate unmounts the
+  // slot with no exit animation — which is unavoidable in this pattern.
+  const [open, setOpen] = React.useState(true);
+  const [index, setIndex] = React.useState(initialIndex);
+
+  // Swipes REPLACE the current history entry with the new photo URL — no
+  // history spam, and the grid entry underneath stays intact so one Back
+  // always closes the viewer. replaceState is a shallow write: Next.js keeps
+  // rendering this same mounted route (usePathname-style readers update, but
+  // no navigation happens), so the viewer never remounts mid-swipe.
+  const handleValueChange = (nextIndex: number) => {
+    setIndex(nextIndex);
+    window.history.replaceState(
+      null,
+      '',
+      `${EXAMPLE_BASE_PATH}/photos/${interceptedPhotos[nextIndex]!.id}`,
+    );
+  };
+
+  // Close = leave the photo route. router.back() (not push) pops the entry
+  // the grid's <Link> pushed, so the history stack ends the session exactly
+  // where it started. Deferred to onOpenChangeComplete so the fade finishes
+  // first; the popstate then unmounts the @modal slot.
+  const handleOpenChangeComplete = (isOpen: boolean) => {
+    if (!isOpen) router.back();
+  };
+
+  // Shallow replaceState never re-runs route metadata, so swiping would
+  // strand the tab title on the photo the modal opened with — same lesson as
+  // the URL-synced state example: own the URL writes, own the title. The
+  // ` — ramka` suffix mirrors the root layout's title template, which only
+  // applies server-side.
+  React.useEffect(() => {
+    document.title = `${interceptedPhotoTitle(interceptedPhotos[index]!)} — ramka`;
+  }, [index]);
+
+  // Closing needs the same care: router.back() pops to the grid URL, but the
+  // grid page in the `children` slot never changed, so Next.js has no
+  // metadata update to apply — the photo title would stick to the grid.
+  // Restore it when the slot unmounts (close and browser Back both land on
+  // the grid, the only places this modal can exit to).
+  React.useEffect(() => {
+    return () => {
+      document.title = `${EXAMPLE_PAGE_TITLE} — ramka`;
+    };
+  }, []);
+
+  return (
+    <Lightbox.Root
+      open={open}
+      onOpenChange={setOpen}
+      onOpenChangeComplete={handleOpenChangeComplete}
+      value={index}
+      onValueChange={handleValueChange}
+      // The Root mounts already open; `count` covers the render before the
+      // items' registration effects run so the counter never reads "n of 0".
+      count={interceptedPhotos.length}
+      loop
+    >
+      <LightboxGallery
+        items={items}
+        ariaLabel="Gallery photos"
+        backdrop="solid"
+        // The Root mounts already open and captions register in effects (after
+        // the first paint) — the fallback covers that first-paint window.
+        captionFallback={interceptedPhotos[index]?.caption}
+      />
+    </Lightbox.Root>
+  );
+}
+```
+
+```ts examples/lightbox/intercepted-routes/photos.ts
+import type { StaticImageData } from 'next/image';
+
+// Static imports (not the download-images generator) — this example reuses the
+// photo assets downloaded for the URL-synced state example, so there is no
+// per-example image set to generate.
+import p1 from '../../../../_assets/photos/mb-01.jpg';
+import p2 from '../../../../_assets/photos/mb-02.jpg';
+import p4 from '../../../../_assets/photos/mb-04.jpg';
+import p5 from '../../../../_assets/photos/mb-05.jpg';
+import p7 from '../../../../_assets/photos/mb-07.jpg';
+import p8 from '../../../../_assets/photos/mb-08.jpg';
+import p10 from '../../../../_assets/photos/mb-10.jpg';
+import p11 from '../../../../_assets/photos/mb-11.jpg';
+
+/**
+ * Shared photo catalogue for the intercepted-routes example. One list serves
+ * the grid page, the intercepted modal route, and the standalone photo page
+ * (`photos/[id]/page.tsx`), so a photo's URL can never drift from its slide.
+ */
+export interface InterceptedPhoto {
+  /**
+   * URL segment for the photo route (`…/intercepted-routes/photos/5`). A
+   * stable id looked up by value — never by array position — so reordering
+   * or removing photos can't repoint existing links.
+   */
+  id: string;
+  alt: string;
+  caption: string;
+  image: StaticImageData;
+}
+
+export const EXAMPLE_BASE_PATH = '/examples/lightbox/intercepted-routes';
+
+export const EXAMPLE_PAGE_TITLE = 'Intercepted routes example';
+
+export function interceptedPhotoTitle(photo: InterceptedPhoto): string {
+  return `${photo.caption} — ${EXAMPLE_PAGE_TITLE}`;
+}
+
+export const interceptedPhotos: InterceptedPhoto[] = (
+  [
+    { id: '1', alt: 'Foggy pine ridge at dawn', caption: 'Dawn ridge' },
+    { id: '2', alt: 'Empty coastal highway', caption: 'Open road' },
+    { id: '3', alt: 'Narrow sunlit alley', caption: 'Warm alley' },
+    { id: '4', alt: 'Wide desert dunes', caption: 'Dunes' },
+    { id: '5', alt: 'Calm lake reflection', caption: 'Still water' },
+    { id: '6', alt: 'Tall concrete staircase', caption: 'Ascent' },
+    { id: '7', alt: 'Panoramic city skyline at dusk', caption: 'Dusk skyline' },
+    { id: '8', alt: 'Single tree in a green field', caption: 'Lone tree' },
+  ] as const
+).map((photo, i) => ({ ...photo, image: [p1, p2, p4, p5, p7, p8, p10, p11][i]! }));
+```
+
+```tsx examples/lightbox/intercepted-routes/@modal/default.tsx
+/**
+ * Required for every parallel-route slot: rendered whenever the current URL
+ * has no match inside `@modal` — the grid page, the standalone photo page on
+ * a hard load, and any unmatched sibling route. Without it those URLs 404.
+ */
+export default function ModalDefault() {
+  return null;
+}
+```
+
+```tsx examples/lightbox/intercepted-routes/@modal/(.)photos/[id]/page.tsx
+import { notFound } from 'next/navigation';
+
+import { PhotoModal } from '../../../photo-modal';
+import { interceptedPhotos } from '../../../photos';
+
+/**
+ * The intercepting route: `(.)` matches `photos/[id]` at the same segment
+ * level, so a soft navigation from the grid renders THIS page into the
+ * layout's `@modal` slot instead of navigating to the standalone photo page —
+ * the grid stays mounted underneath. Hard loads never come here (interception
+ * is client-navigation-only); they get `photos/[id]/page.tsx`.
+ */
+export default async function InterceptedPhotoRoute({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await params;
+  const index = interceptedPhotos.findIndex((photo) => photo.id === id);
+  if (index === -1) notFound();
+  return <PhotoModal initialIndex={index} />;
+}
+```
+
+```tsx examples/lightbox/intercepted-routes/photos/[id]/page.tsx
+import type { Metadata } from 'next';
+import Image from 'next/image';
+import Link from 'next/link';
+import { notFound } from 'next/navigation';
+
+import {
+  EXAMPLE_BASE_PATH,
+  interceptedPhotos,
+  interceptedPhotoTitle,
+} from '../../photos';
+
+/**
+ * The hard-load presentation. Interception is a client-side navigation concept
+ * only: a refresh, bookmark, or shared link of `…/photos/5` never touches
+ * `@modal/(.)photos/[id]` — Next.js serves THIS standalone page instead
+ * (Instagram's dedicated photo page is the same move). That is the pattern's
+ * defining tradeoff: one URL, two presentations. If the refresh should keep
+ * the grid + open-viewer presentation instead, that's the URL-synced state
+ * example (dynamic route + container={null} + ssrSlideShift).
+ */
+interface PhotoPageProps {
+  params: Promise<{ id: string }>;
+}
+
+export function generateStaticParams() {
+  return interceptedPhotos.map((photo) => ({ id: photo.id }));
+}
+
+export async function generateMetadata({ params }: PhotoPageProps): Promise<Metadata> {
+  const { id } = await params;
+  const photo = interceptedPhotos.find((p) => p.id === id);
+  if (!photo) return {};
+  return {
+    title: interceptedPhotoTitle(photo),
+    description: `${photo.alt} — the standalone hard-load presentation of an intercepted photo route.`,
+    openGraph: {
+      title: interceptedPhotoTitle(photo),
+      description: photo.alt,
+      images: [
+        {
+          url: photo.image.src,
+          width: photo.image.width,
+          height: photo.image.height,
+          alt: photo.alt,
+        },
+      ],
+    },
+    twitter: { card: 'summary_large_image' },
+  };
+}
+
+export default async function StandalonePhotoPage({ params }: PhotoPageProps) {
+  const { id } = await params;
+  const photo = interceptedPhotos.find((p) => p.id === id);
+  if (!photo) notFound();
+
+  return (
+    <div className="mx-auto w-full max-w-4xl px-6 py-14 md:px-10 md:py-16">
+      <Link
+        href={EXAMPLE_BASE_PATH}
+        className="mb-8 inline-block text-[13px] text-neutral-500 underline underline-offset-4 hover:text-neutral-800 dark:hover:text-neutral-200"
+      >
+        ← Back to the gallery
+      </Link>
+      <figure>
+        <Image
+          src={photo.image}
+          alt={photo.alt}
+          placeholder="blur"
+          sizes="(min-width: 896px) 832px, 100vw"
+          priority
+          className="block h-auto w-full rounded-2xl bg-neutral-100 dark:bg-neutral-800"
+        />
+        <figcaption className="mt-4 text-[15px] text-neutral-600 dark:text-neutral-300">
+          {photo.caption}
+        </figcaption>
+      </figure>
+      <p className="mt-8 max-w-2xl text-[13px] leading-6 text-neutral-500">
+        You hard-loaded this photo URL, so route interception did not apply and you got this
+        standalone page instead of the lightbox over the grid — one URL, two presentations. Navigate
+        back to the gallery and click the same photo to see the intercepted modal presentation.
+      </p>
+    </div>
   );
 }
 ```

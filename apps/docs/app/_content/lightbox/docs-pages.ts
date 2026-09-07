@@ -32,6 +32,10 @@ export const lightboxDocsPages = {
     href: '/docs/lightbox/rtl',
     title: 'RTL support',
   },
+  csp: {
+    href: '/docs/lightbox/csp',
+    title: 'Content Security Policy',
+  },
   api: {
     href: '/docs/lightbox/api',
     title: 'API reference',
@@ -48,6 +52,7 @@ export const lightboxDocsPagerOrder = [
   lightboxDocsPages.gestures,
   lightboxDocsPages.zoom,
   lightboxDocsPages.rtl,
+  lightboxDocsPages.csp,
   lightboxDocsPages.api,
 ] as const;
 
@@ -77,6 +82,7 @@ export const lightboxApiHref = {
   zoom: `${api}#api-zoom`,
   zoomIn: `${api}#api-zoom-in`,
   zoomOut: `${api}#api-zoom-out`,
+  cspProvider: `${api}#api-csp-provider`,
   documentVt: `${api}#api-view-transition-document`,
   types: `${api}#types`,
   useTriggerContext: `${api}#api-use-trigger-context`,

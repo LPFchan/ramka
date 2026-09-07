@@ -32,6 +32,7 @@ Groups all parts of the lightbox and owns open state, active index, view-transit
 | defaultValue | `number` | `0` | Uncontrolled initial active index. |
 | value | `number` |  | Controlled active index. |
 | onValueChange | `(value: number, metadata: { source: NavigationSource }) => void` |  | Callback when active index changes. |
+| count | `number` |  | Total number of items, used until the mounted `Lightbox.Item`s have registered themselves. Registration happens in effects, which never run during server rendering — so a page that server-renders an open lightbox paints `Lightbox.Counter` as "n / 0" (and boundary-disables `Lightbox.Next` / `Lightbox.Previous` when `loop` is off) until hydration. Pass the item total to make that first paint correct. Once any item mounts the live registry takes over and this prop is ignored, so it can't drift from the real count. |
 | loop | `boolean` | `false` | Wrap navigation at boundaries. |
 | dir | `TextDirection` | `'ltr' (behavior); no `dir` attribute is written when omitted` | Reading direction. `'rtl'` mirrors slide navigation, thumbnail-strip travel, and the horizontal arrow keys (so `ArrowLeft` advances). Setting this is enough on its own: the direction is written to the `Lightbox.Portal` host as a `dir` attribute, so CSS follows it across the portal boundary even though the host mounts on `document.body`. That also makes it the way to run one RTL lightbox inside an otherwise-LTR page. Pass it whenever the surrounding UI is RTL, including in an app that is already RTL end to end (`dir="rtl"` on `<html>`) — behavior falls back to `'ltr'` without it, and navigation would run against the layout. Omitting it writes no attribute at all, so such an app still *lays out* RTL by inheritance; in development that disagreement logs a warning. |
 | viewTransition | `boolean \| LightboxViewTransitionPreset` | `true` | Morph between trigger and lightbox item via the View Transitions API. On by default: clicking a trigger morphs into the fullscreen item, and close morphs back. The morph engine is loaded on first use — pass `false` to skip that download. Falls back to a plain fade when unsupported, when prefers-reduced-motion is set, or on low-end devices. Pass a preset name to pick the morph's motion (duration + easing): - `"default"` — 360ms, sheet curve with a tamed launch (same as `true`) - `"snappy"` — 340ms, hotter launch; reads quicker - `"relaxed"` — 400ms, softer launch and longer settle - `"spring"` — 450ms, critically damped spring; Photos-style settle Timing is preset-based (not free-form CSS) on purpose: each preset is vetted on-device to stay smooth and skip-safe on iOS Safari (including Low Power Mode) and Android, where arbitrary curves stutter or teleport. The chosen timing drives the morph, the crossfade and the root fade together so they always stay in sync. |
@@ -199,6 +200,7 @@ A single lightbox item. Registers captions and morph/placeholder refs. ARIA adap
 | `data-active` | Present when this item is the active index. |
 | `data-index` | The item index as a string. |
 | `data-skip-fade` | Transient during view-transition open — suppress consumer entrance fades on the destination item. |
+| `data-ssr-active` | Present ONLY in server-rendered HTML, on the active item of a page that server-renders an open lightbox. Carries `scroll-initial-target: nearest` (delivered by `Lightbox.Slides`), so engines that support it scroll the Slides scrollport to the active slide during initial layout — before first paint, for any slide widths. Cleared during hydration; never set on the client. |
 
 ### Media
 
@@ -230,6 +232,7 @@ Default layout: horizontal snap carousel wired to the active index. Emits role="
 | Name | Type | Default | Description |
 | --- | --- | --- | --- |
 | preload | `number` | `1` | How many slides on each side of the active one keep their `Lightbox.Item` content mounted. Slide *boxes* are always present (so scroll extent is correct); only their content is preload-gated. `1` keeps the neighbours you can swipe to ready. |
+| ssrSlideShift | `boolean` | `false` | First-paint slide positioning for pages that SERVER-RENDER an open lightbox (deep links rendering `Portal container={null}`). A scroll offset cannot be serialized into HTML, so such pages otherwise paint slide 0 (or a blank past the `preload` window) until hydration. While this is on, the server HTML carries a transform that translates every slide by `activeIndex × (100% + gap)` so the active slide occupies the scrollport at scroll offset 0; the post-hydration commit swaps the real scroll offset in and drops the transform together — no flash, every browser. ONLY for scrollport-wide slides (`flex: 0 0 100%` tracks): the percentage resolves against each slide's own width, so content-sized (snug) slides would shift by unequal distances. If the track has a `gap`, mirror it into `--lightbox-ssr-slide-gap` (see `LightboxSlidesCssVars`). Without the opt-in, the library still marks the active item so engines with `scroll-initial-target` position any layout natively; other engines keep the hydration jump. Client-side opens are unaffected either way — the stand-in only ever renders for server paint + hydration. Degradation: the transform rule ships as a React 19 hoistable `<style>` tag. On React 18, or under a strict CSP without the nonce wired (see `Lightbox.CSPProvider`), the tag is unavailable and the server paint shows slide 0 with the scroller frozen until the hydration jump — the pre-existing baseline, never anything worse. |
 | render | `ReactElement \| ComponentRenderFn` |  | Replaces the part's default element with another tag or component. Accepts an element to clone, or a function that returns one. |
 
 #### Data attributes
@@ -240,6 +243,7 @@ Default layout: horizontal snap carousel wired to the active index. Emits role="
 | `data-active-index` | Current active index. |
 | `data-direction` | `forward` or `backward`. |
 | `data-orientation` | Always `horizontal`. |
+| `data-ssr-shift` | Present while the `ssrSlideShift` transform stand-in is applied: from the server render of an open lightbox until the mount layout effect swaps the real scroll offset in (same commit — the swap never paints). While set, every slide is translated so the active one occupies the scrollport at scroll offset 0, and the scrollport's `overflow-x` is frozen so a pre-hydration swipe can't reveal the empty positions the translated slides vacated. |
 
 ### Slide
 
@@ -310,6 +314,7 @@ Renders the active item’s caption from the Item caption registry.
 
 | Name | Type | Default | Description |
 | --- | --- | --- | --- |
+| children | `ReactNode` |  | Fallback content, rendered only while the caption registry is empty. Items register their `caption` in effects, which never run during server rendering (and land only after the first client paint) — so a page that renders an open lightbox paints an empty caption until then. Pass the active item's caption here (you know it on such pages — it's how you rendered the metadata) to make the first paint correct. The moment any item registers, the registry wins and the fallback never renders again, so it can't show stale text after navigation. |
 | render | `ReactElement \| ComponentRenderFn` |  | Replaces the part's default element with another tag or component. Accepts an element to clone, or a function that returns one. |
 
 #### Data attributes
@@ -375,6 +380,7 @@ Scroll-linked thumbnail strip root. Always centers the active thumbnail on the m
 | `data-ramka-thumbnail-strip` | Always present on the thumbnail strip root. |
 | `data-ramka-thumbnail-strip-track` | Always present on the scroll-linked tablist track. |
 | `data-scrubbing` | Present while a discrete-nav scrub animation is in flight. |
+| `data-positioned` | Present once the track has actually been positioned against the Slides scroller (first successful measure-and-sync — set in a layout effect, so for client-side opens it lands before the strip's first paint). Not set by bailed attempts, e.g. while the Slides viewport hasn't registered yet. Absent in server-rendered HTML: scroll/transform positions cannot be serialized, so a server-rendered strip sits at offset 0 until hydration. Hide the strip until this attribute lands to avoid the visible snap on pages that server-render an open lightbox. |
 
 #### CSS variables
 
@@ -454,6 +460,17 @@ Decrements zoom. Works inside Zoom, or as global chrome via the active-slide zoo
 | --- | --- |
 | `data-ramka-zoom-out` | Always present on the zoom-out button. |
 | `data-disabled` | Present when zoom-out is unavailable. |
+
+### CSPProvider
+
+Provides the Content-Security-Policy nonce for the few inline <style> tags ramka renders (media fill, active-trigger hide, SSR initial slide). Wrap it around everything that renders lightbox parts — including detached Triggers outside any Root — and pass the same per-request nonce that your server puts in the style-src / style-src-elem directive and in the React render call (React 19.2+). Without it, strict-CSP pages refuse those tags and the library falls back to CSSOM delivery after hydration (everything works; only server-paint niceties on SSR-open pages are lost).
+
+#### Props
+
+| Name | Type | Default | Description |
+| --- | --- | --- | --- |
+| nonce | `string` |  | The per-request CSP nonce (the value behind `'nonce-…'` in the `style-src` / `style-src-elem` directive). Stamped on every inline `<style>` tag the lightbox renders so strict-CSP pages keep the first-paint rules (media fill, active-trigger hide, SSR initial slide). |
+| children | `ReactNode` |  | — |
 
 ### Document (view transitions)
 

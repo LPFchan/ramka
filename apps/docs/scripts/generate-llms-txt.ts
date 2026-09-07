@@ -937,6 +937,11 @@ function collectOutputs(): Map<string, string> {
       file: path.join(docsPagesDir, 'lightbox/rtl/page.tsx'),
     },
     {
+      href: lightboxDocsPages.csp.href,
+      title: lightboxDocsPages.csp.title,
+      file: path.join(docsPagesDir, 'lightbox/csp/page.tsx'),
+    },
+    {
       href: lightboxDocsPages.api.href,
       title: lightboxDocsPages.api.title,
       file: path.join(docsPagesDir, 'lightbox/api/page.tsx'),
@@ -959,16 +964,14 @@ function collectOutputs(): Map<string, string> {
   }
   for (const example of lightboxExamples) {
     const href = `/examples/lightbox/${example.slug}`;
-    const pageFile = path.join(docsRoot, `app/(docs)/examples/lightbox/${example.slug}/page.tsx`);
+    const baseDir = 'app/(docs)/examples/lightbox';
+    const pageRel = `${baseDir}/${example.pagePath ?? `${example.slug}/page.tsx`}`;
+    // `extraSources` are app-rooted (not examples-dir-rooted) so an example
+    // can embed load-bearing files outside the (docs) tree — e.g. the
+    // URL-synced state example's SSR CSS under app/lightbox-demo/.
+    const extraFiles = [pageRel, ...(example.extraSources ?? []).map((rel) => `app/${rel}`)];
     pages.push(
-      compositionPage(
-        example.title,
-        example.description,
-        href,
-        pageFile,
-        [`app/(docs)/examples/lightbox/${example.slug}/page.tsx`],
-        false,
-      ),
+      compositionPage(example.title, example.description, href, path.join(docsRoot, pageRel), extraFiles, false),
     );
   }
 

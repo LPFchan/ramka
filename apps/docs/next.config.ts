@@ -14,6 +14,14 @@ const nextConfig: NextConfig = {
         destination: 'https://ramka.dev/:path*',
         permanent: true,
       },
+      {
+        // The example shipped as "Moodboard" before being renamed for what it
+        // actually showcases. `:path*` matches zero segments too, so both the
+        // grid URL and every photo deep link redirect.
+        source: '/examples/lightbox/moodboard/:path*',
+        destination: '/examples/lightbox/url-synced-state/:path*',
+        permanent: true,
+      },
     ];
   },
   async headers() {

@@ -78,8 +78,9 @@ function insertLibrarySheet(css: string, marker: string): LibrarySheet {
   return supportsConstructedSheets() ? adopt(css) : appendStyleElement(css, marker, false);
 }
 
-// `ensureLibrarySheet` lives in its own module (vt-style-sheets.ts) so the
-// once-only machinery stays in the lazy morph chunk instead of riding along in
-// the eager bundle, which only needs `insertLibrarySheet` for Media.
+// `ensureLibrarySheet` lives in its own module (vt-style-sheets.ts) because
+// its once-per-document, never-removed semantics are the opposite of this
+// module's caller-removes contract. (Both now ship in the eager bundle:
+// Trigger imports `ensureLibrarySheet` for the morph-target hide rule.)
 export { adopt, appendStyleElement, insertLibrarySheet, supportsConstructedSheets };
 export type { LibrarySheet };

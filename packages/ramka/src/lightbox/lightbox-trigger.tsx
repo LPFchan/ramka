@@ -15,7 +15,16 @@ import {
 } from './lightbox-handle';
 import { prefetchMorphRuntime } from './lightbox-morph-loader';
 import { prefetchZoomRuntime } from './lightbox-zoom-loader';
+import {
+  MORPH_TARGET_HIDE_CSS,
+  MORPH_TARGET_HIDE_HREF,
+  MORPH_TARGET_HIDE_MARKER,
+} from './morph-target-hide';
+import { useLightboxStyleNonce } from './lightbox-csp';
+import { HoistableStyle, REACT_SUPPORTS_STYLE_HOISTING } from './react-style-hoisting';
+import { ensureLibrarySheet } from './vt-style-sheets';
 import { ignoreStateAttribute } from './lightbox-state-attributes';
+import { useIsServerPaint } from './use-server-paint';
 import { mergeProps } from '../render/merge-props';
 import { useRender } from '../render/use-render';
 
@@ -143,6 +152,7 @@ const LightboxTrigger = React.forwardRef<HTMLButtonElement, LightboxTriggerProps
       props;
 
     const rootContext = React.useContext(LightboxContext);
+    const styleNonce = useLightboxStyleNonce();
     if (!rootContext && !handleProp) {
       throw new Error(
         'Lightbox.Trigger must be used within a Lightbox.Root, or passed a handle from Lightbox.createHandle()',
@@ -338,6 +348,15 @@ const LightboxTrigger = React.forwardRef<HTMLButtonElement, LightboxTriggerProps
         prev.removeAttribute(attr);
       }
 
+      // A server render stamps the attribute on the trigger ROOT (see the
+      // SSR-only prop in the render below) — it cannot know whether a
+      // `morphRef` node will attach on the client. When one does, the resolved
+      // morph element differs from the root, and the root's server-rendered
+      // copy is stale: clear it, or the whole trigger stays hidden.
+      if (triggerEl && triggerEl !== morphEl) {
+        triggerEl.removeAttribute(attr);
+      }
+
       if (active && morphEl) {
         morphEl.setAttribute(attr, '');
         morphTargetAttrElRef.current = morphEl;
@@ -398,6 +417,7 @@ const LightboxTrigger = React.forwardRef<HTMLButtonElement, LightboxTriggerProps
     }, [rootContext?.viewTransition]);
 
     const active = open && activeIndex === index;
+    const isServerPaint = useIsServerPaint();
 
     // Disclosure semantics matching Base UI's Dialog.Trigger: the button
     // advertises that it opens a dialog, exposes whether *this* trigger's
@@ -440,8 +460,26 @@ const LightboxTrigger = React.forwardRef<HTMLButtonElement, LightboxTriggerProps
       return active;
     }, [open, morphTo, activeIndex, index, active, openingTriggerIndexRef, triggerElementsRef]);
 
+    // CSSOM delivery of the morph-target hide rule — the strict-CSP path,
+    // mirroring Media's fill rules. The hoistable <style> rendered below covers
+    // server paints; where a strict `style-src` refuses it, this copy applies.
+    // `ensureLibrarySheet` is once-per-document, so a grid of triggers inserts
+    // one sheet. Never released: the rule is structural and page-global — same
+    // lifetime it had inside the VT structural sheet that used to ship it.
+    React.useInsertionEffect(() => {
+      ensureLibrarySheet(MORPH_TARGET_HIDE_MARKER, () => MORPH_TARGET_HIDE_CSS);
+    }, []);
+
     // Publish `data-morph-target` on the resolved morph element (trigger root,
     // or `morphRef` node). No setState here — see `morphRef` / `syncMorphTargetAttribute`.
+    //
+    // `isServerPaint` is a dep on purpose: the hydration render owns the
+    // server-paint stamp as a React prop (see the render below), so the
+    // post-hydration flip re-render makes React REMOVE that attribute from the
+    // trigger root — clobbering this effect's imperative copy when the
+    // resolved morph element IS the root. Re-running on the flip re-applies it
+    // in the same commit (mutations land before layout effects), so the active
+    // trigger never paints un-hidden.
     React.useLayoutEffect(() => {
       isMorphTargetRef.current = morphTarget;
       syncMorphTargetAttribute(morphTarget);
@@ -453,7 +491,7 @@ const LightboxTrigger = React.forwardRef<HTMLButtonElement, LightboxTriggerProps
           morphTargetAttrElRef.current = null;
         }
       };
-    }, [morphTarget, syncMorphTargetAttribute]);
+    }, [morphTarget, syncMorphTargetAttribute, isServerPaint]);
 
     const state = React.useMemo<LightboxTriggerState>(
       () => ({ open, active, morphTarget }),
@@ -489,6 +527,33 @@ const LightboxTrigger = React.forwardRef<HTMLButtonElement, LightboxTriggerProps
           // Mirrors the `data-ramka-item` hook on Lightbox.Item.
           [LightboxTriggerDataAttributes.trigger]: '',
           ...(crossfade ? { [LightboxTriggerDataAttributes.crossfade]: crossfade } : undefined),
+          // SERVER PAINT ONLY: on the client `data-morph-target` is managed
+          // imperatively (it may belong to a `morphRef` node — see
+          // `syncMorphTargetAttribute`), but a page that server-renders an open
+          // lightbox would otherwise paint the active trigger un-hidden until
+          // hydration. The trigger root is the best-effort stand-in the server
+          // can know about; the hydration layout effect re-syncs to the
+          // resolved morph element and clears this copy if that's a `morphRef`
+          // node.
+          //
+          // Gated on `useIsServerPaint` — NOT `typeof window` — so the
+          // hydration render also includes the prop (matching the server
+          // byte-for-byte; React 19 warns on attributes the server rendered
+          // but hydration didn't). On the post-hydration flip React removes
+          // its copy, and the layout effect above (which re-runs on the flip)
+          // restores the imperative one in the same commit.
+          //
+          // Stamped from `active`, NOT the client-resolved `morphTarget`: the
+          // `closest` resolver walks the trigger-element ref map, which is
+          // necessarily empty during server rendering (refs don't attach
+          // server-side), so it can never match — while after hydration of
+          // this same markup the active trigger IS registered and `closest`
+          // resolves to exactly `active`. `origin` stays unstamped: a
+          // server-rendered page has no opening trigger, and the client
+          // resolves no hidden trigger for it either.
+          ...(active && morphTo !== 'origin' && isServerPaint
+            ? { [LightboxTriggerDataAttributes.morphTarget]: '' }
+            : null),
         } as React.ComponentPropsWithRef<'button'>,
         elementProps as React.ComponentPropsWithRef<'button'>,
         { children: resolvedChildren } as React.ComponentPropsWithRef<'button'>,
@@ -498,6 +563,27 @@ const LightboxTrigger = React.forwardRef<HTMLButtonElement, LightboxTriggerProps
 
     return (
       <LightboxTriggerContext.Provider value={renderState}>
+        {/*
+          Markup delivery of the morph-target hide rule — the SERVER-PAINT
+          path (same dual-path pattern as Media's fill rules). Effects never
+          run during server rendering, so without this a server-rendered open
+          lightbox would paint its active trigger visible: the rule used to
+          arrive only with the first view transition of the session. React 19
+          hoists this into <head> and dedupes by `href` across every trigger
+          and remount (constant rule text keeps the dedupe sound).
+          React-19-only — React 18 has no hoisting and would render one inline
+          tag per trigger (a 200-tile grid ships 200 copies and shifts
+          consumers' :nth-child selectors), so it keeps the CSSOM-only
+          baseline; see react-style-hoisting.ts. Under a strict `style-src`
+          the tag is refused unless `Lightbox.CSPProvider` supplies the
+          page's nonce (React 19.2+); otherwise the CSSOM copy above takes
+          over.
+        */}
+        {REACT_SUPPORTS_STYLE_HOISTING ? (
+          <HoistableStyle href={MORPH_TARGET_HIDE_HREF} precedence="ramka" nonce={styleNonce}>
+            {MORPH_TARGET_HIDE_CSS}
+          </HoistableStyle>
+        ) : null}
         {rendered}
       </LightboxTriggerContext.Provider>
     );

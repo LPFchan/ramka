@@ -61,6 +61,11 @@ export const generatedProps: Record<string, PropRow[]> = {
       description: "Callback when active index changes.",
     },
     {
+      name: "count",
+      type: "number",
+      description: "Total number of items, used until the mounted `Lightbox.Item`s have registered themselves. Registration happens in effects, which never run during server rendering — so a page that server-renders an open lightbox paints `Lightbox.Counter` as \"n / 0\" (and boundary-disables `Lightbox.Next` / `Lightbox.Previous` when `loop` is off) until hydration. Pass the item total to make that first paint correct. Once any item mounts the live registry takes over and this prop is ignored, so it can't drift from the real count.",
+    },
+    {
       name: "loop",
       type: "boolean",
       default: "false",
@@ -246,6 +251,12 @@ export const generatedProps: Record<string, PropRow[]> = {
       description: "How many slides on each side of the active one keep their `Lightbox.Item` content mounted. Slide *boxes* are always present (so scroll extent is correct); only their content is preload-gated. `1` keeps the neighbours you can swipe to ready.",
     },
     {
+      name: "ssrSlideShift",
+      type: "boolean",
+      default: "false",
+      description: "First-paint slide positioning for pages that SERVER-RENDER an open lightbox (deep links rendering `Portal container={null}`). A scroll offset cannot be serialized into HTML, so such pages otherwise paint slide 0 (or a blank past the `preload` window) until hydration. While this is on, the server HTML carries a transform that translates every slide by `activeIndex × (100% + gap)` so the active slide occupies the scrollport at scroll offset 0; the post-hydration commit swaps the real scroll offset in and drops the transform together — no flash, every browser.\n\nONLY for scrollport-wide slides (`flex: 0 0 100%` tracks): the percentage resolves against each slide's own width, so content-sized (snug) slides would shift by unequal distances. If the track has a `gap`, mirror it into `--lightbox-ssr-slide-gap` (see `LightboxSlidesCssVars`). Without the opt-in, the library still marks the active item so engines with `scroll-initial-target` position any layout natively; other engines keep the hydration jump. Client-side opens are unaffected either way — the stand-in only ever renders for server paint + hydration.\n\nDegradation: the transform rule ships as a React 19 hoistable `<style>` tag. On React 18, or under a strict CSP without the nonce wired (see `Lightbox.CSPProvider`), the tag is unavailable and the server paint shows slide 0 with the scroller frozen until the hydration jump — the pre-existing baseline, never anything worse.",
+    },
+    {
       name: "render",
       type: "ReactElement | ComponentRenderFn",
       description: "Replaces the part's default element with another tag or component. Accepts an element to clone, or a function that returns one.",
@@ -280,6 +291,11 @@ export const generatedProps: Record<string, PropRow[]> = {
     },
   ],
   "api-caption": [
+    {
+      name: "children",
+      type: "ReactNode",
+      description: "Fallback content, rendered only while the caption registry is empty. Items register their `caption` in effects, which never run during server rendering (and land only after the first client paint) — so a page that renders an open lightbox paints an empty caption until then. Pass the active item's caption here (you know it on such pages — it's how you rendered the metadata) to make the first paint correct. The moment any item registers, the registry wins and the fallback never renders again, so it can't show stale text after navigation.",
+    },
     {
       name: "render",
       type: "ReactElement | ComponentRenderFn",
@@ -406,6 +422,18 @@ export const generatedProps: Record<string, PropRow[]> = {
       name: "render",
       type: "ReactElement | ComponentRenderFn",
       description: "Replaces the part's default element with another tag or component. Accepts an element to clone, or a function that returns one.",
+    },
+  ],
+  "api-csp-provider": [
+    {
+      name: "nonce",
+      type: "string",
+      description: "The per-request CSP nonce (the value behind `'nonce-…'` in the `style-src` / `style-src-elem` directive). Stamped on every inline `<style>` tag the lightbox renders so strict-CSP pages keep the first-paint rules (media fill, active-trigger hide, SSR initial slide).",
+    },
+    {
+      name: "children",
+      type: "ReactNode",
+      description: "—",
     },
   ],
   "api-view-transition-document": [],
@@ -618,6 +646,10 @@ export const generatedAttributes: Record<string, AttrRow[]> = {
       name: "data-skip-fade",
       description: "Transient during view-transition open — suppress consumer entrance fades on the destination item.",
     },
+    {
+      name: "data-ssr-active",
+      description: "Present ONLY in server-rendered HTML, on the active item of a page that server-renders an open lightbox. Carries `scroll-initial-target: nearest` (delivered by `Lightbox.Slides`), so engines that support it scroll the Slides scrollport to the active slide during initial layout — before first paint, for any slide widths. Cleared during hydration; never set on the client.",
+    },
   ],
   "api-media": [
     {
@@ -653,6 +685,10 @@ export const generatedAttributes: Record<string, AttrRow[]> = {
     {
       name: "data-orientation",
       description: "Always `horizontal`.",
+    },
+    {
+      name: "data-ssr-shift",
+      description: "Present while the `ssrSlideShift` transform stand-in is applied: from the server render of an open lightbox until the mount layout effect swaps the real scroll offset in (same commit — the swap never paints). While set, every slide is translated so the active one occupies the scrollport at scroll offset 0, and the scrollport's `overflow-x` is frozen so a pre-hydration swipe can't reveal the empty positions the translated slides vacated.",
     },
   ],
   "api-slide": [
@@ -734,6 +770,10 @@ export const generatedAttributes: Record<string, AttrRow[]> = {
       name: "data-scrubbing",
       description: "Present while a discrete-nav scrub animation is in flight.",
     },
+    {
+      name: "data-positioned",
+      description: "Present once the track has actually been positioned against the Slides scroller (first successful measure-and-sync — set in a layout effect, so for client-side opens it lands before the strip's first paint). Not set by bailed attempts, e.g. while the Slides viewport hasn't registered yet. Absent in server-rendered HTML: scroll/transform positions cannot be serialized, so a server-rendered strip sits at offset 0 until hydration. Hide the strip until this attribute lands to avoid the visible snap on pages that server-render an open lightbox.",
+    },
   ],
   "api-thumbnail-strip-track": [],
   "api-zoom": [
@@ -770,6 +810,7 @@ export const generatedAttributes: Record<string, AttrRow[]> = {
       description: "Present when zoom-out is unavailable.",
     },
   ],
+  "api-csp-provider": [],
   "api-view-transition-document": [
     {
       name: "data-ramka-view-transition",
@@ -858,6 +899,7 @@ export const generatedCssVariables: Record<string, CssVarRow[]> = {
   "api-zoom": [],
   "api-zoom-in": [],
   "api-zoom-out": [],
+  "api-csp-provider": [],
   "api-view-transition-document": [
     {
       name: "--lightbox-morph-border-radius-from",

@@ -273,6 +273,29 @@ export function LightboxGallery({
   renderItem,
   /** Portaled inside Content — e.g. debug tooling or in-viewer controls. */
   overlay,
+  /**
+   * Forwarded to `Lightbox.Portal`. Lets a page opt out of the body portal —
+   * e.g. `{ container: null }` renders the viewer in place so a server-rendered
+   * page can ship with the lightbox already open (portals cannot exist in
+   * server HTML). When rendering in place, also pass a stacking class (e.g.
+   * `relative z-50`) so the fixed viewer clears the page's sticky chrome.
+   */
+  portalProps,
+  /**
+   * Forwarded to `Lightbox.Slides` for pages that server-render the viewer
+   * open (deep links): the library's transform stand-in paints the correct
+   * slide before hydration. Only applied in the bleed layout — the shift
+   * requires scrollport-wide slides, and snug cards are content-sized (they
+   * fall back to the library's `scroll-initial-target` path instead).
+   */
+  ssrSlideShift = false,
+  /**
+   * Forwarded as `Lightbox.Caption`'s children — the pre-registration
+   * fallback for pages that render the viewer already open (server paints
+   * and the first client paint): items register captions in effects, so the
+   * registry is empty until then. Pass the initially-active item's caption.
+   */
+  captionFallback,
 }: {
   items: LightboxGalleryItem[];
   ariaLabel: string;
@@ -288,6 +311,9 @@ export function LightboxGallery({
   layoutToggle?: boolean;
   renderItem?: (item: LightboxGalleryItem, index: number, ctx: GalleryItemRenderCtx) => React.ReactNode;
   overlay?: React.ReactNode;
+  portalProps?: React.ComponentProps<typeof Lightbox.Portal>;
+  ssrSlideShift?: boolean;
+  captionFallback?: React.ReactNode;
 }) {
   const [slidesLayoutState, setSlidesLayoutState] = React.useState<'bleed' | 'snug'>(
     () => (layoutToggle ? readStoredSlidesLayout() : null) ?? slidesLayoutProp,
@@ -336,7 +362,7 @@ export function LightboxGallery({
       : null;
 
   return (
-    <Lightbox.Portal>
+    <Lightbox.Portal {...portalProps}>
       <Lightbox.Backdrop className={`lightbox-demo-backdrop ${backdropTone} fixed inset-0`} />
       <Lightbox.Content
         aria-label={ariaLabel}
@@ -353,11 +379,15 @@ export function LightboxGallery({
           // localized app they would come from your translation catalogue.
           aria-roledescription="carousel"
           preload={preload}
+          ssrSlideShift={ssrSlideShift && !snug}
           className={
             snug
               ? // End spacers + card gap: `lightbox-demo/snug-slides.css`.
                 'lightbox-demo-slides lightbox-demo-slides-snug flex-1 [&::-webkit-scrollbar]:hidden'
-              : 'lightbox-demo-slides flex-1 gap-5 [&::-webkit-scrollbar]:hidden md:gap-0'
+              : // `--lightbox-ssr-slide-gap` mirrors the gap utilities beside it —
+                // the library's ssrSlideShift math cannot read a computed `gap`,
+                // so the skin restates it as a var (keep the pairs in sync).
+                'lightbox-demo-slides flex-1 gap-5 [--lightbox-ssr-slide-gap:1.25rem] [&::-webkit-scrollbar]:hidden md:gap-0 md:[--lightbox-ssr-slide-gap:0px]'
           }
           style={
             snugEdgeRatios
@@ -532,7 +562,9 @@ export function LightboxGallery({
             to sr-only and keeps only its aria-live announcement role.
           */}
           <div className="flex max-w-full flex-col items-center text-center">
-            <Lightbox.Caption className="block max-w-full truncate text-[13px] font-medium leading-tight text-neutral-900 dark:text-neutral-50" />
+            <Lightbox.Caption className="block max-w-full truncate text-[13px] font-medium leading-tight text-neutral-900 dark:text-neutral-50">
+              {captionFallback}
+            </Lightbox.Caption>
             {/* "1 of 1" is noise — skip the counter for single-item galleries. */}
             {items.length > 1 ? (
               <Lightbox.Counter className="text-[11px] leading-tight tabular-nums text-neutral-500 dark:text-neutral-400 md:sr-only">

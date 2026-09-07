@@ -7,6 +7,7 @@ import { useLightboxContext, type NavigationSource } from './lightbox-context';
 import { LightboxThumbnailStripCssVars } from './lightbox-css-vars';
 import {
   LightboxContentDataAttributes,
+  LightboxSlidesDataAttributes,
   LightboxThumbnailStripDataAttributes,
 } from './lightbox-data-attributes';
 import {
@@ -31,6 +32,12 @@ import { useRender } from '../render/use-render';
 interface LightboxThumbnailStripState extends Record<string, unknown> {
   /** True while a discrete-nav WAAPI scrub is in flight. */
   scrubbing: boolean;
+  /**
+   * True once the track has been positioned against the Slides scroller.
+   * False during SSR and the hydration render of a server-rendered open
+   * lightbox — see `LightboxThumbnailStripDataAttributes.positioned`.
+   */
+  positioned: boolean;
 }
 
 interface LightboxThumbnailStripProps extends useRender.ComponentProps<'div', LightboxThumbnailStripState> {
@@ -70,6 +77,7 @@ type SlidesVtHost = HTMLElement & {
 
 const thumbnailStripStateAttributesMapping = {
   scrubbing: (value: unknown) => (value ? { 'data-scrubbing': '' } : null),
+  positioned: (value: unknown) => (value ? { 'data-positioned': '' } : null),
 };
 
 /**
@@ -130,6 +138,12 @@ const LightboxThumbnailStrip = React.forwardRef<HTMLDivElement, LightboxThumbnai
     const [trackVersion, setTrackVersion] = React.useState(0);
     const [thumbVersion, setThumbVersion] = React.useState(0);
     const [scrubbing, setScrubbing] = React.useState(false);
+    // False on the server and on the client render that hydrates against
+    // server HTML; flipped in the sync layout effect below, which re-renders
+    // BEFORE the browser paints. Client-side opens therefore carry
+    // `data-positioned` on their very first painted frame — only
+    // server-painted frames (pre-hydration) ever lack it.
+    const [positioned, setPositioned] = React.useState(false);
 
     const registerTrack = React.useCallback((node: HTMLElement | null) => {
       if (trackRef.current === node) return;
@@ -320,20 +334,33 @@ const LightboxThumbnailStrip = React.forwardRef<HTMLDivElement, LightboxThumbnai
       /**
        * Update padding / travels; rebuild ST only when keyframes must change.
        * Window resize used to cancel+rebuild ST every frame (visible glitch).
+       * Returns whether the track was actually positioned (bails report false
+       * so `data-positioned` can't land while the track still sits at 0).
        */
-      const refresh = (forceLink = false) => {
-        if (scrubHoldRef.current || scrubAnimRef.current) return;
+      const refresh = (forceLink = false): boolean => {
+        if (scrubHoldRef.current || scrubAnimRef.current) return false;
 
         const track = trackRef.current;
         const slides = slidesViewportRef.current;
         const root = rootRef.current;
-        if (!track || !slides || !root) return;
+        if (!track || !slides || !root) return false;
+
+        // The Slides SSR shift stand-in is still on: the scroller sits at
+        // offset 0 with its content translated (ssr-initial-slide.ts), so a
+        // sync here would position the track for slide 0 — and, worse, land
+        // `data-positioned` on a frame consumer CSS then reveals at the wrong
+        // offset. The retire is a passive-effect re-render (post-hydration
+        // useSyncExternalStore consistency check), which is NOT guaranteed to
+        // beat the hydrated frame's paint — so bail, report failure, and let
+        // the retire commit's `notifySlidesViewport` re-enter through the
+        // subscription with the real scroll offset in place.
+        if (slides.hasAttribute(LightboxSlidesDataAttributes.ssrShift)) return false;
 
         const travelsChanged = measureThumbs();
 
         if (startLinkAnimation(forceLink || travelsChanged)) {
           unbindScroll();
-          return;
+          return true;
         }
 
         // Fallback: continuous JS mirror of Slides scroll (no ScrollTimeline).
@@ -350,6 +377,20 @@ const LightboxThumbnailStrip = React.forwardRef<HTMLDivElement, LightboxThumbnai
           slides.addEventListener('scroll', onScroll, { passive: true });
           scrollSlides = slides;
         }
+        return true;
+      };
+
+      // `data-positioned` must mean "the track really was positioned", not
+      // "the positioning code ran": refresh bails when the track, strip root,
+      // or Slides viewport hasn't registered yet, and a late-registering
+      // viewport re-enters through the subscription below — which doesn't
+      // re-run this effect. Flipping on *successful* refresh (from whichever
+      // entry point succeeds first) keeps consumer CSS hiding the strip until
+      // it genuinely cannot paint at a stale offset. Setting state in a layout
+      // effect re-renders before paint, so client-side opens never paint
+      // without the attribute.
+      const refreshAndMark = (forceLink: boolean) => {
+        if (refresh(forceLink)) setPositioned(true);
       };
 
       const attach = () => {
@@ -363,18 +404,18 @@ const LightboxThumbnailStrip = React.forwardRef<HTMLDivElement, LightboxThumbnai
           ro = new ResizeObserver(() => {
             if (scrubHoldRef.current || scrubAnimRef.current) return;
             // Padding updates every time; ST rebuilds only if travels changed.
-            refresh(false);
+            refreshAndMark(false);
           });
           ro.observe(track);
           ro.observe(root);
         }
 
-        refresh(true);
+        refreshAndMark(true);
       };
 
-      reattachRef.current = () => refresh(true);
+      reattachRef.current = () => refreshAndMark(true);
       attach();
-      const unsubscribe = subscribeSlidesViewport(() => refresh(false));
+      const unsubscribe = subscribeSlidesViewport(() => refreshAndMark(false));
 
       return () => {
         unsubscribe();
@@ -642,7 +683,10 @@ const LightboxThumbnailStrip = React.forwardRef<HTMLDivElement, LightboxThumbnai
       [registerTrack, registerThumb, selectIndex],
     );
 
-    const state = React.useMemo<LightboxThumbnailStripState>(() => ({ scrubbing }), [scrubbing]);
+    const state = React.useMemo<LightboxThumbnailStripState>(
+      () => ({ scrubbing, positioned }),
+      [scrubbing, positioned],
+    );
 
     return (
       <LightboxThumbnailStripContext.Provider value={thumbnailStripContext}>

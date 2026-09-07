@@ -7,6 +7,7 @@ import { useLightboxContext } from './lightbox-context';
 import { tryPaintCanvasPlaceholder } from './lightbox-placeholder';
 import { useSlidesPreload } from './lightbox-slides';
 import { useAccessibleNameWarning } from './use-accessible-name-warning';
+import { useIsServerPaint } from './use-server-paint';
 import { inertWhen } from '../react-compat';
 import { mergeProps } from '../render/merge-props';
 import { useRender } from '../render/use-render';
@@ -144,6 +145,7 @@ const LightboxItem = React.forwardRef<HTMLDivElement, LightboxItemProps>(
     const preload = useSlidesPreload();
 
     const isActive = index === activeIndex;
+    const isServerPaint = useIsServerPaint();
     const linearDist = Math.abs(index - activeIndex);
     const distance = loop && itemCount > 0
       ? Math.min(linearDist, itemCount - linearDist)
@@ -496,6 +498,20 @@ const LightboxItem = React.forwardRef<HTMLDivElement, LightboxItemProps>(
           // the owning item. It replaces what was a branded class name in
           // upstream so the primitives stay free of ship-as-is styles.
           [LightboxItemDataAttributes.item]: '',
+          // SERVER PAINT ONLY: mark the active item so the SSR initial-slide
+          // CSS (delivered by Slides — see ssr-initial-slide.ts) can point
+          // `scroll-initial-target` at it, letting supporting engines scroll a
+          // server-rendered open lightbox to the right slide before first
+          // paint, whatever the slide widths. Gated on `useIsServerPaint` —
+          // NOT `typeof window` — so the hydration render also includes the
+          // prop (matching the server byte-for-byte; React 19 warns on
+          // attributes the server rendered but hydration didn't) and React
+          // itself removes the attribute on the post-hydration flip. By then
+          // it has done its job: `scroll-initial-target` applies during the
+          // scroller's initial layout only, and a lingering copy would go
+          // stale (it marks the SSR-time active item). Client mounts never
+          // render it.
+          ...(isActive && isServerPaint ? { [LightboxItemDataAttributes.ssrActive]: '' } : null),
           id: panelId,
           ...semanticProps,
           // Inactive slides/panels are kept out of the a11y tree (and out of
