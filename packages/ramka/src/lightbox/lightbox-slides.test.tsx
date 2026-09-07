@@ -1257,6 +1257,99 @@ describe('Lightbox.Slides', () => {
       expect(content).toHaveAttribute('data-pulling');
     });
 
+    it('does not freeze gestures when scrollend is dropped after a touch overlaps a settling scroll (iOS rubber-band)', () => {
+      // Regression: overscroll past the first slide, then touch mid-bounce to
+      // pull-to-dismiss. iOS Safari defers `scrollend` while a touch is active
+      // and can drop it entirely after an interrupted rubber-band bounce — the
+      // fling lock was held forever, so pull and pinch stayed dead until the
+      // next gesture that happened to scroll (which is why a pinch only worked
+      // on the second attempt). After the last finger lifts, a quiet gap must
+      // be the guaranteed release; while a finger is still down, it must not.
+      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+      try {
+        const zoomRef = React.createRef<LightboxZoomRef>();
+        render(<GestureLightbox withZoom zoomRef={zoomRef} observedIndex={2} />);
+        const viewport = screen.getByTestId('slides');
+        const content = screen.getByTestId('content');
+        setupGeometry(viewport, 8);
+
+        // Swipe locks with real scroll events seen. `scrollend` never arrives.
+        swipeTo(viewport, 2);
+        const img = screen.getByTestId('img-2');
+        expect(activeThumb()).toBe(2);
+
+        // A finger lands mid-scroll and drags vertically (pull attempt) —
+        // correctly ignored while the scroll is live.
+        act(() => {
+          viewport.dispatchEvent(
+            new TouchEvent('touchstart', {
+              bubbles: true,
+              cancelable: true,
+              touches: [{ clientX: 200, clientY: 200 } as Touch],
+            }),
+          );
+          dispatchPointer(img, 'pointerdown', { clientX: 200, clientY: 200 });
+          viewport.dispatchEvent(
+            new TouchEvent('touchmove', {
+              bubbles: true,
+              cancelable: true,
+              touches: [{ clientX: 200, clientY: 260 } as Touch],
+            }),
+          );
+          dispatchPointer(content, 'pointermove', { clientX: 200, clientY: 260 });
+        });
+        expect(content).not.toHaveAttribute('data-pulling');
+
+        // While the finger is still down, a quiet gap must NOT release the
+        // lock — only `scrollend` (or this touch's own lift) may.
+        act(() => {
+          vi.advanceTimersByTime(200);
+        });
+        act(() => {
+          fireEvent.click(screen.getByTestId('thumb-6'));
+        });
+        expect(activeThumb()).toBe(2);
+
+        // The finger lifts; the scroll is at rest but `scrollend` was dropped.
+        act(() => {
+          dispatchPointer(content, 'pointerup', { clientX: 200, clientY: 260 });
+          viewport.dispatchEvent(
+            new TouchEvent('touchend', {
+              bubbles: true,
+              cancelable: true,
+              touches: [] as unknown as Touch[],
+            }),
+          );
+        });
+
+        // Quiet gap after the lift is the guaranteed release.
+        act(() => {
+          vi.advanceTimersByTime(200);
+        });
+
+        // Pull-to-dismiss works again on the very next attempt.
+        act(() => {
+          dispatchPointer(img, 'pointerdown', { clientX: 200, clientY: 200 });
+          dispatchPointer(content, 'pointermove', { clientX: 200, clientY: 240 });
+        });
+        expect(content).toHaveAttribute('data-pulling');
+        act(() => {
+          dispatchPointer(content, 'pointerup', { clientX: 200, clientY: 240 });
+        });
+
+        // Pinch works again on the FIRST attempt.
+        act(() => {
+          dispatchPointer(img, 'pointerdown', { pointerId: 1, clientX: 100, clientY: 200, isPrimary: true });
+          dispatchPointer(img, 'pointerdown', { pointerId: 2, clientX: 140, clientY: 200, isPrimary: false });
+          dispatchPointer(img, 'pointermove', { pointerId: 1, clientX: 80, clientY: 200, isPrimary: true });
+          dispatchPointer(img, 'pointermove', { pointerId: 2, clientX: 200, clientY: 200, isPrimary: false });
+        });
+        expect(zoomRef.current!.zoom).toBeGreaterThan(1);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
     it('ignores a second-finger pinch that lands while a one-finger swipe is in flight', () => {
       const zoomRef = React.createRef<LightboxZoomRef>();
       render(<GestureLightbox withZoom zoomRef={zoomRef} observedIndex={0} />);
