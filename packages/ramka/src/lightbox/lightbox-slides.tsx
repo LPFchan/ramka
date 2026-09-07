@@ -222,6 +222,23 @@ const LightboxSlides = React.forwardRef<HTMLDivElement, LightboxSlidesProps>(
      * engines.
      */
     const pinchInterruptedRef = React.useRef(false);
+    /**
+     * True from the moment the last finger lifts while the user-fling lock is
+     * held with a real scroll seen, until the scroll settles. iOS Safari's
+     * `scrollend` is minimal (landed 2025, Safari 26.2) and can be dropped
+     * entirely when a rubber-band bounce-back overlaps a touch that doesn't
+     * itself scroll — overscroll the first slide, then touch mid-bounce to
+     * pull: no `scrollend` ever comes and the lock froze pull/pinch/thumbs
+     * until the next gesture that happened to scroll. While set, the idle
+     * fallback runs even in `scrollend` engines. Safe: all fingers are up, so
+     * any further scroll events are pure momentum and a quiet gap after them
+     * IS a settle — the trackpad hazard (a swipe turning vertical mid-gesture)
+     * cannot apply, and wheel input never sets this flag. `scrollend` stays
+     * the fast path; the quiet-gap timer is the guaranteed release. Cleared
+     * when the next touch sequence starts, so an in-progress drag keeps
+     * pure-`scrollend` semantics.
+     */
+    const touchLiftedWhileLockedRef = React.useRef(false);
     // Always-fresh mirror of activeIndex for use inside stable event listeners.
     const activeIndexRef = React.useRef(activeIndex);
     activeIndexRef.current = activeIndex;
@@ -406,6 +423,7 @@ const LightboxSlides = React.forwardRef<HTMLDivElement, LightboxSlidesProps>(
         const gen = (resizeGenRef.current += 1);
         resizingRef.current = true;
         pinchInterruptedRef.current = false;
+        touchLiftedWhileLockedRef.current = false;
         navigationLockedRef.current = false;
         window.clearTimeout(idleTimerRef.current);
         idleTimerRef.current = 0;
@@ -481,6 +499,7 @@ const LightboxSlides = React.forwardRef<HTMLDivElement, LightboxSlidesProps>(
         idleTimerRef.current = 0;
         sawScrollSinceLock = false;
         pinchInterruptedRef.current = false;
+        touchLiftedWhileLockedRef.current = false;
         navigationLockedRef.current = false;
         programmaticRef.current = false;
         // Resize re-snap owns the marker — don't adopt a stale mid-layout index.
@@ -507,9 +526,17 @@ const LightboxSlides = React.forwardRef<HTMLDivElement, LightboxSlidesProps>(
         // A quiet gap is not: turning a trackpad swipe vertical stops `scroll`
         // events without ending the gesture. Only engines without a *reliable*
         // `scrollend` (Safari < 17.4, Firefox — see above) fall back to idle —
-        // unless a trackpad pinch aborted the swipe, in which case `scrollend`
-        // often never comes.
-        if (scrollendReliable && !pinchInterruptedRef.current) return;
+        // unless a trackpad pinch aborted the swipe (`scrollend` often never
+        // comes) or the last finger already lifted while locked (iOS Safari
+        // can drop `scrollend` after an interrupted rubber-band bounce — see
+        // `touchLiftedWhileLockedRef`).
+        if (
+          scrollendReliable &&
+          !pinchInterruptedRef.current &&
+          !touchLiftedWhileLockedRef.current
+        ) {
+          return;
+        }
         idleTimerRef.current = window.setTimeout(settle, SCROLL_IDLE_MS);
       };
       const lockUserScroll = () => {
@@ -538,6 +565,7 @@ const LightboxSlides = React.forwardRef<HTMLDivElement, LightboxSlidesProps>(
           // lock so open/jump doesn't suppress gestures until a user swipe.
           sawScrollSinceLock = false;
           pinchInterruptedRef.current = false;
+          touchLiftedWhileLockedRef.current = false;
           navigationLockedRef.current = false;
           window.clearTimeout(idleTimerRef.current);
           idleTimerRef.current = 0;
@@ -549,6 +577,7 @@ const LightboxSlides = React.forwardRef<HTMLDivElement, LightboxSlidesProps>(
         if (isParkedOnJumpTarget()) {
           sawScrollSinceLock = false;
           pinchInterruptedRef.current = false;
+          touchLiftedWhileLockedRef.current = false;
           navigationLockedRef.current = false;
           window.clearTimeout(idleTimerRef.current);
           idleTimerRef.current = 0;
@@ -601,6 +630,13 @@ const LightboxSlides = React.forwardRef<HTMLDivElement, LightboxSlidesProps>(
           singleFingerSlid = false;
           touchStartX = event.touches[0]!.clientX;
           touchStartY = event.touches[0]!.clientY;
+          // A new touch sequence owns settle semantics again: while a finger
+          // is down, only `scrollend` (or this touch's own lift) may release
+          // the lock — a stale lift-armed quiet gap must not fire mid-drag.
+          // Any timer the previous lift armed is naturally superseded: the
+          // next scroll event re-enters armIdleFallback, which clears it and
+          // (flag now false) does not re-arm; a settle at rest is correct.
+          touchLiftedWhileLockedRef.current = false;
         }
       };
       const onTouchMove = (event: TouchEvent) => {
@@ -631,6 +667,16 @@ const LightboxSlides = React.forwardRef<HTMLDivElement, LightboxSlidesProps>(
         // A real swipe that did scroll still waits for `scrollend` (momentum).
         if (navigationLockedRef.current && !sawScrollSinceLock) {
           settle();
+        } else if (navigationLockedRef.current) {
+          // Real scroll seen and every finger is up. `scrollend` is still the
+          // fast path, but iOS Safari can drop it when a rubber-band bounce
+          // overlaps a touch that didn't scroll (overscroll the first slide,
+          // touch mid-bounce to pull, lift) — which froze pull/pinch/thumbs
+          // until the next scrolling gesture. Arm the quiet-gap release as the
+          // guaranteed fallback: momentum scroll events keep re-arming it (see
+          // armIdleFallback), so it can only fire once the scroll truly rests.
+          touchLiftedWhileLockedRef.current = true;
+          armIdleFallback();
         }
       };
 
