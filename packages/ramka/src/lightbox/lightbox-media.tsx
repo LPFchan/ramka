@@ -5,8 +5,8 @@ import * as React from 'react';
 import { LightboxMediaDataAttributes } from './lightbox-data-attributes';
 import { useLightboxStyleNonce } from './lightbox-csp';
 import { useOptionalLightboxItemContext } from './lightbox-item';
-import { insertLibrarySheet } from './lightbox-style-sheets';
 import { HoistableStyle, REACT_SUPPORTS_STYLE_HOISTING } from './react-style-hoisting';
+import { ensureLibrarySheet } from './vt-style-sheets';
 import { mergeProps } from '../render/merge-props';
 import { useRender } from '../render/use-render';
 
@@ -283,9 +283,15 @@ const LightboxMedia = React.forwardRef<HTMLDivElement, LightboxMediaProps>(
     // always lands too. Insertion-effect timing puts it in place before any
     // layout effect measures. Redundant where the <style> applied: identical
     // rule text, so the duplicate is inert.
+    //
+    // Once per document, never removed: the CSS is static and attribute-scoped,
+    // so a stale copy is inert — while adopting/releasing a sheet per Media
+    // mount makes WebKit restyle the ENTIRE document each time (see the
+    // dynamic-channel docblock in lightbox-style-sheets.ts). With `preload`
+    // gating, Media mounts on every gallery navigation, so per-mount churn
+    // would stutter swipes on large pages.
     React.useInsertionEffect(() => {
-      const sheet = insertLibrarySheet(MEDIA_FILL_CSS, MEDIA_FILL_MARKER);
-      return () => sheet.release();
+      ensureLibrarySheet(MEDIA_FILL_MARKER, () => MEDIA_FILL_CSS);
     }, []);
 
     const rendered = useRender({

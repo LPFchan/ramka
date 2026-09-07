@@ -277,7 +277,10 @@ export default function LightboxViewTransitionsPage() {
           </li>
           <li>
             <code className="text-xs">--lightbox-morph-border-radius-from/to</code>,{' '}
-            <code className="text-xs">--lightbox-morph-old/new-opacity</code>
+            <code className="text-xs">--lightbox-morph-old/new-opacity</code> — published on the{' '}
+            <code className="text-xs">::view-transition</code> pseudo for the transition&apos;s
+            lifetime (never on <code className="text-xs">documentElement</code>, whose inherited
+            custom properties would restyle the whole page)
           </li>
           <li>
             <code className="text-xs">data-ramka-vt-preset</code>,{' '}
@@ -341,10 +344,11 @@ export default function LightboxViewTransitionsPage() {
           timing as <code className="text-xs">--lightbox-vt-duration</code> /{' '}
           <code className="text-xs">--lightbox-vt-easing</code> /{' '}
           <code className="text-xs">--lightbox-vt-root-easing</code> in two places: always on the{' '}
-          <DocsLink href={lightboxApiHref.portal}>Portal</DocsLink> host, and — together with{' '}
-          <code className="text-xs">data-ramka-vt-preset</code> — on{' '}
-          <code className="text-xs">documentElement</code> for the duration of a morph. Read those
-          vars in your own CSS as the skin&apos;s single motion clock (e.g.{' '}
+          <DocsLink href={lightboxApiHref.portal}>Portal</DocsLink> host, and on the{' '}
+          <code className="text-xs">::view-transition</code> pseudo for the duration of a morph
+          (the preset <em>name</em> also rides on <code className="text-xs">documentElement</code>{' '}
+          as <code className="text-xs">data-ramka-vt-preset</code>). Read those vars in your own
+          CSS as the skin&apos;s single motion clock (e.g.{' '}
           <code className="text-xs">
             transition: opacity var(--lightbox-vt-duration, 360ms) ease-out
           </code>{' '}
@@ -365,10 +369,12 @@ export default function LightboxViewTransitionsPage() {
             <strong className="font-medium text-neutral-800 dark:text-neutral-200">Name isolation</strong>{' '}
             — <code className="text-xs">startViewTransition</code> snapshots the whole document, so any
             page element with its own <code className="text-xs">view-transition-name</code> would paint{' '}
-            <em>over</em> the lightbox. Every name is cleared while{' '}
-            <code className="text-xs">data-ramka-view-transition</code> is set; the morph target
-            re-applies its name inline with <code className="text-xs">!important</code> and stays the
-            only captured group.
+            <em>over</em> the lightbox. When the library detects such names on the page (stylesheets
+            or inline), it sets <code className="text-xs">data-ramka-vt-isolate</code> for the morph
+            and every name is cleared; the morph target re-applies its name inline with{' '}
+            <code className="text-xs">!important</code> and stays the only captured group. On pages
+            without foreign names the attribute stays off, so the isolation rule&apos;s universal
+            selector never forces a whole-document restyle at morph start.
           </li>
           <li>
             <strong className="font-medium text-neutral-800 dark:text-neutral-200">Morph group</strong>{' '}

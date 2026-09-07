@@ -5,6 +5,8 @@ import type { ViewTransitionMorph, ViewTransitionMorphConfig } from './use-view-
 export interface MorphRuntime {
   createViewTransitionMorph: (getConfig: () => ViewTransitionMorphConfig) => ViewTransitionMorph;
   ensureVtStructuralStyles: () => void;
+  /** Adopt every once-only VT sheet at idle — see lightbox-morph-runtime.ts. */
+  prewarmVtStyles: () => void;
 }
 
 let cached: MorphRuntime | null = null;
@@ -41,7 +43,14 @@ function prefetchMorphRuntime(): void {
   // Best-effort warm-up: a failure here is not an error, the open path retries
   // and degrades on its own. Swallowed so it never lands in the consumer's
   // unhandled-rejection reporting.
-  loadMorphRuntime().catch(() => {});
+  //
+  // Prewarming the styles as soon as the chunk lands piggybacks on the same
+  // idle window: adopting the once-only sheets costs a full-document restyle
+  // in WebKit, which must not wait for the first open (see prewarmVtStyles).
+  loadMorphRuntime().then(
+    (runtime) => runtime.prewarmVtStyles(),
+    () => {},
+  );
 }
 
 export { loadMorphRuntime, getMorphRuntimeSync, prefetchMorphRuntime };

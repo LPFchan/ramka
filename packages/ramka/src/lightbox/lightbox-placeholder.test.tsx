@@ -671,7 +671,13 @@ describe('Lightbox.Media (morph + placeholder host)', () => {
     expect(el!.parentElement).toBe(media);
   });
 
-  it('adopts the fill rules in a browser, and drops them when Media unmounts', () => {
+  it('adopts the fill rules in a browser once per document, and keeps them after unmount', () => {
+    // Earlier tests in this file run without constructed sheets, so Media's
+    // once-only fallback <style> is already in <head> (and by design never
+    // removed). Drop it so the CSP assertion below sees only this render.
+    document.head
+      .querySelectorAll('style[data-ramka-media-fill]')
+      .forEach((el) => el.remove());
     const stub = stubConstructedSheets();
     try {
       const view = render(
@@ -693,11 +699,17 @@ describe('Lightbox.Media (morph + placeholder host)', () => {
       const media = document.querySelector('[data-testid="media"]') as HTMLElement;
       expect(media.querySelector('style')).toBeNull();
       expect(document.querySelectorAll('style[data-ramka-media-fill]')).toHaveLength(0);
-      expect(stub.adoptedCss().join('')).toContain('[data-ramka-media]:not(#_) > img');
+      const fillRule = '[data-ramka-media]:not(#_) > img';
+      expect(stub.adoptedCss().join('')).toContain(fillRule);
+      const sheetCountWhileMounted = document.adoptedStyleSheets.length;
 
       view.unmount();
 
-      expect(stub.adoptedCss()).toHaveLength(0);
+      // Never released: the CSS is static and attribute-scoped (inert without
+      // a mounted Media), while adopting/releasing a sheet per Media mount is
+      // a full-document restyle in WebKit.
+      expect(stub.adoptedCss().join('')).toContain(fillRule);
+      expect(document.adoptedStyleSheets.length).toBe(sheetCountWhileMounted);
     } finally {
       stub.restore();
     }

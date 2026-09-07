@@ -824,6 +824,10 @@ export const generatedAttributes: Record<string, AttrRow[]> = {
       name: "data-ramka-vt-preset",
       description: "Present during a morph. Value is the active `viewTransition` timing preset name (`default`, `snappy`, `relaxed`, `spring`) — read by the composited morph and available to skin CSS for per-preset styling.",
     },
+    {
+      name: "data-ramka-vt-isolate",
+      description: "Present during a morph ONLY when the page declares its own `view-transition-name`s (stylesheets or inline). Arms the isolation rule that neutralizes those names so they aren't captured as separate groups over the morph. Kept off otherwise: the rule's universal selector makes the attribute flip a full-document style invalidation, which on large DOMs is the dominant cost of starting a morph in WebKit.",
+    },
   ],
   "api-use-trigger-context": [],
   "api-use-item-context": [],
@@ -903,35 +907,35 @@ export const generatedCssVariables: Record<string, CssVarRow[]> = {
   "api-view-transition-document": [
     {
       name: "--lightbox-morph-border-radius-from",
-      description: "Start border-radius for the morph group clip (interpolatable px).",
+      description: "Start border-radius for the morph group clip (interpolatable px). Published on the `::view-transition` pseudo for the duration of a morph (never on `documentElement` — inherited custom-property changes on `<html>` restyle the whole document, which stalled morph start on large pages in Safari).",
     },
     {
       name: "--lightbox-morph-border-radius-to",
-      description: "End border-radius for the morph group clip.",
+      description: "End border-radius for the morph group clip. Published on the `::view-transition` pseudo, like `--lightbox-morph-border-radius-from`.",
     },
     {
       name: "--lightbox-morph-old-opacity",
-      description: "Opacity of the old morph snapshot on the hard-cut path (no document crossfade).",
+      description: "Opacity of the old morph snapshot on the hard-cut path (no document crossfade). Published on the `::view-transition` pseudo, like `--lightbox-morph-border-radius-from`.",
     },
     {
       name: "--lightbox-morph-new-opacity",
-      description: "Opacity of the new morph snapshot on the hard-cut path (1 on open, 0 on close).",
+      description: "Opacity of the new morph snapshot on the hard-cut path (1 on open, 0 on close). Published on the `::view-transition` pseudo, like `--lightbox-morph-border-radius-from`.",
     },
     {
       name: "--lightbox-vt-duration",
-      description: "Morph + root-snapshot duration from the Root's `viewTransition` timing preset. WRITTEN BY THE LIBRARY in two places — do not set it yourself: onto `documentElement` during a morph (read it in document-level `::view-transition-*` rules, e.g. `calc(var(--lightbox-vt-duration) * 0.5)` for a derived track), and always onto the Portal host, so skin open/close fades inside the portal can use the preset's clock even when no morph runs (non-VT browsers, reduced motion, low-end fallback), e.g. `transition: opacity var(--lightbox-vt-duration, 360ms) ease-out`.",
+      description: "Morph + root-snapshot duration from the Root's `viewTransition` timing preset. WRITTEN BY THE LIBRARY in two places — do not set it yourself: always onto the Portal host, so skin open/close fades inside the portal can use the preset's clock even when no morph runs (non-VT browsers, reduced motion, low-end fallback), e.g. `transition: opacity var(--lightbox-vt-duration, 360ms) ease-out` — and onto the `::view-transition` pseudo during a morph, where the injected structural rules read it through pseudo-tree inheritance.",
     },
     {
       name: "--lightbox-vt-easing",
-      description: "Easing for `::view-transition-group(lightbox-morph)` and the *open* crossfade dissolve. Written by the library from the `viewTransition` preset, like `--lightbox-vt-duration` (during a morph on `documentElement`, always on the Portal host). Close dissolve uses `--lightbox-vt-crossfade-close-easing` (a shorter complementary fade, not the morph curve) so the item yields before the size settle.",
+      description: "Easing for `::view-transition-group(lightbox-morph)` and the *open* crossfade dissolve. Written by the library from the `viewTransition` preset, like `--lightbox-vt-duration` (Portal host always, the `::view-transition` pseudo during a morph). Close dissolve uses `--lightbox-vt-crossfade-close-easing` (a shorter complementary fade, not the morph curve) so the item yields before the size settle.",
     },
     {
       name: "--lightbox-vt-crossfade-close-easing",
-      description: "Close trigger↔item snapshot dissolve, used while `data-ramka-view-transition=\"closing\"` and `data-ramka-crossfade` are set. Modest ease-out on a shorter window that still runs old 1→0 and new 0→1 on the same clock (`plus-lighter` stays opaque). Written by the library onto `documentElement` during a morph — do not set it yourself.",
+      description: "Close trigger↔item snapshot dissolve, used while `data-ramka-view-transition=\"closing\"` and `data-ramka-crossfade` are set. Modest ease-out on a shorter window that still runs old 1→0 and new 0→1 on the same clock (`plus-lighter` stays opaque). Written by the library onto the `::view-transition` pseudo during a morph — do not set it yourself.",
     },
     {
       name: "--lightbox-vt-root-easing",
-      description: "Easing for the root snapshot cross-fade (`::view-transition-old/new(root)`). Written by the library from the `viewTransition` preset, like `--lightbox-vt-duration` (during a morph on `documentElement`, always on the Portal host). A good default for skin backdrop/content fades.",
+      description: "Easing for the root snapshot cross-fade (`::view-transition-old/new(root)`). Written by the library from the `viewTransition` preset, like `--lightbox-vt-duration` (Portal host always, the `::view-transition` pseudo during a morph). A good default for skin backdrop/content fades.",
     },
   ],
   "api-use-trigger-context": [],

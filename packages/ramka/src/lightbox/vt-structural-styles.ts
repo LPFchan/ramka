@@ -28,6 +28,7 @@ const STYLE_MARKER = 'data-ramka-lightbox-vt-styles';
 
 function buildCss(): string {
   const vt = LightboxDocumentDataAttributes.viewTransition;
+  const isolate = LightboxDocumentDataAttributes.viewTransitionIsolate;
   const crossfade = LightboxDocumentDataAttributes.crossfade;
   const slides = LightboxSlidesDataAttributes.slides;
   const vars = LightboxDocumentCssVars;
@@ -47,14 +48,70 @@ function buildCss(): string {
   // snapshots — plus-lighter stays opaque.
   const dissolveDuration = `calc(${duration} * 0.48)`;
 
+  // Per-preset timing publication. The preset table is finite, so the timing
+  // vars every rule below reads can be STATIC rules keyed on the
+  // `data-ramka-vt-preset` attribute the morph sets — no per-morph stylesheet
+  // delivery at all. Published on `::view-transition` (the pseudo-tree root,
+  // inherited by every pseudo below it), never on `documentElement`: an
+  // inherited custom property changing on `<html>` restyles the whole
+  // document, which WebKit resolves with no fast path (tracked upstream,
+  // WebKit PR #60512). And as static rules, never per-morph inserts: WebKit
+  // full-restyles the document on any style-rule insert into an adopted sheet
+  // (only @keyframes inserts are invalidation-scoped — see
+  // buildMorphRadiusKeyframes in use-view-transition-morph.ts).
+  const presetTimingRules = (
+    Object.entries(VIEW_TRANSITION_PRESETS) as Array<
+      [string, (typeof VIEW_TRANSITION_PRESETS)['default']]
+    >
+  )
+    .map(
+      ([name, spec]) => `:root[${LightboxDocumentDataAttributes.viewTransitionPreset}="${name}"]::view-transition {
+  ${vars.vtDuration}: ${spec.duration}ms;
+  ${vars.vtEasing}: ${spec.cssEasing};
+  ${vars.vtCrossfadeCloseEasing}: ${spec.cssCrossfadeCloseEasing};
+  ${vars.vtRootEasing}: ${spec.cssRootEasing};
+}`,
+    )
+    .join('\n');
+
   return `
+/* Preset timing — static per-preset publication (see above). */
+${presetTimingRules}
+
+/* Hard-cut snapshot opacities (Trigger omits crossfade), static per phase.
+   The item is the single visible, animated layer in both directions and
+   never crossfades the trigger. But on OPEN the old (trigger) snapshot stays
+   opaque underneath as a paint fallback — never 0: the destination item is
+   revealed inside the VT callback right before its snapshot is captured, and
+   if that freshly revealed layer isn't rasterized in time the new snapshot
+   is blank for a frame (a compositing race, worst on mobile Safari). With
+   old hidden there'd be a one-frame flash of empty space; with old opaque, a
+   blank new falls back to the trigger — and when new IS painted it fully
+   occludes old, so the trigger is never seen animating. On CLOSE the old
+   (item) snapshot is the visible layer and new (the trigger) is hard-cut to
+   0 so a scrolled-away/unpainted trigger can't ghost over the item. */
+:root[${vt}="opening"]:not([${crossfade}])::view-transition {
+  ${vars.morphOldOpacity}: 1;
+  ${vars.morphNewOpacity}: 1;
+}
+:root[${vt}="closing"]:not([${crossfade}])::view-transition {
+  ${vars.morphOldOpacity}: 1;
+  ${vars.morphNewOpacity}: 0;
+}
+
 /* Isolate the lightbox morph from the rest of the page. startViewTransition
    captures the WHOLE document, so any consumer element carrying its own
    view-transition-name would be lifted into a separate group and painted on
    the VT layer over the backdrop. Neutralize every name while the morph runs;
    the morph target re-declares its name inline with !important, which
-   outranks this author-!important rule on specificity. */
-:root[${vt}] * {
+   outranks this author-!important rule on specificity.
+
+   Armed via its own attribute — NOT ${vt} — and only when the page actually
+   declares foreign names (see vt-name-isolation.ts). Flipping a root
+   attribute that a universal descendant rule keys on restyles the entire
+   document, which on large DOMs is the dominant cost of starting a morph in
+   WebKit; pages with no names to neutralize skip that bill entirely. */
+:root[${isolate}] * {
   view-transition-name: none !important;
 }
 
@@ -74,18 +131,20 @@ function buildCss(): string {
     animation-timing-function: ${rootEasing};
   }
 
-  /* Shape morph is CSS-only: JS writes the from/to radius vars; the group
-     owns clipping for the whole transition. The 'from' radius is the cascade
-     base (not only a keyframe) so frame 0 can't flash the 0px fallback. */
+  /* Shape morph is CSS-only: each morph inserts a same-name @keyframes rule
+     carrying its CONCRETE from/to radii into the dynamic channel sheet (which
+     sorts after this one, so it shadows this inert fallback — the last
+     duplicate @keyframes name in cascade order wins). The group owns clipping
+     for the whole transition; fill-mode "both" applies the from radius on
+     frame 0, so no cascade base is needed. */
   @keyframes ramka-morph-border-radius {
-    to {
-      border-radius: var(${vars.morphBorderRadiusTo}, 0px);
+    from, to {
+      border-radius: 0px;
     }
   }
 
   ${groupPseudo} {
     overflow: hidden;
-    border-radius: var(${vars.morphBorderRadiusFrom}, 0px);
     animation-name: -ua-view-transition-group-anim-${VIEW_TRANSITION_NAME}, ramka-morph-border-radius;
     animation-duration: ${duration};
     animation-timing-function: ${easing};
