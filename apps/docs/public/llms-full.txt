@@ -8896,27 +8896,22 @@ function photoIndexFromPathname(pathname: string): number {
   return galleryPhotos.findIndex((photo) => photo.id === id);
 }
 
-type Tile = (typeof items)[number];
-
 /**
- * Responsive column count without CSS multicol (2 on mobile, 3 from `sm`).
- *
- * Known tradeoff: the server can't know the viewport, so desktop grid visits
- * paint 2 columns first and re-bucket to 3 after hydration — a visible
- * reshuffle. Accepted here because the alternative (CSS multicol) re-balances
- * the whole grid on every layout invalidation mid-morph; see the `columns`
- * memo below for why that's the worse cost.
+ * Masonry inputs (see masonry-grid.css for the layout itself and the full
+ * design rationale). A column is 120 row-units wide, a gap is 9; a tile's
+ * span is its aspect-derived height in those units plus its own bottom gap.
+ * Unit-relative means the SAME span works at both breakpoints — the number
+ * can live in the server HTML and the column switch is pure CSS, which is
+ * what makes the server paint correct at any viewport (a JS column count
+ * guessed 2 on the server and visibly re-bucketed desktop visits to 3 after
+ * hydration). The photos are exact 2:3 / 3:2 / 1:1 crops, so the spans are
+ * exact integers — no rounding crop from the `object-cover` below.
  */
-function useColumnCount() {
-  const [cols, setCols] = React.useState(2);
-  React.useEffect(() => {
-    const mq = window.matchMedia('(min-width: 640px)');
-    const update = () => setCols(mq.matches ? 3 : 2);
-    update();
-    mq.addEventListener('change', update);
-    return () => mq.removeEventListener('change', update);
-  }, []);
-  return cols;
+const MASONRY_COL_UNITS = 120;
+const MASONRY_GAP_UNITS = 9;
+
+function masonrySpan(image: { width: number; height: number }): number {
+  return Math.round((MASONRY_COL_UNITS * image.height) / image.width) + MASONRY_GAP_UNITS;
 }
 
 export function UrlSyncedStateDemo() {
@@ -9088,22 +9083,6 @@ export function UrlSyncedStateDemo() {
     }
   };
 
-  const cols = useColumnCount();
-  // Distribute tiles round-robin into flex columns. This intentionally avoids
-  // CSS `columns` (multicol): opening the lightbox locks page scroll (hides the
-  // scrollbar → width change) and toggles a document-wide view-transition-name
-  // reset, either of which forces the background to re-layout DURING the
-  // transition. Multicol re-balances every item on any such invalidation — one
-  // of the heaviest layouts there is — which starves the morph/backdrop of
-  // frames (worst on mobile Safari). A flex-column reflow is cheap by contrast.
-  // (Column-major DOM order means Tab/reading order zigzags versus visual
-  // order — an inherent texture of masonry, multicol included.)
-  const columns = React.useMemo(() => {
-    const buckets: { tile: Tile; index: number }[][] = Array.from({ length: cols }, () => []);
-    items.forEach((tile, i) => buckets[i % cols]!.push({ tile, index: i }));
-    return buckets;
-  }, [cols]);
-
   return (
     <ExampleShell
       title="URL-synced state"
@@ -9126,33 +9105,46 @@ export function UrlSyncedStateDemo() {
           { type: 'onOpenComplete', behavior: 'instant' },
         ]}
       >
-        {/* Flex-column masonry (not CSS `columns`) — see useColumnCount above for
-            why. Tiles keep their natural aspect once loaded; round-robin keeps a
-            balanced-ish layout without measuring heights. */}
-        <div className="flex max-w-2xl gap-4">
-          {columns.map((column, ci) => (
-            <div key={ci} className="flex min-w-0 flex-1 flex-col gap-4">
-              {column.map(({ tile, index: tileIndex }) => (
-                <Lightbox.Trigger
-                  key={tile.id}
-                  index={tileIndex}
-                  className={`block w-full cursor-pointer overflow-hidden rounded-xl border-none bg-transparent p-0 ${triggerFocusClass}`}
-                >
-                  {({ imageRef }) => (
-                    <Image
-                      ref={imageRef}
-                      src={tile.image}
-                      alt={tile.alt}
-                      placeholder="blur"
-                      sizes="(min-width: 640px) 224px, 50vw"
-                      loading="lazy"
-                      className="block h-auto w-full rounded-xl bg-neutral-100 object-cover transition duration-200 hover:opacity-90 dark:bg-neutral-800"
-                    />
-                  )}
-                </Lightbox.Trigger>
-              ))}
-            </div>
-          ))}
+        {/* Grid-span masonry — layout and rationale in masonry-grid.css, span
+            math next to masonrySpan above. One DOM order for every viewport:
+            the server HTML is correct at any width and the 2↔3 column switch
+            is pure CSS, so refreshes never reshuffle. Each tile's own bottom
+            gap is margin in the same row-units its span already counts;
+            grid auto-placement drops each tile into the topmost open slot,
+            which also keeps Tab order close to visual order (the old
+            column-major bucketing zigzagged). */}
+        <div className="lightbox-demo-masonry max-w-2xl">
+          <div className="lightbox-demo-masonry-grid">
+            {items.map((tile, tileIndex) => (
+              <Lightbox.Trigger
+                key={tile.id}
+                index={tileIndex}
+                className={`block w-full cursor-pointer overflow-hidden rounded-xl border-none bg-transparent p-0 ${triggerFocusClass}`}
+                style={{
+                  gridRowEnd: `span ${masonrySpan(tile.image)}`,
+                  // The gap MUST be margin, not padding: the trigger is the
+                  // view-transition morph target, and padding would grow its
+                  // box past the visible image — the morph would land on a
+                  // rect that includes the gap. Margin stays outside the
+                  // border box (grid stretch subtracts it from the area), so
+                  // the trigger's rect IS the image's rect.
+                  marginBottom: `calc(var(--masonry-unit) * ${MASONRY_GAP_UNITS})`,
+                }}
+              >
+                {({ imageRef }) => (
+                  <Image
+                    ref={imageRef}
+                    src={tile.image}
+                    alt={tile.alt}
+                    placeholder="blur"
+                    sizes="(min-width: 640px) 224px, 50vw"
+                    loading="lazy"
+                    className="block h-full w-full rounded-xl bg-neutral-100 object-cover transition duration-200 hover:opacity-90 dark:bg-neutral-800"
+                  />
+                )}
+              </Lightbox.Trigger>
+            ))}
+          </div>
         </div>
 
         <LightboxGallery

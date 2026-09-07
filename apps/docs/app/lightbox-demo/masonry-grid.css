@@ -1,0 +1,54 @@
+/* Masonry for the URL-synced state example's photo wall — CSS grid with
+   per-tile row spans precomputed from each photo's aspect ratio (see
+   url-synced-state-demo.tsx). Chosen over the two obvious alternatives
+   because this page server-renders and both of them break its first paint
+   or its morphs:
+
+   - JS column bucketing (flex columns) needs the column COUNT at render
+     time; the server can't know the viewport, so desktop visits painted the
+     2-column guess and visibly re-bucketed to 3 after hydration.
+   - CSS multicol re-balances every item on any layout invalidation — and
+     opening the viewer invalidates layout (scroll lock hides the scrollbar,
+     the VT name reset touches the document), starving the morph of frames,
+     worst on mobile Safari.
+
+   Grid with fixed spans is one DOM order for every viewport (server HTML is
+   correct at any width — the breakpoint is pure CSS) and lays out in one
+   cheap pass (spans are inputs, nothing re-balances).
+
+   The math: a column is MASONRY_COL_UNITS (120) row-units wide and gaps are
+   MASONRY_GAP_UNITS (9) row-units, so one unit = 100cqw / (cols·120 +
+   (cols−1)·9) and a tile's span (120·height/width + 9, the 9 being its own
+   bottom gap, applied as margin-bottom in the same units — margin, never
+   padding, because the trigger is the morph target and its border box must
+   equal the visible image) is aspect-only —
+   IDENTICAL at both breakpoints, which is what lets the HTML carry it.
+   Gaps scale with column width (16px at the desktop max width, matching the
+   old gap-4; proportionally tighter on phones). Row gap must stay 0: grid
+   distributes row-gap INSIDE multi-row spans, which would distort the
+   aspect-derived heights. */
+
+.lightbox-demo-masonry {
+  /* cqw needs a query container; inline-size containment leaves block size
+     free to grow with content. */
+  container-type: inline-size;
+}
+
+.lightbox-demo-masonry-grid {
+  --masonry-unit: calc(100cqw / 249); /* 2·120 + 1·9 */
+  display: grid;
+  /* dense: sparse auto-placement never backtracks, so a tall neighbor strands
+     a hole under every short tile; dense backfills them (DOM order — and with
+     it Tab order — is untouched, only visual placement shifts). */
+  grid-auto-flow: dense;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-auto-rows: var(--masonry-unit);
+  column-gap: calc(var(--masonry-unit) * 9);
+}
+
+@media (min-width: 640px) {
+  .lightbox-demo-masonry-grid {
+    --masonry-unit: calc(100cqw / 378); /* 3·120 + 2·9 */
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
