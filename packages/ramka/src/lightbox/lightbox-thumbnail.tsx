@@ -3,7 +3,8 @@
 import * as React from 'react';
 
 import { LightboxThumbnailDataAttributes } from './lightbox-data-attributes';
-import { useLightboxContext } from './lightbox-context';
+import { useLightboxStableContext } from './lightbox-context';
+import { useLightboxStoreValue } from './lightbox-store';
 import { useLightboxThumbnailStripContextOptional } from './lightbox-thumbnail-strip-context';
 import { useLightboxThumbnailGroupContextOptional } from './lightbox-thumbnail-group-context';
 import { mergeProps } from '../render/merge-props';
@@ -36,11 +37,14 @@ const thumbnailStateAttributesMapping = {
 const LightboxThumbnail = React.forwardRef<HTMLButtonElement, LightboxThumbnailProps>(
   function LightboxThumbnail(props, forwardedRef) {
     const { render, index, ...elementProps } = props;
-    const { activeIndex, setActiveIndex, baseId } = useLightboxContext();
+    // Thumbnails are an O(n) population — like Item/Trigger they read the
+    // identity-stable context and subscribe to a derived primitive, so an
+    // index change re-renders two thumbs, not the strip. See lightbox-store.ts.
+    const { store, setActiveIndex, baseId } = useLightboxStableContext();
     const thumbnailStrip = useLightboxThumbnailStripContextOptional();
     const group = useLightboxThumbnailGroupContextOptional();
 
-    const isActive = index === activeIndex;
+    const isActive = useLightboxStoreValue(store, (state) => index === state.activeIndex);
     // Matching ids for the WAI-ARIA Tabs association: this tab controls its
     // item's `tabpanel`, and that panel is labelled by this tab.
     const tabId = `${baseId}-tab-${index}`;
