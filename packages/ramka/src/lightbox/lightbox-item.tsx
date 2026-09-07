@@ -3,7 +3,8 @@
 import * as React from 'react';
 
 import { LightboxItemDataAttributes } from './lightbox-data-attributes';
-import { useLightboxContext } from './lightbox-context';
+import { useLightboxStableContext } from './lightbox-context';
+import { useLightboxStoreValue } from './lightbox-store';
 import { tryPaintCanvasPlaceholder } from './lightbox-placeholder';
 import { useSlidesPreload } from './lightbox-slides';
 import { useAccessibleNameWarning } from './use-accessible-name-warning';
@@ -124,12 +125,14 @@ const LightboxItem = React.forwardRef<HTMLDivElement, LightboxItemProps>(
   function LightboxItem(props, forwardedRef) {
     const { render, index, caption, children, style, ...elementProps } = props;
 
+    // Items are the O(n) population, so they read the identity-stable context
+    // and subscribe to derived PRIMITIVES from the hot store — a navigation
+    // commit re-renders only the items whose `active`/`visible` actually
+    // flipped (O(preload)), not the whole gallery. See lightbox-store.ts.
     const {
+      store,
       registerCaption,
       registerItem,
-      activeIndex,
-      loop,
-      itemCount,
       activeItemElementRef,
       itemMorphElementsRef,
       openingTriggerIndexRef,
@@ -140,17 +143,20 @@ const LightboxItem = React.forwardRef<HTMLDivElement, LightboxItemProps>(
       openTransitionPendingRef,
       subscribeOpenComplete,
       baseId,
-      hasTablist,
-    } = useLightboxContext();
+    } = useLightboxStableContext();
     const preload = useSlidesPreload();
 
-    const isActive = index === activeIndex;
+    const isActive = useLightboxStoreValue(store, (state) => index === state.activeIndex);
     const isServerPaint = useIsServerPaint();
-    const linearDist = Math.abs(index - activeIndex);
-    const distance = loop && itemCount > 0
-      ? Math.min(linearDist, itemCount - linearDist)
-      : linearDist;
-    const isVisible = distance <= preload;
+    const isVisible = useLightboxStoreValue(store, (state) => {
+      const linearDist = Math.abs(index - state.activeIndex);
+      const distance =
+        state.loop && state.itemCount > 0
+          ? Math.min(linearDist, state.itemCount - linearDist)
+          : linearDist;
+      return distance <= preload;
+    });
+    const hasTablist = useLightboxStoreValue(store, (state) => state.hasTablist);
 
     const internalRef = React.useRef<HTMLDivElement | null>(null);
     // The destination image the consumer designated via `imageRef`, if any.

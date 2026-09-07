@@ -83,6 +83,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Navigation and open/close commits no longer re-render the whole gallery.
+  `Lightbox.Item`, `Lightbox.Trigger`, and `Lightbox.Thumbnail` — the parts a
+  gallery renders once per photo — used to read `open`/`activeIndex` straight
+  from the root context, so every index change re-rendered all of them: O(n)
+  React work per swipe, and a visible pre-transition freeze at ~1000 items
+  (the view-transition open/close wraps its commit in `flushSync`, so that
+  work sat directly on the morph's snapshot capture). These parts now
+  subscribe to derived primitives ("am I active", "am I in the preload
+  window") via `useSyncExternalStore`, so a navigation commit re-renders
+  O(preload) parts regardless of gallery size, and the open/close flush drops
+  the per-item work that isn't part of its contract (all triggers still
+  re-render on open/close — they flip `data-*-open` and `aria-controls`).
+  No API changes; render-prop timing of `active`/`visible` is unchanged
+  within each commit.
 - **The active trigger is now visually hidden while the lightbox is open on
   every path, including `viewTransition={false}`, browsers without the View
   Transition API, and low-end devices.** Previously the

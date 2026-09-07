@@ -4,13 +4,21 @@ import * as React from 'react';
 
 import {
   LightboxContext,
+  LightboxStableContext,
   type LightboxCloseOptions,
   type LightboxContextValue,
   type LightboxMorphSlice,
   type LightboxSlidesBridgeSlice,
+  type LightboxStableContextValue,
   type LightboxStateSlice,
   type NavigationSource,
 } from './lightbox-context';
+import {
+  createLightboxStore,
+  hotStateEqual,
+  type LightboxHotState,
+  type LightboxStore,
+} from './lightbox-store';
 import {
   LightboxActiveZoomContext,
   LightboxZoomPublishContext,
@@ -1176,6 +1184,97 @@ function LightboxRoot(props: LightboxRootProps) {
       notifyLightboxHandle(handleProp);
     }, [handleProp, open, activeIndex]);
 
+    // ── Hot-state store for the O(n) per-item parts ─────────────────────────
+    // Item/Trigger/Thumbnail subscribe to derived primitives instead of this
+    // context, so a navigation or open/close commit re-renders O(preload)
+    // parts, not O(n). Timing contract (render-phase sync, layout-effect
+    // notify) is documented in lightbox-store.ts — don't reorder these.
+    const hotState: LightboxHotState = {
+      open,
+      activeIndex,
+      itemCount: effectiveItemCount,
+      loop,
+      hasTablist,
+      morphTo,
+      viewTransition: viewTransition !== false,
+    };
+    const storeRef = React.useRef<LightboxStore | null>(null);
+    if (storeRef.current === null) {
+      storeRef.current = createLightboxStore(hotState);
+    }
+    const store = storeRef.current;
+    // Render-phase sync so parts MOUNTING in this commit read fresh values
+    // (critical inside flushSync(commitPrepare): the active item must register
+    // for the morph on its first render's snapshot).
+    if (!hotStateEqual(store.getState(), hotState)) {
+      store.setStateSilent(hotState);
+    }
+    // Post-commit: re-assert the committed values (a discarded concurrent
+    // render may have written ahead) and notify subscribers — synchronously
+    // before paint, and within the same flush on the flushSync VT paths.
+    const lastNotifiedHotStateRef = React.useRef(hotState);
+    React.useLayoutEffect(() => {
+      store.setStateSilent(hotState);
+      if (!hotStateEqual(lastNotifiedHotStateRef.current, hotState)) {
+        lastNotifiedHotStateRef.current = hotState;
+        store.notify();
+      }
+    });
+
+    // Identity-stable action wrappers for the stable context. `setOpen` /
+    // `setActiveIndex` legitimately change identity (they close over controlled
+    // props and VT config), which would defeat the stable context's whole
+    // purpose — so the per-item parts get ref-indirected wrappers instead.
+    // The refs are (re)assigned during render, matching the openRef /
+    // activeIndexRef pattern above, so a handler fired in the same commit
+    // (e.g. a test's synchronous dispatch) already sees the fresh closure.
+    const setOpenActionRef = React.useRef(setOpen);
+    setOpenActionRef.current = setOpen;
+    const setActiveIndexActionRef = React.useRef(setActiveIndex);
+    setActiveIndexActionRef.current = setActiveIndex;
+    const stableSetOpen = React.useCallback(
+      (nextOpen: boolean, options?: LightboxCloseOptions) =>
+        setOpenActionRef.current(nextOpen, options),
+      [],
+    );
+    const stableSetActiveIndex = React.useCallback(
+      (index: number, source: NavigationSource) => setActiveIndexActionRef.current(index, source),
+      [],
+    );
+
+    // Every dep is identity-stable, so this memo resolves once per Root — the
+    // per-item parts subscribed to it never re-render from context churn.
+    const stableContextValue = React.useMemo<LightboxStableContextValue>(
+      () => ({
+        store,
+        baseId,
+        setOpen: stableSetOpen,
+        setActiveIndex: stableSetActiveIndex,
+        registerItem,
+        registerCaption,
+        subscribeOpenComplete,
+        openTransitionPendingRef,
+        activeItemElementRef,
+        itemMorphElementsRef,
+        triggerElementsRef,
+        triggerMorphElementsRef,
+        triggerImageElementsRef,
+        triggerIdsRef,
+        openingTriggerIndexRef,
+        openingTriggerElementRef,
+        openingTriggerImageRef,
+      }),
+      [
+        store,
+        baseId,
+        stableSetOpen,
+        stableSetActiveIndex,
+        registerItem,
+        registerCaption,
+        subscribeOpenComplete,
+      ],
+    );
+
     const stateSlice = React.useMemo<LightboxStateSlice>(
       () => ({
         open,
@@ -1266,9 +1365,11 @@ function LightboxRoot(props: LightboxRootProps) {
 
     return (
       <LightboxContext.Provider value={contextValue}>
-        <LightboxZoomPublishContext.Provider value={zoomPublishValue}>
-          <LightboxActiveZoomContext.Provider value={activeZoom}>{children}</LightboxActiveZoomContext.Provider>
-        </LightboxZoomPublishContext.Provider>
+        <LightboxStableContext.Provider value={stableContextValue}>
+          <LightboxZoomPublishContext.Provider value={zoomPublishValue}>
+            <LightboxActiveZoomContext.Provider value={activeZoom}>{children}</LightboxActiveZoomContext.Provider>
+          </LightboxZoomPublishContext.Provider>
+        </LightboxStableContext.Provider>
       </LightboxContext.Provider>
     );
 }

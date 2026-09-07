@@ -9,6 +9,7 @@
 
 import * as React from 'react';
 
+import type { LightboxStore } from './lightbox-store';
 import type { SlidesGeometry } from './lightbox-slides-geometry';
 import type { InitializedRef } from '../react-compat';
 import type { LightboxViewTransitionPreset } from './vt-timing';
@@ -294,9 +295,72 @@ function useLightboxContext(): LightboxContextValue {
   return context;
 }
 
-export { LightboxContext, useLightboxContext };
+/**
+ * Stable sibling of {@link LightboxContext} for the O(n) per-item parts
+ * (`Lightbox.Item`, `Lightbox.Trigger`, `Lightbox.Thumbnail`).
+ *
+ * Its value identity NEVER changes for the lifetime of a Root — every field is
+ * a ref, a `useCallback([])`-stable function (state setters go through a
+ * ref-indirection wrapper in Root), the Root's `useId`, or the hot-state
+ * store itself. That stability is the load-bearing property: it is what lets
+ * a 1000-item gallery skip re-rendering its items and triggers when Root
+ * commits `open`/`activeIndex` changes. The reactive values those parts DO
+ * need come from `store` via `useLightboxStoreValue` selectors (see
+ * lightbox-store.ts for the O(n) fan-out rationale and write-timing rules).
+ *
+ * When adding a field here, it must be provably identity-stable — anything
+ * that can change belongs in the hot store (reactive) or the plain context
+ * (singular consumers).
+ */
+interface LightboxStableContextValue {
+  store: LightboxStore;
+  baseId: string;
+  /** Ref-indirected `setOpen` — stable identity, always-current behavior. */
+  setOpen: (open: boolean, options?: LightboxCloseOptions) => void;
+  /** Ref-indirected `setActiveIndex` — stable identity, always-current behavior. */
+  setActiveIndex: (index: number, source: NavigationSource) => void;
+  registerItem: (index: number) => () => void;
+  registerCaption: (index: number, caption: React.ReactNode) => () => void;
+  subscribeOpenComplete: (listener: () => void) => () => void;
+  openTransitionPendingRef: React.MutableRefObject<boolean>;
+  activeItemElementRef: React.MutableRefObject<HTMLElement | null>;
+  itemMorphElementsRef: InitializedRef<WeakMap<HTMLElement, HTMLElement>>;
+  triggerElementsRef: InitializedRef<Map<number, HTMLElement>>;
+  triggerMorphElementsRef: InitializedRef<WeakMap<HTMLElement, HTMLElement>>;
+  triggerImageElementsRef: InitializedRef<Map<number, HTMLImageElement>>;
+  triggerIdsRef: LightboxMorphSlice['triggerIdsRef'];
+  openingTriggerIndexRef: React.MutableRefObject<number>;
+  openingTriggerElementRef: React.MutableRefObject<HTMLElement | null>;
+  openingTriggerImageRef: React.MutableRefObject<HTMLImageElement | null>;
+}
+
+const LightboxStableContext = React.createContext<LightboxStableContextValue | undefined>(
+  undefined,
+);
+
+function useLightboxStableContext(): LightboxStableContextValue {
+  const context = React.useContext(LightboxStableContext);
+  if (context === undefined) {
+    throw new Error('Lightbox compound components must be used within a Lightbox.Root');
+  }
+  return context;
+}
+
+/** Optional read for parts that can live outside a Root (detached Trigger). */
+function useLightboxStableContextOptional(): LightboxStableContextValue | undefined {
+  return React.useContext(LightboxStableContext);
+}
+
+export {
+  LightboxContext,
+  useLightboxContext,
+  LightboxStableContext,
+  useLightboxStableContext,
+  useLightboxStableContextOptional,
+};
 export type {
   LightboxContextValue,
+  LightboxStableContextValue,
   LightboxStateSlice,
   LightboxMorphSlice,
   LightboxSlidesBridgeSlice,

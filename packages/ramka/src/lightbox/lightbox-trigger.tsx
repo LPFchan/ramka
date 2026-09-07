@@ -2,8 +2,9 @@
 
 import * as React from 'react';
 
-import { LightboxContext } from './lightbox-context';
+import { useLightboxStableContextOptional } from './lightbox-context';
 import { LightboxTriggerDataAttributes } from './lightbox-data-attributes';
+import type { LightboxHotState } from './lightbox-store';
 import {
   getLightboxHandleSnapshot,
   getLightboxHandleVersion,
@@ -132,6 +133,38 @@ const triggerStateAttributesMapping = {
 const noopSubscribe = () => () => {};
 
 /**
+ * Whether this trigger is the morph source for the given hot state. Pure over
+ * the store snapshot; the ref reads (trigger registry, opening index) keep the
+ * exact semantics of the previous render-time `useMemo` — registry changes
+ * alone never forced a recompute, and still don't (the next state commit
+ * re-reads them).
+ */
+function computeMorphTarget(
+  state: LightboxHotState,
+  index: number,
+  triggerElements: Map<number, HTMLElement>,
+  openingTriggerIndex: number,
+): boolean {
+  if (!state.open) return false;
+  const active = state.activeIndex === index;
+  if (state.morphTo === 'origin') return index === openingTriggerIndex;
+  if (state.morphTo === 'closest') {
+    if (triggerElements.has(state.activeIndex)) return state.activeIndex === index;
+    let best = -1;
+    let bestDist = Infinity;
+    for (const idx of triggerElements.keys()) {
+      const dist = Math.abs(idx - state.activeIndex);
+      if (dist < bestDist) {
+        bestDist = dist;
+        best = idx;
+      }
+    }
+    return index === best;
+  }
+  return active;
+}
+
+/**
  * A trigger that opens the Lightbox at a specific item index.
  * Multiple triggers can exist — each opens the lightbox at its `index`.
  *
@@ -151,7 +184,13 @@ const LightboxTrigger = React.forwardRef<HTMLButtonElement, LightboxTriggerProps
     const { render, index, id: idProp, handle: handleProp, crossfade, children, ...elementProps } =
       props;
 
-    const rootContext = React.useContext(LightboxContext);
+    // Triggers are an O(n) population (one per grid tile), so under a Root
+    // they read the identity-stable context and subscribe to derived
+    // PRIMITIVES from the hot store — an index change re-renders only the
+    // trigger(s) whose `active`/`morphTarget` flipped, not the whole grid.
+    // Open/close still re-renders every trigger, by contract: they all flip
+    // `data-*-open` and gain/lose `aria-controls`. See lightbox-store.ts.
+    const rootContext = useLightboxStableContextOptional();
     const styleNonce = useLightboxStyleNonce();
     if (!rootContext && !handleProp) {
       throw new Error(
@@ -177,9 +216,7 @@ const LightboxTrigger = React.forwardRef<HTMLButtonElement, LightboxTriggerProps
     const handleSnapshot =
       !rootContext && handleProp ? getLightboxHandleSnapshot(handleProp) : null;
 
-    const open = rootContext?.open ?? handleSnapshot?.open ?? false;
-    const activeIndex = rootContext?.activeIndex ?? handleSnapshot?.activeIndex ?? 0;
-    const morphTo = rootContext?.morphTo ?? 'active';
+    const store = rootContext?.store ?? null;
     const triggerElementsRef = rootContext?.triggerElementsRef;
     const triggerMorphElementsRef = rootContext?.triggerMorphElementsRef;
     const triggerImageElementsRef = rootContext?.triggerImageElementsRef;
@@ -189,6 +226,39 @@ const LightboxTrigger = React.forwardRef<HTMLButtonElement, LightboxTriggerProps
     const openingTriggerImageRef = rootContext?.openingTriggerImageRef;
     const setOpen = rootContext?.setOpen;
     const setActiveIndex = rootContext?.setActiveIndex;
+
+    // Hot-store subscriptions (no-ops when detached — the handle subscription
+    // above covers that path). Each snapshot is a primitive derived for THIS
+    // trigger, so `useSyncExternalStore`'s Object.is check skips re-renders
+    // whose result didn't change.
+    const storeSubscribe = store ? store.subscribe : noopSubscribe;
+    const readOpen = () => store?.getState().open ?? false;
+    const storeOpen = React.useSyncExternalStore(storeSubscribe, readOpen, readOpen);
+    const readActive = () => {
+      const state = store?.getState();
+      return state ? state.open && state.activeIndex === index : false;
+    };
+    const storeActive = React.useSyncExternalStore(storeSubscribe, readActive, readActive);
+    const readMorphTarget = () => {
+      const state = store?.getState();
+      if (!state || !triggerElementsRef || !openingTriggerIndexRef) return false;
+      return computeMorphTarget(
+        state,
+        index,
+        triggerElementsRef.current,
+        openingTriggerIndexRef.current,
+      );
+    };
+    const storeMorphTarget = React.useSyncExternalStore(
+      storeSubscribe,
+      readMorphTarget,
+      readMorphTarget,
+    );
+    const readMorphTo = () => store?.getState().morphTo ?? 'active';
+    const storeMorphTo = React.useSyncExternalStore(storeSubscribe, readMorphTo, readMorphTo);
+
+    const open = rootContext ? storeOpen : (handleSnapshot?.open ?? false);
+    const morphTo = storeMorphTo;
 
     const internalRef = React.useRef<HTMLButtonElement | null>(null);
     // The image node the consumer designated via `imageRef`, if any.
@@ -412,11 +482,12 @@ const LightboxTrigger = React.forwardRef<HTMLButtonElement, LightboxTriggerProps
     // covers keyboard users, who otherwise reach the open with a cold chunk.
     // The loaders memoize, so a grid of triggers only ever does the work once.
     const warmEngines = React.useCallback(() => {
-      if (rootContext?.viewTransition) prefetchMorphRuntime();
+      // Event-time store read — config, not render state, so no subscription.
+      if (store?.getState().viewTransition) prefetchMorphRuntime();
       prefetchZoomRuntime();
-    }, [rootContext?.viewTransition]);
+    }, [store]);
 
-    const active = open && activeIndex === index;
+    const active = rootContext ? storeActive : open && (handleSnapshot?.activeIndex ?? 0) === index;
     const isServerPaint = useIsServerPaint();
 
     // Disclosure semantics matching Base UI's Dialog.Trigger: the button
@@ -438,27 +509,10 @@ const LightboxTrigger = React.forwardRef<HTMLButtonElement, LightboxTriggerProps
       ? open && openingTriggerElementRef?.current === internalRef.current
       : open;
 
-    const morphTarget = React.useMemo(() => {
-      if (!open) return false;
-      if (!triggerElementsRef || !openingTriggerIndexRef) {
-        return active;
-      }
-      if (morphTo === 'origin') return index === openingTriggerIndexRef.current;
-      if (morphTo === 'closest') {
-        if (triggerElementsRef.current.has(activeIndex)) return activeIndex === index;
-        let best = -1;
-        let bestDist = Infinity;
-        for (const idx of triggerElementsRef.current.keys()) {
-          const dist = Math.abs(idx - activeIndex);
-          if (dist < bestDist) {
-            bestDist = dist;
-            best = idx;
-          }
-        }
-        return index === best;
-      }
-      return active;
-    }, [open, morphTo, activeIndex, index, active, openingTriggerIndexRef, triggerElementsRef]);
+    // Under a Root this comes from the store subscription above (see
+    // `computeMorphTarget`); a detached trigger can't resolve registries, so
+    // it falls back to its own active state — matching the previous behavior.
+    const morphTarget = rootContext ? storeMorphTarget : active;
 
     // CSSOM delivery of the morph-target hide rule — the strict-CSP path,
     // mirroring Media's fill rules. The hoistable <style> rendered below covers
