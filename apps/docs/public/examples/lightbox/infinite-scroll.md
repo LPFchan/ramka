@@ -1,6 +1,6 @@
 # Infinite scroll
 
-An endless feed where the lightbox paginates too — one photo array drives grid tiles and slides; the grid loads pages via an IntersectionObserver sentinel, and onValueChange fetches ahead inside the open viewer, appending slides to the native scroll-snap track with a minimal Previous/Next chrome (no thumbnails).
+An endless feed where the lightbox paginates too — one photo array drives grid tiles and slides; the grid loads pages via an IntersectionObserver sentinel, and onValueChange fetches ahead inside the open viewer. The viewer is Lightbox.VirtualSlides: only a window of slides around the active index is mounted, so the native scroll-snap track stays cheap however long the feed grows, with a minimal Previous/Next chrome (no thumbnails).
 
 ## Source
 

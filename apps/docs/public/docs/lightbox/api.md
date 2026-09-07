@@ -245,6 +245,29 @@ Default layout: horizontal snap carousel wired to the active index. Emits role="
 | `data-orientation` | Always `horizontal`. |
 | `data-ssr-shift` | Present while the `ssrSlideShift` transform stand-in is applied: from the server render of an open lightbox until the mount layout effect swaps the real scroll offset in (same commit — the swap never paints). While set, every slide is translated so the active one occupies the scrollport at scroll offset 0, and the scrollport's `overflow-x` is frozen so a pre-hydration swipe can't reveal the empty positions the translated slides vacated. |
 
+### VirtualSlides
+
+Windowed (virtualized) variant of Slides for very large galleries (≳500 items), where merely mounting a slide box per item makes the open/close commit stutter. Mounts only `preload + overscan` slides around the active index; CSS-sized spacers stand in for the rest, so the native scroll-snap track's extent, offsets, and scrollLeft are identical to the fully-mounted track at every moment. Same engine and props as Slides plus `count` (required) and render-prop children `(index) => <Lightbox.Slide>…</Lightbox.Slide>`. Requires uniform scrollport-wide slides (flex 0 0 100%); mirror any track gap into --lightbox-slide-gap. `loop` and `ssrSlideShift` are unsupported. Publishes `count` to Root so Counter / Next / Previous / keyboard see the full collection, not the mounted window.
+
+#### Props
+
+| Name | Type | Default | Description |
+| --- | --- | --- | --- |
+| count | `number` |  | Total number of items in the collection. Required. |
+| overscan | `number` | `2` | How many slide BOXES beyond the `preload` window stay mounted on each side of the active slide (window radius = `preload + overscan`). More overscan = fewer window shifts near the edges and more snap targets ahead of a scrubbing scrollbar; less = fewer mounted nodes. |
+| children | `(index: number) => ReactNode` |  | Render one slide by full-collection index. Must render a `Lightbox.Slide` (with a `Lightbox.Item index={index}` inside). Called only for indexes in the mounted window; keys are applied by VirtualSlides, per index. |
+| render | `ReactElement \| ComponentRenderFn` |  | Replaces the part's default element with another tag or component. Accepts an element to clone, or a function that returns one. |
+
+#### Data attributes
+
+| Name | Description |
+| --- | --- |
+| `data-ramka-slides` | Always present on the slides scrollport. |
+| `data-active-index` | Current active index. |
+| `data-direction` | `forward` or `backward`. |
+| `data-orientation` | Always `horizontal`. |
+| `data-ssr-shift` | Present while the `ssrSlideShift` transform stand-in is applied: from the server render of an open lightbox until the mount layout effect swaps the real scroll offset in (same commit — the swap never paints). While set, every slide is translated so the active one occupies the scrollport at scroll offset 0, and the scrollport's `overflow-x` is frozen so a pre-hydration swipe can't reveal the empty positions the translated slides vacated. |
+
 ### Slide
 
 One snap-aligned slide box inside Slides. Snap alignment (`scroll-snap-align`, `scroll-snap-stop`) is built in; slide width (full-bleed, aspect-sized cards, …) is consumer CSS — set `flex` / `width` / `min-width` via className or style. Place a Lightbox.Item (and typically Zoom → Media) inside. Prefer putting resting chrome / safe-area insets as padding on Slide (not Zoom) so Item/Zoom fill the content box and zoomed media can paint into the pad under chrome.

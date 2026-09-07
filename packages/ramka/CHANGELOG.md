@@ -9,6 +9,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `Lightbox.VirtualSlides`: a windowed (virtualized) variant of `Lightbox.Slides`
+  for very large galleries (≳500 items), where merely mounting a slide box per
+  item makes the open/close commit — which the view-transition morph wraps in
+  `flushSync` — stutter before the transition. Only `preload + overscan` slides
+  around the active index are mounted; two CSS-sized spacer flex items stand in
+  for the rest, so the native scroll-snap track's extent, snap offsets, and
+  `scrollLeft` are identical to the fully-mounted track at every moment
+  (including atomically across window shifts). It reuses the exact Slides
+  scroll engine — fling lock, snap suppression, settle detection, resize
+  re-snap — through two injected seams (windowed geometry synthesis and
+  index→element resolution), and `scroll-snap-stop: always` guarantees a fling
+  can never outrun the window. Same props as Slides plus a required `count`
+  and render-prop children (`(index) => <Lightbox.Slide>…</Lightbox.Slide>`);
+  publishes `count` to the Root so Counter / Next / Previous / keyboard see
+  the full collection rather than the mounted window. Constraints: uniform
+  scrollport-wide slides only (`flex: 0 0 100%` tracks — dev builds warn
+  otherwise), mirror any track `gap` into `--lightbox-slide-gap`, and no
+  `loop` / `ssrSlideShift`. Tree-shaken as its own part: galleries that render
+  plain `Slides` ship zero extra bytes. Bench (1000 items, jsdom dev): the
+  open commit drops from 116ms to 27ms and the closed-grid mount from 107ms
+  to 40ms versus fully-mounted Slides.
+
 - Server-rendered open lightboxes are now first-class: `Lightbox.Media`'s
   fill rules and the morph-target hide rule ship in server HTML (as deduped
   hoistable `<style>` tags on React 19), so a page that server-renders an open

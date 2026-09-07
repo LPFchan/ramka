@@ -218,6 +218,23 @@ export const lightboxApiMeta: ApiPartMeta[] = [
     },
   },
   {
+    id: 'api-virtual-slides',
+    name: 'VirtualSlides',
+    description:
+      'Windowed (virtualized) variant of Slides for very large galleries (≳500 items), where merely mounting a slide box per item makes the open/close commit stutter. Mounts only `preload + overscan` slides around the active index; CSS-sized spacers stand in for the rest, so the native scroll-snap track\'s extent, offsets, and scrollLeft are identical to the fully-mounted track at every moment. Same engine and props as Slides plus `count` (required) and render-prop children `(index) => <Lightbox.Slide>…</Lightbox.Slide>`. Requires uniform scrollport-wide slides (flex 0 0 100%); mirror any track gap into --lightbox-slide-gap. `loop` and `ssrSlideShift` are unsupported. Publishes `count` to Root so Counter / Next / Previous / keyboard see the full collection, not the mounted window.',
+    extract: {
+      kind: 'interface-props',
+      typeName: 'LightboxVirtualSlidesProps',
+      file: 'lightbox-virtual-slides.tsx',
+      includeInherited: ['render'],
+      exclude: ['className'],
+    },
+    attributesFrom: {
+      enumName: 'LightboxSlidesDataAttributes',
+      file: 'lightbox-data-attributes.ts',
+    },
+  },
+  {
     id: 'api-slide',
     name: 'Slide',
     description:

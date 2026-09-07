@@ -24,13 +24,17 @@ import { feedImages } from './images.generated';
  *   `LOAD_AHEAD` slides of the end, via Root's `onValueChange` — which fires
  *   for swipes, arrow keys, and the Previous/Next buttons alike.
  *
- * No special lightbox API is involved: appending to the `photos` array renders
- * more `Lightbox.Slide`s at the end of the native CSS scroll-snap track.
- * Appending never moves existing snap offsets, so the slide the user is
- * looking at stays exactly where it is; the library re-measures geometry and
- * the Next button / arrow keys / counter pick up the new count on their own.
- * Slides' `preload` keeps the appended items from fetching media until the
- * user actually approaches them.
+ * The viewer uses `Lightbox.VirtualSlides` — the windowed variant of Slides —
+ * because an endless feed grows unbounded: with plain Slides every loaded
+ * photo mounts a slide box, and past a few hundred items that mount/unmount
+ * cost lands inside the open/close transition's synchronous commit as a
+ * visible stutter. VirtualSlides mounts only a window around the active index
+ * (CSS spacers keep the native scroll-snap track's extent and offsets exact),
+ * so the viewer costs the same at 12 photos or 12 000. Appending pages just
+ * grows `count`; existing snap offsets never move, and the Next button /
+ * arrow keys / counter pick up the new total on their own. The track's
+ * responsive `gap` is mirrored into `--lightbox-slide-gap` so the spacers
+ * account for the gaps the unmounted slides would have contributed.
  *
  * The viewer is deliberately minimal — slides, Previous/Next, the zoom
  * capsule, and Close. No thumbnail strip: without one, each `Lightbox.Item`
@@ -200,41 +204,47 @@ export function InfiniteScrollFeed() {
             aria-label="Feed photos"
             className="lightbox-demo-content lightbox-demo-content-solo fixed inset-0 flex flex-col overscroll-contain outline-none"
           >
-            <Lightbox.Slides
+            <Lightbox.VirtualSlides
               aria-roledescription="carousel"
               aria-label="Full-size photos"
+              count={photos.length}
               preload={2}
-              className="lightbox-demo-slides flex-1 gap-5 [&::-webkit-scrollbar]:hidden md:gap-0"
+              // Mirror the track's responsive gap so the virtual spacers size
+              // exactly like the unmounted slides they stand in for.
+              className="lightbox-demo-slides flex-1 gap-5 [--lightbox-slide-gap:1.25rem] [&::-webkit-scrollbar]:hidden md:gap-0 md:[--lightbox-slide-gap:0px]"
             >
-              {photos.map((photo, i) => (
-                <Lightbox.Slide key={photo.id} className="lightbox-demo-slide-pad h-full">
-                  <Lightbox.Item
-                    index={i}
-                    aria-roledescription="slide"
-                    aria-label={`${i + 1} of ${photos.length}`}
-                  >
-                    <Lightbox.Zoom maxZoom={6}>
-                      <Lightbox.Media
-                        width={photo.image.width}
-                        height={photo.image.height}
-                        className="overflow-hidden rounded-none md:rounded-lg"
-                      >
-                        {/* Destination image: no blur placeholder — every index
-                            has a trigger thumb, so Ramka bridges the open. */}
-                        <Image
-                          src={photo.image}
-                          alt={photo.alt}
-                          sizes="100vw"
-                          loading="eager"
-                          draggable={false}
-                          className="select-none"
-                        />
-                      </Lightbox.Media>
-                    </Lightbox.Zoom>
-                  </Lightbox.Item>
-                </Lightbox.Slide>
-              ))}
-            </Lightbox.Slides>
+              {(i) => {
+                const photo = photos[i]!;
+                return (
+                  <Lightbox.Slide key={photo.id} className="lightbox-demo-slide-pad h-full">
+                    <Lightbox.Item
+                      index={i}
+                      aria-roledescription="slide"
+                      aria-label={`${i + 1} of ${photos.length}`}
+                    >
+                      <Lightbox.Zoom maxZoom={6}>
+                        <Lightbox.Media
+                          width={photo.image.width}
+                          height={photo.image.height}
+                          className="overflow-hidden rounded-none md:rounded-lg"
+                        >
+                          {/* Destination image: no blur placeholder — every index
+                              has a trigger thumb, so Ramka bridges the open. */}
+                          <Image
+                            src={photo.image}
+                            alt={photo.alt}
+                            sizes="100vw"
+                            loading="eager"
+                            draggable={false}
+                            className="select-none"
+                          />
+                        </Lightbox.Media>
+                      </Lightbox.Zoom>
+                    </Lightbox.Item>
+                  </Lightbox.Slide>
+                );
+              }}
+            </Lightbox.VirtualSlides>
 
             {/* Previous / Next — desktop only; mobile swipes. Both auto-disable
                 at the loaded frontier and re-enable when the next page lands. */}

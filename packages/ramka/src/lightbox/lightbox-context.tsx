@@ -277,6 +277,15 @@ interface LightboxSlidesBridgeSlice {
    * and falls back to a plain `setActiveIndex` when no strip is mounted.
    */
   navigate: (index: number, source: NavigationSource) => void;
+  /**
+   * Written by `Lightbox.VirtualSlides` with its full collection `count`
+   * (cleared to `null` on unmount). While set it OVERRIDES the item registry
+   * for `itemCount`: a windowed track only ever mounts a handful of items, so
+   * the registry — normally the live source of truth — would report the
+   * window size and break Next/Previous boundaries, keyboard clamping, and
+   * Counter totals for everything past the window.
+   */
+  setVirtualItemCount: (count: number | null) => void;
 }
 
 /**

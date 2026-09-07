@@ -487,12 +487,18 @@ function LightboxRoot(props: LightboxRootProps) {
       };
     }, []);
 
+    // A mounted `Lightbox.VirtualSlides` publishes its full collection count
+    // here (and clears it on unmount). It must OVERRIDE the registry below:
+    // a windowed track only mounts a handful of items, so the registry — the
+    // live source of truth everywhere else — would report the window size.
+    const [virtualItemCount, setVirtualItemCount] = React.useState<number | null>(null);
+
     // Until the first item registers — registration is an effect, so it never
     // happens during server rendering or the hydration render — fall back to
     // the `count` prop. This is what lets an SSR-open page paint Counter and
     // Next/Previous with the real total instead of 0. The registry wins the
     // moment it has anything in it, so a stale prop can't outlive hydration.
-    const effectiveItemCount = itemCount > 0 ? itemCount : (count ?? 0);
+    const effectiveItemCount = virtualItemCount ?? (itemCount > 0 ? itemCount : (count ?? 0));
 
     // Stable id prefix for this lightbox instance. Used to mint matching
     // `tab` / `tabpanel` ids in Thumbnail / Item so their `aria-controls` /
@@ -1354,6 +1360,8 @@ function LightboxRoot(props: LightboxRootProps) {
         notifySlidesViewport,
         thumbnailStripSelectRef,
         navigate,
+        // useState setters are identity-stable, so this doesn't bust the memo.
+        setVirtualItemCount,
       }),
       [subscribeSlidesViewport, notifySlidesViewport, navigate],
     );

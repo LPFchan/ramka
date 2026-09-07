@@ -262,6 +262,30 @@ export const generatedProps: Record<string, PropRow[]> = {
       description: "Replaces the part's default element with another tag or component. Accepts an element to clone, or a function that returns one.",
     },
   ],
+  "api-virtual-slides": [
+    {
+      name: "count",
+      type: "number",
+      required: true,
+      description: "Total number of items in the collection. Required.",
+    },
+    {
+      name: "overscan",
+      type: "number",
+      default: "2",
+      description: "How many slide BOXES beyond the `preload` window stay mounted on each side of the active slide (window radius = `preload + overscan`). More overscan = fewer window shifts near the edges and more snap targets ahead of a scrubbing scrollbar; less = fewer mounted nodes.",
+    },
+    {
+      name: "children",
+      type: "(index: number) => ReactNode",
+      description: "Render one slide by full-collection index. Must render a `Lightbox.Slide` (with a `Lightbox.Item index={index}` inside). Called only for indexes in the mounted window; keys are applied by VirtualSlides, per index.",
+    },
+    {
+      name: "render",
+      type: "ReactElement | ComponentRenderFn",
+      description: "Replaces the part's default element with another tag or component. Accepts an element to clone, or a function that returns one.",
+    },
+  ],
   "api-slide": [],
   "api-previous": [
     {
@@ -691,6 +715,28 @@ export const generatedAttributes: Record<string, AttrRow[]> = {
       description: "Present while the `ssrSlideShift` transform stand-in is applied: from the server render of an open lightbox until the mount layout effect swaps the real scroll offset in (same commit — the swap never paints). While set, every slide is translated so the active one occupies the scrollport at scroll offset 0, and the scrollport's `overflow-x` is frozen so a pre-hydration swipe can't reveal the empty positions the translated slides vacated.",
     },
   ],
+  "api-virtual-slides": [
+    {
+      name: "data-ramka-slides",
+      description: "Always present on the slides scrollport.",
+    },
+    {
+      name: "data-active-index",
+      description: "Current active index.",
+    },
+    {
+      name: "data-direction",
+      description: "`forward` or `backward`.",
+    },
+    {
+      name: "data-orientation",
+      description: "Always `horizontal`.",
+    },
+    {
+      name: "data-ssr-shift",
+      description: "Present while the `ssrSlideShift` transform stand-in is applied: from the server render of an open lightbox until the mount layout effect swaps the real scroll offset in (same commit — the swap never paints). While set, every slide is translated so the active one occupies the scrollport at scroll offset 0, and the scrollport's `overflow-x` is frozen so a pre-hydration swipe can't reveal the empty positions the translated slides vacated.",
+    },
+  ],
   "api-slide": [
     {
       name: "data-ramka-slide",
@@ -874,6 +920,7 @@ export const generatedCssVariables: Record<string, CssVarRow[]> = {
   "api-item": [],
   "api-media": [],
   "api-slides": [],
+  "api-virtual-slides": [],
   "api-slide": [],
   "api-previous": [],
   "api-next": [],

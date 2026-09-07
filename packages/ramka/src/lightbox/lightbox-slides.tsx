@@ -13,8 +13,9 @@ import {
   slideIndexFromInlinePosition,
   slideInlinePositionForIndex,
   SLIDE_SELECTOR,
+  type SlidesGeometry,
 } from './lightbox-slides-geometry';
-import { readInlineScroll, writeInlineScroll } from './lightbox-direction';
+import { readInlineScroll, writeInlineScroll, type TextDirection } from './lightbox-direction';
 import { isFirefox } from './is-firefox';
 import { useDirectionMismatchWarning } from './use-direction-mismatch-warning';
 import { useIsServerPaint } from './use-server-paint';
@@ -165,9 +166,46 @@ const slidesStateAttributesMapping = {
   direction: (value: unknown) => ({ 'data-direction': String(value) }),
 };
 
-const LightboxSlides = React.forwardRef<HTMLDivElement, LightboxSlidesProps>(
-  function LightboxSlides(props, forwardedRef) {
-    const { render, preload = 1, ssrSlideShift = false, style, ...elementProps } = props;
+/**
+ * INTERNAL — the two seams `Lightbox.VirtualSlides` injects to reuse this
+ * scroll engine over a windowed track. Everything else in the engine (fling
+ * lock, snap suppression, touch/scrollend settle, resize re-snap) is
+ * geometry-agnostic: it works in full-collection indexes against whatever
+ * `SlidesGeometry` these produce.
+ *
+ * Not part of the public API — not exported from the `lightbox` subpath, and
+ * consumers must not rely on it.
+ */
+interface LightboxSlidesBaseProps extends LightboxSlidesProps {
+  /**
+   * Produce the full-track geometry. Default measures every mounted slide box
+   * (`measureSlidesGeometry`); VirtualSlides measures the mounted window and
+   * extrapolates a uniform track over the full `count`.
+   */
+  measureGeometry?: (viewport: HTMLElement, dir: TextDirection) => SlidesGeometry;
+  /**
+   * Resolve a full-collection index to its mounted slide element (used by the
+   * Safari post-jump repaint). Default: nth `[data-ramka-slide]`; VirtualSlides
+   * offsets by the window start and returns null when unmounted.
+   */
+  resolveSlideElement?: (viewport: HTMLElement, index: number) => HTMLElement | null;
+}
+
+function defaultResolveSlideElement(viewport: HTMLElement, index: number): HTMLElement | null {
+  return viewport.querySelectorAll<HTMLElement>(SLIDE_SELECTOR)[index] ?? null;
+}
+
+const LightboxSlidesBase = React.forwardRef<HTMLDivElement, LightboxSlidesBaseProps>(
+  function LightboxSlidesBase(props, forwardedRef) {
+    const {
+      render,
+      preload = 1,
+      ssrSlideShift = false,
+      style,
+      measureGeometry = measureSlidesGeometry,
+      resolveSlideElement = defaultResolveSlideElement,
+      ...elementProps
+    } = props;
     const {
       activeIndex,
       direction,
@@ -307,16 +345,19 @@ const LightboxSlides = React.forwardRef<HTMLDivElement, LightboxSlidesProps>(
     // Force WebKit to re-rasterize a slide's tile (a synchronous visibility
     // toggle with a reflow between — no frame ever paints it hidden, so it can't
     // flicker). Fixes the half-decoded image Safari leaves after a long jump.
-    const repaintSlide = React.useCallback((index: number) => {
-      const viewport = viewportRef.current;
-      if (!viewport) return;
-      const slide = viewport.querySelectorAll<HTMLElement>(SLIDE_SELECTOR)[index];
-      if (!slide) return;
-      const previous = slide.style.visibility;
-      slide.style.visibility = 'hidden';
-      void slide.offsetWidth;
-      slide.style.visibility = previous;
-    }, []);
+    const repaintSlide = React.useCallback(
+      (index: number) => {
+        const viewport = viewportRef.current;
+        if (!viewport) return;
+        const slide = resolveSlideElement(viewport, index);
+        if (!slide) return;
+        const previous = slide.style.visibility;
+        slide.style.visibility = 'hidden';
+        void slide.offsetWidth;
+        slide.style.visibility = previous;
+      },
+      [resolveSlideElement],
+    );
 
     // Jump to a slide's exact snap offset. Only ever runs while the scroller is
     // at rest — a user scroll locks discrete navigation upstream (see
@@ -391,7 +432,7 @@ const LightboxSlides = React.forwardRef<HTMLDivElement, LightboxSlidesProps>(
     React.useLayoutEffect(() => {
       const viewport = viewportRef.current;
       if (!viewport) return;
-      geometryRef.current = measureSlidesGeometry(viewport, dir);
+      geometryRef.current = measureGeometry(viewport, dir);
       notifySlidesViewport();
 
       // ResizeObserver fires an initial callback on `observe()` with the current
@@ -403,7 +444,7 @@ const LightboxSlides = React.forwardRef<HTMLDivElement, LightboxSlidesProps>(
       // callback is skipped. See LIGHTBOX_PERF.md.
       const observer = new ResizeObserver(() => {
         const prev = geometryRef.current;
-        const next = measureSlidesGeometry(viewport, dir);
+        const next = measureGeometry(viewport, dir);
         geometryRef.current = next;
         if (
           prev &&
@@ -442,7 +483,7 @@ const LightboxSlides = React.forwardRef<HTMLDivElement, LightboxSlidesProps>(
       });
       observer.observe(viewport);
       return () => observer.disconnect();
-    }, [itemCount, scrollToIndex, notifySlidesViewport, navigationLockedRef, dir]);
+    }, [itemCount, measureGeometry, scrollToIndex, notifySlidesViewport, navigationLockedRef, dir]);
 
     // Drive scroll position from the active index. Skip when the viewport is
     // already showing it (our own swipe-derived updates, which must not
@@ -849,7 +890,20 @@ const LightboxSlides = React.forwardRef<HTMLDivElement, LightboxSlidesProps>(
   },
 );
 
+LightboxSlidesBase.displayName = 'LightboxSlidesBase';
+
+/**
+ * The public part — the engine with its default (measure-every-slide)
+ * geometry. A separate component rather than default-prop reliance so the
+ * internal engine seams never appear in the public prop type or docs API.
+ */
+const LightboxSlides = React.forwardRef<HTMLDivElement, LightboxSlidesProps>(
+  function LightboxSlides(props, forwardedRef) {
+    return <LightboxSlidesBase {...props} ref={forwardedRef} />;
+  },
+);
+
 LightboxSlides.displayName = 'LightboxSlides';
 
-export { LightboxSlides, useSlidesPreload };
-export type { LightboxSlidesProps, LightboxSlidesState };
+export { LightboxSlides, LightboxSlidesBase, useSlidesPreload };
+export type { LightboxSlidesProps, LightboxSlidesBaseProps, LightboxSlidesState };

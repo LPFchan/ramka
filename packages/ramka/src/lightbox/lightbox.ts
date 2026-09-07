@@ -67,8 +67,10 @@
  *   2. Shell — Portal, Content, Backdrop, Stage, Close. Content is the
  *      dialog. Stage is the interaction surface when present; otherwise
  *      Content is the stage. Backdrop is a sibling, never baked into Content.
- *   3. Layout — Slides / Slide. Snap geometry + preload. Item reads index
- *      from Root and preload from Slides. No second layout host.
+ *   3. Layout — Slides / Slide (VirtualSlides for windowed tracks: the same
+ *      engine with injected geometry — see lightbox-virtual-slides.tsx).
+ *      Snap geometry + preload. Item reads index from Root and preload from
+ *      Slides. No second layout host.
  *   4. Media — Item, Media, Zoom. Item = identity, ARIA, morph refs, and
  *      *when* to bridge the open morph. Media = sized host (fit-box +
  *      canvas container). Zoom = per-slide engine (lazy). Placeholder
@@ -92,6 +94,8 @@
  *                     Render-function `morphRef` opts the surface (or a
  *                     descendant) in as the shared VT capture destination.
  *   Slides/Slide    — Horizontal snap carousel; preload-gates Item contents
+ *   VirtualSlides   — Windowed Slides for very large galleries (mounts only a
+ *                     window of Slide boxes; render-prop children by index)
  *   Item            — Individual media item with lazy-load support. Its render
  *                     function exposes `imageRef` / `morphRef` (escape hatches;
  *                     prefer Media for the common case)
@@ -122,6 +126,7 @@ export { LightboxStage as Stage } from './lightbox-stage';
 export { LightboxItem as Item } from './lightbox-item';
 export { LightboxMedia as Media } from './lightbox-media';
 export { LightboxSlides as Slides } from './lightbox-slides';
+export { LightboxVirtualSlides as VirtualSlides } from './lightbox-virtual-slides';
 export { LightboxSlide as Slide } from './lightbox-slide';
 export { LightboxPrevious as Previous } from './lightbox-previous';
 export { LightboxNext as Next } from './lightbox-next';
@@ -163,6 +168,7 @@ export type {
 export type { LightboxItemProps, LightboxItemState, LightboxItemRenderState } from './lightbox-item';
 export type { LightboxMediaProps, LightboxMediaState, LightboxMediaContextValue } from './lightbox-media';
 export type { LightboxSlidesProps, LightboxSlidesState } from './lightbox-slides';
+export type { LightboxVirtualSlidesProps } from './lightbox-virtual-slides';
 export type { LightboxSlideProps } from './lightbox-slide';
 export type { LightboxPreviousProps, LightboxPreviousState } from './lightbox-previous';
 export type { LightboxNextProps, LightboxNextState } from './lightbox-next';

@@ -121,6 +121,17 @@ export enum LightboxDocumentCssVars {
 
 export enum LightboxSlidesCssVars {
   /**
+   * CONSUMER-SET: the track's `gap` as a length, for `Lightbox.VirtualSlides`
+   * spacer sizing (CSS cannot read a computed `gap` into `calc()`, and the
+   * spacers that stand in for unmounted slides must account for the gaps
+   * those slides would have contributed). Set it on the VirtualSlides element
+   * (or an ancestor) wherever your skin sets the track gap, media queries
+   * included — the same convention as `--lightbox-ssr-slide-gap`. Defaults to
+   * `0px`; tracks without a gap need nothing.
+   * @type string
+   */
+  slideGap = '--lightbox-slide-gap',
+  /**
    * The active index at server-render time. WRITTEN BY THE LIBRARY onto the
    * Slides scrollport while `data-ssr-shift` is present (the `ssrSlideShift`
    * transform stand-in) — do not set it yourself. Consumed by the library's
