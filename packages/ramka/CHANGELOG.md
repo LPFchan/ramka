@@ -101,6 +101,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   consumer re-render landed inside the 120ms debounce (typical for controlled,
   URL-synced galleries passing inline config literals). The config is now read
   through a ref and resolved at fire time (#81).
+- iOS Safari: touching the slides mid rubber-band bounce (e.g. overscrolling
+  past the first slide, then starting a pull-to-dismiss during the bounce-back)
+  froze every scroll-gated gesture — pull, pinch, thumbnails, keyboard — until
+  the next gesture that happened to scroll. WebKit can drop `scrollend` when a
+  bounce-back overlaps a touch that doesn't itself scroll, and that event was
+  the only release for the in-flight-swipe lock. When the last finger lifts
+  while the lock is held, a quiet-gap fallback now guarantees the release;
+  `scrollend` remains the fast path and trackpad semantics are unchanged (#83).
 
 ## [0.0.1] - 2026-09-02
 
