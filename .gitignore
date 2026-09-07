@@ -45,3 +45,7 @@ test-results
 playwright-report
 blob-report
 .playwright
+
+# Perf-lab artifacts (scripts/perf-lab.mjs)
+.next-perf
+perf-lab-results*.json

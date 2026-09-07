@@ -3,6 +3,9 @@ import type { NextConfig } from 'next';
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   transpilePackages: ['@ramka/react'],
+  // Lets tooling (scripts/perf-lab.mjs) build and serve a production copy
+  // while `next dev` keeps running against the default `.next`.
+  distDir: process.env.NEXT_DIST_DIR ?? '.next',
   async redirects() {
     return [
       {
