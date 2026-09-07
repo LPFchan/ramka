@@ -36,6 +36,12 @@ export const lightboxExamples: ExampleLink[] = [
       'The same photos app mirrored for a right-to-left locale — dir="rtl" on Lightbox.Root mirrors navigation, the thumbnail strip, and the arrow keys.',
   },
   {
+    slug: 'infinite-scroll',
+    title: 'Infinite scroll',
+    description:
+      'An endless feed where the lightbox paginates too — one photo array drives grid tiles and slides; the grid loads pages via an IntersectionObserver sentinel, and onValueChange fetches ahead inside the open viewer, appending slides to the native scroll-snap track with a minimal Previous/Next chrome (no thumbnails).',
+  },
+  {
     slug: 'url-synced-state',
     title: 'URL-synced state',
     description:

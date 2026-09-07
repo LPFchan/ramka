@@ -123,6 +123,11 @@ const photosApp = Array.from({ length: 48 }, (_, i) => {
   return picsum(`ramka-photos-${i}`, w, h);
 });
 
+// examples/lightbox/infinite-scroll — the simulated feed API pages through
+// the photos-app pool (same already-downloaded assets, no extra bytes); the
+// demo cycles it to keep the feed endless.
+const infiniteScroll = photosApp;
+
 // examples/lightbox/url-synced-state — full size = source scaled to 800px wide
 // (matches the old fullUrl() logic: (400 / w) * 2).
 const URL_SYNCED_STATE_DEFS = [
@@ -295,6 +300,10 @@ const modules = [
   {
     out: 'app/(docs)/examples/lightbox/photos-app/images.generated.ts',
     arrays: { photoImages: photosApp },
+  },
+  {
+    out: 'app/(docs)/examples/lightbox/infinite-scroll/images.generated.ts',
+    arrays: { feedImages: infiniteScroll },
   },
   {
     out: 'app/(docs)/examples/lightbox/url-synced-state/images.generated.ts',
