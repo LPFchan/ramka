@@ -902,12 +902,20 @@ export const generatedCssVariables: Record<string, CssVarRow[]> = {
   "api-csp-provider": [],
   "api-view-transition-document": [
     {
+      name: "--lightbox-morph-radius-trigger",
+      description: "Trigger-side border-radius for the morph group clip (interpolatable px). Written by the library onto `documentElement` during a morph — do not set it yourself.",
+    },
+    {
+      name: "--lightbox-morph-radius-item",
+      description: "Item-side border-radius for the morph group clip. Written by the library onto `documentElement` during a morph — do not set it yourself.",
+    },
+    {
       name: "--lightbox-morph-border-radius-from",
-      description: "Start border-radius for the morph group clip (interpolatable px).",
+      description: "Start border-radius for the morph group clip (interpolatable px). Derived from the trigger/item radius pair by the library's own view-transition rules, keyed on the morph direction.",
     },
     {
       name: "--lightbox-morph-border-radius-to",
-      description: "End border-radius for the morph group clip.",
+      description: "End border-radius for the morph group clip. Derived from the trigger/item radius pair like `--lightbox-morph-border-radius-from`.",
     },
     {
       name: "--lightbox-morph-old-opacity",
