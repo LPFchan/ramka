@@ -488,8 +488,10 @@ While a view-transition morph runs, ramka sets attributes and CSS variables on <
 
 | Name | Type | Description |
 | --- | --- | --- |
-| `--lightbox-morph-border-radius-from` |  | Start border-radius for the morph group clip (interpolatable px). |
-| `--lightbox-morph-border-radius-to` |  | End border-radius for the morph group clip. |
+| `--lightbox-morph-radius-trigger` |  | Trigger-side border-radius for the morph group clip (interpolatable px). Written by the library onto `documentElement` during a morph — do not set it yourself. |
+| `--lightbox-morph-radius-item` |  | Item-side border-radius for the morph group clip. Written by the library onto `documentElement` during a morph — do not set it yourself. |
+| `--lightbox-morph-border-radius-from` |  | Start border-radius for the morph group clip (interpolatable px). Derived from the trigger/item radius pair by the library's own view-transition rules, keyed on the morph direction. |
+| `--lightbox-morph-border-radius-to` |  | End border-radius for the morph group clip. Derived from the trigger/item radius pair like `--lightbox-morph-border-radius-from`. |
 | `--lightbox-morph-old-opacity` |  | Opacity of the old morph snapshot on the hard-cut path (no document crossfade). |
 | `--lightbox-morph-new-opacity` |  | Opacity of the new morph snapshot on the hard-cut path (1 on open, 0 on close). |
 | `--lightbox-vt-duration` |  | Morph + root-snapshot duration from the Root's `viewTransition` timing preset. WRITTEN BY THE LIBRARY in two places — do not set it yourself: onto `documentElement` during a morph (read it in document-level `::view-transition-*` rules, e.g. `calc(var(--lightbox-vt-duration) * 0.5)` for a derived track), and always onto the Portal host, so skin open/close fades inside the portal can use the preset's clock even when no morph runs (non-VT browsers, reduced motion, low-end fallback), e.g. `transition: opacity var(--lightbox-vt-duration, 360ms) ease-out`. |
