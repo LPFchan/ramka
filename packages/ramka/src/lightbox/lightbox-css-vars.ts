@@ -58,12 +58,31 @@ export enum LightboxBackdropCssVars {
 
 export enum LightboxDocumentCssVars {
   /**
-   * Start border-radius for the morph group clip (interpolatable px).
+   * Trigger-side border-radius for the morph group clip (interpolatable px).
+   * Direction-independent on purpose: written inline on `documentElement`,
+   * where a same-value rewrite is skipped (every inherited custom-property
+   * write on `<html>` is a full-document restyle in WebKit). Static
+   * phase-keyed rules derive `--lightbox-morph-border-radius-from/to` from
+   * this pair, so open and close reuse the same inline values.
+   * @type string
+   */
+  morphRadiusTrigger = '--lightbox-morph-radius-trigger',
+  /**
+   * Item-side border-radius for the morph group clip. See
+   * {@link morphRadiusTrigger}.
+   * @type string
+   */
+  morphRadiusItem = '--lightbox-morph-radius-item',
+  /**
+   * Start border-radius for the morph group clip (interpolatable px). Derived
+   * from the trigger/item pair by static phase-keyed rules in the structural
+   * sheet — not written inline.
    * @type string
    */
   morphBorderRadiusFrom = '--lightbox-morph-border-radius-from',
   /**
-   * End border-radius for the morph group clip.
+   * End border-radius for the morph group clip. Derived like
+   * {@link morphBorderRadiusFrom}.
    * @type string
    */
   morphBorderRadiusTo = '--lightbox-morph-border-radius-to',

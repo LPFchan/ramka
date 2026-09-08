@@ -111,6 +111,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Open/close morphs no longer stall the main thread on pages with a large DOM
+  (most visible in Safari — e.g. a docs page with thousands of links and a
+  single-image lightbox). The morph pipeline used to write per-morph CSS custom
+  properties inline on `<html>` and adopt/un-adopt stylesheets around every
+  transition; in WebKit each of those is a full-document restyle, which showed
+  up as 75–175ms freezes before, during, and after the animation. Timing
+  presets and snapshot opacities now live in static rules published on the
+  `::view-transition` pseudo-element (keyed off the existing root attributes),
+  the border-radius pair is written inline only when its value actually
+  changes, `Lightbox.Media`'s fill rules are adopted once per document instead
+  of per mount, and the composited-morph WebKit path delivers its per-morph
+  `@keyframes` through one persistent constructed stylesheet (keyframe inserts
+  don't trigger a document restyle in WebKit) with cleanup deferred to idle
+  time. No API changes.
 - `scrollTriggerIntoView` `onChange` scrolls were silently cancelled when a
   consumer re-render landed inside the 120ms debounce (typical for controlled,
   URL-synced galleries passing inline config literals). The config is now read

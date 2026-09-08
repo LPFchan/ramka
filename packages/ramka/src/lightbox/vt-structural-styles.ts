@@ -47,6 +47,28 @@ function buildCss(): string {
   // snapshots — plus-lighter stays opaque.
   const dissolveDuration = `calc(${duration} * 0.48)`;
 
+  // Timing + phase vars published STATICALLY, keyed on the attributes the
+  // morph engine already flips — and declared on the `::view-transition`
+  // pseudo (the root of the snapshot tree, which every other VT pseudo
+  // inherits from), NOT on `:root` itself. Both the old inline writes and
+  // root-scoped rules change inherited custom properties of `<html>`, which
+  // invalidates computed style for the entire document — WebKit pays that as
+  // a full restyle (~75ms on a 16k-element page) inside the capture flush.
+  // Scoped to the pseudo, arming them invalidates only the snapshot tree.
+  // The preset table is finite, so every preset's values can be enumerated
+  // ahead of time.
+  const presetTimingRules = Object.entries(VIEW_TRANSITION_PRESETS)
+    .map(
+      ([name, spec]) => `
+:root[${LightboxDocumentDataAttributes.viewTransitionPreset}="${name}"]::view-transition {
+  ${vars.vtDuration}: ${spec.duration}ms;
+  ${vars.vtEasing}: ${spec.cssEasing};
+  ${vars.vtCrossfadeCloseEasing}: ${spec.cssCrossfadeCloseEasing};
+  ${vars.vtRootEasing}: ${spec.cssRootEasing};
+}`,
+    )
+    .join('\n');
+
   return `
 /* Isolate the lightbox morph from the rest of the page. startViewTransition
    captures the WHOLE document, so any consumer element carrying its own
@@ -56,6 +78,33 @@ function buildCss(): string {
    outranks this author-!important rule on specificity. */
 :root[${vt}] * {
   view-transition-name: none !important;
+}
+
+${presetTimingRules}
+
+/* Hard-cut snapshot opacities and the radius from/to derivation, by phase
+   (see the hard-cut rules below and applyMorphState for the rationale).
+   Published on the ::view-transition pseudo instead of inline on <html> —
+   see the preset-timing comment above. Under crossfade the opacity vars are
+   inert anyway (the crossfade rules override the consuming 'opacity'
+   declarations with 'revert !important'), so they can be keyed on the phase
+   attribute alone. The trigger/item radius pair is inline on <html> (per
+   morph, deduplicated); the pseudo inherits from the root element, so the
+   var() references resolve. */
+:root[${vt}]::view-transition {
+  ${vars.morphOldOpacity}: 1;
+}
+
+:root[${vt}="opening"]::view-transition {
+  ${vars.morphNewOpacity}: 1;
+  ${vars.morphBorderRadiusFrom}: var(${vars.morphRadiusTrigger}, 0px);
+  ${vars.morphBorderRadiusTo}: var(${vars.morphRadiusItem}, 0px);
+}
+
+:root[${vt}="closing"]::view-transition {
+  ${vars.morphNewOpacity}: 0;
+  ${vars.morphBorderRadiusFrom}: var(${vars.morphRadiusItem}, 0px);
+  ${vars.morphBorderRadiusTo}: var(${vars.morphRadiusTrigger}, 0px);
 }
 
 /* The morph-target hide rule (opacity zero plus its during-VT transition

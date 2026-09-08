@@ -2126,30 +2126,27 @@ describe('Lightbox', () => {
       expect(docStyle.getPropertyValue('--lightbox-vt-root-easing')).toBe('');
     });
 
-    it('writes the default timing preset onto documentElement during morph', async () => {
+    it('publishes the default timing preset as the vt-preset attribute during morph', async () => {
+      // Timing vars are no longer written inline on <html> — inherited
+      // custom-property writes on the root are a full-document restyle in
+      // WebKit. The attribute keys static per-preset rules on the
+      // ::view-transition pseudo (see vt-structural-styles.ts).
       const { resolveFinished } = mockViewTransitionAPI();
       render(<TestLightbox viewTransition />);
 
       fireEvent.click(screen.getByTestId('trigger-0'));
       const docEl = document.documentElement;
       expect(docEl).toHaveAttribute('data-ramka-vt-preset', 'default');
-      expect(docEl.style.getPropertyValue('--lightbox-vt-duration')).toBe('360ms');
-      expect(docEl.style.getPropertyValue('--lightbox-vt-easing')).toBe(
-        'cubic-bezier(0.44, 0.58, 0, 1)',
+      expect(docEl.style.getPropertyValue('--lightbox-vt-duration')).toBe('');
+
+      const structural = document.querySelector('style[data-ramka-lightbox-vt-styles]');
+      expect(structural?.textContent).toContain(
+        ':root[data-ramka-vt-preset="default"]::view-transition',
       );
-      expect(docEl.style.getPropertyValue('--lightbox-vt-crossfade-close-easing')).toBe(
-        'cubic-bezier(0.22, 0, 0.35, 1)',
-      );
-      expect(docEl.style.getPropertyValue('--lightbox-vt-root-easing')).toBe(
-        'cubic-bezier(0.16, 1, 0.3, 1)',
-      );
+      expect(structural?.textContent).toContain('--lightbox-vt-duration: 360ms');
 
       await act(async () => resolveFinished());
       expect(docEl).not.toHaveAttribute('data-ramka-vt-preset');
-      expect(docEl.style.getPropertyValue('--lightbox-vt-duration')).toBe('');
-      expect(docEl.style.getPropertyValue('--lightbox-vt-easing')).toBe('');
-      expect(docEl.style.getPropertyValue('--lightbox-vt-crossfade-close-easing')).toBe('');
-      expect(docEl.style.getPropertyValue('--lightbox-vt-root-easing')).toBe('');
     });
 
     it('writes a named timing preset (viewTransition="spring") onto documentElement', async () => {
@@ -2175,11 +2172,15 @@ describe('Lightbox', () => {
       fireEvent.click(screen.getByTestId('trigger-0'));
       const docEl = document.documentElement;
       expect(docEl).toHaveAttribute('data-ramka-vt-preset', 'spring');
-      expect(docEl.style.getPropertyValue('--lightbox-vt-duration')).toBe('450ms');
+
+      const structural = document.querySelector('style[data-ramka-lightbox-vt-styles]');
+      expect(structural?.textContent).toContain(
+        ':root[data-ramka-vt-preset="spring"]::view-transition',
+      );
+      expect(structural?.textContent).toContain('--lightbox-vt-duration: 450ms');
 
       await act(async () => resolveFinished());
       expect(docEl).not.toHaveAttribute('data-ramka-vt-preset');
-      expect(docEl.style.getPropertyValue('--lightbox-vt-duration')).toBe('');
     });
 
     it('always publishes the preset timing vars on the Portal host (skin motion clock)', async () => {
@@ -2274,13 +2275,11 @@ describe('Lightbox', () => {
       await act(async () => resolvers[0]!());
       expect(docEl).toHaveAttribute('data-ramka-view-transition', 'opening');
       expect(docEl).toHaveAttribute('data-ramka-vt-preset', 'spring');
-      expect(docEl.style.getPropertyValue('--lightbox-vt-duration')).toBe('450ms');
 
       // B's own finalizer still cleans up normally.
       await act(async () => resolvers[1]!());
       expect(docEl).not.toHaveAttribute('data-ramka-view-transition');
       expect(docEl).not.toHaveAttribute('data-ramka-vt-preset');
-      expect(docEl.style.getPropertyValue('--lightbox-vt-duration')).toBe('');
 
       // Both Roots are left open, so their scroll locks overlap: each saved
       // the other's `overflow` as its "original", and unmount restore order
@@ -3409,7 +3408,7 @@ describe('Lightbox', () => {
         originalRect = undefined;
       });
 
-      it('writes from/to radius vars for the VT group CSS without mutating live radii', () => {
+      it('writes direction-independent radius vars for the VT group CSS without mutating live radii', () => {
         mockViewTransitionAPI();
         mockTargetBox();
         render(
@@ -3431,8 +3430,13 @@ describe('Lightbox', () => {
 
         fireEvent.click(screen.getByTestId('trigger-0'));
 
-        expect(document.documentElement.style.getPropertyValue('--lightbox-morph-border-radius-from')).toBe('32px');
-        expect(document.documentElement.style.getPropertyValue('--lightbox-morph-border-radius-to')).toBe('8px');
+        // Stored per SIDE (trigger/item), not per direction (from/to): the
+        // same values then serve open and close, so re-morphing skips the
+        // writes entirely (root custom-property writes are full-document
+        // restyles in WebKit). Static phase-keyed rules in the structural
+        // sheet derive --lightbox-morph-border-radius-from/to from this pair.
+        expect(document.documentElement.style.getPropertyValue('--lightbox-morph-radius-trigger')).toBe('32px');
+        expect(document.documentElement.style.getPropertyValue('--lightbox-morph-radius-item')).toBe('8px');
         // Live elements keep their radii — shape morph is CSS on the VT group.
         expect(screen.getByTestId('trigger-0').style.borderRadius).toBe('32px');
         expect(screen.getByTestId('item-0').querySelector('img')!.style.borderRadius).toBe('8px');
