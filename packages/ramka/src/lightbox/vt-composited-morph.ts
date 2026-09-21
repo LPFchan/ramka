@@ -422,6 +422,73 @@ function parsePx(value: unknown): number | null {
   return Number.isFinite(n) && n > 0 ? n : null;
 }
 
+/**
+ * Trigger-side endpoint correction for triggers inside a CSS fragmentation
+ * context (multicol masonry — the classic lightbox gallery layout).
+ *
+ * WebKit (observed on Safari/iOS 18.4) captures an element inside a multicol
+ * container at its **pre-fragmentation** layout position: multicol lays
+ * content out as one tall column and translates fragments into place at paint
+ * time, and the VT group geometry misses that pagination offset. Every tile
+ * outside the first column therefore gets a group endpoint at the first
+ * column's x, pushed down by the height of the columns before it — the morph
+ * flies in from / lands on a spot where the tile never was. The snapshot's
+ * *pixels* and its box size are captured correctly; only the translate is
+ * wrong.
+ *
+ * Since this module rebuilds the group animation anyway, the endpoint is
+ * corrected from ground truth: the live trigger's `getBoundingClientRect()`,
+ * read at `ready` time when the new state is laid out. The trigger exists and
+ * is measurable in both phases — on open it sits (unmoved) under the viewer
+ * overlay, on close it is the morph's destination (already scrolled into its
+ * final position; `scrollTriggerIntoView` runs inside the VT callback).
+ *
+ * Deliberately conservative — the measurement is only trusted when it can
+ * disagree with the UA for no legitimate reason:
+ *
+ * - endpoint must be unscaled (`sx`/`sy` ≈ 1): engines fold visual-viewport /
+ *   ancestor scale into the group transform (Gecko on Android), where client
+ *   coords and group coords legitimately diverge;
+ * - the captured box must match the measured box: a size mismatch means some
+ *   transform/zoom sits between the two coordinate spaces, so the measured
+ *   origin cannot be trusted either;
+ * - the translate must actually disagree (> {@link ENDPOINT_CORRECTION_EPS_PX})
+ *   — correct captures (first-column tiles, non-fragmented layouts, engines
+ *   without the bug) pass through untouched.
+ */
+const ENDPOINT_CORRECTION_EPS_PX = 1.5;
+
+function correctFragmentedEndpoint(
+  endpoint: ScaleTranslate,
+  w: number,
+  h: number,
+  el: HTMLElement,
+): ScaleTranslate | null {
+  if (!el.isConnected) return null;
+  if (Math.abs(endpoint.sx - 1) > AXIS_EPS || Math.abs(endpoint.sy - 1) > AXIS_EPS) return null;
+
+  let rect: DOMRect;
+  try {
+    rect = el.getBoundingClientRect();
+  } catch {
+    return null;
+  }
+  if (!(rect.width > 0 && rect.height > 0)) return null;
+  if (
+    Math.abs(rect.width - w) > ENDPOINT_CORRECTION_EPS_PX ||
+    Math.abs(rect.height - h) > ENDPOINT_CORRECTION_EPS_PX
+  ) {
+    return null;
+  }
+  if (
+    Math.abs(rect.left - endpoint.tx) <= ENDPOINT_CORRECTION_EPS_PX &&
+    Math.abs(rect.top - endpoint.ty) <= ENDPOINT_CORRECTION_EPS_PX
+  ) {
+    return null;
+  }
+  return { sx: 1, sy: 1, tx: rect.left, ty: rect.top };
+}
+
 // Easing math and timing presets live in vt-timing.ts (shared with the Root,
 // which promotes the active preset's timing to documentElement).
 
@@ -447,22 +514,32 @@ interface MorphRadii {
  * they no longer live there (the from/to vars are derived on the
  * `::view-transition` pseudo; see vt-structural-styles.ts), and the forced
  * computed-style read was a restyle inside the `ready` microtask anyway.
+ *
+ * `triggerTarget` is the live trigger-side morph element (when the morph has
+ * one); it anchors the trigger endpoint against WebKit's broken capture
+ * geometry for triggers inside multicol — see
+ * {@link correctFragmentedEndpoint}.
  */
 function maybeUpgradeToCompositedMorph(
   transition: UpgradeableTransition,
   radii?: MorphRadii,
+  triggerTarget?: HTMLElement | null,
 ): void {
   if (!isCompositedMorphEnabled()) return;
   if (!transition.ready) return;
 
   transition.ready
-    .then(() => upgrade(transition, radii))
+    .then(() => upgrade(transition, radii, triggerTarget ?? null))
     .catch(() => {
       // ready rejects when the transition is skipped — nothing to upgrade.
     });
 }
 
-function upgrade(transition: UpgradeableTransition, radii?: MorphRadii): void {
+function upgrade(
+  transition: UpgradeableTransition,
+  radii: MorphRadii | undefined,
+  triggerTarget: HTMLElement | null,
+): void {
   const docEl = document.documentElement;
 
   // Crossfade morphs replace the group animation only: snapshots keep their
@@ -492,7 +569,7 @@ function upgrade(transition: UpgradeableTransition, radii?: MorphRadii): void {
   const fromFrame = uaKeyframes.find((kf) => (kf.computedOffset ?? kf.offset ?? 0) === 0);
   if (!fromFrame) return;
 
-  const fromT = parseScaleTranslate(fromFrame.transform);
+  let fromT = parseScaleTranslate(fromFrame.transform);
   const w0 = parsePx(fromFrame.width);
   const h0 = parsePx(fromFrame.height);
   if (!fromT || w0 == null || h0 == null) return;
@@ -555,6 +632,22 @@ function upgrade(transition: UpgradeableTransition, radii?: MorphRadii): void {
       return;
     }
   }
+
+  // Anchor the trigger-side endpoint to the live element's box. On open the
+  // trigger is the `from` endpoint (its old-state position is unchanged at
+  // `ready`: the viewer overlays the page without reflowing it); on close it
+  // is the `to` endpoint (measured after the VT callback's scroll-into-view).
+  // No-op unless the UA's captured geometry is verifiably wrong — see
+  // `correctFragmentedEndpoint` (WebKit multicol capture bug).
+  if (triggerTarget) {
+    const phase = docEl.getAttribute(LightboxDocumentDataAttributes.viewTransition);
+    if (phase === 'opening') {
+      fromT = correctFragmentedEndpoint(fromT, w0, h0, triggerTarget) ?? fromT;
+    } else if (phase === 'closing') {
+      toT = correctFragmentedEndpoint(toT, w1, h1, triggerTarget) ?? toT;
+    }
+  }
+
   // Origin fractions for reconstructing rendered rects from scaled endpoint
   // matrices (the UA animation runs under the group's own transform-origin;
   // our replacement forces 0 0, so the intended rect must be computed here).
@@ -608,6 +701,11 @@ function upgrade(transition: UpgradeableTransition, radii?: MorphRadii): void {
 
   const lerp = (a: number, b: number, q: number) => a + (b - a) * q;
 
+  // Settled endpoints (post null-checks and endpoint correction), snapshotted
+  // as consts so the narrowing carries into the sampling closure below.
+  const fromEnd = fromT;
+  const toEnd = toT;
+
   /**
    * Track values at eased progress q: box (w, h) under an axis-aligned matrix
    * (sxm, sym, tx, ty) applied at origin (fx·w, fy·h) — the UA-interpolated
@@ -616,10 +714,10 @@ function upgrade(transition: UpgradeableTransition, radii?: MorphRadii): void {
   const sampleAt = (q: number) => {
     const w = lerp(w0, w1, q);
     const h = lerp(h0, h1, q);
-    const sxm = lerp(fromT.sx, toT.sx, q);
-    const sym = lerp(fromT.sy, toT.sy, q);
-    const tx = lerp(fromT.tx, toT.tx, q);
-    const ty = lerp(fromT.ty, toT.ty, q);
+    const sxm = lerp(fromEnd.sx, toEnd.sx, q);
+    const sym = lerp(fromEnd.sy, toEnd.sy, q);
+    const tx = lerp(fromEnd.tx, toEnd.tx, q);
+    const ty = lerp(fromEnd.ty, toEnd.ty, q);
 
     // Rendered rect of that state (what the user actually sees).
     const renderedW = w * sxm;

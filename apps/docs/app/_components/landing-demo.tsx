@@ -235,16 +235,20 @@ export function LandingDemo({ eager = true }: { eager?: boolean }) {
               // `block: 'nearest'` the page scrolls minimally, which would leave
               // the tile flush with the viewport edge — and the close morph
               // starting right at the edge. This keeps it comfortably inset.
-              // Overlays (the "+2" scrim and the ::after hairline) are stacked
-              // via grid cells, not position:absolute — abspos children of
-              // multicol items don't paint reliably in Safari.
-              // The ::after draws an Apple-style 0.5px inset outline so dark
-              // photos don't bleed into the dark-mode background (and bright
-              // ones into light mode).
-              className={`mb-2 grid w-full break-inside-avoid scroll-my-12 overflow-hidden rounded-lg bg-neutral-100 p-0 after:pointer-events-none after:z-20 after:col-start-1 after:row-start-1 after:rounded-[inherit] after:shadow-[inset_0_0_0_0.5px_rgba(0,0,0,0.1)] after:content-[''] md:mb-3 md:rounded-xl dark:bg-neutral-900 dark:after:shadow-[inset_0_0_0_0.5px_rgba(255,255,255,0.12)] ${img.breakClass} ${triggerFocusClass}`}
+              className={`mb-2 block w-full break-inside-avoid scroll-my-12 overflow-hidden rounded-lg bg-neutral-100 p-0 md:mb-3 md:rounded-xl dark:bg-neutral-900 ${img.breakClass} ${triggerFocusClass}`}
             >
               {({ imageRef }) => (
-                <>
+                // Overlays (the "+2" scrim and the ::after hairline) are stacked
+                // via grid cells, not position:absolute — abspos children of
+                // multicol items don't paint reliably in Safari. The grid lives
+                // on this inner span, NOT on the button itself: WebKit gives
+                // buttons a special internal layout and (through Safari 18.4)
+                // never stretches their grid items, so a button-as-grid left
+                // the "+2" scrim hugging the top of the tile.
+                // The ::after draws an Apple-style 0.5px inset outline so dark
+                // photos don't bleed into the dark-mode background (and bright
+                // ones into light mode).
+                <span className="grid rounded-[inherit] after:pointer-events-none after:z-20 after:col-start-1 after:row-start-1 after:rounded-[inherit] after:shadow-[inset_0_0_0_0.5px_rgba(0,0,0,0.1)] after:content-[''] dark:after:shadow-[inset_0_0_0_0.5px_rgba(255,255,255,0.12)]">
                   <Image
                     ref={imageRef}
                     src={img.thumb}
@@ -263,7 +267,7 @@ export function LandingDemo({ eager = true }: { eager?: boolean }) {
                       +{hiddenImages.length}
                     </span>
                   ) : null}
-                </>
+                </span>
               )}
             </Lightbox.Trigger>
           );

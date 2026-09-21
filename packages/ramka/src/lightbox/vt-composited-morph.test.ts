@@ -164,9 +164,10 @@ async function loadUpgrade() {
 async function runUpgrade(
   transition: { ready?: Promise<void>; finished: Promise<void> },
   radii?: { from: string | null; to: string | null },
+  triggerTarget?: HTMLElement | null,
 ) {
   const upgrade = await loadUpgrade();
-  upgrade(transition, radii);
+  upgrade(transition, radii, triggerTarget);
   await Promise.resolve();
   await Promise.resolve();
   await Promise.resolve();
@@ -660,6 +661,115 @@ describe('composited morph — WebKit CSS path', () => {
 
     expect(cssPathStyleEl()).not.toBeNull();
     expect(document.documentElement.hasAttribute(COMPOSITED_CSS_ATTR)).toBe(false);
+  });
+});
+
+describe('composited morph — fragmented trigger endpoint correction (WebKit multicol)', () => {
+  // WebKit ≤18.4 captures triggers inside CSS multicol at their
+  // pre-fragmentation position (first column's x, pushed down by the columns
+  // before it). The upgrade re-anchors the trigger-side endpoint to the live
+  // element's box — but only when the UA geometry is verifiably wrong.
+
+  const PHASE_ATTR = LightboxDocumentDataAttributes.viewTransition;
+  let trigger: HTMLElement;
+
+  /** A connected element whose measured box the correction can read. */
+  function connectTrigger(rect: { x: number; y: number; width: number; height: number }) {
+    trigger = document.createElement('div');
+    trigger.getBoundingClientRect = () =>
+      ({ ...rect, left: rect.x, top: rect.y, right: rect.x + rect.width, bottom: rect.y + rect.height }) as DOMRect;
+    document.body.appendChild(trigger);
+    return trigger;
+  }
+
+  const groupFrames = () => animateSpy.mock.calls[0]![0] as { transform: string }[];
+
+  afterEach(() => {
+    document.documentElement.removeAttribute(PHASE_ATTR);
+    trigger?.remove();
+  });
+
+  it('re-anchors the `from` endpoint to the live trigger box on open', async () => {
+    document.documentElement.setAttribute(PHASE_ATTR, 'opening');
+    // UA captured (100, 200); the tile actually sits at (300, 40) — same size.
+    const el = connectTrigger({ x: 300, y: 40, width: 200, height: 150 });
+
+    await runUpgrade(fakeTransition().transition, undefined, el);
+
+    expect(groupFrames()[0]!.transform).toBe('translate(300px, 40px) scale(0.25, 0.25)');
+  });
+
+  it('re-anchors the `to` endpoint to the live trigger box on close', async () => {
+    document.documentElement.setAttribute(PHASE_ATTR, 'closing');
+    // UA's end state is (0, 0); the trigger really sits at (50, 60).
+    const el = connectTrigger({ x: 50, y: 60, width: 800, height: 600 });
+
+    await runUpgrade(fakeTransition().transition, undefined, el);
+
+    const frames = groupFrames();
+    expect(frames[frames.length - 1]!.transform).toBe('translate(50px, 60px) scale(1, 1)');
+  });
+
+  it('leaves a correct capture untouched (measurement agrees with the UA)', async () => {
+    document.documentElement.setAttribute(PHASE_ATTR, 'opening');
+    const el = connectTrigger({ x: 100.4, y: 199.8, width: 200, height: 150 });
+
+    await runUpgrade(fakeTransition().transition, undefined, el);
+
+    expect(groupFrames()[0]!.transform).toBe('translate(100px, 200px) scale(0.25, 0.25)');
+  });
+
+  it('does not trust the measurement when the boxes disagree in size', async () => {
+    // A size mismatch means a transform/zoom separates client coords from
+    // group coords, so the measured origin cannot be trusted either.
+    document.documentElement.setAttribute(PHASE_ATTR, 'opening');
+    const el = connectTrigger({ x: 300, y: 40, width: 150, height: 150 });
+
+    await runUpgrade(fakeTransition().transition, undefined, el);
+
+    expect(groupFrames()[0]!.transform).toBe('translate(100px, 200px) scale(0.25, 0.25)');
+  });
+
+  it('skips scaled endpoints — client and group coords legitimately diverge', async () => {
+    document.documentElement.setAttribute(PHASE_ATTR, 'opening');
+    const ua = uaGroupAnimation({
+      keyframes: [{ ...FROM, transform: 'matrix(1.1, 0, 0, 1.1, 100, 200)' }, TO],
+    });
+    installAnimations([ua]);
+    const el = connectTrigger({ x: 300, y: 40, width: 200, height: 150 });
+
+    await runUpgrade(fakeTransition().transition, undefined, el);
+
+    expect(groupFrames()[0]!.transform).not.toContain('translate(300px, 40px)');
+  });
+
+  it('skips a disconnected trigger', async () => {
+    document.documentElement.setAttribute(PHASE_ATTR, 'opening');
+    const el = connectTrigger({ x: 300, y: 40, width: 200, height: 150 });
+    el.remove();
+
+    await runUpgrade(fakeTransition().transition, undefined, el);
+
+    expect(groupFrames()[0]!.transform).toBe('translate(100px, 200px) scale(0.25, 0.25)');
+  });
+
+  it('does nothing without a phase attribute on the root', async () => {
+    const el = connectTrigger({ x: 300, y: 40, width: 200, height: 150 });
+
+    await runUpgrade(fakeTransition().transition, undefined, el);
+
+    expect(groupFrames()[0]!.transform).toBe('translate(100px, 200px) scale(0.25, 0.25)');
+  });
+
+  it('corrects the CSS-path keyframes on WebKit too', async () => {
+    globals().GestureEvent = class {};
+    document.documentElement.setAttribute(PHASE_ATTR, 'opening');
+    const el = connectTrigger({ x: 300, y: 40, width: 200, height: 150 });
+
+    await runUpgrade(fakeTransition().transition, undefined, el);
+
+    const css = cssPathStyleEl()?.textContent ?? '';
+    expect(css).toContain('translate(300px, 40px)');
   });
 });
 

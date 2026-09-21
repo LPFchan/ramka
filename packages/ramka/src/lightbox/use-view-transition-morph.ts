@@ -1022,7 +1022,10 @@ function createViewTransitionMorph(getConfig: () => ViewTransitionMorphConfig): 
       }
     });
     if (canMorph) {
-      maybeUpgradeToCompositedMorph(transition, { from: fromRadius, to: toRadius });
+      // The trigger element anchors the `from` endpoint against WebKit's
+      // broken capture geometry for triggers inside multicol (see
+      // correctFragmentedEndpoint in vt-composited-morph.ts).
+      maybeUpgradeToCompositedMorph(transition, { from: fromRadius, to: toRadius }, triggerTarget);
     }
 
     transition.finished.finally(() => {
@@ -1162,7 +1165,10 @@ function createViewTransitionMorph(getConfig: () => ViewTransitionMorphConfig): 
       }
     });
     if (canMorph) {
-      maybeUpgradeToCompositedMorph(transition, { from: fromRadius, to: toRadius });
+      // The trigger element anchors the `to` endpoint against WebKit's broken
+      // capture geometry for triggers inside multicol (see
+      // correctFragmentedEndpoint in vt-composited-morph.ts).
+      maybeUpgradeToCompositedMorph(transition, { from: fromRadius, to: toRadius }, triggerTarget);
     }
 
     transition.finished.finally(() => {
