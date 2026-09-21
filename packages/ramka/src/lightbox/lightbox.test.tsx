@@ -10,6 +10,20 @@ const noop = () => {
   /* controlled prop placeholder */
 };
 
+/**
+ * Pretend the environment is a touch device (jsdom reports zero touch
+ * points). The selection guard only arms on touch-capable devices — the
+ * text-selection bug it prevents is touch-driven. Returns a restore fn.
+ */
+function mockTouchDevice(points = 5) {
+  const original = Object.getOwnPropertyDescriptor(navigator, 'maxTouchPoints');
+  Object.defineProperty(navigator, 'maxTouchPoints', { value: points, configurable: true });
+  return () => {
+    if (original) Object.defineProperty(navigator, 'maxTouchPoints', original);
+    else delete (navigator as { maxTouchPoints?: number }).maxTouchPoints;
+  };
+}
+
 import { LightboxBackdrop } from './lightbox-backdrop';
 import { LightboxCaption } from './lightbox-caption';
 import { LightboxClose } from './lightbox-close';
@@ -2006,13 +2020,35 @@ describe('Lightbox', () => {
       expect(document.documentElement.style.getPropertyValue('scrollbar-width')).toBe('');
     });
 
-    it('disables document text selection while open, then restores it on close', async () => {
+    it('disables document text selection while open on touch devices, then restores it on close', async () => {
       // Regression: iOS Safari tap→pan while zoomed selected the page behind
       // the lightbox. The scroll lock sets user-select on <html> for the
       // open lifetime.
+      const restoreTouch = mockTouchDevice();
+      try {
+        render(<TestLightbox defaultOpen />);
+
+        expect(document.documentElement.style.userSelect).toBe('none');
+
+        fireEvent.click(screen.getByTestId('close'));
+        await flushMicrotasks();
+
+        expect(document.documentElement.style.userSelect).toBe('');
+      } finally {
+        restoreTouch();
+      }
+    });
+
+    it('never touches user-select on devices without touch', async () => {
+      // The selection bug is touch-driven; a mouse can't select the page
+      // behind the fullscreen overlay. Skipping the guard also skips two
+      // whole-document restyles (`user-select` is inherited, so writing it
+      // on <html> invalidates every element's computed style).
       render(<TestLightbox defaultOpen />);
 
-      expect(document.documentElement.style.userSelect).toBe('none');
+      // Scroll is locked, but selection is left alone.
+      expect(document.documentElement.style.overflow).toBe('hidden');
+      expect(document.documentElement.style.userSelect).toBe('');
 
       fireEvent.click(screen.getByTestId('close'));
       await flushMicrotasks();
@@ -2116,16 +2152,21 @@ describe('Lightbox', () => {
       // `user-select` is inherited: writing it on <html> inside the capture
       // window forces a full-document restyle. The VT open locks scroll at
       // reveal but applies the selection guard only in handleOpenComplete.
-      const { resolveFinished } = mockViewTransitionAPI();
-      render(<TestLightbox viewTransition />);
-      fireEvent.click(screen.getByTestId('trigger-0'));
-      // Scroll is locked from the reveal, but selection stays untouched…
-      expect(document.documentElement.style.overflow).toBe('hidden');
-      expect(document.documentElement.style.userSelect).toBe('');
+      const restoreTouch = mockTouchDevice();
+      try {
+        const { resolveFinished } = mockViewTransitionAPI();
+        render(<TestLightbox viewTransition />);
+        fireEvent.click(screen.getByTestId('trigger-0'));
+        // Scroll is locked from the reveal, but selection stays untouched…
+        expect(document.documentElement.style.overflow).toBe('hidden');
+        expect(document.documentElement.style.userSelect).toBe('');
 
-      // …until the morph settles.
-      await act(async () => resolveFinished());
-      expect(document.documentElement.style.userSelect).toBe('none');
+        // …until the morph settles.
+        await act(async () => resolveFinished());
+        expect(document.documentElement.style.userSelect).toBe('none');
+      } finally {
+        restoreTouch();
+      }
     });
 
     it('does not arm name isolation on a page without foreign view-transition-names', () => {

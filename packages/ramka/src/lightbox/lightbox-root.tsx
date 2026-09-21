@@ -614,11 +614,22 @@ function LightboxRoot(props: LightboxRootProps) {
     // inside the transition's capture window. The guard exists for the open
     // steady state; gestures during the morph itself are already swallowed by
     // the VT touch guard.
+    //
+    // Touch devices only. The failure this guards against is touch-driven —
+    // WebKit's touch handling starting a selection on the page behind the
+    // overlay during the morph or a zoomed tap→pan. A mouse can't reach that
+    // page: the fullscreen overlay captures the pointer. Touch-free devices
+    // therefore skip the write (and both restyles it costs) entirely.
+    // `maxTouchPoints` rather than `(pointer: coarse)`, which reports only the
+    // primary pointer and would miss hybrids — touchscreen laptops, iPads with
+    // a trackpad — where touch selection is still possible.
     const applySelectionGuard = React.useCallback(() => {
       // Only while the scroll lock is held — a deferred application must not
       // land after an interrupted open already unlocked.
       if (selectionGuardCleanupRef.current || !scrollLockCleanupRef.current) return;
       if (typeof document === 'undefined') return;
+      const canTouch = typeof navigator !== 'undefined' && navigator.maxTouchPoints > 0;
+      if (!canTouch) return;
       const html = document.documentElement;
       const originalUserSelect = html.style.userSelect;
       const originalWebkitUserSelect = html.style.getPropertyValue('-webkit-user-select');
