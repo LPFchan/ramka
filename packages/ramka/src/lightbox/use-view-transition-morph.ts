@@ -5,6 +5,7 @@ import { flushSync } from 'react-dom';
 
 import { isAndroidBlinkSnapshotRoot } from './is-android-blink';
 import { isFirefox } from './is-firefox';
+import { afterNextRenderFrame, shouldYieldBeforeCapture } from './vt-capture-yield';
 import { acquireVtTouchGuard } from './vt-touch-guard';
 import {
   maybeUpgradeToCompositedMorph,
@@ -12,6 +13,7 @@ import {
 } from './vt-composited-morph';
 import { isViewTransitionPreset } from './vt-timing';
 import type { LightboxViewTransitionPreset } from './vt-timing';
+import { pageNeedsNameIsolation } from './vt-name-isolation';
 import {
   findDestinationMorphTarget,
   findItemMorphTarget,
@@ -617,10 +619,22 @@ function applyMorphState(
     preset: boolean | LightboxViewTransitionPreset | undefined;
   },
 ): number {
+  // Detect BEFORE this morph names its own targets (setMorphName runs after),
+  // so the inline-style probe can't match the morph's own names.
+  const needsIsolation = pageNeedsNameIsolation();
+
   docEl.setAttribute(LightboxDocumentDataAttributes.viewTransition, phase);
   promoteVtMotionTokens(docEl, opts.preset);
   if (opts.useCrossfade) {
     docEl.setAttribute(LightboxDocumentDataAttributes.crossfade, '');
+  }
+  // Arm the universal name-neutralizing rule only when the page declares
+  // foreign view-transition-names. The rule keys on its own root attribute,
+  // and flipping it invalidates style for the whole document — a ~120ms
+  // restyle at 20k elements that most pages never need to pay (see
+  // vt-name-isolation.ts).
+  if (needsIsolation) {
+    docEl.setAttribute(LightboxDocumentDataAttributes.viewTransitionIsolate, '');
   }
   // Adopt the composited morph's persistent sheet here (a no-op after the
   // first morph): the imminent capture flush subsumes the adopt's restyle,
@@ -684,6 +698,10 @@ function clearMorphState(docEl: HTMLElement, owner: number) {
   docEl.removeAttribute(LightboxDocumentDataAttributes.viewTransition);
   docEl.removeAttribute(LightboxDocumentDataAttributes.crossfade);
   docEl.removeAttribute(LightboxDocumentDataAttributes.viewTransitionPreset);
+  // Removing the isolation attribute pays the same whole-document restyle as
+  // setting it — but only when it was armed, i.e. the page actually declares
+  // foreign names. A no-op removal costs nothing.
+  docEl.removeAttribute(LightboxDocumentDataAttributes.viewTransitionIsolate);
 }
 
 // ---------------------------------------------------------------------------
@@ -842,6 +860,11 @@ function createViewTransitionMorph(getConfig: () => ViewTransitionMorphConfig): 
     // screen freezing on the old snapshot for the duration of the mount.
     flushSync(commitPrepare);
 
+    // Whether an await below let real time (and rendered frames) pass since
+    // the mount — decides how many frames the heavy-document pre-capture
+    // yield needs (see afterNextRenderFrame).
+    let waitedSinceMount = false;
+
     // Wait for the destination image to decode HERE — before starting the
     // transition — rather than inside the update callback. Awaiting inside the
     // callback makes it an *async* callback: the browser reveals the new DOM
@@ -870,6 +893,7 @@ function createViewTransitionMorph(getConfig: () => ViewTransitionMorphConfig): 
       // placeholder effect in lightbox-item.)
       if (getPendingDecodeImage(pendingItemTarget)) {
         await waitForImageDecode(pendingItemTarget, decodeMaxWait);
+        waitedSinceMount = true;
         // A newer open/close superseded this one during the await — bail before
         // touching any document-level morph state so we don't corrupt it.
         if (getConfig().closeGenRef.current !== gen) {
@@ -895,6 +919,7 @@ function createViewTransitionMorph(getConfig: () => ViewTransitionMorphConfig): 
       );
       try {
         await onBeforeOpen({ destination, signal: beforeOpenAbort.signal });
+        waitedSinceMount = true;
       } catch {
         // Ignore abort / consumer errors — tear down prepare if this open is
         // still current; a superseding open/close already owns the tree.
@@ -928,8 +953,26 @@ function createViewTransitionMorph(getConfig: () => ViewTransitionMorphConfig): 
     // and WebKit skip this — they don't share that snapshot-root abort.
     if (shouldWaitForSnapshotRootSettle()) {
       await waitForStableSnapshotRoot();
+      waitedSinceMount = true;
       if (getConfig().closeGenRef.current !== gen) {
         flushSync(commitAbortPrepare);
+        releaseTouchGuard();
+        return;
+      }
+    }
+
+    // Heavy documents: hand the capture to a rAF callback instead of running
+    // it in the click task (see vt-capture-yield.ts). Two frames when the
+    // mount above is still undigested (fully-synchronous path: cached image,
+    // no consumer wait) so the engine renders the hidden tree once before
+    // capture; one frame when an await already let frames pass. Also places
+    // the reads below in a clean-style frame instead of force-flushing the
+    // mount's pending invalidation in the click task.
+    if (shouldYieldBeforeCapture()) {
+      await afterNextRenderFrame(waitedSinceMount ? 1 : 2);
+      // Same supersede semantics as the decode await: a newer open/close owns
+      // the tree — bail before touching document-level morph state.
+      if (getConfig().closeGenRef.current !== gen) {
         releaseTouchGuard();
         return;
       }
@@ -1067,6 +1110,36 @@ function createViewTransitionMorph(getConfig: () => ViewTransitionMorphConfig): 
   };
 
   const close = () => {
+    const gen = getConfig().closeGenRef.current;
+
+    // Same guard as the open morph: the portal is hidden until close
+    // `finished`, so a touch pan can resolve to <html> and expand Safari's
+    // address bar mid-morph. Acquired synchronously — before any yield — so
+    // the guard covers the frame(s) between the input and the capture too.
+    const releaseTouchGuard = acquireVtTouchGuard();
+
+    // Heavy documents: run the capture from a rAF callback instead of the
+    // input task (Escape / close-button click), so the old snapshot's paint +
+    // layerization land in a rendering task rather than blocking the input
+    // (see vt-capture-yield.ts). The viewer stays fully visible and
+    // unchanged for that one frame. One frame suffices — the open tree was
+    // rendered long ago; nothing is pending digestion.
+    if (shouldYieldBeforeCapture()) {
+      requestAnimationFrame(() => {
+        // A newer open/close superseded this close during the yield — it owns
+        // the document-level morph state now.
+        if (getConfig().closeGenRef.current !== gen) {
+          releaseTouchGuard();
+          return;
+        }
+        runClose(gen, releaseTouchGuard);
+      });
+      return;
+    }
+    runClose(gen, releaseTouchGuard);
+  };
+
+  const runClose = (gen: number, releaseTouchGuard: () => void) => {
     const {
       morphTo,
       scrollTriggerIntoView,
@@ -1077,17 +1150,10 @@ function createViewTransitionMorph(getConfig: () => ViewTransitionMorphConfig): 
       destinationMorphElementRef,
       openingTriggerIndexRef,
       activeIndexRef,
-      closeGenRef,
       commitClose,
     } = getConfig();
 
     const docEl = document.documentElement;
-    const gen = closeGenRef.current;
-
-    // Same guard as the open morph: the portal is hidden until close
-    // `finished`, so a touch pan can resolve to <html> and expand Safari's
-    // address bar mid-morph.
-    const releaseTouchGuard = acquireVtTouchGuard();
 
     const itemEl = activeItemElementRef.current;
     const itemTarget = findDestinationMorphTarget(

@@ -2059,6 +2059,7 @@ describe('Lightbox', () => {
       document.documentElement.removeAttribute('data-ramka-view-transition');
       document.documentElement.removeAttribute('data-ramka-crossfade');
       document.documentElement.removeAttribute('data-ramka-vt-preset');
+      document.documentElement.removeAttribute('data-ramka-vt-isolate');
       document.documentElement.style.removeProperty('--lightbox-morph-border-radius-from');
       document.documentElement.style.removeProperty('--lightbox-morph-border-radius-to');
       document.documentElement.style.removeProperty('--lightbox-morph-old-opacity');
@@ -2109,6 +2110,49 @@ describe('Lightbox', () => {
 
       await act(async () => resolveFinished());
       expect(document.documentElement).not.toHaveAttribute('data-ramka-view-transition');
+    });
+
+    it('defers the user-select guard until the open morph finishes', async () => {
+      // `user-select` is inherited: writing it on <html> inside the capture
+      // window forces a full-document restyle. The VT open locks scroll at
+      // reveal but applies the selection guard only in handleOpenComplete.
+      const { resolveFinished } = mockViewTransitionAPI();
+      render(<TestLightbox viewTransition />);
+      fireEvent.click(screen.getByTestId('trigger-0'));
+      // Scroll is locked from the reveal, but selection stays untouched…
+      expect(document.documentElement.style.overflow).toBe('hidden');
+      expect(document.documentElement.style.userSelect).toBe('');
+
+      // …until the morph settles.
+      await act(async () => resolveFinished());
+      expect(document.documentElement.style.userSelect).toBe('none');
+    });
+
+    it('does not arm name isolation on a page without foreign view-transition-names', () => {
+      // Arming flips a root attribute a universal descendant rule keys on —
+      // a whole-document restyle the common (name-free) page must never pay.
+      mockViewTransitionAPI();
+      render(<TestLightbox viewTransition />);
+      fireEvent.click(screen.getByTestId('trigger-0'));
+      expect(document.documentElement).toHaveAttribute('data-ramka-view-transition');
+      expect(document.documentElement).not.toHaveAttribute('data-ramka-vt-isolate');
+    });
+
+    it('arms name isolation when the page declares a foreign view-transition-name', async () => {
+      const foreign = document.createElement('div');
+      foreign.setAttribute('style', 'view-transition-name: consumer-hero');
+      document.body.appendChild(foreign);
+      try {
+        const { resolveFinished } = mockViewTransitionAPI();
+        render(<TestLightbox viewTransition />);
+        fireEvent.click(screen.getByTestId('trigger-0'));
+        expect(document.documentElement).toHaveAttribute('data-ramka-vt-isolate');
+
+        await act(async () => resolveFinished());
+        expect(document.documentElement).not.toHaveAttribute('data-ramka-vt-isolate');
+      } finally {
+        foreign.remove();
+      }
     });
 
     it('cleans up CSS custom properties after open transition finishes', async () => {

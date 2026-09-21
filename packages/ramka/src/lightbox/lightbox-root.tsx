@@ -50,6 +50,7 @@ import {
 } from './scroll-trigger';
 import { isAndroidBlinkSnapshotRoot } from './is-android-blink';
 import { findDestinationMorphTarget } from './morph-target';
+import { shouldYieldBeforeCapture } from './vt-capture-yield';
 import { scheduleWarmUp } from './schedule-warm-up';
 import { DEFAULT_DECODE_MAX_WAIT, isLowEndDevice, supportsViewTransitions } from './vt-constants';
 import type { LightboxViewTransitionPreset } from './vt-timing';
@@ -601,44 +602,29 @@ function LightboxRoot(props: LightboxRootProps) {
     // handleCloseComplete / post-exit-animation unmount. Imperative +
     // idempotent so open/close paths can acquire/release at explicit points.
     const scrollLockCleanupRef = React.useRef<(() => void) | null>(null);
-    const lockScroll = React.useCallback(() => {
-      if (scrollLockCleanupRef.current || typeof document === 'undefined') return;
+    const selectionGuardCleanupRef = React.useRef<(() => void) | null>(null);
+    // iOS Safari can select the page behind an open lightbox during zoomed
+    // tap→pan. Disable selection on the document for the lock's lifetime.
+    //
+    // Separate from lockScroll because `user-select` is an INHERITED property:
+    // writing it on <html> invalidates computed style for every element — a
+    // whole-document restyle (~60ms at 20k elements, in every engine; WebKit
+    // has no fast path at all). The VT open path therefore defers this write
+    // until the morph has finished (handleOpenComplete) instead of paying it
+    // inside the transition's capture window. The guard exists for the open
+    // steady state; gestures during the morph itself are already swallowed by
+    // the VT touch guard.
+    const applySelectionGuard = React.useCallback(() => {
+      // Only while the scroll lock is held — a deferred application must not
+      // land after an interrupted open already unlocked.
+      if (selectionGuardCleanupRef.current || !scrollLockCleanupRef.current) return;
+      if (typeof document === 'undefined') return;
       const html = document.documentElement;
-      const body = document.body;
-      // Width freed when the classic scrollbar disappears under
-      // `overflow: hidden`. Compensate with body padding so locking doesn't
-      // shift page content sideways. Zero on overlay-scrollbar platforms
-      // (mobile / macOS overlay), so this is a no-op there.
-      //
-      // `padding-inline-end` rather than `padding-right`: the gutter sits on
-      // whichever side the scrollbar does, which is the inline-end edge in both
-      // reading directions.
-      const scrollbarWidth = Math.max(0, window.innerWidth - html.clientWidth);
-      const originalOverflow = html.style.overflow;
-      const originalPaddingInlineEnd = body.style.paddingInlineEnd;
       const originalUserSelect = html.style.userSelect;
       const originalWebkitUserSelect = html.style.getPropertyValue('-webkit-user-select');
-      html.style.overflow = 'hidden';
-      // iOS Safari can select the page behind an open lightbox during zoomed
-      // tap→pan. Disable selection on the document for the lock's lifetime.
       html.style.userSelect = 'none';
       html.style.setProperty('-webkit-user-select', 'none');
-      // NOTE: do NOT set `scrollbar-width: none` on <html> here to hide the
-      // fading iOS overlay scroll indicator during the open morph. It works —
-      // but restoring it on unlock permanently destroys the tab's page
-      // scrollbar on iOS: WebKit implements `none` by tearing down the native
-      // scroller layer and never re-attaches it when switching back
-      // (https://bugs.webkit.org/show_bug.cgi?id=282419). The state lives on
-      // the tab's native scroll view, so it survives reloads — only a new tab
-      // recovers. The macOS scroller was fixed (WebKit/WebKit#36030); the iOS
-      // one was not. Revisit if the iOS fix ships.
-      if (scrollbarWidth > 0) {
-        const currentPadding = parseFloat(window.getComputedStyle(body).paddingInlineEnd) || 0;
-        body.style.paddingInlineEnd = `${currentPadding + scrollbarWidth}px`;
-      }
-      scrollLockCleanupRef.current = () => {
-        html.style.overflow = originalOverflow;
-        body.style.paddingInlineEnd = originalPaddingInlineEnd;
+      selectionGuardCleanupRef.current = () => {
         html.style.userSelect = originalUserSelect;
         if (originalWebkitUserSelect) {
           html.style.setProperty('-webkit-user-select', originalWebkitUserSelect);
@@ -647,7 +633,47 @@ function LightboxRoot(props: LightboxRootProps) {
         }
       };
     }, []);
+    const lockScroll = React.useCallback(
+      (options?: { deferSelectionGuard?: boolean }) => {
+        if (scrollLockCleanupRef.current || typeof document === 'undefined') return;
+        const html = document.documentElement;
+        const body = document.body;
+        // Width freed when the classic scrollbar disappears under
+        // `overflow: hidden`. Compensate with body padding so locking doesn't
+        // shift page content sideways. Zero on overlay-scrollbar platforms
+        // (mobile / macOS overlay), so this is a no-op there.
+        //
+        // `padding-inline-end` rather than `padding-right`: the gutter sits on
+        // whichever side the scrollbar does, which is the inline-end edge in both
+        // reading directions.
+        const scrollbarWidth = Math.max(0, window.innerWidth - html.clientWidth);
+        const originalOverflow = html.style.overflow;
+        const originalPaddingInlineEnd = body.style.paddingInlineEnd;
+        html.style.overflow = 'hidden';
+        // NOTE: do NOT set `scrollbar-width: none` on <html> here to hide the
+        // fading iOS overlay scroll indicator during the open morph. It works —
+        // but restoring it on unlock permanently destroys the tab's page
+        // scrollbar on iOS: WebKit implements `none` by tearing down the native
+        // scroller layer and never re-attaches it when switching back
+        // (https://bugs.webkit.org/show_bug.cgi?id=282419). The state lives on
+        // the tab's native scroll view, so it survives reloads — only a new tab
+        // recovers. The macOS scroller was fixed (WebKit/WebKit#36030); the iOS
+        // one was not. Revisit if the iOS fix ships.
+        if (scrollbarWidth > 0) {
+          const currentPadding = parseFloat(window.getComputedStyle(body).paddingInlineEnd) || 0;
+          body.style.paddingInlineEnd = `${currentPadding + scrollbarWidth}px`;
+        }
+        scrollLockCleanupRef.current = () => {
+          html.style.overflow = originalOverflow;
+          body.style.paddingInlineEnd = originalPaddingInlineEnd;
+        };
+        if (!options?.deferSelectionGuard) applySelectionGuard();
+      },
+      [applySelectionGuard],
+    );
     const unlockScroll = React.useCallback(() => {
+      selectionGuardCleanupRef.current?.();
+      selectionGuardCleanupRef.current = null;
       scrollLockCleanupRef.current?.();
       scrollLockCleanupRef.current = null;
     }, []);
@@ -792,7 +818,11 @@ function LightboxRoot(props: LightboxRootProps) {
       setMounted(true);
       // Lock at reveal (not prepare) so hiding the scrollbar — which can reflow
       // the page — is masked by the transition rather than showing as a jump.
-      lockScroll();
+      // The selection guard is deferred to handleOpenComplete: this commit runs
+      // inside the transition's capture window, where the guard's inherited
+      // `user-select` write would force a full-document restyle (see
+      // applySelectionGuard).
+      lockScroll({ deferSelectionGuard: true });
       if (!isControlledOpen) {
         setUncontrolledOpen(true);
       }
@@ -829,9 +859,12 @@ function LightboxRoot(props: LightboxRootProps) {
     }, [isControlledOpen]);
 
     const handleOpenComplete = React.useCallback(() => {
+      // The morph is over — apply the selection guard commitReveal deferred
+      // (no-op when the open was interrupted and already unlocked).
+      applySelectionGuard();
       settleOpenTransition();
       onOpenChangeCompleteRef.current?.(true);
-    }, [settleOpenTransition]);
+    }, [applySelectionGuard, settleOpenTransition]);
 
     const handleCloseComplete = React.useCallback(
       (triggerEl: HTMLElement | undefined) => {
@@ -840,7 +873,18 @@ function LightboxRoot(props: LightboxRootProps) {
         unlockScroll();
         setPreparing(false);
         setMounted(false);
-        focusReturnTarget(triggerEl);
+        // Heavy documents: `unlockScroll` just restored inherited
+        // `user-select` on <html> (a whole-document style invalidation) and
+        // the unmount dirtied the tree — a synchronous `focus()` would
+        // force-flush that restyle right here, in this task. Defer it one
+        // frame so the recalc runs once, inside the rendering frame that has
+        // to restyle and repaint anyway. Small documents keep the synchronous
+        // focus (the flush is negligible and tests observe it directly).
+        if (shouldYieldBeforeCapture()) {
+          requestAnimationFrame(() => focusReturnTarget(triggerEl));
+        } else {
+          focusReturnTarget(triggerEl);
+        }
         onOpenChangeCompleteRef.current?.(false);
       },
       [unlockScroll, focusReturnTarget],
