@@ -4,6 +4,10 @@ import { LightboxDocumentCssVars } from './lightbox-css-vars';
 import { LightboxDocumentDataAttributes } from './lightbox-data-attributes';
 import { stubConstructedSheets } from './lightbox-style-sheets-test-utils';
 
+/** Toggles the Gecko-only `startTime` anchoring path. */
+let firefox = false;
+vi.mock('./is-firefox', () => ({ isFirefox: () => firefox }));
+
 /**
  * The composited morph is the morph ramka ships, and every browser that cannot
  * run it has to land on the stock UA morph instead — so the validation ladder
@@ -105,11 +109,19 @@ let pseudoStyle: Record<string, string>;
 let rootVars: Record<string, string>;
 let animateSpy: ReturnType<typeof vi.fn>;
 /** Every animation `docEl.animate` handed back, so teardown can be checked. */
-let createdAnimations: { cancel: ReturnType<typeof vi.fn>; currentTime: number | null }[];
+let createdAnimations: {
+  cancel: ReturnType<typeof vi.fn>;
+  currentTime: number | null;
+  startTime: number | null;
+}[];
 
 /** Hands back an animation and records it, so teardown can be asserted. */
 function trackCreated() {
-  const animation = { cancel: vi.fn(), currentTime: null as number | null };
+  const animation = {
+    cancel: vi.fn(),
+    currentTime: null as number | null,
+    startTime: null as number | null,
+  };
   createdAnimations.push(animation);
   return animation;
 }
@@ -191,9 +203,22 @@ beforeEach(() => {
   installAnimations([uaGroupAnimation()]);
 });
 
+/**
+ * Real browsers expose `document.timeline`; jsdom does not, so the tests that
+ * pin the pending-resolution behavior install one explicitly.
+ */
+function installTimeline(currentTime: number) {
+  Object.defineProperty(document, 'timeline', {
+    configurable: true,
+    value: { currentTime },
+  });
+}
+
 afterEach(() => {
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
+  firefox = false;
+  delete (document as unknown as Record<string, unknown>).timeline;
   delete globals().__RAMKA_VT_COMPOSITED__;
   delete globals().GestureEvent;
   document.documentElement.removeAttribute(COMPOSITED_ATTR);
@@ -451,6 +476,57 @@ describe('composited morph — WAAPI path (Blink / Gecko)', () => {
 
     for (const animation of createdAnimations) {
       expect(animation.currentTime).toBeNull();
+    }
+  });
+
+  it('leaves the replacements play-pending outside Gecko, even with a live timeline', async () => {
+    // THE cold-open regression: assigning `startTime` anchors the clock at the
+    // `ready` microtask, so on a heavy first open the ~100–170ms of main-thread
+    // work before the first paint gets SKIPPED out of the morph instead of
+    // waited out. A pending animation (currentTime hold) starts counting at its
+    // first presented frame, so the morph always plays from the beginning.
+    installTimeline(5000);
+    const ua = uaGroupAnimation({ currentTime: 60 });
+    installAnimations([ua]);
+
+    await runUpgrade(fakeTransition().transition);
+
+    expect(createdAnimations).toHaveLength(3);
+    for (const animation of createdAnimations) {
+      expect(animation.startTime).toBeNull();
+      expect(animation.currentTime).toBe(60);
+    }
+  });
+
+  it('resolves play-pending synchronously via startTime on Gecko', async () => {
+    // Gecko styles pending pseudo-element animations with no effect output, so
+    // leaving the replacements pending flashes the old snapshot at intrinsic
+    // size for one frame. Setting startTime clears the pending task per spec,
+    // back-dated by the UA progress so the resume point is identical.
+    firefox = true;
+    installTimeline(5000);
+    const ua = uaGroupAnimation({ currentTime: 60 });
+    installAnimations([ua]);
+
+    await runUpgrade(fakeTransition().transition);
+
+    expect(createdAnimations).toHaveLength(3);
+    for (const animation of createdAnimations) {
+      expect(animation.startTime).toBe(5000 - 60);
+      expect(animation.currentTime).toBeNull();
+    }
+  });
+
+  it('falls back to the currentTime hold on Gecko without a timeline', async () => {
+    firefox = true;
+    const ua = uaGroupAnimation({ currentTime: 60 });
+    installAnimations([ua]);
+
+    await runUpgrade(fakeTransition().transition);
+
+    for (const animation of createdAnimations) {
+      expect(animation.startTime).toBeNull();
+      expect(animation.currentTime).toBe(60);
     }
   });
 

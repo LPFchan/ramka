@@ -1,4 +1,5 @@
 import { VIEW_TRANSITION_NAME } from './vt-constants';
+import { isFirefox } from './is-firefox';
 import { LightboxDocumentDataAttributes } from './lightbox-data-attributes';
 import { compensatedMorphRadiusAt, parseMorphRadiusList } from './vt-morph-radius';
 import { morphTiming, VIEW_TRANSITION_PRESETS } from './vt-timing';
@@ -864,20 +865,33 @@ function upgrade(
     // on healthy devices). See the `uaElapsed` capture above for why this is
     // progress-based, not anchored to the UA animation's original startTime.
     //
-    // Assigning `startTime` (rather than `currentTime`) also resolves the
-    // play-pending state synchronously (spec: setting start time clears the
-    // pending task). A freshly `animate()`d animation stays play-pending
-    // until the next refresh-driver tick, and Gecko styles pending
-    // pseudo-element animations with NO effect output — so the first styled
-    // frame after this microtask could render the COMPOSITED_ATTR geometry
-    // contract (`width/height: auto`) with zero counter-transforms: the old
-    // snapshot flashes at its intrinsic captured size for one frame (worst
-    // on pull-to-dismiss close). Back-dating by `uaElapsed` keeps the resume
-    // progress identical.
+    // The anchoring differs per engine, and the difference is load-bearing:
+    //
+    // - Gecko assigns `startTime`, which resolves the play-pending state
+    //   synchronously (spec: setting start time clears the pending task). A
+    //   freshly `animate()`d animation stays play-pending until the next
+    //   refresh-driver tick, and Gecko styles pending pseudo-element
+    //   animations with NO effect output — the first styled frame after this
+    //   microtask would render the COMPOSITED_ATTR geometry contract
+    //   (`width/height: auto`) with zero counter-transforms: the old snapshot
+    //   flashes at its intrinsic captured size for one frame (worst on
+    //   pull-to-dismiss close). Back-dating by `uaElapsed` keeps the resume
+    //   progress identical.
+    //
+    // - Everywhere else (Blink reaches this branch) `currentTime` is assigned
+    //   instead — a HOLD time. The animation stays play-pending until its
+    //   first presented frame and only then anchors to the timeline, so the
+    //   morph always plays from its beginning. `startTime` here would anchor
+    //   the clock at THIS microtask: on a cold heavy open the first paint
+    //   lands 100–170ms later (chunk eval, first-time raster, cold style
+    //   caches) and the morph visibly skips its first ~6–10 frames. Blink
+    //   styles pending pseudo animations correctly, so it never needed the
+    //   synchronous resolve to begin with.
     const now = document.timeline?.currentTime;
+    const resolvePendingSynchronously = isFirefox() && typeof now === 'number';
     for (const a of created) {
-      if (typeof now === 'number') {
-        a.startTime = now - uaElapsed;
+      if (resolvePendingSynchronously) {
+        a.startTime = (now as number) - uaElapsed;
       } else if (uaElapsed > 0) {
         a.currentTime = uaElapsed;
       }
