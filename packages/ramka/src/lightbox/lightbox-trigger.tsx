@@ -15,6 +15,7 @@ import {
   type LightboxHandleTriggerRegistration,
 } from './lightbox-handle';
 import { prefetchMorphRuntime } from './lightbox-morph-loader';
+import { prefetchPullRuntime } from './lightbox-pull-loader';
 import { prefetchZoomRuntime } from './lightbox-zoom-loader';
 import {
   MORPH_TARGET_HIDE_CSS,
@@ -481,10 +482,17 @@ const LightboxTrigger = React.forwardRef<HTMLButtonElement, LightboxTriggerProps
     // buys a few hundred milliseconds over pointerdown's ~50–150ms, and focus
     // covers keyboard users, who otherwise reach the open with a cold chunk.
     // The loaders memoize, so a grid of triggers only ever does the work once.
+    //
+    // All three viewer runtimes are warmed. Any chunk still in flight at open
+    // time gets fetched+evaluated inside the transition window — and since the
+    // VT animation clock starts at pseudo-tree creation, that work doesn't
+    // delay the morph, it *eats its first frames* (measured: first painted
+    // frame at t=167ms of a 400ms morph on a cold cache).
     const warmEngines = React.useCallback(() => {
       // Event-time store read — config, not render state, so no subscription.
       if (store?.getState().viewTransition) prefetchMorphRuntime();
       prefetchZoomRuntime();
+      prefetchPullRuntime();
     }, [store]);
 
     const active = rootContext ? storeActive : open && (handleSnapshot?.activeIndex ?? 0) === index;
