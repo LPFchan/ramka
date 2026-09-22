@@ -484,10 +484,13 @@ const LightboxTrigger = React.forwardRef<HTMLButtonElement, LightboxTriggerProps
     // The loaders memoize, so a grid of triggers only ever does the work once.
     //
     // All three viewer runtimes are warmed. Any chunk still in flight at open
-    // time gets fetched+evaluated inside the transition window — and since the
-    // VT animation clock starts at pseudo-tree creation, that work doesn't
-    // delay the morph, it *eats its first frames* (measured: first painted
-    // frame at t=167ms of a 400ms morph on a cold cache).
+    // time gets fetched+evaluated inside the click→first-frame window, so a
+    // cold-cache first open starts visibly later than every other one (and on
+    // Gecko, whose composited-morph handover resolves synchronously, that
+    // work is skipped out of the morph rather than waited out — see the
+    // anchoring note in vt-composited-morph.ts). Interaction-gated on
+    // purpose: an idle page-load prefetch would fetch ~20KB of viewer code
+    // for every visitor, including the ones who never open a lightbox.
     const warmEngines = React.useCallback(() => {
       // Event-time store read — config, not render state, so no subscription.
       if (store?.getState().viewTransition) prefetchMorphRuntime();

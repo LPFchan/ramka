@@ -41,7 +41,6 @@ import {
   prefetchMorphRuntime,
   type MorphRuntime,
 } from './lightbox-morph-loader';
-import { scheduleRuntimeIdlePrefetch } from './lightbox-runtime-prefetch';
 import { prefetchZoomRuntime } from './lightbox-zoom-loader';
 import {
   resolveScrollTriggerOption,
@@ -331,17 +330,6 @@ function LightboxRoot(props: LightboxRootProps) {
     // pin the portal LTR and break an app that sets `dir="rtl"` on <html> and
     // relies on inheritance — the omitted case has to stay silent in the DOM.
     const dir: TextDirection = dirProp ?? 'ltr';
-
-    // Cold-open guard: fetch + evaluate the lazy viewer runtimes at first
-    // idle rather than at first open. A chunk still in flight when the morph
-    // starts is evaluated inside the transition window, and since the VT
-    // animation clock is anchored at pseudo-tree creation, that skips the
-    // morph's first frames instead of delaying it (see
-    // lightbox-runtime-prefetch.ts). Scheduled once per page, however many
-    // Roots a feed mounts.
-    React.useEffect(() => {
-      scheduleRuntimeIdlePrefetch({ viewTransition: viewTransition !== false });
-    }, [viewTransition]);
 
     const onBeforeOpenRef = React.useRef(onBeforeOpen);
     React.useEffect(() => {
