@@ -668,7 +668,10 @@ describe('composited morph — fragmented trigger endpoint correction (WebKit mu
   // WebKit ≤18.4 captures triggers inside CSS multicol at their
   // pre-fragmentation position (first column's x, pushed down by the columns
   // before it). The upgrade re-anchors the trigger-side endpoint to the live
-  // element's box — but only when the UA geometry is verifiably wrong.
+  // element's box — but only when the UA geometry is verifiably wrong, and
+  // only on WebKit. Blink's group translate is snapshot-containing-block
+  // relative; writing a viewport rect into it shifts Android morphs up by
+  // the expanded address bar.
 
   const PHASE_ATTR = LightboxDocumentDataAttributes.viewTransition;
   let trigger: HTMLElement;
@@ -682,7 +685,15 @@ describe('composited morph — fragmented trigger endpoint correction (WebKit mu
     return trigger;
   }
 
-  const groupFrames = () => animateSpy.mock.calls[0]![0] as { transform: string }[];
+  /** WebKit delivers the replacement as CSS, so the sampled transform lives in the stylesheet. */
+  function cssTransformAt(percent: string): string | undefined {
+    const css = cssPathStyleEl()?.textContent ?? '';
+    return new RegExp(`${percent}% \\{ transform: ([^;]+);`).exec(css)?.[1];
+  }
+
+  beforeEach(() => {
+    globals().GestureEvent = class {};
+  });
 
   afterEach(() => {
     document.documentElement.removeAttribute(PHASE_ATTR);
@@ -696,7 +707,7 @@ describe('composited morph — fragmented trigger endpoint correction (WebKit mu
 
     await runUpgrade(fakeTransition().transition, undefined, el);
 
-    expect(groupFrames()[0]!.transform).toBe('translate(300px, 40px) scale(0.25, 0.25)');
+    expect(cssTransformAt('0.000')).toBe('translate(300px, 40px) scale(0.25, 0.25)');
   });
 
   it('re-anchors the `to` endpoint to the live trigger box on close', async () => {
@@ -706,8 +717,7 @@ describe('composited morph — fragmented trigger endpoint correction (WebKit mu
 
     await runUpgrade(fakeTransition().transition, undefined, el);
 
-    const frames = groupFrames();
-    expect(frames[frames.length - 1]!.transform).toBe('translate(50px, 60px) scale(1, 1)');
+    expect(cssTransformAt('100.000')).toBe('translate(50px, 60px) scale(1, 1)');
   });
 
   it('leaves a correct capture untouched (measurement agrees with the UA)', async () => {
@@ -716,7 +726,7 @@ describe('composited morph — fragmented trigger endpoint correction (WebKit mu
 
     await runUpgrade(fakeTransition().transition, undefined, el);
 
-    expect(groupFrames()[0]!.transform).toBe('translate(100px, 200px) scale(0.25, 0.25)');
+    expect(cssTransformAt('0.000')).toBe('translate(100px, 200px) scale(0.25, 0.25)');
   });
 
   it('does not trust the measurement when the boxes disagree in size', async () => {
@@ -727,7 +737,7 @@ describe('composited morph — fragmented trigger endpoint correction (WebKit mu
 
     await runUpgrade(fakeTransition().transition, undefined, el);
 
-    expect(groupFrames()[0]!.transform).toBe('translate(100px, 200px) scale(0.25, 0.25)');
+    expect(cssTransformAt('0.000')).toBe('translate(100px, 200px) scale(0.25, 0.25)');
   });
 
   it('skips scaled endpoints — client and group coords legitimately diverge', async () => {
@@ -740,7 +750,7 @@ describe('composited morph — fragmented trigger endpoint correction (WebKit mu
 
     await runUpgrade(fakeTransition().transition, undefined, el);
 
-    expect(groupFrames()[0]!.transform).not.toContain('translate(300px, 40px)');
+    expect(cssPathStyleEl()?.textContent ?? '').not.toContain('translate(300px, 40px)');
   });
 
   it('skips a disconnected trigger', async () => {
@@ -750,7 +760,7 @@ describe('composited morph — fragmented trigger endpoint correction (WebKit mu
 
     await runUpgrade(fakeTransition().transition, undefined, el);
 
-    expect(groupFrames()[0]!.transform).toBe('translate(100px, 200px) scale(0.25, 0.25)');
+    expect(cssTransformAt('0.000')).toBe('translate(100px, 200px) scale(0.25, 0.25)');
   });
 
   it('does nothing without a phase attribute on the root', async () => {
@@ -758,18 +768,21 @@ describe('composited morph — fragmented trigger endpoint correction (WebKit mu
 
     await runUpgrade(fakeTransition().transition, undefined, el);
 
-    expect(groupFrames()[0]!.transform).toBe('translate(100px, 200px) scale(0.25, 0.25)');
+    expect(cssTransformAt('0.000')).toBe('translate(100px, 200px) scale(0.25, 0.25)');
   });
 
-  it('corrects the CSS-path keyframes on WebKit too', async () => {
-    globals().GestureEvent = class {};
+  it('does not rewrite Blink endpoints when the viewport rect disagrees', async () => {
+    // Android Chrome: the UA translate is snapshot-containing-block relative
+    // and already correct. getBoundingClientRect() is one address-bar higher.
+    // Writing that rect back is the offset regression.
+    delete globals().GestureEvent;
     document.documentElement.setAttribute(PHASE_ATTR, 'opening');
-    const el = connectTrigger({ x: 300, y: 40, width: 200, height: 150 });
+    const el = connectTrigger({ x: 100, y: 144, width: 200, height: 150 });
 
     await runUpgrade(fakeTransition().transition, undefined, el);
 
-    const css = cssPathStyleEl()?.textContent ?? '';
-    expect(css).toContain('translate(300px, 40px)');
+    const frames = animateSpy.mock.calls[0]![0] as { transform: string }[];
+    expect(frames[0]!.transform).toBe('translate(100px, 200px) scale(0.25, 0.25)');
   });
 });
 

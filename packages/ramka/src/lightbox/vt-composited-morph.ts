@@ -443,6 +443,14 @@ function parsePx(value: unknown): number | null {
  * overlay, on close it is the morph's destination (already scrolled into its
  * final position; `scrollTriggerIntoView` runs inside the VT callback).
  *
+ * WebKit only. Safari has not implemented the snapshot containing block, so
+ * the viewport rect and the group translate share an origin and the rect is
+ * safe to write back. Blink's translate is SCB-relative: on Android Chrome
+ * with the address bar expanded the SCB origin sits above the layout viewport
+ * by the bar height, and the same write shifts the morph up by that amount.
+ * The UA capture is already correct there, so callers must skip this outside
+ * WebKit.
+ *
  * Deliberately conservative — the measurement is only trusted when it can
  * disagree with the UA for no legitimate reason:
  *
@@ -639,7 +647,13 @@ function upgrade(
   // is the `to` endpoint (measured after the VT callback's scroll-into-view).
   // No-op unless the UA's captured geometry is verifiably wrong — see
   // `correctFragmentedEndpoint` (WebKit multicol capture bug).
-  if (triggerTarget) {
+  //
+  // WebKit only. Blink group translates are snapshot-containing-block
+  // coordinates; `getBoundingClientRect()` is viewport coordinates. On Android
+  // Chrome those origins differ by the expanded address bar, and rewriting
+  // the endpoint shifts the morph up by that height. Safari has no SCB, so
+  // the two spaces match and the multicol correction stays valid.
+  if (triggerTarget && isWebKit()) {
     const phase = docEl.getAttribute(LightboxDocumentDataAttributes.viewTransition);
     if (phase === 'opening') {
       fromT = correctFragmentedEndpoint(fromT, w0, h0, triggerTarget) ?? fromT;
