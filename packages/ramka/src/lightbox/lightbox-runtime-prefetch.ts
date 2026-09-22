@@ -10,12 +10,14 @@ import { prefetchZoomRuntime } from './lightbox-zoom-loader';
  *
  * The hover/focus/pointerdown warm-up in Lightbox.Trigger is usually enough,
  * but it loses the race on a cold HTTP cache: a chunk still in flight at open
- * time gets fetched and evaluated inside the transition window. Because the
- * VT animation clock is anchored when the pseudo-tree is created — not at
- * first paint — that work doesn't delay the morph, it *skips its first
- * frames* (measured in Chromium: first painted frame at t=167ms of a 400ms
- * morph on a cold cache, vs t=17ms warm). Fetching at first idle instead
- * makes the first open as warm as every later one.
+ * time gets fetched and evaluated inside the click→first-frame window, so the
+ * first open starts visibly later than every other one (localhost probe:
+ * ~50ms of the pre-`ready` long task plus the fetch round-trips; more on a
+ * real network). On Gecko it is worse than latency: the composited morph
+ * resolves its replacement animations synchronously there (see the anchoring
+ * note in vt-composited-morph.ts), so main-thread work before the first paint
+ * is *skipped out of the morph* rather than waited out. Fetching at first
+ * idle makes the first open as warm as every later one.
  *
  * Scheduled once per page no matter how many Roots mount (a feed renders
  * hundreds); the loaders additionally memoize, so double-invocation is
