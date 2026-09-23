@@ -7061,6 +7061,65 @@ describe('Lightbox', () => {
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     });
 
+    it('reopening during an in-flight close resets the pull-dismiss state', async () => {
+      // Hold the close open-ended: a consumer exit transition that never
+      // settles keeps Content mounted after a dismiss — the same window as the
+      // Android Blink VT close hold, where the portal survives until
+      // `finished`. A reopen landing in this window reuses the mounted tree
+      // (the hook never re-mounts), so the dismiss state deliberately left for
+      // the close animation must be cleared on the opening edge instead:
+      // otherwise the backdrop stays faded at the stale pull progress, chrome
+      // stays hidden by `data-pull-dismissing`, and the zoom gesture refuses
+      // taps (it treats that attribute as "pull in progress").
+      vi.mocked(Element.prototype.getAnimations).mockReturnValue([
+        { finished: new Promise(() => {}) } as unknown as Animation,
+      ]);
+
+      render(
+        <LightboxRoot defaultOpen>
+          <LightboxTrigger index={0} data-testid="trigger">
+            Open
+          </LightboxTrigger>
+          <LightboxPortal>
+            <LightboxContent data-testid="content" aria-label="Reopen after dismiss">
+              <SlidesHost>
+                <LightboxItem index={0}>
+                  <img src="test.jpg" alt="test" />
+                </LightboxItem>
+              </SlidesHost>
+            </LightboxContent>
+          </LightboxPortal>
+        </LightboxRoot>,
+      );
+      const content = screen.getByTestId('content');
+      const img = screen.getByAltText('test');
+      const item = document.querySelector('[data-ramka-item]') as HTMLElement;
+
+      act(() => {
+        dispatchPointer(img, 'pointerdown', { clientX: 200, clientY: 200 });
+        dispatchPointer(content, 'pointermove', { clientX: 200, clientY: 210 });
+        dispatchPointer(content, 'pointermove', { clientX: 200, clientY: 380 });
+        dispatchPointer(content, 'pointerup', { clientX: 200, clientY: 380 });
+      });
+      await flushMicrotasks();
+
+      // Close committed, but the held exit animation keeps Content mounted —
+      // with the dismiss state still applied for the close animation.
+      expect(content).toHaveAttribute('data-pull-dismissing');
+      expect(content.style.getPropertyValue('--lightbox-pull-progress')).not.toBe('');
+      expect(item.style.transform).not.toBe('');
+
+      // Reopen while the close is still in flight.
+      act(() => {
+        screen.getByTestId('trigger').click();
+      });
+
+      expect(content).not.toHaveAttribute('data-pull-dismissing');
+      expect(content).not.toHaveAttribute('data-pulling');
+      expect(content.style.getPropertyValue('--lightbox-pull-progress')).toBe('');
+      expect(item.style.transform).toBe('');
+    });
+
     it('snaps back when released below dismiss threshold', () => {
       render(<PullDismissLightbox />);
       const content = screen.getByTestId('content');

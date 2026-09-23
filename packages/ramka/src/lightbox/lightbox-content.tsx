@@ -401,6 +401,10 @@ const LightboxContent = React.forwardRef<HTMLDivElement, LightboxContentProps>(
         </div>
         {pullToClose && mounted && PullRuntime ? (
           <PullRuntime
+            // Opening edge resets stale dismiss state (`data-pull-dismissing`,
+            // pull progress vars) when a reopen lands while Content stayed
+            // mounted through an interrupted close (Android VT close hold).
+            open={open}
             contentRef={contentRef}
             // Backdrop is provided by the optional `Lightbox.Backdrop` primitive.
             // When the consumer doesn't render one, `backdropElementRef.current`
