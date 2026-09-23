@@ -264,20 +264,34 @@
  * library-written, 0 → 1. `filter` tracks the gesture 1:1 (transitioning it
  * would lag the finger); `opacity` transitions so the pull snap-back
  * resolves on the same spring as the item.
+ *
+ * Desktop-only: below md the snug track is one full-width slide per
+ * scrollport (the width formula and spacers above are md+ too), so neighbors
+ * are offscreen and the dim is invisible — yet the var-driven opacity/filter
+ * would still restyle and repaint every card on every pull frame (blur
+ * especially). That is pure waste on mobile, and on Android Chrome extra
+ * raster work near the close view transition's capture can intermittently
+ * corrupt the morph snapshot.
  */
-.lb-slide-snug [data-ramka-item] {
-  transition: opacity var(--lightbox-pull-snap-duration, 500ms)
-    var(--lightbox-pull-snap-easing, var(--lb-ease-out-expo));
-}
+@media (min-width: 768px) {
+  .lb-slide-snug [data-ramka-item] {
+    transition: opacity var(--lightbox-pull-snap-duration, 500ms)
+      var(--lightbox-pull-snap-easing, var(--lb-ease-out-expo));
+  }
 
-.lb-slide-snug [data-ramka-item]:not([data-active]) {
-  --lb-neighbor-dim: max(var(--lightbox-pull-progress, 0), var(--lightbox-zoom-progress, 0));
-  opacity: calc(1 - var(--lightbox-pull-progress, 0) * 0.85);
-  filter: opacity(calc(1 - var(--lb-neighbor-dim))) blur(calc(var(--lb-neighbor-dim) * 6px));
-}
+  .lb-slide-snug [data-ramka-item]:not([data-active]) {
+    --lb-neighbor-dim: max(var(--lightbox-pull-progress, 0), var(--lightbox-zoom-progress, 0));
+    opacity: calc(1 - var(--lightbox-pull-progress, 0) * 0.85);
+    filter: opacity(calc(1 - var(--lb-neighbor-dim))) blur(calc(var(--lb-neighbor-dim) * 6px));
+  }
 
-.lb-content[data-pulling] .lb-slide-snug [data-ramka-item] {
-  transition: none; /* follow the finger */
+  /* `data-pull-dismissing` included: fading neighbors during an actual
+     dismissal is invisible work that competes with the close view transition
+     for raster (the viewer is unmounting anyway). Transitions only serve the
+     snap-back path. */
+  .lb-content:is([data-pulling], [data-pull-dismissing]) .lb-slide-snug [data-ramka-item] {
+    transition: none; /* follow the finger */
+  }
 }
 
 /* The zoomed active card paints above the peeking neighbors. */

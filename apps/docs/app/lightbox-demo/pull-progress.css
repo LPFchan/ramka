@@ -24,20 +24,28 @@
 /* Filter tracks pull + zoom with no transition (would lag the finger/pinch).
    Opacity still eases with pull snap-back.
    Inactive items only; `[data-active]` opts the active item back out. */
-.lightbox-demo-slide-snug [data-ramka-item] {
-  transition: opacity var(--lightbox-pull-snap-duration, 500ms)
-    var(--lightbox-pull-snap-easing, var(--ease-out-expo));
-}
+/* md+ only: below md the snug track is one full-width slide per scrollport
+   (see snug-slides.css), so the sibling dim is invisible — skip the
+   per-frame restyle/repaint on mobile. */
+@media (min-width: 768px) {
+  .lightbox-demo-slide-snug [data-ramka-item] {
+    transition: opacity var(--lightbox-pull-snap-duration, 500ms)
+      var(--lightbox-pull-snap-easing, var(--ease-out-expo));
+  }
 
-.lightbox-demo-slide-snug [data-ramka-item]:not([data-active]) {
-  --lb-snug-dim: max(var(--lightbox-pull-progress, 0), var(--lightbox-zoom-progress, 0));
-  opacity: calc(1 - var(--lightbox-pull-progress, 0) * 0.85);
-  filter: opacity(calc(1 - var(--lb-snug-dim)))
-    blur(calc(var(--lb-snug-dim) * 6px));
-}
+  .lightbox-demo-slide-snug [data-ramka-item]:not([data-active]) {
+    --lb-snug-dim: max(var(--lightbox-pull-progress, 0), var(--lightbox-zoom-progress, 0));
+    opacity: calc(1 - var(--lightbox-pull-progress, 0) * 0.85);
+    filter: opacity(calc(1 - var(--lb-snug-dim)))
+      blur(calc(var(--lb-snug-dim) * 6px));
+  }
 
-.lightbox-demo-content[data-pulling] .lightbox-demo-slide-snug [data-ramka-item] {
-  transition: none;
+  /* No transition while pulling or dismissing — it only serves snap-back. */
+  .lightbox-demo-content:is([data-pulling], [data-pull-dismissing])
+    .lightbox-demo-slide-snug
+    [data-ramka-item] {
+    transition: none;
+  }
 }
 
 .lightbox-demo-content[data-zoomed] .lightbox-demo-slide-snug:has([data-ramka-item][data-active]) {
