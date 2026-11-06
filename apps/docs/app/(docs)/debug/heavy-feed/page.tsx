@@ -60,9 +60,16 @@ interface FeedConfig {
   elements: number;
   load: LoadLevel;
   live: boolean;
+  /** `content-visibility: auto` on each post, so offscreen posts skip layout/paint. */
+  contentVisibility: boolean;
 }
 
-const DEFAULT_CONFIG: FeedConfig = { elements: DEFAULT_TARGET, load: 'off', live: false };
+const DEFAULT_CONFIG: FeedConfig = {
+  elements: DEFAULT_TARGET,
+  load: 'off',
+  live: false,
+  contentVisibility: false,
+};
 
 function parseConfig(search: string): FeedConfig {
   const params = new URLSearchParams(search);
@@ -72,6 +79,7 @@ function parseConfig(search: string): FeedConfig {
     elements: (TARGET_SIZES as readonly number[]).includes(elements) ? elements : DEFAULT_TARGET,
     load: load && (load === 'off' || load in LOAD_LEVELS) ? load : 'off',
     live: params.get('live') === '1',
+    contentVisibility: params.get('cv') === '1',
   };
 }
 
@@ -82,6 +90,8 @@ function writeConfigToUrl(config: FeedConfig) {
   else url.searchParams.set('load', config.load);
   if (config.live) url.searchParams.set('live', '1');
   else url.searchParams.delete('live');
+  if (config.contentVisibility) url.searchParams.set('cv', '1');
+  else url.searchParams.delete('cv');
   window.history.replaceState(null, '', url);
 }
 
@@ -378,9 +388,22 @@ function PostImageGrid({ post }: { post: FeedPost }) {
 const VIEWER_BUTTON =
   'grid size-11 place-items-center rounded-full bg-white/10 text-white backdrop-blur transition hover:bg-white/20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white data-disabled:pointer-events-none data-disabled:opacity-30';
 
-const FeedPostCard = React.memo(function FeedPostCard({ post }: { post: FeedPost }) {
+const FeedPostCard = React.memo(function FeedPostCard({
+  post,
+  contentVisibility,
+}: {
+  post: FeedPost;
+  contentVisibility: boolean;
+}) {
   return (
-    <article className="flex gap-3 py-4">
+    <article
+      className="flex gap-3 py-4"
+      style={
+        contentVisibility
+          ? { contentVisibility: 'auto', containIntrinsicSize: 'auto 480px' }
+          : undefined
+      }
+    >
       <div
         aria-hidden
         className="grid size-10 shrink-0 place-items-center rounded-full text-xs font-bold text-white"
@@ -613,19 +636,29 @@ export default function HeavyFeedDebugPage() {
             />
             Live updates
           </label>
+
+          <label className="flex cursor-pointer items-center gap-1.5 text-xs font-medium text-neutral-500 dark:text-neutral-400">
+            <input
+              type="checkbox"
+              checked={config.contentVisibility}
+              onChange={(event) => applyConfig({ contentVisibility: event.target.checked })}
+              className="accent-sky-600"
+            />
+            content-visibility
+          </label>
         </div>
         <p className="mt-1.5 text-[11px] tabular-nums text-neutral-400 dark:text-neutral-500">
           {ready
             ? `${posts.length.toLocaleString()} posts · ${totalImages.toLocaleString()} images · ${
                 measured == null ? 'measuring…' : `${measured.toLocaleString()} DOM elements`
-              }${config.load !== 'off' ? ` · blocking ${LOAD_LEVELS[config.load].blockMs}ms every ${LOAD_LEVELS[config.load].periodMs}ms` : ''}`
+              }${config.contentVisibility ? ' · content-visibility: auto' : ''}${config.load !== 'off' ? ` · blocking ${LOAD_LEVELS[config.load].blockMs}ms every ${LOAD_LEVELS[config.load].periodMs}ms` : ''}`
             : 'reading URL config…'}
         </p>
       </div>
 
       <main className="flex flex-col divide-y divide-neutral-200 dark:divide-neutral-800">
         {posts.map((post) => (
-          <FeedPostCard key={post.id} post={post} />
+          <FeedPostCard key={post.id} post={post} contentVisibility={config.contentVisibility} />
         ))}
       </main>
 
