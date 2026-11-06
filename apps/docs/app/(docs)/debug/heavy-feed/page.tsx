@@ -229,7 +229,7 @@ function LiveActivityWidget() {
   return (
     <aside
       aria-hidden
-      className="fixed bottom-4 right-4 z-20 w-64 rounded-xl border border-neutral-200 bg-white/90 p-3 text-xs shadow-lg backdrop-blur dark:border-neutral-800 dark:bg-neutral-900/90"
+      className="fixed bottom-4 right-4 z-20 w-64 rounded-xl border border-neutral-200 bg-white p-3 text-xs shadow-lg dark:border-neutral-800 dark:bg-neutral-900"
     >
       <p className="flex items-center gap-2 font-semibold text-neutral-900 dark:text-neutral-100">
         <span className="relative flex size-2">
@@ -257,8 +257,10 @@ const TILE_SIZES = '(min-width: 640px) 280px, 50vw';
 
 /**
  * Per-cell rounded corners for the 1–4 cell grids. Inner edges stay sharp;
- * outer corners match the parent grid. The radius must live on the Trigger —
- * the morph reads it to animate corner rounding.
+ * outer corners match the parent grid. The radius stays on the Trigger — the
+ * morph reads it — and is repeated on the image so the photo clips without
+ * `overflow: hidden` on the trigger (that pair promotes a compositing layer
+ * per tile, which iOS Safari then flattens during the view-transition capture).
  */
 function cornerClass(index: number, count: number): string {
   if (count === 2) {
@@ -291,7 +293,7 @@ function PostImageGrid({ post }: { post: FeedPost }) {
       <Lightbox.Trigger
         index={0}
         aria-label={`Open photo by ${post.name}`}
-        className="mt-2 block w-full cursor-pointer overflow-hidden rounded-xl border border-neutral-200 p-0 outline-offset-2 focus-visible:outline-2 focus-visible:outline-sky-500 dark:border-neutral-800"
+        className="mt-2 block w-full cursor-pointer rounded-xl border border-neutral-200 p-0 outline-offset-2 focus-visible:outline-2 focus-visible:outline-sky-500 dark:border-neutral-800"
       >
         {({ imageRef }) => (
           <Image
@@ -300,7 +302,7 @@ function PostImageGrid({ post }: { post: FeedPost }) {
             alt={`Photo by ${post.name}`}
             sizes="(min-width: 640px) 560px, 100vw"
             placeholder="blur"
-            className="aspect-3/2 w-full object-cover"
+            className="aspect-3/2 w-full rounded-xl object-cover"
           />
         )}
       </Lightbox.Trigger>
@@ -319,7 +321,7 @@ function PostImageGrid({ post }: { post: FeedPost }) {
             key={i}
             index={i}
             aria-label={`Open photo ${i + 1} of ${count} by ${post.name}`}
-            className={`block cursor-pointer overflow-hidden p-0 outline-offset-2 focus-visible:outline-2 focus-visible:outline-sky-500 ${
+            className={`block cursor-pointer p-0 outline-offset-2 focus-visible:outline-2 focus-visible:outline-sky-500 ${
               count === 3 && i === 0 ? 'row-span-2' : ''
             } ${cornerClass(i, count)}`}
           >
@@ -330,7 +332,7 @@ function PostImageGrid({ post }: { post: FeedPost }) {
                 alt={`Photo ${i + 1} by ${post.name}`}
                 sizes={TILE_SIZES}
                 placeholder="blur"
-                className={`block w-full object-cover ${count === 2 ? 'aspect-4/5' : 'size-full'}`}
+                className={`block w-full object-cover ${cornerClass(i, count)} ${count === 2 ? 'aspect-4/5' : 'size-full'}`}
               />
             )}
           </Lightbox.Trigger>
@@ -355,17 +357,17 @@ function PostImageGrid({ post }: { post: FeedPost }) {
                 ? `Open all ${count} photos by ${post.name}`
                 : `Open photo ${i + 1} of ${count} by ${post.name}`
             }
-            className={`block cursor-pointer overflow-hidden p-0 outline-offset-2 focus-visible:outline-2 focus-visible:outline-sky-500 ${cornerClass(i, 4)}`}
+            className={`block cursor-pointer p-0 outline-offset-2 focus-visible:outline-2 focus-visible:outline-sky-500 ${cornerClass(i, 4)}`}
           >
             {({ imageRef }) => (
-              <span className={`relative block size-full overflow-hidden ${cornerClass(i, 4)}`}>
+              <span className={`relative block size-full ${cornerClass(i, 4)}`}>
                 <Image
                   ref={imageRef}
                   src={photo}
                   alt={`Photo ${i + 1} by ${post.name}`}
                   sizes={TILE_SIZES}
                   placeholder="blur"
-                  className="block size-full object-cover"
+                  className={`block size-full object-cover ${cornerClass(i, 4)}`}
                 />
                 {showOverlay && (
                   <span className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/50">
@@ -593,7 +595,7 @@ export default function HeavyFeedDebugPage() {
         </p>
       </header>
 
-      <div className="sticky top-0 z-30 -mx-4 mb-6 border-b border-neutral-200 bg-white/95 px-4 py-3 backdrop-blur dark:border-neutral-800 dark:bg-neutral-950/95">
+      <div className="sticky top-0 z-30 -mx-4 mb-6 border-b border-neutral-200 bg-white px-4 py-3 dark:border-neutral-800 dark:bg-neutral-950">
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
           <div className="flex items-center gap-1.5" role="group" aria-label="Target DOM size">
             <span className="text-xs font-medium text-neutral-500 dark:text-neutral-400">
