@@ -50,8 +50,13 @@ describe('vt-structural-styles', () => {
   it('contains the structural rules skins used to ship', () => {
     ensureVtStructuralStyles();
     const css = document.head.querySelector(selector)!.textContent!;
-    // Name isolation during a morph.
-    expect(css).toContain('view-transition-name: none !important');
+    // Name isolation during a morph — keyed on its own arming attribute (set
+    // only when the page declares foreign names, see vt-name-isolation.ts),
+    // NOT on the phase attribute: a universal descendant rule keyed on the
+    // per-morph phase attribute would restyle the whole document on every
+    // open and close.
+    expect(css).toMatch(/:root\[data-ramka-vt-isolate\]\s*\*\s*\{[^}]*view-transition-name: none !important/);
+    expect(css).not.toMatch(/:root\[data-ramka-view-transition\]\s*\*/);
     // Morph-target hide moved OUT of this sheet: it must exist before any
     // morph runs (server-rendered open pages), so Trigger delivers it eagerly
     // — see morph-target-hide.ts. Assert on attribute + opacity co-occurrence

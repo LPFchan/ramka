@@ -244,6 +244,14 @@ export enum LightboxDocumentDataAttributes {
    * composited morph and available to skin CSS for per-preset styling.
    */
   viewTransitionPreset = 'data-ramka-vt-preset',
+  /**
+   * Present during a morph ONLY when the page declares foreign
+   * `view-transition-name`s that must be neutralized so they don't ride
+   * over the morph. Kept off otherwise: the rule's universal selector makes
+   * the attribute flip a full-document style invalidation, which on large
+   * DOMs is the dominant cost of starting (and finishing) a morph.
+   */
+  viewTransitionIsolate = 'data-ramka-vt-isolate',
 }
 
 /**

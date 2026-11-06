@@ -671,7 +671,17 @@ describe('Lightbox.Media (morph + placeholder host)', () => {
     expect(el!.parentElement).toBe(media);
   });
 
-  it('adopts the fill rules in a browser, and drops them when Media unmounts', () => {
+  it('adopts the fill rules in a browser once per document, kept after unmount', () => {
+    // Earlier tests in this file mounted Media without constructed-sheet
+    // support, leaving the once-per-document <style> fallback behind (it is
+    // never removed by design). Clear that state so this test observes a
+    // fresh adoption through the stubbed CSSOM path.
+    for (const el of Array.from(document.querySelectorAll('style[data-ramka-media-fill]'))) {
+      el.remove();
+    }
+    (
+      document as Document & { [key: symbol]: Set<string> | undefined }
+    )[Symbol.for('ramka.vt.adoptedMarkers')]?.delete('data-ramka-media-fill');
     const stub = stubConstructedSheets();
     try {
       const view = render(
@@ -697,7 +707,11 @@ describe('Lightbox.Media (morph + placeholder host)', () => {
 
       view.unmount();
 
-      expect(stub.adoptedCss()).toHaveLength(0);
+      // Once per document, NEVER released: every adoptedStyleSheets array
+      // change is a full-document restyle in WebKit, and the old per-instance
+      // adopt/release cycle put several of those inside open/close morphs.
+      // The rule is constant text and inert without lightbox media mounted.
+      expect(stub.adoptedCss().join('')).toContain('[data-ramka-media]:not(#_) > img');
     } finally {
       stub.restore();
     }

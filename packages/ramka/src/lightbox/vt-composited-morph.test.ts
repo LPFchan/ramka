@@ -4,6 +4,10 @@ import { LightboxDocumentCssVars } from './lightbox-css-vars';
 import { LightboxDocumentDataAttributes } from './lightbox-data-attributes';
 import { stubConstructedSheets } from './lightbox-style-sheets-test-utils';
 
+/** Toggles the Gecko-only `startTime` anchoring path. */
+let firefox = false;
+vi.mock('./is-firefox', () => ({ isFirefox: () => firefox }));
+
 /**
  * The composited morph is the morph ramka ships, and every browser that cannot
  * run it has to land on the stock UA morph instead — so the validation ladder
@@ -105,11 +109,19 @@ let pseudoStyle: Record<string, string>;
 let rootVars: Record<string, string>;
 let animateSpy: ReturnType<typeof vi.fn>;
 /** Every animation `docEl.animate` handed back, so teardown can be checked. */
-let createdAnimations: { cancel: ReturnType<typeof vi.fn>; currentTime: number | null }[];
+let createdAnimations: {
+  cancel: ReturnType<typeof vi.fn>;
+  currentTime: number | null;
+  startTime: number | null;
+}[];
 
 /** Hands back an animation and records it, so teardown can be asserted. */
 function trackCreated() {
-  const animation = { cancel: vi.fn(), currentTime: null as number | null };
+  const animation = {
+    cancel: vi.fn(),
+    currentTime: null as number | null,
+    startTime: null as number | null,
+  };
   createdAnimations.push(animation);
   return animation;
 }
@@ -163,10 +175,11 @@ async function loadUpgrade() {
 /** Runs the upgrade and lets its `ready.then` microtask chain settle. */
 async function runUpgrade(
   transition: { ready?: Promise<void>; finished: Promise<void> },
+  radii?: { from: string | null; to: string | null },
   triggerTarget?: HTMLElement | null,
 ) {
   const upgrade = await loadUpgrade();
-  upgrade(transition, triggerTarget);
+  upgrade(transition, radii, triggerTarget);
   await Promise.resolve();
   await Promise.resolve();
   await Promise.resolve();
@@ -174,6 +187,8 @@ async function runUpgrade(
 
 const compositedStyleEl = () => document.head.querySelector('[data-ramka-vt-composited-style]');
 const cssPathStyleEl = () => document.head.querySelector(`style[${COMPOSITED_CSS_ATTR}]`);
+const cssPathStaticStyleEl = () =>
+  document.head.querySelector('style[data-ramka-vt-composited-css-static]');
 
 /** Nothing was touched: no replacements, no attributes, UA animation intact. */
 function expectStockMorphLeftAlone(ua: FakeAnimation) {
@@ -188,9 +203,22 @@ beforeEach(() => {
   installAnimations([uaGroupAnimation()]);
 });
 
+/**
+ * Real browsers expose `document.timeline`; jsdom does not, so the tests that
+ * pin the pending-resolution behavior install one explicitly.
+ */
+function installTimeline(currentTime: number) {
+  Object.defineProperty(document, 'timeline', {
+    configurable: true,
+    value: { currentTime },
+  });
+}
+
 afterEach(() => {
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
+  firefox = false;
+  delete (document as unknown as Record<string, unknown>).timeline;
   delete globals().__RAMKA_VT_COMPOSITED__;
   delete globals().GestureEvent;
   document.documentElement.removeAttribute(COMPOSITED_ATTR);
@@ -404,10 +432,11 @@ describe('composited morph — WAAPI path (Blink / Gecko)', () => {
 
   it('adds a separate border-radius track when the morph has radius', async () => {
     installAnimations([uaGroupAnimation()]);
-    rootVars[LightboxDocumentCssVars.morphBorderRadiusFrom] = '16px';
-    rootVars[LightboxDocumentCssVars.morphBorderRadiusTo] = '0px';
 
-    await runUpgrade(fakeTransition().transition);
+    // Radii arrive as arguments from the morph engine (which resolved them
+    // anyway) — they are no longer re-read off documentElement's computed
+    // style, where the forced read was a restyle inside the ready microtask.
+    await runUpgrade(fakeTransition().transition, { from: '16px', to: '0px' });
 
     // Separate from the transform track: mixing a paint property into the same
     // effect demotes the whole effect off the compositor.
@@ -447,6 +476,57 @@ describe('composited morph — WAAPI path (Blink / Gecko)', () => {
 
     for (const animation of createdAnimations) {
       expect(animation.currentTime).toBeNull();
+    }
+  });
+
+  it('leaves the replacements play-pending outside Gecko, even with a live timeline', async () => {
+    // THE cold-open regression: assigning `startTime` anchors the clock at the
+    // `ready` microtask, so on a heavy first open the ~100–170ms of main-thread
+    // work before the first paint gets SKIPPED out of the morph instead of
+    // waited out. A pending animation (currentTime hold) starts counting at its
+    // first presented frame, so the morph always plays from the beginning.
+    installTimeline(5000);
+    const ua = uaGroupAnimation({ currentTime: 60 });
+    installAnimations([ua]);
+
+    await runUpgrade(fakeTransition().transition);
+
+    expect(createdAnimations).toHaveLength(3);
+    for (const animation of createdAnimations) {
+      expect(animation.startTime).toBeNull();
+      expect(animation.currentTime).toBe(60);
+    }
+  });
+
+  it('resolves play-pending synchronously via startTime on Gecko', async () => {
+    // Gecko styles pending pseudo-element animations with no effect output, so
+    // leaving the replacements pending flashes the old snapshot at intrinsic
+    // size for one frame. Setting startTime clears the pending task per spec,
+    // back-dated by the UA progress so the resume point is identical.
+    firefox = true;
+    installTimeline(5000);
+    const ua = uaGroupAnimation({ currentTime: 60 });
+    installAnimations([ua]);
+
+    await runUpgrade(fakeTransition().transition);
+
+    expect(createdAnimations).toHaveLength(3);
+    for (const animation of createdAnimations) {
+      expect(animation.startTime).toBe(5000 - 60);
+      expect(animation.currentTime).toBeNull();
+    }
+  });
+
+  it('falls back to the currentTime hold on Gecko without a timeline', async () => {
+    firefox = true;
+    const ua = uaGroupAnimation({ currentTime: 60 });
+    installAnimations([ua]);
+
+    await runUpgrade(fakeTransition().transition);
+
+    for (const animation of createdAnimations) {
+      expect(animation.startTime).toBeNull();
+      expect(animation.currentTime).toBe(60);
     }
   });
 
@@ -527,33 +607,45 @@ describe('composited morph — WebKit CSS path', () => {
     expect(document.documentElement.hasAttribute(COMPOSITED_ATTR)).toBe(false);
     expect(compositedStyleEl()).toBeNull();
 
+    // Per morph only FIXED-NAME @keyframes are generated (the one sheet
+    // mutation WebKit invalidation-scopes cheaply); the pseudo rules that
+    // reference those names are static and injected once.
     const css = cssPathStyleEl()?.textContent ?? '';
-    expect(css).toContain('@keyframes ramka-vtg-');
-    expect(css).toContain(GROUP_PSEUDO);
-    expect(css).toContain(OLD_PSEUDO);
-    expect(css).toContain(NEW_PSEUDO);
+    expect(css).toContain('@keyframes ramka-vt-cm-group');
+    expect(css).toContain('@keyframes ramka-vt-cm-old');
+    expect(css).toContain('@keyframes ramka-vt-cm-new');
+    expect(css).not.toContain('::view-transition');
+
+    const staticCss = cssPathStaticStyleEl()?.textContent ?? '';
+    expect(staticCss).toContain(GROUP_PSEUDO);
+    expect(staticCss).toContain(OLD_PSEUDO);
+    expect(staticCss).toContain(NEW_PSEUDO);
+    expect(staticCss).toContain('animation-name: ramka-vt-cm-group');
   });
 
-  it('carries the elapsed UA progress as a negative animation delay', async () => {
-    installAnimations([uaGroupAnimation({ currentTime: 45 })]);
-
+  it('carries the snapshots’ captured size inside the keyframes', async () => {
+    // The static pseudo rules can never hold per-morph values, so the
+    // captured width/height ride the endpoint frames (equal values
+    // interpolate to a constant).
     await runUpgrade(fakeTransition().transition);
 
-    expect(cssPathStyleEl()?.textContent ?? '').toContain('-45ms both');
+    const css = cssPathStyleEl()?.textContent ?? '';
+    expect(css).toContain('width: 800px; height: 600px;');
+    expect(cssPathStaticStyleEl()?.textContent ?? '').not.toContain('800px');
   });
 
-  it('emits group rules only for a crossfade morph', async () => {
+  it('emits group keyframes only for a crossfade morph', async () => {
     document.documentElement.setAttribute(LightboxDocumentDataAttributes.crossfade, 'open');
 
     await runUpgrade(fakeTransition().transition);
 
     const css = cssPathStyleEl()?.textContent ?? '';
-    expect(css).toContain(GROUP_PSEUDO);
-    expect(css).not.toContain(OLD_PSEUDO);
-    expect(css).not.toContain(NEW_PSEUDO);
+    expect(css).toContain('@keyframes ramka-vt-cm-group');
+    expect(css).not.toContain('@keyframes ramka-vt-cm-old');
+    expect(css).not.toContain('@keyframes ramka-vt-cm-new');
   });
 
-  it('uses a fresh @keyframes name per transition so animations restart', async () => {
+  it('re-inserts the same fixed @keyframes names with fresh contents per transition', async () => {
     const upgrade = await loadUpgrade();
 
     upgrade(fakeTransition().transition);
@@ -567,16 +659,17 @@ describe('composited morph — WebKit CSS path', () => {
     await Promise.resolve();
     await Promise.resolve();
     await Promise.resolve();
+    // jsdom fallback: the previous morph's <style> is replaced, so exactly
+    // one copy of each fixed name is live.
     const sheets = [...document.head.querySelectorAll(`style[${COMPOSITED_CSS_ATTR}]`)];
-    const second = sheets[sheets.length - 1]?.textContent ?? '';
+    expect(sheets).toHaveLength(1);
+    const second = sheets[0]?.textContent ?? '';
 
-    const nameOf = (css: string) => /@keyframes (ramka-vtg-\d+)/.exec(css)?.[1];
-    expect(nameOf(first)).toBeDefined();
-    expect(nameOf(second)).toBeDefined();
-    expect(nameOf(first)).not.toBe(nameOf(second));
+    expect(first).toContain('@keyframes ramka-vt-cm-group');
+    expect(second).toContain('@keyframes ramka-vt-cm-group');
   });
 
-  it('adopts the per-transition keyframes in a browser, and releases them on teardown', async () => {
+  it('adopts the keyframes sheet in a browser and keeps it across teardown', async () => {
     // The generated keyframes are computed per open, so no CSP hash allowlist
     // could ever cover them — they have to stay out of the document entirely.
     const stub = stubConstructedSheets();
@@ -589,19 +682,48 @@ describe('composited morph — WebKit CSS path', () => {
       await Promise.resolve();
       await Promise.resolve();
 
-      expect(document.querySelectorAll('style')).toHaveLength(0);
-      expect(stub.adoptedCss().join('')).toContain('@keyframes ramka-vtg-');
+      expect(document.querySelectorAll(`style[${COMPOSITED_CSS_ATTR}]`)).toHaveLength(0);
+      expect(stub.adoptedCss().join('')).toContain('@keyframes ramka-vt-cm-group');
 
       await finish();
 
-      expect(stub.adoptedCss()).toHaveLength(0);
+      // The sheet stays adopted with its rules intact: deleting keyframes (or
+      // un-adopting the sheet) is a full-document restyle in WebKit wherever
+      // it runs, so cleanup is deferred to an idle timer instead of the
+      // teardown. The rules are inert once the attribute is gone.
+      expect(stub.adoptedCss().join('')).toContain('@keyframes ramka-vt-cm-group');
       expect(document.documentElement.hasAttribute(COMPOSITED_CSS_ATTR)).toBe(false);
     } finally {
       stub.restore();
     }
   });
 
-  it('removes its per-transition stylesheet on teardown', async () => {
+  it('empties the keyframes sheet at idle after teardown', async () => {
+    vi.useFakeTimers();
+    const stub = stubConstructedSheets();
+    try {
+      const { transition, finish } = fakeTransition();
+
+      const upgrade = await loadUpgrade();
+      upgrade(transition);
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+      await finish();
+      expect(stub.adoptedCss().join('')).toContain('@keyframes ramka-vt-cm-group');
+
+      // Past the idle delay the sheet is emptied, so the NEXT morph's inserts
+      // hit undefined names — the cheap path (redefining a live @keyframes
+      // name costs the same full restyle as deleting it).
+      vi.advanceTimersByTime(2000);
+      expect(stub.adoptedCss().join('')).not.toContain('@keyframes');
+    } finally {
+      stub.restore();
+      vi.useRealTimers();
+    }
+  });
+
+  it('keeps the fallback stylesheet on teardown (inert once the attribute is gone)', async () => {
     const { transition, finish } = fakeTransition();
 
     const upgrade = await loadUpgrade();
@@ -613,7 +735,7 @@ describe('composited morph — WebKit CSS path', () => {
 
     await finish();
 
-    expect(cssPathStyleEl()).toBeNull();
+    expect(cssPathStyleEl()).not.toBeNull();
     expect(document.documentElement.hasAttribute(COMPOSITED_CSS_ATTR)).toBe(false);
   });
 });
@@ -659,7 +781,7 @@ describe('composited morph — fragmented trigger endpoint correction (WebKit mu
     // UA captured (100, 200); the tile actually sits at (300, 40) — same size.
     const el = connectTrigger({ x: 300, y: 40, width: 200, height: 150 });
 
-    await runUpgrade(fakeTransition().transition, el);
+    await runUpgrade(fakeTransition().transition, undefined, el);
 
     expect(cssTransformAt('0.000')).toBe('translate(300px, 40px) scale(0.25, 0.25)');
   });
@@ -669,7 +791,7 @@ describe('composited morph — fragmented trigger endpoint correction (WebKit mu
     // UA's end state is (0, 0); the trigger really sits at (50, 60).
     const el = connectTrigger({ x: 50, y: 60, width: 800, height: 600 });
 
-    await runUpgrade(fakeTransition().transition, el);
+    await runUpgrade(fakeTransition().transition, undefined, el);
 
     expect(cssTransformAt('100.000')).toBe('translate(50px, 60px) scale(1, 1)');
   });
@@ -678,7 +800,7 @@ describe('composited morph — fragmented trigger endpoint correction (WebKit mu
     document.documentElement.setAttribute(PHASE_ATTR, 'opening');
     const el = connectTrigger({ x: 100.4, y: 199.8, width: 200, height: 150 });
 
-    await runUpgrade(fakeTransition().transition, el);
+    await runUpgrade(fakeTransition().transition, undefined, el);
 
     expect(cssTransformAt('0.000')).toBe('translate(100px, 200px) scale(0.25, 0.25)');
   });
@@ -689,7 +811,7 @@ describe('composited morph — fragmented trigger endpoint correction (WebKit mu
     document.documentElement.setAttribute(PHASE_ATTR, 'opening');
     const el = connectTrigger({ x: 300, y: 40, width: 150, height: 150 });
 
-    await runUpgrade(fakeTransition().transition, el);
+    await runUpgrade(fakeTransition().transition, undefined, el);
 
     expect(cssTransformAt('0.000')).toBe('translate(100px, 200px) scale(0.25, 0.25)');
   });
@@ -702,7 +824,7 @@ describe('composited morph — fragmented trigger endpoint correction (WebKit mu
     installAnimations([ua]);
     const el = connectTrigger({ x: 300, y: 40, width: 200, height: 150 });
 
-    await runUpgrade(fakeTransition().transition, el);
+    await runUpgrade(fakeTransition().transition, undefined, el);
 
     expect(cssPathStyleEl()?.textContent ?? '').not.toContain('translate(300px, 40px)');
   });
@@ -712,7 +834,7 @@ describe('composited morph — fragmented trigger endpoint correction (WebKit mu
     const el = connectTrigger({ x: 300, y: 40, width: 200, height: 150 });
     el.remove();
 
-    await runUpgrade(fakeTransition().transition, el);
+    await runUpgrade(fakeTransition().transition, undefined, el);
 
     expect(cssTransformAt('0.000')).toBe('translate(100px, 200px) scale(0.25, 0.25)');
   });
@@ -720,7 +842,7 @@ describe('composited morph — fragmented trigger endpoint correction (WebKit mu
   it('does nothing without a phase attribute on the root', async () => {
     const el = connectTrigger({ x: 300, y: 40, width: 200, height: 150 });
 
-    await runUpgrade(fakeTransition().transition, el);
+    await runUpgrade(fakeTransition().transition, undefined, el);
 
     expect(cssTransformAt('0.000')).toBe('translate(100px, 200px) scale(0.25, 0.25)');
   });
@@ -733,7 +855,7 @@ describe('composited morph — fragmented trigger endpoint correction (WebKit mu
     document.documentElement.setAttribute(PHASE_ATTR, 'opening');
     const el = connectTrigger({ x: 100, y: 144, width: 200, height: 150 });
 
-    await runUpgrade(fakeTransition().transition, el);
+    await runUpgrade(fakeTransition().transition, undefined, el);
 
     const frames = animateSpy.mock.calls[0]![0] as { transform: string }[];
     expect(frames[0]!.transform).toBe('translate(100px, 200px) scale(0.25, 0.25)');

@@ -5,10 +5,15 @@ import { flushSync } from 'react-dom';
 
 import { isAndroidBlinkSnapshotRoot } from './is-android-blink';
 import { isFirefox } from './is-firefox';
+import { afterNextRenderFrame, shouldYieldBeforeCapture } from './vt-capture-yield';
 import { acquireVtTouchGuard } from './vt-touch-guard';
-import { maybeUpgradeToCompositedMorph } from './vt-composited-morph';
-import { isViewTransitionPreset, resolveViewTransitionTiming } from './vt-timing';
+import {
+  maybeUpgradeToCompositedMorph,
+  prewarmCompositedCssSheet,
+} from './vt-composited-morph';
+import { isViewTransitionPreset } from './vt-timing';
 import type { LightboxViewTransitionPreset } from './vt-timing';
+import { pageNeedsNameIsolation } from './vt-name-isolation';
 import {
   findDestinationMorphTarget,
   findItemMorphTarget,
@@ -447,11 +452,11 @@ export function resolveMorphBorderRadius(el: HTMLElement): string {
 
 /**
  * Publish the Root's `viewTransition` timing preset onto `documentElement`
- * for this morph only: the preset name as `data-ramka-vt-preset` (read by the
- * composited morph) and its duration/easing as `--lightbox-vt-*` vars (read
- * by document-level `::view-transition-*` rules — the stock group fallback,
- * the crossfade dissolve (open curve + close complementary swap) and the root snapshot
- * fade — which cannot inherit from Content/Portal). Timing is preset-driven,
+ * for this morph only, as the `data-ramka-vt-preset` attribute. The preset's
+ * duration/easing vars are delivered by static attribute-keyed rules in the
+ * structural sheet (vt-structural-styles.ts) — writing inherited custom
+ * properties inline on `<html>` per morph forced WebKit into a full-document
+ * restyle inside the capture window on large pages. Timing is preset-driven,
  * not consumer CSS: arbitrary curves teleport on iOS (see the preset table
  * in vt-timing.ts).
  */
@@ -459,18 +464,23 @@ function promoteVtMotionTokens(
   docEl: HTMLElement,
   preset: boolean | LightboxViewTransitionPreset | undefined,
 ) {
-  const spec = resolveViewTransitionTiming(preset);
   docEl.setAttribute(
     LightboxDocumentDataAttributes.viewTransitionPreset,
     isViewTransitionPreset(preset) ? preset : 'default',
   );
-  docEl.style.setProperty(LightboxDocumentCssVars.vtDuration, `${spec.duration}ms`);
-  docEl.style.setProperty(LightboxDocumentCssVars.vtEasing, spec.cssEasing);
-  docEl.style.setProperty(
-    LightboxDocumentCssVars.vtCrossfadeCloseEasing,
-    spec.cssCrossfadeCloseEasing,
-  );
-  docEl.style.setProperty(LightboxDocumentCssVars.vtRootEasing, spec.cssRootEasing);
+}
+
+/**
+ * Write an inline root var only when its value actually changed. EVERY
+ * inherited custom-property write on `<html>` — including a same-value
+ * rewrite — invalidates computed style for the whole document, which WebKit
+ * pays as a full restyle (~75ms at 16k elements) inside the morph's capture
+ * flush. Reading the inline declaration back is flush-free, so re-opening the
+ * same trigger (radii unchanged — the common case) writes nothing at all.
+ */
+function setDocVarIfChanged(docEl: HTMLElement, prop: string, value: string) {
+  if (docEl.style.getPropertyValue(prop) === value) return;
+  docEl.style.setProperty(prop, value);
 }
 
 /** Flush threshold (CSS px) for treating a box edge as viewport-flush. */
@@ -609,44 +619,42 @@ function applyMorphState(
     preset: boolean | LightboxViewTransitionPreset | undefined;
   },
 ): number {
+  // Detect BEFORE this morph names its own targets (setMorphName runs after),
+  // so the inline-style probe can't match the morph's own names.
+  const needsIsolation = pageNeedsNameIsolation();
+
   docEl.setAttribute(LightboxDocumentDataAttributes.viewTransition, phase);
   promoteVtMotionTokens(docEl, opts.preset);
   if (opts.useCrossfade) {
     docEl.setAttribute(LightboxDocumentDataAttributes.crossfade, '');
-  } else {
-    // Hard-cut: the item is the single visible, animated layer in both
-    // directions and never crossfades the trigger. But on OPEN we ALWAYS keep
-    // the `old` (trigger) snapshot opaque underneath as a paint fallback —
-    // never 0. (In the CSS both pseudos have `animation: none` and stretch to
-    // the group box, with `new` painted on top of `old`.)
-    //
-    // - Opening: `new` is the destination item, which is `visibility: hidden`
-    //   during prepare and only flips visible inside the (synchronous) VT
-    //   callback, right before the new snapshot is captured. If that freshly
-    //   revealed layer isn't rasterized in time the new snapshot is blank for a
-    //   frame — a compositing race independent of image caching (worst on mobile
-    //   Safari). With `old` hidden there'd be nothing behind it, so you'd see a
-    //   one-frame flash of empty space between the trigger vanishing and the
-    //   item painting. Keeping `old` (the trigger, captured from a fully-painted
-    //   live element) opaque underneath makes a blank `new` fall back to the
-    //   trigger instead of to nothing. When `new` IS painted it's opaque and
-    //   fully OCCLUDES `old`, so the trigger is never *seen* animating — visually
-    //   identical to hard-cutting it, except on the frame it would be blank.
-    // - Closing: `old` is the item (already on-screen and painted) and stays
-    //   opaque; `new` is the trigger, hard-cut to 0 so a scrolled-away/unpainted
-    //   trigger can't ghost over the item as it shrinks back.
-    docEl.style.setProperty(LightboxDocumentCssVars.morphOldOpacity, '1');
-    docEl.style.setProperty(
-      LightboxDocumentCssVars.morphNewOpacity,
-      phase === 'opening' ? '1' : '0',
-    );
   }
-  if (opts.fromRadius) {
-    docEl.style.setProperty(LightboxDocumentCssVars.morphBorderRadiusFrom, opts.fromRadius);
+  // Arm the universal name-neutralizing rule only when the page declares
+  // foreign view-transition-names. The rule keys on its own root attribute,
+  // and flipping it invalidates style for the whole document — a ~120ms
+  // restyle at 20k elements that most pages never need to pay (see
+  // vt-name-isolation.ts).
+  if (needsIsolation) {
+    docEl.setAttribute(LightboxDocumentDataAttributes.viewTransitionIsolate, '');
   }
-  if (opts.toRadius) {
-    docEl.style.setProperty(LightboxDocumentCssVars.morphBorderRadiusTo, opts.toRadius);
-  }
+  // Adopt the composited morph's persistent sheet here (a no-op after the
+  // first morph): the imminent capture flush subsumes the adopt's restyle,
+  // whereas adopting it inside the `ready` microtask — where the sheet gets
+  // its content — would visibly delay the first morph frame on large pages.
+  prewarmCompositedCssSheet();
+  // Hard-cut snapshot opacities (old stays opaque as a paint fallback; new is
+  // 1 on open / 0 on close) are published by static phase-keyed rules in the
+  // structural sheet — see vt-structural-styles.ts for the full rationale.
+  // Only the per-morph radius pair still needs inline writes. They are stored
+  // direction-independently (trigger side / item side; the static phase rules
+  // derive from/to), so closing after opening — and every later re-open of
+  // the same trigger — rewrites identical values, which setDocVarIfChanged
+  // turns into no writes at all. `?? '0px'` (the consuming rules' fallback)
+  // rather than removeProperty, so a stale value from an earlier morph can
+  // never leak into a radius-less one.
+  const triggerRadius = (phase === 'opening' ? opts.fromRadius : opts.toRadius) ?? '0px';
+  const itemRadius = (phase === 'opening' ? opts.toRadius : opts.fromRadius) ?? '0px';
+  setDocVarIfChanged(docEl, LightboxDocumentCssVars.morphRadiusTrigger, triggerRadius);
+  setDocVarIfChanged(docEl, LightboxDocumentCssVars.morphRadiusItem, itemRadius);
   return ++morphStateOwner;
 }
 
@@ -674,23 +682,26 @@ function clearMorphName(el: HTMLElement) {
 }
 
 /**
- * Removes every document-level attribute/var set by {@link applyMorphState} —
- * but only if `owner` still owns the state. A no-op when a newer morph has
+ * Removes the document-level attributes set by {@link applyMorphState} — but
+ * only if `owner` still owns the state. A no-op when a newer morph has
  * promoted its own state since (see {@link morphStateOwner}).
+ *
+ * The inline radius vars are deliberately NOT removed: every one of their
+ * consumers is gated behind the attributes removed here (view-transition
+ * pseudo rules), so stale values are inert — and each `removeProperty` of an
+ * inherited custom property on `<html>` inflates the teardown restyle the
+ * same way a write does. The next morph overwrites them (or writes the '0px'
+ * neutral value) via {@link setDocVarIfChanged}.
  */
 function clearMorphState(docEl: HTMLElement, owner: number) {
   if (owner !== morphStateOwner) return;
   docEl.removeAttribute(LightboxDocumentDataAttributes.viewTransition);
   docEl.removeAttribute(LightboxDocumentDataAttributes.crossfade);
   docEl.removeAttribute(LightboxDocumentDataAttributes.viewTransitionPreset);
-  docEl.style.removeProperty(LightboxDocumentCssVars.morphOldOpacity);
-  docEl.style.removeProperty(LightboxDocumentCssVars.morphNewOpacity);
-  docEl.style.removeProperty(LightboxDocumentCssVars.morphBorderRadiusFrom);
-  docEl.style.removeProperty(LightboxDocumentCssVars.morphBorderRadiusTo);
-  docEl.style.removeProperty(LightboxDocumentCssVars.vtDuration);
-  docEl.style.removeProperty(LightboxDocumentCssVars.vtEasing);
-  docEl.style.removeProperty(LightboxDocumentCssVars.vtCrossfadeCloseEasing);
-  docEl.style.removeProperty(LightboxDocumentCssVars.vtRootEasing);
+  // Removing the isolation attribute pays the same whole-document restyle as
+  // setting it — but only when it was armed, i.e. the page actually declares
+  // foreign names. A no-op removal costs nothing.
+  docEl.removeAttribute(LightboxDocumentDataAttributes.viewTransitionIsolate);
 }
 
 // ---------------------------------------------------------------------------
@@ -849,6 +860,11 @@ function createViewTransitionMorph(getConfig: () => ViewTransitionMorphConfig): 
     // screen freezing on the old snapshot for the duration of the mount.
     flushSync(commitPrepare);
 
+    // Whether an await below let real time (and rendered frames) pass since
+    // the mount — decides how many frames the heavy-document pre-capture
+    // yield needs (see afterNextRenderFrame).
+    let waitedSinceMount = false;
+
     // Wait for the destination image to decode HERE — before starting the
     // transition — rather than inside the update callback. Awaiting inside the
     // callback makes it an *async* callback: the browser reveals the new DOM
@@ -877,6 +893,7 @@ function createViewTransitionMorph(getConfig: () => ViewTransitionMorphConfig): 
       // placeholder effect in lightbox-item.)
       if (getPendingDecodeImage(pendingItemTarget)) {
         await waitForImageDecode(pendingItemTarget, decodeMaxWait);
+        waitedSinceMount = true;
         // A newer open/close superseded this one during the await — bail before
         // touching any document-level morph state so we don't corrupt it.
         if (getConfig().closeGenRef.current !== gen) {
@@ -902,6 +919,7 @@ function createViewTransitionMorph(getConfig: () => ViewTransitionMorphConfig): 
       );
       try {
         await onBeforeOpen({ destination, signal: beforeOpenAbort.signal });
+        waitedSinceMount = true;
       } catch {
         // Ignore abort / consumer errors — tear down prepare if this open is
         // still current; a superseding open/close already owns the tree.
@@ -935,8 +953,26 @@ function createViewTransitionMorph(getConfig: () => ViewTransitionMorphConfig): 
     // and WebKit skip this — they don't share that snapshot-root abort.
     if (shouldWaitForSnapshotRootSettle()) {
       await waitForStableSnapshotRoot();
+      waitedSinceMount = true;
       if (getConfig().closeGenRef.current !== gen) {
         flushSync(commitAbortPrepare);
+        releaseTouchGuard();
+        return;
+      }
+    }
+
+    // Heavy documents: hand the capture to a rAF callback instead of running
+    // it in the click task (see vt-capture-yield.ts). Two frames when the
+    // mount above is still undigested (fully-synchronous path: cached image,
+    // no consumer wait) so the engine renders the hidden tree once before
+    // capture; one frame when an await already let frames pass. Also places
+    // the reads below in a clean-style frame instead of force-flushing the
+    // mount's pending invalidation in the click task.
+    if (shouldYieldBeforeCapture()) {
+      await afterNextRenderFrame(waitedSinceMount ? 1 : 2);
+      // Same supersede semantics as the decode await: a newer open/close owns
+      // the tree — bail before touching document-level morph state.
+      if (getConfig().closeGenRef.current !== gen) {
         releaseTouchGuard();
         return;
       }
@@ -1032,7 +1068,7 @@ function createViewTransitionMorph(getConfig: () => ViewTransitionMorphConfig): 
       // The trigger element anchors the `from` endpoint against WebKit's
       // broken capture geometry for triggers inside multicol (see
       // correctFragmentedEndpoint in vt-composited-morph.ts).
-      maybeUpgradeToCompositedMorph(transition, triggerTarget);
+      maybeUpgradeToCompositedMorph(transition, { from: fromRadius, to: toRadius }, triggerTarget);
     }
 
     transition.finished.finally(() => {
@@ -1074,6 +1110,36 @@ function createViewTransitionMorph(getConfig: () => ViewTransitionMorphConfig): 
   };
 
   const close = () => {
+    const gen = getConfig().closeGenRef.current;
+
+    // Same guard as the open morph: the portal is hidden until close
+    // `finished`, so a touch pan can resolve to <html> and expand Safari's
+    // address bar mid-morph. Acquired synchronously — before any yield — so
+    // the guard covers the frame(s) between the input and the capture too.
+    const releaseTouchGuard = acquireVtTouchGuard();
+
+    // Heavy documents: run the capture from a rAF callback instead of the
+    // input task (Escape / close-button click), so the old snapshot's paint +
+    // layerization land in a rendering task rather than blocking the input
+    // (see vt-capture-yield.ts). The viewer stays fully visible and
+    // unchanged for that one frame. One frame suffices — the open tree was
+    // rendered long ago; nothing is pending digestion.
+    if (shouldYieldBeforeCapture()) {
+      requestAnimationFrame(() => {
+        // A newer open/close superseded this close during the yield — it owns
+        // the document-level morph state now.
+        if (getConfig().closeGenRef.current !== gen) {
+          releaseTouchGuard();
+          return;
+        }
+        runClose(gen, releaseTouchGuard);
+      });
+      return;
+    }
+    runClose(gen, releaseTouchGuard);
+  };
+
+  const runClose = (gen: number, releaseTouchGuard: () => void) => {
     const {
       morphTo,
       scrollTriggerIntoView,
@@ -1084,17 +1150,10 @@ function createViewTransitionMorph(getConfig: () => ViewTransitionMorphConfig): 
       destinationMorphElementRef,
       openingTriggerIndexRef,
       activeIndexRef,
-      closeGenRef,
       commitClose,
     } = getConfig();
 
     const docEl = document.documentElement;
-    const gen = closeGenRef.current;
-
-    // Same guard as the open morph: the portal is hidden until close
-    // `finished`, so a touch pan can resolve to <html> and expand Safari's
-    // address bar mid-morph.
-    const releaseTouchGuard = acquireVtTouchGuard();
 
     const itemEl = activeItemElementRef.current;
     const itemTarget = findDestinationMorphTarget(
@@ -1175,7 +1234,7 @@ function createViewTransitionMorph(getConfig: () => ViewTransitionMorphConfig): 
       // The trigger element anchors the `to` endpoint against WebKit's broken
       // capture geometry for triggers inside multicol (see
       // correctFragmentedEndpoint in vt-composited-morph.ts).
-      maybeUpgradeToCompositedMorph(transition, triggerTarget);
+      maybeUpgradeToCompositedMorph(transition, { from: fromRadius, to: toRadius }, triggerTarget);
     }
 
     transition.finished.finally(() => {

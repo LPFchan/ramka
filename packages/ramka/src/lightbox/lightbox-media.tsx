@@ -5,12 +5,12 @@ import * as React from 'react';
 import { LightboxMediaDataAttributes } from './lightbox-data-attributes';
 import { useLightboxStyleNonce } from './lightbox-csp';
 import { useOptionalLightboxItemContext } from './lightbox-item';
-import { insertLibrarySheet } from './lightbox-style-sheets';
+import { ensureLibrarySheet } from './vt-style-sheets';
 import { HoistableStyle, REACT_SUPPORTS_STYLE_HOISTING } from './react-style-hoisting';
 import { mergeProps } from '../render/merge-props';
 import { useRender } from '../render/use-render';
 
-/** Only used by the <style> fallback in environments without CSSOM sheets. */
+/** Once-per-document marker for the CSSOM fill sheet (and its <style> fallback). */
 const MEDIA_FILL_MARKER = 'data-ramka-media-fill';
 
 /**
@@ -283,9 +283,15 @@ const LightboxMedia = React.forwardRef<HTMLDivElement, LightboxMediaProps>(
     // always lands too. Insertion-effect timing puts it in place before any
     // layout effect measures. Redundant where the <style> applied: identical
     // rule text, so the duplicate is inert.
+    //
+    // Adopted once per document and never removed: the rule text is constant,
+    // and every `document.adoptedStyleSheets` change is a full-document
+    // restyle in WebKit (~15ms each on a 16k-element page). Per-instance
+    // adopt/release made a 4-media open pay 7 of those inside the open/close
+    // frames. A permanently adopted sheet costs one restyle on the first
+    // mount, ever; the rule is inert without lightbox media in the document.
     React.useInsertionEffect(() => {
-      const sheet = insertLibrarySheet(MEDIA_FILL_CSS, MEDIA_FILL_MARKER);
-      return () => sheet.release();
+      ensureLibrarySheet(MEDIA_FILL_MARKER, () => MEDIA_FILL_CSS);
     }, []);
 
     const rendered = useRender({

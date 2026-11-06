@@ -28,6 +28,7 @@ const STYLE_MARKER = 'data-ramka-lightbox-vt-styles';
 
 function buildCss(): string {
   const vt = LightboxDocumentDataAttributes.viewTransition;
+  const isolate = LightboxDocumentDataAttributes.viewTransitionIsolate;
   const crossfade = LightboxDocumentDataAttributes.crossfade;
   const slides = LightboxSlidesDataAttributes.slides;
   const vars = LightboxDocumentCssVars;
@@ -47,15 +48,71 @@ function buildCss(): string {
   // snapshots — plus-lighter stays opaque.
   const dissolveDuration = `calc(${duration} * 0.48)`;
 
+  // Timing + phase vars published STATICALLY, keyed on the attributes the
+  // morph engine already flips — and declared on the `::view-transition`
+  // pseudo (the root of the snapshot tree, which every other VT pseudo
+  // inherits from), NOT on `:root` itself. Both the old inline writes and
+  // root-scoped rules change inherited custom properties of `<html>`, which
+  // invalidates computed style for the entire document — WebKit pays that as
+  // a full restyle (~75ms on a 16k-element page) inside the capture flush.
+  // Scoped to the pseudo, arming them invalidates only the snapshot tree.
+  // The preset table is finite, so every preset's values can be enumerated
+  // ahead of time.
+  const presetTimingRules = Object.entries(VIEW_TRANSITION_PRESETS)
+    .map(
+      ([name, spec]) => `
+:root[${LightboxDocumentDataAttributes.viewTransitionPreset}="${name}"]::view-transition {
+  ${vars.vtDuration}: ${spec.duration}ms;
+  ${vars.vtEasing}: ${spec.cssEasing};
+  ${vars.vtCrossfadeCloseEasing}: ${spec.cssCrossfadeCloseEasing};
+  ${vars.vtRootEasing}: ${spec.cssRootEasing};
+}`,
+    )
+    .join('\n');
+
   return `
 /* Isolate the lightbox morph from the rest of the page. startViewTransition
    captures the WHOLE document, so any consumer element carrying its own
    view-transition-name would be lifted into a separate group and painted on
    the VT layer over the backdrop. Neutralize every name while the morph runs;
    the morph target re-declares its name inline with !important, which
-   outranks this author-!important rule on specificity. */
-:root[${vt}] * {
+   outranks this author-!important rule on specificity.
+
+   Armed via its own attribute — NOT ${vt} — and only when the page actually
+   declares foreign names (see vt-name-isolation.ts). Flipping a root
+   attribute that a universal descendant rule keys on invalidates style for
+   the entire document — at 20k elements that's a ~120ms restyle at capture
+   and another ~60ms at teardown, in every engine. Pages with no names to
+   neutralize (the overwhelmingly common case) skip that bill entirely. */
+:root[${isolate}] * {
   view-transition-name: none !important;
+}
+
+${presetTimingRules}
+
+/* Hard-cut snapshot opacities and the radius from/to derivation, by phase
+   (see the hard-cut rules below and applyMorphState for the rationale).
+   Published on the ::view-transition pseudo instead of inline on <html> —
+   see the preset-timing comment above. Under crossfade the opacity vars are
+   inert anyway (the crossfade rules override the consuming 'opacity'
+   declarations with 'revert !important'), so they can be keyed on the phase
+   attribute alone. The trigger/item radius pair is inline on <html> (per
+   morph, deduplicated); the pseudo inherits from the root element, so the
+   var() references resolve. */
+:root[${vt}]::view-transition {
+  ${vars.morphOldOpacity}: 1;
+}
+
+:root[${vt}="opening"]::view-transition {
+  ${vars.morphNewOpacity}: 1;
+  ${vars.morphBorderRadiusFrom}: var(${vars.morphRadiusTrigger}, 0px);
+  ${vars.morphBorderRadiusTo}: var(${vars.morphRadiusItem}, 0px);
+}
+
+:root[${vt}="closing"]::view-transition {
+  ${vars.morphNewOpacity}: 0;
+  ${vars.morphBorderRadiusFrom}: var(${vars.morphRadiusItem}, 0px);
+  ${vars.morphBorderRadiusTo}: var(${vars.morphRadiusTrigger}, 0px);
 }
 
 /* The morph-target hide rule (opacity zero plus its during-VT transition

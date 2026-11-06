@@ -14,6 +14,8 @@ import {
 import { LightboxContentCssVars } from './lightbox-css-vars';
 import type { InitializedRef } from '../react-compat';
 
+const useLayoutEffect = typeof window !== 'undefined' ? React.useLayoutEffect : React.useEffect;
+
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
@@ -105,6 +107,14 @@ const supportsLinearEasing =
 // ---------------------------------------------------------------------------
 
 interface PullToDismissOptions {
+  /**
+   * The Root's `open` state. A reopen can land while Content is still mounted
+   * from the previous close (Android Blink holds the portal mounted through
+   * the close View Transition, and a close interrupted by a reopen never
+   * unmounts) — the opening edge is when leftover dismiss state from that
+   * close gets reset.
+   */
+  open: boolean;
   contentRef: React.RefObject<HTMLElement | null>;
   backdropRef: React.RefObject<HTMLElement | null>;
   /** The currently-active slide element, tracked in context by Lightbox.Item. */
@@ -141,6 +151,7 @@ interface PullToDismissOptions {
 // ---------------------------------------------------------------------------
 
 function usePullToDismiss({
+  open,
   contentRef,
   backdropRef,
   activeItemRef,
@@ -159,6 +170,10 @@ function usePullToDismiss({
   const isPullingRef = React.useRef(false);
   const animationRef = React.useRef<Animation | null>(null);
   const dragTargetRef = React.useRef<HTMLElement | null>(null);
+  // The element a committed dismiss left transformed (pulled offscreen). Kept
+  // so a reopen that reuses the mounted tree can clear that inline transform —
+  // nothing else resets it (on a normal close the element unmounts with it).
+  const dismissedTargetRef = React.useRef<HTMLElement | null>(null);
   // Last *displayed* (damped) vertical offset, used as the spring amplitude so
   // the release velocity maps to a correctly-scaled follow-through.
   const lastAppliedYRef = React.useRef(0);
@@ -352,17 +367,53 @@ function usePullToDismiss({
 
   const computeVelocity = React.useCallback(() => computePullVelocity(velocityHistoryRef.current), []);
 
+  // Clear everything a committed dismiss deliberately leaves behind for the
+  // close animation: `data-pull-dismissing` (chrome stays hidden through the
+  // close), the pull progress + snap vars (backdrop stays faded), the wheel
+  // momentum latches, and the dismissed item's inline transform. Idempotent —
+  // all no-ops after a close that unmounted normally.
+  const resetDismissState = React.useCallback(() => {
+    wheelDismissedRef.current = false;
+    wheelTailRef.current = false;
+    const dismissed = dismissedTargetRef.current;
+    if (dismissed) {
+      dismissed.style.transform = '';
+      dismissedTargetRef.current = null;
+    }
+    for (const el of [contentRef.current, backdropRef.current]) {
+      if (!el) continue;
+      el.removeAttribute('data-pulling');
+      el.removeAttribute('data-pull-snapping');
+      el.removeAttribute('data-pull-dismissing');
+      el.style.removeProperty(PULL_PROGRESS_VAR);
+      el.style.removeProperty(PULL_SNAP_DURATION_VAR);
+      el.style.removeProperty(PULL_SNAP_EASING_VAR);
+    }
+  }, [contentRef, backdropRef]);
+
+  // Reset on the OPENING edge, not on mount: when a reopen interrupts an
+  // in-flight close, Content (and this hook) never unmounted, so the mount
+  // reset below doesn't run and the previous dismiss's state would leak into
+  // the new session — backdrop stuck faded at the stale pull progress, chrome
+  // stuck hidden by `data-pull-dismissing`, and taps refused by the zoom
+  // gesture (it treats that attribute as "pull in progress"). Never on the
+  // closing edge: `data-pull-dismissing` must survive the close animation.
+  // Layout effect: the reveal commit runs inside the open View Transition's
+  // update callback, so the stale state has to be gone synchronously, before
+  // the transition captures and paints the new state.
+  useLayoutEffect(() => {
+    if (!open) return;
+    resetDismissState();
+  }, [open, resetDismissState]);
+
   React.useEffect(() => {
     if (disabled) return;
     const el = contentRef.current;
     if (!el) return;
 
-    // Fresh mount — clear any dismiss latch / pull-dismiss flag left over from
-    // a prior close (in case the same element is reused).
-    wheelDismissedRef.current = false;
-    wheelTailRef.current = false;
-    el.removeAttribute('data-pull-dismissing');
-    el.removeAttribute('data-pull-snapping');
+    // Fresh mount — clear any dismiss state left over from a prior close (in
+    // case the same element is reused).
+    resetDismissState();
 
     const handlePointerDown = (event: PointerEvent) => {
       // Touch-only gesture — ignore mouse and pen
@@ -481,6 +532,7 @@ function usePullToDismiss({
         el.setAttribute('data-pull-dismissing', '');
         el.removeAttribute('data-pulling');
         backdropRef.current?.removeAttribute('data-pulling');
+        dismissedTargetRef.current = dragTargetRef.current;
         dragTargetRef.current = null;
         onClose();
       } else {
@@ -558,6 +610,7 @@ function usePullToDismiss({
         el.setAttribute('data-pull-dismissing', '');
         el.removeAttribute('data-pulling');
         backdropRef.current?.removeAttribute('data-pulling');
+        dismissedTargetRef.current = dragTargetRef.current;
         dragTargetRef.current = null;
         onClose();
       } else {
@@ -731,7 +784,7 @@ function usePullToDismiss({
       }
       clearTransform();
     };
-  }, [disabled, contentRef, backdropRef, activeItemRef, destinationMorphElementRef, stageRef, getZoom, onClose, isScrollingRef, applyTransform, clearTransform, snapBack, cleanup, computeVelocity, resolveDragTarget]);
+  }, [disabled, contentRef, backdropRef, activeItemRef, destinationMorphElementRef, stageRef, getZoom, onClose, isScrollingRef, applyTransform, clearTransform, snapBack, cleanup, computeVelocity, resolveDragTarget, resetDismissState]);
 }
 
 export { usePullToDismiss };

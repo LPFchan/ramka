@@ -10,6 +10,20 @@ const noop = () => {
   /* controlled prop placeholder */
 };
 
+/**
+ * Pretend the environment is a touch device (jsdom reports zero touch
+ * points). The selection guard only arms on touch-capable devices — the
+ * text-selection bug it prevents is touch-driven. Returns a restore fn.
+ */
+function mockTouchDevice(points = 5) {
+  const original = Object.getOwnPropertyDescriptor(navigator, 'maxTouchPoints');
+  Object.defineProperty(navigator, 'maxTouchPoints', { value: points, configurable: true });
+  return () => {
+    if (original) Object.defineProperty(navigator, 'maxTouchPoints', original);
+    else delete (navigator as { maxTouchPoints?: number }).maxTouchPoints;
+  };
+}
+
 import { LightboxBackdrop } from './lightbox-backdrop';
 import { LightboxCaption } from './lightbox-caption';
 import { LightboxClose } from './lightbox-close';
@@ -2006,13 +2020,35 @@ describe('Lightbox', () => {
       expect(document.documentElement.style.getPropertyValue('scrollbar-width')).toBe('');
     });
 
-    it('disables document text selection while open, then restores it on close', async () => {
+    it('disables document text selection while open on touch devices, then restores it on close', async () => {
       // Regression: iOS Safari tap→pan while zoomed selected the page behind
       // the lightbox. The scroll lock sets user-select on <html> for the
       // open lifetime.
+      const restoreTouch = mockTouchDevice();
+      try {
+        render(<TestLightbox defaultOpen />);
+
+        expect(document.documentElement.style.userSelect).toBe('none');
+
+        fireEvent.click(screen.getByTestId('close'));
+        await flushMicrotasks();
+
+        expect(document.documentElement.style.userSelect).toBe('');
+      } finally {
+        restoreTouch();
+      }
+    });
+
+    it('never touches user-select on devices without touch', async () => {
+      // The selection bug is touch-driven; a mouse can't select the page
+      // behind the fullscreen overlay. Skipping the guard also skips two
+      // whole-document restyles (`user-select` is inherited, so writing it
+      // on <html> invalidates every element's computed style).
       render(<TestLightbox defaultOpen />);
 
-      expect(document.documentElement.style.userSelect).toBe('none');
+      // Scroll is locked, but selection is left alone.
+      expect(document.documentElement.style.overflow).toBe('hidden');
+      expect(document.documentElement.style.userSelect).toBe('');
 
       fireEvent.click(screen.getByTestId('close'));
       await flushMicrotasks();
@@ -2059,6 +2095,7 @@ describe('Lightbox', () => {
       document.documentElement.removeAttribute('data-ramka-view-transition');
       document.documentElement.removeAttribute('data-ramka-crossfade');
       document.documentElement.removeAttribute('data-ramka-vt-preset');
+      document.documentElement.removeAttribute('data-ramka-vt-isolate');
       document.documentElement.style.removeProperty('--lightbox-morph-border-radius-from');
       document.documentElement.style.removeProperty('--lightbox-morph-border-radius-to');
       document.documentElement.style.removeProperty('--lightbox-morph-old-opacity');
@@ -2111,6 +2148,54 @@ describe('Lightbox', () => {
       expect(document.documentElement).not.toHaveAttribute('data-ramka-view-transition');
     });
 
+    it('defers the user-select guard until the open morph finishes', async () => {
+      // `user-select` is inherited: writing it on <html> inside the capture
+      // window forces a full-document restyle. The VT open locks scroll at
+      // reveal but applies the selection guard only in handleOpenComplete.
+      const restoreTouch = mockTouchDevice();
+      try {
+        const { resolveFinished } = mockViewTransitionAPI();
+        render(<TestLightbox viewTransition />);
+        fireEvent.click(screen.getByTestId('trigger-0'));
+        // Scroll is locked from the reveal, but selection stays untouched…
+        expect(document.documentElement.style.overflow).toBe('hidden');
+        expect(document.documentElement.style.userSelect).toBe('');
+
+        // …until the morph settles.
+        await act(async () => resolveFinished());
+        expect(document.documentElement.style.userSelect).toBe('none');
+      } finally {
+        restoreTouch();
+      }
+    });
+
+    it('does not arm name isolation on a page without foreign view-transition-names', () => {
+      // Arming flips a root attribute a universal descendant rule keys on —
+      // a whole-document restyle the common (name-free) page must never pay.
+      mockViewTransitionAPI();
+      render(<TestLightbox viewTransition />);
+      fireEvent.click(screen.getByTestId('trigger-0'));
+      expect(document.documentElement).toHaveAttribute('data-ramka-view-transition');
+      expect(document.documentElement).not.toHaveAttribute('data-ramka-vt-isolate');
+    });
+
+    it('arms name isolation when the page declares a foreign view-transition-name', async () => {
+      const foreign = document.createElement('div');
+      foreign.setAttribute('style', 'view-transition-name: consumer-hero');
+      document.body.appendChild(foreign);
+      try {
+        const { resolveFinished } = mockViewTransitionAPI();
+        render(<TestLightbox viewTransition />);
+        fireEvent.click(screen.getByTestId('trigger-0'));
+        expect(document.documentElement).toHaveAttribute('data-ramka-vt-isolate');
+
+        await act(async () => resolveFinished());
+        expect(document.documentElement).not.toHaveAttribute('data-ramka-vt-isolate');
+      } finally {
+        foreign.remove();
+      }
+    });
+
     it('cleans up CSS custom properties after open transition finishes', async () => {
       const { resolveFinished } = mockViewTransitionAPI();
       render(<TestLightbox viewTransition />);
@@ -2126,30 +2211,27 @@ describe('Lightbox', () => {
       expect(docStyle.getPropertyValue('--lightbox-vt-root-easing')).toBe('');
     });
 
-    it('writes the default timing preset onto documentElement during morph', async () => {
+    it('publishes the default timing preset as the vt-preset attribute during morph', async () => {
+      // Timing vars are no longer written inline on <html> — inherited
+      // custom-property writes on the root are a full-document restyle in
+      // WebKit. The attribute keys static per-preset rules on the
+      // ::view-transition pseudo (see vt-structural-styles.ts).
       const { resolveFinished } = mockViewTransitionAPI();
       render(<TestLightbox viewTransition />);
 
       fireEvent.click(screen.getByTestId('trigger-0'));
       const docEl = document.documentElement;
       expect(docEl).toHaveAttribute('data-ramka-vt-preset', 'default');
-      expect(docEl.style.getPropertyValue('--lightbox-vt-duration')).toBe('360ms');
-      expect(docEl.style.getPropertyValue('--lightbox-vt-easing')).toBe(
-        'cubic-bezier(0.44, 0.58, 0, 1)',
+      expect(docEl.style.getPropertyValue('--lightbox-vt-duration')).toBe('');
+
+      const structural = document.querySelector('style[data-ramka-lightbox-vt-styles]');
+      expect(structural?.textContent).toContain(
+        ':root[data-ramka-vt-preset="default"]::view-transition',
       );
-      expect(docEl.style.getPropertyValue('--lightbox-vt-crossfade-close-easing')).toBe(
-        'cubic-bezier(0.22, 0, 0.35, 1)',
-      );
-      expect(docEl.style.getPropertyValue('--lightbox-vt-root-easing')).toBe(
-        'cubic-bezier(0.16, 1, 0.3, 1)',
-      );
+      expect(structural?.textContent).toContain('--lightbox-vt-duration: 360ms');
 
       await act(async () => resolveFinished());
       expect(docEl).not.toHaveAttribute('data-ramka-vt-preset');
-      expect(docEl.style.getPropertyValue('--lightbox-vt-duration')).toBe('');
-      expect(docEl.style.getPropertyValue('--lightbox-vt-easing')).toBe('');
-      expect(docEl.style.getPropertyValue('--lightbox-vt-crossfade-close-easing')).toBe('');
-      expect(docEl.style.getPropertyValue('--lightbox-vt-root-easing')).toBe('');
     });
 
     it('writes a named timing preset (viewTransition="spring") onto documentElement', async () => {
@@ -2175,11 +2257,15 @@ describe('Lightbox', () => {
       fireEvent.click(screen.getByTestId('trigger-0'));
       const docEl = document.documentElement;
       expect(docEl).toHaveAttribute('data-ramka-vt-preset', 'spring');
-      expect(docEl.style.getPropertyValue('--lightbox-vt-duration')).toBe('450ms');
+
+      const structural = document.querySelector('style[data-ramka-lightbox-vt-styles]');
+      expect(structural?.textContent).toContain(
+        ':root[data-ramka-vt-preset="spring"]::view-transition',
+      );
+      expect(structural?.textContent).toContain('--lightbox-vt-duration: 450ms');
 
       await act(async () => resolveFinished());
       expect(docEl).not.toHaveAttribute('data-ramka-vt-preset');
-      expect(docEl.style.getPropertyValue('--lightbox-vt-duration')).toBe('');
     });
 
     it('always publishes the preset timing vars on the Portal host (skin motion clock)', async () => {
@@ -2274,13 +2360,11 @@ describe('Lightbox', () => {
       await act(async () => resolvers[0]!());
       expect(docEl).toHaveAttribute('data-ramka-view-transition', 'opening');
       expect(docEl).toHaveAttribute('data-ramka-vt-preset', 'spring');
-      expect(docEl.style.getPropertyValue('--lightbox-vt-duration')).toBe('450ms');
 
       // B's own finalizer still cleans up normally.
       await act(async () => resolvers[1]!());
       expect(docEl).not.toHaveAttribute('data-ramka-view-transition');
       expect(docEl).not.toHaveAttribute('data-ramka-vt-preset');
-      expect(docEl.style.getPropertyValue('--lightbox-vt-duration')).toBe('');
 
       // Both Roots are left open, so their scroll locks overlap: each saved
       // the other's `overflow` as its "original", and unmount restore order
@@ -3409,7 +3493,7 @@ describe('Lightbox', () => {
         originalRect = undefined;
       });
 
-      it('writes from/to radius vars for the VT group CSS without mutating live radii', () => {
+      it('writes direction-independent radius vars for the VT group CSS without mutating live radii', () => {
         mockViewTransitionAPI();
         mockTargetBox();
         render(
@@ -3431,8 +3515,13 @@ describe('Lightbox', () => {
 
         fireEvent.click(screen.getByTestId('trigger-0'));
 
-        expect(document.documentElement.style.getPropertyValue('--lightbox-morph-border-radius-from')).toBe('32px');
-        expect(document.documentElement.style.getPropertyValue('--lightbox-morph-border-radius-to')).toBe('8px');
+        // Stored per SIDE (trigger/item), not per direction (from/to): the
+        // same values then serve open and close, so re-morphing skips the
+        // writes entirely (root custom-property writes are full-document
+        // restyles in WebKit). Static phase-keyed rules in the structural
+        // sheet derive --lightbox-morph-border-radius-from/to from this pair.
+        expect(document.documentElement.style.getPropertyValue('--lightbox-morph-radius-trigger')).toBe('32px');
+        expect(document.documentElement.style.getPropertyValue('--lightbox-morph-radius-item')).toBe('8px');
         // Live elements keep their radii — shape morph is CSS on the VT group.
         expect(screen.getByTestId('trigger-0').style.borderRadius).toBe('32px');
         expect(screen.getByTestId('item-0').querySelector('img')!.style.borderRadius).toBe('8px');
@@ -6970,6 +7059,65 @@ describe('Lightbox', () => {
       await flushMicrotasks();
 
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    });
+
+    it('reopening during an in-flight close resets the pull-dismiss state', async () => {
+      // Hold the close open-ended: a consumer exit transition that never
+      // settles keeps Content mounted after a dismiss — the same window as the
+      // Android Blink VT close hold, where the portal survives until
+      // `finished`. A reopen landing in this window reuses the mounted tree
+      // (the hook never re-mounts), so the dismiss state deliberately left for
+      // the close animation must be cleared on the opening edge instead:
+      // otherwise the backdrop stays faded at the stale pull progress, chrome
+      // stays hidden by `data-pull-dismissing`, and the zoom gesture refuses
+      // taps (it treats that attribute as "pull in progress").
+      vi.mocked(Element.prototype.getAnimations).mockReturnValue([
+        { finished: new Promise(() => {}) } as unknown as Animation,
+      ]);
+
+      render(
+        <LightboxRoot defaultOpen>
+          <LightboxTrigger index={0} data-testid="trigger">
+            Open
+          </LightboxTrigger>
+          <LightboxPortal>
+            <LightboxContent data-testid="content" aria-label="Reopen after dismiss">
+              <SlidesHost>
+                <LightboxItem index={0}>
+                  <img src="test.jpg" alt="test" />
+                </LightboxItem>
+              </SlidesHost>
+            </LightboxContent>
+          </LightboxPortal>
+        </LightboxRoot>,
+      );
+      const content = screen.getByTestId('content');
+      const img = screen.getByAltText('test');
+      const item = document.querySelector('[data-ramka-item]') as HTMLElement;
+
+      act(() => {
+        dispatchPointer(img, 'pointerdown', { clientX: 200, clientY: 200 });
+        dispatchPointer(content, 'pointermove', { clientX: 200, clientY: 210 });
+        dispatchPointer(content, 'pointermove', { clientX: 200, clientY: 380 });
+        dispatchPointer(content, 'pointerup', { clientX: 200, clientY: 380 });
+      });
+      await flushMicrotasks();
+
+      // Close committed, but the held exit animation keeps Content mounted —
+      // with the dismiss state still applied for the close animation.
+      expect(content).toHaveAttribute('data-pull-dismissing');
+      expect(content.style.getPropertyValue('--lightbox-pull-progress')).not.toBe('');
+      expect(item.style.transform).not.toBe('');
+
+      // Reopen while the close is still in flight.
+      act(() => {
+        screen.getByTestId('trigger').click();
+      });
+
+      expect(content).not.toHaveAttribute('data-pull-dismissing');
+      expect(content).not.toHaveAttribute('data-pulling');
+      expect(content.style.getPropertyValue('--lightbox-pull-progress')).toBe('');
+      expect(item.style.transform).toBe('');
     });
 
     it('snaps back when released below dismiss threshold', () => {

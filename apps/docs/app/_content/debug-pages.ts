@@ -43,6 +43,18 @@ export const debugPages = {
     description:
       'Property page with hero grid + remaining photos; lightbox shows all photos in a swipeable Lightbox.Slides viewport.',
   },
+  morphEasterEggs: {
+    href: '/debug/morph-easter-eggs',
+    title: 'Morph easter eggs',
+    description:
+      "Five candidate easter eggs for the landing page's morph bento card — the same card wired to different custom lightboxes.",
+  },
+  heavyFeed: {
+    href: '/debug/heavy-feed',
+    title: 'Heavy feed',
+    description:
+      'Feed-shaped stress page for morph profiling — URL-driven DOM size (500–20k elements), synthetic main-thread load, and live-update churn.',
+  },
 } as const;
 
 export const debugPagesList = Object.values(debugPages);

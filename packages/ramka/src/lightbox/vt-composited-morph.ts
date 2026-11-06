@@ -1,9 +1,14 @@
 import { VIEW_TRANSITION_NAME } from './vt-constants';
-import { LightboxDocumentCssVars } from './lightbox-css-vars';
+import { isFirefox } from './is-firefox';
 import { LightboxDocumentDataAttributes } from './lightbox-data-attributes';
 import { compensatedMorphRadiusAt, parseMorphRadiusList } from './vt-morph-radius';
-import { morphTiming } from './vt-timing';
-import { insertLibrarySheet, type LibrarySheet } from './lightbox-style-sheets';
+import { morphTiming, VIEW_TRANSITION_PRESETS } from './vt-timing';
+import { LightboxDocumentCssVars } from './lightbox-css-vars';
+import {
+  insertLibrarySheet,
+  supportsConstructedSheets,
+  type LibrarySheet,
+} from './lightbox-style-sheets';
 import { ensureLibrarySheet } from './vt-style-sheets';
 
 // ---------------------------------------------------------------------------
@@ -89,8 +94,116 @@ const COMPOSITED_ATTR = 'data-ramka-vt-composited';
  */
 const COMPOSITED_CSS_ATTR = 'data-ramka-vt-composited-css';
 
-/** Unique suffix for per-transition @keyframes names (forces fresh starts). */
-let cssAnimationSeq = 0;
+/**
+ * Fixed @keyframes names for the WebKit CSS-animation path. Fixed on purpose:
+ * the rules that reference them (see {@link ensureCompositedCssStaticRules})
+ * are injected once and never change — WebKit full-restyles the document on
+ * ANY style-rule insertion/removal/content change in an adopted sheet, but
+ * scopes `@keyframes` insertions cheaply. So per morph the only sheet
+ * mutation is inserting these keyframes with fresh contents.
+ */
+const CSS_KEYFRAMES = {
+  group: 'ramka-vt-cm-group',
+  radius: 'ramka-vt-cm-radius',
+  old: 'ramka-vt-cm-old',
+  new: 'ramka-vt-cm-new',
+} as const;
+
+/**
+ * Constructed sheet holding the CURRENT morph's keyframes for the WebKit
+ * CSS-animation path.
+ *
+ * Lifecycle (every step chosen from measurements on a 16k-element page):
+ *
+ * - `@keyframes` INSERTS are the one sheet mutation WebKit
+ *   invalidation-scopes cheaply — free even mid-`ready`.
+ * - `deleteRule` and `replaceSync` (even on a keyframes-only sheet) are a
+ *   ~70-250ms full-document restyle NO MATTER WHEN they run — before the
+ *   capture, mid-`ready`, or inside the teardown's own restyle. So rules are
+ *   never deleted.
+ * - Swapping the `document.adoptedStyleSheets` array IS subsumed by the
+ *   capture flush when it happens right before `startViewTransition`.
+ *
+ * The catch: the cheap-insert rule only holds for names NOT currently
+ * defined in the document — REDEFINING a live name (inserting a duplicate)
+ * costs the same full restyle as deleting it. So the whole lifecycle is
+ * about guaranteeing the sheet is EMPTY by the time a morph inserts:
+ *
+ * - {@link scheduleCssPathSheetCleanup} empties it ~1.5s after each
+ *   transition finishes — at idle, where a one-off restyle stall is not
+ *   tied to any animation or input the user is watching.
+ * - If a new morph starts before that (rapid reopen, quick pull-to-dismiss),
+ *   the pre-capture prewarm empties it instead; the deleteRule restyle then
+ *   partially folds into the capture flush (~+70ms on that open — the rare
+ *   worst case, still well under the old per-transition sheet's cost).
+ */
+let cssPathSheet: CSSStyleSheet | null = null;
+
+/** Pending idle-cleanup timer for {@link cssPathSheet}. */
+let cssPathCleanupTimer: ReturnType<typeof setTimeout> | null = null;
+
+/** jsdom fallback (no constructed sheets): per-morph <style>, as before. */
+let cssPathStyleEl: LibrarySheet | null = null;
+
+function clearCssPathSheetRules(): void {
+  if (!cssPathSheet) return;
+  while (cssPathSheet.cssRules.length > 0) {
+    cssPathSheet.deleteRule(cssPathSheet.cssRules.length - 1);
+  }
+}
+
+/**
+ * Adopt the keyframes sheet on first use and make sure it is empty —
+ * pre-capture only (see cssPathSheet).
+ */
+function prewarmCompositedCssSheet(): void {
+  if (typeof document === 'undefined' || !supportsConstructedSheets()) return;
+  if (cssPathCleanupTimer != null) {
+    clearTimeout(cssPathCleanupTimer);
+    cssPathCleanupTimer = null;
+  }
+  if (!cssPathSheet) {
+    cssPathSheet = new CSSStyleSheet();
+    document.adoptedStyleSheets = [...document.adoptedStyleSheets, cssPathSheet];
+    return;
+  }
+  clearCssPathSheetRules();
+}
+
+/**
+ * Empty the sheet once the morph is long over, so the NEXT morph's inserts
+ * hit undefined names (the cheap path — see cssPathSheet). The delay clears
+ * the UA teardown comfortably; the restyle this forces runs at idle.
+ */
+function scheduleCssPathSheetCleanup(): void {
+  if (!cssPathSheet || cssPathSheet.cssRules.length === 0) return;
+  if (cssPathCleanupTimer != null) clearTimeout(cssPathCleanupTimer);
+  cssPathCleanupTimer = setTimeout(() => {
+    cssPathCleanupTimer = null;
+    // A morph is running again — its prewarm already cleaned, or its rules
+    // are live. Either way its finished handler reschedules.
+    if (
+      document.documentElement.hasAttribute(COMPOSITED_CSS_ATTR) ||
+      document.documentElement.hasAttribute(LightboxDocumentDataAttributes.viewTransition)
+    ) {
+      return;
+    }
+    clearCssPathSheetRules();
+  }, 1500);
+}
+
+/** Insert this morph's keyframes (mid-`ready`; empty sheet — see above). */
+function insertCompositedKeyframes(rules: readonly string[]): void {
+  if (supportsConstructedSheets()) {
+    if (!cssPathSheet) prewarmCompositedCssSheet();
+    for (const rule of rules) {
+      cssPathSheet!.insertRule(rule, cssPathSheet!.cssRules.length);
+    }
+    return;
+  }
+  cssPathStyleEl?.release();
+  cssPathStyleEl = insertLibrarySheet(rules.join('\n'), 'data-ramka-vt-composited-css');
+}
 
 /**
  * Physical top-left anchor for the old/new snapshots, `top`/`left` only.
@@ -150,10 +263,20 @@ function keyframesCss(
   name: string,
   frames: Keyframe[],
   prop: 'transform' | 'borderRadius',
+  /**
+   * Extra declarations for the first and last frame — used to carry the
+   * snapshots' captured width/height inside the keyframes (equal endpoint
+   * values interpolate to a constant), so the static rules keyed on
+   * {@link COMPOSITED_CSS_ATTR} never need per-morph values.
+   */
+  endpointDecls?: string,
 ): string {
   const cssProp = prop === 'borderRadius' ? 'border-radius' : 'transform';
   const body = frames
-    .map((f) => `${((f.offset as number) * 100).toFixed(3)}% { ${cssProp}: ${String(f[prop])}; }`)
+    .map((f, i) => {
+      const extra = endpointDecls && (i === 0 || i === frames.length - 1) ? ` ${endpointDecls}` : '';
+      return `${((f.offset as number) * 100).toFixed(3)}% { ${cssProp}: ${String(f[prop])};${extra} }`;
+    })
     .join('\n');
   return `@keyframes ${name} {\n${body}\n}`;
 }
@@ -192,6 +315,46 @@ function ensureStyleInjected() {
   ${SNAPSHOT_ANCHOR}
   transform-origin: 0 0 !important;
   animation: none !important;
+}
+`,
+  );
+}
+
+/**
+ * Static rules for the WebKit CSS-animation path, injected once. They carry
+ * everything EXCEPT per-morph values: fixed animation names (whose keyframes
+ * are re-inserted per morph — see {@link CSS_KEYFRAMES}), timing from the
+ * preset var published on the `::view-transition` pseudo, and the snapshot
+ * anchor. Per-morph geometry (captured snapshot width/height) travels inside
+ * the keyframes' endpoint frames, so no style RULE ever changes per morph.
+ *
+ * Cascade: this sheet is adopted after the structural sheet, so its
+ * `!important` longhands beat the structural hard-cut `animation: none
+ * !important` on the snapshots, and the keyframed width/height beat the
+ * structural (non-important) `width/height: 100%`.
+ */
+function ensureCompositedCssStaticRules() {
+  const timing = `
+  animation-duration: var(${LightboxDocumentCssVars.vtDuration}, ${VIEW_TRANSITION_PRESETS.default.duration}ms) !important;
+  animation-timing-function: linear !important;
+  animation-delay: 0s !important;
+  animation-fill-mode: both !important;`;
+  ensureLibrarySheet(
+    'data-ramka-vt-composited-css-static',
+    () => `
+:root[${COMPOSITED_CSS_ATTR}]${GROUP_PSEUDO} {
+  transform-origin: 0 0 !important;
+  animation-name: ${CSS_KEYFRAMES.group}, ${CSS_KEYFRAMES.radius} !important;${timing}
+}
+:root[${COMPOSITED_CSS_ATTR}]:not([${LightboxDocumentDataAttributes.crossfade}])${OLD_PSEUDO} {
+  ${SNAPSHOT_ANCHOR}
+  transform-origin: 0 0 !important;
+  animation-name: ${CSS_KEYFRAMES.old} !important;${timing}
+}
+:root[${COMPOSITED_CSS_ATTR}]:not([${LightboxDocumentDataAttributes.crossfade}])${NEW_PSEUDO} {
+  ${SNAPSHOT_ANCHOR}
+  transform-origin: 0 0 !important;
+  animation-name: ${CSS_KEYFRAMES.new} !important;${timing}
 }
 `,
   );
@@ -344,10 +507,22 @@ const fmt = (n: number) => Number(n.toFixed(4));
 // Upgrade
 // ---------------------------------------------------------------------------
 
+/** Morph group clip radii, as resolved by the morph engine (px lists). */
+interface MorphRadii {
+  from: string | null;
+  to: string | null;
+}
+
 /**
  * If the composited-morph flag is on, upgrade the just-started morph to
  * transform-only compositor animations once its pseudo-element tree is live.
  * No-op (stock UA morph) when the flag is off or any precondition fails.
+ *
+ * `radii` comes from the morph engine, which already resolved both values —
+ * they used to be re-read here off `documentElement`'s computed style, but
+ * they no longer live there (the from/to vars are derived on the
+ * `::view-transition` pseudo; see vt-structural-styles.ts), and the forced
+ * computed-style read was a restyle inside the `ready` microtask anyway.
  *
  * `triggerTarget` is the live trigger-side morph element (when the morph has
  * one); it anchors the trigger endpoint against WebKit's broken capture
@@ -356,19 +531,24 @@ const fmt = (n: number) => Number(n.toFixed(4));
  */
 function maybeUpgradeToCompositedMorph(
   transition: UpgradeableTransition,
+  radii?: MorphRadii,
   triggerTarget?: HTMLElement | null,
 ): void {
   if (!isCompositedMorphEnabled()) return;
   if (!transition.ready) return;
 
   transition.ready
-    .then(() => upgrade(transition, triggerTarget ?? null))
+    .then(() => upgrade(transition, radii, triggerTarget ?? null))
     .catch(() => {
       // ready rejects when the transition is skipped — nothing to upgrade.
     });
 }
 
-function upgrade(transition: UpgradeableTransition, triggerTarget: HTMLElement | null): void {
+function upgrade(
+  transition: UpgradeableTransition,
+  radii: MorphRadii | undefined,
+  triggerTarget: HTMLElement | null,
+): void {
   const docEl = document.documentElement;
 
   // Crossfade morphs replace the group animation only: snapshots keep their
@@ -524,13 +704,8 @@ function upgrade(transition: UpgradeableTransition, triggerTarget: HTMLElement |
     docEl.setAttribute(COMPOSITED_ATTR, '');
   }
 
-  const rootStyle = getComputedStyle(docEl);
-  const rFrom = parseMorphRadiusList(
-    rootStyle.getPropertyValue(LightboxDocumentCssVars.morphBorderRadiusFrom),
-  );
-  const rTo = parseMorphRadiusList(
-    rootStyle.getPropertyValue(LightboxDocumentCssVars.morphBorderRadiusTo),
-  );
+  const rFrom = parseMorphRadiusList(radii?.from ?? '');
+  const rTo = parseMorphRadiusList(radii?.to ?? '');
   const hasRadius = [...rFrom, ...rTo].some((r) => r > 0);
 
   const steps = Math.min(120, Math.max(24, Math.round(duration / 8)));
@@ -611,7 +786,6 @@ function upgrade(transition: UpgradeableTransition, triggerTarget: HTMLElement |
   });
 
   let created: Animation[] = [];
-  let styleEl: LibrarySheet | null = null;
 
   if (useCssAnimations) {
     // WebKit path: deliver the replacement as real CSS animations (WAAPI on
@@ -629,48 +803,41 @@ function upgrade(transition: UpgradeableTransition, triggerTarget: HTMLElement |
     // near-zero travel sits in the swallowed leading edge. The replacement
     // animations keep the transition (and its pseudo tree) alive until they
     // finish.
-    const id = ++cssAnimationSeq;
-    const gName = `ramka-vtg-${id}`;
-    const rName = `ramka-vtr-${id}`;
-    const oName = `ramka-vto-${id}`;
-    const nName = `ramka-vtn-${id}`;
-    const track = (name: string) => `${name} ${duration}ms linear ${-uaElapsed}ms both`;
-    const groupTracks = hasRadius ? `${track(gName)}, ${track(rName)}` : track(gName);
-
-    // Crossfade: group rules only — the snapshots keep their structural
-    // sizing and UA dissolve (see the sampling loop above).
-    const snapshotCss = isCrossfade
-      ? ''
-      : `
-${keyframesCss(oName, oldFrames, 'transform')}
-${keyframesCss(nName, newFrames, 'transform')}
-:root[${COMPOSITED_CSS_ATTR}]${OLD_PSEUDO} {
-  width: ${fmt(w0)}px;
-  height: ${fmt(h0)}px;
-  ${SNAPSHOT_ANCHOR}
-  transform-origin: 0 0 !important;
-  animation: ${track(oName)} !important;
-}
-:root[${COMPOSITED_CSS_ATTR}]${NEW_PSEUDO} {
-  width: ${fmt(w1)}px;
-  height: ${fmt(h1)}px;
-  ${SNAPSHOT_ANCHOR}
-  transform-origin: 0 0 !important;
-  animation: ${track(nName)} !important;
-}
-`;
-
-    styleEl = insertLibrarySheet(
-      `
-${keyframesCss(gName, groupFrames, 'transform')}
-${hasRadius ? keyframesCss(rName, radiusFrames, 'borderRadius') : ''}
-:root[${COMPOSITED_CSS_ATTR}]${GROUP_PSEUDO} {
-  transform-origin: 0 0 !important;
-  animation: ${groupTracks} !important;
-}
-${snapshotCss}`,
-      'data-ramka-vt-composited-css',
-    );
+    //
+    // Delivery: everything except the keyframes is STATIC (see
+    // ensureCompositedCssStaticRules). Per morph, only @keyframes with fixed
+    // names are inserted — the one sheet mutation WebKit does not answer with
+    // a full-document restyle. The old per-transition rule sheet stalled the
+    // first morph frame by ~100ms on large pages. No `-uaElapsed` delay
+    // compensation here: this runs in the `ready` microtask, before the UA
+    // animations produce their first frame, so their currentTime is 0.
+    //
+    // The radius track is always emitted (empty when radius-less) so the
+    // static rule's fixed animation-name list always resolves.
+    ensureCompositedCssStaticRules();
+    const keyframeRules = [
+      keyframesCss(CSS_KEYFRAMES.group, groupFrames, 'transform'),
+      keyframesCss(CSS_KEYFRAMES.radius, hasRadius ? radiusFrames : [], 'borderRadius'),
+    ];
+    if (!isCrossfade) {
+      // Crossfade morphs get group tracks only — the snapshots keep their
+      // structural sizing and UA dissolve (see the sampling loop above).
+      keyframeRules.push(
+        keyframesCss(
+          CSS_KEYFRAMES.old,
+          oldFrames,
+          'transform',
+          `width: ${fmt(w0)}px; height: ${fmt(h0)}px;`,
+        ),
+        keyframesCss(
+          CSS_KEYFRAMES.new,
+          newFrames,
+          'transform',
+          `width: ${fmt(w1)}px; height: ${fmt(h1)}px;`,
+        ),
+      );
+    }
+    insertCompositedKeyframes(keyframeRules);
     docEl.setAttribute(COMPOSITED_CSS_ATTR, '');
   } else {
     try {
@@ -696,9 +863,36 @@ ${snapshotCss}`,
 
     // Seamless handover: resume from the UA animation's painted progress (~0
     // on healthy devices). See the `uaElapsed` capture above for why this is
-    // progress-based rather than startTime-based.
-    if (uaElapsed > 0) {
-      for (const a of created) {
+    // progress-based, not anchored to the UA animation's original startTime.
+    //
+    // The anchoring differs per engine, and the difference is load-bearing:
+    //
+    // - Gecko assigns `startTime`, which resolves the play-pending state
+    //   synchronously (spec: setting start time clears the pending task). A
+    //   freshly `animate()`d animation stays play-pending until the next
+    //   refresh-driver tick, and Gecko styles pending pseudo-element
+    //   animations with NO effect output — the first styled frame after this
+    //   microtask would render the COMPOSITED_ATTR geometry contract
+    //   (`width/height: auto`) with zero counter-transforms: the old snapshot
+    //   flashes at its intrinsic captured size for one frame (worst on
+    //   pull-to-dismiss close). Back-dating by `uaElapsed` keeps the resume
+    //   progress identical.
+    //
+    // - Everywhere else (Blink reaches this branch) `currentTime` is assigned
+    //   instead — a HOLD time. The animation stays play-pending until its
+    //   first presented frame and only then anchors to the timeline, so the
+    //   morph always plays from its beginning. `startTime` here would anchor
+    //   the clock at THIS microtask: on a cold heavy open the first paint
+    //   lands 100–170ms later (chunk eval, first-time raster, cold style
+    //   caches) and the morph visibly skips its first ~6–10 frames. Blink
+    //   styles pending pseudo animations correctly, so it never needed the
+    //   synchronous resolve to begin with.
+    const now = document.timeline?.currentTime;
+    const resolvePendingSynchronously = isFirefox() && typeof now === 'number';
+    for (const a of created) {
+      if (resolvePendingSynchronously) {
+        a.startTime = (now as number) - uaElapsed;
+      } else if (uaElapsed > 0) {
         a.currentTime = uaElapsed;
       }
     }
@@ -706,10 +900,19 @@ ${snapshotCss}`,
 
   transition.finished.finally(() => {
     for (const a of created) a.cancel();
+    // Attribute removals only — they ride the UA's own teardown restyle for
+    // free. The keyframes are NOT deleted here (that restyle would not fold
+    // into the teardown's); they are inert once the attribute is gone and
+    // an idle cleanup empties the sheet shortly after (see cssPathSheet).
     docEl.removeAttribute(COMPOSITED_ATTR);
     docEl.removeAttribute(COMPOSITED_CSS_ATTR);
-    styleEl?.release();
+    scheduleCssPathSheetCleanup();
   });
 }
 
-export { maybeUpgradeToCompositedMorph, isCompositedMorphEnabled, parseScaleTranslate };
+export {
+  maybeUpgradeToCompositedMorph,
+  isCompositedMorphEnabled,
+  parseScaleTranslate,
+  prewarmCompositedCssSheet,
+};

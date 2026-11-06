@@ -824,6 +824,10 @@ export const generatedAttributes: Record<string, AttrRow[]> = {
       name: "data-ramka-vt-preset",
       description: "Present during a morph. Value is the active `viewTransition` timing preset name (`default`, `snappy`, `relaxed`, `spring`) — read by the composited morph and available to skin CSS for per-preset styling.",
     },
+    {
+      name: "data-ramka-vt-isolate",
+      description: "Present during a morph ONLY when the page declares foreign `view-transition-name`s that must be neutralized so they don't ride over the morph. Kept off otherwise: the rule's universal selector makes the attribute flip a full-document style invalidation, which on large DOMs is the dominant cost of starting (and finishing) a morph.",
+    },
   ],
   "api-use-trigger-context": [],
   "api-use-item-context": [],
@@ -902,12 +906,20 @@ export const generatedCssVariables: Record<string, CssVarRow[]> = {
   "api-csp-provider": [],
   "api-view-transition-document": [
     {
+      name: "--lightbox-morph-radius-trigger",
+      description: "Trigger-side border-radius for the morph group clip (interpolatable px). Written by the library onto `documentElement` during a morph — do not set it yourself.",
+    },
+    {
+      name: "--lightbox-morph-radius-item",
+      description: "Item-side border-radius for the morph group clip. Written by the library onto `documentElement` during a morph — do not set it yourself.",
+    },
+    {
       name: "--lightbox-morph-border-radius-from",
-      description: "Start border-radius for the morph group clip (interpolatable px).",
+      description: "Start border-radius for the morph group clip (interpolatable px). Derived from the trigger/item radius pair by the library's own view-transition rules, keyed on the morph direction.",
     },
     {
       name: "--lightbox-morph-border-radius-to",
-      description: "End border-radius for the morph group clip.",
+      description: "End border-radius for the morph group clip. Derived from the trigger/item radius pair like `--lightbox-morph-border-radius-from`.",
     },
     {
       name: "--lightbox-morph-old-opacity",
