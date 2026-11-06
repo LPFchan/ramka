@@ -26,7 +26,7 @@ const DIALOG_STOPS: Stop[] = [
 
 const PAGE_STOPS: Stop[] = [
   { id: 'docs', label: 'the Docs link in the header', zone: 'page' },
-  { id: 'pricing', label: 'the Pricing link in the header', zone: 'page' },
+  { id: 'blog', label: 'the Blog link in the header', zone: 'page' },
   { id: 'cart', label: 'the Add to cart button', zone: 'page' },
   { id: 'newsletter', label: 'the Newsletter link in the footer', zone: 'page' },
 ];
@@ -79,10 +79,20 @@ export function FocusTrapDemo() {
     <figure className="my-8 rounded-2xl border border-neutral-200 p-4 md:p-5 dark:border-neutral-800">
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
         <div className="flex items-center gap-2" role="group" aria-label="Focus handling">
-          <button type="button" onClick={() => setMode(false)} aria-pressed={!trapped} className={modeButtonClassName(!trapped)}>
+          <button
+            type="button"
+            onClick={() => setMode(false)}
+            aria-pressed={!trapped}
+            className={modeButtonClassName(!trapped)}
+          >
             Typical lightbox
           </button>
-          <button type="button" onClick={() => setMode(true)} aria-pressed={trapped} className={modeButtonClassName(trapped)}>
+          <button
+            type="button"
+            onClick={() => setMode(true)}
+            aria-pressed={trapped}
+            className={modeButtonClassName(trapped)}
+          >
             Focus trapped
           </button>
         </div>
@@ -114,8 +124,8 @@ export function FocusTrapDemo() {
               <Chip focused={isOn('docs')} escaped={escaped}>
                 Docs
               </Chip>
-              <Chip focused={isOn('pricing')} escaped={escaped}>
-                Pricing
+              <Chip focused={isOn('blog')} escaped={escaped}>
+                Blog
               </Chip>
             </div>
           </div>
@@ -179,7 +189,13 @@ export function FocusTrapDemo() {
 
       <p aria-live="polite" className="mt-3 text-[13px] leading-6">
         <span className="text-neutral-500 dark:text-neutral-400">Focus is on </span>
-        <strong className={escaped ? 'font-semibold text-red-600 dark:text-red-400' : 'font-semibold text-neutral-800 dark:text-neutral-200'}>
+        <strong
+          className={
+            escaped
+              ? 'font-semibold text-red-600 dark:text-red-400'
+              : 'font-semibold text-neutral-800 dark:text-neutral-200'
+          }
+        >
           {focused.label}
         </strong>
         <span className={escaped ? 'text-red-600 dark:text-red-400' : 'text-neutral-500 dark:text-neutral-400'}>
@@ -188,9 +204,9 @@ export function FocusTrapDemo() {
       </p>
 
       <figcaption className="mt-4 text-[13px] leading-6 text-neutral-500 dark:text-neutral-400">
-        Press <Kbd>Tab</Kbd> a few times in each mode. The typical lightbox lets focus walk off the last button
-        and onto the page behind the overlay, where a keyboard or screen reader user is now operating controls
-        they cannot see. The focus ring here is simulated so the demo can never capture your real keyboard.
+        Press <Kbd>Tab</Kbd> a few times in each mode. The typical lightbox lets focus walk off the last button and onto
+        the page behind the overlay, where a keyboard or screen reader user is now operating controls they cannot see.
+        The focus ring here is simulated so the demo can never capture your real keyboard.
       </figcaption>
     </figure>
   );

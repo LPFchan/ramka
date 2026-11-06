@@ -2,7 +2,7 @@
 
 **The lightbox for React.** Unstyled, accessible gallery primitives in the style of Radix UI and Base UI, with shared-element View Transitions, native scroll swiping, pinch to zoom, and pull to dismiss.
 
-[ramka.dev](https://ramka.dev) · [Documentation](https://ramka.dev/docs) · [Examples](https://ramka.dev/examples/lightbox/photos-app) · [Pricing & license](https://ramka.dev/license)
+[ramka.dev](https://ramka.dev) · [Documentation](https://ramka.dev/docs) · [Examples](https://ramka.dev/examples/lightbox/photos-app) · [License](https://ramka.dev/license)
 
 ![A masonry photo grid where clicking a tile morphs it into a fullscreen lightbox and back](.github/assets/morph-demo.gif)
 
@@ -97,8 +97,4 @@ pnpm dev
 
 ## License
 
-Dual-licensed: [GPL-3.0-only](./LICENSE), or a [paid license](https://ramka.dev/license) you may
-purchase if you are building proprietary software and do not want to rely on the
-GPL. The header of [LICENSE](./LICENSE) is the overview, and
-[COMMERCIAL-LICENSE.md](./packages/ramka/COMMERCIAL-LICENSE.md) is the
-Ramka License Agreement governing the paid tiers.
+[MIT](./LICENSE). Free for open-source and proprietary software.

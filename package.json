@@ -2,6 +2,7 @@
   "name": "ramka-monorepo",
   "version": "0.0.0",
   "private": true,
+  "license": "MIT",
   "description": "Monorepo for ramka — an unstyled primitive image-gallery library for React — and its documentation site.",
   "scripts": {
     "build": "turbo run build",

@@ -121,10 +121,9 @@ npx ajv-cli validate --spec=draft7 --strict=false -c ajv-formats \
 ## The license in the tarball
 
 `npm publish` runs in `packages/ramka`, so the root `LICENSE` is not in the
-published artifact — the package keeps its own copy, and a GPL release that
-conveyed no license text would not satisfy GPL section 4. Editing the license
-means editing both, and `pnpm license:check` (which CI runs) fails when they
-disagree. `COMMERCIAL-LICENSE.md` and `CHANGELOG.md` ship in the same tarball.
+published artifact — the package keeps its own copy. Editing the license means
+editing both, and `pnpm license:check` (which CI runs) fails when they
+disagree. `CHANGELOG.md` ships in the same tarball.
 
 Deliberately a committed copy rather than one written at build time, unlike the
 SBOM. The SBOM has no choice: it names the version being published, so a

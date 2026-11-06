@@ -2,7 +2,7 @@
   "name": "@ramka/react",
   "version": "0.0.1",
   "description": "Unstyled, accessible image gallery primitives for React. (\"ramka\" — Polish for \"frame\".)",
-  "license": "GPL-3.0-only",
+  "license": "MIT",
   "author": "Artur Bień",
   "homepage": "https://ramka.dev",
   "bugs": {
@@ -33,7 +33,6 @@
   "files": [
     "dist",
     "CHANGELOG.md",
-    "COMMERCIAL-LICENSE.md",
     "LICENSE",
     "README.md",
     "THIRD-PARTY-NOTICES.md",

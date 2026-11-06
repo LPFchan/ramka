@@ -55,7 +55,7 @@ export function LegalMarkdown({ children }: { children: string }) {
           </a>
         ),
         // A step above the docs' text-xs: monospace at 12px reads undersized
-        // beside 15px Inter, and this is the package a buyer is licensing.
+        // beside 15px Inter.
         code: ({ children }) => <code className="text-[13px]">{children}</code>,
         // Verbatim blocks are quoted license text, not code to be read for
         // syntax, so they get a quiet frame. The child selector walks back the

@@ -486,11 +486,7 @@ export default function LightboxAccessibilityPage() {
             <Link href="/docs/lightbox/rtl" className={inlineLinkClassName}>
               RTL and copy guide
             </Link>{' '}
-            covers the naming patterns above. ramka is free for open source under the GPL, and{' '}
-            <Link href="/license" className={inlineLinkClassName}>
-              one payment
-            </Link>{' '}
-            covers proprietary use for your whole team. Either way, mount the Counter.
+            covers the naming patterns above. ramka is free under the MIT License. Mount the Counter.
           </Prose>
         </article>
       </main>

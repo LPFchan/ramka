@@ -468,12 +468,8 @@ export default function WhyNativeScrollingPage() {
             <Link href="/presets/default" className={inlineLinkClassName}>
               image gallery presets
             </Link>{' '}
-            are complete viewers to copy. ramka is free for open source under the GPL, and{' '}
-            <Link href="/license" className={inlineLinkClassName}>
-              one payment
-            </Link>{' '}
-            covers proprietary use for your whole team. The fight against scroll emulation accepts contributions either
-            way.
+            are complete viewers to copy. ramka is free under the MIT License. The fight against scroll emulation
+            accepts contributions.
           </Prose>
         </article>
       </main>

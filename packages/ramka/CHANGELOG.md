@@ -33,7 +33,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   scrollable-overflow area, so under the shift `scrollWidth` shrinks and a
   jump gets clamped slides short (Safari painted the wrong slide and strip
   until a later correction); Chromium's scroll-snap target tracking captures
-  the   slide *visually* at a written offset and re-aligns to it — the wrong
+  the slide _visually_ at a written offset and re-aligns to it — the wrong
   slide — once the transform leaves; and Gecko restores element scroll
   offsets across reloads before first paint, so while the shift is on the
   scrollport is not a scroll container at all (`overflow: clip` on both
@@ -108,6 +108,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   override with a higher-specificity rule (the delivered rule is
   single-attribute specificity): e.g.
   `.my-grid [data-morph-target] { opacity: 1; transition: none; }`.
+
+### Changed
+
+- Licensed under the MIT License. The `license` prop on `Lightbox.Root` and the `LicenseType` export are removed.
 
 ### Fixed
 

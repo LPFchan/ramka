@@ -1,6 +1,5 @@
 // The published package needs its own LICENSE: `npm publish` packs from
-// packages/ramka, so the root file never reaches the tarball, and a GPL artifact
-// that conveys no license text does not satisfy GPL section 4.
+// packages/ramka, so the root file never reaches the tarball.
 //
 // It is a committed copy rather than one generated at build time, because the
 // two failure modes are not equally survivable. A copy can drift, which this
