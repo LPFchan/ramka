@@ -386,7 +386,7 @@ function PostImageGrid({ post }: { post: FeedPost }) {
 // ---------------------------------------------------------------------------
 
 const VIEWER_BUTTON =
-  'grid size-11 place-items-center rounded-full bg-white/10 text-white backdrop-blur transition hover:bg-white/20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white data-disabled:pointer-events-none data-disabled:opacity-30';
+  'grid size-11 place-items-center rounded-full bg-white/10 text-white transition hover:bg-white/20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white data-disabled:pointer-events-none data-disabled:opacity-30';
 
 const FeedPostCard = React.memo(function FeedPostCard({
   post,
@@ -466,7 +466,7 @@ const FeedPostCard = React.memo(function FeedPostCard({
                   ))}
                 </Lightbox.Slides>
 
-                <Lightbox.Counter className="absolute left-4 top-4 z-10 rounded-full bg-white/10 px-3 py-1.5 text-sm tabular-nums text-white backdrop-blur" />
+                <Lightbox.Counter className="absolute left-4 top-4 z-10 rounded-full bg-white/10 px-3 py-1.5 text-sm tabular-nums text-white" />
                 <Lightbox.Close
                   aria-label="Close"
                   className={`${VIEWER_BUTTON} absolute right-4 top-4 z-10`}
