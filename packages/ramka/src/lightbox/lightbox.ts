@@ -143,7 +143,6 @@ export type {
   LightboxBeforeClose,
   LightboxBeforeCloseContext,
 } from './lightbox-root';
-export type { LicenseType } from './lightbox-license';
 export type { LightboxViewTransitionPreset } from './vt-timing';
 export type {
   LightboxTriggerProps,
@@ -155,11 +154,7 @@ export type { LightboxPortalProps } from './lightbox-portal';
 export type { LightboxContentProps } from './lightbox-content';
 export type { LightboxBackdropProps, LightboxBackdropState } from './lightbox-backdrop';
 export type { LightboxCloseProps, LightboxCloseState } from './lightbox-close';
-export type {
-  LightboxStageProps,
-  LightboxStageState,
-  LightboxStageRenderState,
-} from './lightbox-stage';
+export type { LightboxStageProps, LightboxStageState, LightboxStageRenderState } from './lightbox-stage';
 export type { LightboxItemProps, LightboxItemState, LightboxItemRenderState } from './lightbox-item';
 export type { LightboxMediaProps, LightboxMediaState, LightboxMediaContextValue } from './lightbox-media';
 export type { LightboxSlidesProps, LightboxSlidesState } from './lightbox-slides';

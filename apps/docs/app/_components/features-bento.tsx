@@ -14,8 +14,6 @@ import {
 
 import { cn } from '@/lib/utils';
 
-import { MorphCardEgg } from './morph-card-egg';
-
 /**
  * Landing page feature bento. Real headings and prose, not screenshots —
  * this section carries the SEO weight for the terms people actually search
@@ -29,20 +27,14 @@ interface Feature {
   icon: ComponentType<{ className?: string; strokeWidth?: number }>;
   /** Bento span on md+; single column while stacked. */
   wide?: boolean;
-  /**
-   * The morph card demos itself: the whole card is a Lightbox.Trigger that
-   * morphs into a license sheet (see MorphCardEgg).
-   */
-  demo?: boolean;
 }
 
 const FEATURES: Feature[] = [
   {
     title: 'Morph view transitions',
     description:
-      'Shared-element View Transitions morph anything into the lightbox and back: images, video, plain HTML. This card included. Browsers without the API get a clean crossfade.',
+      'Shared-element View Transitions morph anything into the lightbox and back: images, video, plain HTML. Browsers without the API get a clean crossfade.',
     icon: Sparkles,
-    demo: true,
   },
   {
     title: 'Native scrolling',
@@ -78,8 +70,7 @@ const FEATURES: Feature[] = [
   },
   {
     title: 'RTL support',
-    description:
-      'One dir="rtl" mirrors slide order, arrow keys, thumbnails, and even the morph geometry.',
+    description: 'One dir="rtl" mirrors slide order, arrow keys, thumbnails, and even the morph geometry.',
     icon: Languages,
   },
   {
@@ -110,8 +101,8 @@ export function FeaturesBento() {
           appear nowhere else on the page — image viewer, photos app,
           keyboard, screen readers, gallery. */}
       <p className="mx-auto mt-4 max-w-xl text-pretty text-center text-neutral-500 dark:text-neutral-400">
-        An image viewer that feels like the native photos app, from gestures to keyboard and screen-reader support.
-        Zero opinions about how your gallery looks.
+        An image viewer that feels like the native photos app, from gestures to keyboard and screen-reader support. Zero
+        opinions about how your gallery looks.
       </p>
 
       <div className="mt-12 grid gap-4 md:grid-cols-3 md:gap-5">
@@ -120,30 +111,9 @@ export function FeaturesBento() {
             'rounded-3xl border border-neutral-200 p-7 dark:border-neutral-800',
             feature.wide && 'md:col-span-2',
           );
-          if (feature.demo) {
-            return (
-              <MorphCardEgg
-                key={feature.title}
-                className={cardClass}
-                icon={
-                  <feature.icon
-                    aria-hidden
-                    className="size-5 text-neutral-400 dark:text-neutral-500"
-                    strokeWidth={1.75}
-                  />
-                }
-                title={feature.title}
-                description={feature.description}
-              />
-            );
-          }
           return (
             <div key={feature.title} className={cardClass}>
-              <feature.icon
-                aria-hidden
-                className="size-5 text-neutral-400 dark:text-neutral-500"
-                strokeWidth={1.75}
-              />
+              <feature.icon aria-hidden className="size-5 text-neutral-400 dark:text-neutral-500" strokeWidth={1.75} />
               <h3 className="mt-4 text-[15px] font-semibold tracking-tight text-neutral-900 dark:text-neutral-50">
                 {feature.title}
               </h3>

@@ -453,11 +453,7 @@ export default function HeadlessLightboxPage() {
             <Link href="/docs/lightbox" className={inlineLinkClassName}>
               lightbox docs
             </Link>{' '}
-            go from install to first viewer. ramka is free for open source under the GPL, and{' '}
-            <Link href="/license" className={inlineLinkClassName}>
-              one payment
-            </Link>{' '}
-            covers proprietary use for your whole team. Bring your own buttons.
+            go from install to first viewer. ramka is free under the MIT License. Bring your own buttons.
           </Prose>
         </article>
       </main>

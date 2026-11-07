@@ -101,30 +101,11 @@ LLM-oriented copies of the docs (`/llms.txt`, `/llms-full.txt`, and a `.md` twin
 
 ## License
 
-Dual-licensed — choose the license that matches how you intend to use ramka.
+[MIT](./LICENSE). Free for open-source and proprietary software. The license text
+ships inside this package.
 
-**GPL-3.0-only** — free to use, modify and redistribute, including commercially;
-the GPL does not restrict commercial use. If your use of ramka creates a work
-that is subject to the GPL, the GPL's source-code and licensing requirements
-apply to that work when you distribute it.
-
-**Commercial license** — if you are building proprietary software and do not want
-to rely on the GPL, you may purchase a commercial license instead. The commercial
-license is a separate license grant from the copyright holder and permits use
-under its own terms rather than the GPL.
-
-[Read more about the commercial license](https://ramka.dev/license) ·
-[Ramka License Agreement](https://ramka.dev/license/commercial)
-
-Declare the license you are using on `Lightbox.Root` with `license="gpl"` or
-`license="commercial"`. This is an honor-system declaration, not a license key,
-and is not validated remotely.
-
-The GPLv3 text and licensing overview are in [LICENSE](./LICENSE), which ships
-inside this package. The commercial terms are in
-[COMMERCIAL-LICENSE.md](./COMMERCIAL-LICENSE.md). The vendored Base UI code noted
-in [THIRD-PARTY-NOTICES.md](./THIRD-PARTY-NOTICES.md), also published at
-[ramka.dev/license/notices](https://ramka.dev/license/notices), is MIT-licensed
-and remains subject to its own license terms.
+The vendored Base UI code noted in [THIRD-PARTY-NOTICES.md](./THIRD-PARTY-NOTICES.md),
+also published at [ramka.dev/license/notices](https://ramka.dev/license/notices),
+remains subject to its own license terms.
 
 Changes to each published version are recorded in [CHANGELOG.md](./CHANGELOG.md).

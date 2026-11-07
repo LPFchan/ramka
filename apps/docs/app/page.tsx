@@ -4,19 +4,16 @@ import { siteUrl } from './_content/site';
 import { ApplesToApples } from './_components/apples-to-apples';
 import { FeaturesBento } from './_components/features-bento';
 import { FramedTestimonial } from './_components/framed-testimonial';
+import { GitHubIcon } from './_components/github-icon';
 import { InstallCommand } from './_components/install-command';
 import { LandingDemo } from './_components/landing-demo';
-import { LicenseCta } from './_components/license-cta';
 import { SiteFooter } from './_components/site-footer';
 import { SiteHeader } from './_components/site-header';
-import { TrackedLink } from './_components/tracked-link';
 import { TrustedBy } from './_components/trusted-by';
 
-/**
- * schema.org entity markup for search engines. Deliberately no `offers`:
- * ramka is free under the GPL with a paid commercial license, and a flat
- * price in a search snippet would misrepresent the dual-license model.
- */
+const GITHUB_URL = 'https://github.com/arturbien/ramka';
+
+/** schema.org entity markup for search engines. */
 const structuredData = {
   '@context': 'https://schema.org',
   '@type': 'SoftwareApplication',
@@ -26,6 +23,11 @@ const structuredData = {
     'Headless React lightbox with View Transitions morph animations, pinch to zoom, swipe navigation, and pull to dismiss. Unstyled, accessible image gallery primitives built on native scrolling.',
   applicationCategory: 'DeveloperApplication',
   operatingSystem: 'Web',
+  offers: {
+    '@type': 'Offer',
+    price: '0',
+    priceCurrency: 'USD',
+  },
   sameAs: ['https://github.com/arturbien/ramka'],
   author: {
     '@type': 'Person',
@@ -37,10 +39,7 @@ const structuredData = {
 export default function HomePage() {
   return (
     <div className="isolate flex min-h-screen flex-col">
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
-      />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }} />
       <SiteHeader />
 
       <main className="flex-1">
@@ -49,25 +48,26 @@ export default function HomePage() {
             The lightbox for&nbsp;React.
           </h1>
           <p className="mx-auto mt-6 max-w-xl text-pretty text-lg leading-relaxed text-neutral-500 md:text-xl dark:text-neutral-400">
-            Unstyled, accessible primitives built on native scrolling and view transitions.
-            Morph, swipe, zoom, and pull-to-dismiss, all out of the box.
+            Unstyled, accessible primitives built on native scrolling and view transitions. Morph, swipe, zoom, and
+            pull-to-dismiss, all out of the box.
           </p>
 
           <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
-            <TrackedLink
-              event="get_license_click"
-              eventData={{ location: 'hero' }}
-              href="/license"
-              className="inline-flex h-11 items-center rounded-full bg-neutral-900 px-4 text-sm font-medium text-white transition hover:bg-neutral-700 dark:bg-neutral-50 dark:text-neutral-900 dark:hover:bg-neutral-300"
-            >
-              Get a license
-            </TrackedLink>
             <Link
               href="/docs"
-              className="inline-flex h-11 items-center rounded-full border border-neutral-200 px-4 text-sm font-medium text-neutral-900 transition hover:bg-neutral-100 dark:border-neutral-800 dark:text-neutral-50 dark:hover:bg-neutral-900"
+              className="inline-flex h-11 items-center rounded-full bg-neutral-900 px-4 text-sm font-medium text-white transition hover:bg-neutral-700 dark:bg-neutral-50 dark:text-neutral-900 dark:hover:bg-neutral-300"
             >
               Documentation
             </Link>
+            <a
+              href={GITHUB_URL}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex h-11 items-center gap-2 rounded-full border border-neutral-200 px-4 text-sm font-medium text-neutral-900 transition hover:bg-neutral-100 dark:border-neutral-800 dark:text-neutral-50 dark:hover:bg-neutral-900"
+            >
+              <GitHubIcon className="h-4 w-4" />
+              GitHub
+            </a>
           </div>
 
           <div className="mt-5">
@@ -88,8 +88,6 @@ export default function HomePage() {
         <FramedTestimonial />
 
         <ApplesToApples />
-
-        <LicenseCta />
       </main>
 
       <SiteFooter />

@@ -22,15 +22,6 @@ export function SiteFooter() {
           <Link href="/license" className={footerLinkClassName}>
             License
           </Link>
-          <Link href="/terms" className={footerLinkClassName}>
-            Terms
-          </Link>
-          <Link href="/privacy" className={footerLinkClassName}>
-            Privacy
-          </Link>
-          <Link href="/returns" className={footerLinkClassName}>
-            Returns
-          </Link>
           <a href={GITHUB_URL} target="_blank" rel="noreferrer" className={footerLinkClassName}>
             GitHub
           </a>

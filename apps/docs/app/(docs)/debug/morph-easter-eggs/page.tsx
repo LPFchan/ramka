@@ -4,9 +4,8 @@ import * as React from 'react';
 import type { CSSProperties, ReactNode } from 'react';
 import { notFound } from 'next/navigation';
 import Image from 'next/image';
-import Link from 'next/link';
 import * as Lightbox from '@ramka/react/lightbox';
-import { Check, ChevronLeft, ChevronRight, Sparkles, Star, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Sparkles, X } from 'lucide-react';
 
 import { ramkaA, ramkaC, ramkaD, ramkaE } from '../../../_components/images.generated';
 import { lightboxChromeButton } from '../../../_components/lightbox-chrome';
@@ -187,8 +186,7 @@ function FramedExhibitEgg() {
                     Morph view transitions
                   </p>
                   <p className="mx-auto mt-4 max-w-xs text-pretty text-sm leading-6 text-[#a8a69d]">
-                    You just watched a flat white card become a gilded frame. That was the feature. This is the
-                    exhibit.
+                    You just watched a flat white card become a gilded frame. That was the feature. This is the exhibit.
                   </p>
                 </div>
               </GoldFrame>
@@ -306,16 +304,36 @@ function FlipDiagramArt() {
     <svg viewBox="0 0 320 200" className="block h-full w-full" aria-hidden>
       <rect width="320" height="200" fill="#f2ecdb" />
       <rect x="28" y="28" width="64" height="48" fill="none" stroke="#4a4438" strokeWidth="2" />
-      <text x="30" y="94" fontSize="10" fill="#6b6354" fontFamily="monospace">first</text>
+      <text x="30" y="94" fontSize="10" fill="#6b6354" fontFamily="monospace">
+        first
+      </text>
       <rect x="208" y="96" width="88" height="66" fill="none" stroke="#4a4438" strokeWidth="2" />
-      <text x="212" y="178" fontSize="10" fill="#6b6354" fontFamily="monospace">last</text>
+      <text x="212" y="178" fontSize="10" fill="#6b6354" fontFamily="monospace">
+        last
+      </text>
       <path d="M96 56 C 150 40, 180 70, 204 108" fill="none" stroke="#8a2f22" strokeWidth="2" strokeDasharray="6 5" />
       <path d="M196 100 l10 6 -3 -12" fill="#8a2f22" />
-      <text x="108" y="34" fontSize="10" fill="#8a2f22" fontFamily="monospace" transform="rotate(-4 108 34)">invert…?</text>
-      <text x="40" y="140" fontSize="10" fill="#4a4438" fontFamily="monospace">scale = last / first</text>
+      <text x="108" y="34" fontSize="10" fill="#8a2f22" fontFamily="monospace" transform="rotate(-4 108 34)">
+        invert…?
+      </text>
+      <text x="40" y="140" fontSize="10" fill="#4a4438" fontFamily="monospace">
+        scale = last / first
+      </text>
       <line x1="38" y1="136" x2="176" y2="136" stroke="#8a2f22" strokeWidth="1.5" transform="rotate(-1 38 136)" />
-      <text x="40" y="160" fontSize="10" fill="#4a4438" fontFamily="monospace">scale = first / last ??</text>
-      <text x="252" y="52" fontSize="18" fill="#8a2f22" fontFamily="serif" fontStyle="italic" transform="rotate(6 252 52)">no.</text>
+      <text x="40" y="160" fontSize="10" fill="#4a4438" fontFamily="monospace">
+        scale = first / last ??
+      </text>
+      <text
+        x="252"
+        y="52"
+        fontSize="18"
+        fill="#8a2f22"
+        fontFamily="serif"
+        fontStyle="italic"
+        transform="rotate(6 252 52)"
+      >
+        no.
+      </text>
     </svg>
   );
 }
@@ -384,7 +402,11 @@ function MuseumWingEgg() {
     <Lightbox.Root morphTo="closest">
       <CardTrigger crossfade="both" />
       <EggViewer ariaLabel="The ramka museum wing">
-        <Lightbox.Slides aria-label="Exhibits" aria-roledescription="carousel" className="flex-1 [&::-webkit-scrollbar]:hidden">
+        <Lightbox.Slides
+          aria-label="Exhibits"
+          aria-roledescription="carousel"
+          className="flex-1 [&::-webkit-scrollbar]:hidden"
+        >
           {MUSEUM_EXHIBITS.map((exhibit, i) => (
             <Lightbox.Slide key={exhibit.id} className="h-full min-w-full flex-[0_0_100%]">
               <Lightbox.Item
@@ -555,107 +577,6 @@ function DarkroomEgg() {
 }
 
 /* ------------------------------------------------------------------ */
-/* V6 — buy me.                                                        */
-/* ------------------------------------------------------------------ */
-
-/** One column of the App Store info strip: tiny label, big value, caption. */
-function StoreStat({ label, value, caption }: { label: string; value: ReactNode; caption: string }) {
-  return (
-    <div className="flex flex-col items-center gap-0.5 px-2 py-1">
-      <p className="text-[10px] font-semibold uppercase tracking-wide text-[#8e8e93]">{label}</p>
-      <div className="text-[19px] font-bold leading-6 text-[#8e8e93]">{value}</div>
-      <p className="text-[11px] text-[#8e8e93]">{caption}</p>
-    </div>
-  );
-}
-
-const BUY_PERKS = [
-  'One-time purchase. No subscription.',
-  'Tiers for solo devs and whole teams.',
-  'No license keys. Nothing phones home.',
-];
-
-function BuyMeEgg() {
-  return (
-    <Lightbox.Root>
-      <CardTrigger crossfade="both" />
-      <EggViewer ariaLabel="Get a ramka license">
-        <SoloSlide>
-          {({ morphRef }) => (
-            /* Fixed light colors on purpose — an iOS sheet looks the same on
-               any wall, like the gilded frame upstairs. */
-            <div
-              ref={morphRef}
-              className="w-full max-w-sm rounded-[28px] bg-[#f9f9fb] p-6 shadow-[0_2px_8px_rgba(0,0,0,0.3),0_36px_80px_-20px_rgba(0,0,0,0.6)]"
-            >
-              {/* App Store header row: squircle icon, name, price pill. */}
-              <div className="flex items-center gap-4">
-                <div className="grid size-16 shrink-0 place-items-center rounded-[16px] bg-linear-to-br from-[#5e5ce6] to-[#bf5af2] shadow-[inset_0_1px_0_rgba(255,255,255,0.35),0_4px_12px_rgba(94,92,230,0.35)]">
-                  <Sparkles aria-hidden className="size-8 text-white" strokeWidth={1.75} />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-[17px] font-semibold leading-tight tracking-tight text-neutral-900">ramka</p>
-                  <p className="mt-0.5 truncate text-[13px] text-[#8e8e93]">The lightbox for React</p>
-                </div>
-                <Link
-                  href="/license"
-                  className="rounded-full bg-[#007aff] px-4 py-1.5 text-[15px] font-bold text-white transition hover:bg-[#0071eb] active:scale-95"
-                >
-                  $79
-                </Link>
-              </div>
-
-              {/* The ratings / age / size strip. All numbers are real. */}
-              <div className="mt-5 grid grid-cols-3 divide-x divide-[#e5e5ea] border-y border-[#e5e5ea] py-2.5">
-                <StoreStat
-                  label="1 rating"
-                  value={
-                    <span className="flex items-center gap-0.5" aria-label="5 out of 5 stars">
-                      {Array.from({ length: 5 }, (_, i) => (
-                        <Star key={i} aria-hidden className="size-3.5 fill-[#8e8e93] text-[#8e8e93]" />
-                      ))}
-                    </span>
-                  }
-                  caption={'the author\u2019s'}
-                />
-                <StoreStat label="Age" value="4+" caption="years old" />
-                <StoreStat label="Size" value="~19" caption="KB gzipped" />
-              </div>
-
-              {/* iOS grouped inset list. */}
-              <ul className="mt-5 overflow-hidden rounded-2xl bg-white shadow-[0_0_0_0.5px_rgba(0,0,0,0.06)]">
-                {BUY_PERKS.map((perk, i) => (
-                  <li
-                    key={perk}
-                    className={`flex items-center gap-3 px-4 py-3 ${i > 0 ? 'border-t border-[#e5e5ea]' : ''}`}
-                  >
-                    <span className="grid size-6 shrink-0 place-items-center rounded-full bg-[#34c759]">
-                      <Check aria-hidden className="size-3.5 text-white" strokeWidth={3} />
-                    </span>
-                    <span className="text-[14px] leading-5 text-neutral-800">{perk}</span>
-                  </li>
-                ))}
-              </ul>
-
-              {/* The big friendly buy button. */}
-              <Link
-                href="/license"
-                className="mt-5 flex h-12 w-full items-center justify-center rounded-2xl bg-[#007aff] text-[16px] font-semibold text-white transition hover:bg-[#0071eb] active:scale-[0.98]"
-              >
-                Get the Business License
-              </Link>
-              <p className="mt-3 text-center text-[11px] text-[#8e8e93]">
-                In-app purchases: none. Loot boxes: also none.
-              </p>
-            </div>
-          )}
-        </SoloSlide>
-      </EggViewer>
-    </Lightbox.Root>
-  );
-}
-
-/* ------------------------------------------------------------------ */
 /* The comparison page.                                                */
 /* ------------------------------------------------------------------ */
 
@@ -663,19 +584,22 @@ const VARIANTS: { id: string; name: string; pitch: string; node: ReactNode }[] =
   {
     id: 'v1',
     name: 'V1 · The card gets framed',
-    pitch: 'The card morphs into a gilded museum frame with a placard. ramka is Polish for frame; the feature literally gets framed.',
+    pitch:
+      'The card morphs into a gilded museum frame with a placard. ramka is Polish for frame; the feature literally gets framed.',
     node: <FramedExhibitEgg />,
   },
   {
     id: 'v2',
     name: 'V2 · Lightboxes all the way down',
-    pitch: 'The card opens a circular photo, which contains a rectangular lightbox, which contains a square one. Every level morphs into a different shape, until the management objects.',
+    pitch:
+      'The card opens a circular photo, which contains a rectangular lightbox, which contains a square one. Every level morphs into a different shape, until the management objects.',
     node: <RecursionLevel depth={1} />,
   },
   {
     id: 'v3',
     name: 'V3 · A tiny museum wing',
-    pitch: 'Three framed exhibits of ramka lore: the FLIP diagram, the rejected scroll emulation, the broken glass. Swipe between them, then close from slide three and watch it morph back to the card.',
+    pitch:
+      'Three framed exhibits of ramka lore: the FLIP diagram, the rejected scroll emulation, the broken glass. Swipe between them, then close from slide three and watch it morph back to the card.',
     node: <MuseumWingEgg />,
   },
   {
@@ -689,12 +613,6 @@ const VARIANTS: { id: string; name: string; pitch: string; node: ReactNode }[] =
     name: 'V5 · Darkroom print',
     pitch: 'The card morphs into a photographic print that develops under a red safelight on every open.',
     node: <DarkroomEgg />,
-  },
-  {
-    id: 'v6',
-    name: 'V6 · Buy me',
-    pitch: 'The card morphs into an App Store style purchase sheet for the commercial license. Five stars, one rating (the author\u2019s), and a big blue button.',
-    node: <BuyMeEgg />,
   },
 ];
 
@@ -713,7 +631,7 @@ export default function MorphEasterEggsDebugPage() {
           Morph card easter eggs
         </h1>
         <p className="mt-3 max-w-2xl text-base leading-relaxed text-neutral-600 dark:text-neutral-400">
-          Six candidates for what the &ldquo;Morph view transitions&rdquo; bento card opens. Same card, six different
+          Five candidates for what the &ldquo;Morph view transitions&rdquo; bento card opens. Same card, five different
           lightboxes. Click each Try me and pick a winner.
         </p>
       </header>
