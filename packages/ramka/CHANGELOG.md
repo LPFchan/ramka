@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.2] - 2026-11-09
+
 ### Added
 
 - Server-rendered open lightboxes are now first-class: `Lightbox.Media`'s
@@ -108,13 +110,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   override with a higher-specificity rule (the delivered rule is
   single-attribute specificity): e.g.
   `.my-grid [data-morph-target] { opacity: 1; transition: none; }`.
-
-### Changed
-
 - Licensed under the MIT License. The `license` prop on `Lightbox.Root` and the `LicenseType` export are removed.
 
 ### Fixed
 
+- Safari 18.4 and earlier: morphs from a CSS multicol gallery now start
+  and land on the clicked trigger, including tiles outside the first
+  column. WebKit captured fragmented boxes at their pre-fragmentation
+  position; the composited morph re-anchors that endpoint to the live
+  element (#90).
+- Android Chrome: morphs no longer open shifted up by the expanded
+  address bar. The multicol correction above now runs only on WebKit.
+  Blink's view-transition translate is already in snapshot space, and
+  rewriting it from a viewport rect moved the morph by the bar height
+  (#92).
 - Open/close morphs no longer stall the main thread on pages with a large DOM
   (most visible in Safari — e.g. a docs page with thousands of links and a
   single-image lightbox). The morph pipeline used to write per-morph CSS custom
@@ -157,4 +166,5 @@ Initial public release. The API is early (`0.0.x`) and may still change.
 - Dual license: GPL-3.0-only, or a paid proprietary license ([ramka.dev/license](https://ramka.dev/license)). Declare the one in use on `Lightbox.Root` with `license="gpl"` or `license="commercial"`.
 - CycloneDX SBOM shipped as `sbom.cdx.json`. Releases are published from GitHub Actions with npm provenance.
 
+[0.0.2]: https://github.com/arturbien/ramka/compare/v0.0.1...v0.0.2
 [0.0.1]: https://github.com/arturbien/ramka/releases/tag/v0.0.1
