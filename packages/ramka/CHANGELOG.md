@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- `Lightbox.Slides` no longer lands on another slide when the window is
+  resized or a phone is rotated. After the relayout the browser's own
+  re-centring `scroll` and `scrollend` arrive before ResizeObserver callbacks,
+  and were read against the old slide geometry; deep in a gallery that picked
+  a slide up to a dozen or more away. Slides now notices the viewport size
+  changed when those events arrive and re-measures and re-pins the active
+  slide first.
+
 ## [0.0.2] - 2026-11-09
 
 ### Added

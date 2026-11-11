@@ -206,6 +206,12 @@ const LightboxSlides = React.forwardRef<HTMLDivElement, LightboxSlidesProps>(
      * user swipe or the active item jumps. See `overflow-anchor: none` + RO.
      */
     const resizingRef = React.useRef(false);
+    /**
+     * Viewport client size when `geometryRef` was last measured. A size that
+     * no longer matches means the geometry describes a layout that is gone —
+     * see `refitIfResized` in the scroll effect.
+     */
+    const measuredSizeRef = React.useRef({ width: 0, height: 0 });
     /** Bumps on every resize pass so superseded re-snap rAF tails no-op. */
     const resizeGenRef = React.useRef(0);
     const repaintTimerRef = React.useRef(0);
@@ -385,64 +391,78 @@ const LightboxSlides = React.forwardRef<HTMLDivElement, LightboxSlidesProps>(
       [repaintSlide, dir],
     );
 
-    // Measure on mount / item-count change, and re-center on viewport resize so
-    // the active slide stays centered (a fractional scrollLeft would otherwise
-    // drift after a resize).
+    const measure = React.useCallback(
+      (viewport: HTMLElement) => {
+        measuredSizeRef.current = { width: viewport.clientWidth, height: viewport.clientHeight };
+        geometryRef.current = measureSlidesGeometry(viewport, dir);
+      },
+      [dir],
+    );
+
+    // Re-measure after a viewport resize and, when the slides moved, re-pin
+    // the active slide so it stays centered (a fractional scrollLeft would
+    // otherwise drift, and the stale one would read as another slide).
+    //
+    // ResizeObserver fires an initial callback on `observe()` with the current
+    // size. In a real browser we already measured the same values in the
+    // layout effect below, so re-centering from that initial callback is a
+    // redundant scroll write landing *during the open commit* (it dirties
+    // layout, forcing the next read to reflow). Only re-center when geometry
+    // actually changed — genuine resizes still work, and the no-op initial
+    // callback is skipped. See LIGHTBOX_PERF.md.
+    const refit = React.useCallback(() => {
+      const viewport = viewportRef.current;
+      if (!viewport) return;
+      const prev = geometryRef.current;
+      measure(viewport);
+      const next = geometryRef.current;
+      if (
+        prev &&
+        next.base === prev.base &&
+        next.step === prev.step &&
+        next.count === prev.count &&
+        next.offsets.length === prev.offsets.length &&
+        next.offsets.every((offset, i) => offset === prev.offsets[i])
+      ) {
+        return;
+      }
+
+      // Hold scroll→index updates: layout leaves scrollLeft in stale px while
+      // slide widths (% / cqw) change, so nearest-index math picks the wrong
+      // slide until we re-snap. Chrome's snap-after-layout helps; Safari less
+      // so — we always pin `activeIndex` and ignore mid-resize scroll echoes.
+      const gen = (resizeGenRef.current += 1);
+      resizingRef.current = true;
+      pinchInterruptedRef.current = false;
+      touchLiftedWhileLockedRef.current = false;
+      navigationLockedRef.current = false;
+      window.clearTimeout(idleTimerRef.current);
+      idleTimerRef.current = 0;
+
+      notifySlidesViewport();
+      scrollToIndex(activeIndexRef.current);
+
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          if (gen !== resizeGenRef.current) return;
+          // Second pin after UA snap-after-layout / anchoring has settled.
+          scrollToIndex(activeIndexRef.current);
+          resizingRef.current = false;
+        });
+      });
+    }, [measure, scrollToIndex, notifySlidesViewport, navigationLockedRef]);
+
+    // Measure on mount / item-count change, and refit on viewport resize.
     React.useLayoutEffect(() => {
       const viewport = viewportRef.current;
       if (!viewport) return;
-      geometryRef.current = measureSlidesGeometry(viewport, dir);
+      measure(viewport);
       notifySlidesViewport();
 
-      // ResizeObserver fires an initial callback on `observe()` with the current
-      // size. In a real browser we already measured the same values in the
-      // layout effect above, so re-centering from that initial callback is a
-      // redundant scroll write landing *during the open commit* (it dirties
-      // layout, forcing the next read to reflow). Only re-center when geometry
-      // actually changed — genuine resizes still work, and the no-op initial
-      // callback is skipped. See LIGHTBOX_PERF.md.
-      const observer = new ResizeObserver(() => {
-        const prev = geometryRef.current;
-        const next = measureSlidesGeometry(viewport, dir);
-        geometryRef.current = next;
-        if (
-          prev &&
-          next.base === prev.base &&
-          next.step === prev.step &&
-          next.count === prev.count &&
-          next.offsets.length === prev.offsets.length &&
-          next.offsets.every((offset, i) => offset === prev.offsets[i])
-        ) {
-          return;
-        }
-
-        // Hold scroll→index updates: layout leaves scrollLeft in stale px while
-        // slide widths (% / cqw) change, so nearest-index math picks the wrong
-        // slide until we re-snap. Chrome's snap-after-layout helps; Safari less
-        // so — we always pin `activeIndex` and ignore mid-resize scroll echoes.
-        const gen = (resizeGenRef.current += 1);
-        resizingRef.current = true;
-        pinchInterruptedRef.current = false;
-        touchLiftedWhileLockedRef.current = false;
-        navigationLockedRef.current = false;
-        window.clearTimeout(idleTimerRef.current);
-        idleTimerRef.current = 0;
-
-        notifySlidesViewport();
-        scrollToIndex(activeIndexRef.current);
-
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => {
-            if (gen !== resizeGenRef.current) return;
-            // Second pin after UA snap-after-layout / anchoring has settled.
-            scrollToIndex(activeIndexRef.current);
-            resizingRef.current = false;
-          });
-        });
-      });
+      const observer = new ResizeObserver(refit);
       observer.observe(viewport);
       return () => observer.disconnect();
-    }, [itemCount, scrollToIndex, notifySlidesViewport, navigationLockedRef, dir]);
+    }, [itemCount, measure, refit, notifySlidesViewport]);
 
     // Drive scroll position from the active index. Skip when the viewport is
     // already showing it (our own swipe-derived updates, which must not
@@ -490,6 +510,19 @@ const LightboxSlides = React.forwardRef<HTMLDivElement, LightboxSlidesProps>(
       // scroll — and then nothing emits `scrollend`.
       let sawScrollSinceLock = false;
       let frame = 0;
+      // A window resize lays the slides out again, and the browser scrolls to
+      // keep the snapped slide in place. That scroll and its `scrollend` are
+      // delivered before ResizeObserver callbacks run in the same frame, so
+      // they reach us while `geometryRef` still describes the old layout, and
+      // the new position read against it is another slide. Catch up here with
+      // the observer's own refit, which re-pins the active slide and sets
+      // `resizingRef`; the observer's later pass then finds nothing changed.
+      const refitIfResized = () => {
+        const size = measuredSizeRef.current;
+        if (viewport.clientWidth !== size.width || viewport.clientHeight !== size.height) {
+          refit();
+        }
+      };
       const settle = () => {
         if (frame !== 0) {
           cancelAnimationFrame(frame);
@@ -502,6 +535,7 @@ const LightboxSlides = React.forwardRef<HTMLDivElement, LightboxSlidesProps>(
         touchLiftedWhileLockedRef.current = false;
         navigationLockedRef.current = false;
         programmaticRef.current = false;
+        refitIfResized();
         // Resize re-snap owns the marker — don't adopt a stale mid-layout index.
         if (resizingRef.current) {
           return;
@@ -559,6 +593,7 @@ const LightboxSlides = React.forwardRef<HTMLDivElement, LightboxSlidesProps>(
         // Entire programmatic jump window (exact set + snap restore): ignore.
         // Clearing happens in `scrollToIndex`'s rAF tail — do not clear here on
         // "near target", or the restore frame's scroll is misclassified as a fling.
+        refitIfResized();
         if (programmaticRef.current || resizingRef.current) {
           // Race: `onScroll` may have locked in the same frame before
           // `scrollToIndex` flipped `programmaticRef`. Undo the false fling
@@ -595,6 +630,7 @@ const LightboxSlides = React.forwardRef<HTMLDivElement, LightboxSlidesProps>(
         // the lock lets zoom arm a pinch mid-swipe. Skip programmatic jumps and
         // open/snap echoes still parked on the jump target (those used to leave
         // `navigationLockedRef` stuck true on the first slide).
+        refitIfResized();
         if (!programmaticRef.current && !resizingRef.current && !isParkedOnJumpTarget()) {
           lockUserScroll();
           sawScrollSinceLock = true;
@@ -718,7 +754,7 @@ const LightboxSlides = React.forwardRef<HTMLDivElement, LightboxSlidesProps>(
         viewport.removeEventListener('touchend', onTouchEnd, true);
         viewport.removeEventListener('touchcancel', onTouchEnd, true);
       };
-    }, [indexFromScroll, setActiveIndex, navigationLockedRef, activeZoomRef, dir]);
+    }, [indexFromScroll, setActiveIndex, navigationLockedRef, activeZoomRef, refit, dir]);
 
     const state = React.useMemo<LightboxSlidesState>(
       () => ({ activeIndex, direction }),

@@ -22,6 +22,7 @@ import {
   installSlidesLayoutMocks,
   resetSlidesLayoutMocks,
   fireResizeObservers,
+  flushResizeObservers,
   setupGeometry,
   swipeTo,
   inlineToPhysicalScroll,
@@ -358,6 +359,43 @@ describe('Lightbox.Slides', () => {
     expect(activeThumb()).toBe(3);
     expect(viewport.scrollLeft).toBe(3 * NEW);
   });
+
+  // A real window resize lays the slides out again and the browser scrolls to
+  // keep the snapped slide in place. That scroll (and its `scrollend`) is
+  // delivered before ResizeObserver callbacks in the same frame, so it reaches
+  // Slides while the geometry still describes the old layout.
+  it.each(['scroll', 'scrollend'] as const)(
+    'keeps the active index when a %s from a resize arrives before the ResizeObserver',
+    (event) => {
+      render(<SlidesLightbox defaultValue={6} />);
+      const viewport = screen.getByTestId('slides');
+      setupGeometry(viewport, 8);
+      expect(viewport.scrollLeft).toBe(6 * WIDTH);
+
+      // The slides shrink, and the browser re-centres slide 6 at its new
+      // offset — 300px, which the old 100px geometry reads as slide 3.
+      const NEW = 50;
+      Object.defineProperty(viewport, 'clientWidth', { configurable: true, get: () => NEW });
+      Object.defineProperty(viewport, 'scrollWidth', { configurable: true, get: () => NEW * 8 });
+      viewport.querySelectorAll<HTMLElement>('[data-ramka-slide]').forEach((slide, i) => {
+        Object.defineProperty(slide, 'offsetLeft', { configurable: true, get: () => i * NEW });
+        Object.defineProperty(slide, 'offsetWidth', { configurable: true, get: () => NEW });
+      });
+      act(() => {
+        viewport.scrollLeft = 6 * NEW;
+        if (event === 'scroll') {
+          fireEvent.scroll(viewport);
+          flushRaf();
+        }
+        fireEvent(viewport, new Event('scrollend'));
+      });
+      expect(activeThumb()).toBe(6);
+
+      flushResizeObservers();
+      expect(activeThumb()).toBe(6);
+      expect(viewport.scrollLeft).toBe(6 * NEW);
+    },
+  );
 
   it('never leaves scroll-snap stuck at none across overlapping resize jumps', () => {
     render(<SlidesLightbox defaultValue={3} />);
